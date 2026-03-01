@@ -208,7 +208,7 @@ class ScoreManager
 		var fcText = fullCombo ? ' [FC]' : '';
 		var scText = sickCombo ? ' [SC]' : '';
 		
-		return ' Score: \n ${gameState.score}\n\n Accuracy: \n ${gameState.accuracy}%\n\n Misses:\n ${gameState.misses}$fcText$scText';
+		return 'Score: ${gameState.score} - Misses: ${gameState.misses}$fcText$scText - Accuracy: ${gameState.accuracy}%';
 	}
 
 	/** Resumen de estadísticas para debug. */

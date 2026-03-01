@@ -28,13 +28,13 @@ var missPool = [];
 function onCreate()
 {
 	scoreManager = new ScoreManager();
-	_createHealthBar();
 	_createScoreText();
+	_createHealthBar();
 }
 
 function _createHealthBar()
 {
-	var healthBarY = FlxG.save.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.9;
+	var healthBarY = FlxG.save.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.88;
 
 	healthBarBG = makeSprite(0, healthBarY);
 	healthBarBG.loadGraphic(Paths.image('UI/healthBar'));
@@ -58,11 +58,14 @@ function _createHealthBar()
 
 function _createScoreText()
 {
-	scoreTxt = makeText(45, FlxG.height * 0.9, '', 32);
-	setTextBorder(scoreTxt, 'outline', 0xFF000000, 4, 1);
+	var healthBarY = FlxG.save.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.98;
+	scoreTxt = makeText(0, healthBarY - 35, '', 20);
+	scoreTxt.fieldWidth = FlxG.width;
+	scoreTxt.alignment = "center";
+	setTextBorder(scoreTxt, 'outline', 0xFF000000, 2, 1);
+	scoreTxt.font = Paths.font('Funkin.otf');
 	scoreTxt.color = 0xFFFFFFFF;
-	scoreTxt.size = 22;
-	scoreTxt.y -= 350;
+	scoreTxt.size = 20;
 	uiAdd(scoreTxt);
 }
 
@@ -89,7 +92,7 @@ function _updateScoreText()
 	if (FlxG.save.data.accuracyDisplay)
 		scoreTxt.text = scoreManager.getHUDText(gameState);
 	else
-		scoreTxt.text = 'Score: ' + gameState.score + '\nMisses: ' + gameState.misses;
+		scoreTxt.text = 'Score: ' + gameState.score + ' - Misses: ' + gameState.misses;
 }
 
 function _updateIcons()
@@ -98,8 +101,8 @@ function _updateIcons()
 
 	var healthPercent = FlxMath.remapToRange(gameState.health, 0, 2, 0, 100);
 
-	iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, 0.50)));
-	iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, 0.50)));
+	iconP1.setGraphicSize(Std.int(FlxMath.lerp(iconP1.width, 150, 0.50 * FlxG.elapsed * 60)));
+	iconP2.setGraphicSize(Std.int(FlxMath.lerp(iconP2.width, 150, 0.50 * FlxG.elapsed * 60)));
 	iconP1.updateHitbox();
 	iconP2.updateHitbox();
 

@@ -2170,7 +2170,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 
 		// F5 - Ir al PlayState para probar el chart desde la sección actual
-		if (FlxG.keys.justPressed.F5)
+		if (FlxG.keys.justPressed.ONE)
 		{
 			testChartFromSection();
 		}

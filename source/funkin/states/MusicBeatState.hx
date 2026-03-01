@@ -18,7 +18,7 @@ import ui.SoundTray;
 import funkin.transitions.StateTransition;
 import funkin.scripting.StateScriptHandler;
 #if debug
-import funkin.debug.DebugConsole;
+import funkin.debug.GameDevConsole;
 #end
 
 /**
@@ -101,6 +101,10 @@ class MusicBeatState extends FlxUIState
 		super.create();
 		StateTransition.onStateCreated();
 
+		#if debug
+		GameDevConsole.init();
+		#end
+
 		// Auto-cargar scripts si el state lo permite y no los cargó manualmente
 		if (autoScriptLoad)
 			_autoLoadScripts();
@@ -130,7 +134,7 @@ class MusicBeatState extends FlxUIState
 		var oldStep:Int = curStep;
 
 		#if debug
-		DebugConsole.update();
+		GameDevConsole.update();
 		#end
 
 		updateCurStep();

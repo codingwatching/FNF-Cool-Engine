@@ -17,10 +17,6 @@ import funkin.menus.TitleState;
 import data.PlayerSettings;
 import CrashHandler;
 
-#if debug
-import funkin.debug.DebugConsole;
-#end
-
 import funkin.transitions.StickerTransition;
 import openfl.system.System;
 
@@ -179,9 +175,6 @@ class Main extends Sprite
 
 		// ── CrashHandler + debug tools ────────────────────────────────────────
 		CrashHandler.init();
-		#if debug
-		DebugConsole.init();
-		#end
 
 		// ── FunkinCache — DEBE instalarse ANTES de createGame() ──────────────
 		// Reemplaza openfl.utils.Assets.cache para interceptar TODOS los loads

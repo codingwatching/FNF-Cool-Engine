@@ -401,7 +401,7 @@ class Note extends FlxSprite
 			if (mustPress)
 			{
 				canBeHit = (strumTime > Conductor.songPosition - _hitWindowCache
-					&& strumTime < Conductor.songPosition + (_hitWindowCache / 2.5));
+					&& strumTime < Conductor.songPosition + (_hitWindowCache / 2.7));
 			}
 			else
 			{

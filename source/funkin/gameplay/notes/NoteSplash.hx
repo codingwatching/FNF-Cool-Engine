@@ -27,6 +27,10 @@ class NoteSplash extends FlxSprite
 	/** Nombre del splash skin con el que se cargaron los frames actuales. */
 	private var _loadedSplash:String = "";
 
+	/** Offset del JSON del splash, re-aplicado en cada setup(). */
+	private var _splashOffsetX:Float = 0.0;
+	private var _splashOffsetY:Float = 0.0;
+
 	// ─────────────────────────────────────────────────────────────────────────
 
 	public function new()
@@ -47,9 +51,11 @@ class NoteSplash extends FlxSprite
 	 */
 	public function setup(x:Float, y:Float, noteData:Int = 0, ?splashName:String):Void
 	{
-		this.x = x;
-		this.y = y;
 		this.noteData = noteData;
+		// El offset se aplica después de cargar frames (ver _loadFrames).
+		// Guardado en _splashOffsetX/Y y re-aplicado aquí en cada reuse.
+		this.x = x + _splashOffsetX;
+		this.y = y + _splashOffsetY;
 		inUse = true;
 
 		var targetSplash:String = splashName != null ? splashName : NoteSkinSystem.currentSplash;
@@ -71,15 +77,21 @@ class NoteSplash extends FlxSprite
 
 		if (needsReload)
 		{
+			// Reset offset antes de cargar — _loadFrames lo recalculará
+			_splashOffsetX = 0.0;
+			_splashOffsetY = 0.0;
 			if (!_loadFrames(splashData, targetSplash))
 			{
 				_fallback();
 				return;
 			}
 			_loadedSplash = targetSplash;
+			// Re-aplicar el offset ahora que _loadFrames lo calculó
+			this.x = x + _splashOffsetX;
+			this.y = y + _splashOffsetY;
 		}
 
-		alpha = 0.8;
+		alpha = 0.7;
 		visible = true;
 		revive();
 
@@ -118,12 +130,6 @@ class NoteSplash extends FlxSprite
 		scale.set(assets.scale != null ? assets.scale : 1.0, assets.scale != null ? assets.scale : 1.0);
 		antialiasing = assets.antialiasing != null ? assets.antialiasing : true;
 
-		if (assets.offset != null && assets.offset.length >= 2)
-		{
-			x += assets.offset[0];
-			y += assets.offset[1];
-		}
-
 		// Registrar animaciones para las 4 direcciones
 		if (animation != null) animation.destroyAnimations();
 
@@ -146,6 +152,12 @@ class NoteSplash extends FlxSprite
 
 		updateHitbox();
 		offset.set(width * 0.3, height * 0.3);
+
+		if (assets.offset != null && assets.offset.length >= 2)
+		{
+			_splashOffsetX = assets.offset[0];
+			_splashOffsetY = assets.offset[1];
+		}
 
 		return true;
 	}

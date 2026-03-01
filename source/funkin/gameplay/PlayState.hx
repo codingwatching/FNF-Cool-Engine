@@ -334,6 +334,11 @@ class PlayState extends funkin.states.MusicBeatState {
 
 		metaData = MetaData.load(SONG.song);
 		NoteSkinSystem.init();
+		// Aplicar defaults del mod (global.json) después de init().
+		// Ahora es seguro: _initializing=false, initialized=true.
+		// Usamos applyGlobalConfigToSkinSystem() en lugar de reload() para no
+		// releer el archivo de disco en cada canción.
+		funkin.data.GlobalConfig.applyToSkinSystem();
 
 		// ── Aplicar skin de notas con jerarquía de prioridad ─────────────────
 		// Prioridad: meta.noteSkin > meta.stageSkins[stage] > stage-default > global player
@@ -524,6 +529,10 @@ class PlayState extends funkin.states.MusicBeatState {
 	private function loadStageAndCharacters():Void {
 		// Crear stage (elementos sin aboveChars se añaden al propio grupo Stage)
 		currentStage = new Stage(curStage);
+		// Propagar camGame a todos los sprites del stage (incluyendo sub-grupos)
+		// ANTES de add() para que estén listos cuando scripts les apliquen shaders.
+		currentStage.cameras = [camGame];
+		_assignStageCameras(currentStage, [camGame]);
 		add(currentStage);
 
 		// Crear personajes desde stage
@@ -717,6 +726,12 @@ class PlayState extends funkin.states.MusicBeatState {
 
 		if (currentStage.defaultCamZoom > 0)
 			cameraController.defaultZoom = currentStage.defaultCamZoom;
+
+		// Aplicar los offsets de cámara definidos en el stage JSON.
+		// Sin esto, cameraBoyfriend/cameraDad del stage son ignorados
+		// y la cámara usa solo los offsets del personaje (character JSON).
+		cameraController.stageOffsetBf.set(currentStage.cameraBoyfriend.x, currentStage.cameraBoyfriend.y);
+		cameraController.stageOffsetDad.set(currentStage.cameraDad.x, currentStage.cameraDad.y);
 
 		// Character controller
 		characterController = new CharacterController();
@@ -1409,7 +1424,7 @@ class PlayState extends funkin.states.MusicBeatState {
 			modChartManager = null;
 
 			FlxG.mouse.visible = true;
-			// StateTransition.switchState(new ModChartEditorState());
+			StateTransition.switchState(new ModChartEditorState());
 		}
 
 		/*
@@ -2724,4 +2739,25 @@ class PlayState extends funkin.states.MusicBeatState {
 			}
 		}
 	}
+	/**
+	 * Propaga una lista de cámaras recursivamente a todos los miembros de un
+	 * FlxGroup, incluyendo sub-grupos anidados.
+	 *
+	 * Necesario porque FlxGroup.cameras solo afecta a nuevos miembros añadidos
+	 * DESPUÉS de la asignación — los ya existentes quedan con cameras=[] si el
+	 * grupo fue construido antes de la asignación.  Un cameras=[] vacío impide
+	 * que Flixel compile el programa GL del shader ("no camera detected").
+	 */
+	private function _assignStageCameras(group:flixel.group.FlxGroup, cams:Array<flixel.FlxCamera>):Void
+	{
+		for (member in group.members)
+		{
+			if (member == null) continue;
+			member.cameras = cams;
+			if (Std.isOfType(member, flixel.group.FlxGroup))
+				_assignStageCameras(cast member, cams);
+		}
+	}
+
+
 }

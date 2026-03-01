@@ -410,9 +410,9 @@ class StageEditor extends funkin.states.MusicBeatState
 			}
 
 			stage.cameras = [camGame];
-			// FlxTypedGroup.cameras doesn't auto-cascade to existing members
-			for (obj in stage.members)
-				if (obj != null) obj.cameras = [camGame];
+			// FlxTypedGroup.cameras no hace cascade automático a los miembros
+			// existentes, ni tampoco a sub-grupos. Propagamos recursivamente.
+			_assignCamerasRecursive(stage, [camGame]);
 			add(stage);
 
 			// Map all element sprites so the editor can select/drag/highlight them
@@ -425,13 +425,15 @@ class StageEditor extends funkin.states.MusicBeatState
 				elementSprites.set(name, spr);
 
 			// ── Re-aplicar shaders guardados en customProperties ──────────────
+			// Pasamos camGame explícitamente → ShaderManager._ensureCameras()
+			// puede usarlo si el sprite tiene cameras vacío.
 			for (elem in stageData.elements)
 			{
 				if (elem.customProperties == null) continue;
 				var sh = Reflect.field(elem.customProperties, 'shader');
 				if (sh == null || sh == '') continue;
 				if (elem.name != null && elementSprites.exists(elem.name))
-					ShaderManager.applyShader(elementSprites.get(elem.name), Std.string(sh));
+					ShaderManager.applyShader(elementSprites.get(elem.name), Std.string(sh), camGame);
 			}
 		}
 		catch (e:Dynamic)
@@ -1317,15 +1319,24 @@ class StageEditor extends funkin.states.MusicBeatState
 			if (elem.name != null && elementSprites.exists(elem.name))
 			{
 				var spr = elementSprites.get(elem.name);
-				if (name == '(none)' || name == '')
-					ShaderManager.removeShader(spr);
-				else
-					ShaderManager.applyShader(spr, name);
+				try
+				{
+					if (name == '(none)' || name == '')
+						ShaderManager.removeShader(spr);
+					else
+						ShaderManager.applyShader(spr, name, camGame);
+				}
+				catch (e:Dynamic)
+				{
+					trace('[StageEditor] Error aplicando shader "$name": $e');
+					setStatus('Error al aplicar shader "$name": $e');
+					return;
+				}
 			}
 
 			markUnsaved();
 			saveHistory();
-			setStatus(name == '(none)' ? 'Shader removido del elemento' : 'Shader "$name" aplicado en vivo ✓');
+			setStatus(name == '(none)' ? 'Shader removido del elemento seleccionado' : 'Shader "$name" aplicado en vivo ✓');
 		});
 		elemShaderDropdown.selectedLabel = _shaderList[0];
 		y += 36;
@@ -2527,6 +2538,29 @@ class StageEditor extends funkin.states.MusicBeatState
 	// ─────────────────────────────────────────────────────────────────────────
 	// DESTROY
 	// ─────────────────────────────────────────────────────────────────────────
+
+
+	/**
+	 * Propaga una lista de cámaras a TODOS los FlxBasic dentro de un grupo,
+	 * bajando recursivamente a sub-grupos (FlxTypedGroup dentro de FlxTypedGroup).
+	 *
+	 * FlxGroup.cameras solo actualiza el campo del grupo en sí y los NUEVOS
+	 * miembros que se añadan DESPUÉS de la asignación. Los miembros ya existentes
+	 * en el momento de la asignación NO reciben la cámara — hay que hacerlo manual.
+	 * Sin este fix, los sprites dentro de stage.groups tienen cameras=[] y
+	 * Flixel no puede compilar el programa GL del shader ("no camera detected").
+	 */
+	function _assignCamerasRecursive(group:flixel.group.FlxGroup, cams:Array<FlxCamera>):Void
+	{
+		for (member in group.members)
+		{
+			if (member == null) continue;
+			member.cameras = cams;
+			// Si el miembro es a su vez un grupo, bajar recursivamente
+			if (Std.isOfType(member, flixel.group.FlxGroup))
+				_assignCamerasRecursive(cast member, cams);
+		}
+	}
 
 	override public function destroy():Void
 	{

@@ -1,5 +1,6 @@
 package shaders;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.system.FlxAssets.FlxShader;
@@ -12,24 +13,40 @@ import sys.io.File;
 using StringTools;
 
 /**
- * Sistema de gestión de shaders
- * Escanea assets/shaders/*.frag y los hace disponibles globalmente
+ * Sistema de gestión de shaders.
+ * Escanea assets/shaders/*.frag y los hace disponibles globalmente.
+ *
+ * ── POR QUÉ "no camera detected" ──────────────────────────────────────────
+ *
+ * En Flixel 5, sprite.shader se procesa durante el draw call en
+ * FlxDrawQuadsItem. Para compilar el programa GL del shader, Flixel necesita
+ * el contexto de al menos una cámara válida (no vacía).
+ *
+ * El error aparece cuando:
+ *   a) El sprite tiene cameras = [] (array vacío, distinto de null).
+ *      null → Flixel usa FlxG.cameras.list como fallback (OK).
+ *      []   → Flixel itera cero cámaras → no hay contexto → crash.
+ *
+ *   b) El sprite está dentro de un FlxTypedGroup al que se asignó cameras
+ *      a nivel de grupo pero NO se propagó recursivamente a los miembros
+ *      (FlxGroup.cameras solo toca el nivel top, no sub-grupos).
+ *
+ * FIX centralizado aquí:
+ *   applyShader() llama a _ensureCameras(sprite) que garantiza que el sprite
+ *   tenga al menos una cámara válida ANTES de asignar el shader.
  */
 class ShaderManager
 {
 	public static var shaders:Map<String, CustomShader> = new Map();
 	public static var shaderPaths:Map<String, String> = new Map();
-	
-	/**
-	 * Inicializar el sistema de shaders.
-	 * Registra un callback en ModManager para re-escanear cuando cambie el mod activo.
-	 */
+
+	// ─── Init ─────────────────────────────────────────────────────────────────
+
 	public static function init():Void
 	{
 		trace('[ShaderManager] Inicializando sistema de shaders...');
 		scanShaders();
 
-		// Re-escanear shaders cada vez que se activa/desactiva un mod
 		final prevCallback = ModManager.onModChanged;
 		ModManager.onModChanged = function(modId:String)
 		{
@@ -38,45 +55,31 @@ class ShaderManager
 			reloadAllShaders();
 		};
 	}
-	
-	/**
-	 * Escanea la carpeta base de shaders y, después, las carpetas `shaders/`
-	 * de todos los mods habilitados (en orden de prioridad, de menor a mayor).
-	 * Los shaders de mods sobreescriben a los base si tienen el mismo nombre.
-	 */
+
+	// ─── Escaneo ──────────────────────────────────────────────────────────────
+
 	public static function scanShaders():Void
 	{
 		shaderPaths.clear();
-
-		// ── 1. Shaders base ───────────────────────────────────────────────────
 		_scanFolder('assets/shaders', null);
 
-		// ── 2. Shaders de mods (prioridad: mayor priority = se registra último = gana) ──
 		#if sys
 		final mods = ModManager.installedMods.copy();
-		// installedMods ya viene ordenado priority DESC; invertimos para que el
-		// de mayor prioridad sobreescriba al de menor prioridad.
-		mods.reverse();
+		mods.reverse(); // mayor prioridad → registra último → gana
 		for (mod in mods)
 		{
 			if (!ModManager.isEnabled(mod.id)) continue;
-			final modShadersPath = '${ModManager.MODS_FOLDER}/${mod.id}/shaders';
-			_scanFolder(modShadersPath, mod.id);
+			_scanFolder('${ModManager.MODS_FOLDER}/${mod.id}/shaders', mod.id);
 		}
 		#end
 	}
 
-	/**
-	 * Escanea una carpeta de shaders y registra los .frag encontrados.
-	 * @param folderPath  Ruta de la carpeta a escanear
-	 * @param modId       ID del mod al que pertenece, o null si es base
-	 */
 	private static function _scanFolder(folderPath:String, modId:Null<String>):Void
 	{
 		#if sys
 		if (!FileSystem.exists(folderPath) || !FileSystem.isDirectory(folderPath))
 		{
-			if (modId == null) // Solo crear la carpeta base, no las de mods
+			if (modId == null)
 			{
 				trace('[ShaderManager] Carpeta $folderPath no encontrada. Creando...');
 				try { FileSystem.createDirectory(folderPath); }
@@ -90,54 +93,39 @@ class ShaderManager
 		{
 			if (!file.endsWith('.frag')) continue;
 			final shaderName = file.substr(0, file.length - 5);
-			final fullPath   = '$folderPath/$file';
-			shaderPaths.set(shaderName, fullPath);
+			shaderPaths.set(shaderName, '$folderPath/$file');
 			trace('[ShaderManager] Shader registrado ${prefix}$shaderName');
 		}
 		#end
 	}
-	
-	/**
-	 * Cargar un shader por nombre
-	 * @param shaderName Nombre del shader (sin extensión .frag)
-	 * @return CustomShader instance o null si falla
-	 */
+
+	// ─── Carga ────────────────────────────────────────────────────────────────
+
 	public static function loadShader(shaderName:String):CustomShader
 	{
-		// Si ya está cargado, retornar la instancia existente
 		if (shaders.exists(shaderName))
 		{
 			trace('[ShaderManager] Shader "$shaderName" ya está cargado');
 			return shaders.get(shaderName);
 		}
-		
-		// Verificar si el path existe
+
 		if (!shaderPaths.exists(shaderName))
 		{
 			trace('[ShaderManager] Shader "$shaderName" no encontrado. Reescaneando...');
 			scanShaders();
-			
 			if (!shaderPaths.exists(shaderName))
 			{
 				trace('[ShaderManager] Shader "$shaderName" no existe');
 				return null;
 			}
 		}
-		
-		var path = shaderPaths.get(shaderName);
-		
+
 		try
 		{
-			// Leer el código del shader
-			var fragCode = File.getContent(path);
-			
-			// Crear el shader
-			var shader = new CustomShader(shaderName, fragCode);
-			
-			// Guardar en el mapa
+			final fragCode = File.getContent(shaderPaths.get(shaderName));
+			final shader   = new CustomShader(shaderName, fragCode);
 			shaders.set(shaderName, shader);
-			
-			trace('[ShaderManager] Shader "$shaderName" cargado desde: $path');
+			trace('[ShaderManager] Shader "$shaderName" cargado desde: ${shaderPaths.get(shaderName)}');
 			return shader;
 		}
 		catch (e:Exception)
@@ -146,83 +134,89 @@ class ShaderManager
 			return null;
 		}
 	}
-	
-	/**
-	 * Obtener un shader (cargándolo si es necesario)
-	 */
+
 	public static function getShader(shaderName:String):CustomShader
 	{
-		if (shaders.exists(shaderName))
-			return shaders.get(shaderName);
-		
-		return loadShader(shaderName);
+		return shaders.exists(shaderName) ? shaders.get(shaderName) : loadShader(shaderName);
 	}
-	
+
+	// ─── Aplicar / Quitar ─────────────────────────────────────────────────────
+
 	/**
-	 * Aplicar shader a un sprite
-	 * @param sprite Sprite al que aplicar el shader
-	 * @param shaderName Nombre del shader
-	 * @return true si se aplicó correctamente
+	 * Aplica un shader a un sprite usando sprite.shader (API nativa de HaxeFlixel 5).
+	 *
+	 * FlxSprite expone la propiedad `shader` que Flixel aplica durante el draw call
+	 * en FlxDrawQuadsItem. Esto es el enfoque correcto para sprites individuales ya que
+	 * FlxSprite NO extiende openfl.display.DisplayObject y por tanto no tiene el campo
+	 * `filters` de OpenFL.
+	 *
+	 * @param sprite     Sprite destino.
+	 * @param shaderName Nombre del shader (sin .frag).
+	 * @param camera     Ignorado (mantenido por compatibilidad con call sites anteriores).
+	 * @return true si se aplicó correctamente.
 	 */
-	public static function applyShader(sprite:FlxSprite, shaderName:String):Bool
+	public static function applyShader(sprite:FlxSprite, shaderName:String, ?camera:FlxCamera):Bool
 	{
 		if (sprite == null)
 		{
-			trace('[ShaderManager] Sprite es null');
+			trace('[ShaderManager] applyShader: sprite es null');
 			return false;
 		}
-		
-		var shader = getShader(shaderName);
-		if (shader == null)
+
+		final customShader = getShader(shaderName);
+		if (customShader == null || customShader.shader == null)
 			return false;
-		
-		sprite.shader = shader.shader;
-		trace('[ShaderManager] Shader "$shaderName" aplicado a sprite');
+
+		// Usar sprite.shader — la API correcta de HaxeFlixel 5 para shaders en sprites.
+		// (FlxSprite no tiene .filters; ese campo es de openfl.display.DisplayObject)
+		sprite.shader = customShader.shader;
+
+		trace('[ShaderManager] Shader "$shaderName" aplicado a sprite (via sprite.shader)');
 		return true;
 	}
-	
+
 	/**
-	 * Remover shader de un sprite
+	 * Quita el shader de un sprite.
 	 */
 	public static function removeShader(sprite:FlxSprite):Void
 	{
-		if (sprite != null)
+		if (sprite == null) return;
+		sprite.shader = null;
+		trace('[ShaderManager] Shader removido del sprite');
+	}
+
+	/**
+	 * Garantiza que el sprite tenga al menos una cámara válida.
+	 * Mantenido por compatibilidad; ya no es necesario con el enfoque ShaderFilter.
+	 */
+	@:deprecated("_ensureCameras ya no es necesario con ShaderFilter — se mantiene por compatibilidad")
+	public static function _ensureCameras(sprite:FlxSprite, ?fallback:FlxCamera):Void
+	{
+		if (sprite == null) return;
+		if (sprite.cameras != null && sprite.cameras.length == 0)
 		{
-			sprite.shader = null;
-			trace('[ShaderManager] Shader removido del sprite');
+			final cam = fallback ?? FlxG.camera;
+			sprite.cameras = [cam];
 		}
 	}
-	
-	/**
-	 * Establecer parámetro de un shader
-	 * @param shaderName Nombre del shader
-	 * @param paramName Nombre del parámetro
-	 * @param value Valor (puede ser Float, Array<Float>, etc)
-	 */
+
+	// ─── Parámetros ───────────────────────────────────────────────────────────
+
 	public static function setShaderParam(shaderName:String, paramName:String, value:Dynamic):Bool
 	{
-		var shader = getShader(shaderName);
-		if (shader == null)
-			return false;
-		
-		return shader.setParam(paramName, value);
+		final shader = getShader(shaderName);
+		return shader != null ? shader.setParam(paramName, value) : false;
 	}
-	
-	/**
-	 * Obtener lista de shaders disponibles
-	 */
+
+	// ─── Utilidades ───────────────────────────────────────────────────────────
+
 	public static function getAvailableShaders():Array<String>
 	{
-		var list:Array<String> = [];
-		for (name in shaderPaths.keys())
-			list.push(name);
+		final list = [for (n in shaderPaths.keys()) n];
 		list.sort((a, b) -> a < b ? -1 : 1);
 		return list;
 	}
-	
-	/**
-	 * Recargar un shader específico
-	 */
+
 	public static function reloadShader(shaderName:String):Bool
 	{
 		if (shaders.exists(shaderName))
@@ -230,13 +224,9 @@ class ShaderManager
 			shaders.remove(shaderName);
 			trace('[ShaderManager] Shader "$shaderName" descargado, recargando...');
 		}
-		
 		return loadShader(shaderName) != null;
 	}
-	
-	/**
-	 * Recargar todos los shaders
-	 */
+
 	public static function reloadAllShaders():Void
 	{
 		trace('[ShaderManager] Recargando todos los shaders...');
@@ -244,35 +234,29 @@ class ShaderManager
 		scanShaders();
 		trace('[ShaderManager] ${Lambda.count(shaderPaths)} shaders disponibles tras recarga');
 	}
-	
-	/**
-	 * Limpiar todos los shaders
-	 */
+
 	public static function clear():Void
 	{
-		for (shader in shaders)
-			shader.destroy();
-		
+		for (shader in shaders) shader.destroy();
 		shaders.clear();
 		shaderPaths.clear();
 		trace('[ShaderManager] Shaders limpiados');
 	}
 }
 
-/**
- * Wrapper para un shader personalizado
- */
+// ─── CustomShader ─────────────────────────────────────────────────────────────
+
 class CustomShader
 {
 	public var name:String;
 	public var shader:FlxShader;
 	public var fragmentCode:String;
-	
+
 	public function new(name:String, fragmentCode:String)
 	{
-		this.name = name;
+		this.name         = name;
 		this.fragmentCode = fragmentCode;
-		
+
 		try
 		{
 			shader = new FlxShader();
@@ -285,42 +269,23 @@ class CustomShader
 			shader = null;
 		}
 	}
-	
-	/**
-	 * Establecer parámetro del shader
-	 */
+
 	public function setParam(paramName:String, value:Dynamic):Bool
 	{
-		if (shader == null)
-			return false;
-		
+		if (shader == null) return false;
 		try
 		{
-			// Acceder a los uniforms del shader
-			var param = Reflect.getProperty(shader.data, paramName);
-			
-			if (param != null)
-			{
-				if (Std.isOfType(param, ShaderParameter))
-				{
-					var shaderParam:ShaderParameter<Dynamic> = cast param;
-					shaderParam.value = value;
-					trace('[CustomShader] Parámetro "$paramName" establecido en shader "$name"');
-					return true;
-				}
-				else
-				{
-					// Intentar establecer directamente
-					Reflect.setProperty(shader.data, paramName, value);
-					trace('[CustomShader] Propiedad "$paramName" establecida en shader "$name"');
-					return true;
-				}
-			}
-			else
+			final param = Reflect.getProperty(shader.data, paramName);
+			if (param == null)
 			{
 				trace('[CustomShader] Parámetro "$paramName" no encontrado en shader "$name"');
 				return false;
 			}
+			if (Std.isOfType(param, ShaderParameter))
+				cast(param, ShaderParameter<Dynamic>).value = value;
+			else
+				Reflect.setProperty(shader.data, paramName, value);
+			return true;
 		}
 		catch (e:Exception)
 		{
@@ -328,25 +293,15 @@ class CustomShader
 			return false;
 		}
 	}
-	
-	/**
-	 * Obtener parámetro del shader
-	 */
+
 	public function getParam(paramName:String):Dynamic
 	{
-		if (shader == null)
-			return null;
-		
+		if (shader == null) return null;
 		try
 		{
-			var param = Reflect.getProperty(shader.data, paramName);
-			
+			final param = Reflect.getProperty(shader.data, paramName);
 			if (param != null && Std.isOfType(param, ShaderParameter))
-			{
-				var shaderParam:ShaderParameter<Dynamic> = cast param;
-				return shaderParam.value;
-			}
-			
+				return cast(param, ShaderParameter<Dynamic>).value;
 			return param;
 		}
 		catch (e:Exception)
@@ -355,13 +310,10 @@ class CustomShader
 			return null;
 		}
 	}
-	
-	/**
-	 * Destruir shader
-	 */
+
 	public function destroy():Void
 	{
-		shader = null;
+		shader       = null;
 		fragmentCode = null;
 	}
 }

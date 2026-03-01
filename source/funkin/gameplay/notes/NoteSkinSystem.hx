@@ -185,6 +185,15 @@ class NoteSkinSystem
 	 */
 	private static var _globalSplash:String = "Default";
 
+	/**
+	 * Skin/splash por defecto del MOD ACTIVO (desde global.json del mod).
+	 * Se usa como fallback en restoreGlobalSkin/Splash() cuando el jugador
+	 * no tiene preferencia guardada. Sin esto, applySkinForStage() en PlayState
+	 * ignoraba el global.json del mod y volvía siempre a "Default".
+	 */
+	private static var _modDefaultSkin:String = null;
+	private static var _modDefaultSplash:String = null;
+
 	public static var availableSkins:Map<String, NoteSkinData> = new Map();
 	public static var availableSplashes:Map<String, NoteSplashData> = new Map();
 
@@ -208,6 +217,19 @@ class NoteSkinSystem
 	private static var SKINS_PATH:String = "assets/skins";
 	private static var SPLASHES_PATH:String = "assets/splashes";
 
+	/** Previene re-entrada en init() cuando setTemporarySkin/setModDefault son llamados durante la inicialización. */
+	private static var _initializing:Bool = false;
+
+	/**
+	 * Fuerza una re-inicialización completa del sistema en el próximo acceso.
+	 * Úsalo cuando el mod activo cambia para que se descubran las skins del nuevo mod.
+	 * Más seguro que acceder a `initialized` directamente (es private).
+	 */
+	public static function forceReinit():Void
+	{
+		initialized = false;
+	}
+
 	// ==================== INIT ====================
 
 	public static function init():Void
@@ -226,10 +248,14 @@ class NoteSkinSystem
 			stageSkinMap = new Map();
 			stageSplashMap = new Map();
 			_globalSplash = "Default";
+			_modDefaultSkin = null;
+			_modDefaultSplash = null;
 			initialized = false;
 		}
 
 		trace("[NoteSkinSystem] Initializing...");
+
+		_initializing = true;
 
 		// Calcular paths en runtime según el mod activo
 		// SIEMPRE apuntamos a assets/ como base (los skins de mod se descubren
@@ -257,6 +283,7 @@ class NoteSkinSystem
 		loadSavedSkin();
 		loadSavedSplash();
 
+		_initializing = false;
 		initialized = true;
 		trace('[NoteSkinSystem] Ready — ${Lambda.count(availableSkins)} skins, ${Lambda.count(availableSplashes)} splashes');
 	}
@@ -755,7 +782,7 @@ class NoteSkinSystem
 
 	public static function setTemporarySkin(skinName:String):Void
 	{
-		if (!initialized)
+		if (!initialized && !_initializing)
 			init();
 		if (skinName == null || skinName == '' || skinName == 'default')
 		{
@@ -779,9 +806,33 @@ class NoteSkinSystem
 		trace('[NoteSkinSystem] Skin "$skinName" no encontrada, usando global: $currentSkin');
 	}
 
+	/**
+	 * Registra la skin del mod activo (llamado desde GlobalConfig).
+	 * A diferencia de setTemporarySkin(), este valor se preserva en
+	 * restoreGlobalSkin() cuando el jugador no tiene preferencia guardada.
+	 */
+	public static function setModDefaultSkin(skinName:String):Void
+	{
+		_modDefaultSkin = (skinName != null && skinName.toLowerCase() != 'default') ? skinName : null;
+		setTemporarySkin(skinName);
+	}
+
 	public static function restoreGlobalSkin():Void
 	{
-		currentSkin = FlxG.save.data.noteSkin != null ? FlxG.save.data.noteSkin : 'Default';
+		var saved = FlxG.save.data.noteSkin;
+		// Si el jugador eligió una skin específica en Opciones, respetarla.
+		if (saved != null && saved != 'Default' && availableSkins.exists(saved))
+		{
+			currentSkin = saved;
+			return;
+		}
+		// Sin preferencia del jugador → usar la skin del mod (global.json) si existe.
+		if (_modDefaultSkin != null && availableSkins.exists(_modDefaultSkin))
+		{
+			currentSkin = _modDefaultSkin;
+			return;
+		}
+		currentSkin = 'Default';
 	}
 
 	public static function setSplash(splashName:String):Bool
@@ -808,7 +859,7 @@ class NoteSkinSystem
 	 */
 	public static function setTemporarySplash(splashName:String):Void
 	{
-		if (!initialized)
+		if (!initialized && !_initializing)
 			init();
 		if (splashName == null || splashName == '' || splashName == 'default')
 		{
@@ -835,13 +886,34 @@ class NoteSkinSystem
 	}
 
 	/**
-	 * Restaura currentSplash al valor elegido por el jugador (_globalSplash).
-	 * BUGFIX: ya no usa FlxG.save.data.noteSplash directamente — el save puede
-	 * estar corrompido con "PixelSplash" por el bug anterior que llamaba setSplash()
-	 * en cada cancion de school. _globalSplash solo lo toca loadSavedSplash() y setSplash().
+	 * Registra el splash del mod activo (llamado desde GlobalConfig).
+	 * A diferencia de setTemporarySplash(), este valor se preserva en
+	 * restoreGlobalSplash() cuando el jugador no tiene preferencia guardada.
+	 */
+	public static function setModDefaultSplash(splashName:String):Void
+	{
+		_modDefaultSplash = (splashName != null && splashName.toLowerCase() != 'default') ? splashName : null;
+		setTemporarySplash(splashName);
+	}
+
+	/**
+	 * Restaura currentSplash al valor elegido por el jugador (_globalSplash),
+	 * con fallback al splash del mod activo (global.json) si el jugador no eligió nada.
 	 */
 	public static function restoreGlobalSplash():Void
 	{
+		// Si el jugador eligió un splash válido y no es pixel-only, respetarlo.
+		if (_globalSplash != null && _globalSplash != 'Default' && availableSplashes.exists(_globalSplash))
+		{
+			currentSplash = _globalSplash;
+			return;
+		}
+		// Sin preferencia del jugador → usar el splash del mod (global.json) si existe.
+		if (_modDefaultSplash != null && availableSplashes.exists(_modDefaultSplash))
+		{
+			currentSplash = _modDefaultSplash;
+			return;
+		}
 		currentSplash = _globalSplash;
 	}
 

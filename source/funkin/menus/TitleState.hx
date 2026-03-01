@@ -49,9 +49,7 @@ class TitleState extends funkin.states.MusicBeatState
 	override public function create():Void
 	{
 		PlayerSettings.init();
-
-		// curWacky = FlxG.random.getObject(getIntroTextShit());
-
+		
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.getGraphic('menu/menuBGtitle'));
 		add(bg);
 

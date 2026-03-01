@@ -56,6 +56,12 @@ class CameraController
 	public var bfOffsetX:Int  = 0;
 	public var bfOffsetY:Int  = 0;
 
+	// === STAGE CAMERA OFFSETS ===
+	// Definidos en el stage JSON como cameraBoyfriend / cameraDad.
+	// Se suman al follow position igual que los offsets del personaje.
+	public var stageOffsetBf:FlxPoint  = new FlxPoint(0, 0);
+	public var stageOffsetDad:FlxPoint = new FlxPoint(0, 0);
+
 	// === CONFIG ===
 	private static inline var LERP_SPEED:Float       = 2.4;
 	private static inline var NOTE_OFFSET_AMOUNT:Float = 30.0;
@@ -142,6 +148,11 @@ class CameraController
 		targetPos.x += targetChar.cameraOffset[0];
 		targetPos.y += targetChar.cameraOffset[1];
 
+		// Offsets del stage (cameraBoyfriend / cameraDad en el stage JSON).
+		var stageOff = currentTarget == 'player' ? stageOffsetBf : stageOffsetDad;
+		targetPos.x += stageOff.x;
+		targetPos.y += stageOff.y;
+
 		// Offsets base según slot (ajusta según tu diseño de stage).
 		switch (currentTarget)
 		{
@@ -183,17 +194,18 @@ class CameraController
 		if (targetChar == null) return;
 
 		var mid = targetChar.getMidpoint();
+		var stageOff = currentTarget == 'player' ? stageOffsetBf : stageOffsetDad;
 		switch (currentTarget)
 		{
 			case 'player':
-				camFollow.setPosition(mid.x - 100 + targetChar.cameraOffset[0],
-					mid.y - 100 + targetChar.cameraOffset[1]);
+				camFollow.setPosition(mid.x - 100 + targetChar.cameraOffset[0] + stageOff.x,
+					mid.y - 100 + targetChar.cameraOffset[1] + stageOff.y);
 			case 'opponent':
-				camFollow.setPosition(mid.x + 150 + targetChar.cameraOffset[0],
-					mid.y - 100 + targetChar.cameraOffset[1]);
+				camFollow.setPosition(mid.x + 150 + targetChar.cameraOffset[0] + stageOff.x,
+					mid.y - 100 + targetChar.cameraOffset[1] + stageOff.y);
 			default:
-				camFollow.setPosition(mid.x + targetChar.cameraOffset[0],
-					mid.y - 80 + targetChar.cameraOffset[1]);
+				camFollow.setPosition(mid.x + targetChar.cameraOffset[0] + stageOff.x,
+					mid.y - 80 + targetChar.cameraOffset[1] + stageOff.y);
 		}
 		mid.put();
 	}
@@ -284,6 +296,8 @@ class CameraController
 	{
 		if (zoomTween != null) { zoomTween.cancel(); zoomTween = null; }
 		camPos.put();
+		stageOffsetBf.put();
+		stageOffsetDad.put();
 		camFollow = null;
 	}
 }

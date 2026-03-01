@@ -1,7 +1,17 @@
-0.5.2B-
-- Optimization
-- Note Skin Softcode Better
-- HScript Autocomplete Extension
-- Developer Mode
-- Creator for Mods
-- More Configs, etc
+0.6.0B-
+- Stage Editor Fixed
+- Splashes System Fixed
+- Notes System Fixed
+- Better VRAM and RAM ussage
+- Console in real time DEBUG
+- Better scoreText
+- Improved System Events
+- WaveForm for Chart Menu
+- MP4 Videos Fixed
+- Fixed ubication folders editors
+- New Credits Menu
+- Better Main Menu
+- BPM Detector
+- Script for Modcharts
+- Fixed bugs
+- Week 7

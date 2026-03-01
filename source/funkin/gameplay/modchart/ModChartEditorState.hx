@@ -14,9 +14,6 @@ import funkin.gameplay.objects.StrumsGroup;
 import funkin.gameplay.notes.StrumNote;
 import funkin.gameplay.notes.Note;
 import funkin.transitions.StateTransition;
-import funkin.gameplay.notes.NoteSplash;
-import funkin.gameplay.notes.NoteHoldCover;
-import funkin.gameplay.NoteManager;
 import funkin.gameplay.modchart.ModChartEvent;
 import funkin.gameplay.modchart.ModChartManager;
 import funkin.gameplay.PlayState;
@@ -25,39 +22,44 @@ import funkin.data.Song.StrumsGroupData;
 import funkin.data.Song;
 
 /**
- * ============================================================
- *  ModChartEditorState.hx  –  Editor visual de ModCharts v2
- * ============================================================
+ * ══════════════════════════════════════════════════════════════════════
+ *  ModChartEditorState  v4 — Editor visual de ModCharts
+ * ══════════════════════════════════════════════════════════════════════
  *
- *  Es un FlxState independiente — NO un SubState.
- *  Se abre con StateTransition.switchState(new ModChartEditorState())
- *  después de guardar los datos necesarios en los statics.
- *
- *  Desde PlayState (F8):
- *    ModChartEditorState.pendingManager    = modChartManager;
- *    ModChartEditorState.pendingStrumsData = strumsGroups.map(g -> g.data);
- *    modChartManager = null; // evitar doble-destroy
- *    StateTransition.switchState(new ModChartEditorState());
+ *  NUEVAS FEATURES v4:
+ *    • Scrollbar horizontal dedicado en la timeline
+ *    • Timeline con grupos visuales (headers, colores, separadores)
+ *    • Soporte de scripts externos (importar JSON de eventos)
+ *    • Previsualización de curva de easing (ventana separada)
+ *    • Guardado mejorado con backup automático
+ *    • Collapsible grupos en timeline
  */
 
 // ─── Typedef ventana flotante ─────────────────────────────────────────────────
 typedef WinData =
 {
-	var title     : String;
-	var x         : Float;
-	var y         : Float;
-	var w         : Float;
-	var h         : Float;
-	var visible   : Bool;
-	var minimized : Bool;
-	var allSprites: Array<flixel.FlxBasic>;
-	var bg        : FlxSprite;
-	var shadow    : FlxSprite;
-	var titleBar  : FlxSprite;
-	var titleTxt  : FlxText;
-	var minBtn    : FlxText;
-	var closeBtn  : FlxText;
-	@:optional var contentGroup: FlxGroup;
+	var title      : String;
+	var x          : Float;
+	var y          : Float;
+	var w          : Float;
+	var h          : Float;
+	var visible    : Bool;
+	var minimized  : Bool;
+	var allSprites : Array<flixel.FlxBasic>;
+	var bg         : FlxSprite;
+	var shadow     : FlxSprite;
+	var titleBar   : FlxSprite;
+	var titleTxt   : FlxText;
+	var minBtn     : FlxText;
+	var closeBtn   : FlxText;
+	@:optional var contentGroup : FlxGroup;
+}
+
+// ─── Patrón de ritmo predefinido ──────────────────────────────────────────────
+typedef RhythmPattern =
+{
+	var name      : String;
+	var events    : Array<{beat:Float, type:ModEventType, value:Float, dur:Float, ease:ModEase}>;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -66,52 +68,57 @@ class ModChartEditorState extends FlxState
 {
 	// ── Datos transferidos desde PlayState vía statics ────────────────────────
 	public static var pendingManager    : ModChartManager       = null;
-	public static var pendingStrumsData : Array<funkin.data.Song.StrumsGroupData> = null;
-	// ── Referencias externas (sólo para leer metadatos del modchart) ──────────
-	private var manager      : ModChartManager;
-	// Datos de los grupos originales de PlayState (solo metadatos, no sprites)
-	private var srcStrumsGrps: Array<funkin.data.Song.StrumsGroupData>;
+	public static var pendingStrumsData : Array<StrumsGroupData> = null;
 
-	// ── Cámara exclusiva del editor ───────────────────────────────────────────
+	// ── Referencias externas ──────────────────────────────────────────────────
+	private var manager       : ModChartManager;
+	private var srcStrumsGrps : Array<StrumsGroupData>;
+
+	// ── Cámara ────────────────────────────────────────────────────────────────
 	private var editorCam : FlxCamera;
 
 	// ── Layout ────────────────────────────────────────────────────────────────
-	static inline var SW      = 1280;
-	static inline var SH      = 720;
-	static inline var TL_H   = 200;
-	static inline var TL_RH  = 28;
-	static inline var BAR_H  = 26;
+	static inline var SW       = 1280;
+	static inline var SH       = 720;
+	static inline var BAR_H    = 32;      // barra superior
+	static inline var STAT_H   = 24;      // barra estado inferior
+	static inline var TL_H     = 220;     // altura timeline
+	static inline var TL_RH    = 30;      // altura ruler
+	static inline var TL_SB_H  = 14;      // altura scrollbar horizontal dedicado
+	static inline var PANEL_L  = 300;     // panel izquierdo (propiedades)
+	static inline var PANEL_R  = 240;     // panel derecho (tools + inspector)
 
 	private var tlY       : Float;
+	private var gameAreaY : Float;
 	private var gameAreaH : Float;
+	private var gameAreaX : Float;
+	private var gameAreaW : Float;
 
 	// ── STRUMS PROPIOS DEL EDITOR ─────────────────────────────────────────────
-	// Creamos StrumsGroups nuevos — NO tocamos los de PlayState
-	private var editorGroups      : Array<StrumsGroup>   = [];
-	private var editorStrumBaseX  : Array<Array<Float>>  = [];
-	private var editorStrumBaseY  : Array<Array<Float>>  = [];
+	private var editorGroups      : Array<StrumsGroup>    = [];
+	private var editorStrumBaseX  : Array<Array<Float>>   = [];
+	private var editorStrumBaseY  : Array<Array<Float>>   = [];
 	private var strumLineY        : Float = 0;
 
-	// ── NOTE MANAGER (igual que PlayState) ────────────────────────────────────
-	private var noteManager  : NoteManager;
-	private var editorNotes  : FlxTypedGroup<Note>;
-	private var editorSplash : FlxTypedGroup<NoteSplash>;
-	private var editorHoldCovers : FlxTypedGroup<NoteHoldCover>;
-
-	// Los grupos de strums que NoteManager necesita
-	private var editorCpuStrums    : FlxTypedGroup<FlxSprite>;
-	private var editorPlayerStrums : FlxTypedGroup<FlxSprite>;
-	private var editorCpuGroup     : StrumsGroup;
-	private var editorPlayerGroup  : StrumsGroup;
+	// ── Hitbox visual por strum ───────────────────────────────────────────────
+	private var strumHitGroup  : FlxGroup;
+	private var strumHitBoxes  : Array<Array<FlxSprite>> = [];
+	private var strumLabels    : Array<Array<FlxText>>   = [];
+	private var strumHoverBox  : FlxSprite;
 
 	// ── Selection boxes sobre strums ──────────────────────────────────────────
 	private var selBoxGroup : FlxGroup;
 	private var selBoxes    : Array<Array<FlxSprite>> = [];
 
+	// ── Beat Line Animator ────────────────────────────────────────────────────
+	private var beatLine   : FlxSprite;
+	private var beatAlpha  : Float = 0;
+
 	// ── Playback ──────────────────────────────────────────────────────────────
 	private var playheadBeat : Float = 0;
 	private var isPlaying    : Bool  = false;
-	private var songPosition : Float = 0; // ms
+	private var songPosition : Float = 0;
+	private var lastBeatInt  : Int   = -1;
 
 	// ── Audio ─────────────────────────────────────────────────────────────────
 	private var vocals   : FlxSound = null;
@@ -123,21 +130,47 @@ class ModChartEditorState extends FlxState
 	private var tlScroll     : Float = 0;
 	private var beatsVisible : Float = 16;
 	static inline var BV_MIN = 2.0;
-	static inline var BV_MAX = 128.0;
+	static inline var BV_MAX = 256.0;
 
 	private var tlGroup     : FlxGroup;
-	private var evSprites   : Array<{sp:FlxSprite, lbl:FlxText, ev:ModChartEvent}> = [];
+	private var evSprites   : Array<{sp:FlxSprite, lbl:FlxText, valLbl:FlxText, ev:ModChartEvent}> = [];
 	private var playheadSpr : FlxSprite;
 	private var zoomLbl     : FlxText;
 	private var beatInfoLbl : FlxText;
 	private var rowCount    : Int   = 0;
 	private var rowH        : Float = 20;
+	private var snapDiv     : Int   = 4;
+
+	// ── Scrollbar horizontal dedicado ─────────────────────────────────────────
+	private var tlScrollbarBg      : FlxSprite;
+	private var tlScrollbarThumb   : FlxSprite;
+	private var scrollbarDragging  : Bool  = false;
+	private var scrollbarDragOX    : Float = 0;
+	private var sbTrackX           : Float = 0;
+	private var sbTrackW           : Float = 0;
+	private var sbY                : Float = 0;
+
+	// ── Timeline grupos colapsables ───────────────────────────────────────────
+	private var collapsedGroups : Array<Bool> = [];
+
+	// ── Easing Preview Window ─────────────────────────────────────────────────
+	private var easingPreviewWin    : WinData      = null;
+	private var easingPreviewOpen   : Bool         = false;
+	private var easingCurveSprites  : Array<FlxSprite> = [];
+	private var easingPreviewLbl    : FlxText      = null;
+	private var easingPrevEase      : String       = "";
+
+	// ── Script externo ────────────────────────────────────────────────────────
+	private var scriptWin        : WinData = null;
+	private var scriptStatusTxt  : FlxText = null;
+	private var scriptFilePath   : String  = "";
 
 	// ── Evento seleccionado ───────────────────────────────────────────────────
 	private var selectedEv : ModChartEvent = null;
 
-	// ── Undo ──────────────────────────────────────────────────────────────────
+	// ── Undo / Redo ───────────────────────────────────────────────────────────
 	private var undoStack : Array<String> = [];
+	private var redoStack : Array<String> = [];
 
 	// ── Ventanas ──────────────────────────────────────────────────────────────
 	private var windows     : Array<WinData> = [];
@@ -146,7 +179,12 @@ class ModChartEditorState extends FlxState
 	private var dragOX      : Float   = 0;
 	private var dragOY      : Float   = 0;
 
-	// ── Formulario ────────────────────────────────────────────────────────────
+	// ── Modo UI ───────────────────────────────────────────────────────────────
+	private var previewMode  : Bool = false;
+	private var uiHidden     : Bool = false;
+	private var fullGameView : Bool = false;
+
+	// ── Formulario de nuevo evento ────────────────────────────────────────────
 	private var newType   : ModEventType = MOVE_X;
 	private var newTarget : String       = "player";
 	private var newStrumI : Int          = -1;
@@ -157,6 +195,7 @@ class ModChartEditorState extends FlxState
 	private var focusField: String       = "";
 	private var fieldBufs : Map<String, String> = new Map();
 
+	// Labels del formulario
 	private var lblType   : FlxText;
 	private var lblTarget : FlxText;
 	private var lblStrum  : FlxText;
@@ -164,17 +203,19 @@ class ModChartEditorState extends FlxState
 	private var fldBeat   : FlxText;
 	private var fldVal    : FlxText;
 	private var fldDur    : FlxText;
-	private var inspTxt   : FlxText;
-	private var statusTxt : FlxText;
-	private var evListTxts: Array<FlxText> = [];
-	private var evListWin : WinData;
-	private var evListX   : Float;
-	private var evListY   : Float;
 
-	// ── Strum Properties window ───────────────────────────────────────────────
+	// ── Inspector panel ───────────────────────────────────────────────────────
+	private var inspTxt       : FlxText;
+	private var inspListGroup : FlxGroup;
+	private var inspScrollOff : Int = 0;
+
+	// ── Status bar ────────────────────────────────────────────────────────────
+	private var statusTxt : FlxText;
+	private var snapLbl   : FlxText;
+
+	// ── Strum Properties ─────────────────────────────────────────────────────
 	private var strumPropWin  : WinData;
-	private var strumPropTxts : Array<FlxText> = [];
-	private var strumPropBtns : Array<{x:Float,y:Float,w:Float,h:Float,cb:Void->Void}> = [];
+	private var strumPropTxts : Array<FlxSprite> = [];
 
 	private var selectedGroupIdx : Int = -1;
 	private var selectedStrumIdx : Int = -1;
@@ -184,27 +225,58 @@ class ModChartEditorState extends FlxState
 	private var hitFields: Array<{x:Float,y:Float,w:Float,h:Float,key:String}>    = [];
 
 	// ── Ayuda ─────────────────────────────────────────────────────────────────
-	private var helpBg  : FlxSprite;
-	private var helpTxt : FlxText;
-	private var showHelp: Bool = false;
+	private var helpOverlay : FlxSprite;
+	private var helpTxt     : FlxText;
+	private var showHelp    : Bool = false;
 
-	// ── Paleta ────────────────────────────────────────────────────────────────
+	// ── Zoom del área de juego ────────────────────────────────────────────────
+	private var gameZoom  : Float = 1.0;
+	static inline var ZOOM_MIN = 0.5;
+	static inline var ZOOM_MAX = 2.5;
+
+	// ── Patrones de ritmo ─────────────────────────────────────────────────────
+	private var rhythmPatterns : Array<RhythmPattern> = [];
+
+	// ─── Lista eventos panel izquierdo ────────────────────────────────────────
+	private var evListStartY : Float = 0;
+	private var evListEndY   : Float = 0;
+	private var evListTxts   : Array<FlxSprite> = [];
+
+	// ─── Strum props panel ────────────────────────────────────────────────────
+	private var strumPropStartY : Float = 0;
+	private var strumPropEndY   : Float = 0;
+	private var strumPropBtns   : Array<{x:Float,y:Float,w:Float,h:Float,cb:Void->Void}> = [];
+
+	// ─── Paleta de colores ────────────────────────────────────────────────────
+	static inline var C_BG        = 0xFF06060F;
 	static inline var C_GAME_BG   = 0xFF080815;
-	static inline var C_GRID      = 0xFF101022;
-	static inline var C_TL_BG    = 0xFF050510;
-	static inline var C_TL_BORDER= 0xFF2233AA;
-	static inline var C_RULER    = 0xFF0E0E22;
-	static inline var C_BEAT_LINE= 0xFF1A1A3C;
-	static inline var C_STEP_LINE= 0xFF10102A;
-	static inline var C_PLAYHEAD = 0xFFFF2255;
-	static inline var C_ROW_A    = 0xFF0A0A1A;
-	static inline var C_ROW_B    = 0xFF080814;
-	static inline var C_WIN_T    = 0xFF121228;
-	static inline var C_ACCENT   = 0xFF4466EE;
-	static inline var C_ACCENT2  = 0xFFEE4466;
-	static inline var C_TEXT     = 0xFFDDDDFF;
-	static inline var C_DIM      = 0xFF5566AA;
-	static inline var C_SEL_BOX  = 0xAAFFCC00;
+	static inline var C_GRID_V    = 0xFF0E0E20;
+	static inline var C_GRID_H    = 0xFF0A0A18;
+	static inline var C_TL_BG     = 0xFF040410;
+	static inline var C_TL_BORDER = 0xFF1A2A88;
+	static inline var C_RULER     = 0xFF0C0C1E;
+	static inline var C_BEAT_LINE = 0xFF162260;
+	static inline var C_STEP_LINE = 0xFF0C1035;
+	static inline var C_PLAYHEAD  = 0xFFFF1E55;
+	static inline var C_ROW_A     = 0xFF090915;
+	static inline var C_ROW_B     = 0xFF070712;
+	static inline var C_WIN_BG    = 0xEE07071C;
+	static inline var C_WIN_TITLE = 0xFF0F0F28;
+	static inline var C_WIN_BORD  = 0xFF1A2888;
+	static inline var C_ACCENT    = 0xFF4466FF;
+	static inline var C_ACCENT2   = 0xFFFF3366;
+	static inline var C_GREEN     = 0xFF33DD88;
+	static inline var C_YELLOW    = 0xFFFFCC33;
+	static inline var C_TEXT      = 0xFFE0E0FF;
+	static inline var C_DIM       = 0xFF4455AA;
+	static inline var C_SEL_BOX   = 0xAAFFCC00;
+	static inline var C_HOVER     = 0x334488FF;
+	static inline var C_BAR_BG    = 0xFF08081E;
+	static inline var C_STATUS_BG = 0xFF060618;
+
+	// Colores de grupos en timeline
+	static final GROUP_BG_COLS = [0xFF09091E, 0xFF090E16, 0xFF0A0916, 0xFF0E0910];
+	static final GROUP_AC_COLS = [0xFF2244AA, 0xFF1A7A3A, 0xFF6A2A9A, 0xFF8A4A1A];
 
 	// ═════════════════════════════════════════════════════════════════════════
 	// CONSTRUCTOR
@@ -214,19 +286,26 @@ class ModChartEditorState extends FlxState
 	{
 		super();
 
-		// Leer datos transferidos por PlayState vía statics
 		manager       = pendingManager    ?? new ModChartManager([]);
 		srcStrumsGrps = pendingStrumsData ?? [];
 		pendingManager    = null;
 		pendingStrumsData = null;
 
 		rowCount  = srcStrumsGrps.length * 4;
-		tlY       = SH - TL_H;
+		tlY       = SH - STAT_H - TL_H;
+		gameAreaY = BAR_H;
 		gameAreaH = tlY - BAR_H;
+		gameAreaX = PANEL_L;
+		gameAreaW = SW - PANEL_L - PANEL_R;
 
 		fieldBufs.set("beat",     "0.00");
 		fieldBufs.set("value",    "0.00");
 		fieldBufs.set("duration", "1.00");
+
+		// Inicializar estado colapsado de grupos
+		for (_ in srcStrumsGrps) collapsedGroups.push(false);
+
+		buildRhythmPatterns();
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -236,65 +315,60 @@ class ModChartEditorState extends FlxState
 	override function create():Void
 	{
 		super.create();
+		FlxG.mouse.visible = true;
 
-		// Como es un FlxState, FlxG.camera ya es nuestra cámara exclusiva.
-		// Solo configuramos el color de fondo.
 		editorCam         = FlxG.camera;
-		editorCam.bgColor = 0xFF000000;
-		camera = editorCam;
+		editorCam.bgColor = FlxColor.fromInt(C_BG);
+		camera            = editorCam;
 
-		// Grupos de render (orden de capas)
 		var gameBgGrp = new FlxGroup(); add(gameBgGrp);
 		selBoxGroup   = new FlxGroup(); add(selBoxGroup);
+		strumHitGroup = new FlxGroup(); add(strumHitGroup);
 
-		// Grupos de notas y splashes (añadidos antes que strums para que queden detrás)
-		editorNotes      = new FlxTypedGroup<Note>();
-		editorSplash     = new FlxTypedGroup<NoteSplash>();
-		editorHoldCovers = new FlxTypedGroup<NoteHoldCover>();
-		add(editorNotes);
-		add(editorSplash);
-		add(editorHoldCovers);
-
-		tlGroup     = new FlxGroup(); add(tlGroup);
-		windowGroup = new FlxGroup(); add(windowGroup);
+		tlGroup       = new FlxGroup(); add(tlGroup);
+		windowGroup   = new FlxGroup(); add(windowGroup);
+		inspListGroup = new FlxGroup(); add(inspListGroup);
 
 		buildGameBackground(gameBgGrp);
-
-		// ── CREAR STRUMS Y NOTE MANAGER ────────────────────────────────────
 		setupEditorStrums();
-		setupNoteManager();
-
-		// ── REDIRIGIR EL MANAGER A LOS STRUMS DEL EDITOR ──────────────────
-		// Los StrumsGroups originales de PlayState ya fueron destruidos con el
-		// switchState. Hay que apuntar el manager a los strums propios del editor
-		// para que seekToBeat/applyAllStates no crashee con sprites destruidos.
 		manager.replaceStrumsGroups(editorGroups);
 
-		buildInfoBar();
+		buildTopBar();
+		buildStatusBar();
 		buildTimeline();
-		buildWinProps();
-		buildWinTools();
-		buildWinStrumProps();
-		buildHelp();
+		buildLeftPanel();
+		buildRightPanel();
+
+		beatLine = new FlxSprite(0, BAR_H);
+		beatLine.makeGraphic(SW, Std.int(gameAreaH), FlxColor.fromInt(0x00FFFFFF));
+		beatLine.alpha   = 0;
+		beatLine.cameras = [editorCam];
+		add(beatLine);
+
+		strumHoverBox = new FlxSprite();
+		strumHoverBox.makeGraphic(70, 70, FlxColor.fromInt(C_HOVER));
+		strumHoverBox.alpha   = 0;
+		strumHoverBox.cameras = [editorCam];
+		strumHitGroup.add(strumHoverBox);
+
+		buildHelpOverlay();
+		buildEasingPreviewWindow();
+		buildScriptWindow();
 
 		initAudio();
 
-		// Beat inicial
-		var bps      = bps();
-		var initBeat = Conductor.songPosition * bps / 1000.0;
-		playheadBeat = Math.max(0, Math.floor(initBeat));
-		songPosition = playheadBeat * Conductor.crochet;
-		newBeat      = playheadBeat;
-		fieldBufs.set("beat", Std.string(newBeat));
+		var bps       = bps();
+		playheadBeat  = Math.max(0, Conductor.songPosition * bps / 1000.0);
+		songPosition  = playheadBeat * Conductor.crochet;
+		newBeat       = Math.round(playheadBeat * snapDiv) / snapDiv;
+		fieldBufs.set("beat", fmt(newBeat));
 
 		manager.seekToBeat(playheadBeat);
 		applyManagerToStrums();
-
 		pushUndo();
 		refreshTimeline();
 		refreshStrumPropWindow();
-
-		trace('[MCEditor] Abierto. Grupos: ${srcStrumsGrps.length}  Eventos: ${manager.data.events.length}');
+		setStatus("Editor v4 listo. Tab=Preview | H=HideUI | F11=FullGame | F1=Ayuda");
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -303,20 +377,33 @@ class ModChartEditorState extends FlxState
 
 	function buildGameBackground(grp:FlxGroup):Void
 	{
-		grp.add(mkBg(0, BAR_H, SW, gameAreaH, C_GAME_BG));
-		var cols = 16;
-		for (c in 0...cols + 1)
-			grp.add(mkBg(Std.int(c * SW / cols), BAR_H, 1, gameAreaH, C_GRID));
+		grp.add(mkBg(0, 0, SW, SH, C_BG));
+		grp.add(mkBg(gameAreaX, gameAreaY, gameAreaW, gameAreaH, C_GAME_BG));
+
+		var cols = 8;
+		for (c in 0...(cols + 1))
+		{
+			var gx = gameAreaX + Std.int(c * gameAreaW / cols);
+			grp.add(mkBg(gx, gameAreaY, 1, gameAreaH, C_GRID_V));
+		}
 		for (r in 0...9)
-			grp.add(mkBg(0, Std.int(BAR_H + r * gameAreaH / 8), SW, 1, C_GRID));
+		{
+			var gy = gameAreaY + Std.int(r * gameAreaH / 8);
+			grp.add(mkBg(gameAreaX, gy, gameAreaW, 1, C_GRID_H));
+		}
+
+		grp.add(mkBg(gameAreaX, gameAreaY, 2, gameAreaH, 0xFF0F1A44));
+		grp.add(mkBg(gameAreaX + gameAreaW - 2, gameAreaY, 2, gameAreaH, 0xFF0F1A44));
+
+		grp.add(mkBg(0, BAR_H, PANEL_L, gameAreaH, 0xFF050510));
+		grp.add(mkBg(PANEL_L, BAR_H, 1, gameAreaH + TL_H, 0xFF1020AA));
+
+		grp.add(mkBg(SW - PANEL_R, BAR_H, PANEL_R, gameAreaH + TL_H, 0xFF050510));
+		grp.add(mkBg(SW - PANEL_R, BAR_H, 1, gameAreaH + TL_H, 0xFF1020AA));
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// CREAR STRUMS PROPIOS DEL EDITOR
-	//
-	// Crea nuevos StrumsGroups con los mismos IDs/flags que los de PlayState
-	// pero posicionados en el área de juego del editor.
-	// NO toca los strums de PlayState.
+	// CREAR STRUMS DEL EDITOR
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function setupEditorStrums():Void
@@ -325,41 +412,26 @@ class ModChartEditorState extends FlxState
 		editorStrumBaseX = [];
 		editorStrumBaseY = [];
 		selBoxes         = [];
-		editorCpuStrums    = new FlxTypedGroup<FlxSprite>();
-		editorPlayerStrums = new FlxTypedGroup<FlxSprite>();
-		editorCpuGroup     = null;
-		editorPlayerGroup  = null;
+		strumHitBoxes    = [];
+		strumLabels      = [];
 
-		var ng     = srcStrumsGrps.length;
+		var ng    = srcStrumsGrps.length;
+		var zoneW = gameAreaW / Math.max(1, ng);
 
-		// ── Área disponible entre paneles laterales ──────────────────────────
-		// Panel izquierdo: 296px  Panel derecho: 222px
-		var gameX0 = 296.0;
-		var gameX1 = SW - 230.0;
-		var availW = gameX1 - gameX0;   // ~754px para todos los grupos
-		var zoneW  = availW / Math.max(1, ng);
+		strumLineY = gameAreaY + gameAreaH * 0.22;
 
-		// ── Y igual que PlayState (strumLineY en la parte superior del área) ──
-		strumLineY = BAR_H + gameAreaH * 0.18;
-
-		// ── Spacing igual que PlayState: Note.swagWidth = 160 * 0.7 = 112 ───
-		// Reducimos con un factor para que quepan en el editor sin solaparse.
-		// El factor se calcula para que 4 strums llenen el 85% de cada zona.
-		var swag       = Note.swagWidth;              // 112
-		var fitFactor  = (zoneW * 0.85) / (swag * 4); // escala para que quepan
-		if (fitFactor > 1.0) fitFactor = 1.0;          // nunca más grande que PlayState
-		var spacing    = swag * fitFactor;              // spacing escalado
+		var dirs      = ["←","↓","↑","→"];
+		var dirColors = [0xFFDD44FF, 0xFF44CCFF, 0xFF44FF88, 0xFFFF4444];
 
 		for (gi in 0...ng)
 		{
-			var src = srcStrumsGrps[gi];
-
-			// ── Centrar el grupo de 4 strums en su zona (igual que PlayState) ─
-			var centerX = gameX0 + gi * zoneW + zoneW / 2.0;
+			var src     = srcStrumsGrps[gi];
+			var centerX = gameAreaX + gi * zoneW + zoneW / 2.0;
+			var swag    = Note.swagWidth;
+			var fitFact = Math.min(1.0, (zoneW * 0.85) / (swag * 4));
+			var spacing = swag * fitFact;
 			var startX  = centerX - spacing * 1.5;
 
-			// ── StrumsGroupData: scale=1.0 porque StrumNote ya aplica 0.7
-			//    internamente con setGraphicSize. No escalar dos veces. ─────────
 			var gdata:StrumsGroupData = {
 				id      : src.id,
 				x       : startX,
@@ -373,21 +445,19 @@ class ModChartEditorState extends FlxState
 			var edGrp = new StrumsGroup(gdata);
 			editorGroups.push(edGrp);
 
-			// ── Forzar el tamaño correcto en cada strum ───────────────────────
-			// StrumNote hace setGraphicSize(w * 0.7) internamente.
-			// Aplicamos fitFactor encima para que quepan en el editor.
 			edGrp.strums.forEach(function(s:FlxSprite) {
-				s.setGraphicSize(Std.int(s.width * fitFactor));
+				s.setGraphicSize(Std.int(s.width * fitFact));
 				s.updateHitbox();
 				s.centerOffsets();
 				s.cameras = [editorCam];
 				add(s);
 			});
 
-			// ── Guardar posición base de cada strum ───────────────────────────
-			var bx  : Array<Float>    = [];
-			var by  : Array<Float>    = [];
+			var bx  : Array<Float>     = [];
+			var by  : Array<Float>     = [];
 			var sel : Array<FlxSprite> = [];
+			var hbs : Array<FlxSprite> = [];
+			var lbs : Array<FlxText>   = [];
 
 			for (si in 0...4)
 			{
@@ -397,115 +467,401 @@ class ModChartEditorState extends FlxState
 					bx.push(strum.x);
 					by.push(strum.y);
 
-					// Selection box basada en hitbox real
-					var bsz = Std.int(Math.max(strum.width, strum.height) + 8);
-					var box = new FlxSprite(strum.x - 4, strum.y - 4);
-					box.makeGraphic(bsz, bsz, FlxColor.fromInt(C_SEL_BOX));
-					box.cameras = [editorCam];
-					box.visible = false;
-					selBoxGroup.add(box);
-					sel.push(box);
+					var hitSz = Std.int(Math.max(64, Math.max(strum.width, strum.height) + 16));
+
+					var selBox = new FlxSprite(strum.x - hitSz/2 + strum.width/2,
+					                          strum.y - hitSz/2 + strum.height/2);
+					selBox.makeGraphic(hitSz + 8, hitSz + 8, 0x00000000);
+					drawBorderSprite(selBox, hitSz + 8, hitSz + 8, dirColors[si], 3);
+					selBox.cameras = [editorCam];
+					selBox.visible = false;
+					selBoxGroup.add(selBox);
+					sel.push(selBox);
+
+					var hbSpr = new FlxSprite(strum.x - hitSz/2 + strum.width/2,
+					                          strum.y - hitSz/2 + strum.height/2);
+					hbSpr.makeGraphic(hitSz + 4, hitSz + 4, 0x00000000);
+					drawBorderSprite(hbSpr, hitSz + 4, hitSz + 4, 0xFFFFFFFF, 1);
+					hbSpr.alpha   = 0.12;
+					hbSpr.cameras = [editorCam];
+					strumHitGroup.add(hbSpr);
+					hbs.push(hbSpr);
+
+					var lbl = mkTxt(strum.x + strum.width/2 - 6,
+					                strum.y + strum.height + 4,
+					                dirs[si], 10, dirColors[si]);
+					lbl.cameras = [editorCam];
+					strumHitGroup.add(lbl);
+					lbs.push(lbl);
 				}
 				else
 				{
-					bx.push(0); by.push(0); sel.push(null);
+					bx.push(0); by.push(0);
+					sel.push(null); hbs.push(null); lbs.push(null);
 				}
 			}
 
 			editorStrumBaseX.push(bx);
 			editorStrumBaseY.push(by);
 			selBoxes.push(sel);
+			strumHitBoxes.push(hbs);
+			strumLabels.push(lbs);
 
-			// ── Etiqueta de grupo ─────────────────────────────────────────────
-			add(mkTxt(startX, strumLineY - 14, src.id + (src.cpu ? " [CPU]" : " [PLY]"), 9, C_DIM));
-
-			// ── Registrar en los grupos que NoteManager necesita ──────────
-			// Grupo 0 = CPU por defecto, Grupo 1 = Player por defecto
-			// (misma lógica que PlayState)
-			if (src.cpu)
-			{
-				if (editorCpuGroup == null) editorCpuGroup = edGrp;
-				edGrp.strums.forEach(function(s:FlxSprite) editorCpuStrums.add(s));
-			}
-			else
-			{
-				if (editorPlayerGroup == null) editorPlayerGroup = edGrp;
-				edGrp.strums.forEach(function(s:FlxSprite) editorPlayerStrums.add(s));
-			}
-		}
-
-		// Fallback: si todos son del mismo tipo, asignar primer grupo como cpu y segundo como player
-		if (editorCpuGroup == null && editorGroups.length > 0)
-		{
-			editorCpuGroup = editorGroups[0];
-			editorGroups[0].strums.forEach(function(s:FlxSprite) editorCpuStrums.add(s));
-		}
-		if (editorPlayerGroup == null && editorGroups.length > 1)
-		{
-			editorPlayerGroup = editorGroups[1];
-			editorGroups[1].strums.forEach(function(s:FlxSprite) editorPlayerStrums.add(s));
-		}
-		else if (editorPlayerGroup == null && editorGroups.length > 0)
-		{
-			editorPlayerGroup = editorGroups[0];
-			editorGroups[0].strums.forEach(function(s:FlxSprite) editorPlayerStrums.add(s));
+			var gLabel = mkTxt(centerX - 40, strumLineY - 20,
+			                   src.id + (src.cpu ? " [CPU]" : " [PLY]"), 10, C_DIM);
+			gLabel.cameras = [editorCam];
+			strumHitGroup.add(gLabel);
 		}
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// CREAR NOTE MANAGER (igual que PlayState)
+	// DIBUJAR BORDE EN SPRITE
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function setupNoteManager():Void
+	function drawBorderSprite(spr:FlxSprite, w:Int, h:Int, color:Int, thickness:Int):Void
 	{
-		noteManager = new NoteManager(
-			editorNotes,
-			editorPlayerStrums,
-			editorCpuStrums,
-			editorSplash,
-			editorHoldCovers,
-			editorPlayerGroup,
-			editorCpuGroup,
-			editorGroups
-		);
-
-		noteManager.strumLineY = strumLineY;
-		noteManager.downscroll = FlxG.save.data.downscroll ?? false;
-
-		// Generar notas desde la canción actual
-		if (PlayState.SONG != null)
-			noteManager.generateNotes(PlayState.SONG);
-
-		trace('[MCEditor] NoteManager listo. strumLineY=$strumLineY');
+		var pix = spr.pixels;
+		var c   = FlxColor.fromInt(color);
+		// fillRect es órdenes de magnitud más rápido que setPixel32 en bucle.
+		// Un sprite de 1160×678 con bucle pixel-a-pixel bloquea create() durante
+		// varios segundos (>786 k iteraciones); con fillRect son 4 llamadas.
+		pix.fillRect(new openfl.geom.Rectangle(0,         0,         w,         thickness), c); // top
+		pix.fillRect(new openfl.geom.Rectangle(0,         h - thickness, w,     thickness), c); // bottom
+		pix.fillRect(new openfl.geom.Rectangle(0,         0,         thickness, h),         c); // left
+		pix.fillRect(new openfl.geom.Rectangle(w - thickness, 0,     thickness, h),         c); // right
+		spr.pixels = pix;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// BARRA SUPERIOR
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function buildInfoBar():Void
+	function buildTopBar():Void
 	{
-		add(mkBg(0, 0, SW, BAR_H, 0xFF090920));
+		add(mkBg(0, 0, SW, BAR_H, C_BAR_BG));
 		add(mkBg(0, BAR_H - 1, SW, 1, C_TL_BORDER));
 
-		beatInfoLbl = mkTxt(6, 6, "Beat: 0.00  Step: 0  BPM: 120  0ms", 11, C_TEXT);
+		var title = mkTxt(8, 7, "◈ MODCHART EDITOR v4", 13, C_ACCENT);
+		title.bold = true;
+		add(title);
+
+		beatInfoLbl = mkTxt(200, 8, "Beat: 0.00  Step: 0  BPM: 120  0ms", 11, C_TEXT);
 		add(beatInfoLbl);
 
-		audioLbl = mkTxt(SW - 370, 6, "♪ Parado", 11, 0xFF88FFAA);
+		audioLbl = mkTxt(SW - 440, 8, "♪ Detenido", 11, 0xFF77FF99);
 		add(audioLbl);
 
-		volLbl = mkTxt(SW - 230, 6, "Vol: 100%", 11, C_DIM);
+		volLbl = mkTxt(SW - 330, 8, "Vol: 100%", 11, C_DIM);
 		add(volLbl);
 
-		addBarBtn(SW - 172, 4, "Vol−", function() { volValue = Math.max(0, volValue - 0.1); applyVolume(); });
-		addBarBtn(SW - 132, 4, "Vol+", function() { volValue = Math.min(1, volValue + 0.1); applyVolume(); });
-		addBarBtn(SW - 84,  4, "[ESC]", exitEditor);
+		addBarBtn(SW - 250, 4,  "Vol−",       function() { volValue = Math.max(0, volValue - 0.1); applyVolume(); });
+		addBarBtn(SW - 212, 4,  "Vol+",       function() { volValue = Math.min(1, volValue + 0.1); applyVolume(); });
+		addBarBtn(SW - 172, 4,  "[H]ide",     function() toggleUIWindows());
+		addBarBtn(SW - 122, 4,  "[Tab]Preview", function() togglePreview());
+		addBarBtn(SW - 50,  4,  "[ESC]",      exitEditor);
 	}
 
 	function addBarBtn(x:Float, y:Float, lbl:String, cb:Void->Void):Void
 	{
-		var t = mkTxt(x, y, lbl, 10, C_ACCENT); add(t);
+		var bg = mkBg(x - 2, y, lbl.length * 7.2 + 8, 22, 0xFF0A0A22);
+		bg.alpha = 0.7;
+		add(bg);
+		var t = mkTxt(x + 2, y + 4, lbl, 9, C_ACCENT);
+		add(t);
+		hitBtns.push({ x: x - 2, y: y, w: lbl.length * 7.2 + 8, h: 22.0, cb: cb });
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STATUS BAR
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function buildStatusBar():Void
+	{
+		add(mkBg(0, SH - STAT_H, SW, STAT_H, C_STATUS_BG));
+		add(mkBg(0, SH - STAT_H, SW, 1, C_TL_BORDER));
+
+		statusTxt = mkTxt(8, SH - STAT_H + 5, "Listo.", 11, 0xFF77FF99);
+		add(statusTxt);
+
+		snapLbl = mkTxt(SW / 2 - 60, SH - STAT_H + 5,
+		                'Snap: 1/${snapDiv}  |  Eventos: 0', 11, C_DIM);
+		add(snapLbl);
+
+		var sx = SW - 260.0;
+		var sy = SH - STAT_H + 3.0;
+		addStatusBtn(sx,      sy, "1/4",  function() { snapDiv = 4;  updateSnapLbl(); });
+		addStatusBtn(sx + 38, sy, "1/8",  function() { snapDiv = 8;  updateSnapLbl(); });
+		addStatusBtn(sx + 78, sy, "1/16", function() { snapDiv = 16; updateSnapLbl(); });
+		addStatusBtn(sx + 122, sy, "Free", function() { snapDiv = 1;  updateSnapLbl(); });
+		addStatusBtn(sx + 165, sy, "F11",  function() toggleFullGame());
+	}
+
+	function addStatusBtn(x:Float, y:Float, lbl:String, cb:Void->Void):Void
+	{
+		var t = mkTxt(x, y, lbl, 10, C_DIM);
+		add(t);
 		hitBtns.push({ x: x, y: y, w: lbl.length * 7.0 + 4, h: 18.0, cb: cb });
+	}
+
+	function updateSnapLbl():Void
+	{
+		if (snapLbl != null)
+			snapLbl.text = 'Snap: 1/${snapDiv}  |  Eventos: ${manager.data.events.length}';
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// PANEL IZQUIERDO
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function buildLeftPanel():Void
+	{
+		var px = 6.0;
+		var py = BAR_H + 8.0;
+		var pw = PANEL_L - 12.0;
+
+		addSection(px, py, pw, "NUEVO EVENTO"); py += 22;
+
+		add(mkBgRnd(px, py, pw, 18, 0xFF0A0A1E));
+		add(mkTxt(px + 4, py + 2, "Tipo:", 10, C_DIM));
+		lblType = mkTxt(px + 50, py + 2, (newType:String), 10, 0xFF4FC3F7);
+		add(lblType);
+		addSmBtn(px + pw - 28, py, "◄", function() cycleType(-1));
+		addSmBtn(px + pw - 14, py, "►", function() cycleType(1));
+		py += 22;
+
+		add(mkBgRnd(px, py, pw, 18, 0xFF0A0A1E));
+		add(mkTxt(px + 4, py + 2, "Target:", 10, C_DIM));
+		lblTarget = mkTxt(px + 55, py + 2, newTarget, 10, 0xFF81C784);
+		add(lblTarget);
+		addSmBtn(px + pw - 28, py, "◄", function() cycleTarget(-1));
+		addSmBtn(px + pw - 14, py, "►", function() cycleTarget(1));
+		py += 22;
+
+		add(mkBgRnd(px, py, pw, 18, 0xFF0A0A1E));
+		add(mkTxt(px + 4, py + 2, "Strum:", 10, C_DIM));
+		lblStrum = mkTxt(px + 55, py + 2, strumLbl(), 10, 0xFFFFB74D);
+		add(lblStrum);
+		addSmBtn(px + pw - 28, py, "◄", function() { newStrumI--; if (newStrumI<-1) newStrumI=3; });
+		addSmBtn(px + pw - 14, py, "►", function() { newStrumI++; if (newStrumI>3) newStrumI=-1; });
+		py += 22;
+
+		add(mkTxt(px + 4, py + 2, "Beat:", 10, C_DIM));
+		fldBeat = buildField(px + 55, py, pw - 59, "beat");
+		py += 20;
+
+		add(mkTxt(px + 4, py + 2, "Valor:", 10, C_DIM));
+		fldVal = buildField(px + 55, py, pw - 59, "value");
+		py += 20;
+
+		add(mkTxt(px + 4, py + 2, "Dur (b):", 10, C_DIM));
+		fldDur = buildField(px + 55, py, pw - 59, "duration");
+		py += 20;
+
+		add(mkBgRnd(px, py, pw, 18, 0xFF0A0A1E));
+		add(mkTxt(px + 4, py + 2, "Ease:", 10, C_DIM));
+		lblEase = mkTxt(px + 55, py + 2, (newEase:String), 10, 0xFFBA68C8);
+		add(lblEase);
+		addSmBtn(px + pw - 28, py, "◄", function() { cycleEaseDir(-1); drawEasingCurve(newEase); });
+		addSmBtn(px + pw - 14, py, "►", function() { cycleEaseDir(1);  drawEasingCurve(newEase); });
+		// Mini botón "👁" para preview de easing
+		var eyeBg = mkBg(px, py, 48, 18, 0xFF0E0A20);
+		add(eyeBg);
+		var eyeTxt = mkTxt(px + 3, py + 2, "👁 Ease", 8, 0xFFBB88FF);
+		add(eyeTxt);
+		hitBtns.push({ x: px, y: py, w: 48.0, h: 18.0, cb: function() {
+			toggleEasingPreview();
+			drawEasingCurve(newEase);
+		}});
+		py += 26;
+
+		var addBg = mkBgRnd(px, py, pw, 28, C_ACCENT);
+		addBg.alpha = 0.9;
+		add(addBg);
+		var addTxt = mkTxt(px + pw / 2 - 40, py + 7, "+ AÑADIR EVENTO", 12, 0xFFFFFFFF);
+		addTxt.bold = true;
+		add(addTxt);
+		hitBtns.push({ x: px, y: py, w: pw, h: 28, cb: onClickAdd });
+		py += 34;
+
+		var phBg = mkBgRnd(px, py, pw, 24, 0xFF224433);
+		phBg.alpha = 0.9;
+		add(phBg);
+		add(mkTxt(px + pw / 2 - 50, py + 5, "⊕ Añadir en Playhead", 10, 0xFFAAFFCC));
+		hitBtns.push({ x: px, y: py, w: pw, h: 24, cb: function() {
+			newBeat = snapBeat(playheadBeat);
+			fieldBufs.set("beat", fmt(newBeat));
+			onClickAdd();
+		}});
+		py += 30;
+
+		addSection(px, py, pw, "PATRONES RÁPIDOS"); py += 22;
+		buildRhythmButtons(px, py, pw);
+		py += 24 * Std.int((rhythmPatterns.length + 1) / 2) + 6;
+
+		addSection(px, py, pw, "EVENTOS"); py += 22;
+
+		evListStartY = py;
+		evListEndY   = tlY - 4;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// PANEL DERECHO
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function buildRightPanel():Void
+	{
+		var px = SW - PANEL_R + 6.0;
+		var py = BAR_H + 8.0;
+		var pw = PANEL_R - 12.0;
+
+		addSection(px, py, pw, "ACCIONES"); py += 22;
+
+		function toolBtn(label:String, col:Int, cb:Void->Void):Void {
+			var b = mkBgRnd(px, py, pw, 26, col); b.alpha = 0.85; add(b);
+			add(mkTxt(px + 8, py + 6, label, 11, 0xFFEEEEFF));
+			hitBtns.push({ x: px, y: py, w: pw, h: 26, cb: cb });
+			py += 30;
+		}
+
+		toolBtn("▶  PLAY / PAUSA  [Space]", 0xFF153A1A, onClickPlay);
+		toolBtn("■  STOP + REINICIAR",       0xFF3A1515, onClickStop);
+		toolBtn("💾  GUARDAR   Ctrl+S",       0xFF0E2244, onClickSave);
+		toolBtn("📂  CARGAR",                 0xFF1A2030, onClickLoad);
+		toolBtn("✕  LIMPIAR TODO",            0xFF3A1515, onClickNew);
+		toolBtn("↩  DESHACER   Ctrl+Z",      0xFF1A1A2A, doUndo);
+		toolBtn("↪  REHACER   Ctrl+Y",       0xFF1A1A2A, doRedo);
+		toolBtn("📜  SCRIPTS",               0xFF121A2A, function() {
+			if (scriptWin != null) { if (scriptWin.visible) hideWin(scriptWin); else { showWin(scriptWin); bringFront(scriptWin); } }
+		});
+		toolBtn("〜  EASE PREVIEW",          0xFF1A1030, function() {
+			toggleEasingPreview();
+			drawEasingCurve(newEase);
+		});
+		toolBtn("❓  AYUDA   F1",             0xFF152030, function() {
+			showHelp = !showHelp;
+			helpOverlay.visible = helpTxt.visible = showHelp;
+		});
+
+		py += 4;
+		add(mkBg(px, py, pw, 1, C_TL_BORDER)); py += 8;
+
+		addSection(px, py, pw, "INSPECTOR"); py += 22;
+
+		inspTxt = mkTxt(px, py, "(sin selección)", 9, C_DIM);
+		inspTxt.wordWrap  = true;
+		inspTxt.fieldWidth = pw;
+		add(inspTxt);
+		py += 96;
+
+		add(mkBg(px, py, pw, 1, C_TL_BORDER)); py += 8;
+		addSection(px, py, pw, "STRUM PROPERTIES"); py += 22;
+		strumPropStartY = py;
+		strumPropEndY   = tlY - 4;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// HELPERS DE PANEL
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function addSection(x:Float, y:Float, w:Float, title:String):Void
+	{
+		add(mkBgRnd(x, y, w, 18, 0xFF0C0C24));
+		add(mkTxt(x + 6, y + 2, "— " + title + " —", 10, C_ACCENT));
+	}
+
+	function addSmBtn(x:Float, y:Float, label:String, cb:Void->Void):Void
+	{
+		add(mkBg(x, y, 14, 18, 0xFF0C0C24));
+		add(mkTxt(x + 1, y + 2, label, 10, C_ACCENT));
+		hitBtns.push({ x: x, y: y, w: 14.0, h: 18.0, cb: cb });
+	}
+
+	function buildField(x:Float, y:Float, w:Float, key:String):FlxText
+	{
+		add(mkBgRnd(x, y, w, 16, 0xFF040414));
+		add(mkBg(x, y + 14, w, 1, C_ACCENT));
+		var t = mkTxt(x + 4, y + 2, fieldBufs.get(key) ?? "0", 10, 0xFFFFDD44);
+		add(t);
+		hitFields.push({ x: x, y: y, w: w, h: 16.0, key: key });
+		return t;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// PATRONES DE RITMO
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function buildRhythmButtons(px:Float, py:Float, pw:Float):Void
+	{
+		var cols = 2;
+		var bw   = (pw - 4) / cols;
+		var bh   = 22.0;
+
+		for (i in 0...rhythmPatterns.length)
+		{
+			var pat   = rhythmPatterns[i];
+			var col   = i % cols;
+			var row   = Std.int(i / cols);
+			var bx    = px + col * (bw + 2);
+			var byPos = py + row * (bh + 2);
+
+			var bg = mkBgRnd(bx, byPos, bw, bh, 0xFF0E1A30); bg.alpha = 0.8; add(bg);
+			add(mkTxt(bx + 4, byPos + 5, pat.name, 9, 0xFF88BBFF));
+			var captPat = pat;
+			hitBtns.push({ x: bx, y: byPos, w: bw, h: bh, cb: function() applyPattern(captPat) });
+		}
+	}
+
+	function buildRhythmPatterns():Void
+	{
+		rhythmPatterns.push({ name: "Bounce X", events: [
+			{beat:0, type:MOVE_X, value: 80, dur:2, ease:SINE_IN_OUT},
+			{beat:2, type:MOVE_X, value:-80, dur:2, ease:SINE_IN_OUT},
+			{beat:4, type:MOVE_X, value:  0, dur:1, ease:SINE_OUT}
+		]});
+		rhythmPatterns.push({ name: "Drop", events: [
+			{beat:0, type:MOVE_Y, value:120, dur:1, ease:BOUNCE_OUT},
+			{beat:2, type:MOVE_Y, value:0,   dur:1, ease:QUAD_IN}
+		]});
+		rhythmPatterns.push({ name: "Spin", events: [
+			{beat:0, type:SPIN, value:720, dur:4, ease:LINEAR},
+			{beat:4, type:SPIN, value:0,   dur:0, ease:INSTANT}
+		]});
+		rhythmPatterns.push({ name: "Pulse", events: [
+			{beat:0,    type:SCALE, value:1.5, dur:0.25, ease:QUAD_OUT},
+			{beat:0.25, type:SCALE, value:1,   dur:0.25, ease:QUAD_IN},
+			{beat:0.5,  type:SCALE, value:1.5, dur:0.25, ease:QUAD_OUT},
+			{beat:0.75, type:SCALE, value:1,   dur:0.25, ease:QUAD_IN}
+		]});
+		rhythmPatterns.push({ name: "Fade", events: [
+			{beat:0, type:ALPHA, value:0, dur:2, ease:QUAD_IN},
+			{beat:2, type:ALPHA, value:1, dur:2, ease:QUAD_OUT}
+		]});
+		rhythmPatterns.push({ name: "Shake", events: [
+			{beat:0,   type:MOVE_X, value: 30, dur:0.1, ease:INSTANT},
+			{beat:0.1, type:MOVE_X, value:-30, dur:0.1, ease:INSTANT},
+			{beat:0.2, type:MOVE_X, value: 20, dur:0.1, ease:INSTANT},
+			{beat:0.3, type:MOVE_X, value:-20, dur:0.1, ease:INSTANT},
+			{beat:0.4, type:MOVE_X, value:  0, dur:0.1, ease:INSTANT}
+		]});
+	}
+
+	function applyPattern(pat:RhythmPattern):Void
+	{
+		pushUndo();
+		var baseBeat = snapBeat(playheadBeat);
+		for (e in pat.events)
+		{
+			var ev = ModChartHelpers.makeEvent(
+				baseBeat + e.beat, newTarget, newStrumI,
+				e.type, e.value, e.dur, e.ease
+			);
+			manager.addEvent(ev);
+		}
+		manager.seekToBeat(playheadBeat);
+		applyManagerToStrums();
+		refreshTimeline();
+		updateSnapLbl();
+		setStatus('Patrón "${pat.name}" aplicado en beat ${fmt(baseBeat)}');
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -514,12 +870,8 @@ class ModChartEditorState extends FlxState
 
 	function initAudio():Void
 	{
-		// El audio de FlxG.sound.music persiste entre states — solo pausamos.
 		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 			FlxG.sound.music.pause();
-
-		// vocals es un FlxSound que vive en PlayState — no podemos accederlo
-		// desde aquí tras el switchState. El editor trabaja solo con music.
 		vocals = null;
 		applyVolume();
 	}
@@ -553,14 +905,14 @@ class ModChartEditorState extends FlxState
 	function updateAudioLabel():Void
 	{
 		if (audioLbl == null) return;
-		var ms = isPlaying && FlxG.sound.music != null ? FlxG.sound.music.time : songPosition;
+		var ms = (isPlaying && FlxG.sound.music != null) ? FlxG.sound.music.time : songPosition;
 		var s  = Std.int(ms / 1000);
 		var ts = '${Std.int(s / 60)}:${s % 60 < 10 ? "0" : ""}${s % 60}';
 		audioLbl.text = isPlaying ? '♪ ▶ $ts' : '♪ ⏸ $ts';
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// APLICAR MODCHART A LOS STRUMS DEL EDITOR
+	// APLICAR MODCHART A STRUMS
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function applyManagerToStrums():Void
@@ -594,317 +946,762 @@ class ModChartEditorState extends FlxState
 					strum.scale.set(1, 1);
 				}
 
-				// Actualizar hitbox para que strum.width/height reflejen la escala actual
 				strum.updateHitbox();
 				strum.centerOffsets();
 
-				// Sync selection box sobre el strum (centrada en él)
+				if (gi < strumHitBoxes.length && si < strumHitBoxes[gi].length && strumHitBoxes[gi][si] != null)
+				{
+					var hb    = strumHitBoxes[gi][si];
+					var hitSz = Std.int(Math.max(64, Math.max(strum.width, strum.height) + 16));
+					hb.x = strum.x - hitSz/2 + strum.width/2;
+					hb.y = strum.y - hitSz/2 + strum.height/2;
+				}
+				if (gi < strumLabels.length && si < strumLabels[gi].length && strumLabels[gi][si] != null)
+				{
+					var lbl = strumLabels[gi][si];
+					lbl.x = strum.x + strum.width/2 - 6;
+					lbl.y = strum.y + strum.height + 2;
+				}
 				if (gi < selBoxes.length && si < selBoxes[gi].length && selBoxes[gi][si] != null)
 				{
-					var box = selBoxes[gi][si];
-					box.x = strum.x - 4;
-					box.y = strum.y - 4;
+					var box   = selBoxes[gi][si];
+					var hitSz = Std.int(Math.max(64, Math.max(strum.width, strum.height) + 16));
+					box.x = strum.x - hitSz/2 + strum.width/2;
+					box.y = strum.y - hitSz/2 + strum.height/2;
 				}
 			}
 		}
 	}
 
-	// ─────────────────────────────────────────────────────────────────────────
-	// TIMELINE
-	// ─────────────────────────────────────────────────────────────────────────
+	// ═════════════════════════════════════════════════════════════════════════
+	// TIMELINE MEJORADA CON GRUPOS + SCROLLBAR DEDICADO
+	// ═════════════════════════════════════════════════════════════════════════
 
 	function buildTimeline():Void
 	{
+		// Fondo base
 		tlGroup.add(mkBg(0, tlY, SW, TL_H, C_TL_BG));
 		tlGroup.add(mkBg(0, tlY, SW, 2, C_TL_BORDER));
 		tlGroup.add(mkBg(0, tlY, SW, TL_RH, C_RULER));
 		tlGroup.add(mkBg(0, tlY + TL_RH, SW, 1, C_TL_BORDER));
 
-		zoomLbl = mkTxt(SW - 155, tlY + 7, "Zoom: 16b", 11, C_DIM);
+		// Label zoom
+		zoomLbl = mkTxt(SW - PANEL_R - 160, tlY + 9, "Zoom: 16b", 11, C_DIM);
 		tlGroup.add(zoomLbl);
 
-		addTLBtn(SW - 200, tlY + 4, " + ", function() { beatsVisible = Math.max(BV_MIN, beatsVisible / 2); refreshTimeline(); });
-		addTLBtn(SW - 180, tlY + 4, " − ", function() { beatsVisible = Math.min(BV_MAX, beatsVisible * 2); refreshTimeline(); });
-		addTLBtn(SW - 160, tlY + 4, "ALL", function() { tlScroll = 0; beatsVisible = FlxMath.bound(getMaxBeat() + 4, BV_MIN, BV_MAX); refreshTimeline(); });
+		// Botones zoom
+		addTLBtn(SW - PANEL_R - 215, tlY + 6, " + ", function() { beatsVisible = Math.max(BV_MIN, beatsVisible / 2);   refreshTimeline(); });
+		addTLBtn(SW - PANEL_R - 193, tlY + 6, " − ", function() { beatsVisible = Math.min(BV_MAX, beatsVisible * 2);   refreshTimeline(); });
+		addTLBtn(SW - PANEL_R - 169, tlY + 6, "ALL", function() { tlScroll = 0; beatsVisible = FlxMath.bound(getMaxBeat() + 4, BV_MIN, BV_MAX); refreshTimeline(); });
 
+		// Botones adicionales en la ruler
+		addTLBtn(PANEL_L + 6,  tlY + 6, "Scripts",  function() {
+			if (scriptWin != null) { if (scriptWin.visible) hideWin(scriptWin); else { showWin(scriptWin); bringFront(scriptWin); } }
+		});
+		addTLBtn(PANEL_L + 60, tlY + 6, "Ease〜", function() {
+			toggleEasingPreview();
+			drawEasingCurve(newEase);
+		});
+
+		// Playhead (sin cubrir la scrollbar)
 		playheadSpr = new FlxSprite(0, tlY);
-		playheadSpr.makeGraphic(2, TL_H, FlxColor.fromInt(C_PLAYHEAD));
+		playheadSpr.makeGraphic(2, TL_H - TL_SB_H - 1, FlxColor.fromInt(C_PLAYHEAD));
 		playheadSpr.cameras = [editorCam];
 		tlGroup.add(playheadSpr);
 
-		rowH = Math.max(10.0, (TL_H - TL_RH - 2) / Math.max(1, rowCount));
+		// ── Scrollbar horizontal dedicado ─────────────────────────────────────
+		sbY      = tlY + TL_H - TL_SB_H - 1;
+		sbTrackX = (PANEL_L : Float);
+		sbTrackW = ((SW - PANEL_L - PANEL_R) : Float);
+
+		// Separador top del scrollbar
+		tlGroup.add(mkBg(0, Std.int(sbY), SW, 1, C_TL_BORDER));
+
+		// Fondo del track
+		var sbBg = mkBg(Std.int(sbTrackX), Std.int(sbY + 1), Std.int(sbTrackW), TL_SB_H - 1, 0xFF030310);
+		tlGroup.add(sbBg);
+
+		// Fondo interactivo del scrollbar (se dibuja en add() para mouse hit)
+		tlScrollbarBg = new FlxSprite(sbTrackX, sbY + 1);
+		tlScrollbarBg.makeGraphic(Std.int(sbTrackW), TL_SB_H - 1, FlxColor.fromInt(0xFF050518));
+		tlScrollbarBg.cameras = [editorCam];
+		add(tlScrollbarBg);
+
+		// Thumb del scrollbar
+		tlScrollbarThumb = new FlxSprite(sbTrackX, sbY + 2);
+		tlScrollbarThumb.makeGraphic(60, TL_SB_H - 4, FlxColor.fromInt(0xFF2244BB));
+		tlScrollbarThumb.cameras = [editorCam];
+		add(tlScrollbarThumb);
+
+		// Arrows en los extremos del scrollbar
+		addTLBtn(0, sbY + 1, "◀", function() { tlScroll = Math.max(0, tlScroll - 1); refreshTimeline(); });
+		addTLBtn(SW - PANEL_R - 18, sbY + 1, "▶", function() { tlScroll += 1; refreshTimeline(); });
+
+		rowH = Math.max(12.0, (TL_H - TL_RH - TL_SB_H - 4) / Math.max(1, getVisibleRowCount()));
+	}
+
+	/** Cuenta filas visibles (excluyendo grupos colapsados) */
+	function getVisibleRowCount():Int
+	{
+		var count = 0;
+		for (gi in 0...srcStrumsGrps.length)
+		{
+			if (gi < collapsedGroups.length && collapsedGroups[gi])
+				count += 1;  // solo la cabecera
+			else
+				count += 4;
+		}
+		return Std.int(Math.max(1, count));
 	}
 
 	public function refreshTimeline():Void
 	{
-		for (es in evSprites) { tlGroup.remove(es.sp, true); es.sp.destroy(); tlGroup.remove(es.lbl, true); es.lbl.destroy(); }
+		// Limpiar eventos anteriores
+		for (es in evSprites)
+		{
+			tlGroup.remove(es.sp,     true); es.sp.destroy();
+			tlGroup.remove(es.lbl,    true); es.lbl.destroy();
+			tlGroup.remove(es.valLbl, true); es.valLbl.destroy();
+		}
 		evSprites = [];
 
-		var ppb  = SW / beatsVisible;
+		var ppb  = (SW - PANEL_L - PANEL_R) / beatsVisible;
+		var tlOX = (PANEL_L : Float);   // x origen de la timeline
 		var dirs = ["L","D","U","R"];
 
-		for (ri in 0...rowCount)
+		// ── Filas con grupos visuales ─────────────────────────────────────────
+		var curRow = 0;
+		for (gi in 0...srcStrumsGrps.length)
 		{
-			var ry = tlY + TL_RH + ri * rowH;
-			tlGroup.add(mkBg(0, ry, SW, rowH - 1, ri % 2 == 0 ? C_ROW_A : C_ROW_B));
-			var gi = Std.int(ri / 4);
-			var si = ri % 4;
-			var gc = gi < srcStrumsGrps.length ? srcStrumsGrps[gi] : null;
-			tlGroup.add(mkTxt(2, ry + 1, '${gc != null ? gc.id.substr(0,5) : "?"}.${dirs[si]}', 8, C_DIM));
-			if (si == 3 && gi < srcStrumsGrps.length - 1)
-				tlGroup.add(mkBg(0, ry + rowH - 1, SW, 1, C_TL_BORDER));
-		}
+			var gc         = srcStrumsGrps[gi];
+			var collapsed  = (gi < collapsedGroups.length) ? collapsedGroups[gi] : false;
+			var groupBgCol = GROUP_BG_COLS[gi % GROUP_BG_COLS.length];
+			var groupAcCol = GROUP_AC_COLS[gi % GROUP_AC_COLS.length];
 
-		var startB = Std.int(tlScroll);
-		var endB   = Std.int(tlScroll + beatsVisible) + 2;
-		for (b in startB...(endB + 1))
-		{
-			var bx = Std.int((b - tlScroll) * ppb);
-			if (bx < -10 || bx > SW + 10) continue;
-			tlGroup.add(mkBg(bx, tlY + TL_RH, 1, TL_H - TL_RH, b % 4 == 0 ? 0xFF3344AA : C_BEAT_LINE));
-			tlGroup.add(mkTxt(bx + 2, tlY + 8, Std.string(b), b % 4 == 0 ? 11 : 9, b % 4 == 0 ? C_TEXT : C_DIM));
-			for (st in 1...4)
+			if (collapsed)
 			{
-				var sx = Std.int(bx + st * ppb / 4);
-				if (sx >= 0 && sx < SW) tlGroup.add(mkBg(sx, tlY + TL_RH, 1, TL_H - TL_RH, C_STEP_LINE));
+				// ── Grupo colapsado: solo un header ──────────────────────────
+				var ry = tlY + TL_RH + curRow * rowH;
+				tlGroup.add(mkBg(0, ry, SW, rowH - 1, groupBgCol));
+				tlGroup.add(mkBg(0, ry, 4, rowH - 1, groupAcCol));
+
+				var hTxt = mkTxt(8, ry + 2, '▶ ${gc.id}  (${gc.cpu?"CPU":"PLY"}) — collapsed', 9, FlxColor.fromInt(groupAcCol + 0x004444FF));
+				tlGroup.add(hTxt);
+
+				// Click para expandir
+				var captGi = gi;
+				hitBtns.push({ x: 0, y: ry, w: PANEL_L + 80.0, h: rowH,
+				               cb: function() { collapsedGroups[captGi] = false; rowH = Math.max(12.0, (TL_H - TL_RH - TL_SB_H - 4) / Math.max(1, getVisibleRowCount())); refreshTimeline(); }});
+				curRow++;
+			}
+			else
+			{
+				// ── Grupo expandido ──────────────────────────────────────────
+				var groupStartRow = curRow;
+
+				for (si in 0...4)
+				{
+					var ry = tlY + TL_RH + curRow * rowH;
+					var rowCol = si % 2 == 0 ? groupBgCol : (groupBgCol + 0x00030303);
+					tlGroup.add(mkBg(0, ry, SW, rowH - 1, rowCol));
+
+					// Borde izquierdo de color de grupo
+					tlGroup.add(mkBg(0, ry, 4, rowH - 1, groupAcCol));
+
+					// Etiqueta de strum
+					var rowLbl = mkTxt(tlOX + 4, ry + 2, '${gc.id.substr(0,4)}.${dirs[si]}', 8, C_DIM);
+					tlGroup.add(rowLbl);
+
+					curRow++;
+				}
+
+				// Header del grupo a la izquierda (ocupa toda la altura del grupo)
+				var groupH = 4 * rowH - 1;
+				var ghY    = tlY + TL_RH + groupStartRow * rowH;
+				tlGroup.add(mkBg(0, ghY, PANEL_L - 1, Std.int(groupH), 0xFF06061C));
+				tlGroup.add(mkBg(0, ghY, 4, Std.int(groupH), groupAcCol));
+
+				// Nombre del grupo centrado verticalmente
+				var ghTxt = mkTxt(6, ghY + groupH / 2 - 10,
+				                  gc.id + "\n" + (gc.cpu ? "[CPU]" : "[PLY]"), 9,
+				                  FlxColor.fromInt(groupAcCol + 0x00333377));
+				ghTxt.alignment = "center";
+				ghTxt.fieldWidth = PANEL_L - 10;
+				tlGroup.add(ghTxt);
+
+				// Click en header para colapsar
+				var captGi = gi;
+				hitBtns.push({ x: 0, y: ghY, w: PANEL_L - 1, h: groupH,
+				               cb: function() { collapsedGroups[captGi] = true; rowH = Math.max(12.0, (TL_H - TL_RH - TL_SB_H - 4) / Math.max(1, getVisibleRowCount())); refreshTimeline(); }});
+
+				// Separador entre grupos
+				if (gi < srcStrumsGrps.length - 1)
+				{
+					var sepY = ghY + groupH;
+					tlGroup.add(mkBg(0, Std.int(sepY), SW, 2, FlxColor.fromInt(groupAcCol)));
+				}
 			}
 		}
 
+		// ── Líneas de beat / step en el área de la timeline ──────────────────
+		var startB = Std.int(tlScroll);
+		var endB   = Std.int(tlScroll + beatsVisible) + 2;
+		var trackH = TL_H - TL_RH - TL_SB_H - 4;
+
+		for (b in startB...(endB + 1))
+		{
+			var bx = Std.int(tlOX + (b - tlScroll) * ppb);
+			if (bx < PANEL_L - 10 || bx > SW - PANEL_R + 10) continue;
+
+			var isMeasure = b % 4 == 0;
+			tlGroup.add(mkBg(bx, tlY + TL_RH, 1, trackH,
+			             isMeasure ? 0xFF2233AA : C_BEAT_LINE));
+
+			var numTxt = mkTxt(bx + 3, tlY + 8,
+			             b % 4 == 0 ? 'M${Std.int(b/4)}b${b}' : Std.string(b),
+			             isMeasure ? 11 : 9,
+			             isMeasure ? C_TEXT : C_DIM);
+			tlGroup.add(numTxt);
+
+			for (st in 1...snapDiv)
+			{
+				var sx = Std.int(bx + st * ppb / snapDiv);
+				if (sx >= PANEL_L && sx < SW - PANEL_R)
+					tlGroup.add(mkBg(sx, tlY + TL_RH, 1, trackH,
+					            st % (snapDiv / 4) == 0 ? C_BEAT_LINE : C_STEP_LINE));
+			}
+		}
+
+		// ── Sprites de eventos ────────────────────────────────────────────────
 		for (ev in manager.data.events)
 		{
 			for (ri in getEvRows(ev))
 			{
 				var ry  = tlY + TL_RH + ri * rowH;
-				var ex  = (ev.beat - tlScroll) * ppb;
-				var ew  = Math.max(4.0, ev.duration * ppb);
-				if (ex + ew < 0 || ex > SW) continue;
-				var sp  = new FlxSprite(ex, ry + 1);
-				sp.makeGraphic(Std.int(Math.max(4, ew)), Std.int(rowH - 3), FlxColor.fromInt(ev.color));
-				sp.alpha   = selectedEv == ev ? 1.0 : 0.75;
+				var ex  = tlOX + (ev.beat - tlScroll) * ppb;
+				var ew  = Math.max(8.0, ev.duration * ppb);
+
+				if (ex + ew < PANEL_L || ex > SW - PANEL_R) continue;
+
+				var isSelected = selectedEv == ev;
+
+				var sp = new FlxSprite(ex, ry + 1);
+				sp.makeGraphic(Std.int(Math.max(8, ew)), Std.int(rowH - 3),
+				               FlxColor.fromInt(ev.color));
+				sp.alpha   = isSelected ? 1.0 : 0.8;
 				sp.cameras = [editorCam];
-				var lbl    = mkTxt(ex + 2, ry + 2, (ev.type:String).substr(0,6), 8, 0xFF000000);
-				tlGroup.add(sp); tlGroup.add(lbl);
-				evSprites.push({ sp: sp, lbl: lbl, ev: ev });
+
+				if (isSelected)
+					drawBorderSprite(sp, Std.int(sp.width), Std.int(sp.height), 0xFFFFFFFF, 2);
+
+				var typeStr = (ev.type:String);
+				var lbl = mkTxt(ex + 3, ry + 2, typeStr.substr(0, 7), 8, 0xFF000000);
+				lbl.cameras = [editorCam];
+
+				var valLbl = mkTxt(ex + 3, ry + rowH / 2, '→${fmt(ev.value)}', 7, 0xFF000000);
+				valLbl.alpha   = 0.8;
+				valLbl.cameras = [editorCam];
+
+				tlGroup.add(sp);
+				tlGroup.add(lbl);
+				tlGroup.add(valLbl);
+
+				evSprites.push({ sp: sp, lbl: lbl, valLbl: valLbl, ev: ev });
 			}
 		}
 
+		// Playhead siempre al frente
 		tlGroup.remove(playheadSpr);
 		syncPlayhead();
 		tlGroup.add(playheadSpr);
+
 		if (zoomLbl != null) zoomLbl.text = 'Zoom: ${Std.int(beatsVisible)}b';
+		updateSnapLbl();
+		refreshScrollbar();
 	}
 
 	function syncPlayhead():Void
-		playheadSpr.x = (playheadBeat - tlScroll) * (SW / beatsVisible);
+	{
+		var ppb = (SW - PANEL_L - PANEL_R) / beatsVisible;
+		playheadSpr.x = PANEL_L + (playheadBeat - tlScroll) * ppb;
+	}
 
 	function getEvRows(ev:ModChartEvent):Array<Int>
 	{
+		// Mapear eventos a filas visibles (respetando grupos colapsados)
 		var rows:Array<Int> = [];
+		var curRow = 0;
+
 		for (gi in 0...srcStrumsGrps.length)
 		{
-			var g  = srcStrumsGrps[gi];
+			var g         = srcStrumsGrps[gi];
+			var collapsed = (gi < collapsedGroups.length) ? collapsedGroups[gi] : false;
 			var ok = ev.target == "all"
 				|| (ev.target == "player" && !g.cpu)
 				|| (ev.target == "cpu"    &&  g.cpu)
 				|| ev.target == g.id;
-			if (!ok) continue;
-			if (ev.strumIdx == -1)
-				for (si in 0...4) rows.push(gi * 4 + si);
+
+			if (!ok) { curRow += collapsed ? 1 : 4; continue; }
+
+			if (collapsed)
+			{
+				rows.push(curRow);
+				curRow++;
+			}
 			else
-				rows.push(gi * 4 + ev.strumIdx);
+			{
+				if (ev.strumIdx == -1)
+					for (si in 0...4) rows.push(curRow + si);
+				else
+					rows.push(curRow + ev.strumIdx);
+				curRow += 4;
+			}
 		}
 		return rows;
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// VENTANA: PROPIEDADES
+	// SCROLLBAR HORIZONTAL DEDICADO
 	// ═════════════════════════════════════════════════════════════════════════
 
-	function buildWinProps():Void
+	function refreshScrollbar():Void
 	{
-		var wd = mkWin("Propiedades", 0, BAR_H + 2, 288, tlY - BAR_H - 4);
-		var cx = wd.x + 8;
-		var cy = wd.y + 28;
-		var cw = wd.w - 16;
+		if (tlScrollbarThumb == null) return;
 
-		wTxt(wd, cx, cy, "── NUEVO EVENTO ──", 12, C_ACCENT); cy += 18;
+		var maxBeat = Math.max(beatsVisible + 1, getMaxBeat() + 8);
+		var ratio   = beatsVisible / maxBeat;
+		var thumbW  = Math.max(16.0, sbTrackW * ratio);
+		var maxScroll = maxBeat - beatsVisible;
+		var scrollRatio = maxScroll > 0 ? tlScroll / maxScroll : 0;
+		var thumbX  = sbTrackX + scrollRatio * (sbTrackW - thumbW);
 
-		wTxt(wd, cx, cy, "Tipo:",   11, C_DIM);
-		lblType = wTxt(wd, cx+55, cy, (newType:String), 11, 0xFF4FC3F7);
-		wBtn(wd, wd.x+cw-26, cy, "◄", function() cycleType(-1));
-		wBtn(wd, wd.x+cw-10, cy, "►", function() cycleType( 1));
-		cy += 15;
+		tlScrollbarThumb.setGraphicSize(Std.int(thumbW), TL_SB_H - 4);
+		tlScrollbarThumb.updateHitbox();
+		tlScrollbarThumb.x = thumbX;
+		tlScrollbarThumb.y = sbY + 2;
 
-		wTxt(wd, cx, cy, "Target:", 11, C_DIM);
-		lblTarget = wTxt(wd, cx+55, cy, newTarget, 11, 0xFF81C784);
-		wBtn(wd, wd.x+cw-26, cy, "◄", function() cycleTarget(-1));
-		wBtn(wd, wd.x+cw-10, cy, "►", function() cycleTarget( 1));
-		cy += 15;
-
-		wTxt(wd, cx, cy, "Strum:",  11, C_DIM);
-		lblStrum = wTxt(wd, cx+55, cy, strumLbl(), 11, 0xFFFFB74D);
-		wBtn(wd, wd.x+cw-26, cy, "◄", function() { newStrumI--; if (newStrumI<-1) newStrumI=3; });
-		wBtn(wd, wd.x+cw-10, cy, "►", function() { newStrumI++; if (newStrumI> 3) newStrumI=-1; });
-		cy += 15;
-
-		wTxt(wd, cx, cy, "Beat:",   11, C_DIM);
-		fldBeat = wField(wd, cx+55, cy, cw-57, "beat"); cy += 15;
-
-		wTxt(wd, cx, cy, "Valor:",  11, C_DIM);
-		fldVal  = wField(wd, cx+55, cy, cw-57, "value"); cy += 15;
-
-		wTxt(wd, cx, cy, "Dur(b):", 11, C_DIM);
-		fldDur  = wField(wd, cx+55, cy, cw-57, "duration"); cy += 15;
-
-		wTxt(wd, cx, cy, "Ease:",   11, C_DIM);
-		lblEase = wTxt(wd, cx+55, cy, (newEase:String), 11, 0xFFBA68C8);
-		wBtn(wd, wd.x+cw-26, cy, "◄", function() cycleEaseDir(-1));
-		wBtn(wd, wd.x+cw-10, cy, "►", function() cycleEaseDir( 1));
-		cy += 18;
-
-		var addBg = mkBg(cx, cy, cw, 22, C_ACCENT); addBg.alpha = 0.85;
-		wSpr(wd, addBg);
-		wTxt(wd, cx+6, cy+4, "+ Añadir Evento al Beat", 11, 0xFFFFFFFF);
-		hitBtns.push({ x: cx, y: cy, w: cw, h: 22, cb: onClickAdd }); cy += 26;
-
-		var phBg = mkBg(cx, cy, cw, 20, 0xFF225533); phBg.alpha = 0.82;
-		wSpr(wd, phBg);
-		wTxt(wd, cx+6, cy+3, "⊕ Añadir en Playhead", 11, 0xFFCCFFCC);
-		hitBtns.push({ x: cx, y: cy, w: cw, h: 20, cb: function() {
-			newBeat = Math.round(playheadBeat * 4) / 4;
-			fieldBufs.set("beat", Std.string(newBeat));
-			onClickAdd();
-		}}); cy += 26;
-
-		wSpr(wd, mkBg(cx, cy, cw, 1, C_BEAT_LINE)); cy += 5;
-		wTxt(wd, cx, cy, "── EVENTOS ──", 11, C_ACCENT); cy += 14;
-
-		evListWin = wd; evListX = cx; evListY = cy;
-
-		var iY = wd.y + wd.h - 120;
-		wSpr(wd, mkBg(wd.x, iY, wd.w, 120, 0xFF060616));
-		wSpr(wd, mkBg(wd.x, iY, wd.w, 1, C_TL_BORDER));
-		wTxt(wd, cx, iY + 4, "─ INSPECTOR ─", 11, C_ACCENT);
-		inspTxt = wTxt(wd, cx, iY + 18, "(sin selección)", 10, C_DIM);
-		inspTxt.wordWrap = true; inspTxt.fieldWidth = cw;
-		statusTxt = wTxt(wd, cx, iY + 103, "Listo.", 10, 0xFF88FF88);
-
-		addToWinGroup(wd);
-		windows.push(wd);
+		// Color del thumb: más brillante cuando se arrastra
+		var col = scrollbarDragging ? 0xFF4488FF : 0xFF2244BB;
+		tlScrollbarThumb.makeGraphic(Std.int(thumbW), TL_SB_H - 4, FlxColor.fromInt(col));
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// VENTANA: TOOLS
+	// EASING PREVIEW WINDOW
 	// ═════════════════════════════════════════════════════════════════════════
 
-	function buildWinTools():Void
+	function buildEasingPreviewWindow():Void
 	{
-		var wd = mkWin("Tools", SW - 222, BAR_H + 2, 220, 300);
-		var cx = wd.x + 8;
-		var cy = wd.y + 30;
-		var bw = wd.w - 16;
+		var ww = 280.0;
+		var wh = 260.0;
+		var wx = gameAreaX + gameAreaW / 2 - ww / 2;
+		var wy = gameAreaY + 10.0;
 
-		function tb(label:String, col:Int, cb:Void->Void):Void {
-			var sbg = mkBg(cx, cy, bw, 24, col); sbg.alpha = 0.82;
-			wSpr(wd, sbg);
-			wTxt(wd, cx+8, cy+5, label, 12, 0xFFFFFFFF);
-			hitBtns.push({ x: cx, y: cy, w: bw, h: 24, cb: cb }); cy += 28;
+		easingPreviewWin = mkWin("〜 Ease Preview", wx, wy, ww, wh);
+		addToWinGroup(easingPreviewWin);
+		windows.push(easingPreviewWin);
+		hideWin(easingPreviewWin);
+	}
+
+	function toggleEasingPreview():Void
+	{
+		easingPreviewOpen = !easingPreviewOpen;
+		if (easingPreviewOpen)
+		{
+			showWin(easingPreviewWin);
+			bringFront(easingPreviewWin);
+			easingPrevEase = "";  // forzar redibujado
+			drawEasingCurve(newEase);
+		}
+		else hideWin(easingPreviewWin);
+		setStatus(easingPreviewOpen ? "Ease Preview abierto" : "Ease Preview cerrado");
+	}
+
+	function drawEasingCurve(ease:ModEase):Void
+	{
+		if (easingPreviewWin == null) return;
+		if (!easingPreviewOpen)       return;
+		if ((ease:String) == easingPrevEase) return;
+		easingPrevEase = (ease:String);
+
+		// Limpiar sprites anteriores
+		for (s in easingCurveSprites)
+		{
+			if (easingPreviewWin.contentGroup != null)
+				easingPreviewWin.contentGroup.remove(s, true);
+			s.destroy();
+		}
+		easingCurveSprites = [];
+
+		if (easingPreviewLbl != null)
+		{
+			if (easingPreviewWin.contentGroup != null)
+				easingPreviewWin.contentGroup.remove(easingPreviewLbl, true);
+			easingPreviewLbl.destroy();
+			easingPreviewLbl = null;
 		}
 
-		tb("▶  Play / Pausa  [Space]", 0xFF1E5E22, onClickPlay);
-		tb("■  Stop + Reiniciar",      0xFF5E1A1A, onClickStop);
-		tb("💾  Guardar   Ctrl+S",      0xFF1A3A66, onClickSave);
-		tb("📂  Cargar",                0xFF2A3444, onClickLoad);
-		tb("✕  Limpiar Todo",          0xFF5A1A1A, onClickNew);
-		tb("↩  Deshacer   Ctrl+Z",     0xFF252535, doUndo);
-		tb("❓  Ayuda   F1",            0xFF253030, function() {
-			showHelp = !showHelp;
-			helpBg.visible = helpTxt.visible = showHelp;
-		});
+		var wx  = easingPreviewWin.x;
+		var wy  = easingPreviewWin.y;
+		var pad = 22.0;
+		var cw  = easingPreviewWin.w - pad * 2;
+		var ch  = easingPreviewWin.h - 52.0 - pad;
+		var ox  = wx + pad;
+		var oy  = wy + 40.0 + pad;
 
-		wSpr(wd, mkBg(cx, cy, bw, 1, C_BEAT_LINE)); cy += 6;
-		wTxt(wd, cx, cy, "SPACE → play/pause audio",  9, C_DIM); cy += 12;
-		wTxt(wd, cx, cy, "Rueda en TL → scroll",      9, C_DIM); cy += 12;
-		wTxt(wd, cx, cy, "CTRL+Rueda → zoom TL",      9, C_DIM);
+		inline function addC(s:FlxSprite):Void
+		{
+			s.cameras = [editorCam];
+			easingPreviewWin.contentGroup.add(s);
+			easingCurveSprites.push(s);
+		}
 
-		addToWinGroup(wd);
-		windows.push(wd);
+		// Fondo
+		addC(mkRaw(ox - 2, oy - 2, Std.int(cw + 4), Std.int(ch + 4), 0xFF030312));
+
+		// Grid
+		var gSteps = 4;
+		for (i in 0...(gSteps + 1))
+		{
+			addC(mkRaw(Std.int(ox + i * cw / gSteps), Std.int(oy), 1, Std.int(ch), 0xFF0E0E28));
+			addC(mkRaw(Std.int(ox), Std.int(oy + i * ch / gSteps), Std.int(cw), 1, 0xFF0E0E28));
+		}
+
+		// Eje Y central (t=0.5 reference)
+		addC(mkRaw(Std.int(ox + cw / 2), Std.int(oy), 1, Std.int(ch), 0xFF151530));
+
+		// Bordes del gráfico
+		addC(mkRaw(Std.int(ox),           Std.int(oy),      Std.int(cw), 1, 0xFF1A3A8A));
+		addC(mkRaw(Std.int(ox),           Std.int(oy + ch), Std.int(cw), 1, 0xFF1A3A8A));
+		addC(mkRaw(Std.int(ox),           Std.int(oy),      1, Std.int(ch), 0xFF1A3A8A));
+		addC(mkRaw(Std.int(ox + cw - 1),  Std.int(oy),      1, Std.int(ch + 1), 0xFF1A3A8A));
+
+		// Curva de easing
+		var samples = Std.int(cw);
+		var prevPy  = -999.0;
+		var prevPx  = 0.0;
+
+		for (si in 0...samples)
+		{
+			var t   = si / (samples - 1);
+			var val = ModChartHelpers.applyEase(ease, t);
+			var px  = ox + t * cw;
+			var py  = oy + ch - val * ch;
+			var clampPy = Math.max(oy - 10, Math.min(oy + ch + 10, py));
+
+			// Punto principal
+			var dot = mkRaw(Std.int(px), Std.int(clampPy), 2, 2, 0xFF4466FF);
+			addC(dot);
+
+			// Linha entre pontos
+			if (prevPy > -900 && Math.abs(py - prevPy) > 1)
+			{
+				var steps2 = Std.int(Math.min(30, Math.abs(py - prevPy)));
+				for (li in 1...steps2)
+				{
+					var lx  = prevPx + (px - prevPx) * li / steps2;
+					var ly  = prevPy + (py - prevPy) * li / steps2;
+					var cly = Math.max(oy - 10, Math.min(oy + ch + 10, ly));
+					var lp  = mkRaw(Std.int(lx), Std.int(cly), 1, 1, 0xFF3355EE);
+					lp.alpha = 0.7;
+					addC(lp);
+				}
+			}
+			prevPy = py;
+			prevPx = px;
+		}
+
+		// Marcadores inicio/fin
+		addC(mkRaw(Std.int(ox),       Std.int(oy + ch - 3), 5, 5, 0xFF33DD88));
+		addC(mkRaw(Std.int(ox+cw-4), Std.int(oy - 2),        5, 5, 0xFFFF3366));
+
+		// Etiqueta de nombre del ease
+		easingPreviewLbl = mkTxt(ox, wy + 30.0, (ease:String), 11, FlxColor.fromInt(C_ACCENT));
+		easingPreviewLbl.bold    = true;
+		easingPreviewLbl.cameras = [editorCam];
+		if (easingPreviewWin.contentGroup != null)
+			easingPreviewWin.contentGroup.add(easingPreviewLbl);
+
+		// Etiqueta "0 → 1"
+		var rangeLbl = mkTxt(ox + cw - 28, wy + 30.0, "0→1", 8, FlxColor.fromInt(C_DIM));
+		rangeLbl.cameras = [editorCam];
+		if (easingPreviewWin.contentGroup != null)
+			easingPreviewWin.contentGroup.add(rangeLbl);
+
+		setStatus('Ease preview: ${(ease:String)}');
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// VENTANA: STRUM PROPERTIES
+	// SCRIPTS EXTERNOS
 	// ═════════════════════════════════════════════════════════════════════════
 
-	function buildWinStrumProps():Void
+	function buildScriptWindow():Void
 	{
-		strumPropWin = mkWin("Strum Properties", SW - 222, BAR_H + 308, 220, 220);
-		addToWinGroup(strumPropWin);
-		windows.push(strumPropWin);
+		var ww = 320.0;
+		var wh = 300.0;
+		var wx = SW / 2 - ww / 2;
+		var wy = gameAreaY + gameAreaH / 2 - wh / 2;
+
+		scriptWin = mkWin("📜 Scripts Externos", wx, wy, ww, wh);
+		addToWinGroup(scriptWin);
+		windows.push(scriptWin);
+
+		var cx = wx + 10.0;
+		var cy = wy + 32.0;
+		var cw = ww - 20.0;
+
+		var desc = mkTxt(cx, cy,
+			"Importa eventos desde un archivo JSON externo.\nFormato: array de objetos de evento.", 9, C_DIM);
+		desc.fieldWidth = cw;
+		desc.wordWrap = true;
+		scriptWin.contentGroup.add(desc);
+		cy += 34;
+
+		// Botón cargar
+		var lBg = mkRaw(cx, cy, cw, 26, 0xFF081828); scriptWin.contentGroup.add(lBg);
+		var lTxt = mkTxt(cx + cw/2 - 62, cy + 6, "📂  Cargar Script (.json)", 10, FlxColor.fromInt(C_ACCENT));
+		scriptWin.contentGroup.add(lTxt);
+		hitBtns.push({ x: cx, y: cy, w: cw, h: 26.0, cb: onLoadScript });
+		cy += 32;
+
+		// Botón exportar
+		var eBg = mkRaw(cx, cy, cw, 26, 0xFF082820); scriptWin.contentGroup.add(eBg);
+		var eTxt = mkTxt(cx + cw/2 - 60, cy + 6, "💾  Exportar como Script", 10, FlxColor.fromInt(C_GREEN));
+		scriptWin.contentGroup.add(eTxt);
+		hitBtns.push({ x: cx, y: cy, w: cw, h: 26.0, cb: onExportScript });
+		cy += 32;
+
+		// Separador
+		scriptWin.contentGroup.add(mkRaw(cx, cy, cw, 1, C_TL_BORDER));
+		cy += 8;
+
+		// Formato de ejemplo
+		var fmtBg = mkRaw(cx, cy, cw, 80, 0xFF040412);
+		scriptWin.contentGroup.add(fmtBg);
+		var fmtTxt = mkTxt(cx + 4, cy + 4,
+			'Formato esperado:\n[\n  {\n    "beat":0, "type":"moveX",\n    "value":100, "dur":2,\n    "ease":"quadOut",\n    "target":"player", "strum":-1\n  }\n]',
+			8, 0xFF3355AA);
+		fmtTxt.fieldWidth = cw - 8;
+		fmtTxt.wordWrap = true;
+		scriptWin.contentGroup.add(fmtTxt);
+		cy += 84;
+
+		// Status
+		scriptStatusTxt = mkTxt(cx, cy, "Sin script cargado.", 9, C_DIM);
+		scriptStatusTxt.fieldWidth = cw;
+		scriptStatusTxt.wordWrap = true;
+		scriptWin.contentGroup.add(scriptStatusTxt);
+
+		hideWin(scriptWin);
 	}
+
+	function onLoadScript():Void
+	{
+		#if sys
+		var songName = manager.data.song.toLowerCase();
+		var searchPaths = [
+			'modcharts/scripts/${songName}.json',
+			'assets/scripts/modcharts/${songName}.json',
+			'scripts/modchart_${songName}.json',
+			'modchart_${songName}.json'
+		];
+
+		for (p in searchPaths)
+		{
+			if (sys.FileSystem.exists(p))
+			{
+				try {
+					var content = sys.io.File.getContent(p);
+					var count   = parseModScript(content);
+					scriptFilePath = p;
+					if (scriptStatusTxt != null)
+						scriptStatusTxt.text = '✓ ${count} eventos importados\nArchivo: ${p}';
+					setStatus('Script: ${count} eventos importados de "${p}"');
+					return;
+				} catch (e:Dynamic) {
+					if (scriptStatusTxt != null)
+						scriptStatusTxt.text = 'Error al parsear: ${e}';
+					setStatus('Error en script: ${e}');
+					return;
+				}
+			}
+		}
+
+		if (scriptStatusTxt != null)
+			scriptStatusTxt.text = 'No encontrado para "${songName}".\nBusqué en:\n${searchPaths.join("\n")}';
+		setStatus('Script no encontrado para: ${songName}');
+		#else
+		// HTML5: usar FlxG.save
+		if (FlxG.save.data.modchart_script != null)
+		{
+			try {
+				var count = parseModScript(FlxG.save.data.modchart_script);
+				if (scriptStatusTxt != null) scriptStatusTxt.text = '✓ ${count} eventos desde save.';
+				setStatus('Script cargado desde save: ${count} eventos.');
+			} catch (e:Dynamic) {
+				if (scriptStatusTxt != null) scriptStatusTxt.text = 'Error: ${e}';
+			}
+		}
+		else
+		{
+			if (scriptStatusTxt != null) scriptStatusTxt.text = 'Sin script en save.';
+		}
+		#end
+	}
+
+	function onExportScript():Void
+	{
+		var evArr = manager.data.events;
+		var arr:Array<Dynamic> = [];
+		for (ev in evArr)
+		{
+			arr.push({
+				beat   : ev.beat,
+				type   : (ev.type:String),
+				value  : ev.value,
+				dur    : ev.duration,
+				ease   : (ev.ease:String),
+				target : ev.target,
+				strum  : ev.strumIdx,
+				label  : ev.label
+			});
+		}
+		var json = haxe.Json.stringify(arr, null, "  ");
+
+		#if sys
+		var songName = manager.data.song.toLowerCase();
+		try {
+			var dir = 'modcharts/scripts/';
+			if (!sys.FileSystem.exists(dir)) sys.FileSystem.createDirectory(dir);
+			var p   = '${dir}${songName}.json';
+			sys.io.File.saveContent(p, json);
+			if (scriptStatusTxt != null) scriptStatusTxt.text = '✓ Exportado: ${p}';
+			setStatus('Script exportado: ${p}');
+		} catch (e:Dynamic) {
+			setStatus('Error al exportar: ${e}');
+		}
+		#else
+		FlxG.save.data.modchart_script = json;
+		FlxG.save.flush();
+		if (scriptStatusTxt != null) scriptStatusTxt.text = '✓ Exportado en save.';
+		setStatus('Script exportado en save.');
+		#end
+	}
+
+	function parseModScript(json:String):Int
+	{
+		pushUndo();
+		var arr:Array<Dynamic> = haxe.Json.parse(json);
+		if (arr == null || !Std.isOfType(arr, Array))
+			throw "JSON inválido: se esperaba un array";
+
+		var count = 0;
+		for (raw in arr)
+		{
+			var beat   : Float        = (raw.beat   != null) ? raw.beat   : 0.0;
+			var type   : ModEventType = (raw.type   != null) ? (raw.type:String)  : "moveX";
+			var value  : Float        = (raw.value  != null) ? raw.value  : 0.0;
+			var dur    : Float        = (raw.dur    != null) ? raw.dur    : 0.0;
+			var ease   : ModEase      = (raw.ease   != null) ? (raw.ease:String) : "linear";
+			var target : String       = (raw.target != null) ? raw.target : "player";
+			var strum  : Int          = (raw.strum  != null) ? Std.int(raw.strum) : -1;
+
+			var ev = ModChartHelpers.makeEvent(beat, target, strum, type, value, dur, ease);
+			if (raw.label != null) ev.label = raw.label;
+			manager.addEvent(ev);
+			count++;
+		}
+
+		refreshTimeline();
+		updateSnapLbl();
+		return count;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STRUM PROPERTIES
+	// ─────────────────────────────────────────────────────────────────────────
 
 	function refreshStrumPropWindow():Void
 	{
-		if (strumPropWin == null) return;
-		var wd = strumPropWin;
-		for (t in strumPropTxts) { wd.contentGroup.remove(t, true); t.destroy(); }
-		strumPropTxts = []; strumPropBtns = [];
+		for (t in strumPropTxts) { remove(t, true); t.destroy(); }
+		strumPropTxts = [];
+		strumPropBtns = [];
 
-		var cx = wd.x + 8; var cy = wd.y + 30; var cw = wd.w - 16;
+		var px = SW - PANEL_R + 6.0;
+		var py = strumPropStartY;
+		var pw = PANEL_R - 12.0;
 
 		if (selectedGroupIdx < 0 || selectedStrumIdx < 0)
 		{
-			var t = mkTxt(cx, cy, "Click sobre un strum\ndel área de juego\npara ver propiedades.", 10, C_DIM);
-			t.cameras = [editorCam];
-			wd.contentGroup.add(t); strumPropTxts.push(t); return;
+			var t = mkTxt(px + 4, py, "Haz click sobre una flecha\ndel área de juego.", 9, C_DIM);
+			t.wordWrap   = true;
+			t.fieldWidth = pw;
+			add(t);
+			strumPropTxts.push(t);
+			return;
 		}
 
-		var gi   = selectedGroupIdx;
-		var si   = selectedStrumIdx;
-		var src  = srcStrumsGrps[gi];
-		var st   = manager.getState(src.id, si);
-		var dirs = ["LEFT","DOWN","UP","RIGHT"];
+		var gi     = selectedGroupIdx;
+		var si     = selectedStrumIdx;
+		var src    = srcStrumsGrps[gi];
+		var st     = manager.getState(src.id, si);
+		var dnames = ["LEFT","DOWN","UP","RIGHT"];
 
-		var tt = mkTxt(cx, cy, '${src.id} / ${dirs[si]}', 10, C_ACCENT);
-		tt.cameras = [editorCam]; wd.contentGroup.add(tt); strumPropTxts.push(tt); cy += 16;
+		var title = mkTxt(px, py, '${src.id} / ${dnames[si]}', 10, C_ACCENT);
+		title.bold = true;
+		add(title); strumPropTxts.push(title); py += 16;
 
-		var tgt = mkTxt(cx, cy, "→ Usar como target", 9, C_DIM);
-		tgt.cameras = [editorCam]; wd.contentGroup.add(tgt); strumPropTxts.push(tgt);
-		hitBtns.push({ x: cx, y: cy, w: cw, h: 12, cb: function() { newTarget = src.id; newStrumI = si; }});
-		cy += 16;
+		var tgtBg = mkBgRnd(px, py, pw, 18, 0xFF0E2215); add(tgtBg); strumPropTxts.push(tgtBg);
+		var tgtT  = mkTxt(px + 6, py + 2, "→ Usar como target", 9, C_GREEN);
+		add(tgtT); strumPropTxts.push(tgtT);
+		strumPropBtns.push({ x: px, y: py, w: pw, h: 18,
+		                      cb: function() { newTarget = src.id; newStrumI = si; }});
+		py += 22;
 
-		function propRow(label:String, val:Float, etype:ModEventType, step:Float):Void {
-			var row = mkTxt(cx, cy, '$label: ${Math.round(val*100)/100}', 10, C_TEXT);
-			row.cameras = [editorCam]; wd.contentGroup.add(row); strumPropTxts.push(row);
-			var bm = mkTxt(wd.x+cw-26, cy, "−", 11, C_ACCENT2);
-			bm.cameras = [editorCam]; wd.contentGroup.add(bm); strumPropTxts.push(bm);
-			var bp = mkTxt(wd.x+cw-10, cy, "+", 11, 0xFF44FF88);
-			bp.cameras = [editorCam]; wd.contentGroup.add(bp); strumPropTxts.push(bp);
-			var cT = etype; var cS = step; var cGi = gi; var cSi = si; var cSrcId = src.id;
-			strumPropBtns.push({ x: wd.x+cw-26, y: cy, w: 14, h: 14, cb: function() addQuickEvent(cGi, cSi, cT, -cS, cSrcId) });
-			strumPropBtns.push({ x: wd.x+cw-10, y: cy, w: 14, h: 14, cb: function() addQuickEvent(cGi, cSi, cT,  cS, cSrcId) });
-			cy += 16;
+		function propRow(label:String, val:Float, etype:ModEventType, step:Float):Void
+		{
+			var bg = mkBgRnd(px, py, pw, 18, 0xFF080818); add(bg); strumPropTxts.push(bg);
+			var lt = mkTxt(px + 4, py + 2, '$label: ${fmt2(val)}', 10, C_TEXT);
+			add(lt); strumPropTxts.push(lt);
+			var bm = mkTxt(px + pw - 26, py + 2, "−", 11, C_ACCENT2);
+			var bp = mkTxt(px + pw - 12, py + 2, "+", 11, C_GREEN);
+			add(bm); add(bp); strumPropTxts.push(bm); strumPropTxts.push(bp);
+			var cT = etype; var cS = step; var cGi = gi; var cSi = si; var cId = src.id;
+			strumPropBtns.push({ x: px+pw-26, y: py, w: 14, h: 18, cb: function() addQuickEvent(cGi,cSi,cT,-cS,cId) });
+			strumPropBtns.push({ x: px+pw-12, y: py, w: 14, h: 18, cb: function() addQuickEvent(cGi,cSi,cT, cS,cId) });
+			py += 22;
 		}
 
-		propRow("X",     st != null ? st.offsetX : 0.0, MOVE_X, 10.0);
-		propRow("Y",     st != null ? st.offsetY : 0.0, MOVE_Y, 10.0);
-		propRow("Angle", st != null ? st.angle   : 0.0, ANGLE,  15.0);
-		propRow("Alpha", st != null ? st.alpha   : 1.0, ALPHA,  0.1);
-		propRow("Scale", st != null ? st.scaleX  : 1.0, SCALE,  0.1);
+		propRow("X",     st != null ? st.offsetX : 0.0, MOVE_X,  10.0);
+		propRow("Y",     st != null ? st.offsetY : 0.0, MOVE_Y,  10.0);
+		propRow("Angle", st != null ? st.angle   : 0.0, ANGLE,   15.0);
+		propRow("Alpha", st != null ? st.alpha   : 1.0, ALPHA,    0.1);
+		propRow("ScaleX",st != null ? st.scaleX  : 1.0, SCALE_X,  0.1);
+		propRow("ScaleY",st != null ? st.scaleY  : 1.0, SCALE_Y,  0.1);
 
-		var hint = mkTxt(cx, cy+2, "− / + → evento rápido\nen el beat actual.", 9, C_DIM);
-		hint.cameras = [editorCam]; wd.contentGroup.add(hint); strumPropTxts.push(hint);
+		var rstBg = mkBgRnd(px, py, pw, 20, 0xFF221010); add(rstBg); strumPropTxts.push(rstBg);
+		var rstT  = mkTxt(px + pw/2 - 24, py + 3, "RESET STRUM", 10, C_ACCENT2);
+		add(rstT); strumPropTxts.push(rstT);
+		strumPropBtns.push({ x: px, y: py, w: pw, h: 20, cb: function() {
+			pushUndo();
+			var ev = ModChartHelpers.makeEvent(snapBeat(playheadBeat), src.id, si, RESET, 0, 0, INSTANT);
+			manager.addEvent(ev);
+			manager.seekToBeat(playheadBeat);
+			applyManagerToStrums();
+			refreshTimeline();
+			refreshStrumPropWindow();
+		}});
 	}
 
 	function addQuickEvent(gi:Int, si:Int, etype:ModEventType, delta:Float, srcId:String):Void
 	{
 		pushUndo();
-		var ev = ModChartHelpers.makeEvent(Math.round(playheadBeat * 4) / 4, srcId, si, etype, delta, 0, INSTANT);
+		var ev = ModChartHelpers.makeEvent(snapBeat(playheadBeat), srcId, si, etype, delta, 0, INSTANT);
 		manager.addEvent(ev);
 		manager.seekToBeat(playheadBeat);
 		applyManagerToStrums();
 		refreshTimeline();
 		refreshStrumPropWindow();
-		setStatus('+ ${(etype:String)} ${delta>0?"+":""}${delta} @b${ev.beat}');
+		setStatus('+ ${(etype:String)} ${delta>0?"+":""}${fmt(delta)} @b${fmt(ev.beat)}');
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -916,9 +1713,8 @@ class ModChartEditorState extends FlxState
 		super.update(elapsed);
 
 		handleKeyboard();
-		handleMouse();
+		handleMouse(elapsed);
 
-		// Actualizar notas via NoteManager (igual que PlayState)
 		if (isPlaying)
 		{
 			if (FlxG.sound.music != null && FlxG.sound.music.playing)
@@ -928,7 +1724,6 @@ class ModChartEditorState extends FlxState
 
 			playheadBeat = songPosition / Conductor.crochet;
 
-			// Auto-scroll timeline
 			var margin = beatsVisible * 0.1;
 			if (playheadBeat > tlScroll + beatsVisible - margin)
 				tlScroll = playheadBeat - beatsVisible + margin;
@@ -938,51 +1733,104 @@ class ModChartEditorState extends FlxState
 			manager.seekToBeat(playheadBeat);
 			applyManagerToStrums();
 			syncPlayhead();
+			refreshScrollbar();
 
-			if (FlxG.sound.music != null && !FlxG.sound.music.playing && isPlaying)
-			{
-				isPlaying = false;
-				setStatus("♪ Fin de la canción.");
-			}
+			var bi = Std.int(playheadBeat);
+			if (bi != lastBeatInt) { lastBeatInt = bi; beatAlpha = 0.35; }
 		}
 
-		// NoteManager maneja toda la lógica de notas (spawn, movimiento, animaciones)
-		// Conductor.songPosition debe estar sincronizado
-		Conductor.songPosition = songPosition;
-		if (noteManager != null)
-			noteManager.update(songPosition);
+		if (beatAlpha > 0)
+		{
+			beatAlpha = Math.max(0, beatAlpha - elapsed * 3.5);
+			beatLine.alpha = beatAlpha;
+		}
 
-		// Actualizar animaciones de strums del editor
 		for (edGrp in editorGroups) edGrp.update();
 
-		if (beatInfoLbl != null)
-			beatInfoLbl.text = 'Beat: ${Math.round(playheadBeat*100)/100}  Step: ${Std.int(playheadBeat*4)}  BPM: ${Conductor.bpm}  ${Std.int(songPosition)}ms';
+		Conductor.songPosition = songPosition;
+		updateLabels();
+		refreshEvList();
+		updateAudioLabel();
 
-		if (lblType   != null) lblType.text   = (newType:String);
+		// Actualizar easing preview si cambió el ease
+		if (easingPreviewOpen && lblEase != null && (newEase:String) != easingPrevEase)
+			drawEasingCurve(newEase);
+	}
+
+	function updateLabels():Void
+	{
+		if (beatInfoLbl != null)
+			beatInfoLbl.text = 'Beat: ${fmt(playheadBeat)}  Step: ${Std.int(playheadBeat*4)}  BPM: ${fmt(Conductor.bpm)}  ${Std.int(songPosition)}ms';
+
+		if (lblType   != null) lblType.text    = ModChartHelpers.typeLabel(newType);
 		if (lblTarget != null) lblTarget.text  = newTarget;
 		if (lblStrum  != null) lblStrum.text   = strumLbl();
 		if (lblEase   != null) lblEase.text    = (newEase:String);
-		if (fldBeat   != null) fldBeat.text    = (focusField=="beat"     ? "▌" : "") + fieldBufs.get("beat");
-		if (fldVal    != null) fldVal.text     = (focusField=="value"    ? "▌" : "") + fieldBufs.get("value");
-		if (fldDur    != null) fldDur.text     = (focusField=="duration" ? "▌" : "") + fieldBufs.get("duration");
 
-		refreshEvList();
-		updateAudioLabel();
+		var fp = focusField;
+		if (fldBeat != null) fldBeat.text = (fp=="beat"     ? "▌" : "") + (fieldBufs.get("beat")     ?? "0");
+		if (fldVal  != null) fldVal.text  = (fp=="value"    ? "▌" : "") + (fieldBufs.get("value")    ?? "0");
+		if (fldDur  != null) fldDur.text  = (fp=="duration" ? "▌" : "") + (fieldBufs.get("duration") ?? "1");
 	}
 
-	// ── Teclado ────────────────────────────────────────────────────────────────
+	// ── Teclado ───────────────────────────────────────────────────────────────
 
 	function handleKeyboard():Void
 	{
 		if (FlxG.keys.justPressed.ESCAPE) { exitEditor(); return; }
-		if (FlxG.keys.justPressed.F1) {
+		if (FlxG.keys.justPressed.F1)
+		{
 			showHelp = !showHelp;
-			helpBg.visible = helpTxt.visible = showHelp;
+			helpOverlay.visible = helpTxt.visible = showHelp;
 		}
+		if (FlxG.keys.justPressed.TAB)    togglePreview();
+		if (FlxG.keys.justPressed.H && focusField == "") toggleUIWindows();
+		if (FlxG.keys.justPressed.F11)    toggleFullGame();
 		if (FlxG.keys.justPressed.SPACE)  togglePlay();
 		if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Z) doUndo();
+		if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Y) doRedo();
 		if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) onClickSave();
+
+		if (FlxG.keys.justPressed.ONE   && focusField == "") { snapDiv = 4;  updateSnapLbl(); }
+		if (FlxG.keys.justPressed.TWO   && focusField == "") { snapDiv = 8;  updateSnapLbl(); }
+		if (FlxG.keys.justPressed.THREE && focusField == "") { snapDiv = 16; updateSnapLbl(); }
+
+		if (focusField == "")
+		{
+			var step = 1.0 / snapDiv;
+			if (FlxG.keys.justPressed.LEFT)  seekToBeat(playheadBeat - step);
+			if (FlxG.keys.justPressed.RIGHT) seekToBeat(playheadBeat + step);
+			if (FlxG.keys.justPressed.UP)    seekToBeat(playheadBeat - 4);
+			if (FlxG.keys.justPressed.DOWN)  seekToBeat(playheadBeat + 4);
+
+			if (FlxG.keys.justPressed.DELETE && selectedEv != null)
+				deleteEvent(selectedEv);
+		}
+
 		if (focusField != "") handleTextInput();
+	}
+
+	function seekToBeat(beat:Float):Void
+	{
+		playheadBeat = Math.max(0, beat);
+		songPosition = playheadBeat * Conductor.crochet;
+		seekAudioTo(songPosition);
+		manager.seekToBeat(playheadBeat);
+		applyManagerToStrums();
+		syncPlayhead();
+		refreshScrollbar();
+		refreshStrumPropWindow();
+		centerTimelineOnPlayhead();
+	}
+
+	function centerTimelineOnPlayhead():Void
+	{
+		var margin = beatsVisible * 0.1;
+		if (playheadBeat > tlScroll + beatsVisible - margin || playheadBeat < tlScroll + margin)
+		{
+			tlScroll = Math.max(0, playheadBeat - beatsVisible / 2);
+			refreshTimeline();
+		}
 	}
 
 	function togglePlay():Void
@@ -992,8 +1840,6 @@ class ModChartEditorState extends FlxState
 		{
 			seekAudioTo(songPosition);
 			resumeAudio();
-			// Regenerar notas desde la posición actual
-			setupNoteManager();
 			manager.seekToBeat(playheadBeat);
 			setStatus("▶ Reproduciendo...");
 		}
@@ -1004,27 +1850,62 @@ class ModChartEditorState extends FlxState
 		}
 	}
 
+	function togglePreview():Void
+	{
+		previewMode = !previewMode;
+		var show = !previewMode;
+		windowGroup.visible   = show;
+		tlGroup.visible       = show;
+		strumHitGroup.visible = show;
+		selBoxGroup.visible   = show;
+		if (tlScrollbarBg    != null) tlScrollbarBg.visible    = show;
+		if (tlScrollbarThumb != null) tlScrollbarThumb.visible  = show;
+		if (show) setStatus("Preview OFF");
+		else      setStatus("◈ PREVIEW MODE — Tab para salir");
+	}
+
+	function toggleUIWindows():Void
+	{
+		uiHidden = !uiHidden;
+		for (wd in windows)
+		{
+			if (!uiHidden) showWin(wd);
+			else           hideWin(wd);
+		}
+		setStatus(uiHidden ? "UI Oculta — H para mostrar" : "UI Visible");
+	}
+
+	function toggleFullGame():Void
+	{
+		fullGameView = !fullGameView;
+		setStatus(fullGameView ? "Vista completa [F11 para volver]" : "Vista normal");
+	}
+
 	function handleTextInput():Void
 	{
-		if (FlxG.keys.justPressed.BACKSPACE) {
+		if (FlxG.keys.justPressed.BACKSPACE)
+		{
 			var b = fieldBufs.get(focusField);
-			if (b != null && b.length > 0) fieldBufs.set(focusField, b.substr(0, b.length-1));
+			if (b != null && b.length > 0) fieldBufs.set(focusField, b.substr(0, b.length - 1));
 		}
-		if (FlxG.keys.justPressed.ENTER)  { commitField(focusField); focusField = ""; }
-		if (FlxG.keys.justPressed.TAB) {
+		if (FlxG.keys.justPressed.ENTER) { commitField(focusField); focusField = ""; }
+		if (FlxG.keys.justPressed.ESCAPE) { focusField = ""; }
+		if (FlxG.keys.justPressed.TAB)
+		{
 			commitField(focusField);
 			var ord = ["beat","value","duration"];
-			focusField = ord[(ord.indexOf(focusField)+1) % ord.length];
+			focusField = ord[(ord.indexOf(focusField) + 1) % ord.length];
 		}
 		var numKeys = [
-			{k:FlxG.keys.justPressed.ZERO,   c:"0"}, {k:FlxG.keys.justPressed.ONE,    c:"1"},
+			{k:FlxG.keys.justPressed.ZERO,   c:"0"}, {k:FlxG.keys.justPressed.ONE,   c:"1"},
 			{k:FlxG.keys.justPressed.TWO,    c:"2"}, {k:FlxG.keys.justPressed.THREE,  c:"3"},
 			{k:FlxG.keys.justPressed.FOUR,   c:"4"}, {k:FlxG.keys.justPressed.FIVE,   c:"5"},
 			{k:FlxG.keys.justPressed.SIX,    c:"6"}, {k:FlxG.keys.justPressed.SEVEN,  c:"7"},
 			{k:FlxG.keys.justPressed.EIGHT,  c:"8"}, {k:FlxG.keys.justPressed.NINE,   c:"9"},
 			{k:FlxG.keys.justPressed.PERIOD, c:"."}, {k:FlxG.keys.justPressed.MINUS,  c:"-"}
 		];
-		for (nk in numKeys) if (nk.k) fieldBufs.set(focusField, (fieldBufs.get(focusField) ?? "") + nk.c);
+		for (nk in numKeys)
+			if (nk.k) fieldBufs.set(focusField, (fieldBufs.get(focusField) ?? "") + nk.c);
 	}
 
 	function commitField(key:String):Void
@@ -1036,12 +1917,12 @@ class ModChartEditorState extends FlxState
 			case "value":    newValue = v;
 			case "duration": newDur   = Math.max(0, v);
 		}
-		fieldBufs.set(key, Std.string(Math.round(v * 100) / 100));
+		fieldBufs.set(key, fmt(Math.round(v * 1000) / 1000));
 	}
 
 	// ── Mouse ──────────────────────────────────────────────────────────────────
 
-	function handleMouse():Void
+	function handleMouse(elapsed:Float):Void
 	{
 		var mx = FlxG.mouse.x;
 		var my = FlxG.mouse.y;
@@ -1049,17 +1930,84 @@ class ModChartEditorState extends FlxState
 		var lr = FlxG.mouse.justReleased;
 		var rp = FlxG.mouse.justPressedRight;
 
-		if (lr) draggingWin = null;
+		if (lr)
+		{
+			draggingWin       = null;
+			scrollbarDragging = false;
+		}
 
+		// ── Drag scrollbar ────────────────────────────────────────────────────
+		if (scrollbarDragging)
+		{
+			var maxBeat   = Math.max(beatsVisible + 1, getMaxBeat() + 8);
+			var thumbW    = Math.max(16.0, sbTrackW * beatsVisible / maxBeat);
+			var maxScroll = maxBeat - beatsVisible;
+			var relX      = mx - sbTrackX - scrollbarDragOX;
+			var ratio     = relX / (sbTrackW - thumbW);
+			tlScroll      = Math.max(0, Math.min(maxScroll, ratio * maxScroll));
+			syncPlayhead();
+			refreshScrollbar();
+			// Re-render timeline sin rebuildar todo (solo actualizar sprites de eventos)
+			// Para perf, refresh completo solo si necesario
+			refreshTimeline();
+			return;
+		}
+
+		// ── Drag ventana ──────────────────────────────────────────────────────
 		if (draggingWin != null)
 		{
 			var nx = FlxMath.bound(mx - dragOX, 0, SW - draggingWin.w);
-			var ny = FlxMath.bound(my - dragOY, 0, tlY - 20);
-			moveWin(draggingWin, nx, ny); return;
+			var ny = FlxMath.bound(my - dragOY, 0, SH - draggingWin.h - 10);
+			moveWin(draggingWin, nx, ny);
+			return;
+		}
+
+		// ── Hover sobre strums ────────────────────────────────────────────────
+		var hoveredStrum = getStrumAt(mx, my);
+		if (hoveredStrum != null)
+		{
+			var s = editorGroups[hoveredStrum.gi].getStrum(hoveredStrum.si);
+			if (s != null)
+			{
+				var hitSz = Math.max(64, Math.max(s.width, s.height) + 16);
+				strumHoverBox.setGraphicSize(Std.int(hitSz + 4), Std.int(hitSz + 4));
+				strumHoverBox.updateHitbox();
+				strumHoverBox.x     = s.x - hitSz / 2 + s.width / 2 - 2;
+				strumHoverBox.y     = s.y - hitSz / 2 + s.height / 2 - 2;
+				strumHoverBox.alpha = 0.25;
+				openfl.ui.Mouse.cursor   = openfl.ui.MouseCursor.BUTTON;
+			}
+		}
+		else
+		{
+			strumHoverBox.alpha = 0;
+			openfl.ui.Mouse.cursor   = openfl.ui.MouseCursor.AUTO;
 		}
 
 		if (lp)
 		{
+			// ── Click en scrollbar ────────────────────────────────────────────
+			if (my >= sbY && my <= sbY + TL_SB_H && mx >= sbTrackX && mx <= sbTrackX + sbTrackW)
+			{
+				// Click en thumb → drag
+				if (tlScrollbarThumb != null &&
+				    mx >= tlScrollbarThumb.x && mx <= tlScrollbarThumb.x + tlScrollbarThumb.width)
+				{
+					scrollbarDragging = true;
+					scrollbarDragOX   = mx - tlScrollbarThumb.x;
+					return;
+				}
+				// Click fuera del thumb → jump
+				var maxBeat   = Math.max(beatsVisible + 1, getMaxBeat() + 8);
+				var thumbW    = Math.max(16.0, sbTrackW * beatsVisible / maxBeat);
+				var relX      = mx - sbTrackX - thumbW / 2;
+				var ratio     = relX / (sbTrackW - thumbW);
+				tlScroll      = Math.max(0, Math.min(maxBeat - beatsVisible, ratio * (maxBeat - beatsVisible)));
+				refreshTimeline();
+				return;
+			}
+
+			// ── Check ventanas flotantes ──────────────────────────────────────
 			var i = windows.length - 1;
 			while (i >= 0)
 			{
@@ -1078,149 +2026,183 @@ class ModChartEditorState extends FlxState
 				i--;
 			}
 
-			if (my < BAR_H)
+			// Barra superior y status
+			if (my < BAR_H || my >= SH - STAT_H)
 				for (btn in hitBtns) if (inR(mx,my,btn.x,btn.y,btn.w,btn.h)) { btn.cb(); return; }
 
-			// Click en strum del editor
-			if (my >= BAR_H && my < tlY)
+			// Panel izquierdo
+			if (mx < PANEL_L && my >= BAR_H && my < tlY)
 			{
-				for (gi in 0...editorGroups.length)
+				for (btn in hitBtns)   if (inR(mx,my,btn.x,btn.y,btn.w,btn.h)) { btn.cb(); return; }
+				for (hf  in hitFields) if (inR(mx,my,hf.x,hf.y,hf.w,hf.h))    { focusField = hf.key; return; }
+			}
+
+			// Panel derecho
+			if (mx >= SW - PANEL_R && my >= BAR_H && my < tlY)
+			{
+				for (btn in strumPropBtns) if (inR(mx,my,btn.x,btn.y,btn.w,btn.h)) { btn.cb(); return; }
+				for (btn in hitBtns)       if (inR(mx,my,btn.x,btn.y,btn.w,btn.h)) { btn.cb(); return; }
+			}
+
+			// Click en strum
+			if (mx >= gameAreaX && mx <= gameAreaX + gameAreaW && my >= BAR_H && my < tlY)
+			{
+				var hit = getStrumAt(mx, my);
+				if (hit != null)
 				{
-					var hit = false;
-					for (si in 0...4)
-					{
-						var s = editorGroups[gi].getStrum(si);
-						if (s == null || !s.visible) continue;
-						// Usar hitbox real del strum (ya actualizada por updateHitbox)
-						// El x,y del sprite ya es el top-left del hitbox tras updateHitbox+centerOffsets
-						var sw = s.width  > 0 ? s.width  : 40.0;
-						var sh = s.height > 0 ? s.height : 40.0;
-						// Añadir margen de tolerancia para facilitar el click
-						var margin = 8.0;
-						if (inR(mx, my, s.x - margin, s.y - margin, sw + margin*2, sh + margin*2))
-						{
-							selectStrum(gi, si); hit = true; break;
-						}
-					}
-					if (hit) break;
+					selectStrum(hit.gi, hit.si);
+					return;
 				}
 			}
 
 			// Click en timeline
-			if (my >= tlY)
+			if (my >= tlY && my < sbY)
 			{
 				for (btn in hitBtns) if (inR(mx,my,btn.x,btn.y,btn.w,btn.h)) { btn.cb(); return; }
+
 				var hitEv = false;
-				for (es in evSprites) {
-					if (inR(mx,my, es.sp.x, es.sp.y, es.sp.width, es.sp.height)) { selectEvent(es.ev); hitEv = true; break; }
-				}
-				if (!hitEv)
+				for (es in evSprites)
+					if (inR(mx,my, es.sp.x, es.sp.y, es.sp.width + 2, es.sp.height + 2))
+					{
+						selectEvent(es.ev); hitEv = true; break;
+					}
+
+				if (!hitEv && mx >= PANEL_L && mx <= SW - PANEL_R)
 				{
-					playheadBeat = Math.max(0, tlScroll + mx / (SW / beatsVisible));
-					songPosition = playheadBeat * Conductor.crochet;
-					seekAudioTo(songPosition);
-					manager.seekToBeat(playheadBeat);
-					applyManagerToStrums();
-					refreshStrumPropWindow();
+					var rawBeat = Math.max(0, tlScroll + (mx - PANEL_L) / ((SW - PANEL_L - PANEL_R) / beatsVisible));
+					seekToBeat(snapDiv > 1 ? snapBeat(rawBeat) : rawBeat);
 					selectedEv = null;
 					if (inspTxt != null) inspTxt.text = "(sin selección)";
-					syncPlayhead();
 					refreshTimeline();
-					// Regenerar notas para mostrar las de este beat
-					setupNoteManager();
 				}
 			}
 		}
 
-		// RMB en timeline → borrar evento
-		if (rp && my >= tlY)
+		// RMB en timeline → borrar
+		if (rp && my >= tlY && my < sbY)
 		{
-			for (es in evSprites) {
-				if (inR(mx,my, es.sp.x, es.sp.y, es.sp.width, es.sp.height)) {
-					pushUndo();
-					manager.data.events.remove(es.ev);
-					if (selectedEv == es.ev) selectedEv = null;
-					refreshTimeline();
-					setStatus("Evento eliminado."); return;
-				}
-			}
-		}
-
-		// RMB en strum → seleccionar + target
-		if (rp && my >= BAR_H && my < tlY)
-		{
-			for (gi in 0...editorGroups.length)
-			{
-				for (si in 0...4)
+			for (es in evSprites)
+				if (inR(mx,my, es.sp.x, es.sp.y, es.sp.width + 2, es.sp.height + 2))
 				{
-					var s = editorGroups[gi].getStrum(si);
-					if (s == null) continue;
-					var sw     = s.width  > 0 ? s.width  : 40.0;
-					var sh     = s.height > 0 ? s.height : 40.0;
-					var margin = 8.0;
-					if (inR(mx, my, s.x - margin, s.y - margin, sw + margin*2, sh + margin*2))
-					{
-						selectStrum(gi, si);
-						newTarget = srcStrumsGrps[gi].id;
-						newStrumI = si;
-						setStatus('Target → ${srcStrumsGrps[gi].id}[$si]'); return;
-					}
+					deleteEvent(es.ev); return;
 				}
+		}
+
+		// RMB en strum → target
+		if (rp && mx >= gameAreaX && mx <= gameAreaX + gameAreaW && my >= BAR_H && my < tlY)
+		{
+			var hit = getStrumAt(mx, my);
+			if (hit != null && hit.gi < srcStrumsGrps.length)
+			{
+				selectStrum(hit.gi, hit.si);
+				newTarget = srcStrumsGrps[hit.gi].id;
+				newStrumI = hit.si;
+				setStatus('Target → ${srcStrumsGrps[hit.gi].id}[${hit.si}]');
 			}
 		}
 
+		// Rueda
 		var wheel = FlxG.mouse.wheel;
-		if (wheel != 0 && my >= tlY)
+		if (wheel != 0 && my >= tlY && my < SH - STAT_H)
 		{
 			if (FlxG.keys.pressed.CONTROL)
-				beatsVisible = FlxMath.bound(wheel>0 ? beatsVisible/1.5 : beatsVisible*1.5, BV_MIN, BV_MAX);
+			{
+				beatsVisible = FlxMath.bound(wheel > 0 ? beatsVisible / 1.5 : beatsVisible * 1.5, BV_MIN, BV_MAX);
+				refreshTimeline();
+			}
 			else
+			{
 				tlScroll = Math.max(0, tlScroll - wheel * beatsVisible * 0.08);
-			refreshTimeline();
+				syncPlayhead();
+				refreshTimeline();
+			}
 		}
 
-		if (wheel != 0 && my >= BAR_H && my < tlY && FlxG.keys.pressed.CONTROL)
+		if (wheel != 0 && mx >= gameAreaX && mx <= gameAreaX + gameAreaW && my >= BAR_H && my < tlY)
 		{
-			volValue = FlxMath.bound(volValue + wheel * 0.05, 0, 1);
-			applyVolume();
+			if (FlxG.keys.pressed.CONTROL)
+			{
+				volValue = FlxMath.bound(volValue + wheel * 0.05, 0, 1);
+				applyVolume();
+			}
 		}
+	}
+
+	// ─── Strum helpers ────────────────────────────────────────────────────────
+
+	function getStrumAt(mx:Float, my:Float):Null<{gi:Int, si:Int}>
+	{
+		for (gi in 0...editorGroups.length)
+		{
+			for (si in 0...4)
+			{
+				var s = editorGroups[gi].getStrum(si);
+				if (s == null) continue;
+				var hitSz = Math.max(64, Math.max(s.width, s.height) + 16);
+				var hx    = s.x - hitSz / 2 + s.width / 2;
+				var hy    = s.y - hitSz / 2 + s.height / 2;
+				if (inR(mx, my, hx, hy, hitSz + 8, hitSz + 8))
+					return { gi: gi, si: si };
+			}
+		}
+		return null;
 	}
 
 	function selectStrum(gi:Int, si:Int):Void
 	{
-		selectedGroupIdx = gi; selectedStrumIdx = si;
+		selectedGroupIdx = gi;
+		selectedStrumIdx = si;
+
 		for (gBoxes in selBoxes) for (box in gBoxes) if (box != null) box.visible = false;
 		if (gi < selBoxes.length && si < selBoxes[gi].length && selBoxes[gi][si] != null)
 			selBoxes[gi][si].visible = true;
+
 		refreshStrumPropWindow();
-		setStatus('Strum: ${srcStrumsGrps[gi].id} [${["LEFT","DOWN","UP","RIGHT"][si]}]');
+		var dnames = ["LEFT","DOWN","UP","RIGHT"];
+		setStatus('✓ Strum: ${srcStrumsGrps[gi].id} [${dnames[si]}]  — RMB = usar como target');
 	}
 
 	// ── Lista de eventos ──────────────────────────────────────────────────────
 
 	function refreshEvList():Void
 	{
-		if (evListWin == null) return;
-		for (t in evListTxts) { evListWin.contentGroup.remove(t, true); t.destroy(); }
+		for (t in evListTxts) { remove(t, true); t.destroy(); }
 		evListTxts = [];
-		hitBtns = hitBtns.filter(function(b) return b.h != 12.0 || b.w != evListWin.w - 16);
 
-		var cx = evListX; var cy = evListY; var lh = 12;
-		var maxH = evListWin.y + evListWin.h - 124 - cy;
-		var max  = Std.int(maxH / lh);
+		if (evListStartY <= 0) return;
 
-		for (i in 0...Std.int(Math.min(max, manager.data.events.length)))
+		var cx  = 6.0;
+		var cy  = evListStartY;
+		var cw  = PANEL_L - 12.0;
+		var lh  = 13;
+		var max = Std.int((evListEndY - cy) / lh);
+
+		var evs = manager.data.events;
+		for (i in 0...Std.int(Math.min(max, evs.length)))
 		{
-			var ev  = manager.data.events[i];
+			var ev  = evs[i];
 			var col = (selectedEv == ev) ? FlxColor.fromInt(C_ACCENT2) : FlxColor.fromInt(C_DIM);
-			var ts  = (ev.type:String);
-			var txt = 'b${Math.round(ev.beat*10)/10} $ts ${ev.target}[${ev.strumIdx==-1?"A":Std.string(ev.strumIdx)}]→${ev.value}';
+			var ts  = (ev.type:String).substr(0, 9);
+			var tgt = ev.target.substr(0, 6);
+			var txt = 'b${fmt(ev.beat)} ${ts} ${tgt}[${ev.strumIdx==-1?"A":Std.string(ev.strumIdx)}]=>${fmt(ev.value)}';
 			var t   = mkTxt(cx, cy, txt, 9, col);
-			t.cameras = [editorCam];
-			evListWin.contentGroup.add(t); evListTxts.push(t);
+
+			if (selectedEv == ev)
+			{
+				var selBg = mkBg(cx, cy, cw, lh, 0x22AACCFF);
+				add(selBg); evListTxts.push(selBg);
+			}
+
+			add(t); evListTxts.push(t);
 			var captEv = ev;
-			hitBtns.push({ x: cx, y: cy, w: evListWin.w-16, h: 12.0, cb: function() selectEvent(captEv) });
+			hitBtns.push({ x: cx, y: cy, w: cw, h: lh + 1.0, cb: function() selectEvent(captEv) });
 			cy += lh;
+		}
+
+		if (evs.length > max)
+		{
+			var more = mkTxt(cx, cy, '... +${evs.length - max} más', 9, C_DIM);
+			add(more); evListTxts.push(more);
 		}
 	}
 
@@ -1236,9 +2218,9 @@ class ModChartEditorState extends FlxState
 		manager.addEvent(ev);
 		refreshTimeline();
 		selectEvent(ev);
-		setStatus('+ ${(newType:String)} en beat $newBeat');
-		newBeat += newDur > 0 ? newDur : 1;
-		fieldBufs.set("beat", Std.string(Math.round(newBeat * 100) / 100));
+		setStatus('+ ${ModChartHelpers.typeLabel(newType)} en beat ${fmt(newBeat)} → ${newTarget}[${strumLbl()}]');
+		newBeat += newDur > 0 ? newDur : 1.0 / snapDiv;
+		fieldBufs.set("beat", fmt(Math.round(newBeat * 1000) / 1000));
 	}
 
 	function onClickPlay():Void
@@ -1247,30 +2229,59 @@ class ModChartEditorState extends FlxState
 		isPlaying = true;
 		seekAudioTo(songPosition);
 		resumeAudio();
-		setupNoteManager();
 		manager.seekToBeat(playheadBeat);
 		setStatus("▶ Reproduciendo...");
 	}
 
 	function onClickStop():Void
 	{
-		isPlaying = false; playheadBeat = 0; songPosition = 0;
-		pauseAudio(); seekAudioTo(0);
+		isPlaying    = false;
+		playheadBeat = 0;
+		songPosition = 0;
+		lastBeatInt  = -1;
+		pauseAudio();
+		seekAudioTo(0);
 		manager.seekToBeat(0);
 		applyManagerToStrums();
-		setupNoteManager();
 		refreshTimeline();
 		setStatus("■ Detenido. Beat: 0");
 	}
+
+	// ── Guardar / Cargar mejorado ─────────────────────────────────────────────
 
 	function onClickSave():Void
 	{
 		#if sys
 		try {
-			var p = Paths.ensureDir(Paths.resolveWrite('modcharts/${manager.data.song.toLowerCase()}.json'));
-			sys.io.File.saveContent(p, manager.toJson());
-			setStatus('✓ Guardado: $p');
-		} catch (e:Dynamic) { setStatus("Error: " + e); }
+			var songName = manager.data.song.toLowerCase();
+			var dir      = 'modcharts/';
+			if (!sys.FileSystem.exists(dir)) sys.FileSystem.createDirectory(dir);
+
+			var mainPath = '${dir}${songName}.json';
+
+			// Backup del archivo anterior
+			if (sys.FileSystem.exists(mainPath))
+			{
+				var backupDir = '${dir}backup/';
+				if (!sys.FileSystem.exists(backupDir)) sys.FileSystem.createDirectory(backupDir);
+
+				var stamp   = Date.now();
+				var datePart= '${stamp.getFullYear()}${pad2(stamp.getMonth()+1)}${pad2(stamp.getDate())}_${pad2(stamp.getHours())}${pad2(stamp.getMinutes())}';
+				var bkp     = '${backupDir}${songName}_${datePart}.json';
+				sys.io.File.copy(mainPath, bkp);
+
+				// Mantener solo los últimos 5 backups
+				var bkpFiles = sys.FileSystem.readDirectory(backupDir)
+					.filter(f -> StringTools.startsWith(f, songName) && StringTools.endsWith(f, '.json'));
+				bkpFiles.sort((a, b) -> Reflect.compare(a, b));
+				while (bkpFiles.length > 5) {
+					sys.FileSystem.deleteFile(backupDir + bkpFiles.shift());
+				}
+			}
+
+			sys.io.File.saveContent(mainPath, manager.toJson());
+			setStatus('✓ Guardado: ${mainPath}  (backup auto)');
+		} catch (e:Dynamic) { setStatus("Error al guardar: " + e); }
 		#else
 		FlxG.save.data.modchart_last = manager.toJson();
 		FlxG.save.flush();
@@ -1278,104 +2289,110 @@ class ModChartEditorState extends FlxState
 		#end
 	}
 
+	inline function pad2(n:Int):String return n < 10 ? '0$n' : '$n';
+
 	function onClickLoad():Void
 	{
 		#if sys
-		var p = Paths.resolve('modcharts/${manager.data.song.toLowerCase()}.json');
-		if (sys.FileSystem.exists(p)) {
-			try { manager.loadFromJson(sys.io.File.getContent(p)); refreshTimeline(); setStatus('✓ ${manager.data.events.length} eventos'); }
-			catch (e:Dynamic) { setStatus("Error: " + e); }
-		} else setStatus("No encontrado: " + p);
+		var songName = manager.data.song.toLowerCase();
+		var mainPath = 'modcharts/${songName}.json';
+		if (sys.FileSystem.exists(mainPath))
+		{
+			try {
+				manager.loadFromJson(sys.io.File.getContent(mainPath));
+				refreshTimeline();
+				setStatus('✓ ${manager.data.events.length} eventos cargados de ${mainPath}');
+			} catch (e:Dynamic) { setStatus("Error al cargar: " + e); }
+		}
+		else setStatus("Archivo no encontrado: " + mainPath);
 		#else
-		if (FlxG.save.data.modchart_last != null) {
+		if (FlxG.save.data.modchart_last != null)
+		{
 			manager.loadFromJson(FlxG.save.data.modchart_last);
 			refreshTimeline();
 			setStatus("✓ Cargado desde save.");
-		} else setStatus("No hay save.");
+		}
+		else setStatus("No hay save.");
 		#end
 	}
 
 	function onClickNew():Void
 	{
-		pushUndo(); manager.clearEvents(); refreshTimeline(); setStatus("Modchart limpiado.");
+		pushUndo();
+		manager.clearEvents();
+		refreshTimeline();
+		setStatus("Modchart limpiado.");
 	}
 
 	function selectEvent(ev:ModChartEvent):Void
 	{
 		selectedEv = ev;
+
 		if (inspTxt != null)
 			inspTxt.text =
-				'Tipo:   ${(ev.type:String)}\n' +
-				'Beat:   ${Math.round(ev.beat*100)/100}\n' +
-				'Target: ${ev.target}  Strum: ${ev.strumIdx==-1?"ALL":Std.string(ev.strumIdx)}\n' +
-				'Valor:  ${ev.value}\n' +
-				'Dur: ${ev.duration}b  Ease: ${(ev.ease:String)}';
+				'Tipo:   ${ModChartHelpers.typeLabel(ev.type)}\n' +
+				'Beat:   ${fmt(ev.beat)}\n' +
+				'Target: ${ev.target}\n' +
+				'Strum:  ${ev.strumIdx == -1 ? "TODOS" : ["L","D","U","R"][ev.strumIdx]}\n' +
+				'Valor:  ${fmt2(ev.value)}\n' +
+				'Dur:    ${fmt(ev.duration)}b\n' +
+				'Ease:   ${(ev.ease:String)}';
 
 		newType=ev.type; newTarget=ev.target; newStrumI=ev.strumIdx;
-		newBeat=ev.beat; newValue=ev.value;   newDur=ev.duration; newEase=ev.ease;
-		fieldBufs.set("beat",     Std.string(ev.beat));
-		fieldBufs.set("value",    Std.string(ev.value));
-		fieldBufs.set("duration", Std.string(ev.duration));
+		newBeat=ev.beat; newValue=ev.value; newDur=ev.duration; newEase=ev.ease;
+		fieldBufs.set("beat",     fmt(ev.beat));
+		fieldBufs.set("value",    fmt2(ev.value));
+		fieldBufs.set("duration", fmt(ev.duration));
 
-		playheadBeat = ev.beat;
-		songPosition = playheadBeat * Conductor.crochet;
-		seekAudioTo(songPosition);
+		// Actualizar preview de easing con el ease del evento seleccionado
+		easingPrevEase = "";
+		drawEasingCurve(newEase);
+
+		seekToBeat(ev.beat);
+		refreshTimeline();
+	}
+
+	function deleteEvent(ev:ModChartEvent):Void
+	{
+		pushUndo();
+		manager.data.events.remove(ev);
+		if (selectedEv == ev) { selectedEv = null; if (inspTxt != null) inspTxt.text = "(sin selección)"; }
 		manager.seekToBeat(playheadBeat);
 		applyManagerToStrums();
-		refreshStrumPropWindow();
 		refreshTimeline();
-		setupNoteManager();
+		setStatus("Evento eliminado.");
 	}
 
 	function doUndo():Void
 	{
 		if (undoStack.length == 0) { setStatus("Nada que deshacer."); return; }
+		redoStack.push(manager.toJson());
 		manager.loadFromJson(undoStack.pop());
-		refreshTimeline(); setStatus("↩ Deshecho.");
+		refreshTimeline();
+		setStatus("↩ Deshecho.");
+	}
+
+	function doRedo():Void
+	{
+		if (redoStack.length == 0) { setStatus("Nada que rehacer."); return; }
+		undoStack.push(manager.toJson());
+		manager.loadFromJson(redoStack.pop());
+		refreshTimeline();
+		setStatus("↪ Rehecho.");
 	}
 
 	function pushUndo():Void
 	{
 		undoStack.push(manager.toJson());
-		if (undoStack.length > 50) undoStack.shift();
+		redoStack = [];
+		if (undoStack.length > 80) undoStack.shift();
 	}
 
-	function setStatus(msg:String):Void { if (statusTxt != null) statusTxt.text = msg; trace('[MCEditor] $msg'); }
-
-	function getMaxBeat():Float
+	function setStatus(msg:String):Void
 	{
-		var m = 16.0;
-		for (ev in manager.data.events) if (ev.beat + ev.duration > m) m = ev.beat + ev.duration;
-		return m;
+		if (statusTxt != null) statusTxt.text = msg;
+		trace('[MCEditor] $msg');
 	}
-
-	function cycleType(d:Int):Void
-	{
-		var all = ModChartHelpers.ALL_TYPES;
-		var i = all.indexOf(newType);
-		newType = all[((i+d) % all.length + all.length) % all.length];
-	}
-
-	function cycleEaseDir(d:Int):Void
-	{
-		var all = ModChartHelpers.ALL_EASES;
-		var i = all.indexOf(newEase);
-		newEase = all[((i+d) % all.length + all.length) % all.length];
-	}
-
-	function cycleTarget(d:Int):Void
-	{
-		var opts = ["player","cpu","all"];
-		for (g in srcStrumsGrps) opts.push(g.id);
-		var i = opts.indexOf(newTarget);
-		newTarget = opts[((i+d) % opts.length + opts.length) % opts.length];
-	}
-
-	function strumLbl():String
-		return newStrumI == -1 ? "ALL" : ["LEFT","DOWN","UP","RIGHT"][newStrumI];
-
-	inline function bps():Float
-		return Conductor.crochet > 0 ? 1000.0 / Conductor.crochet : 2.0;
 
 	// ═════════════════════════════════════════════════════════════════════════
 	// SISTEMA DE VENTANAS
@@ -1389,18 +2406,22 @@ class ModChartEditorState extends FlxState
 			titleTxt:null, minBtn:null, closeBtn:null, contentGroup: new FlxGroup()
 		};
 
-		wd.shadow = mkRaw(x+4, y+4, w, h, 0xAA000000);
-		wd.bg     = mkRaw(x, y+24, w, h-24, 0xDD07071A);
-		var brd   = mkRaw(x, y+24, 2, h-24, C_ACCENT); brd.alpha = 0.5;
+		wd.shadow   = mkRaw(x+4, y+4, w, h, 0xAA000000);
+		wd.bg       = mkRaw(x, y+24, w, h-24, 0xEE06061A);
+		var brd     = mkRaw(x, y+24, 2, h-24, C_WIN_BORD); brd.alpha = 0.7;
+		var brdR    = mkRaw(x+w-2, y+24, 2, h-24, C_WIN_BORD); brdR.alpha = 0.3;
+		var brdB    = mkRaw(x, y+h-2, w, 2, C_WIN_BORD); brdB.alpha = 0.3;
 
-		wd.titleBar = mkRaw(x, y, w, 24, C_WIN_T);
+		wd.titleBar = mkRaw(x, y, w, 24, C_WIN_TITLE);
 		wd.titleTxt = mkTxt(x+10, y+5, title, 12, C_TEXT);
-		(wd.titleTxt:FlxText).fieldWidth = w-52;
-		wd.minBtn   = mkTxt(x+w-42, y+4, "─", 12, 0xFFAAAAFF);
-		wd.closeBtn = mkTxt(x+w-22, y+4, "✕", 12, 0xFFFF5566);
+		(wd.titleTxt:FlxText).fieldWidth = w - 52;
+		wd.minBtn   = mkTxt(x+w-42, y+5, "─", 12, 0xFF8888FF);
+		wd.closeBtn = mkTxt(x+w-22, y+5, "✕", 12, C_ACCENT2);
 
-		for (s in [wd.shadow, wd.bg, brd, wd.titleBar]) wd.allSprites.push(s);
-		for (t in [wd.titleTxt, wd.minBtn, wd.closeBtn]) wd.allSprites.push(t);
+		for (s in [wd.shadow, wd.bg, brd, brdR, brdB, wd.titleBar])
+			wd.allSprites.push(s);
+		for (t in [wd.titleTxt, wd.minBtn, wd.closeBtn])
+			wd.allSprites.push(t);
 		return wd;
 	}
 
@@ -1412,7 +2433,7 @@ class ModChartEditorState extends FlxState
 
 	function moveWin(wd:WinData, nx:Float, ny:Float):Void
 	{
-		var dx = nx-wd.x; var dy = ny-wd.y;
+		var dx = nx - wd.x; var dy = ny - wd.y;
 		wd.x = nx; wd.y = ny;
 		for (s in wd.allSprites) shiftBasic(s, dx, dy);
 		if (wd.contentGroup != null)
@@ -1422,12 +2443,19 @@ class ModChartEditorState extends FlxState
 					(cast b:FlxGroup).forEach(function(bb:flixel.FlxBasic) shiftBasic(bb, dx, dy));
 			});
 		if (wd == strumPropWin) refreshStrumPropWindow();
+
+		// Redibujar easing si se mueve la ventana
+		if (wd == easingPreviewWin && easingPreviewOpen)
+		{
+			easingPrevEase = "";
+			drawEasingCurve(newEase);
+		}
 	}
 
 	inline function shiftBasic(b:flixel.FlxBasic, dx:Float, dy:Float):Void
 	{
-		if (Std.isOfType(b, FlxSprite)) { var s:FlxSprite=cast b; s.x+=dx; s.y+=dy; }
-		else if (Std.isOfType(b, FlxText)) { var t:FlxText=cast b; t.x+=dx; t.y+=dy; }
+		if      (Std.isOfType(b, FlxSprite)) { var s:FlxSprite=cast b; s.x+=dx; s.y+=dy; }
+		else if (Std.isOfType(b, FlxText))   { var t:FlxText=cast b;   t.x+=dx; t.y+=dy; }
 	}
 
 	function bringFront(wd:WinData):Void
@@ -1443,6 +2471,14 @@ class ModChartEditorState extends FlxState
 		wd.visible = false;
 	}
 
+	function showWin(wd:WinData):Void
+	{
+		for (s in wd.allSprites) if (s != null) s.visible = true;
+		if (wd.contentGroup != null) wd.contentGroup.visible = !wd.minimized;
+		wd.visible = true;
+		applyMinimize(wd);
+	}
+
 	function applyMinimize(wd:WinData):Void
 	{
 		var show = !wd.minimized;
@@ -1455,81 +2491,62 @@ class ModChartEditorState extends FlxState
 		if (wd.contentGroup != null) wd.contentGroup.visible = show;
 	}
 
-	function wSpr(wd:WinData, s:FlxSprite):FlxSprite
+	// ─────────────────────────────────────────────────────────────────────────
+	// AYUDA OVERLAY
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function buildHelpOverlay():Void
 	{
-		s.cameras = [editorCam];
-		wd.allSprites.push(s);
-		if (wd.contentGroup != null) wd.contentGroup.add(s);
-		return s;
-	}
+		helpOverlay = new FlxSprite(60, 15);
+		helpOverlay.makeGraphic(1160, 678, FlxColor.fromInt(0xF4020210));
+		helpOverlay.cameras = [editorCam];
+		helpOverlay.visible = false;
+		add(helpOverlay);
 
-	function wTxt(wd:WinData, x:Float, y:Float, txt:String, size:Int, col:Int=0xFFDDDDFF):FlxText
-	{
-		var t = mkTxt(x, y, txt, size, col);
-		if (wd.contentGroup != null) wd.contentGroup.add(t);
-		return t;
-	}
+		drawBorderSprite(helpOverlay, 1160, 678, C_ACCENT, 3);
+		helpOverlay.pixels = helpOverlay.pixels;
 
-	function wBtn(wd:WinData, x:Float, y:Float, label:String, cb:Void->Void):FlxText
-	{
-		var t = mkTxt(x, y, label, 11, C_ACCENT);
-		if (wd.contentGroup != null) wd.contentGroup.add(t);
-		hitBtns.push({ x:x, y:y, w:16.0, h:16.0, cb:cb });
-		return t;
-	}
-
-	function wField(wd:WinData, x:Float, y:Float, w:Float, key:String):FlxText
-	{
-		var bg = new FlxSprite(x, y); bg.makeGraphic(Std.int(w), 14, 0xFF050511);
-		bg.cameras = [editorCam];
-		if (wd.contentGroup != null) wd.contentGroup.add(bg);
-		var t = mkTxt(x+2, y+1, fieldBufs.get(key) ?? "0", 10, 0xFFFFDD44);
-		if (wd.contentGroup != null) wd.contentGroup.add(t);
-		hitFields.push({ x:x, y:y, w:w, h:14.0, key:key });
-		return t;
-	}
-
-	function addTLBtn(x:Float, y:Float, label:String, cb:Void->Void):FlxText
-	{
-		var t = mkTxt(x, y, label, 11, C_ACCENT);
-		tlGroup.add(t);
-		hitBtns.push({ x:x, y:y, w:label.length*7.0+4, h:18.0, cb:cb });
-		return t;
-	}
-
-	// ═════════════════════════════════════════════════════════════════════════
-	// AYUDA
-	// ═════════════════════════════════════════════════════════════════════════
-
-	function buildHelp():Void
-	{
-		helpBg = new FlxSprite(70, 20);
-		helpBg.makeGraphic(1140, 660, 0xF3020210);
-		helpBg.cameras = [editorCam]; helpBg.visible = false; add(helpBg);
-
-		helpTxt = new FlxText(86, 32, 1100,
-			"═══ AYUDA EDITOR MODCHART ═══\n\n" +
-			"AUDIO\n" +
-			"  SPACE / ▶ Play           → Play/Pausa inst + vocals\n" +
-			"  ■ Stop                   → Para y vuelve al beat 0\n" +
-			"  CTRL+Rueda (juego)       → Volumen\n\n" +
-			"STRUMS (área de juego)\n" +
-			"  LMB sobre flecha         → Seleccionar strum\n" +
-			"  RMB sobre flecha         → Seleccionar + poner como target\n" +
-			"  Ventana 'Strum Props'    → X/Y/Angle/Alpha/Scale + botones − / +\n\n" +
-			"LÍNEA DE TIEMPO\n" +
-			"  LMB vacío                → Mover playhead\n" +
-			"  LMB sobre evento         → Seleccionar (copia datos al form)\n" +
-			"  RMB sobre evento         → Eliminar\n" +
-			"  Rueda                    → Scroll   CTRL+Rueda → Zoom\n" +
-			"  ALL                      → Ver toda la canción\n\n" +
-			"FORMULARIO\n" +
-			"  + Añadir al Beat         → Crea evento en el beat del campo\n" +
-			"  ⊕ Añadir en Playhead     → Crea en el beat actual\n\n" +
-			"TIPOS: MOVE_X/Y  SET_ABS_X/Y  ANGLE  SPIN  ALPHA  SCALE  RESET\n\n" +
-			"ATAJOS: SPACE play  CTRL+Z deshacer  CTRL+S guardar  ESC cerrar  F1 ayuda\n\n" +
-			"[F1 para cerrar]", 12);
-		helpTxt.color = FlxColor.fromInt(C_TEXT); helpTxt.cameras = [editorCam]; helpTxt.visible = false; add(helpTxt);
+		helpTxt = new FlxText(80, 30, 1120,
+			"══════════════════  AYUDA EDITOR MODCHART v4  ══════════════════\n\n" +
+			"ATAJOS RÁPIDOS\n" +
+			"  Space          → Play / Pausa\n" +
+			"  Flechas ← →    → Navegar beats (con snap)\n" +
+			"  Flechas ↑ ↓    → Navegar 4 beats\n" +
+			"  Delete          → Eliminar evento seleccionado\n" +
+			"  Tab             → Modo Preview (oculta todo el UI)\n" +
+			"  H               → Ocultar/mostrar ventanas flotantes\n" +
+			"  F11             → Vista pantalla completa del área de juego\n" +
+			"  1 / 2 / 3       → Snap: 1/4 | 1/8 | 1/16\n" +
+			"  Ctrl+Z          → Deshacer  |  Ctrl+Y → Rehacer\n" +
+			"  Ctrl+S          → Guardar (con backup automático)\n" +
+			"  F1              → Esta ayuda  |  ESC → Cerrar editor\n\n" +
+			"TIMELINE (v4 — con grupos y scrollbar)\n" +
+			"  LMB vacío               → Mover playhead al beat clickeado\n" +
+			"  LMB sobre evento        → Seleccionar evento\n" +
+			"  RMB sobre evento        → Eliminar evento\n" +
+			"  LMB sobre header grupo  → Colapsar / expandir grupo\n" +
+			"  Rueda                   → Scroll horizontal\n" +
+			"  Ctrl+Rueda              → Zoom in/out\n" +
+			"  Scrollbar inferior      → Arrastrar thumb para navegar\n" +
+			"  ◀ / ▶ (extremos bar)   → Scroll fino\n" +
+			"  Botón ALL               → Ver toda la canción\n\n" +
+			"EASE PREVIEW\n" +
+			"  Botón 'Ease〜' (timeline) o '〜 EASE PREVIEW' (panel derecho)\n" +
+			"  → Abre ventana flotante con curva del easing actual\n" +
+			"  → Se actualiza automáticamente al cambiar el ease\n\n" +
+			"SCRIPTS EXTERNOS\n" +
+			"  Botón 'Scripts' (timeline) o '📜 SCRIPTS' (panel derecho)\n" +
+			"  → Importar eventos desde JSON externo\n" +
+			"  → Exportar eventos actuales como script JSON\n" +
+			"  → Ruta automática: modcharts/scripts/<cancion>.json\n\n" +
+			"GUARDAR (mejorado)\n" +
+			"  Ctrl+S o botón GUARDAR → Guarda + backup automático\n" +
+			"  → Backup en modcharts/backup/ (últimos 5)\n\n" +
+			"[F1 para cerrar esta ayuda]", 11);
+		helpTxt.color   = FlxColor.fromInt(C_TEXT);
+		helpTxt.cameras = [editorCam];
+		helpTxt.visible = false;
+		add(helpTxt);
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -1538,13 +2555,9 @@ class ModChartEditorState extends FlxState
 
 	function exitEditor():Void
 	{
-		// Guardar automáticamente antes de salir
 		onClickSave();
-
 		manager.captureBasePositions();
 		manager.resetToStart();
-
-		if (noteManager != null) noteManager.destroy();
 
 		for (edGrp in editorGroups) edGrp.destroy();
 		editorGroups = [];
@@ -1552,15 +2565,14 @@ class ModChartEditorState extends FlxState
 		FlxG.mouse.visible = false;
 
 		trace('[MCEditor] Cerrado. Eventos: ${manager.data.events.length}');
-
-		// Volver a PlayState — carga el modchart desde el archivo que acabamos de guardar
 		StateTransition.switchState(new PlayState());
 	}
 
 	override function destroy():Void
 	{
-		manager = null; noteManager = null;
-		srcStrumsGrps = null; vocals = null;
+		manager = null;
+		srcStrumsGrps = null;
+		vocals = null;
 		super.destroy();
 	}
 
@@ -1568,24 +2580,85 @@ class ModChartEditorState extends FlxState
 	// UTILIDADES
 	// ═════════════════════════════════════════════════════════════════════════
 
+	function addTLBtn(x:Float, y:Float, label:String, cb:Void->Void):FlxText
+	{
+		var bg = mkBg(x-1, y, label.length * 7.0 + 6, 18, 0xFF0A0A1E);
+		tlGroup.add(bg);
+		var t = mkTxt(x, y + 2, label, 10, C_ACCENT);
+		tlGroup.add(t);
+		hitBtns.push({ x: x-1, y: y, w: label.length * 7.0 + 6, h: 18.0, cb: cb });
+		return t;
+	}
+
+	inline function snapBeat(beat:Float):Float
+		return snapDiv > 1 ? Math.round(beat * snapDiv) / snapDiv : beat;
+
+	inline function bps():Float
+		return Conductor.crochet > 0 ? 1000.0 / Conductor.crochet : 2.0;
+
+	inline function fmt(v:Float):String
+		return Std.string(Math.round(v * 100) / 100);
+
+	inline function fmt2(v:Float):String
+		return Std.string(Math.round(v * 1000) / 1000);
+
+	function getMaxBeat():Float
+	{
+		var m = 16.0;
+		for (ev in manager.data.events)
+			if (ev.beat + ev.duration > m) m = ev.beat + ev.duration;
+		return m;
+	}
+
+	function cycleType(d:Int):Void
+	{
+		var all = ModChartHelpers.ALL_TYPES;
+		var i   = all.indexOf(newType);
+		newType = all[((i + d) % all.length + all.length) % all.length];
+	}
+
+	function cycleEaseDir(d:Int):Void
+	{
+		var all = ModChartHelpers.ALL_EASES;
+		var i   = all.indexOf(newEase);
+		newEase = all[((i + d) % all.length + all.length) % all.length];
+	}
+
+	function cycleTarget(d:Int):Void
+	{
+		var opts = ["player","cpu","all"];
+		for (g in srcStrumsGrps) if (opts.indexOf(g.id) == -1) opts.push(g.id);
+		var i     = opts.indexOf(newTarget);
+		newTarget = opts[((i + d) % opts.length + opts.length) % opts.length];
+	}
+
+	inline function strumLbl():String
+		return newStrumI == -1 ? "TODOS" : ["LEFT","DOWN","UP","RIGHT"][newStrumI];
+
+	// ─── Primitivas de render ─────────────────────────────────────────────────
+
 	function mkRaw(x:Float, y:Float, w:Float, h:Float, col:Int):FlxSprite
 	{
 		var s = new FlxSprite(x, y);
-		s.makeGraphic(Std.int(Math.max(1,w)), Std.int(Math.max(1,h)), FlxColor.fromInt(col));
+		s.makeGraphic(Std.int(Math.max(1, w)), Std.int(Math.max(1, h)), FlxColor.fromInt(col));
 		s.cameras = [editorCam];
 		return s;
 	}
 
-	function mkBg(x:Float, y:Float, w:Float, h:Float, col:Int):FlxSprite
+	inline function mkBg(x:Float, y:Float, w:Float, h:Float, col:Int):FlxSprite
 		return mkRaw(x, y, w, h, col);
 
-	function mkTxt(x:Float, y:Float, txt:String, size:Int, col:Int=0xFFDDDDFF):FlxText
+	function mkBgRnd(x:Float, y:Float, w:Float, h:Float, col:Int):FlxSprite
+		return mkRaw(x, y, w, h, col);
+
+	function mkTxt(x:Float, y:Float, txt:String, size:Int, col:Int = 0xFFDDDDFF):FlxText
 	{
 		var t = new FlxText(x, y, 0, txt, size);
-		t.color = FlxColor.fromInt(col); t.cameras = [editorCam];
+		t.color   = FlxColor.fromInt(col);
+		t.cameras = [editorCam];
 		return t;
 	}
 
-	inline function inR(mx:Float,my:Float,rx:Float,ry:Float,rw:Float,rh:Float):Bool
-		return mx>=rx && mx<=rx+rw && my>=ry && my<=ry+rh;
+	inline function inR(mx:Float, my:Float, rx:Float, ry:Float, rw:Float, rh:Float):Bool
+		return mx >= rx && mx <= rx + rw && my >= ry && my <= ry + rh;
 }
