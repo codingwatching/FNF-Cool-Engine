@@ -6,10 +6,8 @@ import data.Discord.DiscordClient;
 import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
-import flixel.addons.transition.FlxTransitionableState;
 import funkin.transitions.StateTransition;
 import flixel.effects.FlxFlicker;
-import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import funkin.transitions.StickerTransition;
 import flixel.text.FlxText;
@@ -19,10 +17,6 @@ import flixel.util.FlxColor;
 import lime.app.Application;
 import funkin.menus.OptionsMenuState;
 import openfl.display.BitmapData as Bitmap;
-import funkin.debug.AnimationDebug;
-import funkin.debug.StageEditor;
-import funkin.debug.DialogueEditor;
-import funkin.debug.charting.ChartingState;
 import data.PlayerSettings;
 import funkin.scripting.StateScriptHandler;
 
@@ -64,9 +58,6 @@ class MainMenuState extends funkin.states.MusicBeatState
 		// Updating Discord Rich Presence
 		DiscordClient.changePresence("In the Menu", null);
 		#end
-
-		transIn = FlxTransitionableState.defaultTransIn;
-		transOut = FlxTransitionableState.defaultTransOut;
 
 		#if !MAINMENU
 		// TitleState already started freakyMenu - only play it here if somehow missing

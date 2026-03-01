@@ -88,7 +88,7 @@ class CacheState extends funkin.states.MusicBeatState
 
         // Imágenes de UI esenciales
         final images:Array<String> = [
-            "alphabet",
+            "UI/alphabet",
             "soundtray/volumebox",
             "soundtray/bars_1", "soundtray/bars_2", "soundtray/bars_3",
             "soundtray/bars_4", "soundtray/bars_5", "soundtray/bars_6",

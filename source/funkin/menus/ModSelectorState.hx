@@ -9,7 +9,6 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
-import flixel.util.FlxTimer;
 import flixel.math.FlxMath;
 import openfl.display.BitmapData as Bitmap;
 import openfl.events.KeyboardEvent as OflKeyboardEvent;
