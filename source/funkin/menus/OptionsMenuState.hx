@@ -31,7 +31,11 @@ import openfl.Lib;
 class OptionsMenuState extends MusicBeatSubstate
 {
 	// Categorías principales (se pueden agregar más desde scripts)
+	#if mobileC
+	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Controls', 'Note Skin', 'Offset', 'Mobile'];
+	#else
 	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Controls', 'Note Skin', 'Offset'];
+	#end
 
 	// ── FPS Cap — valores disponibles (inspirado en Codename Engine) ────────────
 	static final FPS_OPTIONS:Array<Int> = [30, 60, 120, 144, 240];
@@ -73,12 +77,22 @@ class OptionsMenuState extends MusicBeatSubstate
 	static var SCROLLBAR_X:Int  = FlxG.width - 58; // pegado al borde derecho del panel
 
 	// Keybind state
-	var bindingState:String = "select"; // "select", "binding"
+	var bindingState:String = "select"; // "select", "binding", "editing"
 	var tempKey:String = "";
-	var keyBindNames:Array<String> = ["LEFT", "DOWN", "UP", "RIGHT", "RESET"];
-	var defaultKeys:Array<String> = ["A", "S", "W", "D", "R"];
-	var blacklistKeys:Array<String> = ["ESCAPE", "ENTER", "BACKSPACE", "SPACE"];
+	var keyBindNames:Array<String>    = ["LEFT", "DOWN", "UP", "RIGHT", "RESET", "ACCEPT", "BACK", "PAUSE", "CHEAT"];
+	var defaultKeys:Array<String>     = ["A",    "S",    "W",  "D",     "R",     "ENTER",  "ESCAPE","ENTER",    "SEVEN"];
+	var blacklistKeys:Array<String>   = ["SPACE"];
+	// Teclas que solo pueden usarse en ciertos controles:
+	var reservedKeys:Array<String>    = ["ESCAPE", "ENTER", "BACKSPACE"]; // solo para ACCEPT/BACK/PAUSE
 	var keys:Array<String> = [];
+
+	// ── Edit mode (opciones multi-valor: ENTER entra, A/D cambia, ENTER/ESC sale) ──
+	var _editMode:Bool = false;
+	var _editModeIndicator:flixel.text.FlxText;
+
+	// ── Flechas de scroll ─────────────────────────────────────────────────────
+	var _scrollArrowUp:flixel.text.FlxText;
+	var _scrollArrowDown:flixel.text.FlxText;
 
 	var warningText:FlxText;
 	var bindingIndicator:FlxText;
@@ -89,11 +103,16 @@ class OptionsMenuState extends MusicBeatSubstate
 	 *  le indica a PauseSubState que dispare el rewind al volver. */
 	public static var pendingRewind:Bool = false;
 
+	public static var isOpenOptions:Bool = false;
+
 	override function create()
 	{
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.init();
 		StateScriptHandler.loadStateScripts('OptionsMenuState', this);
+
+		if (fromPause)
+			isOpenOptions = true;
 
 		// Cargar categorías custom desde scripts
 		loadCustomCategoriesFromScripts();
@@ -210,17 +229,32 @@ class OptionsMenuState extends MusicBeatSubstate
 		add(footerBorder);
 
 		var helpText = new FlxText(footerBG.x + 20, footerBG.y + 12, footerBG.width - 40,
-			"← → : Change Tab  |  ↑ ↓ : Navigate  |  ENTER : Toggle  |  A/D : Adjust  |  ESC : Back", 18);
+			"← → : Tab  |  ↑ ↓ : Navigate  |  ENTER : Toggle/Edit  |  A/D : Adjust  |  ESC : Back", 18);
 		helpText.setFormat(Paths.font("Funkin.otf"), 18, 0xFFAAAAAA, CENTER, OUTLINE, FlxColor.BLACK);
 		helpText.borderSize = 1.5;
 		helpText.scrollFactor.set();
 		add(helpText);
 
-		// Indicador de scroll (flecha abajo) — solo visible cuando hay más opciones
-		var scrollHint = new FlxText(0, FlxG.height - 108, FlxG.width, "▲ ▼  Scroll", 16);
-		scrollHint.setFormat(Paths.font("Funkin.otf"), 16, 0xFF555555, CENTER, NONE);
-		scrollHint.scrollFactor.set();
-		//add(scrollHint);
+		// ── Edit mode indicator ────────────────────────────────────────────────
+		_editModeIndicator = new FlxText(0, footerBG.y - 32, FlxG.width, "", 20);
+		_editModeIndicator.setFormat(Paths.font("Funkin.otf"), 20, FlxColor.LIME, CENTER, OUTLINE, FlxColor.BLACK);
+		_editModeIndicator.borderSize = 2;
+		_editModeIndicator.visible = false;
+		_editModeIndicator.scrollFactor.set();
+		add(_editModeIndicator);
+
+		// ── Flechas de scroll ──────────────────────────────────────────────────
+		_scrollArrowUp = new FlxText(0, OPT_START_Y - 28, FlxG.width, "▲  More Options Up", 18);
+		_scrollArrowUp.setFormat(Paths.font("Funkin.otf"), 18, 0xFF888888, CENTER, NONE);
+		_scrollArrowUp.visible = false;
+		_scrollArrowUp.scrollFactor.set();
+		add(_scrollArrowUp);
+
+		_scrollArrowDown = new FlxText(0, OPT_START_Y + OPT_VISIBLE_H + 4, FlxG.width, "▼  More Options Down", 18);
+		_scrollArrowDown.setFormat(Paths.font("Funkin.otf"), 18, 0xFF888888, CENTER, NONE);
+		_scrollArrowDown.visible = false;
+		_scrollArrowDown.scrollFactor.set();
+		add(_scrollArrowDown);
 
 		// ── Scrollbar ─────────────────────────────────────────────────────────
 		_scrollbarTrack = new FlxSprite(SCROLLBAR_X, OPT_START_Y).makeGraphic(SCROLLBAR_W, OPT_VISIBLE_H, 0xFF222222);
@@ -264,33 +298,40 @@ class OptionsMenuState extends MusicBeatSubstate
 	function loadKeyBinds()
 	{
 		// Verificar que existan los keybinds
-		if (FlxG.save.data.leftBind == null)
-			FlxG.save.data.leftBind = "A";
-		if (FlxG.save.data.downBind == null)
-			FlxG.save.data.downBind = "S";
-		if (FlxG.save.data.upBind == null)
-			FlxG.save.data.upBind = "W";
-		if (FlxG.save.data.rightBind == null)
-			FlxG.save.data.rightBind = "D";
-		if (FlxG.save.data.killBind == null)
-			FlxG.save.data.killBind = "R";
+		if (FlxG.save.data.leftBind   == null) FlxG.save.data.leftBind   = "A";
+		if (FlxG.save.data.downBind   == null) FlxG.save.data.downBind   = "S";
+		if (FlxG.save.data.upBind     == null) FlxG.save.data.upBind     = "W";
+		if (FlxG.save.data.rightBind  == null) FlxG.save.data.rightBind  = "D";
+		if (FlxG.save.data.killBind   == null) FlxG.save.data.killBind   = "R";
+		if (FlxG.save.data.acceptBind == null) FlxG.save.data.acceptBind = "ENTER";
+		if (FlxG.save.data.backBind   == null) FlxG.save.data.backBind   = "ESCAPE";
+		if (FlxG.save.data.pauseBind  == null) FlxG.save.data.pauseBind  = "ENTER";
+		if (FlxG.save.data.cheatBind  == null) FlxG.save.data.cheatBind  = "SEVEN";
 
 		keys = [
 			FlxG.save.data.leftBind,
 			FlxG.save.data.downBind,
 			FlxG.save.data.upBind,
 			FlxG.save.data.rightBind,
-			FlxG.save.data.killBind
+			FlxG.save.data.killBind,
+			FlxG.save.data.acceptBind,
+			FlxG.save.data.backBind,
+			FlxG.save.data.pauseBind,
+			FlxG.save.data.cheatBind
 		];
 	}
 
 	function saveKeyBinds()
 	{
-		FlxG.save.data.leftBind = keys[0];
-		FlxG.save.data.downBind = keys[1];
-		FlxG.save.data.upBind = keys[2];
-		FlxG.save.data.rightBind = keys[3];
-		FlxG.save.data.killBind = keys[4];
+		FlxG.save.data.leftBind   = keys[0];
+		FlxG.save.data.downBind   = keys[1];
+		FlxG.save.data.upBind     = keys[2];
+		FlxG.save.data.rightBind  = keys[3];
+		FlxG.save.data.killBind   = keys[4];
+		FlxG.save.data.acceptBind = keys[5];
+		FlxG.save.data.backBind   = keys[6];
+		FlxG.save.data.pauseBind  = keys[7];
+		FlxG.save.data.cheatBind  = keys[8];
 
 		FlxG.save.flush();
 		PlayerSettings.player1.controls.loadKeyBinds();
@@ -308,6 +349,8 @@ class OptionsMenuState extends MusicBeatSubstate
 		if (_scrollbarThumb != null) _scrollbarThumb.visible = false;
 		bindingState = "select";
 		bindingIndicator.visible = false;
+		_editMode = false;
+		if (_editModeIndicator != null) _editModeIndicator.visible = false;
 
 		var categoryName = categories[index];
 
@@ -325,6 +368,10 @@ class OptionsMenuState extends MusicBeatSubstate
 				loadNoteSkinOptions();
 			case 'Offset':
 				loadOffsetOptions();
+			case 'Mobile':
+				#if mobileC
+				loadMobileControlsOptions();
+				#end
 			default:
 				// Categoría custom desde script
 				#if HSCRIPT_ALLOWED
@@ -339,6 +386,7 @@ class OptionsMenuState extends MusicBeatSubstate
 
 		updateCategoryDisplay();
 		updateOptionDisplay();
+		_updateScroll(); // ← CRITICAL: clip items beyond visible area from the start
 	}
 
 	#if HSCRIPT_ALLOWED
@@ -474,6 +522,39 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		currentOptions = [
 			{
+				name: "Render Resolution",
+				get: function()
+				{
+					var r = FlxG.save.data.renderResolution;
+					return (r == '1080p') ? "1080p (HD)" : "720p (Default)";
+				},
+				toggle: function()
+				{
+					var cur = FlxG.save.data.renderResolution;
+					FlxG.save.data.renderResolution = (cur == '1080p') ? '720p' : '1080p';
+					FlxG.save.flush();
+					showWarning("Restart to apply resolution change!");
+				}
+			},
+			#if mobileC
+			{
+				name: "Widescreen",
+				get: function()
+				{
+					var s = FlxG.save.data.scaleMode;
+					return (s == 'widescreen') ? "ON" : "OFF";
+				},
+				toggle: function()
+				{
+					var cur = FlxG.save.data.scaleMode;
+					var next = (cur == 'widescreen') ? 'letterbox' : 'widescreen';
+					FlxG.save.data.scaleMode = next;
+					FlxG.save.flush();
+					funkin.system.WindowManager.applyScaleModeByName(next);
+				}
+			},
+			#end
+			{
 				name: "GPU Texture Caching",
 				get: function() return FlxG.save.data.gpuCaching ? "ON" : "OFF",
 				toggle: function()
@@ -608,8 +689,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		currentOptions = [];
 
-		// Cargar keybinds actuales
-		for (i in 0...5)
+		// Cargar keybinds actuales (todos los 9 controles)
+		for (i in 0...keyBindNames.length)
 		{
 			var keyIndex = i;
 			currentOptions.push({
@@ -652,6 +733,112 @@ class OptionsMenuState extends MusicBeatSubstate
 
 		createOptionTexts();
 	}
+
+	#if mobileC
+	/** Nombres de esquemas de control en el mismo orden que Config.getcontrolmode() devuelve */
+	static final MOBILE_SCHEME_NAMES:Array<String> = [
+		"VirtualPad Right",   // 0
+		"VirtualPad Left",    // 1
+		"Keyboard Only",      // 2
+		"VirtualPad Custom",  // 3
+		"Hitbox"              // 4
+	];
+
+	function loadMobileControlsOptions()
+	{
+		var config = new data.Config();
+		currentOptions = [
+			{
+				name: "Control Scheme",
+				get: function()
+				{
+					var mode = config.getcontrolmode();
+					return MOBILE_SCHEME_NAMES[mode < MOBILE_SCHEME_NAMES.length ? mode : 0];
+				},
+				toggle: function()
+				{
+					// Cicla al siguiente esquema
+					var mode = config.getcontrolmode();
+					config.setcontrolmode((mode + 1) % MOBILE_SCHEME_NAMES.length);
+				},
+				left: function()
+				{
+					var mode = config.getcontrolmode();
+					config.setcontrolmode((mode - 1 + MOBILE_SCHEME_NAMES.length) % MOBILE_SCHEME_NAMES.length);
+				},
+				right: function()
+				{
+					var mode = config.getcontrolmode();
+					config.setcontrolmode((mode + 1) % MOBILE_SCHEME_NAMES.length);
+				}
+			},
+			{
+				name: "Pad Opacity",
+				get: function()
+				{
+					var v = FlxG.save.data.mobileAlpha != null ? Std.int(FlxG.save.data.mobileAlpha * 100) : 75;
+					return v + "%";
+				},
+				left: function()
+				{
+					var v:Float = FlxG.save.data.mobileAlpha != null ? FlxG.save.data.mobileAlpha : 0.75;
+					v = Math.max(0.1, v - 0.05);
+					FlxG.save.data.mobileAlpha = v;
+					FlxG.save.flush();
+				},
+				right: function()
+				{
+					var v:Float = FlxG.save.data.mobileAlpha != null ? FlxG.save.data.mobileAlpha : 0.75;
+					v = Math.min(1.0, v + 0.05);
+					FlxG.save.data.mobileAlpha = v;
+					FlxG.save.flush();
+				},
+				toggle: function() {}
+			},
+			{
+				name: "Edit Custom Layout",
+				get: function() return "PRESS ENTER",
+				toggle: function()
+				{
+					// Solo disponible en modo VirtualPad Custom
+					var mode = config.getcontrolmode();
+					if (mode == 3)
+						openSubState(new ui.MobileControlsEditor());
+					else
+						showWarning("Switch to 'VirtualPad Custom' first!");
+				}
+			},
+			{
+				name: "Reset Custom Layout",
+				get: function() return "BACKSPACE",
+				toggle: function()
+				{
+					FlxG.save.data.mobilePadLayout = null;
+					FlxG.save.flush();
+					showWarning("Custom layout reset!");
+					FlxG.sound.play(Paths.sound('menus/cancelMenu'));
+				}
+			},
+			{
+				name: "Touch Indicator",
+				get: function()
+				{
+					var on = FlxG.save.data.touchIndicator != null ? FlxG.save.data.touchIndicator : true;
+					return on ? "ON" : "OFF";
+				},
+				toggle: function()
+				{
+					var cur = FlxG.save.data.touchIndicator != null ? FlxG.save.data.touchIndicator : true;
+					FlxG.save.data.touchIndicator = !cur;
+					FlxG.save.flush();
+					funkin.util.plugins.TouchPointerPlugin.enabled = FlxG.save.data.touchIndicator;
+				}
+			}
+		];
+
+		createOptionTexts();
+	}
+	#end
 
 	function loadOffsetOptions()
 	{
@@ -723,8 +910,13 @@ class OptionsMenuState extends MusicBeatSubstate
 			txt.visible = (txt.y >= OPT_START_Y - OPT_SPACING) && (txt.y < OPT_START_Y + OPT_VISIBLE_H);
 		});
 
-		// ── Actualizar scrollbar ──────────────────────────────────────────────
-		if (_scrollbarTrack != null && _scrollbarThumb != null)
+		// ── Actualizar flechas de scroll ─────────────────────────────────────
+		if (_scrollArrowUp   != null) _scrollArrowUp.visible   = (_optScrollY > 0);
+		if (_scrollArrowDown != null)
+		{
+			var maxScroll2:Float = Math.max(0, currentOptions.length * OPT_SPACING - OPT_VISIBLE_H);
+			_scrollArrowDown.visible = (_optScrollY < maxScroll2 - 1);
+		}
 		{
 			var totalH    = currentOptions.length * OPT_SPACING;
 			var needsBar  = totalH > OPT_VISIBLE_H;
@@ -859,7 +1051,36 @@ class OptionsMenuState extends MusicBeatSubstate
 			return;
 		}
 
-		// Navegación de categorías
+		// ── Modo edición: A/D cambia el valor, ENTER o ESC confirma y sale ────
+		if (_editMode)
+		{
+			final opt = currentOptions[curSelected];
+			var changed = false;
+			if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT)
+			{
+				if (opt.left != null) { opt.left(); changed = true; }
+			}
+			if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT)
+			{
+				if (opt.right != null) { opt.right(); changed = true; }
+			}
+			if (changed)
+			{
+				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
+				updateOptionDisplay();
+				FlxG.save.flush();
+			}
+			// Salir del modo edición con ENTER o ESC
+			if (controls.ACCEPT || controls.BACK)
+			{
+				_editMode = false;
+				_editModeIndicator.visible = false;
+				FlxG.sound.play(Paths.sound('menus/confirmMenu'));
+			}
+			return;
+		}
+
+		// Navegación de categorías con ← →
 		if (controls.LEFT_P && currentOptions.length > 0)
 		{
 			changeCategory(-1);
@@ -869,7 +1090,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			changeCategory(1);
 		}
 
-		// Navegación de opciones (teclado)
+		// Navegación de opciones ↑ ↓
 		if (controls.UP_P)
 		{
 			changeSelection(-1);
@@ -880,8 +1101,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		}
 
 		// Ajuste izquierda/derecha para opciones con slider (p.ej. FPS Cap)
-		// Solo cuando NO estamos cambiando de categoria (tab), es decir,
-		// la opcion actual tiene funciones left/right definidas.
+		// Cuando NO estamos en modo edición y la opción tiene funciones left/right.
 		if (categories[curCategory] != 'Controls' && currentOptions.length > 0)
 		{
 			final opt = currentOptions[curSelected];
@@ -908,9 +1128,21 @@ class OptionsMenuState extends MusicBeatSubstate
 		// Aceptar/Toggle opción
 		if (controls.ACCEPT && currentOptions.length > 0)
 		{
+			final opt = currentOptions[curSelected];
+
+			// Si la opción tiene left/right (multi-valor), entrar en edit mode al pulsar ENTER
+			if (opt.left != null || opt.right != null)
+			{
+				_editMode = true;
+				_editModeIndicator.text = "⟵ A / D ⟶   Adjusting: " + opt.name + "   ENTER / ESC to confirm";
+				_editModeIndicator.visible = true;
+				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
+				return;
+			}
+
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'));
-			var optionName = currentOptions[curSelected].name;
-			currentOptions[curSelected].toggle();
+			var optionName = opt.name;
+			opt.toggle();
 			updateOptionDisplay();
 			FlxG.save.flush();
 
@@ -930,6 +1162,7 @@ class OptionsMenuState extends MusicBeatSubstate
 						FlxG.save.flush();
 						pendingRewind = true;
 						close(); // vuelve a PauseSubState que detectará pendingRewind
+						isOpenOptions = false;
 					}
 					else
 					{
@@ -954,6 +1187,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			{
 				fromPause = false;
 				close();
+				isOpenOptions = false;
 			}
 			else
 			{
@@ -1058,27 +1292,21 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	function isKeyValid(key:String, keyIndex:Int):Bool
 	{
-		// Verificar si está en la blacklist (estas teclas NUNCA se permiten)
-		for (blockedKey in blacklistKeys)
+		// SPACE nunca se permite (se usa para UI)
+		if (key == "SPACE") return false;
+
+		// Para controles de dirección (0-3) y RESET (4): no permitir teclas reservadas de sistema
+		if (keyIndex <= 4)
 		{
-			if (key == blockedKey)
-				return false;
+			if (key == "ESCAPE" || key == "ENTER" || key == "BACKSPACE") return false;
 		}
 
-		// Para RESET, no puede usar ninguna tecla de dirección
-		// (esto sí es importante para evitar problemas de input)
+		// Para RESET (4): no puede coincidir con direcciones
 		if (keyIndex == 4)
 		{
 			for (i in 0...4)
-			{
-				if (keys[i] == key)
-					return false;
-			}
+				if (keys[i] == key) return false;
 		}
-
-		// ✅ CAMBIO: Ya NO bloqueamos duplicados en direcciones
-		// Permitimos que el usuario configure DFJK aunque D ya esté en uso
-		// Solo mostramos una advertencia
 
 		return true;
 	}
@@ -1103,7 +1331,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 
-		for (i in 0...5)
+		for (i in 0...keyBindNames.length)
 		{
 			keys[i] = defaultKeys[i];
 		}
@@ -1161,7 +1389,8 @@ class OptionsMenuState extends MusicBeatSubstate
 			"Static Stage",
 			"Special Visual Effects",
 			"GF Bye",
-			"Background Bye"
+			"Background Bye",
+			"Render Resolution"
 		];
 
 		return restartRequired.contains(optionName);
@@ -1200,6 +1429,13 @@ class OptionsData
 	{
 		if (FlxG.save.data.downscroll == null)
 			FlxG.save.data.downscroll = false;
+
+		// ── Display / Resolution ──────────────────────────────────────────────
+		if (FlxG.save.data.renderResolution == null)
+			FlxG.save.data.renderResolution = '720p'; // '720p' o '1080p'
+
+		if (FlxG.save.data.scaleMode == null)
+			FlxG.save.data.scaleMode = 'letterbox'; // 'letterbox', 'widescreen', 'stretch', 'pixel'
 
 		if (FlxG.save.data.shaders == null)
 			FlxG.save.data.shaders = true;
@@ -1262,6 +1498,13 @@ class OptionsData
 		if (FlxG.save.data.streamedMusic == null)
 			FlxG.save.data.streamedMusic = false;
 		funkin.cache.PathsCache.streamedMusic = FlxG.save.data.streamedMusic;
+
+		// ── Mobile controls ───────────────────────────────────────────────────
+		#if mobileC
+		if (FlxG.save.data.mobileAlpha == null)
+			FlxG.save.data.mobileAlpha = 0.75;
+		// mobilePadLayout se inicializa como null → Mobilecontrols usará posiciones default
+		#end
 	}
 }
 

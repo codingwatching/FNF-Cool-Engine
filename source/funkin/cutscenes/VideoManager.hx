@@ -74,7 +74,8 @@ class VideoManager
 
 		// midSong=true: evitamos que playMP4 llame FlxG.sound.music.stop() — stop()
 		// deja el FlxSound streaming invalido en CPP. La musica ya fue pausada arriba.
-		handler.playMP4(path, true, false, null, false, true);
+		// isFullscreen=false: el bitmap se renderiza embebido dentro del juego (no ventana VLC separada).
+		handler.playMP4(path, true, false, null, false, false);
 		handler.finishCallback = _buildFinish();
 		#else
 		trace('[VideoManager] Video playback not supported on this platform.');
@@ -114,7 +115,7 @@ class VideoManager
 		final handler = new MP4Handler();
 		current = handler;
 
-		handler.playMP4(path, true, false, null, false, true);
+		handler.playMP4(path, true, false, null, false, false);
 		handler.finishCallback = function()
 		{
 			// Reanudar gameplay
@@ -235,12 +236,26 @@ class VideoManager
 	// Helpers internos
 	// ─────────────────────────────────────────────────────────────────────────
 
+	// Caché de rutas resueltas por clave de video.
+	// PERF FIX: _resolvePath() hacía hasta 5 llamadas a FileSystem.exists() cada
+	// vez que se reproducía un video. Con caché se resuelve en O(1) en el segundo
+	// acceso. Se invalida al cambiar de mod (clearPathCache).
+	static var _pathCache:Map<String, String> = new Map();
+
+	/** Invalida el caché de rutas (llamar al cambiar de mod activo). */
+	public static function clearPathCache():Void
+		_pathCache.clear();
+
 	/**
 	 * Resuelve la ruta del video buscando en el mod activo primero, luego en assets.
 	 * Devuelve null si no existe.
 	 */
 	public static function _resolvePath(key:String):Null<String>
 	{
+		// Devolver resultado cacheado si existe
+		var cached = _pathCache.get(key);
+		if (cached != null) return cached;
+
 		final k = key.endsWith('.mp4') ? key.substr(0, key.length - 4) : key;
 
 		final candidates:Array<String> = [];
@@ -263,10 +278,18 @@ class VideoManager
 
 		#if sys
 		for (c in candidates)
-			if (sys.FileSystem.exists(c)) return c;
+			if (sys.FileSystem.exists(c))
+			{
+				_pathCache.set(key, c); // guardar en caché
+				return c;
+			}
 		#else
 		for (c in candidates)
-			if (openfl.utils.Assets.exists(c)) return c;
+			if (openfl.utils.Assets.exists(c))
+			{
+				_pathCache.set(key, c);
+				return c;
+			}
 		#end
 
 		return null;

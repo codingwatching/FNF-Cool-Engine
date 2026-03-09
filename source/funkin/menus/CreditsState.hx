@@ -3,15 +3,15 @@ package funkin.menus;
 /**
  * CreditsState v2 — Friday Night Funkin' v-slice style credits.
  *
-* ─── Features ───────────────────────────────── ──────────────────────────────────
-* • Smooth and continuous scrolling with variable speed (hold ENTER/SPACE = fast, SHIFT = pause)
-* • Lazy build: Lines are created on demand based on scrolling.
-* • FlxText pool recycled via FlxSpriteGroup.recycle() — zero allocations in-game
-* • Data in JSON (assets/data/credits.json) → editable without recompiling
-* • Mod support: mods/<mod>/data/credits.json adds entries to the end
-* • Scripting: assets/states/CreditsState/ (automatically loaded by MusicBeatState)
-* • Hooks: onCreate, onUpdate (elapsed), onCreditsEnd, onExit
-* • headerColor/bodyColor per entry (hex without # e.g., "FF4CA0", optional)
+ * ─── Features ───────────────────────────────── ──────────────────────────────────
+ * • Smooth and continuous scrolling with variable speed (hold ENTER/SPACE = fast, SHIFT = pause)
+ * • Lazy build: Lines are created on demand based on scrolling.
+ * • FlxText pool recycled via FlxSpriteGroup.recycle() — zero allocations in-game
+ * • Data in JSON (assets/data/credits.json) → editable without recompiling
+ * • Mod support: mods/<mod>/data/credits.json adds entries to the end
+ * • Scripting: assets/states/CreditsState/ (automatically loaded by MusicBeatState)
+ * • Hooks: onCreate, onUpdate (elapsed), onCreditsEnd, onExit
+ * • headerColor/bodyColor per entry (hex without # e.g., "FF4CA0", optional)
  *
  * ─── Scripts (HScript) ───────────────────────────────────────────────────────
  *  Variables: creditsState, creditsGroup, bg
@@ -54,20 +54,22 @@ using StringTools;
 class CreditsState extends funkin.states.MusicBeatState
 {
 	// ── Layout ─────────────────────────────────────────────────────────────
-	static final SCREEN_PAD       = 140;
-	static final FONT_HEADER      = 40;
-	static final FONT_BODY        = 28;
-	static final LINE_SPACING     = 8;    // px extra entre líneas
-	static final SECTION_GAP      = 60;   // px entre secciones
+	static final SCREEN_PAD = 140;
+	static final FONT_HEADER = 40;
+	static final FONT_BODY = 28;
+	static final LINE_SPACING = 8; // px extra entre líneas
+	static final SECTION_GAP = 60; // px entre secciones
 	static final COLOR_HEADER_DEF = 0xFFFFFFFF;
-	static final COLOR_BODY_DEF   = 0xFFCCCCCC;
-	static final COLOR_STROKE     = 0xFF000000;
-	static final STROKE_SIZE      = 2.0;
+	static final COLOR_BODY_DEF = 0xFFCCCCCC;
+	static final COLOR_STROKE = 0xFF000000;
+	static final STROKE_SIZE = 2.0;
 
 	// ── Velocidades de scroll ───────────────────────────────────────────────
+
 	/** Velocidad base en px/segundo. Los scripts pueden modificar esta variable. */
-	public var scrollSpeed:Float   = 80.0;
-	static final FAST_MULTIPLIER   = 4.0;
+	public var scrollSpeed:Float = 80.0;
+
+	static final FAST_MULTIPLIER = 4.0;
 
 	// ── Escena ─────────────────────────────────────────────────────────────
 	public var bg:FlxSprite;
@@ -75,14 +77,14 @@ class CreditsState extends funkin.states.MusicBeatState
 
 	// ── Construcción lazy ──────────────────────────────────────────────────
 	var _entries:Array<CreditsEntry> = [];
-	var _entryIdx:Int  = 0;   // índice de la entrada actual
-	var _lineIdx:Int   = 0;   // sub-índice dentro de la entrada (0 = header, 1+ = body)
-	var _buildY:Float  = 0;   // Y relativa al grupo donde añadir la próxima línea
+	var _entryIdx:Int = 0; // índice de la entrada actual
+	var _lineIdx:Int = 0; // sub-índice dentro de la entrada (0 = header, 1+ = body)
+	var _buildY:Float = 0; // Y relativa al grupo donde añadir la próxima línea
 	var _allBuilt:Bool = false;
 
 	// ── Estado interno ─────────────────────────────────────────────────────
-	var _hasEnded:Bool        = false;
-	var _creditsExiting:Bool  = false;
+	var _hasEnded:Bool = false;
+	var _creditsExiting:Bool = false;
 
 	// ───────────────────────────────────────────────────────────────────────
 
@@ -118,12 +120,11 @@ class CreditsState extends funkin.states.MusicBeatState
 		_entries = (data != null && data.entries != null) ? data.entries : [];
 
 		// ── Música ─────────────────────────────────────────────────────────
-		if (FreeplayState.vocals == null)
-		{
-			final music = Paths.music('freeplayRandom/freeplayRandom');
-			if (music != null) FlxG.sound.playMusic(music, 0.0);
-		}
-		if (FlxG.sound.music != null) FlxG.sound.music.volume = 0.0;
+		final music = Paths.music('freeplayRandom/freeplayRandom');
+		if (music != null)
+			FlxG.sound.playMusic(music, 0.0);
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.volume = 0.0;
 
 		// ── Exponer vars a scripts ─────────────────────────────────────────
 		ScriptHandler.setOnScripts('creditsState', this);
@@ -141,7 +142,8 @@ class CreditsState extends funkin.states.MusicBeatState
 			FlxG.sound.music.volume = Math.min(0.7, FlxG.sound.music.volume + 0.5 * elapsed);
 
 		// ── Construcción lazy ──────────────────────────────────────────────
-		if (!_allBuilt) _buildPendingLines();
+		if (!_allBuilt)
+			_buildPendingLines();
 
 		// ── Velocidad de scroll ────────────────────────────────────────────
 		var spd:Float;
@@ -209,9 +211,9 @@ class CreditsState extends funkin.states.MusicBeatState
 				return;
 			}
 
-			final entry  = _entries[_entryIdx];
+			final entry = _entries[_entryIdx];
 			final hColor = _parseColor(entry.headerColor, COLOR_HEADER_DEF);
-			final bColor = _parseColor(entry.bodyColor,   COLOR_BODY_DEF);
+			final bColor = _parseColor(entry.bodyColor, COLOR_BODY_DEF);
 
 			// ── Header (lineIdx == 0) ──────────────────────────────────────
 			if (_lineIdx == 0)
@@ -230,7 +232,7 @@ class CreditsState extends funkin.states.MusicBeatState
 			}
 
 			// ── Body (lineIdx >= 1) ────────────────────────────────────────
-			final body    = entry.body != null ? entry.body : [];
+			final body = entry.body != null ? entry.body : [];
 			final bodyIdx = _lineIdx - 1;
 
 			if (bodyIdx < body.length)
@@ -242,9 +244,9 @@ class CreditsState extends funkin.states.MusicBeatState
 			}
 
 			// ── Entrada completa → siguiente ──────────────────────────────
-			_buildY  += SECTION_GAP;
+			_buildY += SECTION_GAP;
 			_entryIdx++;
-			_lineIdx  = 0;
+			_lineIdx = 0;
 		}
 	}
 
@@ -261,24 +263,16 @@ class CreditsState extends funkin.states.MusicBeatState
 			return nt;
 		});
 
-		t.x           = 0;
-		t.y           = yPos;
-		t.fieldWidth  = FlxG.width - SCREEN_PAD * 2;
-		t.text        = text;
-		t.bold        = isHeader;
-		t.setFormat(
-			Paths.font('Funkin.otf'),
-			isHeader ? FONT_HEADER : FONT_BODY,
-			color,
-			FlxTextAlign.LEFT,
-			FlxTextBorderStyle.OUTLINE,
-			COLOR_STROKE,
-			true
-		);
-		t.borderSize  = STROKE_SIZE;
-		t.alpha       = 0;   // empieza invisible; el update lo va a hacer fade-in
-		t.alive       = true;
-		t.visible     = true;
+		t.x = 0;
+		t.y = yPos;
+		t.fieldWidth = FlxG.width - SCREEN_PAD * 2;
+		t.text = text;
+		t.bold = isHeader;
+		t.setFormat(Paths.font('Funkin.otf'), isHeader ? FONT_HEADER : FONT_BODY, color, FlxTextAlign.LEFT, FlxTextBorderStyle.OUTLINE, COLOR_STROKE, true);
+		t.borderSize = STROKE_SIZE;
+		t.alpha = 0; // empieza invisible; el update lo va a hacer fade-in
+		t.alive = true;
+		t.visible = true;
 
 		return t;
 	}
@@ -287,9 +281,16 @@ class CreditsState extends funkin.states.MusicBeatState
 
 	static function _parseColor(hex:Null<String>, def:Int):FlxColor
 	{
-		if (hex == null || hex.trim() == '') return def;
-		try   { return FlxColor.fromString('#' + hex.trim()); }
-		catch (_:Dynamic) { return def; }
+		if (hex == null || hex.trim() == '')
+			return def;
+		try
+		{
+			return FlxColor.fromString('#' + hex.trim());
+		}
+		catch (_:Dynamic)
+		{
+			return def;
+		}
 	}
 
 	// ── API pública (para scripts) ────────────────────────────────────────────
@@ -315,7 +316,8 @@ class CreditsState extends funkin.states.MusicBeatState
 
 	public function exit():Void
 	{
-		if (_creditsExiting) return;
+		if (_creditsExiting)
+			return;
 		_creditsExiting = true;
 		ScriptHandler.callOnScripts('onExit', null);
 		StateTransition.switchState(new funkin.menus.MainMenuState());

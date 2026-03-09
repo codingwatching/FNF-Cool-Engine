@@ -16,6 +16,10 @@ var lastScore = -1;
 var lastMisses = -1;
 var lastAccuracy = -1.0;
 var lastHealth = -1.0;
+// Target X al que los iconos van haciendo lerp cada frame.
+// Se actualiza solo cuando cambia la salud, para que el lerp no
+// persiga un targetX que se mueve con el scale del beat bounce.
+var iconTargetX = -1.0;
 
 // ── Pools (mismos 3 del original + miss) ──────────────────────────────────
 var ratingPool = [];
@@ -127,22 +131,27 @@ function _updateIcons()
 	iconP1.updateHitbox();
 	iconP2.updateHitbox();
 
-	// ── Lerp de posición X: solo cuando la salud cambia ────────────────────────
-	// Si se aplica cada frame, el lerp persigue un targetX que se mueve con el
-	// scale del beat bounce, haciendo que los iconos tiemblen horizontalmente.
-	var targetX = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthPercent, 0, 100, 100, 0) * 0.01));
+	// ── Lerp de posición X ────────────────────────────────────────────────────
+	// iconTargetX se actualiza solo cuando la salud cambia, así el lerp no
+	// persigue un targetX que oscila con el scale del beat bounce.
+	// El lerp se aplica CADA frame hacia ese target fijo, por lo que la
+	// animación de deslizamiento se ve completa aunque la salud cambie poco.
+	var rawTargetX = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthPercent, 0, 100, 100, 0) * 0.01));
 	if (gameState.health != lastHealth)
 	{
-		iconP1.x = FlxMath.lerp(iconP1.x, targetX - 26,                  0.15 * FlxG.elapsed * 60);
-		iconP2.x = FlxMath.lerp(iconP2.x, targetX - (iconP2.width - 26), 0.15 * FlxG.elapsed * 60);
-		lastHealth = gameState.health;
+		// Salud cambió: actualizar el target y registrar el nuevo valor
+		iconTargetX  = rawTargetX;
+		lastHealth   = gameState.health;
 	}
-	else
+	else if (iconTargetX < 0)
 	{
-		// Salud estable: fijar X directamente para no interferir con el scale bounce
-		iconP1.x = targetX - 26;
-		iconP2.x = targetX - (iconP2.width - 26);
+		// Primera vez (iconTargetX no inicializado): establecer sin lerp
+		iconTargetX = rawTargetX;
 	}
+
+	// Lerp continuo hacia iconTargetX — corre todos los frames hasta llegar
+	iconP1.x = FlxMath.lerp(iconP1.x, iconTargetX - 26,                  0.15 * FlxG.elapsed * 60);
+	iconP2.x = FlxMath.lerp(iconP2.x, iconTargetX - (iconP2.width - 26), 0.15 * FlxG.elapsed * 60);
 
 	var p1Anim = 'normal';
 	if (healthPercent < 20)

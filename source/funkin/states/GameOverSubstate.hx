@@ -35,9 +35,10 @@ class GameOverSubstate extends MusicBeatSubstate
 	public var camFollow:FlxObject;
 	public var isEnding:Bool = false;
 
-	var _loopMusic : String;
-	var _endSound  : String;
-	var _camFrame  : Int;
+	var _loopMusic    : String;
+	var _endSound     : String;
+	var _camFrame     : Int;
+	var _musicStarted : Bool = false;
 
 	public function new(x:Float, y:Float, boyfriend:Character)
 	{
@@ -111,8 +112,9 @@ class GameOverSubstate extends MusicBeatSubstate
 			if (bf.animation.curAnim.curFrame == _camFrame)
 				FlxG.camera.follow(camFollow, LOCKON, 0.01);
 
-			if (bf.animation.curAnim.finished)
+			if (bf.animation.curAnim.finished && !_musicStarted)
 			{
+				_musicStarted = true;
 				StateScriptHandler.fireRaw('onDeathAnimFinished', []);
 				FlxG.sound.playMusic(Paths.music(_loopMusic));
 			}

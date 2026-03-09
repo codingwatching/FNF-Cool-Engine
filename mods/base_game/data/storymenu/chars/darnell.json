@@ -1,0 +1,15 @@
+{
+  "offsetX": 0,
+  "offsetY": -40,
+  "scale": 1.0,
+  "antialiasing": true,
+  "flipX": false,
+  "animations": [
+    {
+      "name": "idle",
+      "prefix": "idle",
+      "fps": 24,
+      "looped": true
+    }
+  ]
+}

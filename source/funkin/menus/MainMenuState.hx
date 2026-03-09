@@ -63,14 +63,11 @@ class MainMenuState extends funkin.states.MusicBeatState
 		// TitleState already started freakyMenu - only play it here if somehow missing
 		if (FlxG.sound.music == null || !musicFreakyisPlaying)
 		{
-			if (FreeplayState.vocals == null)
-			{
-				final _s = Paths.loadMusic('freakyMenu');
-				if (_s != null)
-					FlxG.sound.playMusic(_s, 0.5);
-				else
-					FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.5);
-			}
+			final _s = Paths.loadMusic('freakyMenu');
+			if (_s != null)
+				FlxG.sound.playMusic(_s, 0.5);
+			else
+				FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.5);
 		}
 		musicFreakyisPlaying = true;
 		#end
@@ -125,13 +122,13 @@ class MainMenuState extends funkin.states.MusicBeatState
 			menuItem.updateHitbox();
 		}
 
-		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Press Shift - Menu Mods", 12);
+		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, 'Press Shift - Menu Mods - API v0.4.0B', 12);
 		modShit.scrollFactor.set();
 		modShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		modShit.y -= 40;
 		add(modShit);
 
-		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v0.2.8", 12);
+		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v0.3.1", 12);
 		versionShit.scrollFactor.set();
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
@@ -174,16 +171,39 @@ class MainMenuState extends funkin.states.MusicBeatState
 
 	var selectedSomethin:Bool = false;
 
-	/** Developer Mode — da acceso a los editores (Chart, Stage, Dialogue, AnimDebug). */
+	/** Developer Mode — da acceso a los editores (Chart, Stage, Dialogue, AnimDebug).
+	 *  Se almacena en mod.json del mod activo como "developerMode": true/false.
+	 *  Si no hay mod activo o el campo no existe, cae al save.data como fallback.
+	 *  Por defecto es TRUE. */
 	public static var developerMode(get, set):Bool;
 
-	static inline function get_developerMode():Bool
-		return FlxG.save.data.developerMode == true;
-
-	static inline function set_developerMode(v:Bool):Bool
+	static function get_developerMode():Bool
 	{
-		FlxG.save.data.developerMode = v;
-		FlxG.save.flush();
+		// Leer desde mod.json del mod activo (si hay uno)
+		final info = mods.ModManager.activeInfo();
+		if (info != null)
+			return info.developerMode != false; // null/true → true, false → false
+		// Fallback al save para el modo base (sin mod activo)
+		if (FlxG.save.data.developerMode == null)
+			return true; // default TRUE
+		return FlxG.save.data.developerMode == true;
+	}
+
+	static function set_developerMode(v:Bool):Bool
+	{
+		final info = mods.ModManager.activeInfo();
+		if (info != null)
+		{
+			// Guardar en mod.json
+			info.developerMode = v;
+			mods.ModManager.saveModInfo(info);
+		}
+		else
+		{
+			// Modo base: guardar en save.data
+			FlxG.save.data.developerMode = v;
+			FlxG.save.flush();
+		}
 		return v;
 	}
 

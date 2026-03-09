@@ -37,6 +37,16 @@ typedef StageData =
 	@:optional var hideGirlfriend:Bool;
 	@:optional var scripts:Array<String>;
 	@:optional var customProperties:Dynamic;
+	/**
+	 * Librería de assets por defecto para todos los elementos de este stage.
+	 * Si se especifica, todos los elementos que no tengan su propio "assetLibrary"
+	 * buscarán sus imágenes en la carpeta de ESTE otro stage.
+	 *
+	 * Ejemplo: si tienes "spooky_night" que es igual que "spooky" pero de noche,
+	 * pon "assetLibrary": "spooky" y reutilizas todos sus assets sin copiarlos.
+	 * Solo sobreescribe los assets que cambien añadiéndolos en la carpeta local.
+	 */
+	@:optional var assetLibrary:String;
 }
 
 typedef StageElement =
@@ -76,12 +86,31 @@ typedef StageElement =
 	@:optional var instances:Array<CustomClassInstance>;
 
 	/**
+	 * Librería de assets para ESTE elemento específico.
+	 * Tiene prioridad sobre el "assetLibrary" global del stage.
+	 *
+	 * También puedes usar la sintaxis corta en el campo "asset":
+	 *   "asset": "stage_week1:bg"   →  carga "bg" desde la librería de "stage_week1"
+	 *
+	 * El campo "assetLibrary" en el elemento sirve para el mismo efecto pero
+	 * de forma más explícita y sin tocar el campo "asset".
+	 */
+	@:optional var assetLibrary:String;
+
+	/**
 	 * When true, this element renders ON TOP of characters.
 	 * Set this in the stage JSON (or via the Stage Editor) for foreground
 	 * layers like light shafts, front cameras, bokeh overlays, etc.
 	 * Equivalent to placing a sprite node AFTER <boyfriend> in Codename Engine XML.
 	 */
 	@:optional var aboveChars:Bool;
+
+	/**
+	 * When true, this element cannot be selected, moved or deleted in the Stage Editor.
+	 * Useful for large background sprites you don't want to accidentally grab.
+	 * Has no effect at runtime — purely an editor hint.
+	 */
+	@:optional var locked:Bool;
 }
 
 typedef CustomClassInstance =
@@ -175,6 +204,13 @@ class Stage extends FlxTypedGroup<FlxBasic>
 
 	public var stageData:StageData;
 	public var curStage:String;
+
+	/**
+	 * Librería de assets activa para este stage.
+	 * Se rellena desde stageData.assetLibrary al cargar el stage.
+	 * null → usa curStage (comportamiento original).
+	 */
+	public var assetLibrary(default, null):Null<String> = null;
 
 	/**
 	 * Cuando es true, los sprites con asset no encontrado generan un placeholder
@@ -292,8 +328,15 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			Paths.currentStage = stageData.name;
 
 		// Load basic properties
+		// Escalar el zoom del stage según resolución (fix 1080p)
 		defaultCamZoom = stageData.defaultZoom;
 		isPixelStage = stageData.isPixelStage;
+
+		// Librería de assets por defecto (puede ser null → usa curStage)
+		assetLibrary = (stageData.assetLibrary != null && stageData.assetLibrary.trim() != '')
+			? stageData.assetLibrary.trim() : null;
+		if (assetLibrary != null)
+			trace('[Stage] assetLibrary global: $assetLibrary (los assets sin librería propia vienen de aquí)');
 
 		if (stageData.gfVersion != null)
 			gfVersion = stageData.gfVersion;
@@ -399,6 +442,43 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		}
 	}
 
+	/**
+	 * Resuelve el par (assetKey, libraryStage) para un elemento del stage.
+	 *
+	 * Prioridad (de mayor a menor):
+	 *  1. Sintaxis corta en el campo asset:  "stage_week1:bg"  → lib="stage_week1", key="bg"
+	 *  2. Campo element.assetLibrary          → lib=element.assetLibrary, key=asset
+	 *  3. Campo global stageData.assetLibrary → lib=assetLibrary, key=asset
+	 *  4. Comportamiento original             → lib=null (Paths usa curStage)
+	 *
+	 * @return  { key: String, lib: Null<String> }
+	 */
+	function _resolveAssetLib(element:StageElement):{ key:String, lib:Null<String> }
+	{
+		final raw = element.asset ?? '';
+
+		// 1. Sintaxis corta "other_stage:asset_key"
+		final colonIdx = raw.indexOf(':');
+		if (colonIdx > 0)
+		{
+			final lib = raw.substr(0, colonIdx).trim();
+			final key = raw.substr(colonIdx + 1).trim();
+			if (lib != '' && key != '')
+				return { key: key, lib: lib };
+		}
+
+		// 2. Per-element assetLibrary
+		if (element.assetLibrary != null && element.assetLibrary.trim() != '')
+			return { key: raw, lib: element.assetLibrary.trim() };
+
+		// 3. Global assetLibrary del stage
+		if (assetLibrary != null)
+			return { key: raw, lib: assetLibrary };
+
+		// 4. Sin override → usa currentStage de Paths (comportamiento original)
+		return { key: raw, lib: null };
+	}
+
 	function createElement(element:StageElement):Void
 	{
 		switch (element.type.toLowerCase())
@@ -439,19 +519,14 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	function createSprite(element:StageElement):Void
 	{
 		var sprite:FlxSprite = new FlxSprite(element.position[0], element.position[1]);
-		final bmp = Paths.imageStage(element.asset);
+		final res = _resolveAssetLib(element);
+		final bmp = Paths.imageStage(res.key, res.lib);
 		if (bmp != null)
 		{
 			sprite.loadGraphic(bmp);
 		}
 		else
 		{
-			// BUGFIX: En el juego omitir un sprite sin gráfico tiene sentido para evitar
-			// FlxDrawQuadsItem crashes. Pero en el StageEditor esto hace que el elemento
-			// sea completamente invisible e inseleccionable aunque esté en el JSON.
-			// Usamos un flag para distinguir contextos: si el Stage está siendo usado
-			// por el editor, generamos un placeholder visible (checker magenta) en vez
-			// de silenciar el sprite. En gameplay seguimos ignorándolo.
 			if (isEditorPreview)
 			{
 				trace('[Stage] createSprite: asset no encontrado para "${element.asset}" — placeholder de editor');
@@ -459,8 +534,8 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			}
 			else
 			{
-				trace('[Stage] createSprite: imagen no encontrada para asset="${element.asset}" — sprite omitido');
-				return; // En gameplay no añadir sprites sin gráfico — crash en FlxDrawQuadsItem
+				trace('[Stage] createSprite: imagen no encontrada para asset="${element.asset}"${res.lib != null ? ' (lib: ${res.lib})' : ''} — sprite omitido');
+				return;
 			}
 		}
 
@@ -486,13 +561,14 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	{
 		var sprite:FunkinSprite = new FunkinSprite(element.position[0], element.position[1]);
 
-		// Cargar frames: Sparrow (XML) o Packer (TXT) — auto-detectado
-		var assetKey:String = element.asset.endsWith('.txt') ? element.asset.replace('.txt', '') : element.asset;
+		final res     = _resolveAssetLib(element);
+		// Strip .txt extension if present (Packer assets sometimes have it in JSON)
+		final assetKey = res.key.endsWith('.txt') ? res.key.replace('.txt', '') : res.key;
 
 		// Intentar XML (Sparrow) primero, con fallback a TXT (Packer)
-		var stageFrames = Paths.stageSprite(assetKey);
+		var stageFrames = Paths.stageSprite(assetKey, res.lib);
 		if (stageFrames == null)
-			stageFrames = Paths.stageSpriteTxt(assetKey);
+			stageFrames = Paths.stageSpriteTxt(assetKey, res.lib);
 		if (stageFrames != null)
 			sprite.frames = stageFrames;
 		else
@@ -501,19 +577,17 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			sprite.visible = false;
 		}
 
-		// BUGFIX editor: igual que createSprite — si el asset no cargó, mostrar placeholder visible
-		// en vez de silenciar el sprite (en gameplay la lógica original sigue intacta).
 		if (!sprite.visible && sprite.width <= 1 && sprite.height <= 1)
 		{
 			if (isEditorPreview)
 			{
-				trace('[Stage] createAnimatedSprite: asset no cargado para "${element.asset}" — placeholder de editor');
+				trace('[Stage] createAnimatedSprite: asset no cargado para "${element.asset}"${res.lib != null ? ' (lib: ${res.lib})' : ''} — placeholder de editor');
 				_makePlaceholderGraphic(sprite, element.name ?? element.asset);
 				sprite.visible = true;
 			}
 			else
 			{
-				trace('[Stage] createAnimatedSprite: asset no cargado para "${element.asset}" — sprite omitido');
+				trace('[Stage] createAnimatedSprite: asset no cargado para "${element.asset}"${res.lib != null ? ' (lib: ${res.lib})' : ''} — sprite omitido');
 				return;
 			}
 		}
@@ -554,10 +628,36 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				// Si el miembro tiene animaciones, usar FunkinSprite; si no, FlxSprite estático
 				var hasAnims = member.animations != null && member.animations.length > 0;
 
+				// Librería del miembro: hereda la del elemento padre (que a su vez hereda la global)
+				// Los StageMember no tienen assetLibrary propio, pero sí pueden usar "stage:key" syntax
+				var memberLib:Null<String> = null;
+				var memberKey:String       = member.asset ?? '';
+				final mColonIdx = memberKey.indexOf(':');
+				if (mColonIdx > 0)
+				{
+					memberLib = memberKey.substr(0, mColonIdx).trim();
+					memberKey = memberKey.substr(mColonIdx + 1).trim();
+				}
+				else
+				{
+					// Hereda del elemento padre
+					memberLib = (element.assetLibrary != null && element.assetLibrary.trim() != '')
+						? element.assetLibrary.trim() : assetLibrary;
+				}
+
 				if (hasAnims)
 				{
 					var spr:FunkinSprite = new FunkinSprite(member.position[0], member.position[1]);
-					spr.loadStageSparrow(member.asset);
+					var memberFrames = Paths.stageSprite(memberKey, memberLib);
+					if (memberFrames == null)
+						memberFrames = Paths.stageSpriteTxt(memberKey, memberLib);
+					if (memberFrames != null)
+						spr.frames = memberFrames;
+					else
+					{
+						trace('[Stage] createGroup member: frames no encontrados para "${member.asset}"${memberLib != null ? ' (lib: $memberLib)' : ''} — miembro omitido');
+						continue;
+					}
 
 					for (anim in member.animations)
 					{
@@ -584,8 +684,12 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				else
 				{
 					// Sin animaciones → FlxSprite estático (más ligero)
-					final _memberBmp = Paths.imageStage(member.asset);
-					if (_memberBmp == null) { trace('[Stage] createGroup member: imagen no encontrada para "${member.asset}" — miembro omitido'); continue; }
+					final _memberBmp = Paths.imageStage(memberKey, memberLib);
+					if (_memberBmp == null)
+					{
+						trace('[Stage] createGroup member: imagen no encontrada para "${member.asset}"${memberLib != null ? ' (lib: $memberLib)' : ''} — miembro omitido');
+						continue;
+					}
 					var spr:FlxSprite = new FlxSprite(member.position[0], member.position[1]);
 					spr.loadGraphic(_memberBmp);
 
@@ -744,6 +848,21 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		ScriptHandler.setOnStageScripts('currentStage', this);
 		ScriptHandler.setOnStageScripts('SONG', PlayState.SONG);
 
+		// BUGFIX: inyectar cámaras ANTES de onStageCreate.
+		// PlayState.setOnScripts('camGame') se llama antes de loadStageAndCharacters(),
+		// pero en ese momento los stage scripts aún no existen → no reciben camGame.
+		// Sin esto, cualquier acceso a `camGame` en onStageCreate lanza
+		// EUnknownVariable en HScript, rompiendo toda la función silenciosamente.
+		var _ps = funkin.gameplay.PlayState.instance;
+		if (_ps != null)
+		{
+			ScriptHandler.setOnStageScripts('camGame',      _ps.camGame);
+			ScriptHandler.setOnStageScripts('camHUD',       _ps.camHUD);
+			ScriptHandler.setOnStageScripts('camCountdown', _ps.camCountdown);
+			ScriptHandler.setOnStageScripts('game',         _ps);
+			ScriptHandler.setOnStageScripts('playState',    _ps);
+		}
+
 		ScriptHandler.callOnStageScripts('onStageCreate', []);
 
 		trace('[Stage] Scripts loaded: ${scripts.length}');
@@ -760,17 +879,6 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		{
 			switch (className)
 			{
-				case "BackgroundDancer":
-					var dancerClass = funkin.gameplay.objects.stages.BackgroundDancer;
-					if (dancerClass != null)
-					{
-						sprite = Type.createInstance(dancerClass, [x, y]);
-					}
-					else
-					{
-						trace("BackgroundDancer class not found!");
-					}
-
 				default:
 					trace("Unknown custom class: " + className);
 					return null;

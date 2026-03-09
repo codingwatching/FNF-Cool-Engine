@@ -463,8 +463,17 @@ class NoteManager
 
 	private inline function _updateNoteGroup(members:Array<Note>, len:Int, songPosition:Float, hitWindow:Float):Void
 	{
-		for (i in 0...len)
+		// BUGFIX: iterar hacia ATRÁS para evitar que removeNote() corrompa la iteración.
+		// removeNote() llama sustainNotes.remove(note, splice=true), que desplaza todos
+		// los elementos posteriores un índice hacia la izquierda. Con iteración hacia adelante
+		// (for i in 0...len), la nota en i+1 pasa a i justo después de procesarlo → se SALTA.
+		// Con varias notas largas activas simultáneamente se saltan varias cada frame:
+		// sus posiciones y clipRects no se actualizan → glitches visuales en los holds.
+		// Iterando hacia atrás (len-1 → 0), el splice solo afecta índices ≥ i (ya procesados).
+		var i:Int = len;
+		while (i > 0)
 		{
+			i--;
 			final note = members[i];
 			if (note == null || !note.alive)
 				continue;
@@ -564,9 +573,18 @@ class NoteManager
 			onCPUNoteHit(note);
 		// Solo animar el strum en la nota cabeza, NO en las piezas de sustain.
 		handleStrumAnimation(note.noteData, note.strumsGroupIndex, false);
-		// Guardar tiempo de fin del hold para la CPU al golpear el HEAD note
+		// Guardar tiempo de fin del hold para la CPU al golpear el HEAD note.
+		// FIX: usar Math.max en lugar de sobrescribir directamente. Si hay dos holds
+		// solapados en la misma dirección y el segundo termina antes que el primero,
+		// la asignación directa cortaba el loop del cover del primer hold prematuramente.
 		if (!note.isSustainNote && note.sustainLength > 0)
-			cpuHoldEndTimes[note.noteData] = note.strumTime + note.sustainLength;/*
+		{
+			var newEnd = note.strumTime + note.sustainLength;
+			if (cpuHoldEndTimes[note.noteData] < 0)
+				cpuHoldEndTimes[note.noteData] = newEnd;
+			else
+				cpuHoldEndTimes[note.noteData] = Math.max(cpuHoldEndTimes[note.noteData], newEnd);
+		}/*
 		if (!note.isSustainNote && !_cachedMiddlescroll && _cachedNoteSplashes && renderer != null)
 			createNormalSplash(note, false);*/
 		// Hold covers para CPU: solo en la primera pieza de sustain
@@ -634,6 +652,17 @@ class NoteManager
 
 	private function updateNotePosition(note:Note, songPosition:Float):Void
 	{
+		// ── Middlescroll: notas CPU completamente invisibles — no calcular nada ─
+		// Hacerlo aquí (antes de cualquier cálculo) evita el flash de 1 frame
+		// que ocurría cuando updateNotePosition asignaba alpha=0.05 (floor del
+		// FlxMath.bound) y el override a 0 llegaba un tick después.
+		if (_cachedMiddlescroll && !note.mustPress)
+		{
+			note.visible = false;
+			note.clipRect = null;
+			return;
+		}
+
 		// ── Leer modificadores per-nota del ModChartManager (si existe) ────────
 		var _modState:funkin.gameplay.modchart.StrumState = null;
 		if (modManager != null && modManager.enabled)
@@ -780,33 +809,71 @@ class NoteManager
 		// dejando el rect viejo de la nota anterior asignado a la nota actual.
 		if (note.isSustainNote)
 		{
-			// Umbral = borde superior del strum (strumLineY).
-			// Antes era strumLineY + swagWidth/2 (+56px) lo que permitía que
-			// la nota penetrara visualmente en el strum antes de empezar a clipear.
-			var strumLineThreshold = strumLineY;
+			// BUGFIX: Cortar la nota exactamente en el CENTRO del strum, no en
+			// el borde superior. halfStrum = mitad del ancho de una nota/strum,
+			// que aproxima la mitad de la altura visual del strum arrow.
+			// Antes: player usaba 0 (borde superior), CPU usaba 28 (muy poco).
+			// Ahora ambos usan halfStrum (~56px) para que la nota desaparezca
+			// justo en la mitad del strum en lugar de quedarse visible hasta
+			// el borde exacto o desaparecer demasiado pronto.
+			final halfStrum:Float = Note.swagWidth * 0.5;
+
+			// Umbral ajustado según dirección de scroll (mismo para player y CPU).
+			var strumLineThreshold = downscroll
+				? strumLineY - halfStrum   // downscroll: threshold desplazado hacia arriba
+				: strumLineY + halfStrum;  // upscroll:   threshold desplazado hacia dentro del strum
 
 			if (downscroll)
 			{
 				// Downscroll: la nota baja de arriba hacia el strum.
-				// Clipeamos la parte que ya pasó (está por debajo del strum).
-				var noteEndPos = note.y - note.offset.y * note.scale.y + note.height;
-				if (noteEndPos >= strumLineThreshold)
+				// BUG FIX: antes se clipeba desde que el borde inferior del sprite
+				// cruzaba strumLineThreshold, lo que ocurría ~150 ms ANTES de que
+				// el hold fuera procesado como wasGoodHit. Resultado: las notas
+				// largas desaparecían visualmente antes de que el hold terminara.
+				//
+				// Corrección: solo clipeamos cuando la nota ya fue consumida
+				// (wasGoodHit = true) o fue perdida (tooLate = true). Mientras se
+				// acerca al strum sin ser golpeada aún, se muestra completa.
+				if (!note.wasGoodHit && !note.tooLate)
 				{
-					if (_cachedDownscroll)
-						downscrollOff = 10;
-					_sustainClipRect.x      = 0;
-					_sustainClipRect.width  = note.frameWidth * 2;
-					_sustainClipRect.height = (strumLineThreshold - note.y) / note.scale.y;
-					_sustainClipRect.y      = note.frameHeight - _sustainClipRect.height + downscrollOff;
-					// Usar copyFrom en lugar de asignar referencia directa para
-					// que cada nota tenga su propio rect y no compartan el mismo objeto.
-					if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
-					note.clipRect.copyFrom(_sustainClipRect);
-					note.clipRect = note.clipRect; // forzar update interno de Flixel
+					note.clipRect = null;
 				}
 				else
 				{
-					note.clipRect = null;
+					var noteEndPos = note.y - note.offset.y * note.scale.y + note.height;
+					if (noteEndPos >= strumLineThreshold)
+					{
+						var clipH:Float = (strumLineThreshold - note.y) / note.scale.y;
+						if (clipH <= 0)
+						{
+							// Nota completamente por debajo del threshold: nada que mostrar.
+							// Si ya fue consumida, eliminarla del grupo.
+							note.clipRect = null;
+							if (note.wasGoodHit)
+							{
+								note.visible = false;
+								removeNote(note);
+							}
+						}
+						else
+						{
+							if (_cachedDownscroll)
+								downscrollOff = 10;
+							_sustainClipRect.x      = 0;
+							_sustainClipRect.width  = note.frameWidth * 2;
+							_sustainClipRect.height = clipH;
+							_sustainClipRect.y      = note.frameHeight - clipH + downscrollOff;
+							// Usar copyFrom en lugar de asignar referencia directa para
+							// que cada nota tenga su propio rect y no compartan el mismo objeto.
+							if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
+							note.clipRect.copyFrom(_sustainClipRect);
+							note.clipRect = note.clipRect; // forzar update interno de Flixel
+						}
+					}
+					else
+					{
+						note.clipRect = null;
+					}
 				}
 			}
 			else
@@ -830,8 +897,12 @@ class NoteManager
 					else
 					{
 						// Nota completamente por encima del strum: ocultar si ya fue consumida
+						// y eliminarla del grupo para no seguir procesándola cada frame.
 						if (note.isSustainNote && note.wasGoodHit)
+						{
 							note.visible = false;
+							removeNote(note);
+						}
 						note.clipRect = null;
 					}
 				}
@@ -863,11 +934,16 @@ class NoteManager
 		handleStrumAnimation(note.noteData, note.strumsGroupIndex, true);
 		// Guardar el tiempo de fin del hold al golpear el HEAD note.
 		// BUG FIX: no sobreescribir si ya hay un hold activo para esta dirección.
-		// Sin este check, un segundo head note en la misma dirección pisaba el tiempo
-		// del hold activo → autoReleaseFinishedHolds lo cerraba antes de tiempo
-		// → playEnd() se disparaba y el loop del splash se cortaba solo.
-		if (!note.isSustainNote && note.sustainLength > 0 && !holdEndTimes.exists(note.noteData))
-			holdEndTimes.set(note.noteData, note.strumTime + note.sustainLength);
+		// FIX: usar Math.max para que holds solapados en la misma dirección no se
+		// corten mutuamente. Si ya existe un tiempo de fin más tardío, lo respetamos.
+		if (!note.isSustainNote && note.sustainLength > 0)
+		{
+			var newEnd = note.strumTime + note.sustainLength;
+			if (!holdEndTimes.exists(note.noteData))
+				holdEndTimes.set(note.noteData, newEnd);
+			else
+				holdEndTimes.set(note.noteData, Math.max(holdEndTimes.get(note.noteData), newEnd));
+		}
 		if (rating == "sick")
 		{
 			if (note.isSustainNote)
@@ -875,7 +951,14 @@ class NoteManager
 			else if (_cachedNoteSplashes && renderer != null)
 				createNormalSplash(note, true);
 		}
-		removeNote(note);
+		// BUGFIX: Las notas sustain NO se eliminan aquí — quedan en el grupo
+		// para que el clipRect de updateNotePosition las vaya ocultando
+		// conforme cruzan la línea de strums. Antes se eliminaban de inmediato
+		// cuando canBeHit && playerHeld, haciendo que desaparecieran ~hitWindow
+		// ms (≈90px) antes de llegar visualmente al strum. Solo las notas normales
+		// (cabeza de hold y notas simples) se eliminan inmediatamente.
+		if (!note.isSustainNote)
+			removeNote(note);
 		if (onNoteHit != null)
 			onNoteHit(note);
 	}

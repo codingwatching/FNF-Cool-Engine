@@ -270,7 +270,8 @@ class MP4Handler
 
 		if (bitmap != null)
 		{
-			bitmap.volume = FlxG.sound.volume + 0.000005;
+			// Boost de volumen para cutscenes: 1.4× el volumen maestro, máximo 1.0
+			bitmap.volume = Math.min(1.0, FlxG.sound.volume * 1.4);
 			if (FlxG.sound.volume <= 0.1)
 				bitmap.volume = 0;
 		}

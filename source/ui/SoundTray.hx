@@ -25,6 +25,13 @@ import flixel.util.FlxTimer;
  */
 class SoundTray extends FlxBasic
 {
+    /**
+     * Cuando está en true, el SoundTray ignora las teclas de volumen.
+     * Usado por ScriptEditorSubState (y cualquier UI con input de texto)
+     * para evitar que escribir 0, + o - cambie el volumen.
+     */
+    public static var blockInput:Bool = false;
+
     // ── Contenedor OpenFL persistente ─────────────────────────────────────────
     private static var _container:SoundTrayContainer;
 
@@ -122,7 +129,7 @@ class SoundTray extends FlxBasic
             hasActiveTextField = true;
         #end
 
-        if (!hasActiveTextField)
+        if (!hasActiveTextField && !SoundTray.blockInput)
         {
             if (FlxG.keys.justPressed.ZERO || FlxG.keys.justPressed.NUMPADZERO)
                 toggleMute();

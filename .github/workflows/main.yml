@@ -263,3 +263,87 @@ jobs:
           name: CoolEngine-Linux
           path: export/release/linux/bin/
           if-no-files-found: error
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ANDROID
+  # ══════════════════════════════════════════════════════════════════════════
+  build-android:
+    name: "Build — Android"
+    runs-on: ubuntu-22.04
+
+    steps:
+      # 1 ── Checkout ─────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 2 ── Java 17 (requerido por Android Gradle 8+) ────────────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # 3 ── Android SDK ──────────────────────────────────────────────────────
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK & build tools
+        run: |
+          sdkmanager --install \
+            "ndk;25.2.9519653" \
+            "build-tools;33.0.2" \
+            "platforms;android-33" \
+            "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.2.9519653" >> $GITHUB_ENV
+
+      # 4 ── Haxe ─────────────────────────────────────────────────────────────
+      - name: Install Haxe ${{ env.HAXE_VERSION }}
+        uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: ${{ env.HAXE_VERSION }}
+
+      # 5 ── Haxe libraries ───────────────────────────────────────────────────
+      - name: Install haxelibs
+        run: |
+          haxelib install hxcpp --quiet
+          haxelib install lime 8.0.2 --quiet
+          haxelib install openfl 9.2.2 --quiet
+          haxelib install flixel 5.4.0 --quiet
+          haxelib install flixel-addons 3.2.2 --quiet
+          haxelib install flixel-ui 2.6.1 --quiet
+          haxelib install flixel-tools 1.5.1 --quiet
+          haxelib install actuate --quiet
+          haxelib install hscript --quiet
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
+          # discord_rpc se omite intencionalmente: no existe en Android
+
+      - name: Lock library versions
+        run: |
+          haxelib set lime 8.0.2
+          haxelib set openfl 9.2.2
+          haxelib set flixel 5.4.0
+          haxelib set flixel-addons 3.2.2
+          haxelib set flixel-ui 2.6.1
+
+      - name: Setup Lime
+        run: haxelib run lime setup -y
+
+      # 6 ── Configurar rutas de Android en ~/.lime/config.xml ────────────────
+      - name: Configure Lime Android paths
+        run: |
+          haxelib run lime config ANDROID_SDK   $ANDROID_SDK_ROOT
+          haxelib run lime config ANDROID_NDK   $ANDROID_NDK_HOME
+          haxelib run lime config JAVA_HOME     $JAVA_HOME
+
+      # 7 ── Build ────────────────────────────────────────────────────────────
+      - name: Build (Android release)
+        run: haxelib run lime build android -final
+
+      # 8 ── Upload artifact ──────────────────────────────────────────────────
+      - name: Upload Android build
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoolEngine-Android
+          path: export/release/android/bin/app/build/outputs/apk/release/
+          if-no-files-found: error

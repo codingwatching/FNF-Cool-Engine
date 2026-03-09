@@ -187,6 +187,13 @@ class Note extends FlxSprite
 		this.noteType = '';
 		this.alpha = sustainNote ? 0.6 : 1.0;
 		this.visible = true;
+		// BUGFIX: limpiar clipRect al reciclar. Si esta nota fue una nota larga
+		// cerca del strum en su vida anterior, el clipRect queda asignado. Sin
+		// reset, la nueva nota aparece recortada hasta que updateNotePosition()
+		// vuelve a calcular el clip — pero si la nota es saltada en ese frame
+		// por el bug de splice (ya corregido en _updateNoteGroup), el clipRect
+		// antiguo persiste y la nota larga nueva es visible con recorte incorrecto.
+		this.clipRect = null;
 
 		x = _calcBaseX(mustHitNote) + (swagWidth * noteData);
 		y = -2000;

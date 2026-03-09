@@ -191,7 +191,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 			return;
 		}
 
-		if (controls.ACCEPT)
+		if (controls.ACCEPT && !OptionsMenuState.isOpenOptions)
 		{
 			// Guard contra spam: ignorar si ya se eligió una opción
 			if (_acted) return;

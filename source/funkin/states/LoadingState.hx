@@ -240,8 +240,17 @@ class LoadingState extends funkin.states.MusicBeatState
 	 * Devuelve el directorio de filesystem que corresponde a una librería.
 	 * Prueba las convenciones de layout más comunes.
 	 */
+	// Caché de directorios de librerías — evita múltiples FileSystem.exists()
+	// por el mismo libraryId en una sesión de carga.
+	// PERF FIX: getLibraryDir() era llamado N veces (una por cada pista de audio)
+	// haciendo FileSystem.exists() repetido para el mismo directorio.
+	static var _libraryDirCache:Map<String, String> = new Map();
+
 	static function getLibraryDir(library:String):String
 	{
+		var cached = _libraryDirCache.get(library);
+		if (cached != null) return cached;
+
 		var candidates = [
 			Paths.resolve('$library/'),
 			Paths.resolve('data/$library/'),
@@ -249,8 +258,13 @@ class LoadingState extends funkin.states.MusicBeatState
 		];
 		for (c in candidates)
 			if (FileSystem.exists(c) && FileSystem.isDirectory(c))
+			{
+				_libraryDirCache.set(library, c);
 				return c;
-		return Paths.resolve('$library/'); // fallback aunque no exista
+			}
+		var fallback = Paths.resolve('$library/'); // fallback aunque no exista
+		_libraryDirCache.set(library, fallback);
+		return fallback;
 	}
 
 	/**
@@ -375,14 +389,44 @@ class LoadingState extends funkin.states.MusicBeatState
 			var callback = callbacks.add("song:" + path);
 
 			#if sys
-			// ── Fallback filesystem ──────────────────────────────────────────
+			// ── Fallback filesystem (hilo separado) ──────────────────────────
 			// Si el audio no figura en el manifiesto compilado pero existe
-			// en disco (canción añadida post-compilación), lo cargamos
-			// directamente y lo inyectamos en el cache para que el resto
-			// del engine lo encuentre normalmente.
+			// en disco (canción añadida post-compilación), lo cargamos en un
+			// hilo de fondo para NO bloquear el hilo principal.
+			// PERF FIX: Sound.fromFile() en el hilo principal bloqueaba la barra
+			// de carga varios segundos en canciones de mods grandes (>10 MB).
 			var fsPath = resolveSoundFsPath(path);
 			if (fsPath != null)
 			{
+				#if (cpp || hl)
+				// Usar hilo de sistema cuando el target lo soporta.
+				// PERF FIX: Sound.fromFile() bloqueaba el hilo principal varios segundos
+				// en canciones de mods grandes. Se ejecuta en background y el callback
+				// se despacha al hilo principal via un ENTER_FRAME one-shot en el stage.
+				sys.thread.Thread.create(function()
+				{
+					var sound:openfl.media.Sound = null;
+					try { sound = openfl.media.Sound.fromFile(fsPath); }
+					catch (e:Dynamic) { trace('[LoadingState] Carga async falló ($fsPath): $e'); }
+
+					// Volver al hilo principal via ENTER_FRAME one-shot.
+					var stage = openfl.Lib.current.stage;
+					var listener:openfl.events.Event->Void = null;
+					listener = function(_)
+					{
+						stage.removeEventListener(openfl.events.Event.ENTER_FRAME, listener);
+						if (sound != null)
+						{
+							Assets.cache.setSound(path, sound);
+							trace('[LoadingState] Audio de mod cargado async: $fsPath → $path');
+						}
+						callback();
+					};
+					stage.addEventListener(openfl.events.Event.ENTER_FRAME, listener);
+				});
+				return;
+				#else
+				// En targets sin hilos, carga síncrona
 				try
 				{
 					var sound = openfl.media.Sound.fromFile(fsPath);
@@ -398,6 +442,7 @@ class LoadingState extends funkin.states.MusicBeatState
 				{
 					trace('[LoadingState] Carga directa falló ($fsPath): $e');
 				}
+				#end
 			}
 			#end
 
@@ -485,6 +530,8 @@ class LoadingState extends funkin.states.MusicBeatState
 	{
 		// Liberar assets de LoadingState que no pasen a PlayState
 		Paths.clearUnusedMemory();
+		// Limpiar caché de directorios de librerías
+		_libraryDirCache.clear();
 		super.destroy();
 		callbacks = null;
 	}

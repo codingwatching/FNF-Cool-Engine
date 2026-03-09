@@ -105,10 +105,27 @@ class MenuEditor extends funkin.states.MusicBeatState
 	var _dragOffY : Float = 0;
 
 	// Hit rects
-	var _btns : Array<{id:String, x:Float, y:Float, w:Float, h:Float}> = [];
+	var _btns : Array<{id:String, x:Float, y:Float, w:Float, h:Float, tab:String}> = [];
+
+	var _ctxPreviewBlocker : FlxSprite = null;
 
 	// Status
 	var _statusTxt : FlxText;
+
+	// ── Live preview / instant update ─────────────────────────────────────────
+	var _prevInputs  : Map<String,String> = new Map();
+	var _prevChecks  : Map<String,Bool>   = new Map();
+	var _liveTimer   : Float = 0.0;
+	static inline var LIVE_DELAY : Float  = 0.08;
+
+	// ── Context menu ──────────────────────────────────────────────────────────
+	var _ctxGrp      : FlxGroup = null;
+	var _ctxVisible  : Bool     = false;
+	var _ctxTargetIdx: Int      = -1;
+	var _ctxX        : Float    = 0;
+	var _ctxY        : Float    = 0;
+	static inline var CTX_W     : Int = 220;
+	static inline var CTX_ROW   : Int = 24;
 
 	// ─────────────────────────────────────────────────────────────────────────
 	override public function create() : Void
@@ -278,13 +295,13 @@ class MenuEditor extends funkin.states.MusicBeatState
 		_typeDD.scrollFactor.set(); _typeDD.cameras = [camUI]; g.add(_typeDD); add(_typeDD); y += 28;
 
 		// Buttons row
-		_mkTBtn(g, px+8,   y, 58, 24, "+ Add",  0xFF0A2A0A, C_GREEN,  "add_item");
-		_mkTBtn(g, px+70,  y, 58, 24, "- Del",  0xFF2A0A0A, C_RED,    "del_item");
-		_mkTBtn(g, px+132, y, 58, 24, "↑ Up",   0xFF0A0A2A, C_ACCENT, "up_item");
-		_mkTBtn(g, px+194, y, 58, 24, "↓ Down", 0xFF0A0A2A, C_ACCENT, "down_item");
+		_mkTBtn(g, px+8,   y, 58, 24, "+ Add",  0xFF0A2A0A, C_GREEN,  "add_item", "Items");
+		_mkTBtn(g, px+70,  y, 58, 24, "- Del",  0xFF2A0A0A, C_RED,    "del_item", "Items");
+		_mkTBtn(g, px+132, y, 58, 24, "↑ Up",   0xFF0A0A2A, C_ACCENT, "up_item", "Items");
+		_mkTBtn(g, px+194, y, 58, 24, "↓ Down", 0xFF0A0A2A, C_ACCENT, "down_item", "Items");
 		y += 28;
-		_mkTBtn(g, px+8,   y, 88, 22, "⎘ Dup",       0xFF0A1A1A, C_ACCENT,    "dup_item");
-		_mkTBtn(g, px+100, y, 88, 22, "📋 Defaults",  0xFF1A0A1A, 0xFFCC88FF, "item_tmpl");
+		_mkTBtn(g, px+8,   y, 88, 22, "⎘ Dup",       0xFF0A1A1A, C_ACCENT,    "dup_item", "Items");
+		_mkTBtn(g, px+100, y, 88, 22, "📋 Defaults",  0xFF1A0A1A, 0xFFCC88FF, "item_tmpl", "Items");
 		y += 26;
 
 		// Item list (rebuilt)
@@ -330,7 +347,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 		// Sprite path + browse
 		_mkL(g, px+8, y, "Sprite path:", C_GRAY); y += 13;
 		_addIn(g, "spritePath", px+8, y, cw-28, "", 10);
-		_mkTBtn(g, px+8+cw-26, y, 26, 18, "…", 0xFF1A1A2A, C_ACCENT, "browse_sprite");
+		_mkTBtn(g, px+8+cw-26, y, 26, 18, "…", 0xFF1A1A2A, C_ACCENT, "browse_sprite", "Items");
 		y += 22;
 
 		// Anim name
@@ -348,11 +365,11 @@ class MenuEditor extends funkin.states.MusicBeatState
 		// Script
 		_mkL(g, px+8, y, "Item Script:", C_GRAY); y += 13;
 		_addIn(g, "script", px+8, y, cw-92, "", 10);
-		_mkTBtn(g, px+8+cw-90, y, 90, 18, "📝 Full Editor", 0xFF0E0E28, 0xFFCC88FF, "edit_script");
+		_mkTBtn(g, px+8+cw-90, y, 90, 18, "📝 Full Editor", 0xFF0E0E28, 0xFFCC88FF, "edit_script", "Items");
 		y += 22;
 
 		// Apply
-		_mkTBtn(g, px+8, y, cw, 26, "✔ Apply Changes", C_SELECTED, C_ACCENT, "apply_item");
+		_mkTBtn(g, px+8, y, cw, 26, "✔ Apply Changes", C_SELECTED, C_ACCENT, "apply_item", "Items");
 	}
 
 	// ── Groups Tab ────────────────────────────────────────────────────────
@@ -367,8 +384,8 @@ class MenuEditor extends funkin.states.MusicBeatState
 		_groupGrp = new FlxGroup(); _groupGrp.cameras = [camUI]; g.add(_groupGrp); add(_groupGrp);
 		y += 8 * ROW_H + 4;
 
-		_mkTBtn(g, px+8,   y, 80, 24, "+ Group", 0xFF0A2A0A, C_GREEN, "add_group");
-		_mkTBtn(g, px+92,  y, 80, 24, "- Delete",0xFF2A0A0A, C_RED,   "del_group");
+		_mkTBtn(g, px+8,   y, 80, 24, "+ Group", 0xFF0A2A0A, C_GREEN, "add_group", "Groups");
+		_mkTBtn(g, px+92,  y, 80, 24, "- Delete",0xFF2A0A0A, C_RED,   "del_group", "Groups");
 		y += 30;
 
 		_mkSep(g, px+8, y, cw); y += 8;
@@ -382,7 +399,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 
 		_addCB(g, "groupLocked", px+8, y, "Lock group", 100); y += 26;
 
-		_mkTBtn(g, px+8, y, cw, 24, "✔ Apply Group", C_SELECTED, C_ACCENT, "apply_group");
+		_mkTBtn(g, px+8, y, cw, 24, "✔ Apply Group", C_SELECTED, C_ACCENT, "apply_group", "Groups");
 		y += 30;
 
 		_mkSep(g, px+8, y, cw); y += 8;
@@ -393,7 +410,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 		var gdd = new FlxUIDropDownMenu(px+8, y, FlxUIDropDownMenu.makeStrIdLabelArray(gnames, true), function(_){});
 		gdd.scrollFactor.set(); gdd.cameras = [camUI]; g.add(gdd); add(gdd); _dds.set("groupAssign", gdd); y += 28;
 
-		_mkTBtn(g, px+8, y, cw, 24, "Assign to Group", C_SELECTED, C_YELLOW, "assign_group");
+		_mkTBtn(g, px+8, y, cw, 24, "Assign to Group", C_SELECTED, C_YELLOW, "assign_group", "Groups");
 	}
 
 	// ── Settings Tab ──────────────────────────────────────────────────────
@@ -411,7 +428,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 
 		_mkL(g, px+8, y, "BG Image:", C_GRAY); y += 13;
 		_addIn(g, "bgImage", px+8, y, cw-28, "", 10);
-		_mkTBtn(g, px+8+cw-26, y, 26, 18, "…", 0xFF1A1A2A, C_ACCENT, "browse_bg");
+		_mkTBtn(g, px+8+cw-26, y, 26, 18, "…", 0xFF1A1A2A, C_ACCENT, "browse_bg", "Settings");
 		y += 22;
 
 		_mkL(g, px+8, y, "BG Scroll speed X / Y:", C_GRAY); y += 13;
@@ -421,7 +438,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 
 		_mkL(g, px+8, y, "Music path:", C_GRAY); y += 13;
 		_addIn(g, "music", px+8, y, cw-62, "", 11);
-		_mkTBtn(g, px+8+cw-60, y, 60, 18, "▶ Test", 0xFF0A200A, C_GREEN, "test_music");
+		_mkTBtn(g, px+8+cw-60, y, 60, 18, "▶ Test", 0xFF0A200A, C_GREEN, "test_music", "Settings");
 		y += 22;
 
 		_mkL(g, px+8, y, "Transition:", C_GRAY); y += 13;
@@ -430,19 +447,19 @@ class MenuEditor extends funkin.states.MusicBeatState
 			function(id:String) { var idx = Std.parseInt(id) ?? 0; _data.transition = transitions[idx]; });
 		tdd.scrollFactor.set(); tdd.cameras = [camUI]; g.add(tdd); add(tdd); _dds.set("transition", tdd); y += 28;
 
-		_mkTBtn(g, px+8, y, cw, 24, "📝 Edit Custom Transition (HScript)", 0xFF0E0E28, 0xFFCC88FF, "edit_trans");
+		_mkTBtn(g, px+8, y, cw, 24, "📝 Edit Custom Transition (HScript)", 0xFF0E0E28, 0xFFCC88FF, "edit_trans", "Settings");
 		y += 28;
 
 		_addCB(g, "bgScroll", px+8, y, "Scrolling BG", 120); y += 26;
 
-		_mkTBtn(g, px+8, y, cw, 26, "✔ Apply Settings", C_SELECTED, C_ACCENT, "apply_settings");
+		_mkTBtn(g, px+8, y, cw, 26, "✔ Apply Settings", C_SELECTED, C_ACCENT, "apply_settings", "Settings");
 		y += 32;
 
 		_mkSep(g, px+8, y, cw); y += 8;
 		_mkL(g, px+8, y, "Load template:", C_GRAY); y += 14;
-		_mkTBtn(g, px+8,   y, 86, 24, "🏠 MainMenu",  0xFF0E1A0E, C_GREEN,  "tmpl_main");
-		_mkTBtn(g, px+98,  y, 86, 24, "🎵 Freeplay",  0xFF0E0E1A, C_ACCENT, "tmpl_free");
-		_mkTBtn(g, px+188, y, 86, 24, "📖 StoryMenu", 0xFF1A0E0E, C_ORANGE, "tmpl_story");
+		_mkTBtn(g, px+8,   y, 86, 24, "🏠 MainMenu",  0xFF0E1A0E, C_GREEN,  "tmpl_main", "Settings");
+		_mkTBtn(g, px+98,  y, 86, 24, "🎵 Freeplay",  0xFF0E0E1A, C_ACCENT, "tmpl_free", "Settings");
+		_mkTBtn(g, px+188, y, 86, 24, "📖 StoryMenu", 0xFF1A0E0E, C_ORANGE, "tmpl_story", "Settings");
 	}
 
 	function _buildStatusBar() : Void
@@ -622,6 +639,8 @@ class MenuEditor extends funkin.states.MusicBeatState
 	function _refreshItemList() : Void
 	{
 		if (_listGrp == null) return;
+		// Properly remove old row sprites from the state before clearing
+		for (m in _listGrp.members) { if (m != null) remove(m, true); }
 		_listGrp.clear();
 		_btns = _btns.filter(b -> !StringTools.startsWith(b.id, "row_"));
 
@@ -637,41 +656,44 @@ class MenuEditor extends funkin.states.MusicBeatState
 			var gc  = _getGroupColor(it.groupId ?? "");
 
 			var ibg = new FlxSprite(px+8, iy).makeGraphic(cw, ROW_H-1, isS ? C_SELECTED : C_PANEL_ALT);
-			ibg.scrollFactor.set(); ibg.cameras = [camUI]; _listGrp.add(ibg); add(ibg);
+			ibg.scrollFactor.set(); ibg.cameras = [camUI]; _listGrp.add(ibg);
 
 			var tbar = new FlxSprite(px+8, iy).makeGraphic(3, ROW_H-1, tc);
-			tbar.scrollFactor.set(); tbar.cameras = [camUI]; _listGrp.add(tbar); add(tbar);
+			tbar.scrollFactor.set(); tbar.cameras = [camUI]; _listGrp.add(tbar);
 
 			var gdot = new FlxSprite(px+13, iy + Std.int(ROW_H/2) - 4).makeGraphic(8, 8, gc);
-			gdot.scrollFactor.set(); gdot.cameras = [camUI]; _listGrp.add(gdot); add(gdot);
+			gdot.scrollFactor.set(); gdot.cameras = [camUI]; _listGrp.add(gdot);
 
 			var lbl = it.label != "" ? it.label : '(${it.type})';
 			var itx = new FlxText(px+24, iy + 7, cw-74, (it.visible ? "" : "🚫 ") + lbl, 10);
 			itx.setFormat(Paths.font("vcr.ttf"), 10, isS ? C_ACCENT : (it.enabled ? C_WHITE : C_GRAY), LEFT);
-			itx.scrollFactor.set(); itx.cameras = [camUI]; _listGrp.add(itx); add(itx);
+			itx.scrollFactor.set(); itx.cameras = [camUI]; _listGrp.add(itx);
 
 			var badge = new FlxSprite(px+cw-62, iy+5).makeGraphic(58, ROW_H-10, tc);
-			badge.alpha = 0.45; badge.scrollFactor.set(); badge.cameras = [camUI]; _listGrp.add(badge); add(badge);
+			badge.alpha = 0.45; badge.scrollFactor.set(); badge.cameras = [camUI]; _listGrp.add(badge);
 			var btx = new FlxText(px+cw-62, iy+7, 58, it.type, 8);
 			btx.setFormat(Paths.font("vcr.ttf"), 8, C_DARK, CENTER);
-			btx.scrollFactor.set(); btx.cameras = [camUI]; _listGrp.add(btx); add(btx);
+			btx.scrollFactor.set(); btx.cameras = [camUI]; _listGrp.add(btx);
 
-			_reg('row_$i', px+8, iy, cw, ROW_H);
+			_reg('row_$i', px+8, iy, cw, ROW_H, 'Items');
 		}
 
 		if (_data.items.length > MAX_ROWS) {
 			var ht = new FlxText(px+8, sy + MAX_ROWS * ROW_H + 2, cw,
 				'↕ ${_data.items.length} items  (↑↓ arrow keys)', 9);
 			ht.setFormat(Paths.font("vcr.ttf"), 9, C_GRAY, CENTER);
-			ht.scrollFactor.set(); ht.cameras = [camUI]; _listGrp.add(ht); add(ht);
+			ht.scrollFactor.set(); ht.cameras = [camUI]; _listGrp.add(ht);
 		}
 	}
 
 	function _refreshGroupList() : Void
 	{
 		if (_groupGrp == null) return;
+		// Properly remove old row sprites from the state before clearing
+		for (m in _groupGrp.members) { if (m != null) remove(m, true); }
 		_groupGrp.clear();
-		_btns = _btns.filter(b -> !StringTools.startsWith(b.id, "gvis_") || StringTools.startsWith(b.id, "grow_"));
+		// Remove BOTH gvis_ and grow_ hit-rects (was missing grow_ before)
+		_btns = _btns.filter(b -> !StringTools.startsWith(b.id, "gvis_") && !StringTools.startsWith(b.id, "grow_"));
 
 		var px = FlxG.width - PANEL_W;
 		var sy = TAB_H + 22.0;
@@ -682,27 +704,27 @@ class MenuEditor extends funkin.states.MusicBeatState
 			var gy  = sy + i * ROW_H;
 			var gc  = _parseColor(gr.color, C_ACCENT);
 			var gbg = new FlxSprite(px+8, gy).makeGraphic(cw, ROW_H-1, C_PANEL_ALT);
-			gbg.scrollFactor.set(); gbg.cameras = [camUI]; _groupGrp.add(gbg); add(gbg);
+			gbg.scrollFactor.set(); gbg.cameras = [camUI]; _groupGrp.add(gbg);
 			var gbar = new FlxSprite(px+8, gy).makeGraphic(3, ROW_H-1, gc);
-			gbar.scrollFactor.set(); gbar.cameras = [camUI]; _groupGrp.add(gbar); add(gbar);
+			gbar.scrollFactor.set(); gbar.cameras = [camUI]; _groupGrp.add(gbar);
 			var gtx = new FlxText(px+14, gy+7, cw-56, gr.name + (gr.locked ? " 🔒" : ""), 10);
 			gtx.setFormat(Paths.font("vcr.ttf"), 10, gr.visible ? C_WHITE : C_GRAY, LEFT);
-			gtx.scrollFactor.set(); gtx.cameras = [camUI]; _groupGrp.add(gtx); add(gtx);
+			gtx.scrollFactor.set(); gtx.cameras = [camUI]; _groupGrp.add(gtx);
 
 			// Eye toggle btn
 			var eyBg = new FlxSprite(px+cw-44, gy+3).makeGraphic(22, ROW_H-8, 0xFF0A0A16);
-			eyBg.scrollFactor.set(); eyBg.cameras = [camUI]; _groupGrp.add(eyBg); add(eyBg);
+			eyBg.scrollFactor.set(); eyBg.cameras = [camUI]; _groupGrp.add(eyBg);
 			var eyTx = new FlxText(px+cw-44, gy+6, 22, gr.visible ? "👁" : "☐", 9);
 			eyTx.setFormat(Paths.font("vcr.ttf"), 9, gr.visible ? C_ACCENT : C_GRAY, CENTER);
-			eyTx.scrollFactor.set(); eyTx.cameras = [camUI]; _groupGrp.add(eyTx); add(eyTx);
-			_reg('gvis_$i', px+cw-44, gy+3, 22, ROW_H-8);
+			eyTx.scrollFactor.set(); eyTx.cameras = [camUI]; _groupGrp.add(eyTx);
+			_reg('gvis_$i', px+cw-44, gy+3, 22, ROW_H-8, 'Groups');
 
 			var cnt = (_data.items ?? []).filter(it -> it.groupId == gr.id).length;
 			var ctx = new FlxText(px+cw-20, gy+7, 20, '×$cnt', 9);
 			ctx.setFormat(Paths.font("vcr.ttf"), 9, C_GRAY, RIGHT);
-			ctx.scrollFactor.set(); ctx.cameras = [camUI]; _groupGrp.add(ctx); add(ctx);
+			ctx.scrollFactor.set(); ctx.cameras = [camUI]; _groupGrp.add(ctx);
 
-			_reg('grow_$i', px+8, gy, cw-50, ROW_H);
+			_reg('grow_$i', px+8, gy, cw-50, ROW_H, 'Groups');
 		}
 	}
 
@@ -748,28 +770,89 @@ class MenuEditor extends funkin.states.MusicBeatState
 	{
 		super.update(elapsed);
 		_handleClick();
+		_handleRightClick();
 		_handleDrag();
 		_handleKeys();
+		_trackLiveInputs(elapsed);
 		if (_data.bgScroll && camPreview != null) {
 			camPreview.scroll.x += _data.bgScrollX * elapsed;
 			camPreview.scroll.y += _data.bgScrollY * elapsed;
 		}
 	}
 
-	function _handleClick() : Void
+	// ── Instant live preview ──────────────────────────────────────────────────
+
+	function _trackLiveInputs(elapsed:Float) : Void
 	{
-		if (!FlxG.mouse.justPressed) return;
-		var mx = FlxG.mouse.x; var my = FlxG.mouse.y;
-		for (b in _btns) {
-			if (mx >= b.x && mx <= b.x+b.w && my >= b.y && my <= b.y+b.h) { _onBtn(b.id); return; }
+		if (_selectedIdx < 0 || _selectedIdx >= _data.items.length) return;
+
+		var changed = false;
+		var watchKeys = ["label","action","color","posX","posY","scaleX","scaleY","fontSize","spritePath","animName","alpha"];
+		for (k in watchKeys) {
+			var cur = _gi(k);
+			if (_prevInputs.get(k) != cur) { _prevInputs.set(k, cur); changed = true; }
 		}
-		// Click in preview
-		if (mx < FlxG.width - PANEL_W && my > TOOLBAR_H && my < FlxG.height - STATUS_H) {
-			_hitPreview(mx, my - TOOLBAR_H);
+		var watchCBs = ["bold","isMenuItem","visible","enabled"];
+		for (k in watchCBs) {
+			var cur = _gc(k);
+			if (_prevChecks.get(k) != cur) { _prevChecks.set(k, cur); changed = true; }
+		}
+
+		if (changed) {
+			_liveTimer = LIVE_DELAY;
+		} else if (_liveTimer > 0) {
+			_liveTimer -= elapsed;
+			if (_liveTimer <= 0) {
+				_liveTimer = 0;
+				_applyItemPropsLive();
+			}
 		}
 	}
 
-	function _hitPreview(mx:Float, my:Float) : Void
+	function _applyItemPropsLive() : Void
+	{
+		if (_selectedIdx < 0 || _selectedIdx >= _data.items.length) return;
+		var it = _data.items[_selectedIdx];
+		it.label      = _gi("label");
+		it.action     = _gi("action");
+		it.color      = _gi("color");
+		it.x          = _pf(_gi("posX"),   it.x);
+		it.y          = _pf(_gi("posY"),   it.y);
+		it.scaleX     = _pf(_gi("scaleX"), 1.0);
+		it.scaleY     = _pf(_gi("scaleY"), 1.0);
+		it.fontSize   = Std.parseInt(_gi("fontSize")) ?? 24;
+		it.spritePath = _gi("spritePath");
+		it.animName   = _gi("animName");
+		it.alpha      = _pf(_gi("alpha"),  1.0);
+		it.bold       = _gc("bold");
+		it.isMenuItem = _gc("isMenuItem");
+		it.visible    = _gc("visible");
+		it.enabled    = _gc("enabled");
+		_isDirty = true;
+		_rebuildPreview();
+	}
+
+	// ── Right-click context menu ──────────────────────────────────────────────
+
+	var _ctxRowIds : Array<String> = [];
+
+	function _handleRightClick() : Void
+	{
+		if (!FlxG.mouse.justPressedRight) return;
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+		if (mx < FlxG.width - PANEL_W && my > TOOLBAR_H && my < FlxG.height - STATUS_H) {
+			var bi = _findPreviewItemAt(mx, my - TOOLBAR_H);
+			if (bi >= 0) {
+				_selectedIdx = bi;
+				_loadPropInputs(); _refreshItemList(); _updateSel();
+			}
+			_ctxTargetIdx = _selectedIdx;
+			_openCtxMenu(mx, my);
+		}
+	}
+
+	function _findPreviewItemAt(mx:Float, my:Float) : Int
 	{
 		var best = 9999.0; var bi = -1;
 		for (i in 0..._data.items.length) {
@@ -784,12 +867,179 @@ class MenuEditor extends funkin.states.MusicBeatState
 				if (d < best) { best = d; bi = i; }
 			}
 		}
+		return bi;
+	}
+
+	function _openCtxMenu(mx:Float, my:Float) : Void
+	{
+		_closeCtx();
+		_ctxVisible = true;
+		_ctxX = mx; _ctxY = my;
+
+		var it = (_ctxTargetIdx >= 0 && _ctxTargetIdx < _data.items.length)
+			? _data.items[_ctxTargetIdx] : null;
+
+		var entries : Array<{sep:Bool, id:String, lbl:String, col:Int, icon:String}> = [];
+
+		if (it != null) {
+			entries.push({sep:false, id:"ctx_noop",     lbl:'${it.type}:  "${it.label}"',          col:C_ACCENT,    icon:"\u{1F4CC}"});
+			entries.push({sep:true,  id:"",             lbl:"",                                     col:0,           icon:""});
+			entries.push({sep:false, id:"ctx_dup",      lbl:"Duplicate",                            col:C_WHITE,     icon:"+"});
+			entries.push({sep:false, id:"ctx_del",      lbl:"Delete",                               col:C_RED,       icon:"X"});
+			entries.push({sep:true,  id:"",             lbl:"",                                     col:0,           icon:""});
+			entries.push({sep:false, id:"ctx_up",       lbl:"Move Up  (Shift+Up)",                  col:C_GRAY,      icon:"^"});
+			entries.push({sep:false, id:"ctx_down",     lbl:"Move Down  (Shift+Down)",               col:C_GRAY,      icon:"v"});
+			entries.push({sep:true,  id:"",             lbl:"",                                     col:0,           icon:""});
+			entries.push({sep:false, id:"ctx_centerH",  lbl:"Center Horizontal",                    col:C_YELLOW,    icon:"|"});
+			entries.push({sep:false, id:"ctx_centerV",  lbl:"Center Vertical",                      col:C_YELLOW,    icon:"-"});
+			entries.push({sep:false, id:"ctx_resetPos", lbl:"Reset Position  (0, auto)",            col:C_YELLOW,    icon:"R"});
+			entries.push({sep:true,  id:"",             lbl:"",                                     col:0,           icon:""});
+			entries.push({sep:false, id:"ctx_vis",      lbl:(it.visible ? "Hide item" : "Show item"), col:C_GRAY,   icon:(it.visible ? "H" : "S")});
+			entries.push({sep:false, id:"ctx_lock",     lbl:(it.enabled ? "Disable item" : "Enable item"), col:C_GRAY, icon:"L"});
+			entries.push({sep:true,  id:"",             lbl:"",                                     col:0,           icon:""});
+			entries.push({sep:false, id:"ctx_alpha0",   lbl:"Alpha -> 0.5  (semi-transparent)",     col:C_GRAY,      icon:"o"});
+			entries.push({sep:false, id:"ctx_alpha1",   lbl:"Alpha -> 1.0  (fully visible)",        col:C_GRAY,      icon:"O"});
+			entries.push({sep:true,  id:"",             lbl:"",                                     col:0,           icon:""});
+			entries.push({sep:false, id:"ctx_bold",     lbl:(it.bold ? "Remove Bold" : "Make Bold"), col:C_WHITE,    icon:"B"});
+			entries.push({sep:false, id:"ctx_defaults", lbl:"Reset to Type Defaults",               col:0xFFCC88FF,  icon:"~"});
+			entries.push({sep:true,  id:"",             lbl:"",                                     col:0,           icon:""});
+			entries.push({sep:false, id:"ctx_script",   lbl:"Edit Item Script",                     col:0xFFCC88FF,  icon:"$"});
+			entries.push({sep:false, id:"ctx_props",    lbl:"Open Properties Panel",                col:C_ACCENT,    icon:"@"});
+		} else {
+			entries.push({sep:false, id:"ctx_add_alpha", lbl:"Add Alphabet item",  col:0xFFFF88FF, icon:"A"});
+			entries.push({sep:false, id:"ctx_add_text",  lbl:"Add Text item",      col:C_YELLOW,   icon:"T"});
+			entries.push({sep:false, id:"ctx_add_sep",   lbl:"Add Separator",      col:C_GRAY,     icon:"-"});
+			entries.push({sep:false, id:"ctx_add_img",   lbl:"Add Image",          col:C_GREEN,    icon:"I"});
+		}
+
+		var totalH = 8;
+		for (e in entries) totalH += e.sep ? 9 : CTX_ROW;
+
+		var cx = Math.min(mx, FlxG.width  - CTX_W - 4);
+		var cy = Math.min(my, FlxG.height - totalH - 4);
+
+		_ctxGrp = new FlxGroup();
+		_ctxGrp.cameras = [camUI];
+		add(_ctxGrp);
+
+		// camPreview renders ON TOP of camUI (added after it), so the context menu
+		// would appear transparent in the preview area. Fix: add a solid blocker
+		// sprite to camPreview that covers the exact menu bounds, preventing the
+		// preview from drawing over the menu.
+		if (_ctxPreviewBlocker != null) { remove(_ctxPreviewBlocker, true); }
+		var previewOffsetY = TOOLBAR_H; // camPreview viewport starts at TOOLBAR_H
+		_ctxPreviewBlocker = new FlxSprite(cx, cy - previewOffsetY).makeGraphic(CTX_W + 8, totalH + 8, 0xFF0D0D16);
+		_ctxPreviewBlocker.scrollFactor.set();
+		_ctxPreviewBlocker.cameras = [camPreview];
+		add(_ctxPreviewBlocker);
+
+		// Shadow (on camUI)
+		var shadow = new FlxSprite(cx+3, cy+3).makeGraphic(CTX_W, totalH, 0xFF000000);
+		shadow.alpha = 0.55; shadow.scrollFactor.set(); shadow.cameras = [camUI]; _ctxGrp.add(shadow);
+
+		// Background — fully opaque dark panel
+		var bg = new FlxSprite(cx, cy).makeGraphic(CTX_W, totalH, 0xFF0E0E1A);
+		bg.scrollFactor.set(); bg.cameras = [camUI]; _ctxGrp.add(bg);
+
+		// Accent left bar
+		var bar = new FlxSprite(cx, cy).makeGraphic(2, totalH, C_ACCENT);
+		bar.alpha = 0.9; bar.scrollFactor.set(); bar.cameras = [camUI]; _ctxGrp.add(bar);
+
+		var ry = cy + 4;
+		var rowIdx = 0;
+		for (e in entries) {
+			if (e.sep) {
+				var sep = new FlxSprite(cx+8, ry+4).makeGraphic(CTX_W-16, 1, 0xFF2A2A44);
+				sep.scrollFactor.set(); sep.cameras = [camUI]; _ctxGrp.add(sep);
+				ry += 9;
+			} else {
+				var isHeader = (e.id == "ctx_noop");
+				// Non-header rows get a very subtle background so they look clickable
+				var rowBg = new FlxSprite(cx+2, ry).makeGraphic(CTX_W-3, CTX_ROW-1,
+					isHeader ? 0xFF1A1A38 : 0xFF131320);
+				rowBg.scrollFactor.set(); rowBg.cameras = [camUI]; _ctxGrp.add(rowBg);
+
+				var iconTx = new FlxText(cx+10, ry+6, 18, e.icon, 10);
+				iconTx.setFormat(Paths.font("vcr.ttf"), 10, e.col, CENTER);
+				iconTx.scrollFactor.set(); iconTx.cameras = [camUI]; _ctxGrp.add(iconTx);
+
+				var lblTx = new FlxText(cx+30, ry+6, CTX_W-38, e.lbl, isHeader ? 9 : 10);
+				lblTx.setFormat(Paths.font("vcr.ttf"), isHeader ? 9 : 10,
+					isHeader ? C_ACCENT : e.col, LEFT);
+				lblTx.scrollFactor.set(); lblTx.cameras = [camUI]; _ctxGrp.add(lblTx);
+
+				if (!isHeader) {
+					_reg('ctx_row_$rowIdx', cx, ry, CTX_W, CTX_ROW);
+					_ctxRowIds.push(e.id);
+					rowIdx++;
+				}
+				ry += CTX_ROW;
+			}
+		}
+	}
+
+	function _closeCtx() : Void
+	{
+		if (_ctxGrp != null) {
+			for (m in _ctxGrp.members) if (m != null) remove(m, true);
+			_ctxGrp.clear();
+			remove(_ctxGrp, true);
+			_ctxGrp = null;
+		}
+		// Remove the camPreview blocker
+		if (_ctxPreviewBlocker != null) {
+			remove(_ctxPreviewBlocker, true);
+			_ctxPreviewBlocker = null;
+		}
+		_btns = _btns.filter(b -> !StringTools.startsWith(b.id, "ctx_row_"));
+		_ctxRowIds = [];
+		_ctxVisible = false;
+	}
+
+	function _handleClick() : Void
+	{
+		if (!FlxG.mouse.justPressed) return;
+		var mx = FlxG.mouse.x; var my = FlxG.mouse.y;
+
+		if (_ctxVisible) {
+			for (b in _btns) {
+				if (StringTools.startsWith(b.id, "ctx_row_") &&
+					mx >= b.x && mx <= b.x+b.w && my >= b.y && my <= b.y+b.h) {
+					var idx = Std.parseInt(b.id.substr(8));
+					if (idx != null && idx < _ctxRowIds.length) {
+						var cmd = _ctxRowIds[idx];
+						_closeCtx();
+						_onBtn(cmd);
+						return;
+					}
+				}
+			}
+			_closeCtx();
+			return;
+		}
+
+		for (b in _btns) {
+			// Skip buttons that belong to an inactive tab
+			if (b.tab != "" && b.tab != _tab) continue;
+			if (mx >= b.x && mx <= b.x+b.w && my >= b.y && my <= b.y+b.h) { _onBtn(b.id); return; }
+		}
+		// Click in preview
+		if (mx < FlxG.width - PANEL_W && my > TOOLBAR_H && my < FlxG.height - STATUS_H) {
+			_hitPreview(mx, my - TOOLBAR_H);
+		}
+	}
+
+	function _hitPreview(mx:Float, my:Float) : Void
+	{
+		var bi = _findPreviewItemAt(mx, my);
 		if (bi >= 0) {
 			_selectedIdx = bi;
 			_loadPropInputs(); _refreshItemList(); _updateSel();
 			var obj = _live.get(bi);
 			var spr = Std.downcast(obj, FlxSprite);
-			if (spr != null) { _dragIdx = bi; _dragOffX = mx - spr.x; _dragOffY = my - spr.y; }
+			var grp = Std.downcast(obj, flixel.group.FlxSpriteGroup);
+			if      (spr != null) { _dragIdx = bi; _dragOffX = mx - spr.x; _dragOffY = my - spr.y; }
+			else if (grp != null) { _dragIdx = bi; _dragOffX = mx - grp.x; _dragOffY = my - grp.y; }
 			_st('Selected: ${_data.items[bi].label} (${_data.items[bi].type}) — drag to reposition');
 		}
 	}
@@ -868,6 +1118,28 @@ class MenuEditor extends funkin.states.MusicBeatState
 			case "tmpl_main":      _loadTemplate("main");
 			case "tmpl_free":      _loadTemplate("free");
 			case "tmpl_story":     _loadTemplate("story");
+
+			// ── Context menu commands ────────────────────────────────────────────
+			case "ctx_noop":      /* header, no action */
+			case "ctx_dup":       _dupItem();
+			case "ctx_del":       _deleteItem();
+			case "ctx_up":        _moveItem(-1);
+			case "ctx_down":      _moveItem(1);
+			case "ctx_centerH":   _ctxCenterH();
+			case "ctx_centerV":   _ctxCenterV();
+			case "ctx_resetPos":  _ctxResetPos();
+			case "ctx_vis":       _ctxToggleVisible();
+			case "ctx_lock":      _ctxToggleEnabled();
+			case "ctx_alpha0":    _ctxSetAlpha(0.5);
+			case "ctx_alpha1":    _ctxSetAlpha(1.0);
+			case "ctx_bold":      _ctxToggleBold();
+			case "ctx_defaults":  _itemDefaults();
+			case "ctx_script":    _editItemScript();
+			case "ctx_props":     _tab = "Items"; _setTabVis(); _st("Properties panel");
+			case "ctx_add_alpha": _ctxQuickAdd("Alphabet");
+			case "ctx_add_text":  _ctxQuickAdd("Text");
+			case "ctx_add_sep":   _ctxQuickAdd("Separator");
+			case "ctx_add_img":   _ctxQuickAdd("Image");
 
 			case _ if (StringTools.startsWith(id, "tab_")):
 				_tab = id.substr(4); _setTabVis();
@@ -1177,27 +1449,27 @@ class MenuEditor extends funkin.states.MusicBeatState
 		var t=new FlxText(x,y,w,lbl,sz); t.setFormat(Paths.font("vcr.ttf"),sz,col,CENTER);
 		t.scrollFactor.set(); t.cameras=[cam]; add(t); return t;
 	}
-	function _reg(id:String,x:Float,y:Float,w:Float,h:Float):Void {
-		_btns=_btns.filter(b->b.id!=id); _btns.push({id:id,x:x,y:y,w:w,h:h});
+	function _reg(id:String,x:Float,y:Float,w:Float,h:Float,tab:String=""):Void {
+		_btns=_btns.filter(b->b.id!=id); _btns.push({id:id,x:x,y:y,w:w,h:h,tab:tab});
 	}
-	function _mkTBtn(g:FlxGroup,x:Float,y:Float,w:Int,h:Int,lbl:String,col:Int,tc:Int,bid:String):Void {
-		var bg=new FlxSprite(x,y).makeGraphic(w,h,col); bg.scrollFactor.set(); bg.cameras=[camUI]; g.add(bg); add(bg);
+	function _mkTBtn(g:FlxGroup,x:Float,y:Float,w:Int,h:Int,lbl:String,col:Int,tc:Int,bid:String,tab:String=""):Void {
+		var bg=new FlxSprite(x,y).makeGraphic(w,h,col); bg.scrollFactor.set(); bg.cameras=[camUI]; g.add(bg);
 		var tx=new FlxText(x,y+Std.int((h-10)/2),w,lbl,9); tx.setFormat(Paths.font("vcr.ttf"),9,tc,CENTER);
-		tx.scrollFactor.set(); tx.cameras=[camUI]; g.add(tx); add(tx);
-		_reg(bid,x,y,w,h);
+		tx.scrollFactor.set(); tx.cameras=[camUI]; g.add(tx);
+		_reg(bid,x,y,w,h,tab);
 	}
 	function _mkL(g:FlxGroup,x:Float,y:Float,txt:String,col:Int):Void {
 		var t=new FlxText(x,y,0,txt,10); t.setFormat(Paths.font("vcr.ttf"),10,col,LEFT);
-		t.scrollFactor.set(); t.cameras=[camUI]; g.add(t); add(t);
+		t.scrollFactor.set(); t.cameras=[camUI]; g.add(t);
 	}
 	function _mkSep(g:FlxGroup,x:Float,y:Float,w:Int):Void {
-		var s=new FlxSprite(x,y).makeGraphic(w,1,0xFF2A2A44); s.scrollFactor.set(); s.cameras=[camUI]; g.add(s); add(s);
+		var s=new FlxSprite(x,y).makeGraphic(w,1,0xFF2A2A44); s.scrollFactor.set(); s.cameras=[camUI]; g.add(s);
 	}
 	function _addIn(g:FlxGroup,k:String,x:Float,y:Float,w:Int,def:String,sz:Int):Void {
-		var inp=new FlxUIInputText(x,y,w,def,sz); inp.scrollFactor.set(); inp.cameras=[camUI]; g.add(inp); add(inp); _inputs.set(k,inp);
+		var inp=new FlxUIInputText(x,y,w,def,sz); inp.scrollFactor.set(); inp.cameras=[camUI]; g.add(inp); _inputs.set(k,inp);
 	}
 	function _addCB(g:FlxGroup,k:String,x:Float,y:Float,lbl:String,w:Int):Void {
-		var cb=new FlxUICheckBox(x,y,null,null,lbl,w); cb.scrollFactor.set(); cb.cameras=[camUI]; g.add(cb); add(cb); _checks.set(k,cb);
+		var cb=new FlxUICheckBox(x,y,null,null,lbl,w); cb.scrollFactor.set(); cb.cameras=[camUI]; g.add(cb); _checks.set(k,cb);
 	}
 	inline function _gi(k:String):String  return _inputs.exists(k)  ? (_inputs.get(k)?.text  ?? "") : "";
 	inline function _si(k:String,v:String):Void if (_inputs.exists(k) && _inputs.get(k) != null) _inputs.get(k).text = v;
@@ -1217,8 +1489,85 @@ class MenuEditor extends funkin.states.MusicBeatState
 		FlxTween.tween(_statusTxt,{alpha:0.6},0.3,{startDelay:4.0});
 	}
 
+	// ── Context menu action helpers ─────────────────────────────────────────
+
+	function _ctxCenterH() : Void
+	{
+		if (_ctxTargetIdx < 0 || _ctxTargetIdx >= _data.items.length) return;
+		var it = _data.items[_ctxTargetIdx];
+		it.x = 0; // x=0 triggers screenCenter(X) in _rebuildPreview
+		_loadPropInputs(); _rebuildPreview(); _isDirty = true;
+		_st('⟺ Centered H: "${it.label}"');
+	}
+
+	function _ctxCenterV() : Void
+	{
+		if (_ctxTargetIdx < 0 || _ctxTargetIdx >= _data.items.length) return;
+		var it = _data.items[_ctxTargetIdx];
+		var prevH = FlxG.height - TOOLBAR_H - STATUS_H;
+		it.y = prevH / 2 - 20;
+		_loadPropInputs(); _rebuildPreview(); _isDirty = true;
+		_st('- Centered V: "${it.label}"');
+	}
+
+	function _ctxResetPos() : Void
+	{
+		if (_ctxTargetIdx < 0 || _ctxTargetIdx >= _data.items.length) return;
+		var it = _data.items[_ctxTargetIdx];
+		it.x = 0; it.y = 0;
+		_loadPropInputs(); _rebuildPreview(); _isDirty = true;
+		_st('R Reset pos: "${it.label}"');
+	}
+
+	function _ctxToggleVisible() : Void
+	{
+		if (_ctxTargetIdx < 0 || _ctxTargetIdx >= _data.items.length) return;
+		var it = _data.items[_ctxTargetIdx];
+		it.visible = !it.visible;
+		_loadPropInputs(); _refreshItemList(); _rebuildPreview(); _isDirty = true;
+		_st((it.visible ? "Shown" : "Hidden") + ': "${it.label}"');
+	}
+
+	function _ctxToggleEnabled() : Void
+	{
+		if (_ctxTargetIdx < 0 || _ctxTargetIdx >= _data.items.length) return;
+		var it = _data.items[_ctxTargetIdx];
+		it.enabled = !it.enabled;
+		_loadPropInputs(); _refreshItemList(); _rebuildPreview(); _isDirty = true;
+		_st((it.enabled ? "Enabled" : "Disabled") + ': "${it.label}"');
+	}
+
+	function _ctxSetAlpha(v:Float) : Void
+	{
+		if (_ctxTargetIdx < 0 || _ctxTargetIdx >= _data.items.length) return;
+		var it = _data.items[_ctxTargetIdx];
+		it.alpha = v;
+		_loadPropInputs(); _rebuildPreview(); _isDirty = true;
+		_st('Alpha -> $v: "${it.label}"');
+	}
+
+	function _ctxToggleBold() : Void
+	{
+		if (_ctxTargetIdx < 0 || _ctxTargetIdx >= _data.items.length) return;
+		var it = _data.items[_ctxTargetIdx];
+		it.bold = !it.bold;
+		_loadPropInputs(); _rebuildPreview(); _isDirty = true;
+		_st((it.bold ? "Bold on" : "Bold off") + ': "${it.label}"');
+	}
+
+	function _ctxQuickAdd(type:String) : Void
+	{
+		var gid = (_data.groups != null && _data.groups.length > 0) ? _data.groups[0].id : "main";
+		var lbl = type == "Separator" ? "" : "NEW " + type.toUpperCase();
+		_data.items.push(_mkItem(lbl, "action", type, "0xFFFFFFFF", gid));
+		_selectedIdx = _data.items.length - 1;
+		_loadPropInputs(); _refreshItemList(); _rebuildPreview(); _isDirty = true;
+		_st('+ Quick added $type');
+	}
+
 	override public function destroy():Void {
 		if (_music!=null){_music.stop();_music=null;}
+		_closeCtx();
 		for (k in _live.keys()){var o=_live.get(k);if(o!=null&&o.alive)try{o.destroy();}catch(_){}}
 		_live.clear();
 		super.destroy();

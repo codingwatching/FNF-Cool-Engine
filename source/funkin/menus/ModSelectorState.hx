@@ -1205,7 +1205,8 @@ class ModSelectorState extends MusicBeatState
 			website: '',
 			enabled: true,
 			startupDefault: false,
-			folder: ''
+			folder: '',
+			gamebananaid: null
 		};
 		openSubState(new ModEditSubState(empty, true, function(created:ModInfo)
 		{
@@ -1553,7 +1554,7 @@ class ModEditSubState extends FlxSubState
 	var _hint:FlxText;
 
 	var _panelW:Int = 700;
-	var _panelH:Int = 520;
+	var _panelH:Int = 580;
 	var _panelX:Float;
 	var _panelY:Float;
 	var _saveBtn:FlxSprite;
@@ -1617,6 +1618,7 @@ class ModEditSubState extends FlxSubState
 			{label: 'Priority', key: 'priority', value: Std.string(_mod.priority)},
 			{label: 'Color (HEX)', key: 'color', value: StringTools.hex(_mod.color & 0xFFFFFF, 6)},
 			{label: 'Website', key: 'website', value: _mod.website},
+			{label: 'GameBanana ID', key: 'gamebananaid', value: _mod.gamebananaid != null ? Std.string(_mod.gamebananaid) : ''},
 		] : [
 			{label: 'Name', key: 'name', value: _mod.name},
 			{label: 'Description', key: 'description', value: _mod.description},
@@ -1625,6 +1627,7 @@ class ModEditSubState extends FlxSubState
 			{label: 'Priority', key: 'priority', value: Std.string(_mod.priority)},
 			{label: 'Color (HEX)', key: 'color', value: StringTools.hex(_mod.color & 0xFFFFFF, 6)},
 			{label: 'Website', key: 'website', value: _mod.website},
+			{label: 'GameBanana ID', key: 'gamebananaid', value: _mod.gamebananaid != null ? Std.string(_mod.gamebananaid) : ''},
 			];
 
 		for (i in 0..._fields.length)
@@ -1888,6 +1891,9 @@ class ModEditSubState extends FlxSubState
 					_mod.version = f.value;
 				case 'website':
 					_mod.website = f.value;
+				case 'gamebananaid':
+					final gbid = Std.parseInt(f.value.trim());
+					_mod.gamebananaid = (gbid != null && gbid > 0) ? gbid : null;
 				case 'priority':
 					final p = Std.parseInt(f.value);
 					_mod.priority = p ?? 0;

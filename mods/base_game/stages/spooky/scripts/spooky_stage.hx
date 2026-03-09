@@ -17,13 +17,10 @@ function onStageCreate()
 	trace('[Spooky Stage] Stage creado, obteniendo elementos...');
 	
 	// Obtener elementos del stage
-	if (stage != null)
-	{
-		halloweenBG = stage.getElement('halloweenBG');
-		
-		trace('[Spooky Stage] Elementos inicializados:');
-		trace('  - halloweenBG: ' + (halloweenBG != null));
-	}
+	halloweenBG = stage.getElement('halloweenBG');
+	
+	trace('[Spooky Stage] Elementos inicializados:');
+	trace('  - halloweenBG: ' + (halloweenBG != null));
 }
 
 // ==========================================
@@ -48,7 +45,7 @@ function triggerLightning()
 	trace('[Spooky Stage] ¡Rayo!');
 	
 	// Reproducir sonido de trueno (aleatorio entre thunder_1 y thunder_2)
-	var thunderNum = FlxG.random.int(1, 2);
+	// FIX: Paths.soundRandom() (no soundRandomStage que no existe)
 	FlxG.sound.play(Paths.soundRandomStage('thunder_', 1, 2));
 	
 	// Animar el background
@@ -58,18 +55,24 @@ function triggerLightning()
 	}
 	
 	// Asustar a los personajes
-	if (boyfriend != null)
-		boyfriend.playAnim('scared', true);
+	// FIX: boyfriend y gf no están expuestos directamente → usar chars.bf() / chars.gf()
+	var bf = chars.bf();
+	if (bf != null)
+		bf.playAnim('scared', true);
 	
+	var gf = chars.gf();
 	if (gf != null)
 		gf.playAnim('scared', true);
 	
 	// Actualizar timing del próximo rayo
-	lightningStrikeBeat = playState.curBeat;
+	// FIX: playState no existe en scripts → usar game.curBeat
+	lightningStrikeBeat = game.curBeat;
 	lightningOffset = FlxG.random.int(8, 24);
 	
 	// Flash en la cámara para efecto extra
-	camGame.flash(FlxColor.WHITE, 0.15, null, true);
+	// FIX: camGame no está expuesto directamente → usar camera.flash()
+	//      (los parámetros null y true extra eran inválidos en FlxCamera.flash)
+	camera.flash(FlxColor.WHITE, 0.15);
 }
 
 // ==========================================
@@ -86,11 +89,8 @@ function onEvent(name, value1, value2, time)
 		
 		case 'set lightning chance':
 			// Cambiar la probabilidad del rayo
-			// Nota: Esto requeriría modificar el código del onBeatHit
-			// para usar una variable en lugar de un valor fijo
 			trace('[Spooky Stage] Evento: cambiar probabilidad de rayo a ' + value1 + '%');
 	}
-	
 	return false;
 }
 

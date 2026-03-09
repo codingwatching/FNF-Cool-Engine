@@ -577,15 +577,33 @@ class Controls extends FlxActionSet
 		removeKeyboard();
 		KeyBinds.keyCheck();
 
-		inline bindKeys(Control.UP, [FlxKey.fromString(FlxG.save.data.upBind), FlxKey.UP]);
-		inline bindKeys(Control.DOWN, [FlxKey.fromString(FlxG.save.data.downBind), FlxKey.DOWN]);
-		inline bindKeys(Control.LEFT, [FlxKey.fromString(FlxG.save.data.leftBind), FlxKey.LEFT]);
+		inline bindKeys(Control.UP,    [FlxKey.fromString(FlxG.save.data.upBind),    FlxKey.UP]);
+		inline bindKeys(Control.DOWN,  [FlxKey.fromString(FlxG.save.data.downBind),  FlxKey.DOWN]);
+		inline bindKeys(Control.LEFT,  [FlxKey.fromString(FlxG.save.data.leftBind),  FlxKey.LEFT]);
 		inline bindKeys(Control.RIGHT, [FlxKey.fromString(FlxG.save.data.rightBind), FlxKey.RIGHT]);
-		inline bindKeys(Control.ACCEPT, [Z, SPACE, ENTER]);
-		inline bindKeys(Control.BACK, [BACKSPACE, ESCAPE]);
-		inline bindKeys(Control.PAUSE, [P, ENTER, ESCAPE]);
 		inline bindKeys(Control.RESET, [FlxKey.fromString(FlxG.save.data.killBind)]);
-	
+
+		// ACCEPT: tecla configurable + fallbacks Z/SPACE/ENTER
+		var acceptKey = FlxKey.fromString(FlxG.save.data.acceptBind);
+		var acceptKeys = [acceptKey, Z, SPACE];
+		if (acceptKey != ENTER) acceptKeys.push(ENTER);
+		inline bindKeys(Control.ACCEPT, acceptKeys);
+
+		// BACK: tecla configurable + fallback BACKSPACE/ESCAPE
+		var backKey = FlxKey.fromString(FlxG.save.data.backBind);
+		var backKeys = [backKey, BACKSPACE];
+		if (backKey != ESCAPE) backKeys.push(ESCAPE);
+		inline bindKeys(Control.BACK, backKeys);
+
+		// PAUSE: tecla configurable + fallback ENTER/ESCAPE
+		var pauseKey = FlxKey.fromString(FlxG.save.data.pauseBind);
+		var pauseKeys = [pauseKey, ENTER, ESCAPE];
+		inline bindKeys(Control.PAUSE, pauseKeys);
+
+		// CHEAT: tecla configurable
+		var cheatKey = FlxKey.fromString(FlxG.save.data.cheatBind);
+		inline bindKeys(Control.CHEAT, [cheatKey]);
+
 		trace('KeyBinds are Load');
 	}
 
@@ -648,29 +666,41 @@ class Controls extends FlxActionSet
 	public function addDefaultGamepad(id):Void
 	{
 		#if !switch
+		// ── Mapping genérico (Xbox / PS4 / PS5 / Switch Pro) ────────────────
+		// En FlxGamepad:  A = Cross(PS) / A(Xbox)   B = Circle(PS) / B(Xbox)
+		//                 X = Square(PS) / X(Xbox)  Y = Triangle(PS) / Y(Xbox)
+		//
+		// Para gameplay (notas), mapear los botones frontales del gamepad:
+		//   Square/X(Xbox) = LEFT   Cross/A(Xbox) = DOWN
+		//   Circle/B(Xbox) = RIGHT  Triangle/Y(Xbox) = UP
+		//
+		// El D-Pad y stick izquierdo siguen siendo la opción principal para menús.
 		addGamepadLiteral(id, [
-			Control.ACCEPT => [A],
-			Control.BACK => [B],
-			Control.UP => [DPAD_UP, LEFT_STICK_DIGITAL_UP],
-			Control.DOWN => [DPAD_DOWN, LEFT_STICK_DIGITAL_DOWN],
-			Control.LEFT => [DPAD_LEFT, LEFT_STICK_DIGITAL_LEFT],
-			Control.RIGHT => [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT],
-			Control.PAUSE => [START],
-			Control.RESET => [Y]
+			// Menú / UI
+			Control.ACCEPT => [A, START],
+			Control.BACK   => [B],
+			Control.PAUSE  => [START],
+			Control.CHEAT  => [Y],
+			Control.RESET  => [Y],
+
+			// Notas (gameplay): D-Pad + stick izquierdo + stick derecho + botones frontales
+			Control.UP    => [DPAD_UP,    LEFT_STICK_DIGITAL_UP,    RIGHT_STICK_DIGITAL_UP,    Y],
+			Control.DOWN  => [DPAD_DOWN,  LEFT_STICK_DIGITAL_DOWN,  RIGHT_STICK_DIGITAL_DOWN,  A],
+			Control.LEFT  => [DPAD_LEFT,  LEFT_STICK_DIGITAL_LEFT,  RIGHT_STICK_DIGITAL_LEFT,  X],
+			Control.RIGHT => [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT, RIGHT_STICK_DIGITAL_RIGHT, B]
 		]);
 		#else
 		addGamepadLiteral(id, [
-			//Swap A and B for switch
+			// Switch: A y B intercambiados
 			Control.ACCEPT => [B],
-			Control.BACK => [A],
-			Control.UP => [DPAD_UP, LEFT_STICK_DIGITAL_UP, RIGHT_STICK_DIGITAL_UP],
-			Control.DOWN => [DPAD_DOWN, LEFT_STICK_DIGITAL_DOWN, RIGHT_STICK_DIGITAL_DOWN],
-			Control.LEFT => [DPAD_LEFT, LEFT_STICK_DIGITAL_LEFT, RIGHT_STICK_DIGITAL_LEFT],
-			Control.RIGHT => [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT, RIGHT_STICK_DIGITAL_RIGHT],
-			Control.PAUSE => [START],
-			//Swap Y and X for switch
-			Control.RESET => [Y],
-			Control.CHEAT => [X]
+			Control.BACK   => [A],
+			Control.PAUSE  => [START],
+			Control.CHEAT  => [X],
+			Control.RESET  => [X],
+			Control.UP    => [DPAD_UP,    LEFT_STICK_DIGITAL_UP,    RIGHT_STICK_DIGITAL_UP,    Y],
+			Control.DOWN  => [DPAD_DOWN,  LEFT_STICK_DIGITAL_DOWN,  RIGHT_STICK_DIGITAL_DOWN,  B],
+			Control.LEFT  => [DPAD_LEFT,  LEFT_STICK_DIGITAL_LEFT,  RIGHT_STICK_DIGITAL_LEFT,  X],
+			Control.RIGHT => [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT, RIGHT_STICK_DIGITAL_RIGHT, A]
 		]);
 		#end
 	}

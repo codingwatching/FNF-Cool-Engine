@@ -138,9 +138,18 @@ class StrumsGroup
 			}
 			else
 			{
-				// CPU: solo ajustar alpha para middlescroll
-				if (isVisible)
-					s.alpha = middlescroll ? 0.0 : 1.0;
+				// CPU: ocultar completamente en middlescroll (visible=false).
+				// Usar visible en lugar de alpha para que no reciba draw calls.
+				if (middlescroll)
+				{
+					s.visible = false;
+					s.alpha   = 0.0;
+				}
+				else
+				{
+					s.visible = isVisible;
+					s.alpha   = isVisible ? 1.0 : 0.0;
+				}
 			}
 		}
 	}

@@ -398,19 +398,8 @@ class Character extends FunkinSprite
 	{
 		super.playAnim(AnimName, Force, Reversed, Frame);
 
-		var daOffset = animOffsets.get(AnimName);
-		if (daOffset != null)
-			offset.set(daOffset[0], daOffset[1]);
-		else
-			offset.set(0, 0);
-
 		// ── flipX por animación ────────────────────────────────────────────────
-		// Buscar si esta animación tiene flipX propio en el CharacterData.
-		// Resultado = _baseFlipX XOR anim.flipX:
-		//   false XOR false = false  (sin voltear)
-		//   false XOR true  = true   (voltear)
-		//   true  XOR false = true   (voltear, normal para isPlayer)
-		//   true  XOR true  = false  (se cancelan, útil si el sub-atlas ya viene volteado)
+		// Se resuelve ANTES del offset para saber si hay inversión en este frame.
 		if (characterData != null)
 		{
 			for (anim in characterData.animations)
@@ -422,6 +411,27 @@ class Character extends FunkinSprite
 				}
 			}
 		}
+
+		// ── Aplicar offset con compensación de flipX ──────────────────────────
+		// Los offsets se autorean con el sprite en su orientación base (_baseFlipX).
+		// Si el flipX actual difiere del base, invertimos offsetX para que el
+		// desplazamiento visual resultante sea siempre el que el autor pretendía.
+		var daOffset = animOffsets.get(AnimName);
+		if (daOffset != null)
+		{
+			var ox:Float = daOffset[0];
+			var oy:Float = daOffset[1];
+			if (this.flipX != _baseFlipX)
+				ox = -ox;
+			offset.set(ox, oy);
+		}
+		else
+			offset.set(0, 0);
+
+		#if HSCRIPT_ALLOWED
+		funkin.scripting.ScriptHandler._argsAnim[0] = AnimName;
+		funkin.scripting.ScriptHandler.callOnCharacterScripts(curCharacter, 'onAnimStart', funkin.scripting.ScriptHandler._argsAnim);
+		#end
 	}
 
 	// ── Estado de animación ───────────────────────────────────────────────────
@@ -481,7 +491,17 @@ class Character extends FunkinSprite
 				if (holdTimer >= Conductor.stepCrochet * dadVar * 0.001)
 				{
 					holdTimer = 0;
+					#if HSCRIPT_ALLOWED
+					if (!funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideSingTimeout', funkin.scripting.ScriptHandler._argsEmpty))
+						returnToIdle();
+					#else
 					returnToIdle();
+					#end
+					#if HSCRIPT_ALLOWED
+					funkin.scripting.ScriptHandler._argsAnim[0] = curAnimName;
+					funkin.scripting.ScriptHandler._argsAnim[1] = null;
+					funkin.scripting.ScriptHandler.callOnCharacterScripts(curCharacter, 'onSingEnd', funkin.scripting.ScriptHandler._argsAnim);
+					#end
 				}
 			}
 			else
@@ -498,8 +518,18 @@ class Character extends FunkinSprite
 				holdTimer += elapsed;
 				if (holdTimer >= Conductor.stepCrochet * 4 * 0.001)
 				{
+					#if HSCRIPT_ALLOWED
+					if (!funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideSingTimeout', funkin.scripting.ScriptHandler._argsEmpty))
+						returnToIdle();
+					#else
 					returnToIdle();
+					#end
 					holdTimer = 0;
+					#if HSCRIPT_ALLOWED
+					funkin.scripting.ScriptHandler._argsAnim[0] = curAnimName;
+					funkin.scripting.ScriptHandler._argsAnim[1] = null;
+					funkin.scripting.ScriptHandler.callOnCharacterScripts(curCharacter, 'onSingEnd', funkin.scripting.ScriptHandler._argsAnim);
+					#end
 				}
 			}
 			else
@@ -520,6 +550,10 @@ class Character extends FunkinSprite
 
 	public function returnToIdle():Void
 	{
+		#if HSCRIPT_ALLOWED
+		if (funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideDance', funkin.scripting.ScriptHandler._argsEmpty))
+			return;
+		#end
 		var hasDanceAnims = animOffsets.exists('danceLeft') && animOffsets.exists('danceRight');
 		if (hasDanceAnims)
 		{
@@ -530,6 +564,9 @@ class Character extends FunkinSprite
 		{
 			playAnim(_idleAnim);
 		}
+		#if HSCRIPT_ALLOWED
+		funkin.scripting.ScriptHandler.callOnCharacterScripts(curCharacter, 'onReturnToIdle', funkin.scripting.ScriptHandler._argsEmpty);
+		#end
 	}
 
 	/**
@@ -562,6 +599,11 @@ class Character extends FunkinSprite
 	{
 		if (!debugMode && !isPlayingSpecialAnim())
 		{
+			#if HSCRIPT_ALLOWED
+			if (funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideDance', funkin.scripting.ScriptHandler._argsEmpty))
+				return;
+			#end
+
 			var hasDanceAnims = animOffsets.exists('danceLeft') && animOffsets.exists('danceRight');
 
 			switch (curCharacter)
@@ -581,6 +623,10 @@ class Character extends FunkinSprite
 							playAnim(_idleAnim);
 					}
 			}
+
+			#if HSCRIPT_ALLOWED
+			funkin.scripting.ScriptHandler.callOnCharacterScripts(curCharacter, 'onDance', funkin.scripting.ScriptHandler._argsEmpty);
+			#end
 		}
 	}
 

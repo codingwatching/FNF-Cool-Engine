@@ -727,47 +727,54 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Migra todos los charts legacy a un único .level (si no existe aún),
-	 * luego parchea bpm y needsVoices en TODAS las dificultades.
+	 * luego parchea bpm y needsVoices en TODAS las dificultades encontradas,
+	 * incluyendo las que todavía están solo en archivos .json sueltos.
 	 *
-	 * Usa las APIs de LevelFile para que la resolución de rutas y la migración
-	 * de formato antiguo (v1/v2) sean correctas sin duplicar lógica.
+	 * Usa LevelFile.getAvailableDifficulties para descubrir TODAS las diffs
+	 * (dentro del .level Y en los .json legacy del disco), luego LevelFile.loadDiff
+	 * para cargar cada una individualmente, parchearla y guardarla con saveDiff.
+	 * Esto garantiza que dificultades añadidas después de crear el .level también
+	 * reciban los cambios de BPM/NeedsVoices.
 	 */
 	function _migrateAndPatchCharts(songLower:String, bpmVal:Float):Void
 	{
 		#if sys
-		// 1. Si todavía no existe un .level, intentar migrar desde los .json legacy
+		// 1. Si no hay .level todavía, intentar migrarlo desde los .json legacy.
+		//    Si la migración falla no es un error fatal: las diffs legacy siguen
+		//    siendo accesibles vía loadDiff (que hace fallback a .json).
 		if (!LevelFile.exists(songLower))
-		{
-			var migrated = LevelFile.migrateFromJson(songLower);
-			if (!migrated)
-			{
-				trace('[AddSong] _migrateAndPatchCharts: no charts found for $songLower');
-				return;
-			}
-		}
+			LevelFile.migrateFromJson(songLower);
 
-		// 2. Leer el .level completo (LevelFile.loadFull maneja _migrate para
-		//    formatos v1/v2 con campo "song" en lugar de "difficulties")
-		var levelData = LevelFile.loadFull(songLower);
-		if (levelData == null || levelData.difficulties == null)
+		// 2. Descubrir TODAS las dificultades: .level + .json legacy en disco.
+		//    getAvailableDifficulties devuelve Array<[label, suffix]>.
+		var allDiffs = LevelFile.getAvailableDifficulties(songLower);
+		if (allDiffs == null || allDiffs.length == 0)
 		{
-			trace('[AddSong] _migrateAndPatchCharts: could not load level for $songLower');
+			trace('[AddSong] _migrateAndPatchCharts: no charts found for $songLower');
 			return;
 		}
 
-		// 3. Parchear bpm + needsVoices en cada dificultad y re-guardar
-		//    LevelFile.saveDiff abre el .level existente, actualiza SOLO esa
-		//    dificultad y guarda el archivo completo → todas las diffs se conservan.
-		var diffKeys = Reflect.fields(levelData.difficulties);
-		for (diffKey in diffKeys)
+		// 3. Parchear bpm + needsVoices en CADA dificultad y re-guardar.
+		//    LevelFile.loadDiff carga desde el .level si existe, o desde el .json
+		//    legacy como fallback → cubre cualquier diff que no esté en el .level aún.
+		//    LevelFile.saveDiff escribe / actualiza la diff en el .level (crea el
+		//    archivo si no existe y absorbe las demás diffs del .level existente).
+		var patched = 0;
+		for (pair in allDiffs)
 		{
-			var song : SwagSong = cast Reflect.field(levelData.difficulties, diffKey);
-			if (song == null) continue;
+			var suffix = pair[1]; // ej: "", "-easy", "-hard", "-erect"
+			var song   = LevelFile.loadDiff(songLower, suffix);
+			if (song == null)
+			{
+				trace('[AddSong] _migrateAndPatchCharts: could not load diff "$suffix" for $songLower — skipping');
+				continue;
+			}
 			song.bpm         = bpmVal;
 			song.needsVoices = needsVoices;
-			LevelFile.saveDiff(songLower, diffKey, song, null);
+			LevelFile.saveDiff(songLower, suffix, song, null);
+			patched++;
 		}
-		trace('[AddSong] Patched .level for $songLower (${diffKeys.length} diffs)');
+		trace('[AddSong] Patched $patched/${allDiffs.length} diffs for $songLower');
 		#end
 	}
 

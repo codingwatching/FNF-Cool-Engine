@@ -69,6 +69,13 @@ class ScriptHandler
 	public static var menuScripts   : Map<String, HScriptInstance> = [];
 	public static var charScripts   : Map<String, HScriptInstance> = [];
 
+	/**
+	 * Índice de scripts de personaje agrupados por nombre.
+	 * Permite callOnCharacterScripts en O(1) en vez de iterar todo charScripts.
+	 * Se rellena en loadCharacterScripts y se limpia en destroy().
+	 */
+	public static var charScriptsByName : Map<String, Array<HScriptInstance>> = [];
+
 	// ── Arrays reutilizables para el hot-path (evitan new Array cada frame) ──
 	// Cada función de callback del gameplay (onUpdate, onBeatHit, onStepHit,
 	// onNoteHit, onMiss…) pasa sus args a través de estos arrays estáticos en
@@ -90,6 +97,8 @@ class ScriptHandler
 	public static final _argsOne      : Array<Dynamic> = [null];
 	/** Array vacío reutilizable — para callbacks sin argumentos */
 	public static final _argsEmpty    : Array<Dynamic> = [];
+	/** Para onAnimStart/onSingStart/onSingEnd en scripts de personaje — [arg0, arg1] */
+	public static final _argsAnim     : Array<Dynamic> = [null, null];
 
 	// ── Parser compartido ─────────────────────────────────────────────────────
 
@@ -182,18 +191,78 @@ class ScriptHandler
 		_loadFolder('assets/data/stages/$sn/scripts',  'stage');
 	}
 
-	/** Carga scripts de personaje `charName` desde base + mod. */
-	public static function loadCharacterScripts(charName:String):Void
+	/** Carga scripts de personaje `charName` desde base + mod.
+	 *  Los scripts quedan taggeados con `charName` para poder filtrarlos después.
+	 *  Retorna la lista de scripts cargados para poder inyectarles variables. */
+	public static function loadCharacterScripts(charName:String):Array<HScriptInstance>
 	{
+		final loaded:Array<HScriptInstance> = [];
 		#if sys
 		if (mods.ModManager.isActive())
 		{
 			final r = mods.ModManager.modRoot();
-			_loadFolder('$r/characters/$charName/scripts', 'char');
-			_loadFolder('$r/characters/$charName',         'char'); // script directamente en la carpeta
+			for (s in _loadFolder('$r/characters/$charName/scripts', 'char')) loaded.push(s);
+			for (s in _loadFolder('$r/characters/$charName',         'char')) loaded.push(s);
 		}
 		#end
-		_loadFolder('assets/characters/$charName/scripts', 'char');
+		for (s in _loadFolder('assets/characters/$charName/scripts', 'char')) loaded.push(s);
+		// Taggear y registrar en el índice por nombre
+		if (loaded.length > 0)
+		{
+			for (s in loaded) s.tag = charName;
+			if (!charScriptsByName.exists(charName))
+				charScriptsByName.set(charName, []);
+			for (s in loaded)
+				charScriptsByName.get(charName).push(s);
+		}
+		return loaded;
+	}
+
+	/**
+	 * Llama `func` en los scripts del personaje `charName`.
+	 * Usa charScriptsByName para lookup O(1) — no itera todos los charScripts.
+	 */
+	public static function callOnCharacterScripts(charName:String, func:String, args:Array<Dynamic>):Void
+	{
+		#if HSCRIPT_ALLOWED
+		final list = charScriptsByName.get(charName);
+		if (list == null) return; // guard rápido: sin scripts para este personaje
+		for (script in list)
+			if (script.active) script.call(func, args);
+		#end
+	}
+
+	/**
+	 * Igual que callOnCharacterScripts pero retorna true si algún script devuelve true.
+	 * (Para cancelar comportamiento por defecto: return true en overrideDance, etc.)
+	 */
+	public static function callOnCharacterScriptsReturn(charName:String, func:String, args:Array<Dynamic>):Bool
+	{
+		#if HSCRIPT_ALLOWED
+		final list = charScriptsByName.get(charName);
+		if (list == null) return false; // guard rápido
+		var result = false;
+		for (script in list)
+			if (script.active && script.call(func, args) == true) result = true;
+		return result;
+		#else
+		return false;
+		#end
+	}
+
+	/**
+	 * Inyecta variables en los scripts de un personaje específico.
+	 * Usa charScriptsByName para lookup O(1).
+	 */
+	public static function setOnCharacterScripts(charName:String, varName:String, value:Dynamic):Void
+	{
+		#if HSCRIPT_ALLOWED
+		final list = charScriptsByName.get(charName);
+		if (list == null) return;
+		for (script in list)
+			if (script.interp != null)
+				script.interp.variables.set(varName, value);
+		#end
 	}
 
 	/**
@@ -253,6 +322,17 @@ class ScriptHandler
 			script.interp  = new Interp();
 
 			ScriptAPI.expose(script.interp);
+
+			// ── require() y log() por instancia ──────────────────────────────
+			// require() necesita la instancia concreta para resolver la ruta
+			// relativa al script que hace la llamada. ScriptAPI.expose() no
+			// tiene acceso a la instancia, así que lo inyectamos aquí.
+			// BUG FIX: sin esto, require('ABotVis.hx') en nene.hx devuelve null
+			// porque el intérprete no conoce 'require' → viz = null → barras invisibles.
+			script.interp.variables.set('require', function(path:String):Dynamic return script.require(path));
+			// log() como función top-level (el API solo expone debug.log()).
+			// BUG FIX: scripts que llaman log('msg') obtenían "Variable log not found".
+			script.interp.variables.set('log', function(msg:Dynamic):Void trace('[Script:$scriptName] $msg'));
 
 			if (presetVars != null)
 				for (k => v in presetVars)
@@ -329,6 +409,10 @@ class ScriptHandler
 			script.interp  = new Interp();
 
 			ScriptAPI.expose(script.interp);
+
+			// ── require() y log() por instancia (ver loadScript() para explicación) ─
+			script.interp.variables.set('require', function(path:String):Dynamic return script.require(path));
+			script.interp.variables.set('log', function(msg:Dynamic):Void trace('[Script:$scriptName] $msg'));
 
 			if (presetVars != null)
 				for (k => v in presetVars)
@@ -500,6 +584,7 @@ class ScriptHandler
 	{
 		_destroyLayer(charScripts);
 		charScripts.clear();
+		charScriptsByName.clear(); // limpiar índice también
 	}
 
 	public static function clearMenuScripts():Void
@@ -598,12 +683,15 @@ class ScriptHandler
 
 	static function _destroyLayer(layer:Map<String, HScriptInstance>):Void
 	{
+		// BUGFIX: NO llamar onDestroy aquí.
+		// PlayState.destroy() ya llama callOnScripts('onDestroy') antes de
+		// clearSongScripts() / clearStageScripts() / clearCharScripts(), lo que
+		// a su vez llamaba a _destroyLayer() → onDestroy se ejecutaba DOS VECES.
+		// La segunda ejecución ocurría con el estado parcialmente destruido
+		// (stage elements, camGame, etc. ya nulleados) → crash.
+		// Esta función ahora solo libera el intérprete de cada script.
 		for (script in layer)
-		{
-			#if HSCRIPT_ALLOWED
-			script.call('onDestroy');
-			#end
-		}
+			script.dispose();
 	}
 
 	/** Alias público de _extractName para compatibilidad. */

@@ -111,6 +111,11 @@ class TitleState extends funkin.states.MusicBeatState
 		PlayerSettings.init();
 		
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.getGraphic('menu/menuBGtitle'));
+		// Escalar para cubrir toda la pantalla (fix 1080p y cualquier resolucion)
+		var bgScale:Float = Math.max(FlxG.width / bg.width, FlxG.height / bg.height);
+		bg.scale.set(bgScale, bgScale);
+		bg.updateHitbox();
+		bg.screenCenter();
 		add(bg);
 
 		MainMenuState.musicFreakyisPlaying = true;
@@ -395,7 +400,6 @@ class TitleState extends funkin.states.MusicBeatState
 			textGroup.remove(textGroup.members[0], true);
 		}
 	}
-
 
 	override function beatHit()
 	{

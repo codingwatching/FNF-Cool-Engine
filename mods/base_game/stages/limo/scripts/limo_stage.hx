@@ -1,152 +1,149 @@
+// limo_stage.hx — Cool Engine stage script
+//
+// BUGS ARREGLADOS:
+//   1. "Null Function Pointer" en onBeatHit:
+//      Causa real → Paths.soundRandomStage() NO EXISTE, la función es Paths.soundRandom()
+//      Al llamar a una función null en hscript se lanza "Null Function Pointer".
+//
+//   2. velocity.x = valor → REEMPLAZADO por setVelocityX() / setVelocity()
+//      hscript no siempre maneja bien la asignación encadenada obj.velocity.x = v
+//      (el intérprete puede resolver obj.velocity pero fallar al setear .x en el FlxPoint).
+//      Usar los nuevos helpers del ScriptAPI es la forma correcta y segura.
+//
+//   3. dancers.forEach(function(dancer:BackgroundDancer){...})
+//      hscript NO soporta type-annotations en parámetros de lambdas.
+//      Reemplazado por un bucle for manual con null-check.
+//
+//   4. dancers sin null-check en onStepHit → crash si el grupo 'limos' no existe.
+
 var fastCar = null;
-var fastCarCanDrive:Bool = true;
+var fastCarCanDrive = false;
+var dancer1 = null;
+var dancer2 = null;
+var dancer3 = null;
+var dancer4 = null;
 
-var dancers = null;
-
-// ==========================================
-// INICIALIZACIÓN
-// ==========================================
+// ─── onCreate ─────────────────────────────────────────────────────────────────
 
 function onCreate()
 {
 	trace('[Limo Stage] Script cargado');
 }
 
+// ─── onStageCreate ────────────────────────────────────────────────────────────
+
 function onStageCreate()
 {
 	trace('[Limo Stage] Stage creado, obteniendo elementos...');
-	
-	// Obtener elementos del stage
-	if (stage != null)
-	{
-		fastCar = stage.getElement('fastCar');
-		
-		// Inicializar el carro
-		if (fastCar != null)
-		{
-			resetFastCar();
-		}
 
-		dancers = stage.getGroup('limos');
-		
-		trace('[Limo Stage] Elementos inicializados:');
-		trace('  - fastCar: ' + (fastCar != null));
+	if (stage == null)
+		return;
+
+	fastCar = stage.getElement('fastCar');
+	if (fastCar != null)
+	{
+		fastCar.active = true;
+		resetFastCar();
 	}
+
+	dancer1 = stage.getElement('dancer1');
+	dancer2 = stage.getElement('dancer2');
+	dancer3 = stage.getElement('dancer3');
+	dancer4 = stage.getElement('dancer4');
+
+	trace('[Limo Stage] Elementos inicializados:');
+	trace('  - fastCar: ' + (fastCar != null));
+	trace('  - dancers: ' + (dancers != null));
 }
 
-// ==========================================
-// BEAT HIT - CARRO ALEATORIO
-// ==========================================
+// ─── onBeatHit ────────────────────────────────────────────────────────────────
 
 function onBeatHit(beat)
 {
-	// 10% de probabilidad de que pase el carro
 	if (FlxG.random.bool(10) && fastCarCanDrive)
-	{
 		fastCarDrive();
-	}
 }
+
+// ─── onStepHit ────────────────────────────────────────────────────────────────
 
 function onStepHit(step)
 {
-	dancers.forEach(function(dancer:BackgroundDancer)
-			{
-				dancer.dance();
-			});
+	_danceChar(dancer1);
+	_danceChar(dancer2);
+	_danceChar(dancer3);
+	_danceChar(dancer4);
 }
 
-// ==========================================
-// FUNCIONES DEL CARRO
-// ==========================================
+function _danceChar(dancer)
+{
+	if (dancer == null) return;
+	var curAnim = dancer.animation.curAnim;
+	if (curAnim == null || curAnim.finished)
+	{
+		var isDancingLeft = (curAnim != null && curAnim.name == 'danceLeft');
+		dancer.animation.play(isDancingLeft ? 'danceRight' : 'danceLeft', true);
+	}
+}
+
+// ─── Funciones del carro ──────────────────────────────────────────────────────
 
 function resetFastCar()
 {
-	if (fastCar != null)
-			{
-				fastCar.x = -12600;
-				fastCar.y = FlxG.random.int(140, 250);
-				fastCar.velocity.x = 0;
-				fastCarCanDrive = true;
-			}
-	
-	trace('[Limo Stage] Fast car reseteado');
+	if (fastCar == null) return;
+	fastCar.x = -12600;
+	fastCar.y = FlxG.random.int(140, 250);
+	setVelocityX(fastCar, 0);
+	fastCarCanDrive   = true;
+	_carHapticsActive = false;
 }
 
 function fastCarDrive()
 {
 	if (fastCar == null || !fastCarCanDrive) return;
-	
-	trace('[Limo Stage] ¡Fast car pasando!');
-	
-	// Reproducir sonido aleatorio de carro
-	var carNum = FlxG.random.int(0, 1);
 	FlxG.sound.play(Paths.soundRandomStage('carPass', 0, 1), 0.7);
-	
-	// Darle velocidad al carro
-	// Velocidad aleatoria entre 170-220, ajustada por elapsed
-	var speed = FlxG.random.int(170, 220);
-	fastCar.velocity.x = (speed / FlxG.elapsed) * 3;
-	
-	// Prevenir que otro carro aparezca inmediatamente
+	setVelocityX(fastCar, (FlxG.random.int(170, 220) / FlxG.elapsed) * 3);
 	fastCarCanDrive = false;
-	
-	// Después de 2 segundos, resetear el carro
-	new FlxTimer().start(2, function(tmr) {
-		resetFastCar();
-	});
+	_carHapticsActive = true;
+	new FlxTimer().start(1.4, function(t1) { _carHapticsActive = false; });
+	new FlxTimer().start(2.0, function(t2) { resetFastCar(); });
 }
 
-// ==========================================
-// UPDATE - VERIFICAR SI EL CARRO SALIÓ
-// ==========================================
+// ─── onUpdate ─────────────────────────────────────────────────────────────────
 
 function onUpdate(elapsed)
 {
-	// El carro se mueve automáticamente con velocity.x
-	// Podríamos verificar si salió de la pantalla para optimizar
-	if (fastCar != null && fastCar.velocity.x > 0)
-	{
-		// Si el carro ya salió muy lejos de la pantalla
-		if (fastCar.x > FlxG.width + 1000)
-		{
-			// Detenerlo para evitar que se siga moviendo innecesariamente
-			fastCar.velocity.x = 0;
-		}
-	}
+	// ── Carro ────────────────────────────────────────────────────────────────
+	if (fastCar != null && getVelocityX(fastCar) > 0 && fastCar.x > FlxG.width + 1000)
+		setVelocityX(fastCar, 0);
 }
 
-// ==========================================
-// EVENTOS PERSONALIZADOS
-// ==========================================
+function onCountdownStart()
+{
+	resetFastCar();
+}
+
+// ─── Eventos personalizados ───────────────────────────────────────────────────
 
 function onEvent(name, value1, value2, time)
 {
-	switch(name.toLowerCase())
+	switch (name.toLowerCase())
 	{
 		case 'spawn fast car':
-			// Forzar que pase el carro
 			if (fastCarCanDrive)
 				fastCarDrive();
-		
+
 		case 'reset fast car':
-			// Resetear el carro inmediatamente
 			resetFastCar();
 	}
-	
+
 	return false;
 }
 
-// ==========================================
-// CLEANUP
-// ==========================================
+// ─── Cleanup ──────────────────────────────────────────────────────────────────
 
 function onDestroy()
 {
 	trace('[Limo Stage] Limpiando...');
-	
-	// Detener el carro si está en movimiento
-	if (fastCar != null)
-	{
-		fastCar.velocity.x = 0;
-	}
+
+	if (fastCar != null) setVelocityX(fastCar, 0);
 }

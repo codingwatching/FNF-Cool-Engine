@@ -122,13 +122,15 @@ class WindowManager
 				FlxG.scaleMode = new StageSizeScaleMode();
 			case PIXEL_PERFECT:
 				FlxG.scaleMode = new PixelPerfectScaleMode(_baseWidth, _baseHeight);
+			case WIDESCREEN:
+				FlxG.scaleMode = new WideRatioScaleMode(_baseWidth, _baseHeight);
 		}
 	}
 
 	/**
 	 * Versión string de applyScaleMode — para llamar desde scripts sin
 	 * necesitar importar el enum ScaleMode.
-	 * Valores: "letterbox" (default), "stretch", "pixel" / "pixel_perfect"
+	 * Valores: "letterbox" (default), "stretch", "pixel" / "pixel_perfect", "widescreen"
 	 */
 	public static function applyScaleModeByName(name:String):Void
 	{
@@ -136,9 +138,17 @@ class WindowManager
 		{
 			case 'stretch':                     STRETCH;
 			case 'pixel', 'pixel_perfect':      PIXEL_PERFECT;
+			case 'widescreen', 'wide':          WIDESCREEN;
 			default:                            LETTERBOX;
 		});
 	}
+
+	/**
+	 * ¿Es el modo widescreen activo en este momento?
+	 * Útil para que PlayState y el HUD sepan si deben redistribuirse.
+	 */
+	public static var isWidescreen(get, never):Bool;
+	static inline function get_isWidescreen():Bool return scaleMode == WIDESCREEN;
 
 	// ── Fullscreen ────────────────────────────────────────────────────────────
 
@@ -703,12 +713,14 @@ class WindowManager
  *  - LETTERBOX     → Viewport stretch + Keep aspect
  *  - STRETCH       → Canvas Items + Ignore aspect
  *  - PIXEL_PERFECT → Viewport stretch + Keep aspect + Integer scale
+ *  - WIDESCREEN    → Expande FlxG.width en pantallas >16:9 mostrando más escenario
  */
 enum ScaleMode
 {
 	LETTERBOX;
 	STRETCH;
 	PIXEL_PERFECT;
+	WIDESCREEN;
 }
 
 @:access(flixel.system.scaleModes.BaseScaleMode)
@@ -729,5 +741,72 @@ class PixelPerfectScaleMode extends RatioScaleMode
 		var scale:Int = Std.int(Math.max(1, Math.min(Math.floor(Width / _baseW), Math.floor(Height / _baseH))));
 		gameSize.x = _baseW * scale;
 		gameSize.y = _baseH * scale;
+	}
+}
+
+/**
+ * WideRatioScaleMode — modo widescreen al estilo V-Slice.
+ *
+ * Comportamiento:
+ *  • En pantallas 16:9 exactas funciona igual que LETTERBOX.
+ *  • En pantallas MÁS ANCHAS (21:9, 32:9…) el juego ocupa todo el ancho.
+ *    FlxG.width se expande proporcionalmente, mostrando MÁS ESCENARIO
+ *    a los lados sin deformar la imagen.
+ *  • En pantallas MÁS ALTAS (4:3, 16:10…) se añaden barras negras arriba/abajo
+ *    igual que LETTERBOX.
+ *
+ * La altura base (FlxG.height) no cambia.
+ * El ancho lógico (FlxG.width) puede crecer hasta maxWidthScale × baseWidth.
+ * Los elementos HUD con scrollFactor (0,0) quedan fijos en pantalla.
+ * Los sprites del stage, al usar camGame, se ven más a los lados.
+ *
+ * Límite máximo de ratio: 21:9 (~2.333). Pantallas más anchas reciben barras.
+ */
+@:access(flixel.system.scaleModes.BaseScaleMode)
+class WideRatioScaleMode extends RatioScaleMode
+{
+	/** Ratio máximo soportado (default: 21:9 ≈ 2.333). */
+	public static var maxRatio:Float = 21 / 9;
+
+	var _baseW:Int;
+	var _baseH:Int;
+
+	public function new(baseW:Int, baseH:Int)
+	{
+		super(false); // false = no stretch
+		_baseW = baseW;
+		_baseH = baseH;
+	}
+
+	override public function updateGameSize(Width:Int, Height:Int):Void
+	{
+		var screenRatio:Float = Width / Height;
+		var baseRatio:Float   = _baseW / _baseH;
+
+		if (screenRatio > baseRatio)
+		{
+			// Pantalla más ancha que 16:9 → expandir ancho lógico
+			var clampedRatio = Math.min(screenRatio, maxRatio);
+			var newW = Math.ceil(_baseH * clampedRatio);
+
+			// Mantener múltiplos de 2 para evitar artefactos sub-pixel
+			if (newW % 2 != 0) newW++;
+
+			gameSize.y = Height;
+			gameSize.x = Width;
+
+			// Expandir el ancho lógico de Flixel
+			untyped FlxG.width  = newW;
+			untyped FlxG.height = _baseH;
+		}
+		else
+		{
+			// Pantalla igual o más alta que 16:9 → comportamiento normal
+			gameSize.y = Height;
+			gameSize.x = Math.ceil(Height * baseRatio);
+
+			untyped FlxG.width  = _baseW;
+			untyped FlxG.height = _baseH;
+		}
 	}
 }

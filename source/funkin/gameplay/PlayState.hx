@@ -121,6 +121,11 @@ class PlayState extends funkin.states.MusicBeatState
 
 	private var inputHandler:InputHandler;
 
+	#if mobileC
+	/** Controles táctiles (hitbox / virtual pad) — solo en compilación mobile. */
+	private var mobileControls:ui.Mobilecontrols;
+	#end
+
 	public var cameraController:CameraController;
 
 	public var uiManager:UIScriptedManager;
@@ -315,6 +320,11 @@ class PlayState extends funkin.states.MusicBeatState
 		isPlaying = true;
 
 		FlxG.mouse.visible = false;
+		#if android
+		// En Android, el botón "atrás" del sistema se mapea a ESCAPE en OpenFL.
+		// Lo capturamos en el update() y lo tratamos como pausa.
+		lime.app.Application.current.window.onKeyDown.add(_onAndroidKeyDown);
+		#end
 
 		if (scriptsEnabled)
 		{
@@ -344,6 +354,18 @@ class PlayState extends funkin.states.MusicBeatState
 
 		// Crear cámaras
 		setupCameras();
+
+		// BUGFIX: inyectar camGame/camHUD ANTES de loadStageAndCharacters().
+		// loadStageAndCharacters() → loadStageScripts() → onStageCreate() donde
+		// los scripts del stage ya usan camGame (e.g. setFilters, shaders).
+		// Si se inyecta después (como estaba antes, línea ~460) camGame es null
+		// durante onStageCreate y cualquier llamada a setFilters/clearFilters falla.
+		if (scriptsEnabled)
+		{
+			ScriptHandler.setOnScripts('camGame',      camGame);
+			ScriptHandler.setOnScripts('camHUD',       camHUD);
+			ScriptHandler.setOnScripts('camCountdown', camCountdown);
+		}
 
 		// Crear core systems
 		gameState = GameState.get();
@@ -455,12 +477,9 @@ class PlayState extends funkin.states.MusicBeatState
 		// NUEVO: Setup debug display
 		setupDebugDisplay();
 
-		if (scriptsEnabled)
-		{
-			ScriptHandler.setOnScripts('camGame', camGame);
-			ScriptHandler.setOnScripts('camHUD', camHUD);
-			ScriptHandler.setOnScripts('camCountdown', camCountdown);
-		}
+		// NOTA: camGame/camHUD/camCountdown ya fueron inyectados antes de
+		// loadStageAndCharacters() (ver arriba) para que onStageCreate los vea.
+		// No repetir el set aquí — no hay cambio en las instancias de cámara.
 
 		optimizationManager = new OptimizationManager();
 		optimizationManager.init();
@@ -614,6 +633,23 @@ class PlayState extends funkin.states.MusicBeatState
 				dad = slot.character;
 			else if (slot.isPlayerSlot && boyfriend == null)
 				boyfriend = slot.character;
+		}
+
+		// Cargar scripts de personaje e inyectar variables
+		if (scriptsEnabled)
+		{
+			for (slot in characterSlots)
+			{
+				final char = slot.character;
+				if (char == null) continue;
+				ScriptHandler.loadCharacterScripts(char.curCharacter);
+				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'character', char);
+				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'char',      char);
+				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'game',      this);
+				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'playState', this);
+				ScriptHandler.callOnCharacterScripts(char.curCharacter, 'postCreate', ScriptHandler._argsEmpty);
+				trace('[PlayState] Scripts de personaje cargados para "${char.curCharacter}"');
+			}
 		}
 	}
 
@@ -789,7 +825,10 @@ class PlayState extends funkin.states.MusicBeatState
 					if (FlxG.save.data.middlescroll)
 					{
 						for (i in 0...cpuStrums.members.length)
-							cpuStrums.members[i].alpha = 0;
+						{
+							cpuStrums.members[i].visible = false;
+							cpuStrums.members[i].alpha   = 0;
+						}
 					}
 				}
 			}
@@ -871,6 +910,35 @@ class PlayState extends funkin.states.MusicBeatState
 
 		// NUEVO: Callback para release de hold notes — dispara animación fin del hold cover
 		inputHandler.onKeyRelease = onKeyRelease;
+
+		// ── Controles táctiles (mobile) ───────────────────────────────────────
+		// Se crean DESPUÉS del inputHandler para poder pasarle las referencias
+		// de los FlxButtons directamente. La cámara de los controles es camHUD
+		// para que queden por encima del juego y no se vean afectados por zoom.
+		#if mobileC
+		mobileControls = new ui.Mobilecontrols();
+		mobileControls.cameras = [camHUD];
+		mobileControls.scrollFactor.set(0, 0);
+		add(mobileControls);
+
+		// Conectar botones del hitbox / virtual pad al InputHandler
+		var _hitbox = mobileControls._hitbox;
+		var _vpad   = mobileControls._virtualPad;
+		if (_hitbox != null)
+		{
+			inputHandler.mobileLeft  = _hitbox.buttonLeft;
+			inputHandler.mobileDown  = _hitbox.buttonDown;
+			inputHandler.mobileUp    = _hitbox.buttonUp;
+			inputHandler.mobileRight = _hitbox.buttonRight;
+		}
+		else if (_vpad != null)
+		{
+			inputHandler.mobileLeft  = _vpad.buttonLeft;
+			inputHandler.mobileDown  = _vpad.buttonDown;
+			inputHandler.mobileUp    = _vpad.buttonUp;
+			inputHandler.mobileRight = _vpad.buttonRight;
+		}
+		#end
 
 		// AJUSTE: Calcular posición de strums según downscroll
 		if (FlxG.save.data.downscroll)
@@ -1489,7 +1557,7 @@ class PlayState extends funkin.states.MusicBeatState
 		// Abrir menú de pausa con ENTER.
 		// Durante un video (VideoManager.isPlaying) siempre se permite,
 		// sin importar startedCountdown ni canPause, para poder usar "Skip Cutscene".
-		if (FlxG.keys.justPressed.ENTER && !paused)
+		if (controls.PAUSE && !paused)
 		{
 			if (VideoManager.isPlaying)
 				pauseMenu();
@@ -1756,6 +1824,16 @@ class PlayState extends funkin.states.MusicBeatState
 	/**
 	 * NUEVO: Callback cuando se suelta una tecla (para hold notes)
 	 */
+	// ── Android: botón "atrás" del sistema ──────────────────────────────────
+	#if android
+	private function _onAndroidKeyDown(keyCode:Int, modifier:Int):Void
+	{
+		// KeyCode 27 = ESCAPE (mapeado al botón atrás en Android por OpenFL/Lime)
+		if (keyCode == 27 && !paused)
+			openSubState(new PauseSubState(false));
+	}
+	#end
+
 	private function onKeyRelease(direction:Int):Void
 	{
 		// Validar dirección
@@ -1944,6 +2022,13 @@ class PlayState extends funkin.states.MusicBeatState
 		{
 			ScriptHandler._argsOne[0] = direction;
 			ScriptHandler.callOnScripts('onPlayerNoteMissPost', ScriptHandler._argsOne);
+			// Disparar onNoteMiss en el script del personaje del jugador
+			if (boyfriend != null)
+			{
+				ScriptHandler._argsAnim[0] = direction;
+				ScriptHandler._argsAnim[1] = null;
+				ScriptHandler.callOnCharacterScripts(boyfriend.curCharacter, 'onNoteMiss', ScriptHandler._argsAnim);
+			}
 		}
 	}
 
@@ -2758,9 +2843,19 @@ class PlayState extends funkin.states.MusicBeatState
 			// Sin este fix, grupos de GF creados por la migración legacy (visible:false)
 			// reaparecen en pantalla al reiniciar o hacer rewind.
 			final shouldBeVisible:Bool = (group.isVisible == true);
+			final _isMiddlescrollReset:Bool = (FlxG.save.data.middlescroll == true);
 			group.strums.forEach(function(s:FlxSprite)
 			{
-				s.visible = shouldBeVisible;
+				// CPU strums se ocultan en middlescroll independientemente de isVisible
+				if (group.isCPU && _isMiddlescrollReset)
+				{
+					s.visible = false;
+					s.alpha   = 0;
+				}
+				else
+				{
+					s.visible = shouldBeVisible;
+				}
 			});
 		}
 		// Fallback para el caso (improbable) de strums fuera de strumsGroups
@@ -2800,6 +2895,10 @@ class PlayState extends funkin.states.MusicBeatState
 		isPlaying = false;
 		cpuStrums = null;
 		startingSong = false; // Era estático y podía quedar true si se salía mid-countdown
+
+		#if android
+		lime.app.Application.current.window.onKeyDown.remove(_onAndroidKeyDown);
+		#end
 
 		// ── 3. Limpiar vocals del sound list y destruirla
 		//       vocals se añadió manualmente a FlxG.sound.list así que hay que quitarla

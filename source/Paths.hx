@@ -299,8 +299,9 @@ class Paths
 
 	public static function soundStage(key:String):String
 	{
-		final path = resolve('stages/$key.$SOUND_EXT', SOUND);
+		final path = resolveWrite('stages/$key.$SOUND_EXT');
 		#if sys
+		// Devolver el path si existe en disco aunque no esté en el manifest de OpenFL
 		if (FileSystem.exists(path))
 			return path;
 		#end
@@ -309,6 +310,9 @@ class Paths
 
 	public static inline function soundRandom(key:String, min:Int, max:Int):String
 		return sound(key + FlxG.random.int(min, max));
+
+	public static inline function soundRandomStage(key:String, min:Int, max:Int):String
+		return soundStage('${funkin.gameplay.PlayState.curStage}/sounds/' + key + FlxG.random.int(min, max));
 
 	public static function music(key:String):String
 	{
@@ -401,11 +405,12 @@ class Paths
 
 	/**
 	 * Carga la imagen de un asset de stage.
-	 * Internamente usa PathsCache para GPU caching.
+	 * @param fromStage  Si se especifica, busca en la carpeta de OTRO stage en
+	 *                   lugar de currentStage.  Permite compartir assets entre stages.
 	 */
-	public static function imageStage(key:String):Null<Bitmap>
+	public static function imageStage(key:String, ?fromStage:String):Null<Bitmap>
 	{
-		final path = _resolveStageImagePath(key);
+		final path = _resolveStageImagePath(key, fromStage);
 		if (path == null)
 			return null;
 
@@ -417,13 +422,7 @@ class Paths
 		if (bmp == null)
 			return null;
 
-		// BUGFIX: cuando el StageEditor destruye y recrea el stage, el sprite anterior
-		// llama decrementUseCount() → useCount=0, destroyOnNoUse=true → FlxGraphic destruido
-		// (bitmap=null). El objeto FlxGraphic muerto PERMANECE en FlxG.bitmap._cache con la
-		// misma clave. Cuando cache.getGraphic() llama FlxGraphic.fromBitmapData(bmp, key),
-		// fromBitmapData hace checkCache(key) → TRUE → devuelve el gráfico muerto sin crear
-		// uno nuevo → sprite.loadGraphic(bmp) obtiene graphic.bitmap=null → invisible.
-		// Solución: purgar la entrada muerta de FlxG.bitmap antes de crear el gráfico nuevo.
+		// BUGFIX: purgar entrada muerta de FlxG.bitmap antes de crear el gráfico nuevo.
 		@:privateAccess
 		{
 			final deadEntry = FlxG.bitmap.get(path);
@@ -833,27 +832,34 @@ class Paths
 		#end
 	}
 
-	public static function stageSprite(key:String):FlxAtlasFrames // FIX: la clave de caché debe incluir currentStage para evitar que dos stages
-		// diferentes con el mismo nombre de asset compartan el mismo atlas cacheado.
-		return _cachedAtlas('stage_${currentStage}_$key', () ->
+	/**
+	 * Carga un atlas Sparrow de un stage.
+	 * @param fromStage  Si se especifica, busca los assets en ese stage en lugar
+	 *                   de currentStage — permite reutilizar assets entre stages.
+	 */
+	public static function stageSprite(key:String, ?fromStage:String):FlxAtlasFrames
+	{
+		final lib = fromStage ?? currentStage;
+		return _cachedAtlas('stage_${lib}_$key', () ->
 		{
 			final pngPath = resolveAny([
-				ModManager.resolveInMod('stages/$currentStage/images/$key.png') ?? '',
+				ModManager.resolveInMod('stages/$lib/images/$key.png') ?? '',
 				ModManager.resolveInMod('images/stages/$key.png') ?? '',
 				ModManager.resolveInMod('images/$key.png') ?? '',
-				'assets/stages/$currentStage/images/$key.png'
+				'assets/stages/$lib/images/$key.png'
 			]);
 			final xmlPath = resolveAny([
-				ModManager.resolveInMod('stages/$currentStage/images/$key.xml') ?? '',
+				ModManager.resolveInMod('stages/$lib/images/$key.xml') ?? '',
 				ModManager.resolveInMod('images/stages/$key.xml') ?? '',
 				ModManager.resolveInMod('images/$key.xml') ?? '',
-				'assets/stages/$currentStage/images/$key.xml'
+				'assets/stages/$lib/images/$key.xml'
 			]);
-			final stageBmp = _resolveStageImagePath(key);
+			final stageBmp = _resolveStageImagePath(key, lib);
 			if (stageBmp == null)
 				return null;
 			return _sparrowFromPath(stageBmp, xmlPath);
 		});
+	}
 
 	public static function skinSprite(key:String):FlxAtlasFrames
 		return _cachedAtlas('skin_$key', () -> _sparrow(resolve('skins/$key.png', IMAGE), resolve('skins/$key.xml', TEXT)));
@@ -872,21 +878,25 @@ class Paths
 	public static function characterSpriteTxt(key:String):FlxAtlasFrames
 		return _cachedAtlas('char_txt_$key', () -> _packer(_resolveCharacterPng(key), _resolveCharacterTxt(key)));
 
-	public static function stageSpriteTxt(key:String):FlxAtlasFrames // FIX: incluir currentStage en la clave de caché (igual que stageSprite)
-		return _cachedAtlas('stage_txt_${currentStage}_$key', () ->
+	/** Packer (TXT) atlas from a stage. Accepts optional @fromStage override. */
+	public static function stageSpriteTxt(key:String, ?fromStage:String):FlxAtlasFrames
+	{
+		final lib = fromStage ?? currentStage;
+		return _cachedAtlas('stage_txt_${lib}_$key', () ->
 		{
 			final pngPath = resolveAny([
-				ModManager.resolveInMod('stages/$currentStage/images/$key.png') ?? '',
+				ModManager.resolveInMod('stages/$lib/images/$key.png') ?? '',
 				ModManager.resolveInMod('images/stages/$key.png') ?? '',
-				'assets/stages/$currentStage/images/$key.png'
+				'assets/stages/$lib/images/$key.png'
 			]);
 			final txtPath = resolveAny([
-				ModManager.resolveInMod('stages/$currentStage/images/$key.txt') ?? '',
+				ModManager.resolveInMod('stages/$lib/images/$key.txt') ?? '',
 				ModManager.resolveInMod('images/stages/$key.txt') ?? '',
-				'assets/stages/$currentStage/images/$key.txt'
+				'assets/stages/$lib/images/$key.txt'
 			]);
 			return _packer(pngPath, txtPath);
 		});
+	}
 
 	public static function skinSpriteTxt(key:String):FlxAtlasFrames
 		return _cachedAtlas('skin_txt_$key', () -> _packer(resolve('skins/$key.png', IMAGE), resolve('skins/$key.txt', TEXT)));
@@ -1218,10 +1228,15 @@ class Paths
 
 	// ── Resolve helpers privados ──────────────────────────────────────────────
 
-	static function _resolveStageImagePath(key:String):Null<String>
+	/**
+	 * Resuelve el path físico de la imagen de un stage asset.
+	 * @param fromStage  Si se especifica, usa ESA carpeta de stage en lugar de currentStage.
+	 */
+	static function _resolveStageImagePath(key:String, ?fromStage:String):Null<String>
 	{
+		final lib = fromStage ?? currentStage;
 		final candidates = [
-			ModManager.resolveInMod('stages/$currentStage/images/$key.png'),
+			ModManager.resolveInMod('stages/$lib/images/$key.png'),
 			ModManager.resolveInMod('images/stages/$key.png'),
 			ModManager.resolveInMod('images/$key.png'),
 		].filter(p -> p != null);
@@ -1230,11 +1245,11 @@ class Paths
 		for (p in candidates)
 			if (FileSystem.exists(p))
 				return p;
-		final base = 'assets/stages/$currentStage/images/$key.png';
+		final base = 'assets/stages/$lib/images/$key.png';
 		if (FileSystem.exists(base))
 			return base;
 		#end
-		final base = 'assets/stages/$currentStage/images/$key.png';
+		final base = 'assets/stages/$lib/images/$key.png';
 		if (OpenFlAssets.exists(base, IMAGE))
 			return base;
 		return null;
@@ -1282,9 +1297,24 @@ class Paths
 	static function _resolveSongFolder(song:String):String
 	{
 		#if sys
+		// BUGFIX: igual que findChart(), buscar en TODOS los mods habilitados y no
+		// solo en el mod activo. Sin este fix, si los archivos de audio (Inst.ogg,
+		// Voices.ogg) estaban en un mod habilitado pero no activo (ej: base_game),
+		// Lime tiraba error "file not found" al hacer loadStream().
+		// Mod activo primero (mayor prioridad)
 		if (ModManager.isActive())
 		{
 			final modRoot = ModManager.modRoot();
+			for (v in _songFolderVariants(song))
+				for (base in ['$modRoot/songs', '$modRoot/assets/songs'])
+					if (sys.FileSystem.isDirectory('$base/$v'))
+						return '$base/$v';
+		}
+		// Todos los mods instalados y habilitados
+		for (mod in ModManager.installedMods)
+		{
+			if (!ModManager.isEnabled(mod.id)) continue;
+			final modRoot = '${ModManager.MODS_FOLDER}/${mod.id}';
 			for (v in _songFolderVariants(song))
 				for (base in ['$modRoot/songs', '$modRoot/assets/songs'])
 					if (sys.FileSystem.isDirectory('$base/$v'))

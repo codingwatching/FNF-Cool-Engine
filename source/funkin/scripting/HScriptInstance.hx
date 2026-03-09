@@ -58,6 +58,17 @@ class HScriptInstance
 
 	/** Source cacheada para hot-reload. */
 	var _source : String = '';
+
+	/**
+	 * Caché de funciones: mapea nombre → función (o _MISSING si no existe).
+	 * Evita hacer interp.variables.get() + Reflect.isFunction() en cada llamada
+	 * cuando la función simplemente no está definida en el script.
+	 * Se invalida en hotReload() y dispose().
+	 */
+	var _funcCache : haxe.ds.StringMap<Dynamic> = new haxe.ds.StringMap();
+
+	/** Sentinel: indica que la función NO existe en este script. */
+	static final _MISSING : {} = {};
 	#end
 
 	// ── Constructor ───────────────────────────────────────────────────────────
@@ -75,6 +86,10 @@ class HScriptInstance
 	/**
 	 * Llama a `funcName` con `args`. Devuelve el resultado o null.
 	 * Null-safe: si la función no existe, no hace nada.
+	 *
+	 * OPTIMIZACIÓN: usa _funcCache para evitar interp.variables.get() +
+	 * Reflect.isFunction() en cada llamada cuando la función no está definida.
+	 * El caché se rellena perezosamente en la primera llamada a cada nombre.
 	 */
 	public function call(funcName:String, args:Array<Dynamic> = null):Dynamic
 	{
@@ -86,8 +101,17 @@ class HScriptInstance
 
 		try
 		{
-			final func = interp.variables.get(funcName);
-			if (func != null && Reflect.isFunction(func))
+			var func = _funcCache.get(funcName);
+
+			if (func == null)
+			{
+				// Primera vez que se llama con este nombre — resolver y cachear
+				final resolved = interp.variables.get(funcName);
+				func = (resolved != null && Reflect.isFunction(resolved)) ? resolved : _MISSING;
+				_funcCache.set(funcName, func);
+			}
+
+			if (func != _MISSING)
 			{
 				returnValue = Reflect.callMethod(null, func, args);
 				return returnValue;
@@ -172,7 +196,11 @@ class HScriptInstance
 	public function overrideFunction(funcName:String, impl:Dynamic):Void
 	{
 		#if HSCRIPT_ALLOWED
-		if (interp != null) interp.variables.set(funcName, impl);
+		if (interp != null)
+		{
+			interp.variables.set(funcName, impl);
+			_funcCache.remove(funcName); // invalidar solo esta entrada
+		}
 		#end
 	}
 
@@ -229,6 +257,9 @@ class HScriptInstance
 
 			// Re-exponer ScriptAPI (podría haber cambiado entre recargas)
 			ScriptAPI.expose(interp);
+
+			// Invalidar caché de funciones — el script redefinió sus funciones
+			_funcCache.clear();
 
 			interp.execute(program);
 			call('onCreate');
@@ -288,6 +319,7 @@ class HScriptInstance
 		interp  = null;
 		program = null;
 		_source = '';
+		_funcCache.clear();
 		#end
 		active = false;
 	}

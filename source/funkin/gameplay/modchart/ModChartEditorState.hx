@@ -369,6 +369,8 @@ class ModChartEditorState extends FlxState
 		refreshTimeline();
 		refreshStrumPropWindow();
 		setStatus("Editor v4 listo. Tab=Preview | H=HideUI | F11=FullGame | F1=Ayuda");
+
+		StateTransition.onStateCreated();
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -439,14 +441,18 @@ class ModChartEditorState extends FlxState
 				cpu     : src.cpu,
 				visible : true,
 				spacing : spacing,
-				scale   : 1.0
+				scale   : 1.0   // dejamos 1.0 para que StrumsGroup no sobreescriba el scale de la skin
 			};
 
 			var edGrp = new StrumsGroup(gdata);
 			editorGroups.push(edGrp);
 
+			// ── Igual que PlayState: añadir cada StrumNote del grupo ──────────
+			// Multiplicamos el scale de la skin por fitFact en lugar de usar
+			// setGraphicSize(), que rompe las animaciones y no respeta el scale
+			// interno de la skin (ej. 0.7 del skin por defecto).
 			edGrp.strums.forEach(function(s:FlxSprite) {
-				s.setGraphicSize(Std.int(s.width * fitFact));
+				s.scale.set(s.scale.x * fitFact, s.scale.y * fitFact);
 				s.updateHitbox();
 				s.centerOffsets();
 				s.cameras = [editorCam];

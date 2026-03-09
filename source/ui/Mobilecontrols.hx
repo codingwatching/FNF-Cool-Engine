@@ -40,6 +40,11 @@ class Mobilecontrols extends FlxSpriteGroup
 				add(_hitbox);
 			case KEYBOARD:
 		}
+
+		// Aplicar opacidad guardada (solo al pad, el hitbox maneja la suya propia)
+		var savedAlpha:Float = FlxG.save.data.mobileAlpha != null ? FlxG.save.data.mobileAlpha : 0.75;
+		if (_virtualPad != null)
+			_virtualPad.alpha = savedAlpha;
 	}
 
 	function initVirtualPad(vpadMode:Int) 
@@ -50,13 +55,37 @@ class Mobilecontrols extends FlxSpriteGroup
 				_virtualPad = new FlxVirtualPad(FULL, NONE);
 			case 2:
 				_virtualPad = new FlxVirtualPad(FULL, NONE);
-				_virtualPad = config.loadcustom(_virtualPad);
+				_applyCustomLayout(_virtualPad);
 			default: // 0
 				_virtualPad = new FlxVirtualPad(RIGHT_FULL, NONE);
 		}
 		
-		_virtualPad.alpha = 0.75;
 		add(_virtualPad);	
+	}
+
+	/**
+	 * Aplica el layout personalizado guardado en FlxG.save.data.mobilePadLayout.
+	 * El layout es un Array de {x, y} con las posiciones de cada botón del pad
+	 * en el mismo orden que FlxVirtualPad.FULL: UP, LEFT, RIGHT, DOWN.
+	 *
+	 * Si no hay layout guardado, usa las posiciones por defecto del VirtualPad.
+	 */
+	function _applyCustomLayout(pad:FlxVirtualPad):Void
+	{
+		var savedLayout:Array<Dynamic> = FlxG.save.data.mobilePadLayout;
+		if (savedLayout == null || savedLayout.length < 4)
+			return;
+
+		// Orden de los botones en MobileControlsEditor: LEFT=0, DOWN=1, UP=2, RIGHT=3
+		var buttons = [pad.buttonLeft, pad.buttonDown, pad.buttonUp, pad.buttonRight];
+		for (i in 0...buttons.length)
+		{
+			if (buttons[i] != null && i < savedLayout.length && savedLayout[i] != null)
+			{
+				buttons[i].x = savedLayout[i].x;
+				buttons[i].y = savedLayout[i].y;
+			}
+		}
 	}
 
 

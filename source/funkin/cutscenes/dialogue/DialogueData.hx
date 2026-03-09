@@ -3,6 +3,7 @@ package funkin.cutscenes.dialogue;
 import haxe.Json;
 import sys.io.File;
 import sys.FileSystem;
+import Paths;
 
 /**
  * Tipos de estilos de diálogo
@@ -106,38 +107,77 @@ typedef DialogueConversation = {
  */
 class DialogueData {
     /**
-     * Obtener ruta base de las skins
+     * Ruta base de las skins para LECTURA.
+     * Busca primero en el mod activo, luego en assets/.
+     * Equivale a Paths.resolve('cutscenes/dialogue/').
      */
     public static function getSkinsBasePath():String {
-        return 'cutscenes/dialogue/';
+        return Paths.resolve('cutscenes/dialogue/');
+    }
+
+    /**
+     * Ruta base de las skins para ESCRITURA.
+     * Escribe en el mod activo si hay uno activo, o en assets/.
+     * Equivale a Paths.resolveWrite('cutscenes/dialogue/').
+     */
+    public static function getSkinsBaseWritePath():String {
+        return Paths.resolveWrite('cutscenes/dialogue/');
     }
     
     /**
-     * Obtener ruta de una skin específica
+     * Ruta de una skin para LECTURA (busca en mods → assets).
      */
     public static function getSkinPath(skinName:String):String {
         return getSkinsBasePath() + skinName + '/';
     }
+
+    /**
+     * Ruta de una skin para ESCRITURA (escribe en mod activo o assets/).
+     */
+    public static function getSkinWritePath(skinName:String):String {
+        return getSkinsBaseWritePath() + skinName + '/';
+    }
     
     /**
-     * Obtener ruta del archivo de configuración de una skin
+     * Ruta del config.json de una skin (para lectura).
      */
     public static function getSkinConfigPath(skinName:String):String {
         return getSkinPath(skinName) + 'config.json';
     }
-    
+
     /**
-     * Obtener ruta de la carpeta de portraits de una skin
+     * Ruta del config.json de una skin (para escritura).
+     */
+    public static function getSkinConfigWritePath(skinName:String):String {
+        return getSkinWritePath(skinName) + 'config.json';
+    }
+
+    /**
+     * Ruta de la carpeta de portraits (para lectura).
      */
     public static function getSkinPortraitsPath(skinName:String):String {
         return getSkinPath(skinName) + 'portraits/';
     }
-    
+
     /**
-     * Obtener ruta de la carpeta de cajas de una skin
+     * Ruta de la carpeta de portraits (para escritura).
+     */
+    public static function getSkinPortraitsWritePath(skinName:String):String {
+        return getSkinWritePath(skinName) + 'portraits/';
+    }
+
+    /**
+     * Ruta de la carpeta de cajas (para lectura).
      */
     public static function getSkinBoxesPath(skinName:String):String {
         return getSkinPath(skinName) + 'boxes/';
+    }
+
+    /**
+     * Ruta de la carpeta de cajas (para escritura).
+     */
+    public static function getSkinBoxesWritePath(skinName:String):String {
+        return getSkinWritePath(skinName) + 'boxes/';
     }
     
     /**
@@ -155,9 +195,10 @@ class DialogueData {
     public static function createSkinDirectories(skinName:String):Bool {
         #if sys
         try {
-            var skinPath = getSkinPath(skinName);
-            var portraitsPath = getSkinPortraitsPath(skinName);
-            var boxesPath = getSkinBoxesPath(skinName);
+            // Escritura → usar paths de escritura (mod activo o assets/)
+            var skinPath = getSkinWritePath(skinName);
+            var portraitsPath = getSkinPortraitsWritePath(skinName);
+            var boxesPath = getSkinBoxesWritePath(skinName);
             
             if (!FileSystem.exists(skinPath))
                 FileSystem.createDirectory(skinPath);
@@ -279,7 +320,7 @@ class DialogueData {
                 textConfig: skin.textConfig
             };
             
-            var path = getSkinConfigPath(skinName);
+            var path = getSkinConfigWritePath(skinName);
             var jsonString = Json.stringify(skinObj, null, '  ');
             File.saveContent(path, jsonString);
             return true;
@@ -355,14 +396,12 @@ class DialogueData {
     public static function saveConversation(songName:String, conversation:DialogueConversation, ?dialogueType:String = 'intro'):Bool {
         #if sys
         try {
-            var path = getSongDialoguePath(songName, dialogueType);
-            
-            // Crear directorio de la canción si no existe
-            
-            var songDir = Paths.resolve('songs/${songName.toLowerCase()}/');
+            // Escritura → resolveWrite para guardar en mod activo o assets/
+            var songDir = Paths.resolveWrite('songs/${songName.toLowerCase()}/');
             if (!FileSystem.exists(songDir))
                 FileSystem.createDirectory(songDir);
-            
+
+            var path = songDir + '${dialogueType}.json';
             var jsonString = Json.stringify(conversation, null, '  ');
             File.saveContent(path, jsonString);
             return true;
@@ -382,12 +421,8 @@ class DialogueData {
     public static function copyPortraitToSkin(sourcePath:String, skinName:String, fileName:String):Bool {
         #if sys
         try {
-            var destPath = getSkinPortraitsPath(skinName) + fileName;
-            
-            // Crear directorios si no existen
             createSkinDirectories(skinName);
-            
-            // Copiar archivo
+            var destPath = getSkinPortraitsWritePath(skinName) + fileName;
             File.copy(sourcePath, destPath);
             trace('Portrait copied to: $destPath');
             return true;
@@ -406,12 +441,8 @@ class DialogueData {
     public static function copyBoxToSkin(sourcePath:String, skinName:String, fileName:String):Bool {
         #if sys
         try {
-            var destPath = getSkinBoxesPath(skinName) + fileName;
-            
-            // Crear directorios si no existen
             createSkinDirectories(skinName);
-            
-            // Copiar archivo
+            var destPath = getSkinBoxesWritePath(skinName) + fileName;
             File.copy(sourcePath, destPath);
             trace('Box copied to: $destPath');
             return true;
@@ -425,25 +456,35 @@ class DialogueData {
     }
     
     /**
-     * Listar todas las skins disponibles
+     * Listar todas las skins disponibles.
+     * Busca en el mod activo Y en assets/, combinando resultados sin duplicados.
      */
     public static function listSkins():Array<String> {
         #if sys
         try {
-            var basePath = getSkinsBasePath();
-            if (!FileSystem.exists(basePath))
-                return [];
-            
             var skins:Array<String> = [];
-            for (item in FileSystem.readDirectory(basePath)) {
-                var itemPath = basePath + item;
-                if (FileSystem.isDirectory(itemPath)) {
-                    var configPath = itemPath + '/config.json';
-                    if (FileSystem.exists(configPath)) {
-                        skins.push(item);
+
+            // Función interna: escanear una carpeta base y añadir skins al array
+            function scanBase(basePath:String):Void {
+                if (basePath == null || !FileSystem.exists(basePath)) return;
+                for (item in FileSystem.readDirectory(basePath)) {
+                    var itemPath = basePath + item;
+                    if (FileSystem.isDirectory(itemPath)) {
+                        var configPath = itemPath + '/config.json';
+                        if (FileSystem.exists(configPath) && skins.indexOf(item) == -1)
+                            skins.push(item);
                     }
                 }
             }
+
+            // 1. Skins del mod activo (tienen prioridad)
+            var modBase = mods.ModManager.modRoot();
+            if (modBase != null)
+                scanBase(modBase + '/cutscenes/dialogue/');
+
+            // 2. Skins de assets/ (base)
+            scanBase('assets/cutscenes/dialogue/');
+
             return skins;
         } catch(e:Dynamic) {
             trace('Error listing skins: $e');

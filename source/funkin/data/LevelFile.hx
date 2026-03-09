@@ -371,7 +371,11 @@ class LevelFile
 			try
 			{
 				final raw = File.getContent(legacyPath).trim();
-				return Song.parseJSONshit(raw, legacyPath, diff ?? '');
+				// BUGFIX: pasar legacyName (sin guion: 'hard') en vez de diff ('-hard').
+				// VSliceConverter normaliza por prefijo de canción, no por guion inicial.
+				// '-hard' no empieza por 'darnell-' → se queda como '-hard' → miss en
+				// notes['-hard'] → fallback a first key = easy. Con 'hard' matchea directo.
+				return Song.parseJSONshit(raw, legacyPath, legacyName);
 			}
 			catch (e) { trace('[LevelFile] legacy load error: $e'); }
 		}

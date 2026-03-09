@@ -366,7 +366,9 @@ class ModManager
 		var color          = 0xFF9900;
 		var website        = '';
 		var enabledDef     = true;
-		var startupDef     = false;
+		var startupDef       = false;
+		var developerModeDef:Null<Bool> = null; // null = default (true)
+		var gamebananaid:Null<Int> = null;
 		var appTitle:Null<String> = null;
 		var appIcon:Null<String>  = null;
 		var discord:Null<ModDiscordConfig> = null;
@@ -383,7 +385,9 @@ class ModManager
 				priority   = Std.int(d.priority ?? 0);
 				website    = d.website        ?? '';
 				enabledDef = d.enabled        ?? true;
-				startupDef = d.startupDefault ?? false;
+				startupDef   = d.startupDefault ?? false;
+				if (d.developerMode != null) developerModeDef = (d.developerMode == true);
+				if (d.gamebananaid != null) gamebananaid = Std.int(d.gamebananaid);
 				if (d.appTitle != null) appTitle = Std.string(d.appTitle);
 				if (d.appIcon  != null) appIcon  = Std.string(d.appIcon);
 				if (d.discord != null)
@@ -415,7 +419,9 @@ class ModManager
 			id: id, name: name, description: desc, author: author,
 			version: version, priority: priority, color: color,
 			website: website, enabled: enabled, startupDefault: startupDef, folder: path,
-			appTitle: appTitle, appIcon: appIcon, discord: discord
+			developerMode: developerModeDef,
+			appTitle: appTitle, appIcon: appIcon, discord: discord,
+			gamebananaid: gamebananaid
 		};
 	}
 
@@ -432,11 +438,13 @@ class ModManager
 				color:          StringTools.hex(info.color & 0xFFFFFF, 6),
 				website:        info.website,
 				enabled:        info.enabled,
-				startupDefault: info.startupDefault
+				startupDefault: info.startupDefault,
+				developerMode:  info.developerMode != false // null/true → true, false → false
 			};
 			// Solo serializar si están definidos, para no ensuciar mod.json sin esos campos
-			if (info.appTitle != null) Reflect.setField(obj, 'appTitle', info.appTitle);
-			if (info.appIcon  != null) Reflect.setField(obj, 'appIcon',  info.appIcon);
+			if (info.appTitle     != null) Reflect.setField(obj, 'appTitle',     info.appTitle);
+			if (info.appIcon      != null) Reflect.setField(obj, 'appIcon',      info.appIcon);
+			if (info.gamebananaid != null) Reflect.setField(obj, 'gamebananaid', info.gamebananaid);
 			if (info.discord  != null)
 			{
 				final dc:Dynamic = {};
@@ -530,12 +538,24 @@ typedef ModInfo =
 	var enabled:Bool;
 	var startupDefault:Bool;
 	var folder:String;
+	/**
+	 * Activa/desactiva el modo desarrollador para este mod.
+	 * true (default) = acceso a editores (Chart, Stage, Dialogue, AnimDebug).
+	 * false = modo jugador normal sin herramientas de desarrollo.
+	 */
+	var ?developerMode:Null<Bool>;
 	/** Título de ventana personalizado. null = usar el default del engine. */
 	var ?appTitle:Null<String>;
 	/** Nombre del archivo PNG de icono en la raíz del mod, sin extensión. null = icono default. */
 	var ?appIcon:Null<String>;
 	/** Configuración de Discord Rich Presence. null = usar valores por defecto del engine. */
 	var ?discord:Null<ModDiscordConfig>;
+	/**
+	 * ID del mod en GameBanana (el número de la URL: gamebanana.com/mods/XXXXX).
+	 * El launcher usa esto para comprobar si hay actualización disponible.
+	 * null = no se comprueba actualización en GameBanana para este mod.
+	 */
+	var ?gamebananaid:Null<Int>;
 }
 
 enum ModPreviewType { VIDEO; IMAGE; NONE; }

@@ -101,6 +101,8 @@ class ScriptAPI
 		exposeScriptHandler(interp);  // ScriptHandler (callOnScripts, etc.)
 		exposeCountdown(interp);      // Countdown del PlayState
 		exposeModPaths(interp);       // ModPaths completo
+		// ── v7: Nuevas clases base de script ──────────────────────────────────
+		exposeScriptTemplates(interp); // PlayStateScript, CharacterScript, StateScript
 	}
 
 	// ─── Flixel core ──────────────────────────────────────────────────────────
@@ -956,6 +958,103 @@ class ScriptAPI
 		interp.variables.set('hide', function(spr:Dynamic) {
 			if (spr != null) { spr.visible = false; spr.active = false; }
 		});
+
+		// ── Velocity helpers ──────────────────────────────────────────────────
+		// hscript no soporta bien la asignación encadenada obj.velocity.x = v
+		// (puede lanzar "Null Function Pointer" según la versión del intérprete).
+		// Usar estas funciones desde los scripts de stage es la forma segura.
+
+		/** Establece la velocidad (vx, vy) de cualquier FlxObject. */
+		interp.variables.set('setVelocity', function(spr:Dynamic, vx:Float, vy:Float):Void {
+			if (spr == null) return;
+			try {
+				final vel = Reflect.field(spr, 'velocity');
+				if (vel != null) {
+					Reflect.setField(vel, 'x', vx);
+					Reflect.setField(vel, 'y', vy);
+				}
+			} catch(_) {}
+		});
+
+		/** Establece sólo la velocidad horizontal. */
+		interp.variables.set('setVelocityX', function(spr:Dynamic, vx:Float):Void {
+			if (spr == null) return;
+			try {
+				final vel = Reflect.field(spr, 'velocity');
+				if (vel != null) Reflect.setField(vel, 'x', vx);
+			} catch(_) {}
+		});
+
+		/** Establece sólo la velocidad vertical. */
+		interp.variables.set('setVelocityY', function(spr:Dynamic, vy:Float):Void {
+			if (spr == null) return;
+			try {
+				final vel = Reflect.field(spr, 'velocity');
+				if (vel != null) Reflect.setField(vel, 'y', vy);
+			} catch(_) {}
+		});
+
+		/** Devuelve la velocidad X del sprite (0 si no tiene). */
+		interp.variables.set('getVelocityX', function(spr:Dynamic):Float {
+			if (spr == null) return 0.0;
+			try {
+				final vel = Reflect.field(spr, 'velocity');
+				if (vel != null) return Reflect.field(vel, 'x');
+			} catch(_) {}
+			return 0.0;
+		});
+
+		/** Devuelve la velocidad Y del sprite (0 si no tiene). */
+		interp.variables.set('getVelocityY', function(spr:Dynamic):Float {
+			if (spr == null) return 0.0;
+			try {
+				final vel = Reflect.field(spr, 'velocity');
+				if (vel != null) return Reflect.field(vel, 'y');
+			} catch(_) {}
+			return 0.0;
+		});
+
+		// ── SpriteUtil: objeto que agrupa helpers de sprites ─────────────────
+		interp.variables.set('SpriteUtil', {
+			setVelocity: function(spr:Dynamic, vx:Float, vy:Float):Void {
+				if (spr == null) return;
+				try {
+					final vel = Reflect.field(spr, 'velocity');
+					if (vel != null) { Reflect.setField(vel, 'x', vx); Reflect.setField(vel, 'y', vy); }
+				} catch(_) {}
+			},
+			setVelocityX: function(spr:Dynamic, vx:Float):Void {
+				if (spr == null) return;
+				try { final v = Reflect.field(spr, 'velocity'); if (v != null) Reflect.setField(v, 'x', vx); } catch(_) {}
+			},
+			setVelocityY: function(spr:Dynamic, vy:Float):Void {
+				if (spr == null) return;
+				try { final v = Reflect.field(spr, 'velocity'); if (v != null) Reflect.setField(v, 'y', vy); } catch(_) {}
+			},
+			getVelocityX: function(spr:Dynamic):Float {
+				if (spr == null) return 0.0;
+				try { final v = Reflect.field(spr, 'velocity'); if (v != null) return Reflect.field(v, 'x'); } catch(_) {}
+				return 0.0;
+			},
+			getVelocityY: function(spr:Dynamic):Float {
+				if (spr == null) return 0.0;
+				try { final v = Reflect.field(spr, 'velocity'); if (v != null) return Reflect.field(v, 'y'); } catch(_) {}
+				return 0.0;
+			},
+			// Iterar sobre miembros de un FlxGroup de forma segura (sin forEach tipado)
+			forEachMember: function(group:Dynamic, callback:Dynamic->Void):Void {
+				if (group == null || callback == null) return;
+				try {
+					final members = Reflect.field(group, 'members');
+					if (members == null) return;
+					for (i in 0...group.length)
+					{
+						final m = members[i];
+						if (m != null) callback(m);
+					}
+				} catch(_) {}
+			}
+		});
 	}
 
 	// ─── Utils ────────────────────────────────────────────────────────────────
@@ -1290,18 +1389,59 @@ class ScriptAPI
 			if (FlxG.state != null) return FlxG.state.remove(obj, splice ?? false);
 			return null;
 		});
+
+		// ── Helpers de z-orden para scripts de personaje ──────────────────────
+		// addBehindChar(sprite, character) → inserta ANTES del personaje (queda detrás)
+		interp.variables.set('addBehindChar', function(obj:Dynamic, charObj:Dynamic):Dynamic {
+			final ps = funkin.gameplay.PlayState.instance;
+			if (ps == null || obj == null) return null;
+			if (charObj == null) return ps.add(obj);
+			final idx = ps.members.indexOf(cast charObj);
+			if (idx < 0) return ps.add(obj);
+			return ps.insert(idx, cast obj);
+		});
+		// addInFrontOfChar(sprite, character) → inserta DESPUÉS del personaje (queda encima)
+		interp.variables.set('addInFrontOfChar', function(obj:Dynamic, charObj:Dynamic):Dynamic {
+			final ps = funkin.gameplay.PlayState.instance;
+			if (ps == null || obj == null) return null;
+			if (charObj == null) return ps.add(obj);
+			final idx = ps.members.indexOf(cast charObj);
+			if (idx < 0) return ps.add(obj);
+			return ps.insert(idx + 1, cast obj);
+		});
+		// insertAt(sprite, index) → inserta en un índice concreto
+		interp.variables.set('insertAt', function(obj:Dynamic, index:Int):Dynamic {
+			final ps = funkin.gameplay.PlayState.instance;
+			if (ps == null || obj == null) return null;
+			return ps.insert(Std.int(Math.max(0, index)), cast obj);
+		});
 		// setFilters / clearFilters / makeShaderFilter
 		// HScript no puede acceder a .filters en cpp (propiedad nativa OpenFL).
 		// Estos helpers lo hacen desde Haxe compilado donde sí funciona.
+		//
+		// BUGFIX: FlxCamera en Flixel 5 extiende FlxBasic, NO DisplayObject.
+		// El cast inseguro a DisplayObject + .filters = null crasheaba en C++/HL.
+		// Si el objeto es FlxCamera usamos CameraUtil que accede a cam._filters
+		// con @:access. Para cualquier otro DisplayObject usamos el cast normal.
 		interp.variables.set('setFilters', function(obj:Dynamic, filters:Array<Dynamic>):Void {
 			if (obj == null) return;
-			var disp:openfl.display.DisplayObject = cast obj;
-			disp.filters = filters != null ? cast filters : null;
+			if (Std.isOfType(obj, FlxCamera))
+				funkin.data.CameraUtil.setFilters(cast obj, cast filters);
+			else
+			{
+				var disp:openfl.display.DisplayObject = cast obj;
+				disp.filters = filters != null ? cast filters : null;
+			}
 		});
 		interp.variables.set('clearFilters', function(obj:Dynamic):Void {
 			if (obj == null) return;
-			var disp:openfl.display.DisplayObject = cast obj;
-			disp.filters = null;
+			if (Std.isOfType(obj, FlxCamera))
+				funkin.data.CameraUtil.clearFilters(cast obj);
+			else
+			{
+				var disp:openfl.display.DisplayObject = cast obj;
+				disp.filters = null;
+			}
 		});
 		interp.variables.set('makeShaderFilter', function(shader:Dynamic):Dynamic {
 			if (shader == null) return null;
@@ -2094,6 +2234,90 @@ class ScriptAPI
 			bgImage:        function(key:String, ?mod:String):String { return mods.ModPaths.bgImage(key, mod); },
 			iconImage:      function(key:String, ?mod:String):String { return mods.ModPaths.iconImage(key, mod); },
 			shader:         function(key:String, ?mod:String):String { return mods.ModPaths.shader(key, mod); }
+		});
+	}
+
+	// ─── Script template classes ──────────────────────────────────────────────
+
+	/**
+	 * Expone las clases base de script (PlayStateScript, CharacterScript, StateScript)
+	 * y sus constructores, para que los scripts HScript puedan instanciarlas
+	 * o extenderlas por referencia.
+	 *
+	 * También inyecta helpers de contexto para que los scripts de canción/stage
+	 * tengan acceso directo a todas las variables del PlayState.
+	 */
+	static function exposeScriptTemplates(interp:Interp):Void
+	{
+		interp.variables.set('PlayStateScript',  funkin.scripting.PlayStateScript);
+		interp.variables.set('CharacterScript',  funkin.scripting.CharacterScript);
+		interp.variables.set('StateScript',      funkin.scripting.StateScript);
+
+		// ── Inyección directa de variables del PlayState ─────────────────────
+		// Scripts pueden usar `bf`, `dad`, `gf`, `stage`, `camGame`, `camHUD`
+		// directamente sin necesitar `game.boyfriend`, etc.
+		final ps = funkin.gameplay.PlayState.instance;
+		if (ps != null)
+		{
+			interp.variables.set('bf',      ps.boyfriend);
+			interp.variables.set('dad',     ps.dad);
+			interp.variables.set('gf',      ps.gf);
+			interp.variables.set('stage',   ps.currentStage);
+			interp.variables.set('camGame', Reflect.field(ps, 'camGame'));
+			interp.variables.set('camHUD',  Reflect.field(ps, 'camHUD'));
+			interp.variables.set('vocals',  Reflect.field(ps, 'vocals'));
+			interp.variables.set('notes',   ps.notes);
+			interp.variables.set('strumsGroups', ps.strumsGroups);
+			interp.variables.set('gameState', ps.gameState);
+			interp.variables.set('modChartManager', ps.modChartManager);
+			interp.variables.set('countdown', Reflect.field(ps, 'countdown'));
+
+			// Atajos de stats
+			interp.variables.set('health', {
+				get: function():Float return ps.health,
+				set: function(v:Float) ps.health = v,
+				add: function(v:Float) ps.health = ps.health + v,
+				sub: function(v:Float) ps.health = ps.health - v,
+			});
+		}
+
+		// ── Helper para scripts de personaje: injectCharContext(char, script) ─
+		// Inyecta la instancia de Character y PlayState en las variables del script.
+		interp.variables.set('injectCharContext', function(char:Dynamic, scriptInterp:Dynamic) {
+			if (char == null || scriptInterp == null) return;
+			try
+			{
+				final vars = Reflect.field(scriptInterp, 'variables');
+				if (vars == null) return;
+				Reflect.callMethod(vars, Reflect.field(vars, 'set'), ['character', char]);
+				Reflect.callMethod(vars, Reflect.field(vars, 'set'), ['game', funkin.gameplay.PlayState.instance]);
+				Reflect.callMethod(vars, Reflect.field(vars, 'set'), ['bf', funkin.gameplay.PlayState.instance?.boyfriend]);
+				Reflect.callMethod(vars, Reflect.field(vars, 'set'), ['dad', funkin.gameplay.PlayState.instance?.dad]);
+				Reflect.callMethod(vars, Reflect.field(vars, 'set'), ['gf', funkin.gameplay.PlayState.instance?.gf]);
+			}
+			catch (e:Dynamic) trace('[ScriptAPI] injectCharContext error: $e');
+		});
+
+		// ── Helper para abrir el ShaderEditor desde un script ─────────────────
+		interp.variables.set('openShaderEditor', function(?name:String, ?fragCode:String, ?sprite:Dynamic) {
+			final subState = flixel.FlxG.state.subState;
+			if (subState != null) return; // Ya hay un substate abierto
+
+			var targetSprite:flixel.FlxSprite = null;
+			if (sprite != null && Std.isOfType(sprite, flixel.FlxSprite))
+				targetSprite = cast sprite;
+
+			var editor = new funkin.debug.ShaderEditorSubState(
+				name ?? 'script_shader',
+				fragCode ?? '',
+				null,
+				targetSprite,
+				null,
+				function(n, code) {
+					trace('[Script] Shader guardado: $n');
+				}
+			);
+			flixel.FlxG.state.openSubState(editor);
 		});
 	}
 

@@ -2,67 +2,67 @@
 	"isFlxAnimate": true,
 	"animations": [
 		{
-			"offsetX": 0,
 			"framerate": 24,
+			"offsetX": 0,
 			"prefix": "Tankman Idle Dance",
 			"offsetY": 0,
-			"flipX": true,
+			"looped": false,
 			"name": "idle",
-			"looped": false
+			"flipX": true
 		},
 		{
-			"offsetX": 44,
 			"framerate": 24,
+			"offsetX": -56,
 			"offsetY": 55,
 			"prefix": "Tankman UP note",
-			"name": "singUP",
+			"flipX": true,
 			"looped": false,
+			"name": "singUP"
+		},
+		{
+			"framerate": 24,
+			"offsetX": -60,
+			"prefix": "Tankman DOWN note",
+			"offsetY": -91,
+			"looped": false,
+			"name": "singDOWN",
 			"flipX": true
 		},
 		{
-			"flipX": true,
-			"prefix": "Tankman DOWN note",
-			"offsetX": 50,
-			"offsetY": -111,
-			"name": "singDOWN",
 			"framerate": 24,
+			"offsetX": -90,
+			"offsetY": 1,
+			"prefix": "Tankman Right Note",
+			"flipX": true,
+			"looped": false,
+			"name": "singLEFT"
+		},
+		{
+			"offsetX": 25,
+			"framerate": 24,
+			"prefix": "Tankman Note Left",
+			"offsetY": -33,
+			"flipX": true,
+			"name": "singRIGHT",
 			"looped": false
 		},
 		{
-			"offsetX": 80,
-			"framerate": 24,
-			"offsetY": 1,
-			"prefix": "Tankman Right Note",
-			"name": "singLEFT",
-			"looped": false,
-			"flipX": true
-		},
-		{
-			"framerate": 24,
-			"offsetX": -25,
-			"prefix": "Tankman Note Left",
-			"offsetY": -23,
-			"looped": false,
-			"name": "singRIGHT",
-			"flipX": true
-		},
-		{
-			"assetPath": "tankman/extra-animations",
-			"framerate": 24,
 			"offsetX": 0,
+			"framerate": 24,
+			"assetPath": "tankman/extra-animations",
+			"offsetY": 0,
 			"prefix": "TANKMAN UGH",
-			"offsetY": 0,
-			"looped": false,
-			"name": "ugh"
+			"name": "ugh",
+			"looped": false
 		},
 		{
-			"assetPath": "tankman/extra-animations",
+			"offsetX": 7,
 			"framerate": 24,
-			"offsetX": 0,
+			"assetPath": "tankman/extra-animations",
+			"offsetY": 20,
 			"prefix": "PRETTY GOOD tankman",
-			"offsetY": 0,
-			"looped": false,
-			"name": "prettyGood"
+			"name": "prettyGood",
+			"looped": false
 		}
 	],
 	"isPlayer": true,

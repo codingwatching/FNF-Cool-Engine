@@ -53,6 +53,7 @@ typedef SongsInfo =
 
 	// Campos adicionales para Story Mode (opcionales)
 	@:optional var weekName:String;
+	@:optional var weekPath:String;
 	@:optional var weekCharacters:Array<String>;
 	@:optional var locked:Bool;
 	@:optional var showInStoryMode:Array<Bool>; // NUEVO: Flag para mostrar en Story Mode
@@ -68,6 +69,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 	var weekData:Array<Dynamic> = [];
 	var weekCharacters:Array<Dynamic> = [];
 	var weekNames:Array<String> = [];
+	var weekPaths:Array<String> = [];
 	var weekColors:Array<FlxColor> = [];
 
 	var curDifficulty:Int = 1;
@@ -112,14 +114,11 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 		if (FlxG.sound.music == null || !FlxG.sound.music.playing)
 		{
-			if (FreeplayState.vocals == null)
-			{
-				final _s = Paths.loadMusic('freakyMenu');
-				if (_s != null)
-					FlxG.sound.playMusic(_s, 0.5);
-				else
-					FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.5);
-			}
+			final _s = Paths.loadMusic('freakyMenu');
+			if (_s != null)
+				FlxG.sound.playMusic(_s, 0.5);
+			else
+				FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.5);
 		}
 
 		persistentUpdate = persistentDraw = true;
@@ -149,7 +148,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		rankText.setFormat(Paths.font("vcr.ttf"), 32);
 		rankText.size = scoreText.size;
 		rankText.screenCenter(X);
-		
+
 		yellowBG = new FlxSprite(0, 56).makeGraphic(FlxG.width, 404, 0xFFFFFFFF);
 		inverted = new FlxSprite(0, 56).makeGraphic(FlxG.width, 400, 0xFFF9CF51);
 
@@ -166,7 +165,13 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		var _bgPath:String = Paths.image('menu/menuDesat');
 		if (sys.FileSystem.exists(_bgPath))
 		{
-			try { bg.loadGraphic(_bgPath); } catch (_:Dynamic) {}
+			try
+			{
+				bg.loadGraphic(_bgPath);
+			}
+			catch (_:Dynamic)
+			{
+			}
 		}
 		#end
 		if (bg.graphic == null || bg.graphic.bitmap == null)
@@ -202,7 +207,8 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		{
 			for (i in 0...weekData.length)
 			{
-				var weekThing:MenuItem = new MenuItem(0, yellowBG.y + yellowBG.height + 10, i);
+				var weekThing:MenuItem = new MenuItem(0, yellowBG.y + yellowBG.height + 10, i,
+						(weekPaths != null && i < weekPaths.length) ? weekPaths[i] : null);
 				weekThing.y += ((weekThing.height + 20) * i);
 				weekThing.targetY = i;
 				grpWeekText.add(weekThing);
@@ -289,7 +295,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 			// Ahora que todo está creado, posicionar correctamente.
 			changeDifficulty();
-		}	
+		}
 		else
 		{
 			trace("WARNING: grpWeekText is empty, skipping difficulty selectors initialization");
@@ -374,7 +380,13 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		#end
 		if (file == null)
 		{
-			try { file = lime.utils.Assets.getText(songListPath); } catch (_:Dynamic) {}
+			try
+			{
+				file = lime.utils.Assets.getText(songListPath);
+			}
+			catch (_:Dynamic)
+			{
+			}
 		}
 
 		try
@@ -399,7 +411,8 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 			if (fmt == mods.compat.ModFormat.PSYCH_ENGINE)
 			{
-				if (songInfo == null) songInfo = { songsWeeks: [] };
+				if (songInfo == null)
+					songInfo = {songsWeeks: []};
 				for (modWeek in mods.compat.ModCompatLayer.getModSongsInfo())
 				{
 					var hasStory:Bool = false;
@@ -407,9 +420,14 @@ class StoryMenuState extends funkin.states.MusicBeatState
 					if (showArr != null && Std.isOfType(showArr, Array))
 					{
 						for (v in (cast showArr : Array<Dynamic>))
-							if (v == true) { hasStory = true; break; }
+							if (v == true)
+							{
+								hasStory = true;
+								break;
+							}
 					}
-					else hasStory = true;
+					else
+						hasStory = true;
 
 					if (hasStory)
 						songInfo.songsWeeks.push(cast modWeek);
@@ -434,6 +452,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		weekNames = [];
 		weekUnlocked = [];
 		weekColors = [];
+		weekPaths = [];
 
 		for (i in 0...songInfo.songsWeeks.length)
 		{
@@ -480,6 +499,9 @@ class StoryMenuState extends funkin.states.MusicBeatState
 					chars = [week.songIcons[0], 'bf', 'gf'];
 				}
 				weekCharacters.push(chars);
+
+				// weekPath: imagen del panel de esta semana (ej: "menu/storymenu/titles/miWeek")
+				weekPaths.push(week.weekPath != null ? week.weekPath : '');
 
 				// Estado de bloqueo (usar el proporcionado o desbloquear por defecto)
 				var isLocked:Bool = week.locked != null ? week.locked : false;
@@ -789,23 +811,23 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			PlayState.isStoryMode = true;
 			selectedWeek = true;
 
-			var diffic = funkin.data.CoolUtil.difficultySuffix();
-
+			// BUGFIX: storyDifficulty se debe asignar ANTES de llamar a
+			// difficultySuffix(), que lee PlayState.storyDifficulty.
+			// El orden anterior (diffic → storyDifficulty) hacía que se usara el
+			// valor residual de la sesión anterior (p.ej. si venías de FreeplayState
+			// con Hard seleccionado, aquí siempre cargaba Hard aunque el usuario
+			// tuviera Normal en StoryMenu) → chart incorrecto.
 			PlayState.storyDifficulty = curDifficulty;
+
+			var diffic = funkin.data.CoolUtil.difficultySuffix();
 
 			PlayState.SONG = Song.loadFromJson(PlayState.storyPlaylist[0].toLowerCase() + diffic, PlayState.storyPlaylist[0].toLowerCase());
 			PlayState.storyWeek = curWeek;
 			PlayState.campaignScore = 0;
-			if (curWeek == 0)
-				new FlxTimer().start(1, function(tmr:FlxTimer)
-				{
-					LoadingState.loadAndSwitchState(new VideoState('test', new PlayState()), true);
-				});
-			else
-				new FlxTimer().start(1, function(tmr:FlxTimer)
-				{
-					LoadingState.loadAndSwitchState(new PlayState(), true);
-				});
+			new FlxTimer().start(1, function(tmr:FlxTimer)
+			{
+				LoadingState.loadAndSwitchState(new PlayState(), true);
+			});
 		}
 	}
 
@@ -862,8 +884,8 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		if (leftArrow != null && rightArrow != null)
 		{
 			var padding:Float = 16;
-			var arrowY:Float  = leftArrow.y;
-			var startX:Float  = leftArrow.x + leftArrow.width + padding;
+			var arrowY:Float = leftArrow.y;
+			var startX:Float = leftArrow.x + leftArrow.width + padding;
 
 			// sprDifficulty centrado verticalmente respecto a la flecha
 			sprDifficulty.x = startX;

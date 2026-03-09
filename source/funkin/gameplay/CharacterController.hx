@@ -251,6 +251,12 @@ class CharacterController
 		char.playAnim(animName, true);
 		char.holdTimer = 0;
 
+		#if HSCRIPT_ALLOWED
+		funkin.scripting.ScriptHandler._argsAnim[0] = noteData;
+		funkin.scripting.ScriptHandler._argsAnim[1] = animName;
+		funkin.scripting.ScriptHandler.callOnCharacterScripts(char.curCharacter, 'onSingStart', funkin.scripting.ScriptHandler._argsAnim);
+		#end
+
 		// Resetear holdTimer del slot correspondiente
 		for (slot in characterSlots)
 			if (slot != null && slot.character == char)

@@ -173,7 +173,6 @@ class AnimationDebug extends MusicBeatState
 	{
 		funkin.debug.themes.EditorTheme.load();
 		FlxG.mouse.visible = true;
-		FreeplayState.destroyFreeplayVocals();
 		FlxG.sound.playMusic(Paths.music('configurator'));
 		MainMenuState.musicFreakyisPlaying = false;
 

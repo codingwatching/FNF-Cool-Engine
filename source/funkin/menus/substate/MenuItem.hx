@@ -16,12 +16,23 @@ class MenuItem extends FlxSpriteGroup
 	public var week:SafeSprite;
 	public var flashingInt:Int = 0;
 
-	public function new(x:Float, y:Float, weekNum:Int = 0)
+	var weekPath:String = 'week1';
+
+	var weekInfo:funkin.menus.StoryMenuState.SongsInfo;
+
+	public function new(x:Float, y:Float, weekNum:Int = 0, ?customWeekPath:String = null)
 	{
 		super(x, y);
 		week = new SafeSprite();
 
-		var imgPath:String = Paths.image('menu/storymenu/titles/week' + weekNum);
+		if (customWeekPath != null && customWeekPath != '')
+			weekPath = customWeekPath;
+		else if (weekInfo != null && weekInfo.weekPath != null)
+			weekPath = weekInfo.weekPath;
+		else
+			weekPath = 'menu/storymenu/titles/week' + weekNum;
+
+		var imgPath:String = Paths.image(weekPath);
 		var loaded:Bool = false;
 
 		#if sys

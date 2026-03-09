@@ -4,6 +4,9 @@ import flixel.FlxG;
 import funkin.gameplay.notes.Note;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.input.keyboard.FlxKey;
+#if mobileC
+import flixel.ui.FlxButton;
+#end
 
 using StringTools;
 
@@ -66,6 +69,17 @@ class InputHandler
 	private var _notesByDir2:Array<Note> = [];
 	private var _notesByDir3:Array<Note> = [];
 
+	// === CONTROLES MÓVILES ===
+	// Se asignan desde PlayState cuando se compila con el flag mobileC.
+	// Cada campo es un FlxButton cuya state (PRESSED/JUST_PRESSED/JUST_RELEASED)
+	// se combina con el input de teclado para que ambos funcionen simultáneamente.
+	#if mobileC
+	public var mobileLeft:FlxButton  = null;
+	public var mobileDown:FlxButton  = null;
+	public var mobileUp:FlxButton    = null;
+	public var mobileRight:FlxButton = null;
+	#end
+
 	public function new()
 	{
 		leftBind[0]  = FlxKey.fromString(FlxG.save.data.leftBind);
@@ -88,6 +102,7 @@ class InputHandler
 		if (FlxG.keys.anyJustPressed(rightBind)) pressed[3] = true;
 
 		held[0] = FlxG.keys.anyPressed(leftBind);
+
 		held[1] = FlxG.keys.anyPressed(downBind);
 		held[2] = FlxG.keys.anyPressed(upBind);
 		held[3] = FlxG.keys.anyPressed(rightBind);
@@ -112,7 +127,53 @@ class InputHandler
 			released[3] = true;
 			if (onKeyRelease != null) onKeyRelease(3);
 		}
+
+		// ── Controles táctiles (mobile) ───────────────────────────────────────
+		// Se combinan con OR con el teclado: si cualquiera de los dos registra
+		// una pulsación, el estado queda activado para ese frame.
+		#if mobileC
+		_updateMobileButton(mobileLeft,  0);
+		_updateMobileButton(mobileDown,  1);
+		_updateMobileButton(mobileUp,    2);
+		_updateMobileButton(mobileRight, 3);
+		#end
 	}
+
+	#if mobileC
+	/**
+	 * Lee el estado de un FlxButton y lo combina (OR) con pressed/held/released.
+	 * Inline para no generar overhead de llamada en el hot-path de 120fps.
+	 */
+	private inline function _updateMobileButton(btn:FlxButton, dir:Int):Void
+	{
+		if (btn == null) return;
+
+		// FlxButton.status: FlxButton.NORMAL=0, HIGHLIGHT=1, PRESSED=2
+		var isPressed = (btn.status == flixel.ui.FlxButton.PRESSED);
+
+		// justPressed: estaba sin presionar el frame anterior, ahora sí
+		if (isPressed && !held[dir])
+			pressed[dir] = true;
+
+		// held: mantenido (puede solapar con keyboard held)
+		if (isPressed)
+			held[dir] = true;
+
+		// justReleased: estaba presionado el frame anterior, ahora no
+		if (!isPressed && held[dir] && !FlxG.keys.anyPressed(
+			switch (dir)
+			{
+				case 0: leftBind;
+				case 1: downBind;
+				case 2: upBind;
+				default: rightBind;
+			}))
+		{
+			released[dir] = true;
+			if (onKeyRelease != null) onKeyRelease(dir);
+		}
+	}
+	#end
 
 	// ─── PROCESS INPUTS ──────────────────────────────────────────────────────
 

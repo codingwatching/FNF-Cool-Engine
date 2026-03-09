@@ -1,0 +1,89 @@
+{
+	"isFlxAnimate": true,
+	"animations": [
+		{
+			"offsetX": 0,
+			"framerate": 24,
+			"prefix": "Darnell Idle",
+			"offsetY": 0,
+			"name": "idle",
+			"looped": false
+		},
+		{
+			"offsetX": 30,
+			"framerate": 24,
+			"prefix": "darnell pose left",
+			"offsetY": 6,
+			"name": "singRIGHT",
+			"looped": false
+		},
+		{
+			"offsetX": 30,
+			"framerate": 24,
+			"prefix": "Darnell Pose Down",
+			"offsetY": -60,
+			"name": "singDOWN",
+			"looped": false
+		},
+		{
+			"offsetX": 52,
+			"framerate": 24,
+			"prefix": "Darnell pose right",
+			"offsetY": 1,
+			"name": "singLEFT",
+			"looped": false
+		},
+		{
+			"offsetX": 60,
+			"framerate": 24,
+			"prefix": "Darnell pose up",
+			"offsetY": 70,
+			"name": "singUP",
+			"looped": false
+		},
+		{
+			"offsetX": 0,
+			"framerate": 24,
+			"prefix": "darnell laugh",
+			"offsetY": 0,
+			"name": "laugh",
+			"looped": false
+		},
+		{
+			"offsetX": -3,
+			"framerate": 24,
+			"prefix": "Darnell lighting can",
+			"offsetY": -5,
+			"name": "Darnell lighting can",
+			"looped": false
+		},
+		{
+			"offsetX": 30,
+			"framerate": 24,
+			"prefix": "Darnell can kick up",
+			"offsetY": 30,
+			"name": "Darnell can kick up",
+			"looped": false
+		},
+		{
+			"offsetX": 0,
+			"framerate": 24,
+			"prefix": "Darnell knee action",
+			"offsetY": -20,
+			"name": "Darnell knee action",
+			"looped": false
+		},
+		{
+			"offsetX": 0,
+			"framerate": 24,
+			"prefix": "Darnell Gets Pissed",
+			"offsetY": 0,
+			"name": "Darnell Gets Pissed",
+			"looped": false
+		}
+	],
+	"isPlayer": false,
+	"antialiasing": true,
+	"path": "darnell",
+	"scale": 1
+}

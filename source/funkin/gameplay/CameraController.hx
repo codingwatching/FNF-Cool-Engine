@@ -94,6 +94,9 @@ class CameraController
 		camFollow = new FlxObject(0, 0, 1, 1);
 		camPos    = new FlxPoint();
 
+		// Escalar defaultZoom según resolución (fix 1080p: 1280/1920 = 1.5×)
+		defaultZoom *= Main.resolutionScale();
+
 		// Iniciar la cámara siguiendo el objeto de follow con lerp suave.
 		camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, followLerp);
 		camGame.zoom = defaultZoom;
@@ -355,9 +358,12 @@ class CameraController
 	public function bumpZoom():Void
 	{
 		if (!zoomEnabled) return;
-		if (camGame.zoom < 1.35)
+		// El límite de bump se escala con la resolución para mantener
+		// la misma "sensación" visual que en 720p.
+		var bumpLimit:Float = 1.35 * Main.resolutionScale();
+		if (camGame.zoom < bumpLimit)
 		{
-			camGame.zoom += 0.015;
+			camGame.zoom += 0.015 * Main.resolutionScale();
 			camHUD.zoom  += 0.03;
 		}
 	}

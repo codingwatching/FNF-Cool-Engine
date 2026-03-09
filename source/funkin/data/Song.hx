@@ -513,15 +513,34 @@ class Song
 		}
 
 		// Rutas donde buscar charts
-		final searchDirs:Array<String> = ['assets/songs/$folderLow'];
+		// BUGFIX: igual que findChart(), buscar en TODOS los mods habilitados y no
+		// solo en el mod activo. Sin este fix, si la canción estaba en un mod
+		// habilitado pero no activo (ej: base_game), la búsqueda no encontraba el
+		// chart V-Slice → devolvía el fallback ['Normal',''] → VSliceConverter
+		// recibía el nombre del folder como difficulty → ninguna clave matchaba →
+		// siempre cargaba la primera dificultad disponible (easy) en vez de normal/hard.
+		final searchDirs:Array<String> = [];
+		// Mod activo primero (mayor prioridad)
 		if (mods.ModManager.isActive())
 		{
 			final mr = mods.ModManager.modRoot();
-			searchDirs.unshift('$mr/songs/$folderLow');
-			searchDirs.unshift('$mr/assets/songs/$folderLow');
-			searchDirs.unshift('$mr/data/$folderLow');
-			searchDirs.unshift('$mr/assets/data/$folderLow');
+			searchDirs.push('$mr/songs/$folderLow');
+			searchDirs.push('$mr/assets/songs/$folderLow');
+			searchDirs.push('$mr/data/$folderLow');
+			searchDirs.push('$mr/assets/data/$folderLow');
 		}
+		// Todos los mods instalados y habilitados
+		for (mod in mods.ModManager.installedMods)
+		{
+			if (!mods.ModManager.isEnabled(mod.id)) continue;
+			final root = '${mods.ModManager.MODS_FOLDER}/${mod.id}';
+			final mr = root;
+			for (d in ['$mr/songs/$folderLow', '$mr/assets/songs/$folderLow',
+			           '$mr/data/$folderLow',  '$mr/assets/data/$folderLow'])
+				if (!searchDirs.contains(d)) searchDirs.push(d);
+		}
+		// Assets base (menor prioridad)
+		searchDirs.push('assets/songs/$folderLow');
 		searchDirs.push('assets/data/$folderLow');
 
 		for (dir in searchDirs)
@@ -540,8 +559,27 @@ class Song
 				// Archivos como "senpai-metadata.json", "senpai-metadata-erect.json",
 				// "metadata.json" NO son charts, son metadatos del song en formato V-Slice.
 				if (base.contains('metadata')) continue;
-				// Ignorar archivos de manifest de chart (ej: "senpai-chart.json")
-				if (base.endsWith('-chart') || base == 'chart') continue;
+
+				// ── Chart multi-dificultad V-Slice (ej: "darnell-chart.json") ────
+				// Contiene todas las dificultades en un solo archivo bajo "notes": { easy, normal, hard... }
+				// Leemos sus keys y las añadimos como sufijos, sin hacer continue.
+				if (base.endsWith('-chart') || base == 'chart')
+				{
+					try
+					{
+						final fullPath = '$dir/$entry';
+						final parsed:Dynamic = haxe.Json.parse(sys.io.File.getContent(fullPath));
+						final notesObj:Dynamic = parsed.notes;
+						if (notesObj != null)
+							for (diffKey in Reflect.fields(notesObj))
+							{
+								final sfx = '-' + diffKey.toLowerCase();
+								found.set(sfx, true);
+							}
+					}
+					catch (_) {}
+					continue;
+				}
 
 				// ── Filtro de nombre: solo aceptar archivos que empiecen con el folder ──
 				// Archivos que NO empiecen con el nombre de la canción (ej: "hard.json" suelto,

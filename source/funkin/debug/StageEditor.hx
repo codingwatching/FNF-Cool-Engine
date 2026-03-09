@@ -50,7 +50,7 @@ private typedef LayerHit =
 	h:Int, // height of clickable zone
 	idx:Int, // element index in stageData.elements (-1 = char row)
 	charId:String, // "bf" | "gf" | "dad" | null
-	zone:String // "row" | "eye" | "up" | "down" | "del" | "char" | "add_element"
+	zone:String // "row" | "eye" | "up" | "down" | "del" | "lock" | "char" | "charup" | "chardown" | "add_element"
 }
 
 /** Simple fixed-size button for the toolbar / layer panel. */
@@ -223,6 +223,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	// ── File reference ────────────────────────────────────────────────────────
 	var _fileRef:FileReference;
+	var _shaderFileRef:FileReference; // separado para no mezclar con _fileRef del asset browser
 
 	// ── Animation list visibility (managed at state level, not inside FlxUI tab) ──
 	var _animTabVisible:Bool = false;
@@ -462,17 +463,25 @@ class StageEditor extends funkin.states.MusicBeatState
 				elementSprites.set(name, spr);
 
 			// ── Re-aplicar shaders guardados en customProperties ──────────────
-			// Pasamos camGame explícitamente → ShaderManager._ensureCameras()
-			// puede usarlo si el sprite tiene cameras vacío.
 			for (elem in stageData.elements)
 			{
-				if (elem.customProperties == null)
-					continue;
+				if (elem.customProperties == null) continue;
 				var sh = Reflect.field(elem.customProperties, 'shader');
-				if (sh == null || sh == '')
-					continue;
+				if (sh == null || sh == '') continue;
+				var shName = Std.string(sh);
 				if (elem.name != null && elementSprites.exists(elem.name))
-					ShaderManager.applyShader(elementSprites.get(elem.name), Std.string(sh), camGame);
+				{
+					var spr = elementSprites.get(elem.name);
+					ShaderManager.applyShader(spr, shName, camGame);
+
+					// Restaurar params guardados
+					var sp = Reflect.field(elem.customProperties, 'shaderParams');
+					if (sp != null)
+					{
+						for (field in Reflect.fields(sp))
+							ShaderManager.setShaderParam(shName, field, Reflect.field(sp, field));
+					}
+				}
 			}
 		}
 		catch (e:Dynamic)
@@ -993,10 +1002,38 @@ class StageEditor extends funkin.states.MusicBeatState
 				zone: 'del'
 			});
 
+			// 🔒 Lock toggle — locked elements can't be selected/moved/deleted
+			var isLocked = (elem.locked == true);
+			var lockBgCol = isLocked ? 0xFFCC4400 : T.bgHover;
+			var lockBg = new FlxSprite(237, rowY + 4).makeGraphic(16, 18, lockBgCol);
+			lockBg.cameras = [camHUD];
+			lockBg.scrollFactor.set();
+			add(lockBg);
+			layerRowsGroup.add(lockBg);
+			var lockLabel = isLocked ? '\u{1F512}' : '\u{1F513}'; // 🔒 / 🔓 — fallback: L / -
+			// Unicode emoji may not render in VCR font; use ASCII substitute
+			var lockLabelAscii = isLocked ? 'LK' : '--';
+			var lockTxt = new FlxText(237, rowY + 5, 16, lockLabelAscii, 8);
+			lockTxt.setFormat(Paths.font('vcr.ttf'), 8, isLocked ? 0xFFFFDD88 : T.textDim, CENTER);
+			lockTxt.cameras = [camHUD];
+			lockTxt.scrollFactor.set();
+			add(lockTxt);
+			layerTextsGroup.add(lockTxt);
+			layerHitData.push({
+				x: 234,
+				w: 20,
+				y: rowY,
+				h: ROW_H,
+				idx: elemIdx,
+				charId: null,
+				zone: 'lock'
+			});
+
 			// Sprite-loaded indicator dot
 			if (elem.name != null && elementSprites.exists(elem.name))
 			{
-				var dot = new FlxSprite(237, rowY + 9).makeGraphic(6, 6, T.success);
+				var dotColor = isLocked ? 0xFFCC4400 : T.success;
+				var dot = new FlxSprite(LEFT_W - 10, rowY + 9).makeGraphic(6, 6, dotColor);
 				dot.cameras = [camHUD];
 				dot.scrollFactor.set();
 				add(dot);
@@ -1021,8 +1058,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		add(charHeaderTxt);
 		layerTextsGroup.add(charHeaderTxt);
 
-		// Legend: AB = above chars
-		var legendTxt = new FlxText(LEFT_W - 68, rowY + 6, 62, 'AB=above chars', 8);
+		// Legend: AB = above chars | z# = char render depth
+		var legendTxt = new FlxText(LEFT_W - 100, rowY + 6, 94, 'AB=above  z=depth', 8);
 		legendTxt.setFormat(Paths.font('vcr.ttf'), 8, 0xFFFF8800, RIGHT);
 		legendTxt.cameras = [camHUD];
 		legendTxt.scrollFactor.set();
@@ -1041,14 +1078,20 @@ class StageEditor extends funkin.states.MusicBeatState
 			var pos = '---';
 			if (c != null)
 				pos = 'x:${Std.int(c.x)}  y:${Std.int(c.y)}';
+
+			// z-order value for this char
+			var zVal = _getCharZOrder(cd.id);
+			var zStr = 'z:$zVal';
+
 			var cRowBg = new FlxSprite(0, rowY).makeGraphic(LEFT_W, ROW_H, selectedCharId == cd.id ? T.rowSelected : T.rowOdd);
 			cRowBg.cameras = [camHUD];
 			cRowBg.scrollFactor.set();
 			add(cRowBg);
 			layerRowsGroup.add(cRowBg);
+			// Clickable zone covers everything except the ▲/▼ column
 			layerHitData.push({
 				x: 0,
-				w: LEFT_W,
+				w: LEFT_W - 26,
 				y: rowY,
 				h: ROW_H,
 				idx: -1,
@@ -1061,12 +1104,65 @@ class StageEditor extends funkin.states.MusicBeatState
 			cLbl.scrollFactor.set();
 			add(cLbl);
 			layerTextsGroup.add(cLbl);
-			var cPos = new FlxText(48, rowY + 7, 190, pos, 9);
+			var cPos = new FlxText(48, rowY + 7, 118, pos, 9);
 			cPos.setFormat(Paths.font('vcr.ttf'), 9, T.textSecondary, LEFT);
 			cPos.cameras = [camHUD];
 			cPos.scrollFactor.set();
 			add(cPos);
 			layerTextsGroup.add(cPos);
+
+			// z-order indicator
+			var zTxt = new FlxText(170, rowY + 7, 36, zStr, 8);
+			zTxt.setFormat(Paths.font('vcr.ttf'), 8, 0xFFAACCFF, LEFT);
+			zTxt.cameras = [camHUD];
+			zTxt.scrollFactor.set();
+			add(zTxt);
+			layerTextsGroup.add(zTxt);
+
+			// ▲ z up (more foreground)
+			var zupBg = new FlxSprite(LEFT_W - 24, rowY + 1).makeGraphic(22, 11, T.bgHover);
+			zupBg.cameras = [camHUD];
+			zupBg.scrollFactor.set();
+			add(zupBg);
+			layerRowsGroup.add(zupBg);
+			var zupTxt = new FlxText(LEFT_W - 24, rowY + 1, 22, '\u25B2', 8);
+			zupTxt.setFormat(Paths.font('vcr.ttf'), 8, T.textSecondary, CENTER);
+			zupTxt.cameras = [camHUD];
+			zupTxt.scrollFactor.set();
+			add(zupTxt);
+			layerTextsGroup.add(zupTxt);
+			layerHitData.push({
+				x: LEFT_W - 26,
+				w: 26,
+				y: rowY,
+				h: Std.int(ROW_H / 2) + 1,
+				idx: -1,
+				charId: cd.id,
+				zone: 'charup'
+			});
+
+			// ▼ z down (more background)
+			var zdnBg = new FlxSprite(LEFT_W - 24, rowY + 13).makeGraphic(22, 11, T.bgHover);
+			zdnBg.cameras = [camHUD];
+			zdnBg.scrollFactor.set();
+			add(zdnBg);
+			layerRowsGroup.add(zdnBg);
+			var zdnTxt = new FlxText(LEFT_W - 24, rowY + 13, 22, '\u25BC', 8);
+			zdnTxt.setFormat(Paths.font('vcr.ttf'), 8, T.textSecondary, CENTER);
+			zdnTxt.cameras = [camHUD];
+			zdnTxt.scrollFactor.set();
+			add(zdnTxt);
+			layerTextsGroup.add(zdnTxt);
+			layerHitData.push({
+				x: LEFT_W - 26,
+				w: 26,
+				y: rowY + Std.int(ROW_H / 2),
+				h: Std.int(ROW_H / 2) + 1,
+				idx: -1,
+				charId: cd.id,
+				zone: 'chardown'
+			});
+
 			rowY += ROW_H;
 		}
 	}
@@ -1472,37 +1568,60 @@ class StageEditor extends funkin.states.MusicBeatState
 		var T = EditorTheme.current;
 		var y = 8.0;
 
-		// ── Encabezado ────────────────────────────────────────────────────────
-		var info = new FlxText(8, y, RIGHT_W - 20, 'Assign shaders to elements and preview them live.', 10);
+		// ── Header ────────────────────────────────────────────────────────────
+		var info = new FlxText(8, y, RIGHT_W - 20,
+			'Assign, create and tune shaders per element. All changes preview live.', 10);
 		info.color = T.textSecondary;
 		tab.add(info);
-		y += 28;
+		y += 26;
 
-		// Botón Refresh: re-escanea la carpeta de shaders
-		var refreshBtn = new FlxButton(8, y, '↻ Refresh List', function()
+		// Row 1: Refresh + Import
+		var refreshBtn = new FlxButton(8, y, 'Refresh', function()
 		{
 			ShaderManager.scanShaders();
 			_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
 			var labels = FlxUIDropDownMenu.makeStrIdLabelArray(_shaderList, true);
-			if (stageShaderDropdown != null)
-			{
-				stageShaderDropdown.setData(labels);
-				stageShaderDropdown.selectedLabel = _shaderList[0];
-			}
-			if (elemShaderDropdown != null)
-			{
-				elemShaderDropdown.setData(labels);
-				elemShaderDropdown.selectedLabel = _shaderList[0];
-			}
-			setStatus('Shaders re-scanned: ${_shaderList.length - 1} found');
+			if (stageShaderDropdown != null) stageShaderDropdown.setData(labels);
+			if (elemShaderDropdown   != null) elemShaderDropdown.setData(labels);
+			setStatus('Shaders rescanned: ${_shaderList.length - 1} found');
 		});
 		tab.add(refreshBtn);
-		y += 30;
 
-		var sep = new FlxSprite(4, y).makeGraphic(RIGHT_W - 16, 1, T.borderColor);
-		sep.alpha = 0.3;
-		tab.add(sep);
-		y += 8;
+		var importBtn = new FlxButton(RIGHT_W - 136, y, '+ Import .frag', _importShader);
+		tab.add(importBtn);
+		y += 28;
+
+		// Row 2: New shader + Edit current
+		var newBtn = new FlxButton(8, y, 'New Shader', function() _openShaderEditor(null));
+		tab.add(newBtn);
+
+		var editBtn = new FlxButton(RIGHT_W - 136, y, 'Edit Selected .frag', function()
+		{
+			// Find which shader is currently shown in the element dropdown
+			var shName:String = null;
+			if (selectedIdx >= 0 && selectedIdx < stageData.elements.length)
+			{
+				var elem = stageData.elements[selectedIdx];
+				if (elem.customProperties != null)
+				{
+					var sh = Reflect.field(elem.customProperties, 'shader');
+					if (sh != null && Std.string(sh) != '' && Std.string(sh) != '(none)')
+						shName = Std.string(sh);
+				}
+			}
+			_openShaderEditor(shName);
+		});
+		tab.add(editBtn);
+		y += 28;
+
+		function sep(sy:Float):Void
+		{
+			var s = new FlxSprite(4, sy).makeGraphic(RIGHT_W - 16, 1, T.borderColor);
+			s.alpha = 0.3;
+			tab.add(s);
+		}
+
+		sep(y); y += 8;
 
 		// ── Stage-level shader ────────────────────────────────────────────────
 		var lbl1 = new FlxText(8, y, 0, 'Stage Shader:', 10);
@@ -1516,11 +1635,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		stageShaderDropdown = new FlxUIDropDownMenu(8, y, labels, function(id:String)
 		{
 			var idx = Std.parseInt(id);
-			if (idx == null)
-				return;
+			if (idx == null) return;
 			var name = _shaderList[idx];
-			if (stageData.customProperties == null)
-				stageData.customProperties = {};
+			if (stageData.customProperties == null) stageData.customProperties = {};
 			Reflect.setField(stageData.customProperties, 'shader', name == '(none)' ? '' : name);
 			markUnsaved();
 			saveHistory();
@@ -1529,10 +1646,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		stageShaderDropdown.selectedLabel = _shaderList[0];
 		y += 36;
 
-		var sep2 = new FlxSprite(4, y).makeGraphic(RIGHT_W - 16, 1, T.borderColor);
-		sep2.alpha = 0.3;
-		tab.add(sep2);
-		y += 8;
+		sep(y); y += 8;
 
 		// ── Element shader ────────────────────────────────────────────────────
 		var lbl2 = new FlxText(8, y, 0, 'Selected Element Shader:', 10);
@@ -1542,27 +1656,20 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		elemShaderDropdown = new FlxUIDropDownMenu(8, y, labels, function(id:String)
 		{
-			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length)
-				return;
+			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length) return;
 			var idx = Std.parseInt(id);
-			if (idx == null)
-				return;
+			if (idx == null) return;
 			var name = _shaderList[idx];
 
 			var elem = stageData.elements[selectedIdx];
-			if (elem.customProperties == null)
-				elem.customProperties = {};
+			if (elem.customProperties == null) elem.customProperties = {};
 			Reflect.setField(elem.customProperties, 'shader', name == '(none)' ? '' : name);
 
-			// ── Live preview ──────────────────────────────────────────────────
+			// Live preview
 			if (elem.name != null && elementSprites.exists(elem.name))
 			{
 				var spr = elementSprites.get(elem.name);
-
-				// FIX cameras=0: garantizar que el sprite tenga cámara antes del shader
-				if (spr.cameras == null || spr.cameras.length == 0)
-					spr.cameras = [camGame];
-
+				if (spr.cameras == null || spr.cameras.length == 0) spr.cameras = [camGame];
 				try
 				{
 					if (name == '(none)' || name == '')
@@ -1570,43 +1677,36 @@ class StageEditor extends funkin.states.MusicBeatState
 					else
 						ShaderManager.applyShader(spr, name, camGame);
 				}
-				catch (e:Dynamic)
-				{
-					trace('[StageEditor] Error applying shader "$name": $e');
-					setStatus('Error applying shader "$name": $e');
-					return;
-				}
+				catch (e:Dynamic) { setStatus('Shader error: $e'); return; }
 			}
-
 			markUnsaved();
 			saveHistory();
-			setStatus(name == '(none)' ? 'Shader removed from selected element' : 'Shader "$name" applied live ✓');
+			setStatus(name == '(none)' ? 'Shader removed from element' : 'Shader "$name" applied live');
 		});
 		elemShaderDropdown.selectedLabel = _shaderList[0];
 		y += 36;
 
-		// Botón para quitar shader del elemento seleccionado
-		var removeBtn = new FlxButton(8, y, '✕ Remove Shader', function()
+		// Remove shader + Params substate buttons
+		var removeBtn = new FlxButton(8, y, 'x Remove', function()
 		{
-			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length)
-				return;
+			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length) return;
 			var elem = stageData.elements[selectedIdx];
-			if (elem.customProperties != null)
-				Reflect.setField(elem.customProperties, 'shader', '');
-
+			if (elem.customProperties != null) Reflect.setField(elem.customProperties, 'shader', '');
 			if (elem.name != null && elementSprites.exists(elem.name))
 				ShaderManager.removeShader(elementSprites.get(elem.name));
-
 			elemShaderDropdown.selectedLabel = '(none)';
 			markUnsaved();
 			saveHistory();
-			setStatus('Shader removed from selected element');
+			setStatus('Shader removed');
 		});
 		tab.add(removeBtn);
-		y += 30;
+
+		var paramsBtn = new FlxButton(RIGHT_W - 132, y, '* Shader Params', _openShaderParams);
+		tab.add(paramsBtn);
+		y += 28;
 
 		var note = new FlxText(8, y, RIGHT_W - 20,
-			'Shaders in assets/shaders/*.frag and mods/<id>/shaders/*.frag.\nThe preview is live — save to make changes persistent.', 9);
+			'Shaders live in assets/shaders/*.frag\nor mods/<id>/shaders/*.frag', 9);
 		note.color = T.textDim;
 		tab.add(note);
 
@@ -1699,8 +1799,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		if (FlxG.keys.justPressed.DELETE && !isMouseOverUI())
 			deleteSelectedElement();
 
-		// Nudge selected element with arrow keys
-		if (selectedIdx >= 0 && selectedIdx < stageData.elements.length)
+		// Nudge selected element with arrow keys (skip if locked)
+		if (selectedIdx >= 0 && selectedIdx < stageData.elements.length
+			&& !(stageData.elements[selectedIdx].locked == true))
 		{
 			var step = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
 			var elem = stageData.elements[selectedIdx];
@@ -1865,6 +1966,44 @@ class StageEditor extends funkin.states.MusicBeatState
 			{
 				switch (hit.zone)
 				{
+					case 'lock':
+						// Toggle the lock flag on this element
+						if (hit.idx >= 0 && hit.idx < stageData.elements.length)
+						{
+							var elem = stageData.elements[hit.idx];
+							elem.locked = !(elem.locked == true);
+							refreshLayerPanel();
+							markUnsaved();
+							saveHistory();
+							// If we just locked the currently selected element, deselect it
+							if (elem.locked == true && selectedIdx == hit.idx)
+							{
+								selectedIdx = -1;
+								refreshLayerPanel();
+							}
+							setStatus('"${elem.name ?? "element"}" ${elem.locked ? "locked (LK)" : "unlocked"}');
+						}
+
+					case 'charup':
+						// Move char one step toward foreground (higher z = rendered later = on top)
+						if (hit.charId != null)
+						{
+							_setCharZOrder(hit.charId, _getCharZOrder(hit.charId) + 1);
+							refreshLayerPanel();
+							markUnsaved();
+							setStatus('${hit.charId} z-order: ${_getCharZOrder(hit.charId)}');
+						}
+
+					case 'chardown':
+						// Move char one step toward background
+						if (hit.charId != null)
+						{
+							_setCharZOrder(hit.charId, _getCharZOrder(hit.charId) - 1);
+							refreshLayerPanel();
+							markUnsaved();
+							setStatus('${hit.charId} z-order: ${_getCharZOrder(hit.charId)}');
+						}
+
 					case 'above':
 						// Toggle aboveChars on this element (renders above characters)
 						if (hit.idx >= 0 && hit.idx < stageData.elements.length)
@@ -1979,12 +2118,12 @@ class StageEditor extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				// Check elements (reverse order = topmost first)
+				// Check elements (reverse order = topmost first), skip locked
 				var i = stageData.elements.length - 1;
 				while (i >= 0)
 				{
 					var elem = stageData.elements[i];
-					if (elem.name != null && elementSprites.exists(elem.name))
+					if (elem.locked != true && elem.name != null && elementSprites.exists(elem.name))
 					{
 						var spr = elementSprites.get(elem.name);
 						if (spr.overlapsPoint(new FlxPoint(worldX, worldY)))
@@ -2005,6 +2144,29 @@ class StageEditor extends funkin.states.MusicBeatState
 					isDraggingEl = true;
 					dragStart.set(worldX, worldY);
 					dragObjStart.set(stageData.elements[clickedIdx].position[0], stageData.elements[clickedIdx].position[1]);
+				}
+				else
+				{
+					// Check if user clicked a LOCKED element — select it (read-only) but don't drag
+					var li = stageData.elements.length - 1;
+					while (li >= 0)
+					{
+						var elem = stageData.elements[li];
+						if (elem.locked == true && elem.name != null && elementSprites.exists(elem.name))
+						{
+							var spr = elementSprites.get(elem.name);
+							if (spr.overlapsPoint(new FlxPoint(worldX, worldY)))
+							{
+								selectedIdx = li;
+								selectedCharId = null;
+								syncElementFieldsToUI();
+								refreshLayerPanel();
+								setStatus('"${elem.name ?? "element"}" is locked — unlock (LK button) to move');
+								break;
+							}
+						}
+						li--;
+					}
 				}
 			}
 		}
@@ -2326,7 +2488,13 @@ class StageEditor extends funkin.states.MusicBeatState
 	{
 		if (selectedIdx < 0 || selectedIdx >= stageData.elements.length)
 			return;
-		var name = stageData.elements[selectedIdx].name ?? 'element';
+		var elem = stageData.elements[selectedIdx];
+		if (elem.locked == true)
+		{
+			setStatus('"${elem.name ?? "element"}" is locked — unlock (LK button) to delete');
+			return;
+		}
+		var name = elem.name ?? 'element';
 		stageData.elements.splice(selectedIdx, 1);
 		selectedIdx = -1;
 		saveHistory();
@@ -2938,6 +3106,198 @@ class StageEditor extends funkin.states.MusicBeatState
 		var mx = FlxG.mouse.screenX;
 		var my = FlxG.mouse.screenY;
 		return my < TOP_H || my > FlxG.height - STATUS_H || mx < LEFT_W || mx > FlxG.width - RIGHT_W;
+	}
+
+	// ── Lock helpers ──────────────────────────────────────────────────────────
+
+	/** Returns true when the element at idx has locked:true. */
+	inline function _elemIsLocked(idx:Int):Bool
+	{
+		return idx >= 0 && idx < stageData.elements.length && stageData.elements[idx].locked == true;
+	}
+
+	// ── Character z-order helpers ─────────────────────────────────────────────
+	//
+	// Stored in stageData.customProperties.charOrder as { bf: Int, gf: Int, dad: Int }.
+	// Value semantics: higher = rendered later = on top of more elements.
+	// Defaults: dad = 0, gf = 1, bf = 100  (bf always above all by default).
+	// The number represents "how many stage elements are below this char".
+	// Saving this to JSON lets PlayState / Stage.hx read it for proper in-game ordering.
+
+	function _getCharZOrder(charId:String):Int
+	{
+		if (stageData.customProperties == null) stageData.customProperties = {};
+		var co = Reflect.field(stageData.customProperties, 'charOrder');
+		if (co == null)
+		{
+			co = {dad: 0, gf: 1, bf: 100};
+			Reflect.setField(stageData.customProperties, 'charOrder', co);
+		}
+		var v = Reflect.field(co, charId);
+		if (v == null) return charId == 'bf' ? 100 : (charId == 'gf' ? 1 : 0);
+		return Std.int(v);
+	}
+
+	function _setCharZOrder(charId:String, val:Int):Void
+	{
+		if (stageData.customProperties == null) stageData.customProperties = {};
+		var co = Reflect.field(stageData.customProperties, 'charOrder');
+		if (co == null)
+		{
+			co = {dad: 0, gf: 1, bf: 100};
+			Reflect.setField(stageData.customProperties, 'charOrder', co);
+		}
+		Reflect.setField(co, charId, val);
+		saveHistory();
+	}
+
+	// ── Shader helpers ────────────────────────────────────────────────────────
+
+	/** Opens a native file picker to import a .frag shader into the engine's shader folder. */
+	function _importShader():Void
+	{
+		#if sys
+		_shaderFileRef = new FileReference();
+		_shaderFileRef.addEventListener(Event.SELECT, function(_)
+		{
+			_shaderFileRef.addEventListener(Event.COMPLETE, function(_)
+			{
+				var filename = _shaderFileRef.name;
+				if (!filename.endsWith('.frag'))
+				{
+					setStatus('Import error: only .frag files supported');
+					return;
+				}
+				var destDir = (ModManager.isActive())
+					? '${ModManager.modRoot()}/shaders'
+					: 'assets/shaders';
+				try
+				{
+					if (!FileSystem.exists(destDir)) FileSystem.createDirectory(destDir);
+					File.saveBytes('$destDir/$filename', _shaderFileRef.data);
+				}
+				catch (ex:Dynamic) { setStatus('Import error: $ex'); return; }
+
+				ShaderManager.scanShaders();
+				_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
+				var labels = FlxUIDropDownMenu.makeStrIdLabelArray(_shaderList, true);
+				if (stageShaderDropdown != null) stageShaderDropdown.setData(labels);
+				if (elemShaderDropdown   != null) elemShaderDropdown.setData(labels);
+				setStatus('Shader imported: $filename');
+			});
+			_shaderFileRef.load();
+		});
+		_shaderFileRef.addEventListener(Event.CANCEL, function(_) {});
+		_shaderFileRef.browse([new openfl.net.FileFilter('GLSL Fragment Shader', '*.frag')]);
+		#end
+	}
+
+	/**
+	 * Opens ShaderEditorSubState — a text editor for writing/editing .frag code.
+	 * If shaderName is non-null and the file exists on disk, its code is pre-loaded.
+	 * On save the file is written to disk and the shader is hot-reloaded & applied live.
+	 */
+	function _openShaderEditor(?shaderName:String):Void
+	{
+		var initialCode = '// My shader\nvoid main()\n{\n\tgl_FragColor = flixel_texture2D(bitmap, openfl_TextureCoordv);\n}\n';
+		var editingName  = shaderName ?? 'new_shader';
+
+		#if sys
+		if (shaderName != null && shaderName != '' && ShaderManager.shaderPaths.exists(shaderName))
+		{
+			try { initialCode = File.getContent(ShaderManager.shaderPaths.get(shaderName)); }
+			catch (_:Dynamic) {}
+		}
+		#end
+
+		var editorSpr:FlxSprite = (selectedIdx >= 0 && selectedIdx < stageData.elements.length)
+			? (stageData.elements[selectedIdx].name != null
+				? elementSprites.get(stageData.elements[selectedIdx].name)
+				: null)
+			: null;
+
+		openSubState(new ShaderEditorSubState(editingName, initialCode, editorSpr, camGame,
+			function(savedName:String, savedCode:String)
+			{
+				// Refresh lists and re-apply to selected element if any
+				ShaderManager.scanShaders();
+				_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
+				var lbs = FlxUIDropDownMenu.makeStrIdLabelArray(_shaderList, true);
+				if (stageShaderDropdown != null) stageShaderDropdown.setData(lbs);
+				if (elemShaderDropdown   != null) elemShaderDropdown.setData(lbs);
+
+				if (editorSpr != null && selectedIdx >= 0 && selectedIdx < stageData.elements.length)
+				{
+					var elem = stageData.elements[selectedIdx];
+					if (elem.customProperties == null) elem.customProperties = {};
+					Reflect.setField(elem.customProperties, 'shader', savedName);
+					try { ShaderManager.applyShader(editorSpr, savedName, camGame); } catch (_:Dynamic) {}
+					if (elemShaderDropdown != null && _shaderList.contains(savedName))
+						elemShaderDropdown.selectedLabel = savedName;
+					markUnsaved();
+				}
+				setStatus('Shader "$savedName" saved');
+			}
+		));
+	}
+
+	/**
+	 * Opens ShaderParamsSubState — parses the .frag uniforms of the currently
+	 * assigned shader and shows sliders / inputs for each one.
+	 * Values are saved to customProperties.shaderParams in the JSON and applied live.
+	 */
+	function _openShaderParams():Void
+	{
+		if (selectedIdx < 0 || selectedIdx >= stageData.elements.length)
+		{
+			setStatus('Select an element first');
+			return;
+		}
+		var elem = stageData.elements[selectedIdx];
+		var shaderName:String = '';
+		if (elem.customProperties != null)
+		{
+			var sh = Reflect.field(elem.customProperties, 'shader');
+			if (sh != null) shaderName = Std.string(sh);
+		}
+		if (shaderName == '' || shaderName == '(none)')
+		{
+			setStatus('Assign a shader to this element first');
+			return;
+		}
+
+		// Read .frag source from disk for uniform parsing
+		var fragSrc = '';
+		#if sys
+		if (ShaderManager.shaderPaths.exists(shaderName))
+		{
+			try { fragSrc = File.getContent(ShaderManager.shaderPaths.get(shaderName)); }
+			catch (_:Dynamic) {}
+		}
+		#end
+
+		// Gather existing params from JSON
+		var existingParams:Dynamic = {};
+		if (elem.customProperties != null)
+		{
+			var sp = Reflect.field(elem.customProperties, 'shaderParams');
+			if (sp != null) existingParams = sp;
+		}
+
+		var spr = (elem.name != null && elementSprites.exists(elem.name))
+			? elementSprites.get(elem.name)
+			: null;
+
+		openSubState(new ShaderParamsSubState(shaderName, fragSrc, existingParams, spr, camGame,
+			function(params:Dynamic)
+			{
+				if (elem.customProperties == null) elem.customProperties = {};
+				Reflect.setField(elem.customProperties, 'shaderParams', params);
+				markUnsaved();
+				saveHistory();
+				setStatus('Shader params saved for "${elem.name}"');
+			}
+		));
 	}
 
 	function _modLabel():String

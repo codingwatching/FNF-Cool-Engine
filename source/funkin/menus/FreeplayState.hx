@@ -109,12 +109,11 @@ class FreeplayState extends funkin.states.MusicBeatState
 		}
 
 		MainMenuState.musicFreakyisPlaying = false;
-		if (vocals == null)
-		{
-			final snd = Paths.loadMusic('girlfriendsRingtone/girlfriendsRingtone');
-			if (snd != null) FlxG.sound.playMusic(snd, 0.7);
-			else FlxG.sound.playMusic(Paths.music('girlfriendsRingtone/girlfriendsRingtone'), 0.7);
-		}
+		final snd = Paths.loadMusic('girlfriendsRingtone/girlfriendsRingtone');
+		if (snd != null)
+			FlxG.sound.playMusic(snd, 0.7);
+		else
+			FlxG.sound.playMusic(Paths.music('girlfriendsRingtone/girlfriendsRingtone'), 0.7);
 
 		// Error message text
 		errorText = new FlxText(0, FlxG.height * 0.5 - 50, FlxG.width, "", 32);
@@ -155,7 +154,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		// Degradado overlay para dar profundidad
 		bgGradient = new FlxSprite();
 		bgGradient.makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT, true);
-		bgGradient.pixels.lock();   // requerido en native cpp antes de operaciones pixel
+		bgGradient.pixels.lock(); // requerido en native cpp antes de operaciones pixel
 		for (i in 0...FlxG.height)
 		{
 			var ratio:Float = i / FlxG.height;
@@ -286,10 +285,11 @@ class FreeplayState extends funkin.states.MusicBeatState
 		if (songs.length == 0)
 		{
 			showError("No songs found!\nPlease add songs to your songList.json");
-			
+
 			// ✅ FIX: Abrir automáticamente el editor si no hay canciones
 			// Esperar un momento para que el mensaje de error sea visible primero
-			new FlxTimer().start(2.0, function(_) {
+			new FlxTimer().start(2.0, function(_)
+			{
 				if (funkin.menus.MainMenuState.developerMode)
 				{
 					StateTransition.switchState(new FreeplayEditorState());
@@ -335,7 +335,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 			if (fmt == mods.compat.ModFormat.PSYCH_ENGINE)
 			{
-				songInfo = { songsWeeks: [] };
+				songInfo = {songsWeeks: []};
 				for (modWeek in mods.compat.ModCompatLayer.getModSongsInfo())
 				{
 					var hideFP:Bool = Reflect.field(modWeek, 'hideFreeplay') == true;
@@ -353,8 +353,14 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 				if (file != null && file.trim() != '')
 				{
-					try { songInfo = cast haxe.Json.parse(file); }
-					catch (e:Dynamic) { songInfo = null; }
+					try
+					{
+						songInfo = cast haxe.Json.parse(file);
+					}
+					catch (e:Dynamic)
+					{
+						songInfo = null;
+					}
 				}
 
 				if (songInfo == null)
@@ -377,7 +383,13 @@ class FreeplayState extends funkin.states.MusicBeatState
 		#end
 		if (file == null)
 		{
-			try { file = lime.utils.Assets.getText(songListPath); } catch (_:Dynamic) {}
+			try
+			{
+				file = lime.utils.Assets.getText(songListPath);
+			}
+			catch (_:Dynamic)
+			{
+			}
 		}
 		try
 		{
@@ -395,42 +407,56 @@ class FreeplayState extends funkin.states.MusicBeatState
 	/** Auto-descubre canciones desde la carpeta songs/ del mod activo como una semana única. */
 	function _autoDiscoverModSongs():StoryMenuState.Songs
 	{
-		final modId   = mods.ModManager.activeMod;
-		if (modId == null) return null;
+		final modId = mods.ModManager.activeMod;
+		if (modId == null)
+			return null;
 		final songsDir = '${mods.ModManager.MODS_FOLDER}/$modId/songs';
-		if (!sys.FileSystem.exists(songsDir)) return null;
+		if (!sys.FileSystem.exists(songsDir))
+			return null;
 
 		var songNames:Array<String> = [];
 		var songIcons:Array<String> = [];
-		var bpms:Array<Float>       = [];
+		var bpms:Array<Float> = [];
 		for (entry in sys.FileSystem.readDirectory(songsDir))
 		{
 			final ep = '$songsDir/$entry';
-			if (!sys.FileSystem.isDirectory(ep)) continue;
+			if (!sys.FileSystem.isDirectory(ep))
+				continue;
 			// Check that a chart file exists — .level format (new) OR legacy .json
 			var hasChart = false;
-			if (sys.FileSystem.exists('$ep/$entry.level')) { hasChart = true; }
+			if (sys.FileSystem.exists('$ep/$entry.level'))
+			{
+				hasChart = true;
+			}
 			if (!hasChart)
 				for (diff in ['hard', 'normal', 'easy', 'chart'])
-					if (sys.FileSystem.exists('$ep/$diff.json')) { hasChart = true; break; }
-			if (!hasChart) continue;
+					if (sys.FileSystem.exists('$ep/$diff.json'))
+					{
+						hasChart = true;
+						break;
+					}
+			if (!hasChart)
+				continue;
 			songNames.push(entry);
 			songIcons.push('icon-$entry');
 			bpms.push(120.0);
 		}
-		if (songNames.length == 0) return null;
+		if (songNames.length == 0)
+			return null;
 
 		final modInfo = mods.ModManager.getInfo(modId);
 		final colorHex = modInfo != null ? StringTools.hex(modInfo.color & 0xFFFFFF, 6) : 'FF9900';
 		return {
-			songsWeeks: [{
-				weekName:       modInfo != null ? modInfo.name : modId,
-				weekSongs:      songNames,
-				songIcons:      songIcons,
-				color:          [colorHex],
-				bpm:            bpms,
-				weekCharacters: ['bf', 'gf', 'dad']
-			}]
+			songsWeeks: [
+				{
+					weekName: modInfo != null ? modInfo.name : modId,
+					weekSongs: songNames,
+					songIcons: songIcons,
+					color: [colorHex],
+					bpm: bpms,
+					weekCharacters: ['bf', 'gf', 'dad']
+				}
+			]
 		};
 	}
 	#end
@@ -465,8 +491,6 @@ class FreeplayState extends funkin.states.MusicBeatState
 				num++;
 		}
 	}
-
-	public static var vocals:FlxSound = null;
 	public static var instPlaying:Int = -1;
 
 	override function update(elapsed:Float)
@@ -542,20 +566,21 @@ class FreeplayState extends funkin.states.MusicBeatState
 			StateTransition.switchState(new FreeplayEditorState());
 		}
 
-		#if cpp
+		// BUGFIX: era #if cpp → el bloque NO compilaba en HashLink/Neko/otros targets
+		// que no sean C++. Cambiado a #if sys para que funcione en todos los targets
+		// de escritorio (cpp + hl + neko + etc.).
+		#if sys
 		if (space)
 		{
 			if (instPlaying != curSelected)
 			{
-				destroyFreeplayVocals();
 				FlxG.sound.music.volume = 0;
 
 				// Verify chart exists — .level (new format) or legacy .json
 				var songLowercase:String = songs[curSelected].songName.toLowerCase();
 				var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
 
-				var chartExists:Bool = funkin.data.LevelFile.exists(songLowercase)
-					|| Song.findChart(songLowercase, poop) != null;
+				var chartExists:Bool = funkin.data.LevelFile.exists(songLowercase) || Song.findChart(songLowercase, poop) != null;
 
 				if (!chartExists)
 				{
@@ -587,24 +612,28 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 				// Cargar voces usando el método seguro
 				final diffSuffix:String = difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : '';
-				if (PlayState.SONG.needsVoices)
-					vocals = Paths.loadVoices(PlayState.SONG.song, diffSuffix);
-				else
-					vocals = new FlxSound();
 
-				FlxG.sound.list.add(vocals);
+				// BUGFIX 1: no silenciar aquí porque playMusic() destruye el music anterior.
+				// BUGFIX 2: respetar instSuffix del chart V-Slice (ej: erect/nightmare usan
+				//   audio "-erect" aunque la dificultad sea "-nightmare").
+				// BUGFIX 3: usar FlxG.sound.playMusic() en lugar de asignación directa
+				//   (FlxG.sound.music = x). La asignación directa NO añade el sonido a
+				//   FlxG.sound.list → Flixel nunca llama update() en él → el buffer de
+				//   loadStream() jamás se lee → silencio total. playMusic() hace todo:
+				//   destroyMusic(), list.add(), persist, looped, volume, play().
+				final audioSuffix:String = (PlayState.SONG.instSuffix != null && PlayState.SONG.instSuffix != '')
+					? '-' + PlayState.SONG.instSuffix
+					: diffSuffix;
 
-				// Cargar instrumental usando el método seguro
-				FlxG.sound.music = Paths.loadInst(PlayState.SONG.song, diffSuffix);
+				final instPath = Paths.inst(PlayState.SONG.song, audioSuffix);
+				trace('[FreeplayState] Preview inst path: $instPath');
+				final instSnd = Paths.loadInst(PlayState.SONG.song, audioSuffix);
+				FlxG.sound.music = instSnd;
 				FlxG.sound.music.persist = true;
 				FlxG.sound.music.looped = true;
 				FlxG.sound.music.volume = 0.7;
 				FlxG.sound.music.play();
 
-				vocals.persist = true;
-				vocals.looped = true;
-				vocals.volume = 0.7;
-				vocals.play();
 				instPlaying = curSelected;
 
 				// Establecer BPM para el screen bump
@@ -650,10 +679,11 @@ class FreeplayState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				destroyFreeplayVocals();
 				final gfSnd = Paths.loadMusic('girlfriendsRingtone/girlfriendsRingtone');
-				if (gfSnd != null) FlxG.sound.playMusic(gfSnd, 0.7);
-				else FlxG.sound.playMusic(Paths.music('girlfriendsRingtone/girlfriendsRingtone'), 0.7);
+				if (gfSnd != null)
+					FlxG.sound.playMusic(gfSnd, 0.7);
+				else
+					FlxG.sound.playMusic(Paths.music('girlfriendsRingtone/girlfriendsRingtone'), 0.7);
 				instPlaying = -1;
 
 				if (discSpr != null)
@@ -690,8 +720,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			trace('[FreeplayState] Current difficulty: $curDifficulty');
 
 			// Verify chart exists — .level (new format) or legacy .json
-			var chartExists:Bool = funkin.data.LevelFile.exists(songLowercase)
-				|| Song.findChart(songLowercase, poop) != null;
+			var chartExists:Bool = funkin.data.LevelFile.exists(songLowercase) || Song.findChart(songLowercase, poop) != null;
 			trace('[FreeplayState] chartExists($songLowercase) = $chartExists');
 
 			if (!chartExists)
@@ -752,8 +781,6 @@ class FreeplayState extends funkin.states.MusicBeatState
 			{
 				LoadingState.loadAndSwitchState(new PlayState());
 			});
-
-			destroyFreeplayVocals();
 		}
 
 		super.update(elapsed);
@@ -831,16 +858,6 @@ class FreeplayState extends funkin.states.MusicBeatState
 		}
 	}
 
-	public static function destroyFreeplayVocals()
-	{
-		if (vocals != null)
-		{
-			vocals.stop();
-			vocals.destroy();
-		}
-		vocals = null;
-	}
-
 	/**
 	 * Detecta las dificultades disponibles para la canción actualmente
 	 * seleccionada y actualiza difficultyStuff. Si curDifficulty queda
@@ -848,7 +865,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 	 */
 	function _updateDifficultyStuff():Void
 	{
-		if (songs == null || songs.length == 0) return;
+		if (songs == null || songs.length == 0)
+			return;
 		final songName = songs[curSelected].songName.toLowerCase();
 		difficultyStuff = cast Song.getAvailableDifficulties(songName);
 
@@ -861,7 +879,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 	function changeDiff(change:Int = 0)
 	{
-		if (songs.length == 0) return;
+		if (songs.length == 0)
+			return;
 
 		curDifficulty += change;
 
@@ -886,7 +905,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 	function changeSelection(change:Int = 0)
 	{
-		if (songs.length == 0) return;
+		if (songs.length == 0)
+			return;
 
 		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.4);
 
@@ -1046,13 +1066,6 @@ class FreeplayState extends funkin.states.MusicBeatState
 	{
 		super.onFocusLost();
 
-		// Pausar vocals cuando se pierde foco
-		if (vocals != null && vocals.playing)
-		{
-			vocals.pause();
-			trace('[FreeplayState] Focus lost - vocals paused');
-		}
-
 		// FlxG.sound.music se pausa automáticamente
 		trace('[FreeplayState] Focus lost - music will be paused by FlxG');
 	}
@@ -1072,14 +1085,6 @@ class FreeplayState extends funkin.states.MusicBeatState
 			// Reanudar el instrumental
 			FlxG.sound.music.play();
 			trace('[FreeplayState] Focus gained - music resumed');
-
-			// Reanudar vocals sincronizadas con el instrumental
-			if (vocals != null)
-			{
-				vocals.time = FlxG.sound.music.time;
-				vocals.play();
-				trace('[FreeplayState] Focus gained - vocals resumed and resynced');
-			}
 		}
 	}
 

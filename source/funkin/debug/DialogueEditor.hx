@@ -205,6 +205,8 @@ class DialogueEditor extends FlxState
 		FlxG.mouse.visible = true;
 
 		super.create();
+
+		StateTransition.onStateCreated();
 	}
 
 	/**

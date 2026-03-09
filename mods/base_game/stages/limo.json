@@ -6,6 +6,7 @@
 	"boyfriendPosition": [1030, 230],
 	"dadPosition": [100, 100],
 	"gfPosition": [400, 130],
+	"cameraDad": [0, 100],
 	"_comment": "Scripts stage",
 	"scripts": [
 		"limo_stage.hx"
@@ -56,41 +57,142 @@
 			"firstAnimation": "drive"
 		},
 		{
-			"type": "custom_class_group",
-			"className": "BackgroundDancer",
-			"name": "limos",
-			"asset": "limoDancer",
+			"_comment": "BackgroundDancer 1 — portado desde custom_class_group. La lógica dance() la hace limo_stage.hx en onStepHit.",
 			"zIndex": 3,
-			"instances": [
+			"type": "animated",
+			"name": "dancer1",
+			"asset": "limoDancer",
+			"assetLibrary": "limo",
+			"position": [
+				130,
+				100
+			],
+			"firstAnimation": "danceLeft",
+			"scrollFactor": [
+				0.4,
+				0.4
+			],
+			"antialiasing": true,
+			"animations": [
 				{
-					"position": [
-						130,
-						100
-					]
+					"name": "danceLeft",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 				},
 				{
-					"position": [
-						500,
-						100
-					]
+					"name": "danceRight",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+				}
+			]
+		},
+		{
+			"zIndex": 3,
+			"type": "animated",
+			"name": "dancer2",
+			"asset": "limoDancer",
+			"assetLibrary": "limo",
+			"position": [
+				500,
+				100
+			],
+			"firstAnimation": "danceLeft",
+			"scrollFactor": [
+				0.4,
+				0.4
+			],
+			"antialiasing": true,
+			"animations": [
+				{
+					"name": "danceLeft",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 				},
 				{
-					"position": [
-						870,
-						100
-					]
+					"name": "danceRight",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+				}
+			]
+		},
+		{
+			"zIndex": 3,
+			"type": "animated",
+			"name": "dancer3",
+			"asset": "limoDancer",
+			"assetLibrary": "limo",
+			"position": [
+				870,
+				100
+			],
+			"firstAnimation": "danceLeft",
+			"scrollFactor": [
+				0.4,
+				0.4
+			],
+			"antialiasing": true,
+			"animations": [
+				{
+					"name": "danceLeft",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 				},
 				{
-					"position": [
-						1240,
-						100
-					]
+					"name": "danceRight",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+				}
+			]
+		},
+		{
+			"zIndex": 3,
+			"type": "animated",
+			"name": "dancer4",
+			"asset": "limoDancer",
+			"assetLibrary": "limo",
+			"position": [
+				1240,
+				100
+			],
+			"firstAnimation": "danceLeft",
+			"scrollFactor": [
+				0.4,
+				0.4
+			],
+			"antialiasing": true,
+			"animations": [
+				{
+					"name": "danceLeft",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+				},
+				{
+					"name": "danceRight",
+					"prefix": "bg dancer sketch PINK",
+					"framerate": 24,
+					"looped": false,
+					"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
 				}
 			]
 		},
 		{
 			"type": "sprite",
 			"name": "fastCar",
+			"aboveChars": true,
 			"asset": "fastCarLol",
 			"position": [-300, 160],
 			"antialiasing": true,

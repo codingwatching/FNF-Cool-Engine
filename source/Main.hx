@@ -16,10 +16,8 @@ import ui.SoundTray;
 import funkin.menus.TitleState;
 import data.PlayerSettings;
 import CrashHandler;
-
 import funkin.transitions.StickerTransition;
 import openfl.system.System;
-
 import funkin.audio.AudioConfig;
 import funkin.data.CameraUtil;
 import funkin.system.MemoryUtil;
@@ -28,17 +26,17 @@ import funkin.system.WindowManager;
 import funkin.system.WindowManager.ScaleMode;
 import funkin.cache.PathsCache;
 import funkin.cache.FunkinCache;
-
 import extensions.CppAPI;
 import extensions.InitAPI;
-
 #if (desktop && cpp)
 import data.Discord.DiscordClient;
 import sys.thread.Thread;
 #end
-
 import funkin.data.KeyBinds;
 import funkin.gameplay.notes.NoteSkinSystem;
+#if mobileC
+import funkin.util.plugins.TouchPointerPlugin;
+#end
 
 using StringTools;
 
@@ -64,27 +62,32 @@ using StringTools;
 class Main extends Sprite
 {
 	// ── Configuración del juego ────────────────────────────────────────────────
-
-	private static inline var GAME_WIDTH:Int  = 1280;
+	private static inline var GAME_WIDTH:Int = 1280;
 	private static inline var GAME_HEIGHT:Int = 720;
-	private static inline var BASE_FPS:Int    = 120;
+	private static inline var BASE_FPS:Int = 120;
 
-	private var gameWidth:Int  = GAME_WIDTH;
+	private var gameWidth:Int = GAME_WIDTH;
 	private var gameHeight:Int = GAME_HEIGHT;
-	private var zoom:Float     = -1;
-	private var framerate:Int  = BASE_FPS;
-	private var skipSplash:Bool       = true;
-	private var startFullscreen:Bool  = false;
+	private var zoom:Float = -1;
+	private var framerate:Int = BASE_FPS;
+	private var skipSplash:Bool = true;
+	private var startFullscreen:Bool = false;
 
 	private var initialState:Class<FlxState> = CacheState;
 
 	// ── UI ────────────────────────────────────────────────────────────────────
-
 	public final data:DataInfoUI = new DataInfoUI(10, 3);
 
 	// ── Versiones ─────────────────────────────────────────────────────────────
-
 	public static inline var ENGINE_VERSION:String = "0.6.0";
+
+	/** Factor de escala para compensar resoluciones mayores a 720p.
+	 *  En 720p  → 1.0   (sin cambio)
+	 *  En 1080p → 1.5   (1920/1280)
+	 *  Úsalo para escalar defaultZoom y posiciones absolutas en HUD. */
+	public static inline var BASE_WIDTH:Int = 1280;
+	public static function resolutionScale():Float
+		return (FlxG.width > 0) ? FlxG.width / BASE_WIDTH : 1.0;
 
 	// ── Entry point ───────────────────────────────────────────────────────────
 
@@ -127,8 +130,8 @@ class Main extends Sprite
 	private function setupStage():Void
 	{
 		stage.scaleMode = StageScaleMode.NO_SCALE;
-		stage.align     = StageAlign.TOP_LEFT;
-		stage.quality   = openfl.display.StageQuality.LOW;
+		stage.align = StageAlign.TOP_LEFT;
+		stage.quality = openfl.display.StageQuality.LOW;
 
 		#if cpp
 		cpp.vm.Gc.setMinimumFreeSpace(32 * 1024 * 1024);
@@ -158,13 +161,7 @@ class Main extends Sprite
 		StickerTransition.init();
 
 		// ── WindowManager ──────────────────────────────────────────────────────
-		WindowManager.init(
-			/* mode    */ LETTERBOX,
-			/* minW    */ 960,
-			/* minH    */ 540,
-			/* baseW   */ GAME_WIDTH,
-			/* baseH   */ GAME_HEIGHT
-		);
+		WindowManager.init(/* mode    */ LETTERBOX, /* minW    */ 960, /* minH    */ 540, /* baseW   */ GAME_WIDTH, /* baseH   */ GAME_HEIGHT);
 
 		// ── FIX: Tamaño inicial de ventana más grande ──────────────────────────
 		#if !html5
@@ -212,6 +209,8 @@ class Main extends Sprite
 
 		// ── SystemInfo (deferred al primer frame) ──────────────────────────────
 		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _initSystemInfoDeferred);
+
+		untyped FlxG.cameras = new funkin.graphics.FunkinCameraFrontEnd();
 	}
 
 	// ── ENTER_FRAME deferred ──────────────────────────────────────────────────
@@ -226,11 +225,29 @@ class Main extends Sprite
 
 	private function calculateZoom():Void
 	{
-		if (zoom == -1)
+		// ── Resolución guardada: 720p (default) o 1080p ───────────────────────
+		var tempSave = new flixel.util.FlxSave();
+		tempSave.bind('coolengine', 'manux');
+		var use1080p = (tempSave.data.renderResolution == '1080p');
+		tempSave.destroy();
+
+		// SIEMPRE mantenemos el espacio de juego en 1280x720.
+		// Toda la geometria (stages, personajes, HUD) esta disenada para esas
+		// coordenadas. En 1080p escalamos el renderer fisico a 1.5x para que
+		// ocupe 1920x1080 en pantalla sin romper ninguna posicion.
+		gameWidth  = GAME_WIDTH;   // 1280
+		gameHeight = GAME_HEIGHT;  // 720
+
+		if (use1080p)
+		{
+			// Zoom fisico 1.5 => output 1920x1080, coordenadas internas 1280x720
+			zoom = 1.5;
+		}
+		else if (zoom == -1)
 		{
 			var stageW:Int = Lib.current.stage.stageWidth;
 			var stageH:Int = Lib.current.stage.stageHeight;
-			zoom       = Math.min(stageW / gameWidth, stageH / gameHeight);
+			zoom = Math.min(stageW / gameWidth, stageH / gameHeight);
 			gameWidth  = Math.ceil(stageW / zoom);
 			gameHeight = Math.ceil(stageH / zoom);
 		}
@@ -238,11 +255,7 @@ class Main extends Sprite
 
 	private function createGame():Void
 	{
-		addChild(new FlxGame(
-			gameWidth, gameHeight, initialState,
-			#if (flixel < "5.0.0") zoom, #end
-			framerate, framerate, skipSplash, startFullscreen
-		));
+		addChild(new FlxGame(gameWidth, gameHeight, initialState, #if (flixel < "5.0.0") zoom, #end framerate, framerate, skipSplash, startFullscreen));
 
 		// FIX: drawFramerate y updateFramerate se asignan solo en initializeFramerate()
 		// para evitar el error "Invalid field" al llamarlos antes de que FlxG esté listo.
@@ -256,6 +269,10 @@ class Main extends Sprite
 		FlxG.save.bind('coolengine', 'manux');
 		funkin.menus.OptionsMenuState.OptionsData.initSave();
 		funkin.gameplay.objects.hud.Highscore.load();
+
+		// ── Aplicar modo de escala guardado ────────────────────────────────────
+		if (FlxG.save.data.scaleMode != null)
+			WindowManager.applyScaleModeByName(FlxG.save.data.scaleMode);
 	}
 
 	private function initializeGameSystems():Void
@@ -267,6 +284,14 @@ class Main extends Sprite
 
 		FlxG.mouse.useSystemCursor = false;
 		FlxG.mouse.load(Paths.image('menu/cursor/cursor-default'));
+
+		// ── Touch pointer visual (mobile) ──────────────────────────────────────
+		#if mobileC
+		TouchPointerPlugin.initialize();
+		// Restaurar preferencia guardada
+		if (FlxG.save.data.touchIndicator != null)
+			TouchPointerPlugin.enabled = FlxG.save.data.touchIndicator;
+		#end
 
 		if (FlxG.save.data.gpuCaching != null)
 			PathsCache.gpuCaching = FlxG.save.data.gpuCaching;
@@ -306,16 +331,16 @@ class Main extends Sprite
 
 	private function disableDefaultSoundTray():Void
 	{
-		FlxG.sound.volumeUpKeys   = null;
+		FlxG.sound.volumeUpKeys = null;
 		FlxG.sound.volumeDownKeys = null;
-		FlxG.sound.muteKeys       = null;
+		FlxG.sound.muteKeys = null;
 		#if FLX_SOUND_SYSTEM
 		@:privateAccess
 		{
 			if (FlxG.game.soundTray != null)
 			{
 				FlxG.game.soundTray.visible = false;
-				FlxG.game.soundTray.active  = false;
+				FlxG.game.soundTray.active = false;
 			}
 		}
 		#end
@@ -327,7 +352,7 @@ class Main extends Sprite
 	{
 		openfl.Lib.current.stage.frameRate = fps;
 		FlxG.updateFramerate = fps;
-		FlxG.drawFramerate   = fps;
+		FlxG.drawFramerate = fps;
 	}
 
 	public static function getGame():FlxGame
