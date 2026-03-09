@@ -6,7 +6,7 @@ import flixel.group.FlxSpriteGroup;
 import ui.FlxVirtualPad;
 import ui.Hitbox;
 
-import Config;
+import data.Config;
 
 class Mobilecontrols extends FlxSpriteGroup
 {

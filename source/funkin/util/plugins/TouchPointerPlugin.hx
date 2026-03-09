@@ -74,8 +74,7 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 		_instance.cameras = [_camera];
 
 		FlxG.cameras.add(_camera, false);
-		FlxG.plugins.drawOnTop = true;
-		FlxG.plugins.addPlugin(_instance);
+		FlxG.plugins.add(_instance);
 
 		// Mantener la cámara del plugin en la cima ante cualquier cambio
 		FlxG.cameras.cameraAdded.add(_onCameraAdded);
@@ -344,7 +343,7 @@ class TouchPointer extends FlxSprite
 	{
 		// Posición en coordenadas de vista
 		var vp = FlxPoint.get();
-		touch.getViewPosition(cam, vp);
+		vp.set(touch.screenX, touch.screenY);
 
 		x = vp.x - width  / 2;
 		y = vp.y - height / 2;

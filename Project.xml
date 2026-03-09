@@ -96,7 +96,7 @@
 	<haxelib name="flixel-ui" />
 	<haxelib name="faxe" if="switch" />
 	<haxelib name="actuate" />
-	<haxelib name="discord_rpc" if="cpp" />
+	<haxelib name="discord_rpc" if="desktop" />
 
 	<haxelib name="flixel-animate"/>
 

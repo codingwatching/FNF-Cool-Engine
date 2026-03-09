@@ -67,15 +67,33 @@ class WinMacroFix
 	{
 		Context.onAfterGenerate(function()
 		{
-			// La carpeta de salida del C++ generado
-			var outDir = Context.definedValue('HXCPP_OUT');
-			if (outDir == null || outDir == '')
-				outDir = 'export/debug/windows/obj'; // fallback típico de Lime
-
-			var targets = [
-				{ path: outDir + '/include/flixel/util/_FlxColor/FlxColor_Impl_.h', undefs: UNDEFS_COLOR },
-				{ path: outDir + '/include/flixel/input/keyboard/_FlxKey/FlxKey_Impl_.h', undefs: UNDEFS_KEY }
+			// Buscar los headers en todas las posibles rutas de salida de Lime
+			// (debug, release, 32bit) sin depender de HXCPP_OUT que no siempre se define.
+			var candidateDirs = [
+				'export/release/windows/obj',
+				'export/debug/windows/obj',
+				'export/32bit/windows/obj',
+				'export/release/windows/cpp/obj',
+				'export/debug/windows/cpp/obj',
 			];
+
+			// También respetar HXCPP_OUT si viene definido
+			var envOut = Context.definedValue('HXCPP_OUT');
+			if (envOut != null && envOut != '')
+				candidateDirs.unshift(envOut);
+
+			var colorRel  = 'include/flixel/util/_FlxColor/FlxColor_Impl_.h';
+			var keyRel    = 'include/flixel/input/keyboard/_FlxKey/FlxKey_Impl_.h';
+
+			var targets = [];
+			for (dir in candidateDirs)
+			{
+				if (FileSystem.exists(dir + '/' + colorRel))
+					targets.push({ path: dir + '/' + colorRel, undefs: UNDEFS_COLOR });
+				if (FileSystem.exists(dir + '/' + keyRel))
+					targets.push({ path: dir + '/' + keyRel, undefs: UNDEFS_KEY });
+				if (targets.length == 2) break;
+			}
 
 			for (t in targets)
 			{

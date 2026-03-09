@@ -3,11 +3,11 @@ package data;
 // ────────────────────────────────────────────────────────────────────────────
 // Discord.hx — Rich Presence via discord_rpc
 //
-// discord_rpc depends on cpp.Function, which only exists on cpp targets.
-// Wrapping in #if cpp ensures this file is a no-op on neko / html5 / mobile.
+// discord_rpc only exists on desktop (Windows/Mac/Linux).
+// Android is also cpp but does NOT have discord_rpc — use #if desktop.
 // ────────────────────────────────────────────────────────────────────────────
 
-#if cpp
+#if desktop
 
 import Sys.sleep;
 import discord_rpc.DiscordRpc;
@@ -164,7 +164,7 @@ class DiscordClient
 
 #else
 
-// ── Stub for non-cpp targets (neko, html5, mobile) ──────────────────────────
+// ── Stub for non-desktop targets (android, neko, html5) ─────────────────────
 // Provides the same public API so all imports resolve, but does nothing.
 class DiscordClient
 {
