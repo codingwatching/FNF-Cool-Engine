@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Template personalizado de AndroidManifest para Cool Engine.
+
+    INSTRUCCIONES DE USO:
+    ─────────────────────────────────────────────────────────────────
+    1. Crea la carpeta  templates/android/template/  en la raíz del proyecto
+       (al mismo nivel que Project.xml).
+
+    2. Coloca este archivo como:
+           templates/android/template/AndroidManifest.xml
+
+    3. En Project.xml, registra la carpeta de templates añadiendo esta línea
+       dentro de <project>:
+           <template path="templates/android" />
+
+    OpenFL usará este manifest en lugar del que genera por defecto.
+    ─────────────────────────────────────────────────────────────────
+    Variables que OpenFL sustituye automáticamente al compilar:
+        ${APP_PACKAGE}      → com.coolTeam.coolEngine
+        ${APP_VERSION_CODE} → número de versión
+        ${APP_VERSION}      → string de versión
+        ${ANDROID_TARGET_SDK_VERSION} → 33 (según Project.xml)
+        ${ANDROID_INSTALL_LOCATION}   → auto
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="${APP_PACKAGE}"
+    android:versionCode="${APP_VERSION_CODE}"
+    android:versionName="${APP_VERSION}"
+    android:installLocation="${ANDROID_INSTALL_LOCATION}">
+
+    <!-- ── SDK Versions ──────────────────────────────────────────────────── -->
+    <uses-sdk
+        android:minSdkVersion="21"
+        android:targetSdkVersion="${ANDROID_TARGET_SDK_VERSION}" />
+
+    <!-- ── Permisos ──────────────────────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+
+    <!-- ── Attribution (Android 12+ / API 31+) ───────────────────────────
+         Evita el warning "attributionTag not declared in manifest".
+         Cada bloque <attribution> declara una etiqueta que identifica
+         qué parte de la app realiza operaciones de privacidad (audio,
+         cámara, micrófono, etc.).  Con "default" cubrimos el caso
+         general que lanza OpenFL/SDL internamente.
+    ──────────────────────────────────────────────────────────────────── -->
+    <attribution
+        android:tag="default"
+        android:label="@string/app_name" />
+
+    <!-- ── Aplicación ────────────────────────────────────────────────────── -->
+    <application
+        android:label="@string/app_name"
+        android:theme="@style/Theme.NoTitleBar.Fullscreen"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name"
+            android:configChanges="keyboardHidden|orientation|screenSize|screenLayout|locale|uiMode|density"
+            android:screenOrientation="landscape"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

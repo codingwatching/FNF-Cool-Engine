@@ -22,13 +22,6 @@
 //   Conductor, Paths, game (PlayState)
 //   stage (Stage actual), SONG (chart actual)
 
-import flixel.FlxG;
-import flixel.FlxSprite;
-import flixel.math.FlxMath;
-import flixel.math.FlxPoint;
-import flixel.tweens.FlxEase;
-import flixel.tweens.FlxTween;
-import flixel.util.FlxTimer;
 
 // ─── Estado de lluvia ──────────────────────────────────────────────────────────
 
@@ -69,46 +62,45 @@ function onStageCreate():Void
             rainEndIntensity   = 0.1;
     }
 
+    // ── Limpiar caché del shader antes de aplicar ──────────────────────────
+    // FIX: evita que ShaderManager cargue una versión vieja del shader que
+    // tenía uniforms vec3 uRainColor → warnings uRainColorR/G/B → GLSL roto → negro.
+    ShaderManager.clearShader(rainShaderName);
+
+    // ── Cargar y aplicar shader a camGame ──────────────────────────────────
+    // FIX: aplicar aquí y no en onUpdate. En el frame 0 de onUpdate, camGame
+    // todavía no ha renderizado su canvas → bitmap vacío → pantalla negra.
+    ShaderManager.applyShaderToCamera(rainShaderName, camGame);
+
+    // ── Parámetros iniciales ───────────────────────────────────────────────
+    ShaderManager.setShaderParam(rainShaderName, 'uScale',     FlxG.height / 200.0);
+    ShaderManager.setShaderParam(rainShaderName, 'uIntensity', rainStartIntensity);
+    ShaderManager.setShaderParam(rainShaderName, 'uTime',      0.0);
+    ShaderManager.setShaderParam(rainShaderName, 'uScreenW',   FlxG.width  * 1.0);
+    ShaderManager.setShaderParam(rainShaderName, 'uScreenH',   FlxG.height * 1.0);
+
+    // ── Charco ────────────────────────────────────────────────────────────
+    var puddleProp = stage != null ? stage.getElement('puddle') : null;
+    if (puddleProp != null)
+    {
+        ShaderManager.setShaderParam(rainShaderName, 'uPuddleY',      puddleProp.y + 80.0);
+        ShaderManager.setShaderParam(rainShaderName, 'uPuddleScaleY', 0.3);
+    }
+    else
+    {
+        ShaderManager.setShaderParam(rainShaderName, 'uPuddleY',      0.0);
+        ShaderManager.setShaderParam(rainShaderName, 'uPuddleScaleY', 0.0);
+    }
+
     // ── Inicializar semáforos y coches ─────────────────────────────────────
     resetCar(true, true);
     resetStageValues();
 }
 
-var initialized = false;
 function onUpdate(elapsed:Float):Void
 {
     // ── Actualizar lluvia ──────────────────────────────────────────────────
     rainTime += elapsed;
-
-	if (!initialized){
-		// ── Cargar y aplicar shader a camGame ──────────────────────────────────
-		// ShaderManager.applyShaderToCamera registra la instancia en _liveInstances
-		// para que setShaderParam() pueda actualizar los uniforms cada frame.
-		ShaderManager.applyShaderToCamera(rainShaderName, camGame);
-
-		// ── Parámetros iniciales ───────────────────────────────────────────────
-		// uScale: ajustar densidad visual de la lluvia (igual que rainShader.scale en V-Slice)
-		ShaderManager.setShaderParam(rainShaderName, 'uScale',     FlxG.height / 200.0);
-		ShaderManager.setShaderParam(rainShaderName, 'uIntensity', rainStartIntensity);
-		ShaderManager.setShaderParam(rainShaderName, 'uTime',      0.0);
-		ShaderManager.setShaderParam(rainShaderName, 'uRainColor', [0.4, 0.5, 0.8]);
-		ShaderManager.setShaderParam(rainShaderName, 'uScreenResolution', [FlxG.width * 1.0, FlxG.height * 1.0]);
-
-		// uPuddleY y uPuddleScaleY se actualizan cuando el prop 'puddle' existe en el stage.
-		// Leer posición del prop si existe:
-		var puddleProp = stage != null ? stage.getElement('puddle') : null;
-		if (puddleProp != null)
-		{
-			ShaderManager.setShaderParam(rainShaderName, 'uPuddleY',      puddleProp.y + 80.0);
-			ShaderManager.setShaderParam(rainShaderName, 'uPuddleScaleY', 0.3);
-		}
-		else
-		{
-			ShaderManager.setShaderParam(rainShaderName, 'uPuddleY',      0.0);
-			ShaderManager.setShaderParam(rainShaderName, 'uPuddleScaleY', 0.0);
-		}
-	}
-	initialized = true;
 
     var songLen:Float = (FlxG.sound.music != null) ? FlxG.sound.music.length : 1.0;
     var songPos:Float = (Conductor != null) ? Conductor.songPosition : 0.0;
@@ -119,8 +111,9 @@ function onUpdate(elapsed:Float):Void
 
     ShaderManager.setShaderParam(rainShaderName, 'uTime',      rainTime);
     ShaderManager.setShaderParam(rainShaderName, 'uIntensity', intensity);
-    // uScreenResolution puede cambiar si la ventana se redimensiona
-    ShaderManager.setShaderParam(rainShaderName, 'uScreenResolution', [FlxG.width * 1.0, FlxG.height * 1.0]);
+    // uScreenW/uScreenH pueden cambiar si la ventana se redimensiona
+    ShaderManager.setShaderParam(rainShaderName, 'uScreenW', FlxG.width * 1.0);
+    ShaderManager.setShaderParam(rainShaderName, 'uScreenH', FlxG.height * 1.0);
 
     // ── Sky scroll ────────────────────────────────────────────────────────
     var sky = stage != null ? stage.getElement('phillySkybox') : null;
@@ -171,8 +164,8 @@ function onRestart():Void
     ShaderManager.setShaderParam(rainShaderName, 'uScale',     FlxG.height / 200.0);
     ShaderManager.setShaderParam(rainShaderName, 'uIntensity', rainStartIntensity);
     ShaderManager.setShaderParam(rainShaderName, 'uTime',      rainTime);
-    ShaderManager.setShaderParam(rainShaderName, 'uRainColor', [0.4, 0.5, 0.8]);
-    ShaderManager.setShaderParam(rainShaderName, 'uScreenResolution', [FlxG.width * 1.0, FlxG.height * 1.0]);
+                ShaderManager.setShaderParam(rainShaderName, 'uScreenW', FlxG.width * 1.0);
+    ShaderManager.setShaderParam(rainShaderName, 'uScreenH', FlxG.height * 1.0);
 
     var puddleProp = stage != null ? stage.getElement('puddle') : null;
     if (puddleProp != null)

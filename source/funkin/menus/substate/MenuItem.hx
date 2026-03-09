@@ -10,6 +10,8 @@ import flixel.util.FlxColor;
 import sys.FileSystem;
 #end
 
+using StringTools;
+
 class MenuItem extends FlxSpriteGroup
 {
 	public var targetY:Float = 0;
@@ -26,9 +28,14 @@ class MenuItem extends FlxSpriteGroup
 		week = new SafeSprite();
 
 		if (customWeekPath != null && customWeekPath != '')
-			weekPath = customWeekPath;
-		else if (weekInfo != null && weekInfo.weekPath != null)
-			weekPath = weekInfo.weekPath;
+		{
+			// Si el weekPath del JSON ya incluye carpetas (contiene '/') se usa tal cual.
+			// Si es solo un nombre como "tutorial" o "weekend1", se le añade el prefijo
+			// estándar para que Paths.image() lo encuentre en el lugar correcto.
+			weekPath = customWeekPath.contains('/')
+				? customWeekPath
+				: 'menu/storymenu/titles/' + customWeekPath;
+		}
 		else
 			weekPath = 'menu/storymenu/titles/week' + weekNum;
 

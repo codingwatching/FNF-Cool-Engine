@@ -380,7 +380,7 @@ class ModImportSubState extends FlxSubState
 
 		final folderName = srcPath.replace('\\', '/').split('/').pop() ?? 'imported_mod';
 		final modId      = folderName.toLowerCase().replace(' ', '_');
-		final destDir    = 'mods/$modId';
+		final destDir    = '${mods.ModManager.MODS_FOLDER}/$modId';
 
 		_log('Installing to: $destDir');
 		if (!FileSystem.exists(destDir)) FileSystem.createDirectory(destDir);

@@ -3,6 +3,7 @@ package funkin.menus;
 #if desktop
 import data.Discord.DiscordClient;
 #end
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
@@ -74,15 +75,21 @@ class MainMenuState extends funkin.states.MusicBeatState
 
 		persistentUpdate = persistentDraw = true;
 
-		var bg:FlxSprite = new FlxSprite(-80).loadGraphic(Bitmap.fromFile(Paths.image('menu/menuBG')));
+		var bg:FlxSprite = new FlxSprite().loadGraphic(Bitmap.fromFile(Paths.image('menu/menuBG')));
 		bg.scrollFactor.x = 0;
 		bg.scrollFactor.y = 0.18;
+		// Escalar el fondo para cubrir siempre el ancho completo (fix 1080p)
+		var bgScale:Float = Math.max(FlxG.width / bg.width, FlxG.height / bg.height) * 1.1;
+		bg.scale.set(bgScale, bgScale);
+		bg.updateHitbox();
 		bg.screenCenter();
 		bg.antialiasing = FlxG.save.data.antialiasing;
 		add(bg);
 
 		camFollow = new FlxObject(0, 0, 1, 1);
 		add(camFollow);
+		FlxG.camera.follow(camFollow, LOCKON, 0.06);
+		FlxG.camera.snapToTarget();
 
 		menuItems = new FlxTypedGroup<FlxSprite>();
 		add(menuItems);
@@ -122,7 +129,12 @@ class MainMenuState extends funkin.states.MusicBeatState
 			menuItem.updateHitbox();
 		}
 
+		#if mobileC
+		// En móvil: texto "[ MODS ]" tappable en lugar de "Press Shift"
+		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, '[ MODS ]', 12);
+		#else
 		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, 'Press Shift - Menu Mods - API v0.4.0B', 12);
+		#end
 		modShit.scrollFactor.set();
 		modShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		modShit.y -= 40;
@@ -232,6 +244,12 @@ class MainMenuState extends funkin.states.MusicBeatState
 		// ── Mod Selector ────────────────────────────────────────────────────────
 		if (FlxG.keys.justPressed.SHIFT)
 			StateTransition.switchState(new ModSelectorState());
+		#if mobileC
+		// Tap en la zona del texto "[ MODS ]" (esquina inferior izquierda)
+		for (touch in FlxG.touches.justStarted())
+			if (touch.screenX < 130 && touch.screenY > FlxG.height - 60)
+				StateTransition.switchState(new ModSelectorState());
+		#end
 
 		if (!selectedSomethin)
 		{

@@ -5,6 +5,9 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 import haxe.Json;
+import mods.ModEngineOverride;
+
+using StringTools;
 
 /**
  * ModManager — Gestiona mods instalados, activación y previews.
@@ -65,8 +68,29 @@ class ModManager
 	/** Callback que se llama cuando cambia el mod activo. */
 	public static var onModChanged:Null<String->Void> = null;
 
-	/** Carpeta raíz donde viven los mods. */
-	public static inline var MODS_FOLDER = 'mods';
+	/** Carpeta raíz donde viven los mods.
+	 *  En Android usa el almacenamiento externo para que el usuario
+	 *  pueda añadir mods sin necesidad de root ni recompilar el APK.
+	 *  Ruta: /sdcard/Android/data/com.coolTeam.coolEngine/files/mods/
+	 *  (o lime.system.System.documentsDirectory + "/mods" en Lime) */
+	public static var MODS_FOLDER(get, never):String;
+	static var _modsFolder:String = null;
+	static function get_MODS_FOLDER():String
+	{
+		if (_modsFolder != null) return _modsFolder;
+		#if android
+		// lime.system.System.documentsDirectory en Android apunta a
+		// /sdcard/Android/data/<package>/files/ — carpeta accesible sin root.
+		var base = lime.system.System.documentsDirectory;
+		if (base == null || base == '') base = '/sdcard/Android/data/com.coolTeam.coolEngine/files';
+		// Quitar trailing slash si lo hay
+		if (base.endsWith('/')) base = base.substr(0, base.length - 1);
+		_modsFolder = base + '/mods';
+		#else
+		_modsFolder = 'mods';
+		#end
+		return _modsFolder;
+	}
 
 	/** Sub-carpetas estándar que se crean al crear un mod nuevo. */
 	static var STD_FOLDERS = [
@@ -138,6 +162,7 @@ class ModManager
 		{
 			activeMod = null;
 			trace('[ModManager] Mod desactivado — modo base.');
+			ModEngineOverride.clear();
 			_saveActiveState();
 			if (onModChanged != null) onModChanged(null);
 			return;
@@ -147,6 +172,12 @@ class ModManager
 		#end
 		activeMod = modId;
 		trace('[ModManager] Mod activo: "$activeMod"');
+
+		// Cargar engine overrides declarados en mod.json (si los tiene)
+		#if sys
+		ModEngineOverride.loadFromModJson('$MODS_FOLDER/$modId/mod.json', modId);
+		#end
+
 		_saveActiveState();
 		if (onModChanged != null) onModChanged(activeMod);
 	}
@@ -228,6 +259,9 @@ class ModManager
 		{
 			trace('[ModManager] Aplicando startup mod: "$startupMod"');
 			activeMod = startupMod;
+			#if sys
+			ModEngineOverride.loadFromModJson('$MODS_FOLDER/$activeMod/mod.json', activeMod);
+			#end
 			if (onModChanged != null) onModChanged(activeMod);
 		}
 	}
@@ -410,6 +444,9 @@ class ModManager
 					}
 					catch (_) {}
 				}
+				// Aplicar engineOverrides al vuelo si el mod está siendo activado ahora
+				if (d.engineOverrides != null && activeMod == id)
+					ModEngineOverride.applyFromRaw(d.engineOverrides, id);
 			}
 			catch (e:Dynamic) { trace('[ModManager] Error mod.json "$id": $e'); }
 		}
@@ -476,6 +513,8 @@ class ModManager
 			if (savedId != null && isInstalled(savedId))
 			{
 				activeMod = savedId;
+				// Aplicar engine overrides del mod restaurado (mismo camino que setActive)
+				ModEngineOverride.loadFromModJson('$MODS_FOLDER/$activeMod/mod.json', activeMod);
 				trace('[ModManager] Mod activo restaurado: "$activeMod"');
 			}
 		}

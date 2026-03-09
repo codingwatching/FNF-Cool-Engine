@@ -826,7 +826,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			var fullPath = scriptPath;
 
 			// Busca el script en mod activo, luego en assets
-			if (!scriptPath.startsWith('assets/') && !scriptPath.startsWith('mods/'))
+			if (!scriptPath.startsWith('assets/') && !scriptPath.startsWith('mods/') && !scriptPath.startsWith('/'))
 			{
 				// Also check Psych layout: mods/mod/stages/<name>.lua (no scripts/ subdir)
 				final modScriptPath = mods.ModManager.resolveInMod('stages/${curStage}/scripts/$scriptPath')

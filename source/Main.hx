@@ -163,8 +163,10 @@ class Main extends Sprite
 		// ── WindowManager ──────────────────────────────────────────────────────
 		WindowManager.init(/* mode    */ LETTERBOX, /* minW    */ 960, /* minH    */ 540, /* baseW   */ GAME_WIDTH, /* baseH   */ GAME_HEIGHT);
 
-		// ── FIX: Tamaño inicial de ventana más grande ──────────────────────────
-		#if !html5
+		// ── FIX: Tamaño inicial de ventana más grande (solo desktop) ──────────
+		// En Android window.resize() interfiere con la superficie SDL y puede
+		// provocar que el contexto EGL quede en estado inválido.
+		#if (desktop && !html5)
 		if (lime.app.Application.current?.window != null)
 		{
 			lime.app.Application.current.window.resize(1280, 720);
@@ -184,8 +186,17 @@ class Main extends Sprite
 		disableDefaultSoundTray();
 
 		// ── Mods ──────────────────────────────────────────────────────────────
+		#if android
+		// En Android 6+ hay que pedir permisos de almacenamiento en runtime.
+		// Sin esto el FileSystem no puede leer /sdcard/Android/data/.../files/mods/
+		_requestAndroidStoragePermission(function() {
+			mods.ModManager.init();
+			mods.ModManager.applyStartupMod();
+		});
+		#else
 		mods.ModManager.init();
 		mods.ModManager.applyStartupMod();
+		#end
 		WindowManager.applyModBranding(mods.ModManager.activeInfo());
 		#if (desktop && cpp)
 		DiscordClient.applyModConfig(mods.ModManager.activeInfo());
@@ -245,8 +256,19 @@ class Main extends Sprite
 		}
 		else if (zoom == -1)
 		{
-			var stageW:Int = Lib.current.stage.stageWidth;
-			var stageH:Int = Lib.current.stage.stageHeight;
+			var rawW:Int = Lib.current.stage.stageWidth;
+			var rawH:Int = Lib.current.stage.stageHeight;
+			// En Android el stage puede reportar dimensiones en portrait antes de aplicar
+			// la orientación landscape, lo que provoca que SDL envíe un buffer con transform
+			// incorrecto → BLASTBufferQueue lo rechaza → Null Object Reference → crash.
+			// Forzamos landscape: el lado mayor siempre es el ancho.
+			#if android
+			var stageW:Int = Std.int(Math.max(rawW, rawH));
+			var stageH:Int = Std.int(Math.min(rawW, rawH));
+			#else
+			var stageW:Int = rawW;
+			var stageH:Int = rawH;
+			#end
 			zoom = Math.min(stageW / gameWidth, stageH / gameHeight);
 			gameWidth  = Math.ceil(stageW / zoom);
 			gameHeight = Math.ceil(stageH / zoom);
@@ -354,6 +376,30 @@ class Main extends Sprite
 		FlxG.updateFramerate = fps;
 		FlxG.drawFramerate = fps;
 	}
+
+	#if android
+	/** Solicita READ/WRITE_EXTERNAL_STORAGE en Android 6+ y llama onGranted() cuando esté listo. */
+	static function _requestAndroidStoragePermission(onGranted:Void->Void):Void
+	{
+		var READ  = "android.permission.READ_EXTERNAL_STORAGE";
+		var WRITE = "android.permission.WRITE_EXTERNAL_STORAGE";
+		// extension_jni solo existe en android cpp
+		#if (android && cpp)
+		var jni = lime.system.JNI.createStaticMethod(
+			"org/haxe/lime/HaxeObject", "requestPermissions", "([Ljava/lang/String;)V", true);
+		if (jni != null)
+		{
+			jni([READ, WRITE]);
+			// Pequeño delay para que el sistema procese la petición antes de leer
+			new flixel.util.FlxTimer().start(0.5, function(_) onGranted());
+		}
+		else
+			onGranted(); // Si falla la JNI, continuar igual
+		#else
+		onGranted();
+		#end
+	}
+	#end
 
 	public static function getGame():FlxGame
 		return cast(Lib.current.getChildAt(0), FlxGame);

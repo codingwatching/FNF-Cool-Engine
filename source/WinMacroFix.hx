@@ -5,6 +5,7 @@ import haxe.macro.Context;
 import sys.io.File;
 import sys.FileSystem;
 
+using StringTools;
 /**
  * WinMacroFix.hx — source/WinMacroFix.hx
  *
@@ -67,33 +68,48 @@ class WinMacroFix
 	{
 		Context.onAfterGenerate(function()
 		{
-			// Buscar los headers en todas las posibles rutas de salida de Lime
-			// (debug, release, 32bit) sin depender de HXCPP_OUT que no siempre se define.
-			var candidateDirs = [
-				'export/release/windows/obj',
+			// Usar ruta absoluta del proyecto para que funcione sin importar
+			// el directorio de trabajo durante la ejecución del macro.
+			var cwd = Sys.getCwd().split("\\").join("/");
+			if (cwd.endsWith("/")) cwd = cwd.substr(0, cwd.length - 1);
+
+			var colorRel = 'include/flixel/util/_FlxColor/FlxColor_Impl_.h';
+			var keyRel   = 'include/flixel/input/keyboard/_FlxKey/FlxKey_Impl_.h';
+
+			// Todas las posibles rutas de salida de Lime (debug, release, 32bit)
+			var baseDirs = [
 				'export/debug/windows/obj',
+				'export/release/windows/obj',
 				'export/32bit/windows/obj',
-				'export/release/windows/cpp/obj',
 				'export/debug/windows/cpp/obj',
+				'export/release/windows/cpp/obj',
 			];
 
 			// También respetar HXCPP_OUT si viene definido
 			var envOut = Context.definedValue('HXCPP_OUT');
 			if (envOut != null && envOut != '')
-				candidateDirs.unshift(envOut);
+				baseDirs.unshift(envOut.split("\\").join("/"));
 
-			var colorRel  = 'include/flixel/util/_FlxColor/FlxColor_Impl_.h';
-			var keyRel    = 'include/flixel/input/keyboard/_FlxKey/FlxKey_Impl_.h';
+			// Construir candidatos con ruta absoluta Y relativa
+			var candidateDirs = [];
+			for (b in baseDirs)
+			{
+				candidateDirs.push(cwd + '/' + b); // absoluta
+				candidateDirs.push(b);              // relativa (fallback)
+			}
 
 			var targets = [];
 			for (dir in candidateDirs)
 			{
-				if (FileSystem.exists(dir + '/' + colorRel))
-					targets.push({ path: dir + '/' + colorRel, undefs: UNDEFS_COLOR });
-				if (FileSystem.exists(dir + '/' + keyRel))
-					targets.push({ path: dir + '/' + keyRel, undefs: UNDEFS_KEY });
+				var cp = dir + '/' + colorRel;
+				var kp = dir + '/' + keyRel;
+				if (FileSystem.exists(cp) && !_alreadyHas(targets, cp))
+					targets.push({ path: cp, undefs: UNDEFS_COLOR });
+				if (FileSystem.exists(kp) && !_alreadyHas(targets, kp))
+					targets.push({ path: kp, undefs: UNDEFS_KEY });
 				if (targets.length == 2) break;
 			}
+			trace('[WinMacroFix] cwd=' + cwd + ' targets=' + targets.length);
 
 			for (t in targets)
 			{
@@ -131,6 +147,12 @@ class WinMacroFix
 				trace('[WinMacroFix] Parched OK: ' + t.path);
 			}
 		});
+	}
+
+	static function _alreadyHas(arr:Array<{path:String, undefs:String}>, path:String):Bool
+	{
+		for (t in arr) if (t.path == path) return true;
+		return false;
 	}
 }
 #end

@@ -208,7 +208,7 @@ class FunkinSprite extends FlxAnimate
 	public function loadAnimateAtlas(folderPath:String):FunkinSprite
 	{
 		releaseTrackedAtlases();
-		final fullPath = (folderPath.startsWith('assets/') || folderPath.startsWith('mods/'))
+		final fullPath = (folderPath.startsWith('assets/') || folderPath.startsWith('mods/') || folderPath.startsWith('/'))
 			? folderPath
 			: 'assets/$folderPath';
 		_preloadFolderBitmaps(fullPath);
@@ -246,7 +246,7 @@ class FunkinSprite extends FlxAnimate
 		final fullPaths:Array<String> = [];
 		for (folder in folders)
 		{
-			fullPaths.push((folder.startsWith('assets/') || folder.startsWith('mods/'))
+			fullPaths.push((folder.startsWith('assets/') || folder.startsWith('mods/') || folder.startsWith('/'))
 				? folder : 'assets/$folder');
 		}
 

@@ -338,7 +338,7 @@ class Character extends FunkinSprite
 			// NO construimos el path a mano para evitar ignorar el mod activo.
 			final resolveCharAtlas = (p:String) -> {
 				// Si ya es un path absoluto resuelto (mods/ o assets/) lo usamos directo
-				if (p.startsWith('assets/') || p.startsWith('mods/')) return p;
+				if (p.startsWith('assets/') || p.startsWith('mods/') || p.startsWith('/')) return p;
 				// Normalizar a clave relativa a characters/images/
 				final charKey = p.startsWith('characters/images/') ? p : 'characters/images/$p';
 				// resolveAtlasFolder busca en mods → assets y devuelve el path real con Animation.json

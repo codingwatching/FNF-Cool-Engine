@@ -275,8 +275,8 @@ class ModChartManager
         var activeMod = mods.ModManager.activeMod;
         if (activeMod != null)
         {
-            searchPaths.push('mods/$activeMod/songs/${song}/modchart.hx');
-            searchPaths.push('mods/$activeMod/songs/${song}/modchart.json');
+            searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.hx');
+            searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.json');
         }
 
         // 2. Todos los mods habilitados (en orden)
@@ -284,8 +284,8 @@ class ModChartManager
         {
             if (!mod.enabled) continue;
             if (mod.id == activeMod) continue; // ya añadido arriba
-            searchPaths.push('mods/${mod.id}/songs/${song}/modchart.hx');
-            searchPaths.push('mods/${mod.id}/songs/${song}/modchart.json');
+            searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.hx');
+            searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.json');
         }
         #end
 

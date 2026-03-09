@@ -293,8 +293,15 @@ class HScriptInstance
 		final mod = ScriptHandler.loadScript(resolved, 'song');
 		if (mod == null || mod.interp == null) return null;
 
-		// Exponer las variables del módulo como objeto
-		return mod.interp.variables;
+		// BUG FIX: devolver objeto dinámico en lugar del StringMap crudo.
+		// mod.interp.variables es StringMap<Dynamic>. En C++/HL, Reflect.field
+		// no puede acceder a los métodos del StringMap, así que vizModule.get('create')
+		// retornaba null silenciosamente → viz = null → barras nunca se añadían.
+		// Con un objeto anónimo, vizModule.create(x, y) funciona directamente.
+		final proxy:Dynamic = {};
+		for (k => v in mod.interp.variables)
+			Reflect.setField(proxy, k, v);
+		return proxy;
 		#else
 		return null;
 		#end

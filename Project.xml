@@ -34,6 +34,9 @@
 	<android permission="android.permission.INTERNET" if="android" />
 	<android permission="android.permission.ACCESS_NETWORK_STATE" if="android" />
 	<android permission="android.permission.WAKE_LOCK" if="android" />
+	<!-- Permisos de almacenamiento para leer mods de /sdcard/ -->
+	<android permission="android.permission.READ_EXTERNAL_STORAGE" if="android" />
+	<android permission="android.permission.WRITE_EXTERNAL_STORAGE" if="android" />
 	
 	<define name="mobileC" if="mobile" />
 	<assets path="assets/images/hitbox" if="mobile" />
@@ -58,7 +61,7 @@
 	<section unless="BUILD">
 		<assets path="assets/"    rename="assets"	exclude="*.ogg" if="web"/>
 		<assets path="assets/"    rename="assets"	exclude="*.mp3" unless="web"/>
-		<assets path='mods' rename='mods' embed='false' />
+		<assets path='mods' rename='mods' embed='false' unless="android" />
 	</section>
 
 	<!-- Windows -->
@@ -116,6 +119,8 @@
 	<haxeflag name="-dce" value="std" unless="debug" />
 
 	<haxeflag name="--macro" value="WinMacroFix.apply()" if="windows"/>
+
+	<template path="templates/android" />
 	
 	<!-- Memory / Crash management -->
 	<!--

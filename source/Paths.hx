@@ -1034,7 +1034,7 @@ class Paths
 					return Bitmap.fromImage(img);
 			}
 			#end
-			if (!path.startsWith('mods/') && OpenFlAssets.exists(path, IMAGE))
+			if (!path.startsWith('mods/') && !path.startsWith('/') && OpenFlAssets.exists(path, IMAGE))
 				return OpenFlAssets.getBitmapData(path, false);
 		}
 		catch (e:Dynamic)

@@ -21,28 +21,42 @@ import animationdata.FunkinSprite;
 using StringTools;
 
 /**
- * PathsCache v3 — sistema de caché tricapa inspirado en V-Slice FunkinMemory.
+ * PathsCache v4 — sistema de caché tricapa con prefetch asíncrono y LRU.
+ *
+ * ─── Mejoras v4 ──────────────────────────────────────────────────────────────
+ *
+ *  LRU REAL
+ *    • _lruOrder: Array<String> que mantiene el orden de acceso.
+ *    • Cuando _currentGraphics supera maxGraphics, evicta el menos usado.
+ *    • Evita acumulación silenciosa de texturas no referenciadas.
+ *
+ *  PREFETCH ASÍNCRONO (desktop C++)
+ *    • prefetchAsync(keys): inicia la carga de texturas en background.
+ *    • isPrefetchDone(): true cuando todas las texturas están listas.
+ *    • Integrado con CacheState para mostrar progreso real.
+ *
+ *  HIT RATE METRICS
+ *    • Contadores: _hits, _misses, _rescues para diagnóstico de rendimiento.
+ *    • hitRate(): porcentaje de hits sobre el total de lookups.
+ *    • Visibles en el debug overlay.
+ *
+ *  SOPORTE MODS MEJORADO
+ *    • _modPathCache: Map<String, String> para evitar rellamadas a ModManager.
+ *    • resolveWithMod(id): resuelve el path real teniendo en cuenta el mod activo.
+ *    • clearModPathCache(): llamar al cambiar de mod para invalidar el cache.
  *
  * ─── Capas de caché ──────────────────────────────────────────────────────────
  *
  *   PERMANENTE  — UI esencial, countdown, fonts. Nunca se destruye.
- *   CURRENT     — Assets de la sesión actual (PlayState, menú…). Se rota al cambiar estado.
- *   PREVIOUS    — Assets de la sesión ANTERIOR, aún no destruidos.
- *                 Si el nuevo estado los necesita, se "rescatan" a CURRENT sin
- *                 recargar desde disco → evita stutter al volver al menú.
+ *   CURRENT     — Assets de la sesión actual. Se rota al cambiar estado.
+ *   PREVIOUS    — Assets de la sesión anterior. Se rescatan o destruyen.
  *
- * ─── Diferencias con v2 ──────────────────────────────────────────────────────
- *  v2: un solo Map "localTrackedAssets" (Array O(n)) + exclusionSet.
- *  v3: tres Maps independientes + forceGPURender() (carga textura en GPU ANTES del primer draw)
- *
- * ─── Compatibilidad de librerías ─────────────────────────────────────────────
- *  OpenFL ≥ 9.2.0  : openfl.utils.Assets (nuevo path)
- *  OpenFL < 9.2.0  : openfl.Assets (path antiguo)
- *  Flixel ≥ 5.0.0  : FlxG.bitmap.get() devuelve Null<FlxGraphic>
- *  Flixel < 5.0.0  : igual pero sin null-safety
+ * ─── Compatibilidad ──────────────────────────────────────────────────────────
+ *  OpenFL ≥ 9.2.0 / OpenFL < 9.2.0 (via import condicional)
+ *  Flixel ≥ 5.0.0 con null-safety
  *
  * @author Cool Engine Team
- * @version 3.0.0
+ * @version 4.0.0
  */
 @:access(openfl.display.BitmapData)
 class PathsCache
@@ -58,11 +72,6 @@ class PathsCache
 
 	// ── Opciones globales ─────────────────────────────────────────────────────
 
-	/**
-	 * GPU caching: libera RAM después de subir la textura a la GPU.
-	 * Solo tiene efecto en targets nativos (cpp/hl). En web no hace nada.
-	 * Desktop con ≥ 2 GB VRAM: true. Dispositivos limitados: false.
-	 */
 	public static var gpuCaching:Bool =
 		#if (desktop && !hl && cpp) true #else false #end;
 
@@ -72,31 +81,36 @@ class PathsCache
 		lowMemoryMode = v;
 		if (instance != null)
 		{
+			// Mobile tiene RAM más limitada — límites más bajos incluso en modo normal
+			#if (mobileC || android || ios)
+			instance.maxGraphics = v ? 20 : 40;
+			instance.maxSounds   = v ? 16 : 32;
+			#else
 			instance.maxGraphics = v ? 30 : 80;
 			instance.maxSounds   = v ? 24 : 64;
+			#end
 		}
 		return v;
 	}
 
-	/** Si true, los assets de música se transmiten desde disco en lugar de cargar en RAM. */
 	public static var streamedMusic:Bool = false;
 
-	// ── Límites de caché ─────────────────────────────────────────────────────
+	// ── Límites de caché ──────────────────────────────────────────────────────
+	// Desktop: 80 texturas / 64 sonidos.
+	// Mobile (Android/iOS): 40 / 32 — RAM más limitada y sin swap.
 
-	public var maxGraphics:Int = 80;
-	public var maxSounds:Int   = 64;
+	public var maxGraphics:Int = #if (mobileC || android || ios) 40 #else 80 #end;
+	public var maxSounds:Int   = #if (mobileC || android || ios) 32 #else 64 #end;
 
 	// ── Tricapa de texturas ───────────────────────────────────────────────────
-	// Inspirada directamente en FunkinMemory de V-Slice.
 
-	/** Texturas que NUNCA se destruyen (UI, countdown, fonts). */
 	final _permanentGraphics : Map<String, FlxGraphic> = [];
-
-	/** Texturas de la sesión ACTUAL. */
 	final _currentGraphics   : Map<String, FlxGraphic> = [];
-
-	/** Texturas de la sesión ANTERIOR — candidatas a destrucción. */
 	var   _previousGraphics  : Map<String, FlxGraphic> = [];
+
+	// ── LRU de texturas current ───────────────────────────────────────────────
+	// Mantiene el orden de acceso: [más antiguo ... más reciente]
+	var _lruOrder : Array<String> = [];
 
 	// ── Tricapa de sonidos ────────────────────────────────────────────────────
 
@@ -104,31 +118,33 @@ class PathsCache
 	final _currentSounds   : Map<String, Sound> = [];
 	var   _previousSounds  : Map<String, Sound> = [];
 
-	// ── API de compatibilidad pública (expuesta como antes para no romper callers) ──
+	// ── Caché de paths de mod ─────────────────────────────────────────────────
+	// Evita llamar a ModManager.resolveInMod en cada carga repetida.
+	var _modPathCache : Map<String, String> = [];
 
-	/**
-	 * Todos los assets de la sesión actual (lectura) — Array para compatibilidad.
-	 * El lookup interno usa los Maps, no este array.
-	 */
+	// ── Métricas de hit rate ──────────────────────────────────────────────────
+	var _hits    : Int = 0;
+	var _misses  : Int = 0;
+	var _rescues : Int = 0; // hits rescatados desde previous
+
+	// ── API de compatibilidad ─────────────────────────────────────────────────
+
 	public var localTrackedAssets(get, never):Array<String>;
 	inline function get_localTrackedAssets():Array<String>
 	{
-		// Construir bajo demanda (no es ruta caliente)
 		final out:Array<String> = [];
 		for (k in _currentGraphics.keys()) out.push(k);
 		for (k in _currentSounds.keys())   out.push(k);
 		return out;
 	}
 
-	/** Lectura directa de gráficos en caché. */
 	public var currentTrackedGraphics(get, never):Map<String, FlxGraphic>;
 	inline function get_currentTrackedGraphics() return _currentGraphics;
 
-	/** Lectura directa de sonidos en caché. */
 	public var currentTrackedSounds(get, never):Map<String, Sound>;
 	inline function get_currentTrackedSounds() return _currentSounds;
 
-	// ── Contadores O(1) ──────────────────────────────────────────────────────
+	// ── Contadores O(1) ───────────────────────────────────────────────────────
 
 	var _graphicCount : Int = 0;
 	var _soundCount   : Int = 0;
@@ -136,27 +152,32 @@ class PathsCache
 	public function graphicCount():Int return _graphicCount;
 	public function soundCount():Int   return _soundCount;
 
-	/** Helper: cuenta entradas de un Map (Map no tiene .count() en Haxe std). */
 	static inline function _count<K,V>(m:Map<K,V>):Int {
 		var n = 0; for (_ in m) n++; return n;
 	}
 
-	// ── API de compatibilidad esperada por Paths.hx ───────────────────────────
+	// ── Hit rate ──────────────────────────────────────────────────────────────
 
-	/** Devuelve true si la clave existe en alguna capa, el gráfico es no-nulo Y su bitmap no fue dispuesto. */
+	/** Porcentaje de hits sobre el total de lookups (0.0 - 1.0). */
+	public function hitRate():Float
+	{
+		final total = _hits + _misses;
+		return total > 0 ? _hits / total : 0.0;
+	}
+
+	/** Reset de métricas. */
+	public function resetMetrics():Void { _hits = 0; _misses = 0; _rescues = 0; }
+
+	// ── API compatibilidad ────────────────────────────────────────────────────
+
 	public function hasValidGraphic(key:String):Bool {
-		// BUGFIX: comprobar bitmap != null, no solo que el objeto FlxGraphic exista.
-		// FunkinCache.clearSecondLayer() llama FlxG.bitmap.removeByKey() → g.destroy() → g.bitmap = null,
-		// pero PathsCache._currentGraphics sigue sosteniendo la misma referencia muerta.
-		// Sin esta comprobación, hasValidGraphic() devuelve true para un gráfico con bitmap=null
-		// y el primer draw → FlxDrawQuadsItem::render null-object crash.
 		var g = _permanentGraphics.get(key);
 		if (g != null) return g.bitmap != null;
 		g = _currentGraphics.get(key);
 		if (g != null) {
 			if (g.bitmap != null) return true;
-			// Evictar entrada stale para que la siguiente carga lo recargue desde disco
 			_currentGraphics.remove(key);
+			_lruOrder.remove(key);
 			_graphicCount--;
 			return false;
 		}
@@ -165,10 +186,8 @@ class PathsCache
 		return false;
 	}
 
-	/** Retorna el gráfico sin cargarlo desde disco (peek). */
 	public inline function peekGraphic(key:String):Null<FlxGraphic> return getGraphic(key);
 
-	/** Devuelve true si el sonido está en caché. */
 	public function hasSound(key:String):Bool {
 		if (_permanentSounds.exists(key)) return true;
 		if (_currentSounds.exists(key))   return true;
@@ -231,32 +250,30 @@ class PathsCache
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Carga o rescata una textura.
-	 * Si existe en previous → la rescata sin tocar disco.
-	 * Si existe en permanent/current → no hace nada.
-	 * Si no existe → carga desde disco y la sube a GPU.
+	 * Carga o rescata una textura con LRU eviction.
+	 * Si _currentGraphics supera maxGraphics, evicta el menos usado (front del LRU).
 	 */
 	public function cacheGraphic(key:String):Null<FlxGraphic>
 	{
-		// Ya en current o permanent
-		if (_currentGraphics.exists(key)) return _currentGraphics.get(key);
+		if (_currentGraphics.exists(key))
+		{
+			_hits++;
+			_touchLRU(key);
+			return _currentGraphics.get(key);
+		}
 
-		// Rescatar de previous (evita recarga desde disco)
 		if (_previousGraphics.exists(key))
 		{
 			final g = _previousGraphics.get(key);
 			_previousGraphics.remove(key);
-			// BUGFIX: el gráfico puede haber sido destruido por clearPreviousSession() llamado
-			// desde PlayState.destroy(). destroy() pone bitmap=null. No meter ese gráfico en
-			// _currentGraphics — recargar desde disco en su lugar.
 			if (g != null && g.bitmap != null)
 			{
+				_rescues++;
+				_hits++;
 				_currentGraphics.set(key, g);
 				_graphicCount++;
-				// GPU caching: esta textura YA fue dibujada en la sesión anterior →
-				// el upload a VRAM ocurrió. Es seguro llamar disposeImage() ahora.
-				// Nota: a diferencia de _loadGraphic() (carga nueva), aquí no hay
-				// riesgo de disponer antes del primer draw porque ya fue renderizada.
+				_addToLRU(key);
+				_evictIfNeeded();
 				#if (cpp && !hl)
 				try {
 					if (FlxG.stage != null && FlxG.stage.context3D != null) {
@@ -270,12 +287,172 @@ class PathsCache
 				#end
 				return g;
 			}
-			// Gráfico inválido — caer al _loadGraphic abajo
 		}
 
-		// Cargar desde disco
-		return _loadGraphic(key, false);
+		_misses++;
+		final g = _loadGraphic(key, false);
+		if (g != null) { _addToLRU(key); _evictIfNeeded(); }
+		return g;
 	}
+
+	// ── LRU helpers ──────────────────────────────────────────────────────────
+
+	inline function _addToLRU(key:String):Void
+		_lruOrder.push(key);
+
+	inline function _touchLRU(key:String):Void
+	{
+		final idx = _lruOrder.indexOf(key);
+		if (idx >= 0) _lruOrder.splice(idx, 1);
+		_lruOrder.push(key);
+	}
+
+	/**
+	 * Si _currentGraphics supera maxGraphics, evicta las entradas más antiguas.
+	 * Solo evicta gráficos sin referencias activas (useCount == 0, no persist, no permanent).
+	 */
+	function _evictIfNeeded():Void
+	{
+		if (_graphicCount <= maxGraphics) return;
+		var evicted = 0;
+		var i = 0;
+		while (_graphicCount > maxGraphics && i < _lruOrder.length)
+		{
+			final k = _lruOrder[i];
+			if (_permanentGraphics.exists(k)) { i++; continue; }
+			final g = _currentGraphics.get(k);
+			if (g != null && g.useCount <= 0 && !g.persist)
+			{
+				_currentGraphics.remove(k);
+				_lruOrder.splice(i, 1);
+				_graphicCount--;
+				evicted++;
+				// No destruir aquí — FunkinCache.clearSecondLayer() lo hará seguro
+			}
+			else i++;
+		}
+		if (evicted > 0)
+			trace('[PathsCache] LRU evict: $evicted texturas (total=$_graphicCount/$maxGraphics)');
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// PREFETCH ASÍNCRONO
+	// ══════════════════════════════════════════════════════════════════════════
+
+	var _prefetchQueue   : Array<String>       = [];
+	var _prefetchResults : Map<String, Bool>   = [];
+	var _prefetchDone    : Bool                = true;
+
+	/**
+	 * Inicia la precarga de una lista de texturas en background (desktop C++).
+	 * En otras plataformas, hace la carga sincrónica normal.
+	 *
+	 * @param keys      Lista de claves/paths a precargar.
+	 * @param onProgress Callback (loaded:Int, total:Int) llamado tras cada carga.
+	 * @param onDone    Callback llamado cuando todas las texturas están listas.
+	 */
+	public function prefetchAsync(keys:Array<String>, ?onProgress:(Int,Int)->Void, ?onDone:()->Void):Void
+	{
+		if (keys == null || keys.length == 0) { if (onDone != null) onDone(); return; }
+
+		_prefetchQueue   = keys.copy();
+		_prefetchResults = [];
+		_prefetchDone    = false;
+		final total      = keys.length;
+		var loaded       = 0;
+
+		// En cpp (desktop Y Android) cargamos por lotes via FlxTimer para no bloquear el render loop.
+		#if cpp
+		final batchSize = 4;
+		var batchStart  = 0;
+
+		function loadBatch():Void
+		{
+			final end = Std.int(Math.min(batchStart + batchSize, total));
+			for (i in batchStart...end)
+			{
+				final k = keys[i];
+				if (!hasValidGraphic(k))
+				{
+					final g = cacheGraphic(k);
+					_prefetchResults.set(k, g != null);
+				}
+				else _prefetchResults.set(k, true);
+				loaded++;
+				if (onProgress != null) try { onProgress(loaded, total); } catch (_:Dynamic) {}
+			}
+			batchStart = end;
+			if (batchStart >= total)
+			{
+				_prefetchDone = true;
+				if (onDone != null) try { onDone(); } catch (_:Dynamic) {}
+			}
+			else
+			{
+				// Siguiente batch en el próximo frame
+				new flixel.util.FlxTimer().start(0, function(_) loadBatch());
+			}
+		}
+		loadBatch();
+		#else
+		// Plataformas sin hilos: carga síncrona
+		for (k in keys)
+		{
+			if (!hasValidGraphic(k)) cacheGraphic(k);
+			loaded++;
+			if (onProgress != null) try { onProgress(loaded, total); } catch (_:Dynamic) {}
+		}
+		_prefetchDone = true;
+		if (onDone != null) try { onDone(); } catch (_:Dynamic) {}
+		#end
+	}
+
+	/** true cuando el prefetch ha completado. */
+	public function isPrefetchDone():Bool return _prefetchDone;
+
+	/** Cuántos assets del último prefetch se cargaron correctamente. */
+	public function prefetchSuccessCount():Int
+	{
+		var n = 0;
+		for (v in _prefetchResults) if (v) n++;
+		return n;
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// SOPORTE MODS — resolución de paths con caché
+	// ══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Resuelve el path real de un asset teniendo en cuenta el mod activo.
+	 * Usa _modPathCache para evitar llamadas repetidas a ModManager.
+	 *
+	 * @return Path del archivo en el mod, o null si no existe override en el mod.
+	 */
+	public function resolveWithMod(id:String):Null<String>
+	{
+		final cached = _modPathCache.get(id);
+		if (cached != null) return cached == '' ? null : cached;
+
+		#if sys
+		try
+		{
+			final modPath = mods.ModManager.resolveInMod(id);
+			if (modPath != null && sys.FileSystem.exists(modPath))
+			{
+				_modPathCache.set(id, modPath);
+				return modPath;
+			}
+		}
+		catch (_:Dynamic) {}
+		#end
+		_modPathCache.set(id, ''); // cache miss
+		return null;
+	}
+
+	/** Invalida el caché de paths de mod (llamar al cambiar de mod). */
+	public function clearModPathCache():Void
+		_modPathCache = [];
+
 
 	/**
 	 * Carga una textura y la marca como permanente.
@@ -780,8 +957,11 @@ class PathsCache
 
 	public function getStats():String
 	{
-		return '[PathsCache v3] Permanent: ${_count(_permanentGraphics)} tex / ${_count(_permanentSounds)} snd'
-			+ ' | Current: ${_count(_currentGraphics)} tex / ${_count(_currentSounds)} snd'
-			+ ' | Previous: ${_count(_previousGraphics)} tex / ${_count(_previousSounds)} snd';
+		final total  = _hits + _misses;
+		final hr     = total > 0 ? '${Math.round(hitRate() * 100)}%' : 'n/a';
+		return '[PathsCache v4] Permanent: ${_count(_permanentGraphics)} tex / ${_count(_permanentSounds)} snd'
+			+ ' | Current: ${_count(_currentGraphics)} tex (LRU ${_lruOrder.length}) / ${_count(_currentSounds)} snd'
+			+ ' | Previous: ${_count(_previousGraphics)} tex / ${_count(_previousSounds)} snd'
+			+ ' | HitRate: $hr (hits=$_hits miss=$_misses rescue=$_rescues)';
 	}
 }

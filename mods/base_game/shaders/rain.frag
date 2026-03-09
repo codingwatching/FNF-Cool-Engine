@@ -16,8 +16,10 @@ uniform float uScale;
 uniform float uIntensity;
 uniform float uPuddleY;
 uniform float uPuddleScaleY;
-uniform vec3  uRainColor;
-uniform vec2  uScreenResolution;
+// uRainColor hardcodeado: nunca cambia en runtime, evita uniforms vec3 problemáticos.
+// uScreenW/H: floats individuales seguros para FlxRuntimeShader.
+uniform float uScreenW;
+uniform float uScreenH;
 
 // ── Hash / ruido ──────────────────────────────────────────────────────────
 
@@ -95,12 +97,17 @@ void main() {
     rain += rainLayer(uv * 1.4,  t * 1.2,  vec2(0.03, 0.08), 0.65) * 0.5;
     rain  = clamp(rain, 0.0, 1.0);
 
-    float puddle = puddleReflection(vec2(sc.x * uScreenResolution.x, sc.y * uScreenResolution.y), t) * uIntensity;
+    // Fallback: si uScreenW/H son 0 (aún no inicializados), usar resolución base 1280x720.
+    float screenW = (uScreenW > 1.0) ? uScreenW : 1280.0;
+    float screenH = (uScreenH > 1.0) ? uScreenH : 720.0;
+    float puddle = puddleReflection(vec2(sc.x * screenW, sc.y * screenH), t) * uIntensity;
 
-    vec3 base = mix(tex.rgb, uRainColor, puddle);
+    // Color de lluvia/charco hardcodeado (azul-gris). Nunca cambia en runtime.
+    vec3 rainColor = vec3(0.4, 0.5, 0.8);
+    vec3 base = mix(tex.rgb, rainColor, puddle);
 
-    // FIX: color de gota blanco-azulado brillante. uRainColor queda para el charco.
-    vec3 dropColor = mix(vec3(0.88, 0.94, 1.0), uRainColor, 0.25);
+    // Color de gota: blanco-azulado brillante mezclado con rainColor.
+    vec3 dropColor = mix(vec3(0.88, 0.94, 1.0), rainColor, 0.25);
 
     // FIX: amplificar uIntensity x4 para que valores bajos sean perceptibles.
     //   intensity=0.05 -> factor=0.20  (lluvia muy ligera, visible)

@@ -129,17 +129,12 @@ function onUpdate(elapsed:Float)
 
         if (viz != null)
         {
-            var _vizBars = viz.bars;
-            if (_vizBars != null)
-            {
-                var vizBaseX:Float = bx + 207;
-                var vizBaseY:Float = by + 84;
-                for (i in 0..._vizBars.length)
-                {
-                    _vizBars[i].x = vizBaseX + i * 13;
-                    _vizBars[i].y = vizBaseY;
-                }
-            }
+            // Actualizar base del viz — viz.update() leerá estas coordenadas
+            // para calcular bar.y correctamente con el offset de escala.
+            // El x por barra lo sigue gestionando viz.update via _baseX.
+            var vizBaseX:Float = bx + 207;
+            var vizBaseY:Float = by + 84;
+            viz.setBase(vizBaseX, vizBaseY);
         }
     }
 
@@ -162,15 +157,13 @@ function onUpdate(elapsed:Float)
         }
     }
 
-    // Frame 13 de danceLeft → transición PRE_RAISE
+    // Frame 13 de danceLeft → marcar animationFinished para que
+    // transitionState() (al final) dispare la transición a RAISE.
     if (currentState == STATE_PRE_RAISE)
     {
         var curAnim = character.animation.curAnim;
         if (curAnim != null && curAnim.name == 'danceLeft' && curAnim.curFrame == 13)
-        {
             animationFinished = true;
-            transitionState();
-        }
     }
 
     transitionState();
@@ -371,7 +364,7 @@ function setupAbot():Void
     var vizModule:Dynamic = require('ABotVis.hx');
     if (vizModule != null)
     {
-        viz = vizModule.get('create')(vizBaseX, vizBaseY);
+        viz = vizModule.create(vizBaseX, vizBaseY);
 
         // Añadir las barras al estado antes del abot
         if (viz != null)

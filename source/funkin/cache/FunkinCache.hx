@@ -12,34 +12,63 @@ import lime.utils.Assets as LimeAssets;
 #end
 
 /**
- * FunkinCache — gestiona el ciclo de vida de assets entre estados.
+ * FunkinCache v2 — Gestión optimizada del ciclo de vida de assets entre estados.
  *
- * Basado directamente en Codename Engine FunkinCache (sistema probado).
+ * ─── Mejoras v2 ──────────────────────────────────────────────────────────────
  *
- * ─── Arquitectura (2 capas, igual que Codename) ────────────────────────────
+ *  RENDIMIENTO
+ *    • Batch eviction: clearSecondLayer() acumula las claves a eliminar y hace
+ *      una sola pasada (evita re-hashing del Map en cada remove individual).
+ *    • Hot path en getBitmapData(): lookup CURRENT primero, cortocircuita
+ *      bitmapData2 si no es necesario.
+ *    • Contadores O(1) para bitmap/sound/font.
  *
- *  Capa CURRENT  (bitmapData / font / sound)
- *    → Assets cargados en la sesión activa.
- *    → Se mueven a SECOND en preStateSwitch.
+ *  SOPORTE DE MODS
+ *    • Fallback mejorado: busca en el directorio del mod activo ANTES del disco.
+ *    • markPermanentBitmap / markPermanentSound: assets que nunca se evictan.
+ *    • onEvict callback: mods reciben notificación al destruir un asset.
  *
- *  Capa SECOND   (bitmapData2 / font2 / sound2)
- *    → Assets de la sesión anterior.
- *    → getBitmapData() los "rescata" a CURRENT si el nuevo estado los necesita.
- *    → Lo que nadie rescató se destruye en postStateSwitch via clearSecondLayer().
+ *  DIAGNÓSTICO
+ *    • getStats() devuelve string compacto con contadores en tiempo real.
+ *    • dumpKeys() lista todas las claves en caché.
  *
- * ─── Por qué NO usamos PathsCache en los signals ──────────────────────────
- *  PathsCache.beginSession() + clearPreviousSession() destruían FlxGraphics
- *  después de que los sprites del nuevo estado ya los cargaron → crash.
- *  FunkinCache maneja todo via FlxG.bitmap.removeByKey (exactamente como Codename).
+ * ─── Arquitectura (3 capas) ───────────────────────────────────────────────────
+ *
+ *  PERMANENT  — UI esencial, fonts. Nunca se destruyen.
+ *  CURRENT    — Assets sesión activa. Se mueven a SECOND en preStateSwitch.
+ *  SECOND     — Assets sesión anterior. Se destruyen en postStateSwitch
+ *               salvo que el nuevo estado los "rescate".
+ *
+ * @author Cool Engine Team
+ * @version 2.0.0
  */
 class FunkinCache extends AssetCache
 {
 	public static var instance:FunkinCache;
 
-	@:noCompletion public var bitmapData2:Map<String, BitmapData>;
-	@:noCompletion public var font2:Map<String, Font>;
-	@:noCompletion public var sound2:Map<String, Sound>;
+	// ── Capa SECOND ───────────────────────────────────────────────────────────
+	@:noCompletion public var bitmapData2 : Map<String, BitmapData>;
+	@:noCompletion public var font2       : Map<String, Font>;
+	@:noCompletion public var sound2      : Map<String, Sound>;
 
+	// ── Capa PERMANENT ────────────────────────────────────────────────────────
+	@:noCompletion var _permanentBitmaps : Map<String, BitmapData> = [];
+	@:noCompletion var _permanentSounds  : Map<String, Sound>      = [];
+
+	// ── Contadores O(1) ───────────────────────────────────────────────────────
+	var _bitmapCount  : Int = 0;
+	var _bitmap2Count : Int = 0;
+	var _soundCount   : Int = 0;
+	var _fontCount    : Int = 0;
+
+	/**
+	 * Callback llamado cuando un asset se destruye.
+	 * Firma: (key:String, assetType:String) → Void
+	 * assetType ∈ { "bitmap", "font", "sound" }
+	 */
+	public var onEvict:Null<(String, String)->Void> = null;
+
+	// ── Constructor ────────────────────────────────────────────────────────────
 	public function new()
 	{
 		super();
@@ -47,200 +76,230 @@ class FunkinCache extends AssetCache
 		instance = this;
 	}
 
+	// ══════════════════════════════════════════════════════════════════════════
+	// INIT — señales de Flixel
+	// ══════════════════════════════════════════════════════════════════════════
+
 	public static function init():Void
 	{
 		openfl.utils.Assets.cache = new FunkinCache();
 
 		FlxG.signals.preStateSwitch.add(function()
 		{
-			// Mover assets CURRENT → SECOND antes del cambio.
-			// El nuevo estado rescatará lo que necesite via getBitmapData().
 			instance.moveToSecondLayer();
-
-			// Sincronizar PathsCache: mover _currentGraphics → _previousGraphics.
-			// Sin esto, PathsCache._currentGraphics acumula FlxGraphics "muertos"
-			// (bitmap=null) que clearSecondLayer() destruye via removeByKey().
-			// hasValidGraphic() los detectaba como vivos → atlas con bitmap=null
-			// → FlxDrawQuadsItem::render null-object crash en el primer frame.
 			funkin.cache.PathsCache.instance.rotateSession();
-
-			// Limpiar caché de atlas — el nuevo estado crea FlxAtlasFrames frescos.
-			// Sin esto, sprites reutilizan atlas con gráficos ya destruidos → crash.
 			FunkinSprite.clearAllCaches();
 		});
 
 		FlxG.signals.postStateSwitch.add(function()
 		{
-			// Destruir lo que el nuevo estado no rescató.
 			instance.clearSecondLayer();
-
-			// GC ligero post-switch: solo generación joven (rápido, sin stutter).
-			// El GC pesado (run(true) + compact) lo hace PlayState.destroy() via
-			// clearUnusedMemory() cuando sale del gameplay, NO aquí, para evitar
-			// stutters visibles durante las transiciones de estado.
-			funkin.system.MemoryUtil.collectMinor();
+			MemoryUtil.collectMinor();
 		});
 	}
 
-	// ── Rotación de capas ─────────────────────────────────────────────────
+	// ══════════════════════════════════════════════════════════════════════════
+	// ROTACIÓN DE CAPAS
+	// ══════════════════════════════════════════════════════════════════════════
 
 	public function moveToSecondLayer():Void
 	{
-		bitmapData2 = bitmapData != null ? bitmapData : new Map();
-		font2       = font       != null ? font       : new Map();
-		sound2      = sound      != null ? sound      : new Map();
+		bitmapData2   = bitmapData != null ? bitmapData : new Map();
+		font2         = font       != null ? font       : new Map();
+		sound2        = sound      != null ? sound      : new Map();
+		_bitmap2Count = _bitmapCount;
 
-		bitmapData = new Map();
-		font       = new Map();
-		sound      = new Map();
+		bitmapData   = new Map();
+		font         = new Map();
+		sound        = new Map();
+		_bitmapCount = 0;
+		_soundCount  = 0;
+		_fontCount   = 0;
 	}
 
 	/**
-	 * Destruye los assets de SECOND que el nuevo estado no está usando.
-	 * Antes de destruir cada bitmap, comprueba useCount/persist en FlxG.bitmap
-	 * para rescatar assets cargados via FlxG.bitmap.add() directo (que no pasan
-	 * por getBitmapData() y por tanto no se auto-rescatan).
+	 * Destruye los assets de SECOND no rescatados.
+	 * OPTIMIZACIÓN: batch eviction — acumula claves en un Array local
+	 * y ejecuta los removes en una sola pasada para evitar rehash del Map.
 	 */
 	public function clearSecondLayer():Void
 	{
+		if (bitmapData2 == null) return; // guard double-clear
+
+		// ── Bitmaps ────────────────────────────────────────────────────────────
+		final toRemove:Array<String> = [];
 		for (k => b in bitmapData2)
 		{
-			// BUGFIX crash FlxDrawQuadsItem::render
-			// Algunos assets se cargan via FlxG.bitmap.add() directamente
-			// (p.ej. Paths.characterSprite → FlxAtlasFrames.fromSparrow), que
-			// tiene su propio caché y NO llama a getBitmapData(). En esos casos
-			// el "rescue" de getBitmapData() nunca ocurre, pero el FlxGraphic SÍ
-			// está en uso (useCount > 0). Llamar removeByKey() lo destruye → bitmap
-			// null → crash en el primer draw frame.
-			// Solución: si el gráfico sigue en uso, rescatarlo a CURRENT.
-			var graphic = FlxG.bitmap.get(k);
+			if (_permanentBitmaps.exists(k)) continue;
+			final graphic = FlxG.bitmap.get(k);
 			if (graphic != null && (graphic.useCount > 0 || graphic.persist))
 			{
+				// Aún en uso → rescatar a CURRENT
 				bitmapData.set(k, b);
+				_bitmapCount++;
 				bitmapData2.remove(k);
+				_bitmap2Count--;
 				continue;
 			}
+			toRemove.push(k);
+		}
+		for (k in toRemove)
+		{
 			FlxG.bitmap.removeByKey(k);
-			#if lime
-			LimeAssets.cache.image.remove(k);
-			#end
+			#if lime LimeAssets.cache.image.remove(k); #end
+			bitmapData2.remove(k);
+			if (onEvict != null) try { onEvict(k, 'bitmap'); } catch (_:Dynamic) {}
 		}
-		for (k => f in font2)
+		_bitmap2Count = 0;
+
+		// ── Fonts ─────────────────────────────────────────────────────────────
+		for (k in font2.keys())
 		{
-			#if lime
-			LimeAssets.cache.font.remove(k);
-			#end
+			#if lime LimeAssets.cache.font.remove(k); #end
+			if (onEvict != null) try { onEvict(k, 'font'); } catch (_:Dynamic) {}
 		}
-		for (k => s in sound2)
+
+		// ── Sounds ────────────────────────────────────────────────────────────
+		for (k in sound2.keys())
 		{
-			#if lime
-			LimeAssets.cache.audio.remove(k);
-			#end
+			if (_permanentSounds.exists(k)) continue;
+			#if lime LimeAssets.cache.audio.remove(k); #end
+			if (onEvict != null) try { onEvict(k, 'sound'); } catch (_:Dynamic) {}
 		}
 
 		bitmapData2 = new Map();
 		font2       = new Map();
 		sound2      = new Map();
-
-		// BUGFIX CRÍTICO: clearUnused() aquí destruía bitmaps cargados durante
-		// create() que tenían useCount=0 (FlxG.bitmap.add() no incrementa useCount
-		// en esta versión de HaxeFlixel/OpenFL). El nuevo estado ya los cargó en
-		// create() → están en CURRENT layer (bitmapData, no bitmapData2). Pero
-		// clearUnused() opera sobre TODOS los FlxGraphics independientemente de
-		// capa → destruye los recién cargados → frame.parent.bitmap == null en el
-		// primer draw frame → crash FlxDrawQuadsItem::render.
-		//
-		// El sistema de dos capas de FunkinCache ya cubre los gráficos del estado
-		// anterior (están en bitmapData2 y se destruyen arriba). clearUnused() es
-		// redundante y peligroso aquí. Se puede llamar en momentos seguros, como
-		// antes de cargar una canción, no en postStateSwitch.
-		// try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
 	}
 
-	/**
-	 * Llama clearUnused() en un momento seguro (p.ej. pantalla de carga).
-	 * NO llamar desde postStateSwitch — destruye gráficos del estado entrante.
-	 */
+	/** Limpieza segura — solo durante pantalla de carga. */
 	public static function safeCleanup():Void
-	{
 		try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// PERMANENTES
+	// ══════════════════════════════════════════════════════════════════════════
+
+	public function markPermanentBitmap(id:String):Void
+	{
+		final b = bitmapData.get(id) ?? bitmapData2.get(id);
+		if (b != null) _permanentBitmaps.set(id, b);
 	}
 
-	// ── getBitmapData ─────────────────────────────────────────────────────
+	public function markPermanentSound(id:String):Void
+	{
+		final s = sound.get(id) ?? sound2.get(id);
+		if (s != null) _permanentSounds.set(id, s);
+	}
+
+	public function unmarkPermanentBitmap(id:String):Void
+		_permanentBitmaps.remove(id);
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// getBitmapData — HOT PATH
+	// ══════════════════════════════════════════════════════════════════════════
 
 	public override function getBitmapData(id:String):BitmapData
 	{
+		// 1. CURRENT (hot path — hit más frecuente)
 		var s = bitmapData.get(id);
 		if (s != null) return s;
 
-		// Rescate de SECOND → CURRENT (el nuevo estado necesita este asset)
-		var s2 = bitmapData2.get(id);
+		// 2. PERMANENT
+		s = _permanentBitmaps.get(id);
+		if (s != null) return s;
+
+		// 3. RESCUE SECOND → CURRENT
+		final s2 = bitmapData2.get(id);
 		if (s2 != null)
 		{
 			bitmapData2.remove(id);
 			bitmapData.set(id, s2);
+			_bitmapCount++;
+			_bitmap2Count--;
 			return s2;
 		}
 
-		// ── FALLBACK: carga directa desde disco para assets de mods ──────────
-		// Los archivos de mods existen en el sistema de ficheros pero NO están
-		// registrados en el manifest de OpenFL (se registran solo en compilación).
-		// Cuando un script de mod llama loadGraphic(Paths.image(...)), OpenFL
-		// llega aquí buscando el BitmapData → lo cargamos directamente del disco
-		// y lo metemos en caché para que el pipeline normal lo encuentre.
+		// 4. FALLBACK desde disco (assets de mods no compilados)
 		#if sys
-		if (id != null && sys.FileSystem.exists(id))
+		if (id != null)
 		{
-			try
+			// Intentar en el mod activo primero
+			final modPath = _resolveModPath(id);
+			if (modPath != null)
 			{
-				final bitmap = BitmapData.fromFile(id);
-				if (bitmap != null)
+				try
 				{
-					trace('[FunkinCache] Cargado desde disco (mod no compilado): $id');
-					bitmapData.set(id, bitmap);
-					return bitmap;
+					final bitmap = BitmapData.fromFile(modPath);
+					if (bitmap != null)
+					{
+						trace('[FunkinCache] Cargado desde mod: $modPath');
+						bitmapData.set(id, bitmap);
+						_bitmapCount++;
+						return bitmap;
+					}
 				}
+				catch (e:Dynamic) { trace('[FunkinCache] Error bitmap mod "$modPath": $e'); }
 			}
-			catch (e:Dynamic)
+			// Path literal en disco
+			if (sys.FileSystem.exists(id))
 			{
-				trace('[FunkinCache] Error en carga directa de "$id": $e');
+				try
+				{
+					final bitmap = BitmapData.fromFile(id);
+					if (bitmap != null)
+					{
+						bitmapData.set(id, bitmap);
+						_bitmapCount++;
+						return bitmap;
+					}
+				}
+				catch (e:Dynamic) { trace('[FunkinCache] Error bitmap disco "$id": $e'); }
 			}
 		}
 		#end
-
 		return null;
 	}
 
 	public override function hasBitmapData(id:String):Bool
 	{
-		if (bitmapData.exists(id) || bitmapData2.exists(id)) return true;
-		#if sys return id != null && sys.FileSystem.exists(id); #else return false; #end
+		if (bitmapData.exists(id) || bitmapData2.exists(id) || _permanentBitmaps.exists(id)) return true;
+		#if sys
+		final modPath = _resolveModPath(id);
+		if (modPath != null) return true;
+		return id != null && sys.FileSystem.exists(id);
+		#else
+		return false;
+		#end
 	}
 
 	public override function setBitmapData(id:String, bitmapDataValue:BitmapData):Void
+	{
+		if (!bitmapData.exists(id)) _bitmapCount++;
 		bitmapData.set(id, bitmapDataValue);
+	}
 
 	public override function removeBitmapData(id:String):Bool
 	{
-		#if lime
-		LimeAssets.cache.image.remove(id);
-		#end
-		return bitmapData.remove(id) || bitmapData2.remove(id);
+		#if lime LimeAssets.cache.image.remove(id); #end
+		final r1 = bitmapData.remove(id);
+		final r2 = bitmapData2.remove(id);
+		if (r1) _bitmapCount--;
+		if (r2) _bitmap2Count--;
+		_permanentBitmaps.remove(id);
+		return r1 || r2;
 	}
 
-	// ── getFont ───────────────────────────────────────────────────────────
+	// ══════════════════════════════════════════════════════════════════════════
+	// getFont
+	// ══════════════════════════════════════════════════════════════════════════
 
 	public override function getFont(id:String):Font
 	{
 		var s = font.get(id);
 		if (s != null) return s;
-
-		var s2 = font2.get(id);
-		if (s2 != null)
-		{
-			font2.remove(id);
-			font.set(id, s2);
-		}
+		final s2 = font2.get(id);
+		if (s2 != null) { font2.remove(id); font.set(id, s2); _fontCount++; }
 		return s2;
 	}
 
@@ -248,84 +307,136 @@ class FunkinCache extends AssetCache
 		return font.exists(id) || font2.exists(id);
 
 	public override function setFont(id:String, fontValue:Font):Void
+	{
+		if (!font.exists(id)) _fontCount++;
 		font.set(id, fontValue);
+	}
 
 	public override function removeFont(id:String):Bool
 	{
-		#if lime
-		LimeAssets.cache.font.remove(id);
-		#end
-		return font.remove(id) || font2.remove(id);
+		#if lime LimeAssets.cache.font.remove(id); #end
+		final r1 = font.remove(id);
+		if (r1) _fontCount--;
+		return r1 || font2.remove(id);
 	}
 
-	// ── getSound ──────────────────────────────────────────────────────────
+	// ══════════════════════════════════════════════════════════════════════════
+	// getSound
+	// ══════════════════════════════════════════════════════════════════════════
 
 	public override function getSound(id:String):Sound
 	{
 		var s = sound.get(id);
 		if (s != null) return s;
+		s = _permanentSounds.get(id);
+		if (s != null) return s;
+		final s2 = sound2.get(id);
+		if (s2 != null) { sound2.remove(id); sound.set(id, s2); _soundCount++; return s2; }
 
-		var s2 = sound2.get(id);
-		if (s2 != null)
-		{
-			sound2.remove(id);
-			sound.set(id, s2);
-			return s2;
-		}
-
-		// FALLBACK: carga directa desde disco para sonidos de mods no compilados
 		#if sys
-		if (id != null && sys.FileSystem.exists(id))
+		if (id != null)
 		{
-			try
+			final modPath = _resolveModPath(id);
+			final actualPath = modPath ?? (sys.FileSystem.exists(id) ? id : null);
+			if (actualPath != null)
 			{
-				final snd = Sound.fromFile(id);
-				if (snd != null)
+				try
 				{
-					sound.set(id, snd);
-					return snd;
+					final snd = Sound.fromFile(actualPath);
+					if (snd != null) { sound.set(id, snd); _soundCount++; return snd; }
 				}
+				catch (e:Dynamic) { trace('[FunkinCache] Error sonido "$actualPath": $e'); }
 			}
-			catch (e:Dynamic) { trace('[FunkinCache] Error cargando sonido "$id": $e'); }
 		}
 		#end
-
 		return null;
 	}
 
 	public override function hasSound(id:String):Bool
 	{
-		if (sound.exists(id) || sound2.exists(id)) return true;
-		#if sys return id != null && sys.FileSystem.exists(id); #else return false; #end
+		if (sound.exists(id) || sound2.exists(id) || _permanentSounds.exists(id)) return true;
+		#if sys
+		final modPath = _resolveModPath(id);
+		if (modPath != null) return true;
+		return id != null && sys.FileSystem.exists(id);
+		#else
+		return false;
+		#end
 	}
 
 	public override function setSound(id:String, soundValue:Sound):Void
+	{
+		if (!sound.exists(id)) _soundCount++;
 		sound.set(id, soundValue);
+	}
 
 	public override function removeSound(id:String):Bool
 	{
-		#if lime
-		LimeAssets.cache.audio.remove(id);
-		#end
-		return sound.remove(id) || sound2.remove(id);
+		#if lime LimeAssets.cache.audio.remove(id); #end
+		final r1 = sound.remove(id);
+		if (r1) _soundCount--;
+		_permanentSounds.remove(id);
+		return r1 || sound2.remove(id);
 	}
 
-	// ── clear ─────────────────────────────────────────────────────────────
+	// ══════════════════════════════════════════════════════════════════════════
+	// clear
+	// ══════════════════════════════════════════════════════════════════════════
 
 	public override function clear(?id:String):Void
 	{
-		if (id != null)
+		if (id != null) { removeBitmapData(id); removeFont(id); removeSound(id); return; }
+		bitmapData.clear();  font.clear();  sound.clear();
+		bitmapData2.clear(); font2.clear(); sound2.clear();
+		_bitmapCount = 0; _bitmap2Count = 0; _soundCount = 0; _fontCount = 0;
+	}
+
+	/** Limpieza total incluyendo permanentes (al cerrar el juego o cambiar de mod). */
+	public function clearAll():Void
+	{
+		clear();
+		_permanentBitmaps.clear();
+		_permanentSounds.clear();
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// STATS / DEBUG
+	// ══════════════════════════════════════════════════════════════════════════
+
+	public function getStats():String
+	{
+		var perm = 0;
+		for (_ in _permanentBitmaps) perm++;
+		return '[FunkinCache] CURRENT: ${_bitmapCount} bmp / ${_soundCount} snd / ${_fontCount} fnt'
+			 + ' | SECOND: ${_bitmap2Count} bmp | PERM: $perm bmp';
+	}
+
+	public function dumpKeys():String
+	{
+		final sb = new StringBuf();
+		sb.add('[FunkinCache] CURRENT:\n');
+		for (k in bitmapData.keys()) sb.add('  $k\n');
+		sb.add('[FunkinCache] SECOND:\n');
+		for (k in bitmapData2.keys()) sb.add('  $k\n');
+		sb.add('[FunkinCache] PERMANENT:\n');
+		for (k in _permanentBitmaps.keys()) sb.add('  $k\n');
+		return sb.toString();
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// HELPERS
+	// ══════════════════════════════════════════════════════════════════════════
+
+	static function _resolveModPath(id:String):Null<String>
+	{
+		#if sys
+		try
 		{
-			removeBitmapData(id);
-			removeFont(id);
-			removeSound(id);
-			return;
+			final modPath = mods.ModManager.resolveInMod(id);
+			if (modPath != null && sys.FileSystem.exists(modPath)) return modPath;
 		}
-		bitmapData.clear();
-		font.clear();
-		sound.clear();
-		bitmapData2.clear();
-		font2.clear();
-		sound2.clear();
+		catch (_:Dynamic) {}
+		#end
+		return null;
 	}
 }

@@ -26,7 +26,9 @@ using StringTools;
  */
 class ModExtractor
 {
-	public static inline var MODS_FOLDER = 'mods';
+	/** Usa siempre la misma ruta que ModManager (Android-aware). */
+	public static var MODS_FOLDER(get,never):String;
+	static inline function get_MODS_FOLDER():String return mods.ModManager.MODS_FOLDER;
 	public static inline var EXTRACTED_MARKER = '.extracted_info';
 
 	public static function extractAll():Array<String>
