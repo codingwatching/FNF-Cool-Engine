@@ -277,13 +277,12 @@ jobs:
         with:
           submodules: recursive
 
-      # 2 ── Java 11 (compatible con el Gradle que genera Lime/hxcpp) ──────────
-      # Java 17+ rompe Groovy/Gradle en versiones antiguas generadas por Lime.
-      - name: Set up Java 11
+      # 2 ── Java 17 para sdkmanager, luego se baja a Java 11 para el build ───
+      - name: Set up Java 17 (sdkmanager lo requiere)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "11"
+          java-version: "17"
 
       # 3 ── Android SDK ──────────────────────────────────────────────────────
       - name: Set up Android SDK
@@ -344,11 +343,30 @@ jobs:
           LIMEEOF
           cat ~/.lime/config.xml
 
-      # 7 ── Build ────────────────────────────────────────────────────────────
+      # 7 ── Cambiar a Java 11 antes del build (Gradle/Groovy no soporta 17+) ──
+      - name: Set up Java 11 (para Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Update Lime config with Java 11 path
+        run: |
+          mkdir -p ~/.lime
+          cat > ~/.lime/config.xml << LIMEEOF
+          <config>
+            <set name="ANDROID_SDK" value="$ANDROID_SDK_ROOT" />
+            <set name="ANDROID_NDK_ROOT" value="$ANDROID_NDK_HOME" />
+            <set name="JAVA_HOME" value="$JAVA_HOME" />
+            <set name="ANDROID_SETUP" value="true" />
+          </config>
+          LIMEEOF
+
+      # 8 ── Build ────────────────────────────────────────────────────────────
       - name: Build (Android release)
         run: haxelib run lime build android -final
 
-      # 8 ── Upload artifact ──────────────────────────────────────────────────
+      # 9 ── Upload artifact ──────────────────────────────────────────────────
       - name: Upload Android build
         uses: actions/upload-artifact@v4
         with:
