@@ -8,12 +8,14 @@ import funkin.cutscenes.MP4Handler;
 import funkin.states.LoadingState;
 
 // ────────────────────────────────────────────────────────────────────────────
-// VideoState — plays an MP4 cutscene then transitions to the next state.
+// VideoState — standalone state that plays an MP4 cutscene then transitions.
 //
-// En desktop usa MP4Handler (libVLC).
-// En otras plataformas salta el video directamente.
-//
-// Skip: solo con ESCAPE (para estados standalone como intro screens).
+// V-Slice parity:
+//   • Desktop cpp  → MP4Handler with libVLC
+//   • Mobile        → MP4Handler with OpenFL NetStream (no VLC, no crash)
+//   • Other         → immediately skips to nextState
+//   • Skip: ESCAPE only (avoids conflict with ENTER opening pause menu)
+//   • If the file is missing the state transitions immediately.
 // ────────────────────────────────────────────────────────────────────────────
 
 class VideoState extends MusicBeatState
@@ -21,7 +23,7 @@ class VideoState extends MusicBeatState
 	var videoPath:String;
 	var nextState:FlxState;
 
-	var video:MP4Handler = new MP4Handler();
+	var _handler:Null<MP4Handler>;
 
 	public function new(path:String, state:FlxState)
 	{
@@ -34,20 +36,31 @@ class VideoState extends MusicBeatState
 	{
 		FlxG.autoPause = true;
 
-		#if (cpp && !mobile)
-		if (Assets.exists(Paths.video(videoPath)))
+		// On any cpp target (desktop OR mobile) we have MP4Handler available.
+		// On mobile it uses the NetStream path instead of VLC — safe on Android.
+		#if cpp
+		final resolvedPath = Paths.video(videoPath);
+		final exists:Bool  =
+			#if sys
+			sys.FileSystem.exists(resolvedPath)
+			#else
+			Assets.exists(resolvedPath)
+			#end;
+
+		if (exists)
 		{
-			video.playMP4(Paths.video(videoPath));
-			video.finishCallback = function()
+			_handler = new MP4Handler();
+			_handler.playMP4(resolvedPath);
+			_handler.finishCallback = function()
 			{
-				if (FlxG.sound.music != null)
-					FlxG.sound.music.stop();
-				LoadingState.loadAndSwitchState(nextState);
+				_handler = null;
+				_skipToNext();
 			};
+			VideoManager.onVideoStarted.dispatch();
 		}
 		else
 		{
-			trace('VideoState: file not found — ' + Paths.video(videoPath) + ' — skipping.');
+			trace('VideoState: file not found — $resolvedPath — skipping.');
 			_skipToNext();
 		}
 		#else
@@ -62,14 +75,25 @@ class VideoState extends MusicBeatState
 	{
 		super.update(elapsed);
 
-		#if (cpp && !mobile)
-		// Solo ESCAPE para saltar en VideoState standalone (no ENTER — ese abre pausa en gameplay)
-		if (FlxG.keys.justPressed.ESCAPE)
+		#if cpp
+		if (FlxG.keys.justPressed.ESCAPE && _handler != null)
 		{
-			video.kill();
-			_skipToNext();
+			_handler.kill();
+			_handler = null;
 		}
 		#end
+	}
+
+	public override function destroy():Void
+	{
+		// Guard against leaked handlers if the state is destroyed externally.
+		if (_handler != null)
+		{
+			_handler.finishCallback = null;
+			_handler.kill();
+			_handler = null;
+		}
+		super.destroy();
 	}
 
 	function _skipToNext():Void

@@ -258,8 +258,23 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 		if (FlxG.game.contains(_camera.flashSprite))
 			FlxG.game.removeChild(_camera.flashSprite);
 
+		// FIX: getChildIndex() returns -1 when _inputContainer is not yet a child
+		// (can happen on Android before the first frame). addChildAt(-1) throws a
+		// RangeError in the native layer → instant crash.
+		// Wrapping in try/catch lets us fall back to addChild() if the index is invalid.
 		@:privateAccess
-		FlxG.game.addChildAt(_camera.flashSprite, FlxG.game.getChildIndex(FlxG.game._inputContainer));
+		try
+		{
+			final idx = FlxG.game.getChildIndex(FlxG.game._inputContainer);
+			if (idx >= 0)
+				FlxG.game.addChildAt(_camera.flashSprite, idx);
+			else
+				FlxG.game.addChild(_camera.flashSprite);
+		}
+		catch (_:Dynamic)
+		{
+			try FlxG.game.addChild(_camera.flashSprite) catch (_:Dynamic) {}
+		}
 		FlxG.cameras.list.push(_camera);
 	}
 

@@ -125,11 +125,18 @@ class FunkinCamera extends FlxCamera
 
 		_blendShader = new RuntimeCustomBlendShader();
 
-		_backgroundRenderTexture = new RenderTexture(this.width, this.height);
-		_blendRenderTexture      = new RenderTexture(this.width, this.height);
+		// FIX: Flixel asigna las dimensiones reales de la cámara después de
+		// super(), pero en el constructor this.width/height pueden ser 0.
+		// RenderTexture(0, 0) no tiene la guarda que tiene FixedBitmapData y
+		// puede crashear en el driver OpenGL de Android. Usamos al menos 1×1.
+		var safeW:Int = this.width  > 0 ? this.width  : 1;
+		var safeH:Int = this.height > 0 ? this.height : 1;
+
+		_backgroundRenderTexture = new RenderTexture(safeW, safeH);
+		_blendRenderTexture      = new RenderTexture(safeW, safeH);
 
 		_cameraMatrix  = new FlxMatrix();
-		_cameraTexture = FixedBitmapData.create(this.width, this.height);
+		_cameraTexture = FixedBitmapData.create(safeW, safeH);
 
 		crossCameraBlending = false;
 	}

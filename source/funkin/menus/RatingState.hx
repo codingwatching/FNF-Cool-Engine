@@ -573,7 +573,7 @@ class RatingState extends FlxSubState
 
 		new FlxTimer().start(1.2, function(_)
 		{
-			FlxG.sound.music.stop();
+			if (FlxG.sound.music != null) FlxG.sound.music.stop();
 			StateScriptHandler.callOnScripts('onExitComplete', [retry]);
 
 			if (retry && PlayState.SONG.song != null)

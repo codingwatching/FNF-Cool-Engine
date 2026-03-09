@@ -362,8 +362,8 @@ class PlayState extends funkin.states.MusicBeatState
 		// durante onStageCreate y cualquier llamada a setFilters/clearFilters falla.
 		if (scriptsEnabled)
 		{
-			ScriptHandler.setOnScripts('camGame',      camGame);
-			ScriptHandler.setOnScripts('camHUD',       camHUD);
+			ScriptHandler.setOnScripts('camGame', camGame);
+			ScriptHandler.setOnScripts('camHUD', camHUD);
 			ScriptHandler.setOnScripts('camCountdown', camCountdown);
 		}
 
@@ -587,7 +587,7 @@ class PlayState extends funkin.states.MusicBeatState
 		// stage JSON. Stage.getStageData() reutiliza el mismo caché que new Stage(),
 		// así que no hay I/O extra cuando más tarde se construya el stage.
 		// Reemplaza el hardcode curStage.startsWith('school').
-		final _sd        = funkin.gameplay.objects.stages.Stage.getStageData(curStage);
+		final _sd = funkin.gameplay.objects.stages.Stage.getStageData(curStage);
 		final isPixelStage = (_sd != null && _sd.isPixelStage == true);
 
 		countdown = new Countdown(this, camCountdown, isPixelStage);
@@ -641,11 +641,12 @@ class PlayState extends funkin.states.MusicBeatState
 			for (slot in characterSlots)
 			{
 				final char = slot.character;
-				if (char == null) continue;
+				if (char == null)
+					continue;
 				ScriptHandler.loadCharacterScripts(char.curCharacter);
 				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'character', char);
-				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'char',      char);
-				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'game',      this);
+				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'char', char);
+				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'game', this);
 				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'playState', this);
 				ScriptHandler.callOnCharacterScripts(char.curCharacter, 'postCreate', ScriptHandler._argsEmpty);
 				trace('[PlayState] Scripts de personaje cargados para "${char.curCharacter}"');
@@ -670,21 +671,28 @@ class PlayState extends funkin.states.MusicBeatState
 
 			SONG.characters.push({
 				name: SONG.gfVersion != null ? SONG.gfVersion : 'gf',
-				x: 0, y: 0, visible: true,
-				isGF: true, type: 'Girlfriend',
+				x: 0,
+				y: 0,
+				visible: true,
+				isGF: true,
+				type: 'Girlfriend',
 				strumsGroup: 'gf_strums_0'
 			});
 
 			SONG.characters.push({
 				name: SONG.player2 != null ? SONG.player2 : 'dad',
-				x: 0, y: 0, visible: true,
+				x: 0,
+				y: 0,
+				visible: true,
 				type: 'Opponent',
 				strumsGroup: 'cpu_strums_0'
 			});
 
 			SONG.characters.push({
 				name: SONG.player1 != null ? SONG.player1 : 'bf',
-				x: 0, y: 0, visible: true,
+				x: 0,
+				y: 0,
+				visible: true,
 				type: 'Player',
 				strumsGroup: 'player_strums_0'
 			});
@@ -827,7 +835,7 @@ class PlayState extends funkin.states.MusicBeatState
 						for (i in 0...cpuStrums.members.length)
 						{
 							cpuStrums.members[i].visible = false;
-							cpuStrums.members[i].alpha   = 0;
+							cpuStrums.members[i].alpha = 0;
 						}
 					}
 				}
@@ -923,19 +931,19 @@ class PlayState extends funkin.states.MusicBeatState
 
 		// Conectar botones del hitbox / virtual pad al InputHandler
 		var _hitbox = mobileControls._hitbox;
-		var _vpad   = mobileControls._virtualPad;
+		var _vpad = mobileControls._virtualPad;
 		if (_hitbox != null)
 		{
-			inputHandler.mobileLeft  = _hitbox.buttonLeft;
-			inputHandler.mobileDown  = _hitbox.buttonDown;
-			inputHandler.mobileUp    = _hitbox.buttonUp;
+			inputHandler.mobileLeft = _hitbox.buttonLeft;
+			inputHandler.mobileDown = _hitbox.buttonDown;
+			inputHandler.mobileUp = _hitbox.buttonUp;
 			inputHandler.mobileRight = _hitbox.buttonRight;
 		}
 		else if (_vpad != null)
 		{
-			inputHandler.mobileLeft  = _vpad.buttonLeft;
-			inputHandler.mobileDown  = _vpad.buttonDown;
-			inputHandler.mobileUp    = _vpad.buttonUp;
+			inputHandler.mobileLeft = _vpad.buttonLeft;
+			inputHandler.mobileDown = _vpad.buttonDown;
+			inputHandler.mobileUp = _vpad.buttonUp;
 			inputHandler.mobileRight = _vpad.buttonRight;
 		}
 		#end
@@ -1053,19 +1061,23 @@ class PlayState extends funkin.states.MusicBeatState
 		// Si el metadata V-Slice define "instrumental" (playData.characters.instrumental),
 		// ese valor tiene prioridad sobre el sufijo de dificultad — permite que varias
 		// dificultades (ej: erect + nightmare) compartan los mismos archivos de audio.
-		final _diffSuffix:String = (SONG.instSuffix != null && SONG.instSuffix != '')
-			? '-' + SONG.instSuffix
-			: funkin.data.CoolUtil.difficultySuffix();
+		final _diffSuffix:String = (SONG.instSuffix != null && SONG.instSuffix != '') ? '-' + SONG.instSuffix : funkin.data.CoolUtil.difficultySuffix();
 
 		trace('[PlayState] Audio suffix: "$_diffSuffix" (instSuffix=${SONG.instSuffix})');
 
 		// Cargar instrumental usando el método seguro que soporta archivos externos
 		FlxG.sound.music = Paths.loadInst(SONG.song, _diffSuffix);
-		FlxG.sound.music.volume = 0;
-		FlxG.sound.music.pause();
-		// NO añadir FlxG.sound.music a sound.list manualmente:
-		// Flixel ya lo gestiona internamente — añadirlo duplica la entrada
-		// y provoca doble-destroy del buffer de audio al cambiar de estado.
+		// FIX: loadInst can return null on Android if the file is missing or OOM.
+		// Guard every access so a bad song doesn't crash the whole game.
+		if (FlxG.sound.music != null)
+		{
+			FlxG.sound.music.volume = 0;
+			FlxG.sound.music.pause();
+		}
+		else
+		{
+			trace('[PlayState] WARNING: Paths.loadInst returned null for "${SONG.song}" — audio will be silent.');
+		}
 
 		// Limpiar vocals anterior si existía (por si se llama generateSong más de una vez)
 		if (vocals != null)
@@ -1269,14 +1281,14 @@ class PlayState extends funkin.states.MusicBeatState
 
 	function fixInstandVocals():Void
 	{
-		final _diffSuffix:String = (SONG.instSuffix != null && SONG.instSuffix != '')
-			? '-' + SONG.instSuffix
-			: funkin.data.CoolUtil.difficultySuffix();
+		final _diffSuffix:String = (SONG.instSuffix != null && SONG.instSuffix != '') ? '-' + SONG.instSuffix : funkin.data.CoolUtil.difficultySuffix();
 		if (FlxG.sound.music == null || !FlxG.sound.music.active)
 			FlxG.sound.music = Paths.loadInst(SONG.song, _diffSuffix);
-		FlxG.sound.music.volume = 0;
-		FlxG.sound.music.pause();
-		// No añadir a sound.list — Flixel gestiona FlxG.sound.music internamente
+		if (FlxG.sound.music != null)
+		{
+			FlxG.sound.music.volume = 0;
+			FlxG.sound.music.pause();
+		}
 
 		// CRÍTICO: Recargar las vocales también
 		if (vocals != null)
@@ -1702,7 +1714,7 @@ class PlayState extends funkin.states.MusicBeatState
 		}
 
 		#if desktop
-		DiscordClient.changePresence(detailsText, SONG.song + " (" + storyDifficultyText + ")", iconRPC, true, FlxG.sound.music.length);
+		DiscordClient.changePresence(detailsText, SONG.song + " (" + storyDifficultyText + ")", iconRPC, true, FlxG.sound.music?.length ?? 0);
 		#end
 
 		if (scriptsEnabled)
@@ -1732,7 +1744,8 @@ class PlayState extends funkin.states.MusicBeatState
 						// 'static', cambiarlo a 'pressed' para que no se vea en reposo
 						// mientras el jugador sigue pulsando.
 						var strum = playerStrumsGroup.getStrum(i);
-						if (strum != null && strum.animation != null
+						if (strum != null
+							&& strum.animation != null
 							&& strum.animation.curAnim != null
 							&& strum.animation.curAnim.name == 'static')
 						{
@@ -1899,7 +1912,8 @@ class PlayState extends funkin.states.MusicBeatState
 
 			// Animate character - BUSCAR ÍNDICE DEL JUGADOR POR TIPO
 			var playerCharIndex:Int = characterController.findPlayerIndex();
-			if (playerCharIndex < 0) playerCharIndex = 2; // fallback legacy
+			if (playerCharIndex < 0)
+				playerCharIndex = 2; // fallback legacy
 			if (characterSlots.length > playerCharIndex)
 			{
 				characterController.singByIndex(playerCharIndex, note.noteData);
@@ -1986,7 +2000,8 @@ class PlayState extends funkin.states.MusicBeatState
 
 		// Animate - BUSCAR ÍNDICE DEL JUGADOR POR TIPO
 		var playerCharIndex:Int = characterController.findPlayerIndex();
-		if (playerCharIndex < 0) playerCharIndex = 2; // fallback legacy
+		if (playerCharIndex < 0)
+			playerCharIndex = 2; // fallback legacy
 		if (characterSlots.length > playerCharIndex)
 		{
 			var slot = characterSlots[playerCharIndex];
@@ -2066,7 +2081,8 @@ class PlayState extends funkin.states.MusicBeatState
 
 			// Índice dinámico del oponente
 			var dadIndex:Int = characterController.findOpponentIndex();
-			if (dadIndex < 0) dadIndex = 1; // fallback legacy
+			if (dadIndex < 0)
+				dadIndex = 1; // fallback legacy
 
 			// Soporte sección gfSing
 			if (section.gfSing == true)
@@ -2111,7 +2127,8 @@ class PlayState extends funkin.states.MusicBeatState
 		{
 			// FALLBACK: Si la sección es null, animar solo al oponente (por tipo)
 			var dadIndex:Int = characterController.findOpponentIndex();
-			if (dadIndex < 0) dadIndex = 1; // fallback legacy
+			if (dadIndex < 0)
+				dadIndex = 1; // fallback legacy
 
 			if (characterSlots.length > dadIndex)
 			{
@@ -2380,8 +2397,11 @@ class PlayState extends funkin.states.MusicBeatState
 			vocals.pause();
 		}
 
-		FlxG.sound.music.play();
-		Conductor.songPosition = FlxG.sound.music.time;
+		if (FlxG.sound.music != null)
+		{
+			FlxG.sound.music.play();
+			Conductor.songPosition = FlxG.sound.music.time;
+		}
 
 		if (_usingPerCharVocals)
 		{
@@ -2414,7 +2434,8 @@ class PlayState extends funkin.states.MusicBeatState
 		}
 
 		canPause = false;
-		FlxG.sound.music.volume = 0;
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.volume = 0;
 		if (_usingPerCharVocals)
 		{
 			if (vocalsBf != null)
@@ -2489,8 +2510,8 @@ class PlayState extends funkin.states.MusicBeatState
 		persistentDraw = false;
 		paused = true;
 
-		FlxG.sound.music.stop();
-
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.stop();
 		openSubState(new GameOverSubstate(boyfriend.getScreenPosition().x, boyfriend.getScreenPosition().y, boyfriend));
 
 		#if desktop
@@ -2850,7 +2871,7 @@ class PlayState extends funkin.states.MusicBeatState
 				if (group.isCPU && _isMiddlescrollReset)
 				{
 					s.visible = false;
-					s.alpha   = 0;
+					s.alpha = 0;
 				}
 				else
 				{
@@ -3173,13 +3194,15 @@ class PlayState extends funkin.states.MusicBeatState
 			{
 				// Next song
 				SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + CoolUtil.difficultySuffix(), storyPlaylist[0]);
-				FlxG.sound.music.stop();
+				if (FlxG.sound.music != null)
+					FlxG.sound.music.stop();
 				LoadingState.loadAndSwitchState(new PlayState());
 			}
 		}
 		else
 		{
-			FlxG.sound.music.stop();
+			if (FlxG.sound.music != null)
+				FlxG.sound.music.stop();
 			// vocals puede ser null en charts V-Slice que usan
 			// vocales por personaje (vocalsBf/vocalsDad).
 			if (_usingPerCharVocals)

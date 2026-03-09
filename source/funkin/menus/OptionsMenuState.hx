@@ -32,13 +32,13 @@ class OptionsMenuState extends MusicBeatSubstate
 {
 	// Categorías principales (se pueden agregar más desde scripts)
 	#if mobileC
-	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Controls', 'Note Skin', 'Offset', 'Mobile'];
+	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Note Skin', 'Offset', 'Mobile'];
 	#else
 	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Controls', 'Note Skin', 'Offset'];
 	#end
 
 	// ── FPS Cap — valores disponibles (inspirado en Codename Engine) ────────────
-	static final FPS_OPTIONS:Array<Int> = [30, 60, 120, 144, 240];
+	static final FPS_OPTIONS:Array<Int> = [60, 120, #if !mobileC 144, 240 #end];
 
 	static function getFPSIndex():Int
 	{

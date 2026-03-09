@@ -5,156 +5,219 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
 import flixel.util.FlxTimer;
-import openfl.events.Event;
 import openfl.display.Shape;
+import openfl.events.Event;
 
 using StringTools;
-// ────────────────────────────────────────────────────────────────────────────
-// MP4Handler — VLC-backed MP4 playback
-//
-// NOTA IMPORTANTE: El skip de videos SOLO ocurre desde el menú de pausa
-// (PauseSubState → "Skip Cutscene"). No se capturan teclas aquí para
-// evitar que ENTER dispare el skip Y el menú de pausa simultáneamente.
-// ────────────────────────────────────────────────────────────────────────────
 
-#if (cpp && !mobile)
-import vlc.VlcBitmap;
+// =============================================================================
+//  NATIVE CPP — hxvlc.flixel.FlxVideo  (desktop + Android + iOS)
+//
+//  API real de hxvlc 2.x:
+//    • hxvlc.flixel.FlxVideo   — Bitmap-based, se añade al stage con addChildBelowMouse
+//    • Callbacks son signals:  onEndReached.add() / onEncounteredError.add()
+//    • onFormatSetup.add()     — resolución lista, aquí se dimensiona y se quita el cover
+//    • load(path) + play()     — en dos pasos, con pequeño timer entre ellos
+//    • volume                  — Int 0-200 (100 = normal, 200 = boost)
+//    • width/height            — read-only en Bitmap, se ajustan via scaleX/scaleY
+// =============================================================================
+#if cpp
+import hxvlc.flixel.FlxVideo;
+import openfl.filters.BitmapFilter;
 
 class MP4Handler
 {
-	public var finishCallback:Void->Void;
-	public var stateCallback:FlxState;
+	public var finishCallback:Null<Void->Void>;
+	public var stateCallback:Null<FlxState>;
 
-	public var bitmap:VlcBitmap;
-	public var sprite:FlxSprite;
+	public var bitmap:Dynamic         = null; // compatibilidad legacy
+	public var sprite:Null<FlxSprite> = null;
 
-	// Pantalla negra que cubre el gameplay mientras VLC carga el primer frame
-	var _loadingCover:Shape;
-
-	// Evita que onVLCComplete se dispare después de kill()
+	var _video:Null<FlxVideo>;
+	var _cover:Null<Shape>;
 	var _killed:Bool = false;
+	var _filters:Array<BitmapFilter> = [];
 
 	public function new() {}
 
+	// ── Playback ──────────────────────────────────────────────────────────────
+
 	public function playMP4(path:String, ?midSong:Bool = false, ?repeat:Bool = false,
-		?outputTo:FlxSprite = null, ?isWindow:Bool = false, ?isFullscreen:Bool = false):Void
+	                        ?outputTo:Null<FlxSprite> = null, ?isWindow:Bool = false,
+	                        ?isFullscreen:Bool = false):Void
 	{
-		_killed = false;
+		_killed  = false;
+		_filters = [];
 
-		if (!midSong)
+		if (!midSong && FlxG.sound.music != null)
+			FlxG.sound.music.stop();
+
+		// Cover negro mientras el decoder arranca
+		_cover = new Shape();
+		_cover.graphics.beginFill(0x000000);
+		_cover.graphics.drawRect(0, 0, FlxG.stage.stageWidth, FlxG.stage.stageHeight);
+		_cover.graphics.endFill();
+		try FlxG.addChildBelowMouse(_cover) catch (_:Dynamic) {}
+
+		// ── FlxVideo ──────────────────────────────────────────────────────────
+		_video = new FlxVideo();
+
+		sprite = outputTo;
+
+		// onFormatSetup — resolución lista, dimensionar el video
+		_video.onFormatSetup.add(function()
 		{
-			if (FlxG.sound.music != null)
-				FlxG.sound.music.stop();
-		}
+			if (_video == null || _killed) return;
 
-		// ── Cobertura negra de carga ──────────────────────────────────────────
-		// Se añade ANTES del bitmap para que tape el gameplay mientras VLC
-		// decodifica el primer frame. Se elimina en onVLCVideoReady().
-		if (outputTo == null)
+			final sw:Float    = FlxG.stage.stageWidth;
+			final sh:Float    = FlxG.stage.stageHeight;
+			final ratio:Float = 16.0 / 9.0;
+			final vw:Float    = (sw / sh > ratio) ? sh * ratio : sw;
+			final vh:Float    = (sw / sh > ratio) ? sh          : sw / ratio;
+
+			// FlxVideo extiende Bitmap — width/height son read-only.
+			// Usar scaleX/scaleY para dimensionar.
+			if (_video.bitmapData != null && _video.bitmapData.width > 0)
+			{
+				_video.scaleX = vw / _video.bitmapData.width;
+				_video.scaleY = vh / _video.bitmapData.height;
+			}
+			_video.x = (sw - vw) / 2;
+			_video.y = (sh - vh) / 2;
+
+			// Si se usa como outputTo, copiar el primer frame
+			if (sprite != null && _video.bitmapData != null)
+				try sprite.loadGraphic(_video.bitmapData) catch (_:Dynamic) {}
+
+			// Quitar cover — en hxvlc el primer frame ya está renderizado en onFormatSetup
+			_removeCover();
+
+			// Aplicar filtros pendientes
+			if (_filters.length > 0)
+				try _video.filters = _filters.copy() catch (_:Dynamic) {}
+
+			_syncVolume();
+		});
+
+		// onEndReached — fin del video
+		_video.onEndReached.add(function()
 		{
-			_loadingCover = new Shape();
-			_loadingCover.graphics.beginFill(0x000000);
-			_loadingCover.graphics.drawRect(0, 0, FlxG.stage.stageWidth, FlxG.stage.stageHeight);
-			_loadingCover.graphics.endFill();
-			FlxG.addChildBelowMouse(_loadingCover);
-		}
-		// ─────────────────────────────────────────────────────────────────────
+			if (!_killed) _finish();
+		});
 
-		bitmap = new VlcBitmap();
-
-		var targetRatio:Float = 16 / 9;
-		var screenWidth:Float  = FlxG.stage.stageWidth;
-		var screenHeight:Float = FlxG.stage.stageHeight;
-		var screenRatio:Float  = screenWidth / screenHeight;
-
-		if (screenRatio > targetRatio)
+		// onEncounteredError — tratar como fin, el juego nunca se queda colgado
+		_video.onEncounteredError.add(function(msg:String)
 		{
-			bitmap.width  = screenHeight * targetRatio;
-			bitmap.height = screenHeight;
-		}
-		else
-		{
-			bitmap.width  = screenWidth;
-			bitmap.height = screenWidth / targetRatio;
-		}
+			trace('[MP4Handler] hxvlc error — ' + msg);
+			if (!_killed) _finish();
+		});
 
-		bitmap.x = (screenWidth  - bitmap.width)  / 2;
-		bitmap.y = (screenHeight - bitmap.height) / 2;
-
-		bitmap.onVideoReady = onVLCVideoReady;
-		bitmap.onComplete   = onVLCComplete;
-		bitmap.onError      = onVLCError;
-
+		// Sincronizar volumen cada frame
 		FlxG.stage.addEventListener(Event.ENTER_FRAME, _update);
 
-		bitmap.repeat     = repeat ? -1 : 0;
-		bitmap.inWindow   = isWindow;
-		bitmap.fullscreen = isFullscreen;
+		// Si es outputTo, no añadir al stage (renderizar en el sprite)
+		if (outputTo == null)
+			try FlxG.addChildBelowMouse(_video) catch (_:Dynamic) {}
 
-		FlxG.addChildBelowMouse(bitmap);
-		bitmap.play(normalisePath(path));
-
-		if (outputTo != null)
+		// Cargar y reproducir — hxvlc necesita un tick entre load() y play()
+		if (_video.load(path))
+			new FlxTimer().start(0.001, function(_) { if (_video != null && !_killed) _video.play(); });
+		else
 		{
-			bitmap.alpha = 0;
-			sprite = outputTo;
+			trace('[MP4Handler] hxvlc: no se pudo cargar "$path"');
+			_finish();
 		}
 	}
 
-	function normalisePath(fileName:String):String
+	// ── Shader / Filter API ───────────────────────────────────────────────────
+
+	public function applyFilter(filter:BitmapFilter):Void
 	{
-		if (fileName.indexOf("file://") != -1 || fileName.indexOf("http") == 0)
-			return fileName;
-
-		#if windows
-		if (fileName.indexOf(":") != -1)
-			return "file:///" + fileName.split("\\").join("/");
-		#end
-
-		var cwd = Sys.getCwd().split("\\").join("/");
-		if (!cwd.endsWith("/")) cwd += "/";
-
-		#if (mac || linux)
-		return "file://" + cwd + fileName;
-		#else
-		return "file:///" + cwd + fileName;
-		#end
+		if (filter == null) return;
+		_filters.push(filter);
+		if (_video != null) try _video.filters = _filters.copy() catch (_:Dynamic) {}
 	}
 
-	/////////////////////////////////////////////////////////////////////////////////////
-
-	function onVLCVideoReady():Void
+	public function removeFilter(filter:BitmapFilter):Void
 	{
-		trace("MP4Handler: video loaded!");
-
-		// El video ya tiene su primer frame listo → quitar la cobertura negra
-		_removeLoadingCover();
-
-		if (sprite != null)
-			sprite.loadGraphic(bitmap.bitmapData);
+		_filters.remove(filter);
+		if (_video != null) try _video.filters = _filters.copy() catch (_:Dynamic) {}
 	}
 
-	public function onVLCComplete():Void
+	public function clearFilters():Void
 	{
-		if (_killed) return; // kill() ya lo manejó, no disparar doble
+		_filters = [];
+		if (_video != null) try _video.filters = [] catch (_:Dynamic) {}
+	}
 
+	// ── Controls ──────────────────────────────────────────────────────────────
+
+	public function kill():Void
+	{
+		if (_killed) return;
 		_killed = true;
+
 		FlxG.stage.removeEventListener(Event.ENTER_FRAME, _update);
-		bitmap.stop();
+		_removeCover();
+		_stopAndDispose();
 
-		// 1. Primero sacar el bitmap del stage para que desaparezca visualmente
-		_removeBitmapFromStage();
-		_removeLoadingCover();
-
-		new FlxTimer().start(0.1, function(tmr:FlxTimer)
+		if (finishCallback != null)
 		{
-			// 2. Liberar memoria nativa VLC
-			_disposeBitmapObject();
+			final cb = finishCallback;
+			finishCallback = null;
+			cb();
+		}
+	}
 
-			// 3. Ahora ejecutar el callback (puede cambiar de estado)
+	public function pause():Void
+	{
+		if (_video == null) return;
+		try _video.pause() catch (_:Dynamic) {}
+		try FlxG.game.setChildIndex(_video, 0) catch (_:Dynamic) {}
+	}
+
+	public function resume():Void
+	{
+		if (_video == null) return;
+		try FlxG.game.setChildIndex(_video, FlxG.game.numChildren - 1) catch (_:Dynamic) {}
+		try _video.resume() catch (_:Dynamic) {}
+		_syncVolume();
+	}
+
+	// ── Internals ─────────────────────────────────────────────────────────────
+
+	function _update(_:Event):Void
+	{
+		_syncVolume();
+
+		// Copiar frame al sprite si se usa como outputTo
+		if (sprite != null && _video != null && _video.bitmapData != null)
+			try sprite.loadGraphic(_video.bitmapData) catch (_:Dynamic) {}
+	}
+
+	function _syncVolume():Void
+	{
+		if (_video == null) return;
+		// hxvlc volume: 0-200 (100 = nivel normal)
+		final vol:Float = FlxG.sound.muted ? 0.0 : FlxG.sound.volume;
+		try _video.volume = Std.int(vol * 100) catch (_:Dynamic) {}
+	}
+
+	function _finish():Void
+	{
+		if (_killed) return;
+		_killed = true;
+
+		FlxG.stage.removeEventListener(Event.ENTER_FRAME, _update);
+
+		new FlxTimer().start(0.1, function(_)
+		{
+			_removeCover();
+			_stopAndDispose();
+
 			if (finishCallback != null)
 			{
-				var cb = finishCallback;
+				final cb = finishCallback;
 				finishCallback = null;
 				cb();
 			}
@@ -163,155 +226,58 @@ class MP4Handler
 		});
 	}
 
-	/**
-	 * Para el video inmediatamente y limpia todo.
-	 * Llamado por VideoManager.stop() cuando el jugador usa "Skip Cutscene" del menú de pausa.
-	 */
-	public function kill():Void
+	function _removeCover():Void
 	{
-		if (_killed) return;
-		_killed = true;
-
-		if (bitmap == null) return;
-
-		FlxG.stage.removeEventListener(Event.ENTER_FRAME, _update);
-		bitmap.stop();
-
-		// Sacar del stage primero
-		_removeBitmapFromStage();
-		_removeLoadingCover();
-
-		// Llamar callback antes de liberar memoria
-		if (finishCallback != null)
-		{
-			var cb = finishCallback;
-			finishCallback = null;
-			cb();
-		}
-
-		// Liberar memoria nativa
-		_disposeBitmapObject();
+		if (_cover == null) return;
+		try FlxG.removeChild(_cover) catch (_:Dynamic) {}
+		_cover = null;
 	}
 
-	/**
-	 * Pausa la reproducción SIN ocultar el bitmap.
-	 * Baja el bitmap por debajo del canvas de Flixel (donde renderizan las cámaras)
-	 * para que el PauseSubState quede VISIBLE encima del video en pausa.
-	 */
-	public function pause():Void
+	function _stopAndDispose():Void
 	{
-		if (bitmap == null) return;
-		bitmap.pause();
-		// El bitmap fue añadido con FlxG.addChildBelowMouse → está en FlxG.game.
-		// Al moverlo al índice 0, el canvas de Flixel queda por encima → PauseSubState visible.
-		try { FlxG.game.setChildIndex(bitmap, 0); } catch (_:Dynamic) {}
-	}
-
-	/**
-	 * Reanuda la reproducción y devuelve el bitmap a la cima del display list
-	 * para que el video tape el gameplay de nuevo.
-	 */
-	public function resume():Void
-	{
-		if (bitmap == null) return;
-		// Devolver a la cima para tapar el canvas de Flixel.
-		try { FlxG.game.setChildIndex(bitmap, FlxG.game.numChildren - 1); } catch (_:Dynamic) {}
-		bitmap.resume();
-	}
-
-	function _removeBitmapFromStage():Void
-	{
-		if (bitmap == null) return;
-		// El bitmap fue añadido con FlxG.addChildBelowMouse → está en FlxG.game, NO en FlxG.stage.
-		// FlxG.stage.removeChild() lanza excepción silenciosa porque no es hijo directo.
-		// La forma correcta es FlxG.removeChild(), igual que StateTransition.detach().
-		try { FlxG.removeChild(bitmap); } catch (_:Dynamic) {}
-	}
-
-	function _removeLoadingCover():Void
-	{
-		if (_loadingCover == null) return;
-		try { FlxG.removeChild(_loadingCover); } catch (_:Dynamic) {}
-		_loadingCover = null;
-	}
-
-	function _disposeBitmapObject():Void
-	{
-		if (bitmap == null) return;
-		try { bitmap.dispose(); } catch (_:Dynamic) {}
-		bitmap = null;
-	}
-
-	function onVLCError():Void
-	{
-		trace("MP4Handler: VLC error — file not found or codec issue.");
-		if (_killed) return;
-		_killed = true;
-
-		FlxG.stage.removeEventListener(Event.ENTER_FRAME, _update);
-		_removeBitmapFromStage();
-		_removeLoadingCover();
-		_disposeBitmapObject();
-
-		if (finishCallback != null)
-		{
-			var cb = finishCallback;
-			finishCallback = null;
-			cb();
-		}
-		else if (stateCallback != null)
-			LoadingState.loadAndSwitchState(stateCallback);
-	}
-
-	function _update(e:Event):Void
-	{
-		// NO se maneja skip con teclado aquí.
-		// El único skip válido es desde PauseSubState → "Skip Cutscene".
-
-		if (bitmap != null)
-		{
-			// Boost de volumen para cutscenes: 1.4× el volumen maestro, máximo 1.0
-			bitmap.volume = Math.min(1.0, FlxG.sound.volume * 1.4);
-			if (FlxG.sound.volume <= 0.1)
-				bitmap.volume = 0;
-		}
+		if (_video == null) return;
+		try FlxG.removeChild(_video) catch (_:Dynamic) {}
+		try _video.stop()    catch (_:Dynamic) {}
+		try _video.dispose() catch (_:Dynamic) {}
+		_video  = null;
+		sprite  = null;
+		bitmap  = null;
 	}
 }
 
+// =============================================================================
+//  STUB — HTML5 y plataformas sin hxvlc.
+// =============================================================================
 #else
 
-// ── Stub para plataformas sin soporte (mobile, html5) ────────────────────────
 class MP4Handler
 {
-	public var finishCallback:Void->Void;
-	public var stateCallback:flixel.FlxState;
-	public var bitmap:Dynamic  = null;
-	public var sprite:Dynamic  = null;
+	public var finishCallback:Null<Void->Void>;
+	public var stateCallback:Null<FlxState>;
+	public var bitmap:Dynamic = null;
+	public var sprite:Dynamic = null;
 
 	public function new() {}
 
 	public function playMP4(path:String, ?midSong:Bool = false, ?repeat:Bool = false,
-		?outputTo:Dynamic = null, ?isWindow:Bool = false, ?isFullscreen:Bool = false):Void
+	                        ?outputTo:Dynamic = null, ?isWindow:Bool = false,
+	                        ?isFullscreen:Bool = false):Void
 	{
-		trace("MP4Handler: no soportado en esta plataforma. Skipping.");
+		trace("MP4Handler: hxvlc no disponible en esta plataforma.");
 		_skip();
 	}
 
-	public function onVLCComplete():Void { _skip(); }
-	public function kill():Void         { _skip(); }
-	public function pause():Void        {}
-	public function resume():Void       {}
+	public function applyFilter(_:Dynamic):Void  {}
+	public function removeFilter(_:Dynamic):Void {}
+	public function clearFilters():Void          {}
+	public function kill():Void                  { _skip(); }
+	public function pause():Void                 {}
+	public function resume():Void                {}
 
 	inline function _skip():Void
 	{
-		if (finishCallback != null)
-		{
-			var cb = finishCallback;
-			finishCallback = null;
-			cb();
-		}
-		else if (stateCallback != null)
-			funkin.states.LoadingState.loadAndSwitchState(stateCallback);
+		if (finishCallback != null) { final cb = finishCallback; finishCallback = null; cb(); }
+		else if (stateCallback != null) funkin.states.LoadingState.loadAndSwitchState(stateCallback);
 	}
 }
 

@@ -61,6 +61,7 @@ jobs:
           haxelib install actuate --quiet
           haxelib install hscript --quiet
           haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
+          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
 
       - name: Lock library versions
@@ -150,6 +151,7 @@ jobs:
           haxelib install hscript --quiet
           haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
+          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
 
       - name: Lock library versions
         run: |
@@ -240,6 +242,7 @@ jobs:
           haxelib install hscript --quiet
           haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
+          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
 
       - name: Lock library versions
         run: |
@@ -316,6 +319,7 @@ jobs:
           haxelib install actuate --quiet
           haxelib install hscript --quiet
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
+          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
           # discord_rpc se omite intencionalmente: no existe en Android
 
       - name: Lock library versions

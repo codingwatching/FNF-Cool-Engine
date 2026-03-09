@@ -99,8 +99,8 @@ class ModSelectorState extends MusicBeatState
 	var _infoWebsite:FlxText;
 	var _infoStartup:FlxText;
 
-	#if vlc
-	var _video:vlc.VlcBitmap = null;
+	#if cpp
+	var _videoHandler:Null<funkin.cutscenes.MP4Handler> = null;
 	var _videoSprite:FlxSprite = null;
 	#end
 
@@ -998,7 +998,7 @@ class ModSelectorState extends MusicBeatState
 			_previewTween.cancel();
 			_previewTween = null;
 		}
-		#if vlc _stopVideo(); #end
+		#if cpp _stopVideo(); #end
 
 		switch (ModManager.previewType(mod.id))
 		{
@@ -1006,14 +1006,14 @@ class ModSelectorState extends MusicBeatState
 				_previewImg.alpha = 0;
 				_previewNone.makeGraphic(PREVIEW_W, PREVIEW_H, mod.color | 0xFF000000);
 				_previewNone.alpha = 1;
-				#if vlc _playVideo(ModManager.previewVideo(mod.id)); #end
+				#if cpp _playVideo(ModManager.previewVideo(mod.id)); #end
 			case IMAGE:
 				_previewNone.alpha = 0;
-				#if vlc _stopVideo(); #end
+				#if cpp _stopVideo(); #end
 				_loadPreviewImage(mod, instant);
 			case NONE:
 				_previewImg.alpha = 0;
-				#if vlc _stopVideo(); #end
+				#if cpp _stopVideo(); #end
 				_previewNone.makeGraphic(PREVIEW_W, PREVIEW_H, mod.color | 0xFF000000);
 				if (instant)
 					_previewNone.alpha = 1;
@@ -1063,49 +1063,49 @@ class ModSelectorState extends MusicBeatState
 		}
 	}
 
-	#if vlc
+	#if cpp
 	function _playVideo(path:Null<String>):Void
 	{
-		if (path == null)
-			return;
+		if (path == null) return;
 		_stopVideo();
 		try
 		{
-			_video = new vlc.VlcBitmap();
-			_video.onReady = function()
+			if (_videoSprite == null)
 			{
-				if (_videoSprite == null)
+				_videoSprite = new FlxSprite(PREVIEW_X, CONTENT_Y + 4);
+				_videoSprite.cameras = [_camUI];
+				_videoSprite.scrollFactor.set();
+				_videoSprite.alpha = 0;
+				add(_videoSprite);
+			}
+
+			_videoHandler = new funkin.cutscenes.MP4Handler();
+			_videoHandler.playMP4(path, true, true, _videoSprite, false, false);
+
+			// Fade in once we have a frame.
+			new flixel.util.FlxTimer().start(0.4, function(_)
+			{
+				if (_videoSprite != null)
 				{
-					_videoSprite = new FlxSprite(PREVIEW_X, CONTENT_Y + 4);
-					_videoSprite.cameras = [_camUI];
-					_videoSprite.scrollFactor.set();
-					add(_videoSprite);
+					_videoSprite.setGraphicSize(PREVIEW_W, PREVIEW_H);
+					_videoSprite.updateHitbox();
+					flixel.tweens.FlxTween.tween(_videoSprite, {alpha: 1}, 0.3, {ease: flixel.tweens.FlxEase.quadOut});
 				}
-				_videoSprite.loadGraphic(_video.bitmapData);
-				_videoSprite.setGraphicSize(PREVIEW_W, PREVIEW_H);
-				_videoSprite.updateHitbox();
-				FlxTween.tween(_videoSprite, {alpha: 1}, 0.3, {ease: FlxEase.quadOut});
-			};
-			_video.play(path, true, true);
+			});
 		}
 		catch (e:Dynamic)
 		{
-			trace('[ModSelectorState] VLC error: $e');
+			trace('[ModSelectorState] Video error: $e');
 		}
 	}
 
 	function _stopVideo():Void
 	{
-		if (_video != null)
+		if (_videoHandler != null)
 		{
-			try
-			{
-				_video.stop();
-			}
-			catch (_)
-			{
-			}
-			_video = null;
+			_videoHandler.finishCallback = null;
+			try _videoHandler.kill() catch (_:Dynamic) {}
+			_videoHandler = null;
 		}
 		if (_videoSprite != null)
 			_videoSprite.alpha = 0;
@@ -1121,7 +1121,7 @@ class ModSelectorState extends MusicBeatState
 			ModManager.deactivate();
 		else
 			ModManager.setActive(mod.id);
-		#if vlc _stopVideo(); #end
+		#if cpp _stopVideo(); #end
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 		Paths.forceClearCache();
@@ -1252,13 +1252,13 @@ class ModSelectorState extends MusicBeatState
 
 	function _goBack():Void
 	{
-		#if vlc _stopVideo(); #end
+		#if cpp _stopVideo(); #end
 		StateTransition.switchState(new MainMenuState());
 	}
 
 	override function destroy()
 	{
-		#if vlc _stopVideo(); #end
+		#if cpp _stopVideo(); #end
 		super.destroy();
 	}
 }

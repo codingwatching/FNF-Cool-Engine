@@ -2,17 +2,6 @@
 <!--
     Template personalizado de AndroidManifest para Cool Engine.
 
-    INSTRUCCIONES DE USO:
-    ─────────────────────────────────────────────────────────────────
-    1. Crea la carpeta  templates/android/template/  en la raíz del proyecto
-       (al mismo nivel que Project.xml).
-
-    2. Coloca este archivo como:
-           templates/android/template/AndroidManifest.xml
-
-    3. En Project.xml, registra la carpeta de templates añadiendo esta línea
-       dentro de <project>:
-           <template path="templates/android" />
 
     OpenFL usará este manifest en lugar del que genera por defecto.
     ─────────────────────────────────────────────────────────────────

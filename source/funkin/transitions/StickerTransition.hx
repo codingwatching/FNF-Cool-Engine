@@ -20,7 +20,18 @@ class StickerTransition
 {
 	// Configuración
 	public static var enabled:Bool = true;
-	public static var configPath:String = Paths.resolveWrite('data/stickers/sticker-config.json');
+	// FIX: Paths.resolveWrite() no debe llamarse como inicializador estático en HXCPP.
+	// Los estáticos se inicializan antes de main() y pueden ejecutarse antes de que
+	// ModManager o el FS estén listos. Se resuelve lazy en la primera lectura.
+	public static var configPath(get, set):String;
+	static var _configPath:Null<String> = null;
+	static function get_configPath():String
+	{
+		if (_configPath == null)
+			_configPath = Paths.resolveWrite('data/stickers/sticker-config.json');
+		return _configPath;
+	}
+	static function set_configPath(v:String):String return _configPath = v;
 
 	private static var config:StickerConfig;
 	private static var onComplete:Void->Void;
@@ -677,8 +688,20 @@ class StickerTransitionContainer extends openfl.display.Sprite
 		scaleX = 1;
 		scaleY = 1;
 
-		// Ajustar cámara al tamaño del juego
-		__scrollRect.setTo(0, 0, FlxG.camera._scrollRect.scrollRect.width, FlxG.camera._scrollRect.scrollRect.height);
+		// FIX: FlxG.camera._scrollRect can be null on mobile during the first
+		// few frames if the camera hasn't been fully initialised yet.
+		// Guard to avoid a null-pointer crash in native builds.
+		if (FlxG.camera != null && FlxG.camera._scrollRect != null
+		    && FlxG.camera._scrollRect.scrollRect != null)
+		{
+			__scrollRect.setTo(0, 0,
+				FlxG.camera._scrollRect.scrollRect.width,
+				FlxG.camera._scrollRect.scrollRect.height);
+		}
+		else if (FlxG.width > 0)
+		{
+			__scrollRect.setTo(0, 0, FlxG.width, FlxG.height);
+		}
 
 		stickersCamera.onResize();
 		stickersCamera._scrollRect.scrollRect = scrollRect;

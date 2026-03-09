@@ -61,7 +61,13 @@
 	<section unless="BUILD">
 		<assets path="assets/"    rename="assets"	exclude="*.ogg" if="web"/>
 		<assets path="assets/"    rename="assets"	exclude="*.mp3" unless="web"/>
+		<!-- Desktop/Linux/Switch: mods van sueltos junto al binario -->
 		<assets path='mods' rename='mods' embed='false' unless="android" />
+		<!-- Android: los mods base viajan dentro del APK como assets de solo lectura.
+		     ModManager los copia al storage externo en el primer arranque:
+		     /sdcard/Android/data/com.coolTeam.coolEngine/files/mods/
+		     Desde ahí el usuario también puede instalar mods propios. -->
+		<assets path='mods' rename='assets/mods' embed='false' if="android" />
 	</section>
 
 	<!-- Windows -->
@@ -100,6 +106,10 @@
 	<haxelib name="faxe" if="switch" />
 	<haxelib name="actuate" />
 	<haxelib name="discord_rpc" if="desktop" />
+
+	<section if="cpp">
+  		<haxelib name="hxvlc" if="desktop || mobile" />
+	</section>
 
 	<haxelib name="flixel-animate"/>
 

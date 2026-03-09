@@ -158,7 +158,16 @@ class Main extends Sprite
 		createGame();
 		FunkinCache.init();
 		AudioConfig.applyToFlixel();
+		// FIX: StickerTransition.init() creates a new FlxCamera internally.
+		// On Android the OpenGL context (context3D) is not ready until after the
+		// first rendered frame — creating GPU-backed objects here crashes the
+		// Mali/Adreno driver. We defer to the first ENTER_FRAME on mobile,
+		// exactly as we already do for FunkinCameraFrontEnd and SystemInfo.
+		#if !mobileC
 		StickerTransition.init();
+		#else
+		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _initStickersDeferred);
+		#end
 
 		// ── WindowManager ──────────────────────────────────────────────────────
 		WindowManager.init(/* mode    */ LETTERBOX, /* minW    */ 960, /* minH    */ 540, /* baseW   */ GAME_WIDTH, /* baseH   */ GAME_HEIGHT);
@@ -218,10 +227,32 @@ class Main extends Sprite
 		DiscordClient.initialize();
 		#end
 
-		// ── SystemInfo (deferred al primer frame) ──────────────────────────────
-		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _initSystemInfoDeferred);
-
+		// ── FunkinCamera frontend ─────────────────────────────────────────────
+		// DEBE hacerse aquí, DESPUÉS de createGame() pero ANTES del primer
+		// ENTER_FRAME. Reemplazar FlxG.cameras dentro del ENTER_FRAME provoca
+		// un null pointer en el pipeline nativo de Lime/SDL en Android porque
+		// el renderer ya está iterando la lista de cámaras en ese momento.
+		// FixedBitmapData ya tiene guarda contra context3D == null (usa
+		// software bitmap como fallback), así que esto es seguro en Android.
+		// FunkinCamera usa RenderTexture de flixel-animate que crea texturas GPU.
+		// En Android ese contexto no está listo aquí y crashea el driver OpenGL.
+		// Los blend modes avanzados tampoco son necesarios en mobile.
+		#if (cpp && !mobileC)
 		untyped FlxG.cameras = new funkin.graphics.FunkinCameraFrontEnd();
+		#end
+
+		// SystemInfo._detectGPU() llama ctx.gl.getParameter() — GL call directa.
+		// En Android el render corre en un thread nativo separado; hacerlo desde
+		// ENTER_FRAME (event thread de Lime) viola el contexto OpenGL → crash.
+		// En desktop es seguro deferir al primer frame.
+		// En mobile solo inicializamos la parte no-GL (OS, CPU, RAM).
+		#if (cpp && !mobileC)
+		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _initSystemInfoDeferred);
+		#else
+		SystemInfo.initSafe();
+		#end
+
+
 	}
 
 	// ── ENTER_FRAME deferred ──────────────────────────────────────────────────
@@ -229,8 +260,21 @@ class Main extends Sprite
 	private function _initSystemInfoDeferred(_:openfl.events.Event):Void
 	{
 		stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _initSystemInfoDeferred);
+
+		// context3D.gl está disponible a partir del primer frame renderizado.
+		// FunkinCameraFrontEnd ya se inicializó en setupGame() con la guarda
+		// de FixedBitmapData — este método solo necesita SystemInfo.
 		SystemInfo.init();
 	}
+
+	#if mobileC
+	/** Deferred init for StickerTransition on mobile — waits for the OpenGL context. */
+	private function _initStickersDeferred(_:openfl.events.Event):Void
+	{
+		stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _initStickersDeferred);
+		StickerTransition.init();
+	}
+	#end
 
 	// ── Helpers de inicialización ─────────────────────────────────────────────
 
@@ -239,7 +283,7 @@ class Main extends Sprite
 		// ── Resolución guardada: 720p (default) o 1080p ───────────────────────
 		var tempSave = new flixel.util.FlxSave();
 		tempSave.bind('coolengine', 'manux');
-		var use1080p = (tempSave.data.renderResolution == '1080p');
+		var use1080p = (tempSave.data != null && tempSave.data.renderResolution == '1080p');
 		tempSave.destroy();
 
 		// SIEMPRE mantenemos el espacio de juego en 1280x720.
@@ -269,9 +313,23 @@ class Main extends Sprite
 			var stageW:Int = rawW;
 			var stageH:Int = rawH;
 			#end
-			zoom = Math.min(stageW / gameWidth, stageH / gameHeight);
-			gameWidth  = Math.ceil(stageW / zoom);
-			gameHeight = Math.ceil(stageH / zoom);
+
+			// FIX Bug #4: Some devices report 0×0 before the surface is created.
+			// Math.min(0/1280, 0/720) = 0.0, then ceil(0/0.0) = NaN → Int overflow → crash.
+			// Fall back to 1:1 zoom so FlxGame gets valid integer dimensions.
+			if (stageW <= 0 || stageH <= 0)
+			{
+				zoom       = 1.0;
+				gameWidth  = GAME_WIDTH;
+				gameHeight = GAME_HEIGHT;
+			}
+			else
+			{
+				zoom = Math.min(stageW / gameWidth, stageH / gameHeight);
+				if (zoom <= 0) zoom = 1.0;  // extra guard against any other degenerate value
+				gameWidth  = Math.ceil(stageW / zoom);
+				gameHeight = Math.ceil(stageH / zoom);
+			}
 		}
 	}
 
@@ -324,7 +382,10 @@ class Main extends Sprite
 
 	private function initializeFramerate():Void
 	{
-		#if (!html5 && !androidC)
+		// FIX: was `!androidC` — that define never existed; `mobileC` is the correct one.
+		// On Android at 120fps the SDL render thread overruns and produces a null-ptr
+		// crash in the native pipeline. Mobile targets run at 60fps max.
+		#if (!html5 && !mobileC)
 		framerate = 120;
 		#else
 		framerate = 60;
@@ -381,20 +442,14 @@ class Main extends Sprite
 	/** Solicita READ/WRITE_EXTERNAL_STORAGE en Android 6+ y llama onGranted() cuando esté listo. */
 	static function _requestAndroidStoragePermission(onGranted:Void->Void):Void
 	{
-		var READ  = "android.permission.READ_EXTERNAL_STORAGE";
-		var WRITE = "android.permission.WRITE_EXTERNAL_STORAGE";
-		// extension_jni solo existe en android cpp
 		#if (android && cpp)
-		var jni = lime.system.JNI.createStaticMethod(
-			"org/haxe/lime/HaxeObject", "requestPermissions", "([Ljava/lang/String;)V", true);
-		if (jni != null)
-		{
-			jni([READ, WRITE]);
-			// Pequeño delay para que el sistema procese la petición antes de leer
-			new flixel.util.FlxTimer().start(0.5, function(_) onGranted());
-		}
-		else
-			onGranted(); // Si falla la JNI, continuar igual
+		// Android 10+ (API 29+): /Android/data/<package>/files/ es accesible sin permisos
+		// de almacenamiento externo. READ/WRITE_EXTERNAL_STORAGE están deprecados en
+		// Android 13+ (API 33) y el sistema los deniega silenciosamente.
+		// El JNI a HaxeObject::requestPermissions no existe en Lime y puede lanzar
+		// una excepción nativa que crashea la app antes del primer frame.
+		// Simplemente esperamos un tick para que el FileSystem esté listo y continuamos.
+		new flixel.util.FlxTimer().start(0.1, function(_) onGranted());
 		#else
 		onGranted();
 		#end

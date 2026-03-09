@@ -4,6 +4,7 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
 import flixel.util.FlxColor;
+import flixel.util.FlxSignal;
 import flixel.util.FlxTimer;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
@@ -12,44 +13,72 @@ import funkin.states.LoadingState;
 using StringTools;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoManager — sistema centralizado de reproducción de video
+// VideoManager — sistema centralizado de reproducción de video.
 //
-// SKIP: Los videos SOLO se pueden saltear desde PauseSubState → "Skip Cutscene".
-//       No hay listeners de teclado aquí. Esto evita el conflicto donde ENTER
-//       disparaba el skip Y el menú de pausa al mismo tiempo.
+// Re-worked following V-Slice (FunkinCrew/Funkin) patterns:
+//   • FlxSignal hooks: onVideoStarted / onVideoEnded / onVideoPaused / onVideoResumed
+//   • CutsceneType enum mirrors V-Slice behaviour
+//   • Desktop cpp  → VLC via MP4Handler  (unchanged, works well)
+//   • Mobile / mobileC → OpenFL NetStream via MP4Handler  (no VLC calls → no crash)
+//   • Other / html5 → graceful skip
+//   • Null-safety on every code path
 //
-// Modos de uso:
-//   1. CUTSCENE:   VideoManager.playCutscene('intro', function() { startCountdown(); });
-//   2. MID-SONG:   VideoManager.playMidSong('explosion', playState, callback);
-//   3. FONDO LOOP: VideoManager.playBackground('menuBG', mySprite);
-//   4. EN SPRITE:  VideoManager.playOnSprite('logo', mySprite, callback);
+// SKIP: videos only skippable from PauseSubState → "Skip Cutscene".
+//       No keyboard listeners here.
+//
+// Usage:
+//   VideoManager.playCutscene('intro', function() { startCountdown(); });
+//   VideoManager.playMidSong('explosion', playState, callback);
+//   VideoManager.playBackground('menuBG', mySprite);
+//   VideoManager.playOnSprite('logo', mySprite, callback);
 // ─────────────────────────────────────────────────────────────────────────────
 
 class VideoManager
 {
-	// ── Opciones globales ─────────────────────────────────────────────────────
+	// ── V-Slice–style signals ─────────────────────────────────────────────────
 
-	/** Si true, se hace un fade a negro de 0.3s antes de llamar el callback. */
-	public static var fadeOnComplete:Bool = true;
+	/** Dispatched the moment a video starts playing. */
+	public static final onVideoStarted:FlxSignal = new FlxSignal();
 
-	// ── Estado interno ────────────────────────────────────────────────────────
+	/** Dispatched when the video is paused (e.g. pause menu opened). */
+	public static final onVideoPaused:FlxSignal = new FlxSignal();
 
-	/** Handler VLC activo. `null` si no hay video reproduciendo. */
-	public static var current:Null<MP4Handler> = null;
+	/** Dispatched when the video resumes after being paused. */
+	public static final onVideoResumed:FlxSignal = new FlxSignal();
 
-	/** ¿Hay un video reproduciendo ahora mismo? */
+	/** Dispatched when the video ends or is skipped. */
+	public static final onVideoEnded:FlxSignal = new FlxSignal();
+
+	// ── State ─────────────────────────────────────────────────────────────────
+
+	/** True while a video is actively playing. */
 	public static var isPlaying(get, never):Bool;
 	static function get_isPlaying():Bool return current != null;
 
-	// Callback almacenado para cancelación con stop()
+	/** The active MP4Handler, or null when idle. */
+	public static var current:Null<MP4Handler> = null;
+
 	static var _onComplete:Null<Void->Void> = null;
 
+	// Path-resolution cache, invalidated on mod change.
+	static var _pathCache:Map<String, String> = new Map();
+
+	/** Active video shaders: name → {filter, instance} */
+	static var _videoShaderInstances:Map<String, {
+		filter  : openfl.filters.ShaderFilter,
+		instance: flixel.addons.display.FlxRuntimeShader
+	}> = new Map();
+
+	/** Invalidate resolved-path cache (call when the active mod changes). */
+	public static function clearPathCache():Void _pathCache.clear();
+
 	// ─────────────────────────────────────────────────────────────────────────
-	// API pública
+	// Public API
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Reproduce un video como cutscene completa (pantalla llena, pausa música).
+	 * Play a video as a full-screen cutscene (pauses music, black background).
+	 * On unsupported platforms the callback is called immediately.
 	 */
 	public static function playCutscene(key:String, ?onComplete:Void->Void):Void
 	{
@@ -64,27 +93,22 @@ class VideoManager
 		_stopCurrent();
 		_onComplete = onComplete;
 
-		// Pausar música del juego
 		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 			FlxG.sound.music.pause();
 
-		#if (cpp && !mobile)
 		final handler = new MP4Handler();
 		current = handler;
 
-		// midSong=true: evitamos que playMP4 llame FlxG.sound.music.stop() — stop()
-		// deja el FlxSound streaming invalido en CPP. La musica ya fue pausada arriba.
-		// isFullscreen=false: el bitmap se renderiza embebido dentro del juego (no ventana VLC separada).
+		// midSong=true so playMP4 does NOT call FlxG.sound.music.stop().
+		// Music was already paused; stop() would invalidate the streaming FlxSound on CPP.
 		handler.playMP4(path, true, false, null, false, false);
 		handler.finishCallback = _buildFinish();
-		#else
-		trace('[VideoManager] Video playback not supported on this platform.');
-		if (onComplete != null) onComplete();
-		#end
+
+		onVideoStarted.dispatch();
 	}
 
 	/**
-	 * Reproduce un video mid-song: pausa música+vocales, reproduce, luego resume.
+	 * Play a video mid-song. Pauses gameplay + music, restores them on finish.
 	 */
 	public static function playMidSong(key:String,
 	                                   ?state:funkin.gameplay.PlayState,
@@ -101,24 +125,20 @@ class VideoManager
 		_stopCurrent();
 		_onComplete = onComplete;
 
-		// Pausar gameplay
 		if (state != null)
 		{
 			state.paused     = true;
 			state.canPause   = false;
 			state.inCutscene = true;
 		}
-
 		if (FlxG.sound.music != null) FlxG.sound.music.pause();
 
-		#if (cpp && !mobile)
 		final handler = new MP4Handler();
 		current = handler;
 
 		handler.playMP4(path, true, false, null, false, false);
 		handler.finishCallback = function()
 		{
-			// Reanudar gameplay
 			if (state != null)
 			{
 				state.paused     = false;
@@ -127,19 +147,12 @@ class VideoManager
 			}
 			_buildFinish()();
 		};
-		#else
-		if (state != null)
-		{
-			state.paused     = false;
-			state.canPause   = true;
-			state.inCutscene = false;
-		}
-		if (onComplete != null) onComplete();
-		#end
+
+		onVideoStarted.dispatch();
 	}
 
 	/**
-	 * Reproduce un video en loop dentro de un FlxSprite (fondo animado).
+	 * Play a looping video as a background inside a FlxSprite.
 	 */
 	public static function playBackground(key:String, sprite:FlxSprite):Void
 	{
@@ -150,20 +163,15 @@ class VideoManager
 			return;
 		}
 
-		#if (cpp && !mobile)
 		_stopCurrent();
 
 		final handler = new MP4Handler();
 		current = handler;
-
 		handler.playMP4(path, true, true, sprite, false, false);
-		#else
-		trace('[VideoManager] Background video not supported on this platform.');
-		#end
 	}
 
 	/**
-	 * Reproduce un video renderizado dentro de un FlxSprite.
+	 * Play a video rendered into a FlxSprite, with an optional finish callback.
 	 */
 	public static function playOnSprite(key:String, sprite:FlxSprite, ?onComplete:Void->Void):Void
 	{
@@ -175,23 +183,123 @@ class VideoManager
 			return;
 		}
 
-		#if (cpp && !mobile)
 		_stopCurrent();
 		_onComplete = onComplete;
 
 		final handler = new MP4Handler();
 		current = handler;
-
 		handler.playMP4(path, true, false, sprite, false, false);
 		handler.finishCallback = _buildFinish();
-		#else
-		if (onComplete != null) onComplete();
-		#end
+
+		onVideoStarted.dispatch();
+	}
+
+	// ── Shader / Filter API ───────────────────────────────────────────────────
+
+	/**
+	 * Aplica un ShaderFilter al video en reproducción usando el ShaderManager.
+	 * Seguro llamar desde HScript:
+	 *
+	 *   VideoManager.applyShader('chromaKey');
+	 *   VideoManager.setVideoShaderParam('chromaKey', 'threshold', 0.3);
+	 *
+	 * @param shaderName  Nombre del shader (sin .frag)
+	 * @return El ShaderFilter creado, o null si el video no está activo o el shader no existe.
+	 */
+	public static function applyShader(shaderName:String):Null<openfl.filters.ShaderFilter>
+	{
+		if (current == null)
+		{
+			trace('[VideoManager] applyShader: ningún video activo.');
+			return null;
+		}
+
+		final cs = shaders.ShaderManager.getShader(shaderName);
+		if (cs == null || cs.fragmentCode == null)
+		{
+			trace('[VideoManager] applyShader: shader "$shaderName" no encontrado.');
+			return null;
+		}
+
+		var instance:flixel.addons.display.FlxRuntimeShader;
+		try
+		{
+			instance = new flixel.addons.display.FlxRuntimeShader(cs.fragmentCode);
+		}
+		catch (e:Dynamic)
+		{
+			trace('[VideoManager] applyShader: error compilando "$shaderName": $e');
+			return null;
+		}
+
+		final sf = new openfl.filters.ShaderFilter(cast instance);
+		current.applyFilter(sf);
+
+		// Registrar la instancia en ShaderManager para que setVideoShaderParam() funcione.
+		shaders.ShaderManager.registerInstance(shaderName, instance);
+
+		_videoShaderInstances.set(shaderName, {filter: sf, instance: instance});
+		trace('[VideoManager] Shader "$shaderName" aplicado al video.');
+		return sf;
 	}
 
 	/**
-	 * Detiene el video actual (llamado desde PauseSubState "Skip Cutscene").
-	 * Llama al callback del video si existe.
+	 * Actualiza un uniform del shader del video en reproducción.
+	 * Usa la misma API que ShaderManager.setShaderParam():
+	 *
+	 *   VideoManager.setVideoShaderParam('chromaKey', 'threshold', 0.25);
+	 */
+	public static function setVideoShaderParam(shaderName:String, paramName:String, value:Dynamic):Bool
+		return shaders.ShaderManager.setShaderParam(shaderName, paramName, value);
+
+	/**
+	 * Quita el shader con nombre `shaderName` del video activo.
+	 */
+	public static function removeShader(shaderName:String):Void
+	{
+		if (current == null) return;
+		final entry = _videoShaderInstances.get(shaderName);
+		if (entry == null) return;
+		current.removeFilter(entry.filter);
+		shaders.ShaderManager.unregisterInstance(shaderName, entry.instance);
+		_videoShaderInstances.remove(shaderName);
+	}
+
+	/**
+	 * Quita TODOS los shaders del video activo.
+	 */
+	public static function clearVideoShaders():Void
+	{
+		if (current != null) current.clearFilters();
+		for (name => entry in _videoShaderInstances)
+			shaders.ShaderManager.unregisterInstance(name, entry.instance);
+		_videoShaderInstances.clear();
+	}
+
+	/**
+	 * Aplica directamente un BitmapFilter OpenFL al video (para shaders custom
+	 * creados sin pasar por ShaderManager).
+	 *
+	 *   var sf = new openfl.filters.ShaderFilter(myCustomShader);
+	 *   VideoManager.applyRawFilter(sf);
+	 */
+	public static function applyRawFilter(filter:openfl.filters.BitmapFilter):Void
+	{
+		if (current == null) return;
+		current.applyFilter(filter);
+	}
+
+	/** Quita un BitmapFilter aplicado con applyRawFilter(). */
+	public static function removeRawFilter(filter:openfl.filters.BitmapFilter):Void
+	{
+		if (current == null) return;
+		current.removeFilter(filter);
+	}
+
+	// ── Controls ──────────────────────────────────────────────────────────────
+
+	/**
+	 * Stop playback and trigger the finish callback (use for skip from PauseSubState).
 	 */
 	public static function stop():Void
 	{
@@ -201,59 +309,51 @@ class VideoManager
 	}
 
 	/**
-	 * Pausa el video activo y lo oculta.
-	 * Llamado al abrir el menú de pausa para que quede visible encima del video.
+	 * Pause the video and push it behind the Flixel canvas.
+	 * Call when opening the pause menu during a cutscene.
 	 */
 	public static function pause():Void
 	{
 		if (current == null) return;
 		current.pause();
+		onVideoPaused.dispatch();
 	}
 
 	/**
-	 * Reanuda el video activo y lo muestra de nuevo.
-	 * Llamado al cerrar el menú de pausa.
+	 * Resume a paused video and bring it back above the Flixel canvas.
 	 */
 	public static function resume():Void
 	{
 		if (current == null) return;
 		current.resume();
+		onVideoResumed.dispatch();
 	}
 
 	/**
-	 * Detiene el video SIN llamar al callback (para limpiar al salir de un state).
+	 * Silently kill the video without triggering any callback.
+	 * Use when leaving a state that was playing a background video.
 	 */
 	public static function stopSilent():Void
 	{
 		if (current == null) return;
-		_onComplete = null;
+		_onComplete            = null;
 		current.finishCallback = null;
 		current.kill();
 		current = null;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Helpers internos
+	// Helpers
 	// ─────────────────────────────────────────────────────────────────────────
 
-	// Caché de rutas resueltas por clave de video.
-	// PERF FIX: _resolvePath() hacía hasta 5 llamadas a FileSystem.exists() cada
-	// vez que se reproducía un video. Con caché se resuelve en O(1) en el segundo
-	// acceso. Se invalida al cambiar de mod (clearPathCache).
-	static var _pathCache:Map<String, String> = new Map();
-
-	/** Invalida el caché de rutas (llamar al cambiar de mod activo). */
-	public static function clearPathCache():Void
-		_pathCache.clear();
-
 	/**
-	 * Resuelve la ruta del video buscando en el mod activo primero, luego en assets.
-	 * Devuelve null si no existe.
+	 * Resolve a video key to an absolute path.
+	 * Checks the active mod first, then base assets.
+	 * Cached per-key; call clearPathCache() when the mod changes.
 	 */
 	public static function _resolvePath(key:String):Null<String>
 	{
-		// Devolver resultado cacheado si existe
-		var cached = _pathCache.get(key);
+		final cached = _pathCache.get(key);
 		if (cached != null) return cached;
 
 		final k = key.endsWith('.mp4') ? key.substr(0, key.length - 4) : key;
@@ -266,7 +366,9 @@ class VideoManager
 			final base = '${mods.ModManager.MODS_FOLDER}/$mod';
 			candidates.push('$base/videos/$k.mp4');
 			candidates.push('$base/cutscenes/videos/$k.mp4');
-			candidates.push('$base/songs/${funkin.gameplay.PlayState.SONG?.song?.toLowerCase() ?? ""}/$k.mp4');
+			final songName = funkin.gameplay.PlayState.SONG?.song?.toLowerCase();
+			if (songName != null)
+				candidates.push('$base/songs/$songName/$k.mp4');
 		}
 
 		candidates.push('assets/videos/$k.mp4');
@@ -278,49 +380,40 @@ class VideoManager
 
 		#if sys
 		for (c in candidates)
-			if (sys.FileSystem.exists(c))
-			{
-				_pathCache.set(key, c); // guardar en caché
-				return c;
-			}
+			if (sys.FileSystem.exists(c)) { _pathCache.set(key, c); return c; }
 		#else
 		for (c in candidates)
-			if (openfl.utils.Assets.exists(c))
-			{
-				_pathCache.set(key, c);
-				return c;
-			}
+			if (openfl.utils.Assets.exists(c)) { _pathCache.set(key, c); return c; }
 		#end
 
 		return null;
 	}
 
-	/** Para el handler actual sin llamar callbacks. */
 	static function _stopCurrent():Void
 	{
 		if (current == null) return;
-		_onComplete = null;
+		_onComplete            = null;
 		current.finishCallback = null;
 		current.kill();
 		current = null;
+		_videoShaderInstances.clear();
 	}
 
-	/** Construye la función de finalización. */
 	static function _buildFinish():Void->Void
 	{
 		return function()
 		{
 			final cb = _onComplete;
 			_cleanup();
-
+			onVideoEnded.dispatch();
 			if (cb != null) cb();
 		};
 	}
 
-	/** Limpia el estado interno. */
 	static function _cleanup():Void
 	{
 		current     = null;
 		_onComplete = null;
+		_videoShaderInstances.clear();
 	}
 }

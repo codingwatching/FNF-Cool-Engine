@@ -73,6 +73,25 @@ class SystemInfo
 		trace('[SystemInfo] ' + _summary.split('\n').join(' | '));
 	}
 
+	/**
+	 * Versión segura para mobile: omite _detectGPU() que requiere GL calls.
+	 * ctx.gl.getParameter() desde el event thread de Lime crashea en Android
+	 * porque el render ocurre en un thread nativo separado (violación de contexto).
+	 */
+	public static function initSafe():Void
+	{
+		if (initialized) return;
+
+		_detectOS();
+		_detectCPU();
+		_detectRAM();
+		// GPU omitida intencionalmente en mobile — sin GL calls
+		_buildSummary();
+
+		initialized = true;
+		trace('[SystemInfo] (safe/mobile) ' + _summary.split('\n').join(' | '));
+	}
+
 	// ── Detección ─────────────────────────────────────────────────────────────
 
 	static function _detectOS():Void

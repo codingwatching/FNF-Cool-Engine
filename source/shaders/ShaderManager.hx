@@ -129,6 +129,40 @@ class ShaderManager
 	public static function getShader(shaderName:String):CustomShader
 		return shaders.exists(shaderName) ? shaders.get(shaderName) : loadShader(shaderName);
 
+	/**
+	 * Registra un shader desde código GLSL inline (sin archivo .frag).
+	 * Si ya existe un shader con ese nombre, lo SOBREESCRIBE con el nuevo código.
+	 *
+	 * Uso desde HScript:
+	 *   ShaderManager.registerInline('miEfecto', '
+	 *     uniform float uTime;
+	 *     void main() {
+	 *       vec2 uv = openfl_TextureCoordv;
+	 *       gl_FragColor = flixel_texture2D(bitmap, uv) * vec4(abs(sin(uTime)), 1.0, 1.0, 1.0);
+	 *     }
+	 *   ');
+	 *   ShaderManager.applyShader(mySprite, 'miEfecto');
+	 */
+	public static function registerInline(shaderName:String, fragCode:String):CustomShader
+	{
+		if (fragCode == null || fragCode.trim() == '')
+		{
+			trace('[ShaderManager] registerInline: código vacío para "$shaderName"');
+			return null;
+		}
+
+		// Si ya hay instancias vivas de este shader, las invalidamos para que
+		// la próxima vez que se aplique se use el código nuevo.
+		if (shaders.exists(shaderName)) shaders.remove(shaderName);
+		// Limpiar instancias vivas antiguas (código viejo).
+		_liveInstances.remove(shaderName);
+
+		final shader = new CustomShader(shaderName, fragCode);
+		shaders.set(shaderName, shader);
+		trace('[ShaderManager] Shader inline "$shaderName" registrado.');
+		return shader;
+	}
+
 	// ─── Aplicar / Quitar ─────────────────────────────────────────────────────
 
 	public static function applyShader(sprite:FlxSprite, shaderName:String, ?camera:FlxCamera):Bool

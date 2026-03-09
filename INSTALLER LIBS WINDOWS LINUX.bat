@@ -77,6 +77,8 @@ haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
 
 haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
 
+haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
+
 echo ===============================================
 echo Re-locking Lime and OpenFL versions...
 echo ===============================================

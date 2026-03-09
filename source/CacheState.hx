@@ -41,10 +41,10 @@ class CacheState extends funkin.states.MusicBeatState
         PlayerSettings.init();
         PlayerSettings.player1.controls.loadKeyBinds();
 
-        if (FlxG.save.data.FPSCap)
-            openfl.Lib.current.stage.frameRate = 120;
-        else
-            openfl.Lib.current.stage.frameRate = 240;
+        // FIX: 'FPSCap' es un campo obsoleto — el engine ya usa 'fpsTarget'.
+        // CacheState no debe sobreescribir el framerate que Main.initializeFramerate()
+        // configuró correctamente (60fps en Android, 120fps en desktop).
+        // El bloque anterior ponía 240fps por defecto cuando FPSCap era null.
 
         // ── UI ─────────────────────────────────────────────────────────────
         var barBG:FlxSprite = new FlxSprite(0, 500).makeGraphic(FlxG.width - 100, 40, 0xFF333333);

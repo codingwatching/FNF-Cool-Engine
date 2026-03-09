@@ -50,7 +50,26 @@ class CrashHandler
 {
 	// ── Config ────────────────────────────────────────────────────────────────
 
-	private static inline final CRASH_DIR  : String = "./crash/";
+	// FIX: On Android "./crash/" is relative to the APK root which is read-only.
+	// We compute a writable path at init-time depending on the platform.
+	// lime.system.System.documentsDirectory returns the external-storage Documents
+	// folder on Android, which the app has permission to write.
+	private static var CRASH_DIR : String = _resolveCrashDir();
+	private static function _resolveCrashDir():String
+	{
+		#if mobileC
+		try
+		{
+			var base = lime.system.System.documentsDirectory;
+			if (base == null || base == "") base = "./";
+			if (!base.endsWith("/")) base += "/";
+			return base + "CoolEngine/crash/";
+		}
+		catch (_:Dynamic) { return "./crash/"; }
+		#else
+		return "./crash/";
+		#end
+	}
 	private static inline final LOG_PREFIX : String = "CoolEngine_";
 	private static inline final REPORT_URL : String = "https://github.com/Manux123/FNF-Cool-Engine/issues";
 

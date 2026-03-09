@@ -108,6 +108,12 @@ class ModManager
 		installedMods = [];
 		startupMod    = null;
 
+		#if android
+		// En Android los mods base viajan dentro del APK como assets (assets/mods/).
+		// Los copiamos al storage externo la primera vez.
+		_copyBaseModsIfNeeded();
+		#end
+
 		#if sys
 		if (!FileSystem.exists(MODS_FOLDER) || !FileSystem.isDirectory(MODS_FOLDER))
 		{
@@ -542,6 +548,62 @@ class ModManager
 			for (f in Reflect.fields(data)) _enabledMap.set(f, Reflect.field(data, f) == true);
 		}
 		catch (e:Dynamic) { trace('[ModManager] Error cargando enabled state: $e'); }
+	}
+	#end
+
+	// ─── Android: copia mods base del APK al storage externo ─────────────────
+	#if (android && sys)
+	static function _copyBaseModsIfNeeded():Void
+	{
+		final dest   = MODS_FOLDER;
+		final marker = dest + '/.base_copied';
+
+		if (FileSystem.exists(marker)) return;
+
+		// FIX Bug #2: On the very first launch the APK contains the base mods as
+		// embedded assets. Copying them synchronously inside the game-loop blocks
+		// for several seconds (images, music…) → Android's ANR watchdog kills
+		// the process before the first frame is ever drawn.
+		// We run the copy on a background thread so the game loop stays alive.
+		// The mods folder won't be available on this first launch, but that's
+		// acceptable — they will be there from the second launch onward.
+		trace('[ModManager] Primera ejecución — copiando mods base a $dest (background thread)');
+
+		sys.thread.Thread.create(function()
+		{
+			try
+			{
+				if (!FileSystem.exists(dest))
+					FileSystem.createDirectory(dest);
+
+				final assetList = openfl.utils.Assets.list();
+				var copied = 0;
+
+				for (assetPath in assetList)
+				{
+					if (!assetPath.startsWith('assets/mods/')) continue;
+					final relative = assetPath.substr('assets/mods/'.length);
+					final destPath = dest + '/' + relative;
+					final destDir  = haxe.io.Path.directory(destPath);
+					if (FileSystem.exists(destPath)) continue;
+					if (!FileSystem.exists(destDir))
+					{
+						try FileSystem.createDirectory(destDir)
+						catch (_:Dynamic) {}
+					}
+					try
+					{
+						final bytes = openfl.utils.Assets.getBytes(assetPath);
+						if (bytes != null) { sys.io.File.saveBytes(destPath, bytes); copied++; }
+					}
+					catch (e:Dynamic) { trace('[ModManager] No se pudo copiar $assetPath: $e'); }
+				}
+
+				sys.io.File.saveContent(marker, '1');
+				trace('[ModManager] Mods base copiados: $copied archivos → $dest');
+			}
+			catch (e:Dynamic) { trace('[ModManager] Error copiando mods base en background: $e'); }
+		});
 	}
 	#end
 }

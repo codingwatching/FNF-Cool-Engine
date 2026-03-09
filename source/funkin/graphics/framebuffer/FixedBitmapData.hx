@@ -37,8 +37,10 @@ class FixedBitmapData extends BitmapData
 	{
 		if (useGPU)
 		{
-			var texture:TextureBase = _createTexture(width, height);
-			return fromTexture(texture);
+			// FIX: context3D puede ser null en Android durante el arranque.
+			// Si no está disponible, caemos a bitmap software (sin GPU).
+			var texture:Null<TextureBase> = _createTexture(width, height);
+			if (texture != null) return fromTexture(texture);
 		}
 		return new FixedBitmapData(width, height, true, 0);
 	}
@@ -59,11 +61,15 @@ class FixedBitmapData extends BitmapData
 		return bitmapData;
 	}
 
-	static function _createTexture(width:Int, height:Int):TextureBase
+	static function _createTexture(width:Int, height:Int):Null<TextureBase>
 	{
 		// Las texturas de tamaño cero dan problemas
 		width  = width  < 1 ? 1 : width;
 		height = height < 1 ? 1 : height;
-		return Lib.current.stage.context3D.createTexture(width, height, BGRA, true);
+		// FIX: context3D es null en Android hasta el primer frame renderizado.
+		// Devolver null aquí es seguro; create() caerá a bitmap software.
+		var ctx = Lib.current.stage.context3D;
+		if (ctx == null) return null;
+		return ctx.createTexture(width, height, BGRA, true);
 	}
 }

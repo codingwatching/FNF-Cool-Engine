@@ -17,6 +17,8 @@ import funkin.scripting.ScriptableState.ScriptableSubState;
 import hscript.Interp;
 #end
 
+using StringTools;
+
 /**
  * ScriptAPI v6 — API COMPLETA expuesta a los scripts HScript.
  *
@@ -904,15 +906,133 @@ class ScriptAPI
 		interp.variables.set('DropShadowShader', shaders.DropShadowShader);
 
 		// WiggleEffect — object wrapper para usar en scripts fácilmente
-		// Uso: var wiggle = wiggleEffect.create(); wiggle.effectType = ...
 		interp.variables.set('wiggleEffect', {
 			create: function():shaders.WiggleEffect { return new shaders.WiggleEffect(); },
-			// Constantes de tipo
 			DREAMY:     'DREAMY',
 			WAVY:       'WAVY',
 			HEAT_WAVE:  'HEAT_WAVE',
 			FLAG:       'FLAG',
 			CUSTOM:     'CUSTOM'
+		});
+
+		// ── FlxRuntimeShader directo ──────────────────────────────────────────
+		// Permite crear shaders inline desde scripts sin pasar por ShaderManager.
+		// El constructor acepta el código GLSL del fragment shader directamente.
+		//
+		// Uso en HScript:
+		//   var s = new FlxRuntimeShader(fragCode);
+		//   setFilters(camGame, [makeShaderFilter(s)]);
+		//   s.setFloat('uIntensity', 0.5);
+		//   s.setFloat('uTime', elapsed);
+		//
+		// Para quitar el shader:
+		//   clearFilters(camGame);
+		//
+		// IMPORTANTE: llama a setFloat() DESPUÉS de haber añadido el shader
+		// como filtro y de que se haya renderizado al menos 1 frame, porque
+		// FlxRuntimeShader compila el GLSL la primera vez que se renderiza.
+		// Si el uniform aún no está bound, setFloat() falla silenciosamente
+		// pero puede reintentarse el frame siguiente.
+		interp.variables.set('FlxRuntimeShader', {
+			function(fragCode:String, ?vertCode:String):flixel.addons.display.FlxRuntimeShader
+			{
+				try
+				{
+					return vertCode != null
+						? new flixel.addons.display.FlxRuntimeShader(fragCode, vertCode)
+						: new flixel.addons.display.FlxRuntimeShader(fragCode);
+				}
+				catch (e:Dynamic)
+				{
+					trace('[ScriptAPI] FlxRuntimeShader error: $e');
+					return null;
+				}
+			}
+		});
+		// Crea un shader desde código GLSL inline y devuelve un objeto con métodos
+		// para aplicarlo fácilmente a sprites, cámaras o al video activo.
+		//
+		// MODO 1 — desde archivo .frag (ya existe con ShaderManager.applyShader):
+		//   ShaderManager.applyShader(sprite, 'chromaKey');
+		//
+		// MODO 2 — inline en el script:
+		//   var s = createShader('miEfecto', '
+		//     uniform float uTime;
+		//     void main() {
+		//       vec2 uv = openfl_TextureCoordv;
+		//       gl_FragColor = flixel_texture2D(bitmap, uv) * vec4(abs(sin(uTime)), 1.0, 1.0, 1.0);
+		//     }
+		//   ');
+		//   s.applyTo(mySprite);
+		//
+		//   function update(elapsed) {
+		//     s.set('uTime', elapsed);
+		//   }
+		//
+		// Métodos del objeto devuelto:
+		//   s.applyTo(sprite)          — aplica el shader a un sprite
+		//   s.applyToCamera(?cam)      — aplica el shader como filtro de cámara
+		//   s.applyToVideo()           — aplica el shader al video activo
+		//   s.set(param, value)        — setea un uniform float/bool/array
+		//   s.setInt(param, value)     — setea un uniform int
+		//   s.remove(?sprite)          — quita el shader (de sprite o limpia instancias)
+		//   s.name                     — nombre del shader
+		interp.variables.set('createShader', function(name:String, fragCode:String):Dynamic
+		{
+			if (name == null || name.trim() == '')
+			{
+				trace('[ScriptAPI] createShader: nombre vacío.');
+				return null;
+			}
+
+			// Registrar (o reemplazar) el shader inline en ShaderManager.
+			final cs = shaders.ShaderManager.registerInline(name, fragCode);
+			if (cs == null)
+			{
+				trace('[ScriptAPI] createShader: error al registrar "$name".');
+				return null;
+			}
+
+			// Devolver objeto con API amigable.
+			return {
+				name: name,
+
+				/** Aplica el shader a un FlxSprite. */
+				applyTo: function(sprite:Dynamic, ?cam:Dynamic):Bool
+					return shaders.ShaderManager.applyShader(sprite, name, cam),
+
+				/** Aplica el shader como filtro de cámara (default: FlxG.camera). */
+				applyToCamera: function(?cam:Dynamic):Dynamic
+					return shaders.ShaderManager.applyShaderToCamera(name, cam),
+
+				/** Aplica el shader al video activo (si hay uno). */
+				applyToVideo: function():Bool
+					return funkin.cutscenes.VideoManager.applyShader(name) != null,
+
+				/** Actualiza un uniform float/bool/array. */
+				set: function(param:String, value:Dynamic):Bool
+					return shaders.ShaderManager.setShaderParam(name, param, value),
+
+				/** Actualiza un uniform int (para samplers, etc.). */
+				setInt: function(param:String, value:Int):Bool
+					return shaders.ShaderManager.setShaderParamInt(name, param, value),
+
+				/** Quita el shader de un sprite, o limpia todas las instancias si sprite es null. */
+				remove: function(?sprite:Dynamic):Void
+				{
+					if (sprite != null)
+						shaders.ShaderManager.removeShader(sprite);
+					else
+					{
+						shaders.ShaderManager.clearSpriteShaders();
+						funkin.cutscenes.VideoManager.removeShader(name);
+					}
+				},
+
+				/** Recarga el shader con nuevo código GLSL (útil para hot-reload en debug). */
+				reload: function(newFragCode:String):Void
+					shaders.ShaderManager.registerInline(name, newFragCode)
+			};
 		});
 	}
 
@@ -1642,9 +1762,68 @@ class ScriptAPI
 			},
 			stop:       function() { funkin.cutscenes.VideoManager.stop(); },
 			pause:      function() { funkin.cutscenes.VideoManager.pause(); },
+			resume:     function() { funkin.cutscenes.VideoManager.resume(); },
 			isPlaying:  function():Bool { return funkin.cutscenes.VideoManager.isPlaying; },
 			onSprite:   function(key:String, sprite:Dynamic, ?onComplete:Dynamic) {
 				funkin.cutscenes.VideoManager.playOnSprite(key, sprite, onComplete);
+			},
+
+			// ── Shaders en video ──────────────────────────────────────────────
+			// Permite aplicar shaders al video en reproducción desde scripts HScript.
+			//
+			// Ejemplo de uso en un script:
+			//   video.applyShader('chromaKey');
+			//   video.setShaderParam('chromaKey', 'threshold', 0.25);
+			//   video.removeShader('chromaKey');
+			//   video.clearShaders();
+
+			/**
+			 * Aplica un shader del ShaderManager al video activo.
+			 * Devuelve true si se aplicó correctamente.
+			 */
+			applyShader: function(shaderName:String):Bool {
+				return funkin.cutscenes.VideoManager.applyShader(shaderName) != null;
+			},
+
+			/**
+			 * Actualiza un parámetro/uniform del shader del video.
+			 *   video.setShaderParam('wave', 'amplitude', 0.05);
+			 */
+			setShaderParam: function(shaderName:String, paramName:String, value:Dynamic):Bool {
+				return funkin.cutscenes.VideoManager.setVideoShaderParam(shaderName, paramName, value);
+			},
+
+			/**
+			 * Quita un shader específico del video.
+			 */
+			removeShader: function(shaderName:String):Void {
+				funkin.cutscenes.VideoManager.removeShader(shaderName);
+			},
+
+			/**
+			 * Quita todos los shaders del video activo.
+			 */
+			clearShaders: function():Void {
+				funkin.cutscenes.VideoManager.clearVideoShaders();
+			},
+
+			/**
+			 * Aplica un BitmapFilter/ShaderFilter OpenFL directamente al video.
+			 * Útil para shaders creados en el script sin pasar por ShaderManager:
+			 *
+			 *   var shader = new flixel.addons.display.FlxRuntimeShader(fragCode);
+			 *   var filter = new openfl.filters.ShaderFilter(shader);
+			 *   video.applyFilter(filter);
+			 */
+			applyFilter: function(filter:Dynamic):Void {
+				funkin.cutscenes.VideoManager.applyRawFilter(filter);
+			},
+
+			/**
+			 * Quita un BitmapFilter aplicado con applyFilter().
+			 */
+			removeFilter: function(filter:Dynamic):Void {
+				funkin.cutscenes.VideoManager.removeRawFilter(filter);
 			}
 		});
 	}
@@ -2342,9 +2521,11 @@ class ScriptAPI
 			unregisterInstance   : shaders.ShaderManager.unregisterInstance,
 			removeShader         : shaders.ShaderManager.removeShader,
 			setShaderParam       : shaders.ShaderManager.setShaderParam,
+			setShaderParamInt    : shaders.ShaderManager.setShaderParamInt,
 			clearSpriteShaders   : shaders.ShaderManager.clearSpriteShaders,
 			loadShader           : shaders.ShaderManager.loadShader,
 			getShader            : shaders.ShaderManager.getShader,
+			registerInline       : shaders.ShaderManager.registerInline,
 			getAvailableShaders  : shaders.ShaderManager.getAvailableShaders,
 			scanShaders          : shaders.ShaderManager.scanShaders,
 			reloadShader         : shaders.ShaderManager.reloadShader,

@@ -574,7 +574,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		{
 			if (instPlaying != curSelected)
 			{
-				FlxG.sound.music.volume = 0;
+				if (FlxG.sound.music != null) FlxG.sound.music.volume = 0;
 
 				// Verify chart exists — .level (new format) or legacy .json
 				var songLowercase:String = songs[curSelected].songName.toLowerCase();
@@ -628,11 +628,18 @@ class FreeplayState extends funkin.states.MusicBeatState
 				final instPath = Paths.inst(PlayState.SONG.song, audioSuffix);
 				trace('[FreeplayState] Preview inst path: $instPath');
 				final instSnd = Paths.loadInst(PlayState.SONG.song, audioSuffix);
-				FlxG.sound.music = instSnd;
-				FlxG.sound.music.persist = true;
-				FlxG.sound.music.looped = true;
-				FlxG.sound.music.volume = 0.7;
-				FlxG.sound.music.play();
+				if (instSnd != null)
+				{
+					FlxG.sound.music = instSnd;
+					FlxG.sound.music.persist = true;
+					FlxG.sound.music.looped = true;
+					FlxG.sound.music.volume = 0.7;
+					FlxG.sound.music.play();
+				}
+				else
+				{
+					trace('[FreeplayState] WARNING: loadInst returned null for preview.');
+				}
 
 				instPlaying = curSelected;
 
@@ -771,7 +778,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			{
 				colorTween.cancel();
 			}
-			FlxG.sound.music.volume = 0;
+			if (FlxG.sound.music != null) FlxG.sound.music.volume = 0;
 
 			if (FlxG.save.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 1);

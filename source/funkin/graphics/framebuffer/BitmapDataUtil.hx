@@ -27,14 +27,21 @@ import openfl.geom.ColorTransform;
 @:access(openfl.geom.ColorTransform)
 class BitmapDataUtil
 {
-	static var renderer(get, never):OpenGLRenderer;
+	static var renderer(get, never):Null<OpenGLRenderer>;
 	static var _renderer:Null<OpenGLRenderer>;
 
-	static inline function get_renderer():OpenGLRenderer
+	// @:nullSafety(Off) — deliberate: returns null when the GL surface isn't ready yet
+	// (e.g. Android first frame). Callers MUST null-check before use.
+	@:nullSafety(Off)
+	static function get_renderer():Null<OpenGLRenderer>
 	{
 		if (_renderer == null)
 		{
-			_renderer = new OpenGLRenderer(FlxG.stage.context3D);
+			// context3D is null on Android until the first rendered frame.
+			// Returning null here is intentional; callers handle it gracefully.
+			final ctx = FlxG.stage?.context3D;
+			if (ctx == null) return null;
+			_renderer = new OpenGLRenderer(ctx);
 			_renderer.__worldTransform = new Matrix();
 			_renderer.__worldColorTransform = new ColorTransform();
 		}
@@ -67,6 +74,10 @@ class BitmapDataUtil
 	 */
 	public static function drawCameraScreen(bitmap:BitmapData, camera:FlxCamera, clearBitmap:Bool = true, drawFlashSprite:Bool = false):BitmapData
 	{
+		// Guard: GL surface not ready yet (Android early frames).
+		final r = renderer;
+		if (r == null) return bitmap;
+
 		var matrix:FlxMatrix = new FlxMatrix();
 		var pivotX:Float = FlxG.scaleMode.scale.x;
 		var pivotY:Float = FlxG.scaleMode.scale.y;
@@ -78,22 +89,22 @@ class BitmapDataUtil
 		camera.render();
 		camera.flashSprite.__update(false, true);
 
-		renderer.__cleanup();
-		renderer.setShader(renderer.__defaultShader);
-		renderer.__allowSmoothing = false;
-		renderer.__pixelRatio = Lib.current.stage.window.scale;
-		renderer.__worldAlpha = 1 / camera.flashSprite.__worldAlpha;
-		renderer.__worldTransform.copyFrom(camera.flashSprite.__renderTransform);
-		renderer.__worldTransform.invert();
-		renderer.__worldTransform.concat(matrix);
-		renderer.__worldColorTransform.__copyFrom(camera.flashSprite.__worldColorTransform);
-		renderer.__worldColorTransform.__invert();
-		renderer.__setRenderTarget(bitmap);
+		r.__cleanup();
+		r.setShader(r.__defaultShader);
+		r.__allowSmoothing = false;
+		r.__pixelRatio = Lib.current.stage.window.scale;
+		r.__worldAlpha = 1 / camera.flashSprite.__worldAlpha;
+		r.__worldTransform.copyFrom(camera.flashSprite.__renderTransform);
+		r.__worldTransform.invert();
+		r.__worldTransform.concat(matrix);
+		r.__worldColorTransform.__copyFrom(camera.flashSprite.__worldColorTransform);
+		r.__worldColorTransform.__invert();
+		r.__setRenderTarget(bitmap);
 
 		if (drawFlashSprite)
-			bitmap.__drawGL(camera.flashSprite, renderer);
+			bitmap.__drawGL(camera.flashSprite, r);
 		else
-			bitmap.__drawGL(camera.canvas, renderer);
+			bitmap.__drawGL(camera.canvas, r);
 
 		return bitmap;
 	}

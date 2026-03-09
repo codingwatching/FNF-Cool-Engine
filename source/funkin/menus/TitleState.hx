@@ -249,7 +249,7 @@ class TitleState extends funkin.states.MusicBeatState
 			else
 				FlxG.sound.playMusic(freakyPath, 0);
 
-			FlxG.sound.music.fadeIn(4, 0, 0.7);
+			FlxG.sound.music?.fadeIn(4, 0, 0.7);
 			Conductor.changeBPM(titleData != null && titleData.bpm != null ? titleData.bpm : 102);
 			initialized = true;
 		}
