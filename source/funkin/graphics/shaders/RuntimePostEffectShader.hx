@@ -3,17 +3,14 @@ package funkin.graphics.shaders;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.graphics.frames.FlxFrame;
-import flixel.addons.display.FlxRuntimeShader;
-import lime.graphics.opengl.GLProgram;
-import lime.utils.Log;
-
+import funkin.graphics.shaders.FunkinRuntimeShader;
 /**
  * Shader base para efectos de post-proceso.
  * Expone coordenadas de pantalla, cámara y frame como uniforms.
  *
  * Portado de v-slice (FunkinCrew/Funkin).
  */
-class RuntimePostEffectShader extends FlxRuntimeShader
+class RuntimePostEffectShader extends FunkinRuntimeShader
 {
 	@:glVertexHeader('
 		// Coordenada de pantalla normalizada
@@ -90,9 +87,10 @@ class RuntimePostEffectShader extends FlxRuntimeShader
 			return sampleBitmapScreen(worldToScreen(wc));
 		}
 	', true)
-	public function new(fragmentSource:String = null)
+	public function new(?fragmentSource:String, ?vertexSource:String)
 	{
-		super(fragmentSource);
+		// Pasa vertex shader opcional al FunkinRuntimeShader base
+		super(fragmentSource, vertexSource);
 		// Los uniforms pueden ser null si el contexto GL aún no está listo.
 		try { uScreenResolution.value = [FlxG.width, FlxG.height]; } catch (_:Dynamic) {}
 		try { uCameraBounds.value     = [0, 0, FlxG.width, FlxG.height]; } catch (_:Dynamic) {}
@@ -117,16 +115,5 @@ class RuntimePostEffectShader extends FlxRuntimeShader
 		uFrameBounds.value = [frame.uv.left, frame.uv.top, frame.uv.right, frame.uv.bottom];
 	}
 
-	override function __createGLProgram(vertexSource:String, fragmentSource:String):GLProgram
-	{
-		try
-		{
-			return super.__createGLProgram(vertexSource, fragmentSource);
-		}
-		catch (error)
-		{
-			Log.warn(error); // Evita crash inmediato si el shader falla
-			return null;
-		}
-	}
+	// __createGLProgram ya está manejado en FunkinRuntimeShader con Log.warn()
 }

@@ -35,6 +35,7 @@ class StrumNote extends FlxSprite
 		scrollFactor.set();
 		animation.play('static');
 		centerOffsets();
+		// Los strums NO llevan NoteGlowShader — el glow de proximidad va en las notas entrantes
 	}
 
 	// ==================== CARGA DE SKIN ====================

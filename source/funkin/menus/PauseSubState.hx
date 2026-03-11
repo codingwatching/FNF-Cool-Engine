@@ -76,6 +76,15 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	var _pauseCam:flixel.FlxCamera;
 
 	/**
+	 * When paused during a cutscene the video bitmap sits ABOVE the normal
+	 * Flixel camera canvases in the display list (added via addChildBelowMouse).
+	 * A camera that is added to FlxG.cameras AFTER the video will have its
+	 * flashSprite inserted above the video → renders on top of it.
+	 * We track whether we created and own this camera so we can remove it cleanly.
+	 */
+	var _ownedCam:Bool = false;
+
+	/**
 	 * @param cutsceneMode  Pasar `true` cuando se pausa durante un video en curso.
 	 */
 	public function new(?cutsceneMode:Bool = false)
@@ -84,8 +93,22 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		isCutsceneMode = cutsceneMode;
 
-		// ── Cámara — siempre la última de la lista para estar encima de todo ──
-		_pauseCam = FlxG.cameras.list[FlxG.cameras.list.length - 1];
+		// ── Cámara ────────────────────────────────────────────────────────────
+		// Cutscene mode: create a NEW camera so its flashSprite is added to
+		// FlxG.game AFTER the video bitmap → renders on top of the video.
+		// Normal mode: reuse the last existing camera (original behaviour).
+		if (isCutsceneMode && VideoManager.isPlaying)
+		{
+			_pauseCam  = new flixel.FlxCamera();
+			_pauseCam.bgColor = flixel.util.FlxColor.TRANSPARENT;
+			FlxG.cameras.add(_pauseCam, false); // false = don't set as default camera
+			_ownedCam  = true;
+		}
+		else
+		{
+			_pauseCam = FlxG.cameras.list[FlxG.cameras.list.length - 1];
+			_ownedCam = false;
+		}
 		cameras = [_pauseCam];
 
 		_cleanSoundList();
@@ -110,6 +133,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		levelInfo.scrollFactor.set();
 		levelInfo.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelInfo.borderSize = 2;
+		levelInfo.antialiasing = true;
 		levelInfo.updateHitbox();
 		levelInfo.alpha = 0;
 		levelInfo.cameras = [_pauseCam];
@@ -119,6 +143,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		levelDifficulty.scrollFactor.set();
 		levelDifficulty.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelDifficulty.borderSize = 1.5;
+		levelDifficulty.antialiasing = true;
 		levelDifficulty.updateHitbox();
 		levelDifficulty.alpha = 0;
 		levelDifficulty.cameras = [_pauseCam];
@@ -128,6 +153,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		levelDeaths.scrollFactor.set();
 		levelDeaths.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelDeaths.borderSize = 1.5;
+		levelDeaths.antialiasing = true;
 		levelDeaths.alpha = 0;
 		levelDeaths.cameras = [_pauseCam];
 		add(levelDeaths);
@@ -136,6 +162,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		levelAuthor.scrollFactor.set();
 		levelAuthor.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelAuthor.borderSize = 1.5;
+		levelAuthor.antialiasing = true;
 		levelAuthor.alpha = 0;
 		levelAuthor.cameras = [_pauseCam];
 		add(levelAuthor);
@@ -157,6 +184,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 			"ENTER: Select  |  ARROWS: Navigate  |  ESC: Resume", 16);
 		helpText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
 		helpText.scrollFactor.set();
+		helpText.antialiasing = true;
 		helpText.alpha = 0;
 		helpText.cameras = [_pauseCam];
 		add(helpText);
@@ -500,6 +528,14 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		}
 
 		super.destroy();
+
+		// Remove the camera we created (cutscene mode only) so it doesn't leak.
+		if (_ownedCam && _pauseCam != null)
+		{
+			FlxG.cameras.remove(_pauseCam, true);
+			_pauseCam = null;
+			_ownedCam = false;
+		}
 
 		// Seguridad: si el substate se destruyó sin pasar por Resume/Exit
 		// Solo restaurar sonido si no fue gestionado ya por alguna ruta de salida

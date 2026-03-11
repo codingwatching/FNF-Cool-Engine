@@ -24,6 +24,7 @@ import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
 import lime.ui.FileDialog;
+import funkin.audio.MusicManager;
 #end
 
 using StringTools;
@@ -105,9 +106,12 @@ class CharacterSelectorState extends MusicBeatState
 	override function create():Void
 	{
 		EditorTheme.load();
-		MainMenuState.musicFreakyisPlaying = false;
 		FlxG.mouse.visible = true;
-		FlxG.sound.playMusic(Paths.music('configurator'), 0.7);
+		// MusicManager solo cambia si 'configurator' no está sonando ya.
+		// Resetear la flag solo cuando realmente se cambia la pista.
+		if (!MusicManager.isPlaying('configurator'))
+			MainMenuState.musicFreakyisPlaying = false;
+		MusicManager.play('configurator', 0.7);
 
 		loadCharList();
 
@@ -444,8 +448,8 @@ class CharacterSelectorState extends MusicBeatState
 	function importStandardSprite():Void
 	{
 		#if sys
-		var dlg = new FileDialog();
-		dlg.onSelect.add(function(path:String)
+		var _fd_Select_Spr = new FileDialog();
+		_fd_Select_Spr.onSelect.add(function(path:String)
 		{
 			try
 			{
@@ -482,15 +486,15 @@ class CharacterSelectorState extends MusicBeatState
 			}
 			catch (e:Dynamic) { setStatus("✗ Error: " + e, FlxColor.RED); }
 		});
-		dlg.browse(OPEN, "png", null, "Select Sprite PNG");
+		_fd_Select_Spr.browse(OPEN, "png", null, "Select Sprite PNG");
 		#end
 	}
 
 	function importFlxAnimate():Void
 	{
 		#if sys
-		var dlg = new FileDialog();
-		dlg.onSelect.add(function(pngPath:String)
+		var _fd_Select_Spr = new FileDialog();
+		_fd_Select_Spr.onSelect.add(function(pngPath:String)
 		{
 			try
 			{
@@ -522,7 +526,7 @@ class CharacterSelectorState extends MusicBeatState
 
 				importedIsFlxAnimate   = true;
 				importedIsTxt          = false;
-				importedSpritePath     = wizardCharName;   // folder name = char name
+				importedSpritePath     = wizardCharName;
 				importedSpritemapName  = baseName;
 
 				var msg = "✓ FlxAnimate imported";
@@ -531,15 +535,15 @@ class CharacterSelectorState extends MusicBeatState
 			}
 			catch (e:Dynamic) { setStatus("✗ Error: " + e, FlxColor.RED); }
 		});
-		dlg.browse(OPEN, "png", null, "Select Spritemap PNG (FlxAnimate)");
+		_fd_Select_Spr.browse(OPEN, "png", null, "Select Spritemap PNG (FlxAnimate)");
 		#end
 	}
 
 	function importIcon():Void
 	{
 		#if sys
-		var dlg = new FileDialog();
-		dlg.onSelect.add(function(path:String)
+		var _fd_Select_Ico = new FileDialog();
+		_fd_Select_Ico.onSelect.add(function(path:String)
 		{
 			try
 			{
@@ -552,7 +556,7 @@ class CharacterSelectorState extends MusicBeatState
 			}
 			catch (e:Dynamic) { setStatus("✗ Error: " + e, FlxColor.RED); }
 		});
-		dlg.browse(OPEN, "png", null, "Select Icon PNG (300×150)");
+		_fd_Select_Ico.browse(OPEN, "png", null, "Select Icon PNG (300x150)");
 		#end
 	}
 

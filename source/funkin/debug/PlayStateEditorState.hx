@@ -452,7 +452,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		camHUD.bgColor.alpha = 0;
 		FlxG.cameras.add(camHUD, false);
 
-		FlxCamera.defaultCameras = [camGame];
+		@:privateAccess FlxCamera._defaultCameras = [camGame];
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

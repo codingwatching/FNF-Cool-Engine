@@ -10,7 +10,7 @@ void main()
     float fps = 8.0;
     float t = floor(uTime * fps) / fps;
 
-    vec2 sc = gl_FragCoord.xy / vec2(1280.0, 720.0);
+    vec2 sc = gl_FragCoord.xy / openfl_TextureSize;
 
     float offX = sin(sc.y * 6.0 + t * 0.6) * 0.003;
     float offY = sin(sc.x * 5.0 + t * 0.45) * 0.002;
@@ -20,7 +20,7 @@ void main()
     vec2 rawOffset = vec2(offX + offX2, offY + offY2);
 
     // Snapear el offset a pasos de 2px en pantalla
-    vec2 pixelStep = vec2(2.0 / 1280.0, 2.0 / 720.0);
+    vec2 pixelStep = 2.0 / openfl_TextureSize;
     vec2 snappedOffset = floor(rawOffset / pixelStep) * pixelStep;
 
     vec2 uvWarped = uv + snappedOffset;

@@ -456,6 +456,36 @@ class ModManager
 			}
 			catch (e:Dynamic) { trace('[ModManager] Error mod.json "$id": $e'); }
 		}
+		else
+		{
+			// ── V-Slice mod: usa _polymod_meta.json en lugar de mod.json ──────────
+			// Formato: { "title":"Name", "description":"...", "contributors":[{"name":"Author"}],
+			//            "api_version":"0.8.0", "mod_version":"1.0.0" }
+			final polymodPath = '$path/_polymod_meta.json';
+			if (FileSystem.exists(polymodPath))
+			{
+				try
+				{
+					final d:Dynamic = Json.parse(File.getContent(polymodPath));
+					// "title" es el nombre del mod en V-Slice
+					if (d.title != null)   name    = Std.string(d.title);
+					if (d.description != null) desc = Std.string(d.description);
+					// Primer contribuidor = autor
+					if (d.contributors != null && Std.isOfType(d.contributors, Array))
+					{
+						final contribs:Array<Dynamic> = cast d.contributors;
+						if (contribs.length > 0 && contribs[0].name != null)
+							author = Std.string(contribs[0].name);
+					}
+					// mod_version es la versión
+					if (d.mod_version != null) version = Std.string(d.mod_version);
+					// V-Slice mods no tienen enabled/priority en _polymod_meta → defaults
+					// Nota: no hay mod.json → no hay engineOverrides para V-Slice
+					trace('[ModManager] Mod V-Slice detectado via _polymod_meta.json: "$id" ("$name")');
+				}
+				catch (e:Dynamic) { trace('[ModManager] Error _polymod_meta.json "$id": $e'); }
+			}
+		}
 
 		final enabled = _enabledMap.exists(id) ? _enabledMap.get(id) : enabledDef;
 		return {

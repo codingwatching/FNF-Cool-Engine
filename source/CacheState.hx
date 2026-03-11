@@ -10,6 +10,7 @@ import funkin.menus.TitleState;
 import funkin.gameplay.objects.hud.Highscore;
 import data.PlayerSettings;
 import funkin.states.LoadingState;
+import funkin.shaders.ShaderManager;
 
 using StringTools;
 
@@ -165,7 +166,22 @@ class CacheState extends funkin.states.MusicBeatState
 
     function goToTitle():Void
     {
-        FlxG.autoPause = true;
+        // FIX (música al minimizar): autoPause = false
+        FlxG.autoPause = false;
+
+        // Aplicar FPS guardado
+        funkin.data.EngineSettings.applyFPS();
+
+        // FIX (ventana pequeña): forzar tamaño 1080p
+        funkin.data.EngineSettings.ensureWindowSize();
+
+        // ── Shaders ────────────────────────────────────────────────────────
+        // init() lee FlxG.save.data.shadersEnabled, crea los shaders y se
+        // engancha a postStateSwitch para re-aplicarse en cada estado
+        // automáticamente. Solo necesitas esta línea — no más setup en otros states.
+        ShaderManager.init();
+        ShaderManager.applyMenuPreset();
+
         LoadingState.loadAndSwitchState(new TitleState(), true);
         FlxG.camera.fade(FlxColor.BLACK, 0.8, false);
     }

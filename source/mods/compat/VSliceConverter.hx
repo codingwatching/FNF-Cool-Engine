@@ -800,4 +800,138 @@ class VSliceConverter
 		final f = Std.parseFloat(Std.string(v));
 		return Math.isNaN(f) ? def : f;
 	}
+
+	// ── Conversión de personajes V-Slice ──────────────────────────────────────
+
+	/**
+	 * Convierte un JSON de personaje en formato V-Slice al formato Cool Engine.
+	 *
+	 * Formato V-Slice:
+	 * {
+	 *   "version": "1.0.0",
+	 *   "name": "Boyfriend",
+	 *   "renderType": "sparrow",          // "sparrow" | "animateatlas" | "multisparrow"
+	 *   "assetPath": "shared:characters/BF_Assets",
+	 *   "scale": 1.0,
+	 *   "flipX": false,
+	 *   "healthIcon": { "id": "bf", "isPixel": false },
+	 *   "healthBar": { "leftColor": "...", "rightColor": "..." },
+	 *   "animations": [
+	 *     { "name": "idle", "prefix": "BF idle dance", "fps": 24, "looped": true,
+	 *       "frameIndices": [], "offsets": { "x": 0, "y": 0 } }
+	 *   ],
+	 *   "offsets": { "x": 0, "y": 0 },
+	 *   "cameraOffsets": { "x": 0, "y": 0 },
+	 *   "startingAnimation": "idle",
+	 *   "antialiasing": true
+	 * }
+	 *
+	 * Formato Cool Engine resultante (compatible con CharacterData):
+	 * {
+	 *   "image": "characters/BF_Assets",
+	 *   "scale": 1.0,
+	 *   "flip_x": false,
+	 *   "healthicon": "bf",
+	 *   "antialiasing": true,
+	 *   "animations": [
+	 *     { "anim": "idle", "name": "BF idle dance", "fps": 24, "loop": true,
+	 *       "indices": [], "offsets": [0, 0] }
+	 *   ],
+	 *   "position": [0, 0],
+	 *   "camera_position": [0, 0]
+	 * }
+	 */
+	public static function convertCharacter(rawJson:String, charName:String):Dynamic
+	{
+		trace('[VSliceConverter] Converting V-Slice character: $charName');
+		final src:Dynamic = Json.parse(rawJson);
+
+		// ── Asset path → imagen ───────────────────────────────────────────────
+		// V-Slice usa "shared:characters/BF_Assets" o solo "characters/BF_Assets".
+		// Cool Engine usa solo la parte de path relativa a images/ sin extensión.
+		var rawAsset:String = _str(src.assetPath, 'characters/' + charName);
+		// Quitar prefijo de biblioteca (e.g. "shared:")
+		final colonIdx = rawAsset.indexOf(':');
+		if (colonIdx >= 0) rawAsset = rawAsset.substr(colonIdx + 1);
+		// Quitar leading slash
+		if (rawAsset.startsWith('/')) rawAsset = rawAsset.substr(1);
+
+		// ── Posición global ───────────────────────────────────────────────────
+		var posX:Float = 0.0;
+		var posY:Float = 0.0;
+		if (src.offsets != null)
+		{
+			posX = _float(src.offsets.x, 0.0);
+			posY = _float(src.offsets.y, 0.0);
+		}
+
+		// ── Camera offsets ────────────────────────────────────────────────────
+		var camX:Float = 0.0;
+		var camY:Float = 0.0;
+		if (src.cameraOffsets != null)
+		{
+			camX = _float(src.cameraOffsets.x, 0.0);
+			camY = _float(src.cameraOffsets.y, 0.0);
+		}
+
+		// ── Health icon ───────────────────────────────────────────────────────
+		var iconId:String = charName;
+		if (src.healthIcon != null && src.healthIcon.id != null)
+			iconId = _str(src.healthIcon.id, charName);
+
+		// ── Animaciones ───────────────────────────────────────────────────────
+		final coolAnims:Array<Dynamic> = [];
+		if (src.animations != null && Std.isOfType(src.animations, Array))
+		{
+			final vsAnims:Array<Dynamic> = cast src.animations;
+			for (anim in vsAnims)
+			{
+				// V-Slice "name" = cool "anim" (ID interno), "prefix" = cool "name" (atlas prefix)
+				final animId:String     = _str(anim.name, '');
+				final atlasPrefix:String = _str(anim.prefix, animId);
+				final fps:Int           = Std.int(_float(anim.fps, 24.0));
+				final looped:Bool       = (anim.looped == true);
+
+				// Frame indices: [] o vacío = sin restricción
+				var indices:Array<Int> = [];
+				if (anim.frameIndices != null && Std.isOfType(anim.frameIndices, Array))
+				{
+					final raw:Array<Dynamic> = cast anim.frameIndices;
+					indices = [for (i in raw) Std.int(_float(i, 0))];
+				}
+
+				// Offsets por animación (sobreescriben el offset global en Cool)
+				var offX:Float = 0.0;
+				var offY:Float = 0.0;
+				if (anim.offsets != null)
+				{
+					offX = _float(anim.offsets.x, 0.0);
+					offY = _float(anim.offsets.y, 0.0);
+				}
+
+				coolAnims.push({
+					anim:    animId,
+					name:    atlasPrefix,
+					fps:     fps,
+					loop:    looped,
+					indices: indices,
+					offsets: [offX, offY]
+				});
+			}
+		}
+
+		// ── Resultado Cool Engine ─────────────────────────────────────────────
+		return {
+			image:           rawAsset,
+			scale:           _float(src.scale, 1.0),
+			flip_x:          src.flipX == true,
+			healthicon:      iconId,
+			antialiasing:    src.antialiasing != false, // default true
+			animations:      coolAnims,
+			position:        [posX, posY],
+			camera_position: [camX, camY],
+			// Animación inicial si se especifica
+			startAnim:       src.startingAnimation != null ? _str(src.startingAnimation, 'idle') : 'idle'
+		};
+	}
 }

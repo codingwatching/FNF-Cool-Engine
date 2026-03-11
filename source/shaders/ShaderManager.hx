@@ -5,49 +5,88 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.addons.display.FlxRuntimeShader;
 import flixel.system.FlxAssets.FlxShader;
+import funkin.data.CameraUtil;
+import funkin.graphics.shaders.FunkinRuntimeShader;
+import funkin.shaders.BloomShader;
+import funkin.shaders.NoteGlowShader;
 import mods.ModManager;
+import openfl.filters.BitmapFilter;
 import openfl.filters.ShaderFilter;
+import shaders.compat.ShaderCompat;
+#if sys
 import sys.FileSystem;
 import sys.io.File;
+#end
 
 using StringTools;
 
 /**
- * ShaderManager — Sistema centralizado de shaders runtime.
+ * ShaderManager — Sistema unificado de shaders para Cool Engine.
  *
- * USA FlxRuntimeShader directamente, igual que Psych Engine y V-Slice.
- * FlxRuntimeShader expone setFloat/setInt/setBool/setFloatArray que son seguros
- * y NO requieren tocar __data, __paramFloat, __paramBool ni nada interno.
- * Esto elimina los null-object-reference de la versión anterior que intentaba
- * registrar uniforms a mano con _registerParam/__processGLData.
+ * ─── DOS RESPONSABILIDADES EN UNA CLASE ──────────────────────────────────────
+ *
+ *  1. EFECTOS DE CÁMARA (bloom, filmGrain)
+ *     Llamar init() UNA VEZ desde CacheState.goToTitle().
+ *     Se engancha a postStateSwitch y re-aplica automáticamente en cada estado.
+ *
+ *       ShaderManager.init();
+ *       ShaderManager.applyMenuPreset();
+ *
+ *  2. SHADERS RUNTIME (archivo .frag / inline GLSL) para sprites y cámaras
+ *     Carga shaders desde assets/shaders/ o mods, los aplica a sprites
+ *     y permite controlar uniforms en tiempo real.
+ *
+ *       ShaderManager.applyShader(mySprite, 'wave');
+ *       ShaderManager.setShaderParam('wave', 'uTime', elapsed);
+ *       ShaderManager.applyShaderToCamera('chromaShift');
+ *
+ *  3. FLECHAS (NoteGlowShader)
+ *       ShaderManager.applyToNote(arrowSprite, noteData % 4);
+ *
+ * @author  Cool Engine Team
+ * @since   0.7.0
  */
 class ShaderManager
 {
-	public static var shaders:Map<String, CustomShader>          = new Map();
-	public static var shaderPaths:Map<String, String>            = new Map();
+	// ═══════════════════════════════════════════════════════════════════════════
+	// PARTE 1 — EFECTOS DE CÁMARA
+	// ═══════════════════════════════════════════════════════════════════════════
 
-	static var _liveInstances:Map<String, Array<FlxRuntimeShader>>                           = new Map();
-	static var _spriteToInstance:Map<FlxSprite, {name:String, instance:FlxRuntimeShader}>    = new Map();
-	static var _pendingParams:Map<String, Map<String, Dynamic>>                              = new Map();
+	public static var bloom     (default, null):BloomShader;
 
-	/**
-	 * Caché de todos los parámetros que se han aplicado exitosamente a cualquier instancia
-	 * de un shader dado. Cuando `applyShader` o `applyShaderToCamera` crean una instancia
-	 * NUEVA (por re-apply), este caché se usa para restaurar los parámetros.
-	 *
-	 * BUG ANTERIOR: al llamar `applyShader` por segunda vez en el mismo sprite, la nueva
-	 * instancia partía desde cero (uniforms en 0) porque `_pendingParams` ya estaba vacío
-	 * (los params se habían escrito en la instancia anterior y eliminado del pending).
-	 * Resultado: waveX/freqX etc. = 0 → sin efecto visual / fondo negro si params eran
-	 * necesarios para que el shader renderizara correctamente.
-	 */
-	static var _lastAppliedParams:Map<String, Map<String, Dynamic>>                          = new Map();
+	/** Efectos de cámara activos. Se persiste en FlxG.save.data.shadersEnabled */
+	public static var enabled(default, null):Bool = true;
+
+	public static var initialized(default, null):Bool = false;
+
+	static var _time:Float  = 0.0;
+	static var _hooked:Bool = false;
 
 	// ─── Init ─────────────────────────────────────────────────────────────────
 
+	/**
+	 * Inicializar UNA VEZ en CacheState.goToTitle().
+	 * Combina la inicialización de efectos de cámara + escaneo de shaders runtime.
+	 */
 	public static function init():Void
 	{
-		trace('[ShaderManager] Inicializando...');
+		// ── Efectos de cámara ──────────────────────────────────────────────────
+		if (FlxG.save.data.shadersEnabled != null)
+			enabled = (FlxG.save.data.shadersEnabled == true);
+		else
+			enabled = true;
+
+		_createCameraShaders();
+
+		if (!_hooked)
+		{
+			_hooked = true;
+			FlxG.signals.postStateSwitch.add(_onStateSwitch);
+		}
+
+		initialized = true;
+
+		// ── Shaders runtime ───────────────────────────────────────────────────
 		scanShaders();
 
 		final prevCallback = ModManager.onModChanged;
@@ -56,7 +95,125 @@ class ShaderManager
 			if (prevCallback != null) prevCallback(modId);
 			reloadAllShaders();
 		};
+
+		trace('[ShaderManager] Inicializado. enabled=$enabled, ${Lambda.count(shaderPaths)} shaders runtime disponibles');
+		applyToCamera();
 	}
+
+	// ─── Toggle ───────────────────────────────────────────────────────────────
+
+	/** Activa/desactiva los efectos de cámara y guarda la preferencia. */
+	public static function setEnabled(value:Bool):Void
+	{
+		enabled = value;
+		FlxG.save.data.shadersEnabled = value;
+		FlxG.save.flush();
+		applyToCamera();
+		trace('[ShaderManager] Efectos de cámara ${enabled ? "ON" : "OFF"}');
+	}
+
+	// ─── Cámara ───────────────────────────────────────────────────────────────
+
+	/**
+	 * Aplica (o elimina) los efectos de cámara (bloom, filmGrain).
+	 * @param cam  null = FlxG.camera
+	 */
+	public static function applyToCamera(?cam:FlxCamera):Void
+	{
+		if (!initialized) init();
+		if (cam == null) cam = FlxG.camera;
+
+		if (!enabled)
+		{
+			CameraUtil.clearFilters(cam);
+			return;
+		}
+
+		final filters:Array<BitmapFilter> = [
+			new ShaderFilter(bloom)
+		];
+		CameraUtil.setFilters(cam, filters);
+	}
+
+	// ─── Update ───────────────────────────────────────────────────────────────
+
+	/** Llamar desde MusicBeatState.update(elapsed). Anima filmGrain. */
+	public static function update(elapsed:Float):Void
+	{
+		if (!initialized || !enabled) return;
+		_time += elapsed;
+	}
+
+	// ─── Presets ──────────────────────────────────────────────────────────────
+
+	public static function applyMenuPreset():Void
+	{
+		if (!initialized) return;
+		if (bloom != null)     { bloom.threshold  = 0.60; bloom.intensity = 0.50; }
+	}
+
+	public static function applyGameplayPreset():Void
+	{
+		if (!initialized) return;
+		if (bloom != null)     { bloom.threshold  = 0.50; bloom.intensity = 0.80; }
+	}
+
+	public static function onResize(w:Float, h:Float):Void
+	{
+		if (bloom != null) bloom.setResolution(w, h);
+	}
+
+	// ─── Flechas ──────────────────────────────────────────────────────────────
+
+	/**
+	 * Aplica NoteGlowShader a una flecha. Si los efectos están OFF, pone null.
+	 * @param sprite     FlxSprite de la flecha
+	 * @param direction  0=LEFT  1=DOWN  2=UP  3=RIGHT
+	 */
+	public static function applyToNote(sprite:FlxSprite, direction:Int):Void
+	{
+		sprite.shader = enabled ? NoteGlowShader.forDirection(direction % 4) : null;
+	}
+
+	/** Quita el shader de una flecha. */
+	public static inline function removeFromNote(sprite:FlxSprite):Void
+		sprite.shader = null;
+
+	// ─── Internos cámara ──────────────────────────────────────────────────────
+
+	static function _createCameraShaders():Void
+	{
+		bloom     = new BloomShader(0.55, 0.65, 1.8);
+	}
+
+	static function _onStateSwitch():Void
+	{
+		flixel.util.FlxTimer.wait(0, function() applyToCamera());
+	}
+
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// PARTE 2 — SHADERS RUNTIME (sprites / cámaras / mods)
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	public static var shaders:Map<String, CustomShader>    = new Map();
+	public static var shaderPaths:Map<String, String>      = new Map();
+
+	/** Rutas de vertex shader opcionales (.vert) para cada shader registrado. */
+	public static var vertPaths:Map<String, String>        = new Map();
+
+	static var _liveInstances:Map<String, Array<FunkinRuntimeShader>>                         = new Map();
+	static var _spriteToInstance:Map<FlxSprite, {name:String, instance:FunkinRuntimeShader}> = new Map();
+	static var _pendingParams:Map<String, Map<String, Dynamic>>                               = new Map();
+	static var _lastAppliedParams:Map<String, Map<String, Dynamic>>                           = new Map();
+
+	/**
+	 * Overlays de cámara gestionados internamente por applyShaderToCamera().
+	 * Clave: "$shaderName@camId" → FlxSprite overlay.
+	 * Permite que removeShaderFromCamera() limpie sin que el stage script
+	 * tenga que gestionar el sprite manualmente.
+	 */
+	static var _cameraOverlayMap:Map<String, FlxSprite> = new Map();
 
 	// ─── Escaneo ──────────────────────────────────────────────────────────────
 
@@ -81,9 +238,7 @@ class ShaderManager
 		if (!FileSystem.exists(folderPath) || !FileSystem.isDirectory(folderPath))
 		{
 			if (modId == null)
-			{
 				try { FileSystem.createDirectory(folderPath); } catch (e:Dynamic) {}
-			}
 			return;
 		}
 		final prefix = modId != null ? '[$modId] ' : '[base] ';
@@ -92,6 +247,9 @@ class ShaderManager
 			if (!file.endsWith('.frag')) continue;
 			final shaderName = file.substr(0, file.length - 5);
 			shaderPaths.set(shaderName, '$folderPath/$file');
+			final vertFile = shaderName + '.vert';
+			if (FileSystem.exists('$folderPath/$vertFile'))
+				vertPaths.set(shaderName, '$folderPath/$vertFile');
 			trace('[ShaderManager] Registrado ${prefix}$shaderName');
 		}
 		#end
@@ -113,10 +271,16 @@ class ShaderManager
 		}
 		try
 		{
+			#if sys
 			final fragCode = File.getContent(shaderPaths.get(shaderName));
-			final shader   = new CustomShader(shaderName, fragCode);
+			final vertCode = vertPaths.exists(shaderName) ? File.getContent(vertPaths.get(shaderName)) : null;
+			#else
+			final fragCode = openfl.utils.Assets.getText(shaderPaths.get(shaderName));
+			final vertCode:Null<String> = null;
+			#end
+			final shader = new CustomShader(shaderName, fragCode, vertCode);
 			shaders.set(shaderName, shader);
-			trace('[ShaderManager] Shader "$shaderName" cargado');
+			trace('[ShaderManager] Shader "$shaderName" cargado' + (vertCode != null ? ' (con vertex shader)' : ''));
 			return shader;
 		}
 		catch (e:Dynamic)
@@ -131,17 +295,7 @@ class ShaderManager
 
 	/**
 	 * Registra un shader desde código GLSL inline (sin archivo .frag).
-	 * Si ya existe un shader con ese nombre, lo SOBREESCRIBE con el nuevo código.
-	 *
-	 * Uso desde HScript:
-	 *   ShaderManager.registerInline('miEfecto', '
-	 *     uniform float uTime;
-	 *     void main() {
-	 *       vec2 uv = openfl_TextureCoordv;
-	 *       gl_FragColor = flixel_texture2D(bitmap, uv) * vec4(abs(sin(uTime)), 1.0, 1.0, 1.0);
-	 *     }
-	 *   ');
-	 *   ShaderManager.applyShader(mySprite, 'miEfecto');
+	 * Si ya existe un shader con ese nombre, lo sobreescribe.
 	 */
 	public static function registerInline(shaderName:String, fragCode:String):CustomShader
 	{
@@ -150,14 +304,10 @@ class ShaderManager
 			trace('[ShaderManager] registerInline: código vacío para "$shaderName"');
 			return null;
 		}
-
-		// Si ya hay instancias vivas de este shader, las invalidamos para que
-		// la próxima vez que se aplique se use el código nuevo.
 		if (shaders.exists(shaderName)) shaders.remove(shaderName);
-		// Limpiar instancias vivas antiguas (código viejo).
 		_liveInstances.remove(shaderName);
 
-		final shader = new CustomShader(shaderName, fragCode);
+		final shader = new CustomShader(shaderName, fragCode, null);
 		shaders.set(shaderName, shader);
 		trace('[ShaderManager] Shader inline "$shaderName" registrado.');
 		return shader;
@@ -174,14 +324,14 @@ class ShaderManager
 
 		removeShader(sprite);
 
-		var instance:FlxRuntimeShader;
+		var instance:FunkinRuntimeShader;
 		try
 		{
-			instance = new FlxRuntimeShader(cs.fragmentCode);
+			instance = new FunkinRuntimeShader(cs.fragmentCode, cs.vertexCode);
 		}
 		catch (e:Dynamic)
 		{
-			trace('[ShaderManager] Error al crear FlxRuntimeShader "$shaderName": $e');
+			trace('[ShaderManager] Error al crear FunkinRuntimeShader "$shaderName": $e');
 			return false;
 		}
 
@@ -191,28 +341,38 @@ class ShaderManager
 		_liveInstances.get(shaderName).push(instance);
 		_spriteToInstance.set(sprite, {name: shaderName, instance: instance});
 
-		// Restaurar params del caché ANTES de flush para que _lastAppliedParams
-		// tenga prioridad sobre _pendingParams (que puede estar vacío si el shader
-		// ya fue aplicado antes y los params se escribieron en la instancia anterior).
 		_restoreLastParams(shaderName, instance);
 		_flushPendingForShader(shaderName);
-		trace('[ShaderManager] Shader "$shaderName" aplicado');
+		trace('[ShaderManager] Shader "$shaderName" aplicado a sprite');
 		return true;
 	}
 
 	/**
-	 * Aplica un shader como filtro de cámara y lo registra en _liveInstances
-	 * para que setShaderParam() pueda actualizarlo cada frame.
+	 * Aplica un shader a una cámara mediante un sprite overlay de pantalla completa.
 	 *
-	 * BUG ANTERIOR: ScriptAPI.camera.addShader() creaba la instancia via
-	 * CustomShader.get_shader() sin registrarla → setShaderParam no la encontraba
-	 * → todos los uniforms (uTime, etc.) se quedaban a 0 → sin efecto visible.
+	 * ── POR QUÉ OVERLAY Y NO ShaderFilter ────────────────────────────────────
+	 * `FlxRuntimeShader` como `ShaderFilter` en una `FlxCamera` **no** hace el
+	 * binding automático de `bitmap` a la textura renderizada de esa cámara.
+	 * Ese binding solo ocurre en shaders **compilados** (subclases de `FlxShader`
+	 * con `@:glFragmentSource`, como `BloomShader`), donde la macro de Haxe genera
+	 * el campo `__bitmap : ShaderInput<BitmapData>` en compile-time.
+	 * En `FlxRuntimeShader` el campo se crea dinámicamente y OpenFL no lo localiza
+	 * vía `Reflect.field`, por lo que la textura de la cámara nunca llega al shader
+	 * → pantalla negra.
+	 *
+	 * SOLUCIÓN FIABLE: sprite overlay 100% blanco, scrollFactor(0,0), mismo tamaño
+	 * que la pantalla. `FlxSprite.shader` sí bindea el bitmap del sprite propio.
+	 * El shader recibe ese bitmap blanco y produce un overlay semi-transparente que
+	 * OpenFL composta sobre la escena con blending NORMAL.
+	 *
+	 * El sprite se gestiona internamente; usa `removeShaderFromCamera()` para quitarlo.
+	 * Para post-proceso real (leer la textura de la cámara), usa `applyPostProcessToCamera()`.
 	 *
 	 * @param shaderName  Nombre del shader (sin extensión .frag)
 	 * @param cam         Cámara destino (default: FlxG.camera)
-	 * @return El ShaderFilter creado, o null si falló
+	 * @return            Siempre null — el efecto lo gestiona el sprite interno.
 	 */
-	public static function applyShaderToCamera(shaderName:String, ?cam:FlxCamera):openfl.filters.ShaderFilter
+	public static function applyShaderToCamera(shaderName:String, ?cam:FlxCamera):ShaderFilter
 	{
 		if (cam == null) cam = FlxG.camera;
 
@@ -223,12 +383,13 @@ class ShaderManager
 			return null;
 		}
 
-		var instance:FlxRuntimeShader;
+		// Quitar overlay anterior del mismo shader en esta cámara (si existe)
+		removeShaderFromCamera(shaderName, cam);
+
+		var instance:FunkinRuntimeShader;
 		try
 		{
-			// Crear instancia NUEVA (no reusar CustomShader._shader) para que
-			// cada cámara tenga su propio estado de uniforms independiente.
-			instance = new FlxRuntimeShader(cs.fragmentCode);
+			instance = new FunkinRuntimeShader(cs.fragmentCode, cs.vertexCode);
 		}
 		catch (e:Dynamic)
 		{
@@ -236,25 +397,122 @@ class ShaderManager
 			return null;
 		}
 
-		// Registrar en _liveInstances ANTES de flush para que los pending params
-		// (defaults del script) se apliquen inmediatamente tras añadir la instancia.
 		if (!_liveInstances.exists(shaderName)) _liveInstances.set(shaderName, []);
 		_liveInstances.get(shaderName).push(instance);
-		// Restaurar caché de params (fix re-apply loss) y luego flush pending.
 		_restoreLastParams(shaderName, instance);
 		_flushPendingForShader(shaderName);
 
-		final filter = funkin.data.CameraUtil.addShader(instance, cam);
-		trace('[ShaderManager] Shader "$shaderName" aplicado a cámara');
-		return filter;
+		// Sprite overlay de pantalla completa — fijo en pantalla, encima del stage.
+		var overlay = new FlxSprite(0, 0);
+		overlay.makeGraphic(FlxG.width, FlxG.height, 0xFFFFFFFF);
+		overlay.scrollFactor.set(0, 0);
+		overlay.cameras = [cam];
+		overlay.shader  = instance;
+
+		// Añadir al estado actual en la capa más alta (insert al final del grupo)
+		FlxG.state.add(overlay);
+
+		// Registrar para poder quitarlo con removeShaderFromCamera()
+		final key = '$shaderName@${Std.string(cam)}';
+		_cameraOverlayMap.set(key, overlay);
+
+		trace('[ShaderManager] Shader "$shaderName" aplicado a cámara (overlay)');
+		return null; // el overlay gestiona el efecto; no se devuelve ShaderFilter
 	}
 
 	/**
-	 * Registra manualmente una instancia de FlxRuntimeShader en _liveInstances.
-	 * Útil si la instancia fue creada externamente pero se quiere controlar
-	 * sus uniforms via setShaderParam().
+	 * Quita el shader overlay aplicado a una cámara con `applyShaderToCamera()`.
+	 * Si `cam` es null, quita todos los overlays de ese shader en cualquier cámara.
+	 *
+	 * @param shaderName  Nombre del shader
+	 * @param cam         Cámara de la que quitar el overlay (null = todas)
 	 */
-	public static function registerInstance(shaderName:String, instance:FlxRuntimeShader):Void
+	public static function removeShaderFromCamera(shaderName:String, ?cam:FlxCamera):Void
+	{
+		var toDelete:Array<String> = [];
+
+		for (key in _cameraOverlayMap.keys())
+		{
+			// La clave es "$shaderName@camRef" — filtramos por nombre de shader
+			if (!StringTools.startsWith(key, shaderName + '@')) continue;
+			// Si se especificó cámara, filtramos también por referencia
+			if (cam != null && key != '$shaderName@${Std.string(cam)}') continue;
+
+			var overlay = _cameraOverlayMap.get(key);
+			if (overlay != null)
+			{
+				// Quitar la instancia del shader del registro de lives
+				var arr = _liveInstances.get(shaderName);
+				if (arr != null && overlay.shader != null)
+					arr.remove(cast overlay.shader);
+
+				// Quitar del estado y destruir el sprite
+				try { FlxG.state.remove(overlay, true); } catch (_:Dynamic) {}
+				overlay.destroy();
+			}
+			toDelete.push(key);
+		}
+
+		for (k in toDelete) _cameraOverlayMap.remove(k);
+	}
+
+	/**
+	 * Aplica un shader como `ShaderFilter` real en la cámara (post-proceso verdadero).
+	 *
+	 * ── CUÁNDO USAR ESTO en vez de applyShaderToCamera() ─────────────────────
+	 * Úsalo SOLO cuando el shader necesite leer los píxeles reales de la cámara
+	 * (ej: blur, chromatic aberration que desplaza coordenadas, distorsión de escena).
+	 * En ese caso el shader DEBE tener `#pragma header` y usar
+	 * `flixel_texture2D(bitmap, openfl_TextureCoordv)` para samplear.
+	 *
+	 * ── REQUISITOS ────────────────────────────────────────────────────────────
+	 * • flixel-addons ≥ 2.11.0 con `FlxRuntimeShader` funcional como `ShaderFilter`
+	 * • El .frag DEBE contener `#pragma header` en la primera línea útil
+	 * • Usar `flixel_texture2D()` (no `texture2D()` directamente con openfl_TextureCoordv)
+	 *
+	 * El `ShaderFilter` devuelto es necesario para quitarlo después:
+	 *   `CameraUtil.removeFilter(filter, cam)`
+	 *
+	 * @param shaderName  Nombre del shader (sin extensión .frag)
+	 * @param cam         Cámara destino (default: FlxG.camera)
+	 * @return            El ShaderFilter creado, o null si falló.
+	 */
+	public static function applyPostProcessToCamera(shaderName:String, ?cam:FlxCamera):ShaderFilter
+	{
+		if (cam == null) cam = FlxG.camera;
+
+		final cs = getShader(shaderName);
+		if (cs == null || cs.fragmentCode == null)
+		{
+			trace('[ShaderManager] applyPostProcessToCamera: shader "$shaderName" no encontrado');
+			return null;
+		}
+
+		var instance:FunkinRuntimeShader;
+		try
+		{
+			instance = new FunkinRuntimeShader(cs.fragmentCode, cs.vertexCode);
+			// Fuerza la reinicialización del programa GL para asegurar que
+			// el binding de __bitmap esté listo antes de pasarlo a ShaderFilter.
+			instance.setupForPostProcess();
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ShaderManager] Error compilando shader "$shaderName" para post-process: $e');
+			return null;
+		}
+
+		if (!_liveInstances.exists(shaderName)) _liveInstances.set(shaderName, []);
+		_liveInstances.get(shaderName).push(instance);
+		_restoreLastParams(shaderName, instance);
+		_flushPendingForShader(shaderName);
+
+		final filter = CameraUtil.addShader(instance, cam);
+		trace('[ShaderManager] Shader "$shaderName" aplicado como post-process a cámara');
+		return filter;
+	}
+
+	public static function registerInstance(shaderName:String, instance:FunkinRuntimeShader):Void
 	{
 		if (instance == null) return;
 		if (!_liveInstances.exists(shaderName)) _liveInstances.set(shaderName, []);
@@ -263,8 +521,7 @@ class ShaderManager
 		_flushPendingForShader(shaderName);
 	}
 
-	/** Elimina una instancia registrada via registerInstance / applyShaderToCamera. */
-	public static function unregisterInstance(shaderName:String, instance:FlxRuntimeShader):Void
+	public static function unregisterInstance(shaderName:String, instance:FunkinRuntimeShader):Void
 	{
 		final arr = _liveInstances.get(shaderName);
 		if (arr != null) arr.remove(instance);
@@ -291,7 +548,7 @@ class ShaderManager
 	{
 		_flushPendingForShader(shaderName);
 
-		var updated = false;
+		var updated     = false;
 		var hadInstances = false;
 
 		final arr = _liveInstances.get(shaderName);
@@ -307,9 +564,7 @@ class ShaderManager
 		}
 		if (!hadInstances) _storePending(shaderName, paramName, value);
 
-		// Cachear siempre el valor para que futuras instancias (re-apply) lo reciban.
 		_cacheParam(shaderName, paramName, value);
-
 		return updated;
 	}
 
@@ -318,87 +573,6 @@ class ShaderManager
 		for (name in _pendingParams.keys()) _flushPendingForShader(name);
 	}
 
-	// ─── _writeParam: usa FlxRuntimeShader API, sin tocar __data ─────────────
-	//
-	// BUGFIX — "Shader int property not found" en uniforms float:
-	//
-	// En Haxe compilado a C++ (y en contextos HScript/Dynamic), los literales
-	// de punto flotante con valor entero (0.0, 8.0, 6.0) se almacenan como
-	// cpp.Int32 al pasar por Dynamic.  Type.typeof() devuelve TInt para ellos,
-	// aunque el GLSL los declare como `uniform float`.  Llamar setInt() sobre
-	// un uniform float no lanza excepción: OpenFL sólo imprime un warning
-	// "Shader int property X not found" y devuelve sin hacer nada, dejando el
-	// uniform sin actualizar.
-	//
-	// Solución: para valores TInt, llamar primero setFloat() porque los uniforms
-	// GLSL float son abrumadoramente más comunes que los int.  setFloat() sobre
-	// un uniform float sí funciona sin warnings.  Para shaders que realmente
-	// necesiten un uniform int, exponer setShaderParamInt() en ScriptAPI.
-	//
-	// BUGFIX setIntArray: puede no existir en flixel-addons antiguo.
-	// Se usa setFloatArray como fallback seguro.
-
-	static function _writeParam(instance:FlxRuntimeShader, paramName:String, value:Dynamic):Bool
-	{
-		if (instance == null) return false;
-		try
-		{
-			if (Std.isOfType(value, Array))
-			{
-				final arr:Array<Dynamic> = cast value;
-				if (arr.length == 0) return false;
-				final first = arr[0];
-				if (Std.isOfType(first, Bool))
-				{
-					instance.setBoolArray(paramName, cast arr);
-				}
-				else if (Type.typeof(first) == TInt)
-				{
-					// Misma lógica que el caso escalar: preferir setFloatArray para
-					// evitar warnings silenciosos en uniforms float[].
-					// setIntArray puede no existir en flixel-addons antiguo -> fallback.
-					try { instance.setFloatArray(paramName, [for (v in arr) cast(v, Float)]); }
-					catch (_:Dynamic)
-					{
-						try { instance.setIntArray(paramName, [for (v in arr) Std.int(v)]); }
-						catch (_:Dynamic) {}
-					}
-				}
-				else
-				{
-					instance.setFloatArray(paramName, [for (v in arr) cast(v, Float)]);
-				}
-			}
-			else if (Std.isOfType(value, Bool))
-			{
-				instance.setBool(paramName, cast value);
-			}
-			else if (Type.typeof(value) == TInt)
-			{
-				// BUGFIX: En C++/Dynamic, floats de valor entero (0.0, 8.0, 6.0) llegan
-				// como TInt. setInt() sobre un uniform float sólo imprime un warning
-				// y no lanza excepción, por lo que el try/catch anterior nunca actuaba.
-				// Usar setFloat() primero (cubre ~99% de los casos reales en GLSL).
-				// Si el uniform es realmente un int, usar setShaderParamInt() desde el script.
-				instance.setFloat(paramName, cast(value, Float));
-			}
-			else
-			{
-				instance.setFloat(paramName, cast(value, Float));
-			}
-			return true;
-		}
-		catch (e:Dynamic)
-		{
-			return false; // uniform no registrado aún -> pending
-		}
-	}
-
-	/**
-	 * Versión explícita para uniforms GLSL `int` / `sampler2D`.
-	 * Usar cuando el script necesite pasar un entero real (no un float).
-	 * En la mayoría de shaders de juego no es necesario.
-	 */
 	public static function setShaderParamInt(shaderName:String, paramName:String, value:Int):Bool
 	{
 		var updated = false;
@@ -412,26 +586,25 @@ class ShaderManager
 		return updated;
 	}
 
+	static function _writeParam(instance:FunkinRuntimeShader, paramName:String, value:Dynamic):Bool
+	{
+		if (instance == null) return false;
+		return instance.writeUniform(paramName, value);
+	}
+
 	static function _storePending(shaderName:String, paramName:String, value:Dynamic):Void
 	{
 		if (!_pendingParams.exists(shaderName)) _pendingParams.set(shaderName, new Map());
 		_pendingParams.get(shaderName).set(paramName, value);
 	}
 
-	/** Guarda el valor en el caché _lastAppliedParams para restaurarlo en instancias futuras. */
 	static function _cacheParam(shaderName:String, paramName:String, value:Dynamic):Void
 	{
 		if (!_lastAppliedParams.exists(shaderName)) _lastAppliedParams.set(shaderName, new Map());
 		_lastAppliedParams.get(shaderName).set(paramName, value);
 	}
 
-	/**
-	 * Escribe todos los params del caché _lastAppliedParams en `instance`.
-	 * Se llama justo después de registrar una nueva instancia en _liveInstances,
-	 * ANTES de _flushPendingForShader, para recuperar los valores que se perdieron
-	 * cuando la instancia anterior fue eliminada por removeShader / re-apply.
-	 */
-	static function _restoreLastParams(shaderName:String, instance:FlxRuntimeShader):Void
+	static function _restoreLastParams(shaderName:String, instance:FunkinRuntimeShader):Void
 	{
 		final cache = _lastAppliedParams.get(shaderName);
 		if (cache == null || Lambda.count(cache) == 0) return;
@@ -461,6 +634,18 @@ class ShaderManager
 
 	public static function clearSpriteShaders():Void
 	{
+		// Destruir todos los overlays de cámara gestionados internamente
+		for (key in _cameraOverlayMap.keys())
+		{
+			var overlay = _cameraOverlayMap.get(key);
+			if (overlay != null)
+			{
+				try { FlxG.state.remove(overlay, true); } catch (_:Dynamic) {}
+				overlay.destroy();
+			}
+		}
+		_cameraOverlayMap.clear();
+
 		_liveInstances.clear();
 		_spriteToInstance.clear();
 		_pendingParams.clear();
@@ -476,8 +661,16 @@ class ShaderManager
 
 	public static function reloadShader(shaderName:String):Bool
 	{
-		if (shaders.exists(shaderName)) { shaders.remove(shaderName); }
-		return loadShader(shaderName) != null;
+		if (shaders.exists(shaderName)) shaders.remove(shaderName);
+		final cs = loadShader(shaderName);
+		if (cs == null) return false;
+		#if sys
+		final arr = _liveInstances.get(shaderName);
+		if (arr != null)
+			for (inst in arr)
+				if (inst != null) inst.recompile(cs.fragmentCode, cs.vertexCode);
+		#end
+		return true;
 	}
 
 	public static function reloadAllShaders():Void
@@ -487,21 +680,26 @@ class ShaderManager
 		trace('[ShaderManager] ${Lambda.count(shaderPaths)} shaders disponibles');
 	}
 
+	/** Limpia TODO: efectos de cámara + shaders runtime. */
 	public static function clear():Void
 	{
 		shaders.clear();
 		shaderPaths.clear();
+		vertPaths.clear();
+		// Limpiar overlays de cámara sin removerlos del estado (puede que el estado ya no exista)
+		_cameraOverlayMap.clear();
 		_liveInstances.clear();
 		_spriteToInstance.clear();
 		_pendingParams.clear();
 		_lastAppliedParams.clear();
+		initialized = false;
+		_hooked     = false;
 	}
 
 	@:deprecated("_ensureCameras ya no es necesario")
 	public static function _ensureCameras(sprite:FlxSprite, ?fallback:FlxCamera):Void {}
-
-
 }
+
 
 // ─── CustomShader ─────────────────────────────────────────────────────────────
 
@@ -510,28 +708,33 @@ class CustomShader
 	public var name:String;
 	public var fragmentCode:String;
 
-	var _shader:FlxRuntimeShader;
-	public var shader(get, never):FlxRuntimeShader;
+	/** Código GLSL del vertex shader (.vert hermano). null = usar default de Flixel. */
+	public var vertexCode:Null<String>;
 
-	function get_shader():FlxRuntimeShader
+	var _shader:FunkinRuntimeShader;
+	public var shader(get, never):FunkinRuntimeShader;
+
+	function get_shader():FunkinRuntimeShader
 	{
 		if (_shader == null && fragmentCode != null)
 		{
-			try { _shader = new FlxRuntimeShader(fragmentCode); }
+			try { _shader = new FunkinRuntimeShader(fragmentCode, vertexCode); }
 			catch (e:Dynamic) { trace('[CustomShader] Error compilando "$name": $e'); }
 		}
 		return _shader;
 	}
 
-	public function new(name:String, fragmentCode:String)
+	public function new(name:String, fragmentCode:String, ?vertexCode:String)
 	{
 		this.name         = name;
 		this.fragmentCode = fragmentCode;
+		this.vertexCode   = vertexCode;
 	}
 
 	public function destroy():Void
 	{
 		_shader      = null;
 		fragmentCode = null;
+		vertexCode   = null;
 	}
 }

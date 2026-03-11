@@ -715,7 +715,7 @@ class PathsCache
 		{
 			if (OpenFLAssets.exists(key, openfl.utils.AssetType.SOUND)
 			 || OpenFLAssets.exists(key, openfl.utils.AssetType.MUSIC))
-				sound = OpenFLAssets.getSound(key, true);
+				sound = OpenFLAssets.getSound(key);
 		}
 		catch (e:Dynamic) { trace('[PathsCache] Error de audio "$key": $e'); return null; }
 

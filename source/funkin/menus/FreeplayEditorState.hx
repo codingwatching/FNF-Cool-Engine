@@ -39,6 +39,7 @@ using StringTools;
 
 import haxe.Json;
 import haxe.format.JsonParser;
+import funkin.audio.MusicManager;
 
 class FreeplayEditorState extends funkin.states.MusicBeatState
 {
@@ -106,12 +107,11 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 		transIn = FlxTransitionableState.defaultTransIn;
 		transOut = FlxTransitionableState.defaultTransOut;
 
-		MainMenuState.musicFreakyisPlaying = false;
-
 		FlxG.mouse.visible = true;
-		
-		if (!FlxG.sound.music.playing)
-			FlxG.sound.playMusic(Paths.music('chartEditorLoop/chartEditorLoop'), 0.7);
+		// MusicManager cambia solo si chartEditorLoop no está ya sonando.
+		if (!MusicManager.isPlaying('chartEditorLoop/chartEditorLoop'))
+			MainMenuState.musicFreakyisPlaying = false;
+		MusicManager.play('chartEditorLoop/chartEditorLoop', 0.7);
 
 		loadSongsData();
 

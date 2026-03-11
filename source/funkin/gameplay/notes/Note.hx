@@ -21,6 +21,11 @@ class Note extends FlxSprite
 	public var prevNote:Note;
 	public var sustainLength:Float = 0;
 	public var isSustainNote:Bool = false;
+	/** Scale.y base de la pieza de sustain, calculado en setupSustainNote().
+	 *  NoteManager lo usa en la compensacion de rotacion sin acumulacion:
+	 *    note.scale.y = sustainBaseScaleY / cos(deformAngle)
+	 */
+	public var sustainBaseScaleY:Float = 1.0;
 	public var noteScore:Float = 1;
 	public var noteRating:String = 'sick';
 
@@ -61,6 +66,15 @@ class Note extends FlxSprite
 	private var _lastSongPos:Float = -1;
 	private var _hitWindowCache:Float = 0;
 
+	/** Referencia directa al shader de glow para actualizar intensidad por proximidad. */
+	private var _glowShader:funkin.shaders.NoteGlowShader = null;
+
+
+	/** Distancia máxima (ms) desde la que empieza el glow de aproximación. */
+	static inline final GLOW_START_MS:Float  = 500.0;
+	/** Distancia (ms) en la que el glow alcanza su máximo antes del hit. */
+	static inline final GLOW_PEAK_MS:Float   = 60.0;
+
 	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false)
 	{
 		super();
@@ -81,6 +95,17 @@ class Note extends FlxSprite
 
 		NoteSkinSystem.init();
 		loadSkin(NoteSkinSystem.getCurrentSkinData());
+
+		// Glow de proximidad: shader propio en notas normales, no en sustain
+		if (!isSustainNote && shaders.ShaderManager.enabled)
+		{
+			_glowShader = funkin.shaders.NoteGlowShader.forDirection(noteData % 4, 0.0);
+			shader = _glowShader;
+		}
+		else
+		{
+			_glowShader = null;
+		}
 
 		setupNoteDirection();
 
@@ -215,24 +240,28 @@ class Note extends FlxSprite
 		// ── Restaurar animación y escala ──────────────────────────────────
 		if (!isSustainNote)
 		{
-			// Resetear escala — puede haber quedado corrupta si esta nota fue
-			// usada como prevNote en una cadena de holds.
-			// BUGFIX: usar scale.set() directamente en lugar de
-			// scale.set(1,1) + setGraphicSize(width*_noteScale), que acumulaba
-			// _noteScale^N porque `width` era el hitbox stale del ciclo anterior.
 			scale.set(_noteScale, _noteScale);
 			updateHitbox();
 
 			if (animation.exists(animArrows[noteData] + 'Scroll'))
 				animation.play(animArrows[noteData] + 'Scroll');
+
+			// Re-crear shader de glow al reciclar (la dirección puede haber cambiado)
+			if (shaders.ShaderManager.enabled)
+			{
+				_glowShader = funkin.shaders.NoteGlowShader.forDirection(noteData % 4, 0.0);
+				shader = _glowShader;
+			}
+			else
+			{
+				_glowShader = null;
+				shader = null;
+			}
 		}
 		else
 		{
-			// Re-aplicar escala antes de setupSustainNote para que el stretch
-			// del hold sea proporcional al tamaño real de frame.
-			// BUGFIX: misma corrección que para notas normales — scale.set()
-			// directo en lugar de setGraphicSize(width*_noteScale) stale.
 			scale.set(_noteScale, _noteScale);
+			sustainBaseScaleY = _noteScale; // se actualizara en setupSustainNote
 			updateHitbox();
 			flipY = false;
 			flipX = false;
@@ -280,6 +309,7 @@ class Note extends FlxSprite
 			}
 		}
 
+
 		updateHitbox();
 		x -= width / 2;
 
@@ -298,9 +328,36 @@ class Note extends FlxSprite
 				}
 			}
 
-			prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.5 * PlayState.SONG.speed;
-			// Multiplicador extra de hold (leído del JSON — 1.19 para pixel, 1.0 para normal)
-			prevNote.scale.y *= _skinHoldStretch;
+
+			// ── V-Slice style sustain height ────────────────────────────────────
+			// Fórmula anterior: scale.y *= stepCrochet/100 * 1.5 * speed
+			// → Asumía frameHeight = 30px para que la pieza cubriera exactamente la
+			//   distancia stepCrochet * 0.45 * speed. Con skins de otros tamaños o
+			//   velocidades muy altas aparecían huecos entre la cabeza y el cuerpo.
+			//
+			// Fórmula nueva (inspirada en SustainTrail.sustainHeight de V-Slice):
+			//   targetHeight = stepCrochet * PIXELS_PER_MS * speed
+			//   donde PIXELS_PER_MS = 0.45 (la misma constante de NoteManager)
+			//   scale.y = targetHeight / frameHeight
+			//
+			// Esto garantiza que la pieza cubre exactamente los píxeles que avanza
+			// una nota en stepCrochet ms, sin asumir tamaño de sprite.
+			// _skinHoldStretch añade un pequeño solapamiento (definido en la skin JSON,
+			// e.g. 1.05) para eliminar el gap visible con velocidades muy altas.
+			if (prevNote.frameHeight > 0)
+			{
+				final targetHeight:Float = Conductor.stepCrochet * 0.45 * PlayState.SONG.speed;
+				prevNote.scale.y = (targetHeight * _skinHoldStretch) / prevNote.frameHeight;
+			}
+			else
+			{
+				// Fallback si frameHeight es 0 (frame aún no cargado)
+				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.5 * PlayState.SONG.speed;
+				prevNote.scale.y *= _skinHoldStretch;
+			}
+			// Guardar el scale.y base para que NoteManager pueda compensar la
+			// rotacion de deformacion sin acumulacion (lee este valor, no scale.y).
+			prevNote.sustainBaseScaleY = prevNote.scale.y;
 			prevNote.updateHitbox();
 		}
 	}
@@ -420,5 +477,34 @@ class Note extends FlxSprite
 
 		if (tooLate && alpha > 0.3)
 			alpha = 0.3;
+
+		// ── Glow de proximidad ────────────────────────────────────────────────
+		// Cuanto más cerca esté la nota del strum, más brilla.
+		// Solo en notas de jugador que aún no han sido golpeadas.
+		if (_glowShader != null && mustPress && !wasGoodHit && !tooLate)
+		{
+			final dist:Float = strumTime - Conductor.songPosition;
+
+			if (dist > 0 && dist < GLOW_START_MS)
+			{
+				// t = 0 lejos, t = 1 justo en el strum
+				final t:Float = 1.0 - (dist / GLOW_START_MS);
+				// Curva cuadrática: sube despacio y acelera cerca del strum
+				final curved:Float = t * t;
+				_glowShader.intensity = curved * 0.75;
+				_glowShader.pulse     = (dist < GLOW_PEAK_MS) ? 1.0 : curved;
+			}
+			else
+			{
+				_glowShader.intensity = 0.0;
+				_glowShader.pulse     = 0.0;
+			}
+		}
+		else if (_glowShader != null && (wasGoodHit || tooLate))
+		{
+			// Apagar glow una vez golpeada o perdida
+			_glowShader.intensity = 0.0;
+			_glowShader.pulse     = 0.0;
+		}
 	}
 }

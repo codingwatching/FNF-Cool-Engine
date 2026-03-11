@@ -134,6 +134,8 @@ class ModCompatLayer
 		{
 			case ModFormat.PSYCH_ENGINE:    PsychConverter.convertCharacter(content, charName);
 			case ModFormat.CODENAME_ENGINE: CodenameConverter.convertCharacter(content, charName);
+			// V-Slice: formato propio con "assetPath", "renderType", "healthIcon", etc.
+			case ModFormat.VSLICE_ENGINE:   VSliceConverter.convertCharacter(content, charName);
 			default:              Json.parse(content);
 		};
 	}
@@ -357,6 +359,61 @@ class ModCompatLayer
 				}
 				break; // primer directorio válido
 			}
+			if (loaded) continue;
+
+			// ── C: V-Slice — data/songs.json o data/levels/*.json ────────────
+			// V-Slice (Funkin' official) organiza las canciones en:
+			//   data/songs.json → lista de IDs de canciones disponibles
+			//   data/songs/{id}/{id}-metadata.json → metadatos de cada canción
+			//   data/levels/{id}.json → "levels" (semanas) con lista de canciones
+			//
+			// Primero intentamos leer levels (equivalente a weeks) para preservar
+			// agrupación. Si no hay levels, creamos una semana única con todas las
+			// canciones del metadata.
+			for (levelDir in ['$base/data/levels', '$base/levels'])
+			{
+				if (!FileSystem.exists(levelDir) || !FileSystem.isDirectory(levelDir)) continue;
+				final files = FileSystem.readDirectory(levelDir);
+				files.sort((a, b) -> a < b ? -1 : 1);
+				for (lf in files)
+				{
+					if (!lf.endsWith('.json')) continue;
+					try
+					{
+						final lv:Dynamic = Json.parse(File.getContent('$levelDir/$lf').trim());
+						final week = _weekFromVSliceLevel(lv, mod.name, base);
+						if (week.weekSongs.length > 0)
+						{
+							result.push(week);
+							loaded = true;
+							trace('[ModCompatLayer] Mod "${mod.id}" — V-Slice level "${week.weekName}" (${week.weekSongs.length} songs) from $lf');
+						}
+					}
+					catch (e:Dynamic) { trace('[ModCompatLayer] Error parsing V-Slice level $levelDir/$lf: $e'); }
+				}
+				if (loaded) break;
+			}
+			if (loaded) continue;
+
+			// Si no hay levels, escanear data/songs.json para obtener IDs y cargar
+			// cada metadata individualmente (todo en una "semana" única).
+			for (songListPath in ['$base/data/songs.json', '$base/data/freeplaySongs.json'])
+			{
+				if (!FileSystem.exists(songListPath)) continue;
+				try
+				{
+					final rawList:Dynamic = Json.parse(File.getContent(songListPath).trim());
+					final week = _weekFromVSliceSongList(rawList, mod.name, base);
+					if (week.weekSongs.length > 0)
+					{
+						result.push(week);
+						loaded = true;
+						trace('[ModCompatLayer] Mod "${mod.id}" — V-Slice songs list: ${week.weekSongs.length} songs');
+					}
+				}
+				catch (e:Dynamic) { trace('[ModCompatLayer] Error parsing V-Slice songs list $songListPath: $e'); }
+				if (loaded) break;
+			}
 		}
 		#end
 
@@ -365,6 +422,175 @@ class ModCompatLayer
 	}
 
 	// ─── Conversión interna ───────────────────────────────────────────────────
+
+	/**
+	 * Convierte un "level" de V-Slice (equivalente a una semana de Psych).
+	 *
+	 * Formato V-Slice data/levels/{id}.json:
+	 * {
+	 *   "version": "1.0.0",
+	 *   "name": "Week 1",
+	 *   "titleAsset": "week1",
+	 *   "background": "menuBGBlue",
+	 *   "songs": ["bopeebo", "fresh", "dadbattle"],
+	 *   "difficulties": ["easy", "normal", "hard"],
+	 *   "characters": { "bf": "bf", "dad": "dad", "gf": "gf" }
+	 * }
+	 */
+	static function _weekFromVSliceLevel(lv:Dynamic, modFallback:String, modBase:String):ModSongsInfo
+	{
+		final songs:Array<String>     = [];
+		final icons:Array<String>     = [];
+		final colors:Array<String>    = [];
+		final bpms:Array<Float>       = [];
+		final showInStory:Array<Bool> = [];
+
+		final weekName:String = (lv.name != null) ? Std.string(lv.name) : modFallback;
+
+		// Lista de IDs de canciones
+		final songIds:Array<Dynamic> = (lv.songs != null && Std.isOfType(lv.songs, Array))
+			? cast lv.songs : [];
+
+		for (rawId in songIds)
+		{
+			final id:String = Std.string(rawId).toLowerCase().trim();
+			if (id == '') continue;
+			songs.push(id);
+
+			// Intentar leer metadata para obtener icon/color/bpm
+			var icon  = 'bf';
+			var color = '0xFF9271FD';
+			var bpm   = 100.0;
+			_applyVSliceSongMeta(id, modBase, function(meta:Dynamic) {
+				if (meta.healthIcon != null)      icon  = Std.string(meta.healthIcon.id ?? 'bf');
+				if (meta.freeplayStyle != null)   color = _parseColor(meta.freeplayStyle.color ?? null);
+				if (meta.timeChanges != null && Std.isOfType(meta.timeChanges, Array)) {
+					final tc:Array<Dynamic> = cast meta.timeChanges;
+					if (tc.length > 0) bpm = Std.parseFloat(Std.string(tc[0].bpm ?? 100.0));
+				}
+			});
+
+			icons.push(icon);
+			colors.push(color);
+			bpms.push(bpm);
+			showInStory.push(true);
+		}
+
+		// Dificultades
+		var diffs:Array<String> = ['easy', 'normal', 'hard'];
+		if (lv.difficulties != null && Std.isOfType(lv.difficulties, Array))
+		{
+			final rawDiffs:Array<Dynamic> = cast lv.difficulties;
+			diffs = [for (d in rawDiffs) Std.string(d).trim()].filter(s -> s != '');
+		}
+
+		// Personajes de la semana (para la pantalla de Story Mode)
+		var chars:Array<String> = ['', 'bf', ''];
+		if (lv.characters != null)
+		{
+			final c:Dynamic = lv.characters;
+			chars = [
+				c.dad != null    ? Std.string(c.dad)    : '',
+				c.bf != null     ? Std.string(c.bf)     : 'bf',
+				c.gf != null     ? Std.string(c.gf)     : ''
+			];
+		}
+
+		return {
+			weekSongs:       songs,
+			songIcons:       icons,
+			color:           colors,
+			bpm:             bpms,
+			weekName:        weekName,
+			weekCharacters:  chars,
+			locked:          false,
+			hideFreeplay:    false,
+			showInStoryMode: showInStory,
+			weekBackground:  lv.background != null ? Std.string(lv.background) : 'menuBGBlue',
+			difficulties:    diffs
+		};
+	}
+
+	/**
+	 * Convierte el data/songs.json de V-Slice en una semana única para Freeplay.
+	 *
+	 * data/songs.json puede ser:
+	 *   { "songs": ["bopeebo", "fresh"] }   ← lista de IDs
+	 *   [ "bopeebo", "fresh" ]              ← array directo
+	 *
+	 * Para cada canción lee data/songs/{id}/{id}-metadata.json si existe.
+	 */
+	static function _weekFromVSliceSongList(raw:Dynamic, modFallback:String, modBase:String):ModSongsInfo
+	{
+		var songIds:Array<Dynamic> = [];
+		if (Std.isOfType(raw, Array))
+			songIds = cast raw;
+		else if (raw.songs != null && Std.isOfType(raw.songs, Array))
+			songIds = cast raw.songs;
+
+		final songs:Array<String>   = [];
+		final icons:Array<String>   = [];
+		final colors:Array<String>  = [];
+		final bpms:Array<Float>     = [];
+
+		for (rawId in songIds)
+		{
+			final id:String = Std.string(rawId).toLowerCase().trim();
+			if (id == '') continue;
+			songs.push(id);
+
+			var icon  = 'bf';
+			var color = '0xFF9271FD';
+			var bpm   = 100.0;
+			_applyVSliceSongMeta(id, modBase, function(meta:Dynamic) {
+				if (meta.healthIcon != null) icon = Std.string(meta.healthIcon.id ?? 'bf');
+				if (meta.freeplayStyle != null) color = _parseColor(meta.freeplayStyle.color ?? null);
+				if (meta.timeChanges != null && Std.isOfType(meta.timeChanges, Array)) {
+					final tc:Array<Dynamic> = cast meta.timeChanges;
+					if (tc.length > 0) bpm = Std.parseFloat(Std.string(tc[0].bpm ?? 100.0));
+				}
+			});
+
+			icons.push(icon);
+			colors.push(color);
+			bpms.push(bpm);
+		}
+
+		return {
+			weekSongs:       songs,
+			songIcons:       icons,
+			color:           colors,
+			bpm:             bpms,
+			weekName:        modFallback,
+			weekCharacters:  ['', 'bf', ''],
+			locked:          false,
+			hideFreeplay:    false,
+			showInStoryMode: [for (_ in songs) false]
+		};
+	}
+
+	/**
+	 * Intenta cargar el metadata de una canción V-Slice y llama al callback si lo encuentra.
+	 *
+	 * Rutas buscadas (V-Slice):
+	 *   {modBase}/data/songs/{id}/{id}-metadata.json
+	 *   {modBase}/data/songs/{id}/metadata.json
+	 */
+	static function _applyVSliceSongMeta(id:String, modBase:String, callback:Dynamic->Void):Void
+	{
+		#if sys
+		for (p in [
+			'$modBase/data/songs/$id/$id-metadata.json',
+			'$modBase/data/songs/$id/metadata.json'
+		]) {
+			if (!FileSystem.exists(p)) continue;
+			try {
+				callback(Json.parse(File.getContent(p)));
+				return;
+			} catch (_:Dynamic) {}
+		}
+		#end
+	}
 
 	/**
 	 * Convierte el formato real de semana de Psych 0.6/0.7:

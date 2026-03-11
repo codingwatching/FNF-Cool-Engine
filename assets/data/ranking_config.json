@@ -1,0 +1,76 @@
+{
+  "failAt": 59.99,
+  "naWhenZero": true,
+  "ranks": [
+    {
+      "key": "SS",
+      "minAccuracy": 99.99,
+      "displayName": "PERFECT!!",
+      "color": "FFD700",
+      "bgColor": "FFD700",
+      "music": "SS",
+      "sparkles": true,
+      "camShake": 0.012
+    },
+    {
+      "key": "S",
+      "minAccuracy": 94.99,
+      "displayName": "AMAZING!",
+      "color": "64FF64",
+      "bgColor": "64FF00",
+      "music": "S",
+      "sparkles": true,
+      "camShake": 0.010
+    },
+    {
+      "key": "A",
+      "minAccuracy": 89.99,
+      "displayName": "EXCELLENT!",
+      "color": "64FFFF",
+      "bgColor": "64C8FF",
+      "music": "A",
+      "sparkles": false,
+      "camShake": 0.008
+    },
+    {
+      "key": "B",
+      "minAccuracy": 79.99,
+      "displayName": "GREAT!",
+      "color": "FFFF00",
+      "bgColor": "64C8FF",
+      "music": "B",
+      "sparkles": false,
+      "camShake": 0.006
+    },
+    {
+      "key": "C",
+      "minAccuracy": 69.99,
+      "displayName": "NICE!",
+      "color": "FFA000",
+      "bgColor": "FF9664",
+      "music": "B",
+      "sparkles": false,
+      "camShake": 0.004
+    },
+    {
+      "key": "D",
+      "minAccuracy": 59.99,
+      "displayName": "OK...",
+      "color": "FF6400",
+      "bgColor": "FF9664",
+      "music": "B",
+      "sparkles": false,
+      "camShake": 0.004
+    },
+    {
+      "key": "F",
+      "minAccuracy": 0,
+      "displayName": "KEEP TRYING",
+      "color": "FF3333",
+      "bgColor": "C86464",
+      "music": "B",
+      "sparkles": false,
+      "camShake": 0.008
+    }
+  ]
+}

@@ -156,6 +156,13 @@ class ModPathResolver
 			candidates.push('$base/songs/$v/chart.json');
 			candidates.push('$base/songs/$v/$v-$d.json');
 			candidates.push('$base/songs/$v/$v.json');
+			// V-Slice: data/charts/{song}/{song}-chart.json  ←── NEW
+			// V-Slice usa "data/charts/" como carpeta raíz de charts y el archivo
+			// se llama "{song}-chart.json" para la dificultad por defecto, o
+			// "{song}-{diff}.json" para dificultades específicas.
+			candidates.push('$base/data/charts/$v/$v-chart.json');
+			candidates.push('$base/data/charts/$v/$v-$d.json');
+			candidates.push('$base/data/charts/$v/$d.json');
 		}
 
 		return _first(candidates);
@@ -179,7 +186,11 @@ class ModPathResolver
 			// Cool: songs/name/song/Inst.ogg
 			'$base/songs/$lower/song/Inst.$ext',
 			// Psych / Codename: songs/name/Inst.ogg
-			'$base/songs/$lower/Inst.$ext'
+			'$base/songs/$lower/Inst.$ext',
+			// V-Slice: songs/{name}/audio/Inst.ogg  ←── NEW
+			'$base/songs/$lower/audio/Inst.$ext',
+			// V-Slice alt: audio/{name}/Inst.ogg
+			'$base/audio/$lower/Inst.$ext'
 		]);
 	}
 
@@ -205,7 +216,10 @@ class ModPathResolver
 
 		return _first([
 			'$base/songs/$lower/song/Voices.$ext',
-			'$base/songs/$lower/Voices.$ext'
+			'$base/songs/$lower/Voices.$ext',
+			// V-Slice: audio subfolder  ←── NEW
+			'$base/songs/$lower/audio/Voices.$ext',
+			'$base/audio/$lower/Voices.$ext'
 		]);
 	}
 

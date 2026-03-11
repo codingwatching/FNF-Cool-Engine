@@ -316,7 +316,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		camHUD.bgColor.alpha = 0;
 		FlxG.cameras.reset(camGame);
 		FlxG.cameras.add(camHUD);
-		FlxCamera.defaultCameras = [camGame];
+		@:privateAccess FlxCamera._defaultCameras = [camGame];
 
 		// Setup UI
 		setupBackground();

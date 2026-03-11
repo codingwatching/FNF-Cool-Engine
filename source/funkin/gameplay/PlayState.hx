@@ -246,6 +246,11 @@ class PlayState extends funkin.states.MusicBeatState
 	private var noteBatcher:NoteBatcher;
 	private var heldNotes:Map<Int, Note> = new Map(); // dirección -> nota (tracking local para la cámara/personajes)
 
+	// ── Lane Backdrop (osu-style) ─────────────────────────────────────────
+	/** Fondo negro semitransparente detrás del carril del jugador, estilo osu!.
+	 *  Alpha configurable en opciones (0.0 = transparente por defecto). */
+	public var laneBackdrop:FlxSprite;
+
 	// NEW: CONFIG OPTIMIZATIONS
 	public var enableBatching:Bool = true;
 
@@ -269,6 +274,11 @@ class PlayState extends funkin.states.MusicBeatState
 
 	// ─── Cooldown para resync de vocals (evita resyncs demasiado frecuentes) ───
 	private var _resyncCooldown:Int = 0;
+
+	// ─── Audio boot: mantiene FPS bajo por N frames tras _safePlay para que ───
+	// ─── el buffer de SampleDataEvent se inicialice con ≥2048 samples.       ───
+	private var _audioBootFrames:Int  = 0;
+	private var _audioBootSavedFps:Int = 0;
 
 	private var characterSlots:Array<CharacterSlot> = [];
 
@@ -764,18 +774,31 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	private function createNoteGroups():Void
 	{
-		// NUEVO: Crear batcher primero si está habilitado
+		// ✅ Inicializar strumLineNotes ANTES de loadStrums()
+		strumLineNotes = new FlxTypedGroup<FlxSprite>();
+		strumLineNotes.cameras = [camHUD];
+
+		// loadStrums asigna playerStrums/cpuStrums — debe ir ANTES del backdrop
+		// para que _updateLaneBackdrop() pueda leer las posiciones reales.
+		loadStrums();
+
+		// ─── Lane Backdrop (osu-style) ───────────────────────────────────────
+		// Se crea DESPUÉS de loadStrums para conocer las coords de playerStrums.
+		// Se añade ANTES que strumLineNotes/notes para quedar detrás de todo.
+		laneBackdrop = new FlxSprite();
+		laneBackdrop.cameras = [camHUD];
+		laneBackdrop.scrollFactor.set(0, 0);
+		_updateLaneBackdrop();
+		add(laneBackdrop);
+		// ────────────────────────────────────────────────────────────────────
+
+		// NUEVO: Crear batcher
 		noteBatcher = new NoteBatcher();
 		noteBatcher.cameras = [camHUD];
 		add(noteBatcher);
 
-		// ✅ Inicializar strumLineNotes ANTES de loadStrums()
-		strumLineNotes = new FlxTypedGroup<FlxSprite>();
-		strumLineNotes.cameras = [camHUD];
+		// Añadir strums (encima del backdrop y del batcher)
 		add(strumLineNotes);
-
-		// loadStrums() asigna playerStrums y cpuStrums automáticamente
-		loadStrums();
 
 		// sustainNotes se añade PRIMERO → se dibuja DEBAJO de notes normales
 		sustainNotes = new FlxTypedGroup<Note>();
@@ -793,6 +816,43 @@ class PlayState extends funkin.states.MusicBeatState
 		grpHoldCovers = new FlxTypedGroup<NoteHoldCover>();
 		grpHoldCovers.cameras = [camHUD];
 		add(grpHoldCovers);
+	}
+
+	/**
+	 * Actualiza posición y alpha del lane backdrop basándose en los strums
+	 * del jugador actuales y el valor guardado de laneAlpha.
+	 * Llamar tras loadStrums() y tras rewind restart.
+	 */
+	private function _updateLaneBackdrop():Void
+	{
+		if (laneBackdrop == null)
+			return;
+
+		var alpha:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+		laneBackdrop.alpha = alpha;
+
+		if (playerStrums == null || playerStrums.members == null || playerStrums.members.length < 4)
+		{
+			// Fallback: sprite oculto y fuera de pantalla
+			laneBackdrop.makeGraphic(4, FlxG.height, flixel.util.FlxColor.BLACK);
+			laneBackdrop.x = -999;
+			return;
+		}
+
+		var firstStrum:FlxSprite = playerStrums.members[0];
+		var lastStrum:FlxSprite  = playerStrums.members[playerStrums.members.length - 1];
+
+		if (firstStrum == null || lastStrum == null)
+			return;
+
+		// Ancho = desde la izquierda del primer strum hasta la derecha del último
+		var startX:Float = firstStrum.x;
+		var endX:Float   = lastStrum.x + lastStrum.width;
+		var bw:Int       = Std.int(endX - startX + 20); // +20px padding lateral
+		if (bw < 4) bw = 4;
+
+		laneBackdrop.makeGraphic(bw, FlxG.height, flixel.util.FlxColor.BLACK);
+		laneBackdrop.setPosition(startX - 10, 0); // -10 para padding izquierdo
 	}
 
 	private function loadStrums():Void
@@ -1066,6 +1126,8 @@ class PlayState extends funkin.states.MusicBeatState
 		trace('[PlayState] Audio suffix: "$_diffSuffix" (instSuffix=${SONG.instSuffix})');
 
 		// Cargar instrumental usando el método seguro que soporta archivos externos
+		// MusicManager ya no controla el audio — PlayState lo toma directamente.
+		funkin.audio.MusicManager.invalidate();
 		FlxG.sound.music = Paths.loadInst(SONG.song, _diffSuffix);
 		// FIX: loadInst can return null on Android if the file is missing or OOM.
 		// Guard every access so a bad song doesn't crash the whole game.
@@ -1371,7 +1433,7 @@ class PlayState extends funkin.states.MusicBeatState
 					FlxG.sound.music.onComplete = endSong;
 
 					// ✨ CRITICAL: Primero REPRODUCIR, luego setear el tiempo
-					FlxG.sound.music.play();
+					_safePlay(FlxG.sound.music);
 
 					// Ahora setear el tiempo DESPUÉS de play()
 					FlxG.sound.music.time = targetTime;
@@ -1390,20 +1452,20 @@ class PlayState extends funkin.states.MusicBeatState
 						if (vocalsBf != null)
 						{
 							vocalsBf.volume = 1;
-							vocalsBf.play();
+							_safePlay(vocalsBf);
 							vocalsBf.time = targetTime;
 						}
 						if (vocalsDad != null)
 						{
 							vocalsDad.volume = 1;
-							vocalsDad.play();
+							_safePlay(vocalsDad);
 							vocalsDad.time = targetTime;
 						}
 					}
 					else if (vocals != null)
 					{
 						vocals.volume = 1;
-						vocals.play();
+						_safePlay(vocals);
 						vocals.time = targetTime;
 					}
 
@@ -1429,19 +1491,38 @@ class PlayState extends funkin.states.MusicBeatState
 
 	override public function update(elapsed:Float)
 	{
+		// ── Audio-boot FPS restore ────────────────────────────────────────────
+		// After _safePlay lowers FPS to ensure ≥2048 SampleDataEvent samples,
+		// wait a few frames so the audio backend can initialise its buffers,
+		// then restore the user's target FPS.
+		if (_audioBootFrames > 0)
+		{
+			_audioBootFrames--;
+			if (_audioBootFrames == 0 && _audioBootSavedFps > 0)
+			{
+				final main = Std.downcast(openfl.Lib.current.getChildAt(0), Main);
+				if (main != null)
+					main.setMaxFps(_audioBootSavedFps);
+				else
+					openfl.Lib.current.stage.frameRate = _audioBootSavedFps;
+				_audioBootSavedFps = 0;
+			}
+		}
+		// ─────────────────────────────────────────────────────────────────────
+
 		if (scriptsEnabled)
 		{
 			ScriptHandler._argsUpdate[0] = elapsed;
 			ScriptHandler.callOnScripts('onUpdate', ScriptHandler._argsUpdate);
 		}
 
-		if (!paused && !inCutscene && startedCountdown && !startingSong && generatedMusic && elapsed > 0.5)
-		{
-			pauseMenu();
-			// Mostramos un aviso en el PauseSubState si podemos, o dejamos un trace
-			trace('[PlayState] Lag detectado (${Math.round(elapsed * 1000)}ms) — juego pausado automáticamente.');
-			return;
-		}
+		// ── Frame-lag protección (no auto-pausa) ─────────────────────────────
+		// Si el frame tardó más de 200ms (p.ej. tras un miss con sonidos recién
+		// cargados, GC spike, etc.) simplemente recortamos elapsed a 1 frame para
+		// que la física/conductor no salte. Esto evita el "lagazo al fallar" que
+		// antes abría el pause menu automáticamente y rompía el flujo de juego.
+		if (elapsed > 0.2)
+			elapsed = 1.0 / 60.0;
 		// ─────────────────────────────────────────────────────────────────────
 
 		// Update ModChart
@@ -1683,7 +1764,7 @@ class PlayState extends funkin.states.MusicBeatState
 			// La música ya está cargada, solo necesitamos reproducirla
 			FlxG.sound.music.volume = 1;
 			FlxG.sound.music.time = 0;
-			FlxG.sound.music.play();
+			_safePlay(FlxG.sound.music);
 			FlxG.sound.music.onComplete = endSong;
 		}
 
@@ -1696,20 +1777,20 @@ class PlayState extends funkin.states.MusicBeatState
 				{
 					vocalsBf.volume = 1;
 					vocalsBf.time = 0;
-					vocalsBf.play();
+					_safePlay(vocalsBf);
 				}
 				if (vocalsDad != null)
 				{
 					vocalsDad.volume = 1;
 					vocalsDad.time = 0;
-					vocalsDad.play();
+					_safePlay(vocalsDad);
 				}
 			}
 			else if (vocals != null)
 			{
 				vocals.volume = 1;
 				vocals.time = 0;
-				vocals.play();
+				_safePlay(vocals);
 			}
 		}
 
@@ -2294,7 +2375,16 @@ class PlayState extends funkin.states.MusicBeatState
 			var shouldResync = isPlaying && !isRewinding && FlxG.sound.music != null && !startingSong && !VideoManager.isPlaying;
 			if (shouldResync)
 			{
-				resyncVocals();
+				// BUGFIX: Si el audio ya está reproduciéndose (PauseSubState llamó
+				// FlxG.sound.resume() antes de close()), NO llamar resyncVocals():
+				// _safePlay() baja el FPS a 20 por 6 frames para inicializar el
+				// buffer de audio, lo que causa el spike de FPS visible al reanudar.
+				// Cuando el audio ya está activo el buffer está inicializado — solo
+				// hay que sincronizar la posición del Conductor.
+				if (FlxG.sound.music.playing)
+					Conductor.songPosition = FlxG.sound.music.time;
+				else
+					resyncVocals(); // audio detenido por algún motivo: resync completo
 			}
 			paused = false;
 			if (scriptsEnabled)
@@ -2399,7 +2489,7 @@ class PlayState extends funkin.states.MusicBeatState
 
 		if (FlxG.sound.music != null)
 		{
-			FlxG.sound.music.play();
+			_safePlay(FlxG.sound.music);
 			Conductor.songPosition = FlxG.sound.music.time;
 		}
 
@@ -2408,19 +2498,81 @@ class PlayState extends funkin.states.MusicBeatState
 			if (vocalsBf != null)
 			{
 				vocalsBf.time = Conductor.songPosition;
-				vocalsBf.play();
+				_safePlay(vocalsBf);
 			}
 			if (vocalsDad != null)
 			{
 				vocalsDad.time = Conductor.songPosition;
-				vocalsDad.play();
+				_safePlay(vocalsDad);
 			}
 		}
 		else if (SONG.needsVoices && vocals != null)
 		{
 			vocals.time = Conductor.songPosition;
-			vocals.play();
+			_safePlay(vocals);
 		}
+	}
+
+	/**
+	 * Plays a FlxSound safely, capping FPS so OpenFL's SampleDataEvent buffer ≥ 2048 samples.
+	 *
+	 * ROOT CAUSE
+	 * ----------
+	 * OpenFL computes the streaming audio buffer as:
+	 *   bufferSize = ceil(sampleRate / stage.frameRate)   [samples per callback]
+	 * Flash spec requires bufferSize ∈ [2048, 8192].
+	 * At "unlimited" FPS (stage.frameRate = 1000):  ceil(44100/1000) = 45  → THROWS.
+	 * At fps = 20:                                   ceil(44100/20)  = 2205 → OK.
+	 *
+	 * WHY THE OLD ONE-LINE FIX FAILED
+	 * ---------------------------------
+	 * The old code set stage.frameRate = 20 synchronously and restored it right after
+	 * play(). But OpenFL's audio backend dispatches SampleDataEvent asynchronously
+	 * from its own timer / audio callback, so by the time the first buffer is actually
+	 * requested, stage.frameRate was already back to 1000 → still 45 samples → THROWS.
+	 *
+	 * Additionally, Main.setMaxFps() controls *both* stage.frameRate *and*
+	 * FlxG.drawFramerate. Setting only stage.frameRate left FlxG.drawFramerate at 1000,
+	 * which some OpenFL paths read instead of (or in addition to) stage.frameRate.
+	 *
+	 * FIX
+	 * ---
+	 * 1. Use Main.setMaxFps(20) to lower BOTH stage.frameRate and FlxG.drawFramerate.
+	 * 2. Call snd.play() while FPS is safely low.
+	 * 3. Do NOT restore immediately. Instead, set _audioBootFrames = 6 so that
+	 *    update() waits 6 rendered frames before restoring the target FPS.
+	 *    6 frames at 20fps ≈ 300ms — enough for the audio backend to fire its first
+	 *    SampleDataEvent callback and lock in the 2205-sample buffer size.
+	 * 4. Multiple rapid _safePlay calls (music + vocalsBf + vocalsDad) reset the
+	 *    counter each time but share one deferred restore, so the FPS dip is a
+	 *    single ~300ms window regardless of how many sounds are started.
+	 */
+	function _safePlay(snd:FlxSound):Void
+	{
+		if (snd == null) return;
+		#if (!html5 && !mobileC)
+		final stage = openfl.Lib.current.stage;
+		final currentFps:Int = Std.int(stage.frameRate);
+		if (currentFps > 21)
+		{
+			// Only save the "real" target fps once (first call in a batch).
+			// Subsequent calls in the same batch see fps=20 already set.
+			if (_audioBootSavedFps <= 0)
+				_audioBootSavedFps = currentFps;
+
+			final main = Std.downcast(openfl.Lib.current.getChildAt(0), Main);
+			if (main != null)
+				main.setMaxFps(20);   // lowers stage.frameRate AND FlxG.drawFramerate
+			else
+				stage.frameRate = 20;
+		}
+		try snd.play() catch (e:Dynamic) trace('[PlayState] _safePlay error: $e');
+		// Reset (or start) the deferred-restore countdown.
+		// update() will call setMaxFps(_audioBootSavedFps) after 6 frames.
+		_audioBootFrames = 6;
+		#else
+		try snd.play() catch (e:Dynamic) trace('[PlayState] _safePlay error: $e');
+		#end
 	}
 
 	/**
@@ -2847,6 +2999,9 @@ class PlayState extends funkin.states.MusicBeatState
 			noteManager.middlescroll = _isMiddlescroll;
 		}
 
+		// Refrescar el lane backdrop con las posiciones actuales de los strums
+		_updateLaneBackdrop();
+
 		// Repositionar todos los grupos y resetear animaciones a 'static'
 		for (group in strumsGroups)
 		{
@@ -3263,26 +3418,23 @@ class PlayState extends funkin.states.MusicBeatState
 		if (currentStage == null)
 			return;
 
-		if (skinSystem.isPixel)
+		// FIX: skinSystem nunca se asigna → null → crash en skinSystem.isPixel.
+		// Usar NoteSkinSystem.getCurrentSkinData() igual que el resto del código.
+		final skinData = NoteSkinSystem.getCurrentSkinData();
+		if (skinData != null && skinData.isPixel == true)
 			return;
 
-		// Actualizar antialiasing del stage
+		final aa:Bool = (FlxG.save.data.antialiasing == true);
+
 		for (sprite in currentStage.members)
 		{
 			if (sprite != null && Std.isOfType(sprite, FlxSprite))
-			{
-				var spr:FlxSprite = cast sprite;
-				spr.antialiasing = cast(FlxG.save.data.antialiasing, Bool);
-			}
+				(cast sprite:FlxSprite).antialiasing = aa;
 		}
 
-		// Actualizar antialiasing de personajes
-		if (boyfriend != null)
-			boyfriend.antialiasing = cast(FlxG.save.data.antialiasing, Bool);
-		if (dad != null)
-			dad.antialiasing = cast(FlxG.save.data.antialiasing, Bool);
-		if (gf != null)
-			gf.antialiasing = cast(FlxG.save.data.antialiasing, Bool);
+		if (boyfriend != null) boyfriend.antialiasing = aa;
+		if (dad       != null) dad.antialiasing       = aa;
+		if (gf        != null) gf.antialiasing        = aa;
 	}
 
 	/**
@@ -3293,20 +3445,30 @@ class PlayState extends funkin.states.MusicBeatState
 	{
 		super.onFocusLost();
 
-		// Pausar vocals cuando se pierde foco
+		// Auto-pausa al minimizar/perder foco durante un video en curso.
+		if (!paused && VideoManager.isPlaying)
+		{
+			pauseMenu();
+			return;
+		}
+
+		// Auto-pausa al minimizar/perder foco durante el gameplay normal.
+		if (!paused && startedCountdown && !startingSong && generatedMusic && canPause && !inCutscene)
+		{
+			pauseMenu();
+			return;
+		}
+
+		// Si ya estaba pausado o en cuenta regresiva, pausar solo las vocals manualmente
 		if (_usingPerCharVocals)
 		{
-			if (vocalsBf != null && vocalsBf.playing)
-				vocalsBf.pause();
-			if (vocalsDad != null && vocalsDad.playing)
-				vocalsDad.pause();
+			if (vocalsBf != null && vocalsBf.playing) vocalsBf.pause();
+			if (vocalsDad != null && vocalsDad.playing) vocalsDad.pause();
 		}
 		else if (vocals != null && vocals.playing)
 		{
 			vocals.pause();
 		}
-
-		// FlxG.sound.music se pausa automáticamente, pero lo marcamos
 	}
 
 	/**
@@ -3322,7 +3484,7 @@ class PlayState extends funkin.states.MusicBeatState
 		if (FlxG.sound.music != null && !startingSong && generatedMusic && !paused)
 		{
 			// Reanudar el instrumental
-			FlxG.sound.music.play();
+			_safePlay(FlxG.sound.music);
 
 			// Reanudar vocals sincronizadas con el instrumental
 			if (SONG.needsVoices)
@@ -3332,18 +3494,18 @@ class PlayState extends funkin.states.MusicBeatState
 					if (vocalsBf != null)
 					{
 						vocalsBf.time = FlxG.sound.music.time;
-						vocalsBf.play();
+						_safePlay(vocalsBf);
 					}
 					if (vocalsDad != null)
 					{
 						vocalsDad.time = FlxG.sound.music.time;
-						vocalsDad.play();
+						_safePlay(vocalsDad);
 					}
 				}
 				else if (vocals != null)
 				{
 					vocals.time = FlxG.sound.music.time;
-					vocals.play();
+					_safePlay(vocals);
 				}
 			}
 		}

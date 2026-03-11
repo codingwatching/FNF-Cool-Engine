@@ -241,7 +241,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		var T = EditorTheme.current;
 
 		FlxG.mouse.visible = true;
-		FlxG.sound.playMusic(Paths.music('chartEditorLoop/chartEditorLoop'), 0.6);
+		funkin.audio.MusicManager.play('chartEditorLoop/chartEditorLoop', 0.6);
 
 		// ── Cameras ───────────────────────────────────────────────────────────
 		camGame = new FlxCamera();

@@ -20,6 +20,7 @@ import funkin.menus.OptionsMenuState;
 import openfl.display.BitmapData as Bitmap;
 import data.PlayerSettings;
 import funkin.scripting.StateScriptHandler;
+import funkin.audio.MusicManager;
 
 using StringTools;
 
@@ -61,15 +62,8 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#end
 
 		#if !MAINMENU
-		// TitleState already started freakyMenu - only play it here if somehow missing
-		if (FlxG.sound.music == null || !musicFreakyisPlaying)
-		{
-			final _s = Paths.loadMusic('freakyMenu');
-			if (_s != null)
-				FlxG.sound.playMusic(_s, 0.5);
-			else
-				FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.5);
-		}
+		// MusicManager solo llama playMusic si freakyMenu no está ya sonando
+		MusicManager.play('freakyMenu', 0.7);
 		musicFreakyisPlaying = true;
 		#end
 
@@ -137,11 +131,13 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#end
 		modShit.scrollFactor.set();
 		modShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		modShit.antialiasing = FlxG.save.data.antialiasing;
 		modShit.y -= 40;
 		add(modShit);
 
 		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v0.3.1", 12);
 		versionShit.scrollFactor.set();
+		versionShit.antialiasing = FlxG.save.data.antialiasing;
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
 
@@ -149,6 +145,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		versionShit2.scrollFactor.set();
 		versionShit2.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		versionShit2.y -= 20;
+		versionShit2.antialiasing = FlxG.save.data.antialiasing;
 		add(versionShit2);
 
 		// Etiqueta del mod activo — solo visible si hay uno cargado
@@ -163,6 +160,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 			var modActiveText:FlxText = new FlxText(FlxG.width - 270, FlxG.height - 19, 0, '\u25B6 MOD: $_modLabel$_modVer', 16);
 			modActiveText.scrollFactor.set();
 			modActiveText.setFormat("VCR OSD Mono", 16, _modColor, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			modActiveText.antialiasing = FlxG.save.data.antialiasing;
 			add(modActiveText);
 		}
 
@@ -226,9 +224,23 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#end
 
 		#if !MAINMENU
-		if (FlxG.sound.music != null && FlxG.sound.music.volume < 0.8)
+		// BUG FIX: FlxG.sound.music no está en FlxG.sound.list, así que el
+		// setter de FlxG.sound.volume no propaga el cambio al music directamente.
+		// Calculamos el target como masterVolume * 0.7 y lo aplicamos cada frame,
+		// de modo que bajar el master a 0 silencia la música inmediatamente.
+		var _musicTarget:Float = FlxG.sound.volume * 0.7;
+		if (FlxG.sound.music != null)
 		{
-			FlxG.sound.music.volume += 0.5 * FlxG.elapsed;
+			if (FlxG.sound.music.volume < _musicTarget)
+			{
+				FlxG.sound.music.volume += 0.5 * FlxG.elapsed;
+				if (FlxG.sound.music.volume > _musicTarget)
+					FlxG.sound.music.volume = _musicTarget;
+			}
+			else if (FlxG.sound.music.volume > _musicTarget)
+			{
+				FlxG.sound.music.volume = _musicTarget; // Bajar inmediatamente
+			}
 		}
 		#end
 

@@ -465,9 +465,9 @@ class Paths
 			else
 			#end
 			if (OpenFlAssets.exists(path, SOUND))
-				snd = OpenFlAssets.getSound(path, false);
+				snd = OpenFlAssets.getSound(path);
 			else if (OpenFlAssets.exists(path, MUSIC))
-				snd = OpenFlAssets.getSound(path, false);
+				snd = OpenFlAssets.getSound(path);
 		}
 		catch (e:Dynamic)
 		{
@@ -1035,7 +1035,7 @@ class Paths
 			}
 			#end
 			if (!path.startsWith('mods/') && !path.startsWith('/') && OpenFlAssets.exists(path, IMAGE))
-				return OpenFlAssets.getBitmapData(path, false);
+				return OpenFlAssets.getBitmapData(path);
 		}
 		catch (e:Dynamic)
 		{

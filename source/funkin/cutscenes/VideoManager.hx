@@ -9,6 +9,7 @@ import flixel.util.FlxTimer;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import funkin.states.LoadingState;
+import funkin.graphics.shaders.FunkinRuntimeShader;
 
 using StringTools;
 
@@ -66,7 +67,7 @@ class VideoManager
 	/** Active video shaders: name → {filter, instance} */
 	static var _videoShaderInstances:Map<String, {
 		filter  : openfl.filters.ShaderFilter,
-		instance: flixel.addons.display.FlxRuntimeShader
+		instance: FunkinRuntimeShader
 	}> = new Map();
 
 	/** Invalidate resolved-path cache (call when the active mod changes). */
@@ -221,10 +222,10 @@ class VideoManager
 			return null;
 		}
 
-		var instance:flixel.addons.display.FlxRuntimeShader;
+		var instance:FunkinRuntimeShader;
 		try
 		{
-			instance = new flixel.addons.display.FlxRuntimeShader(cs.fragmentCode);
+			instance = new FunkinRuntimeShader(cs.fragmentCode);
 		}
 		catch (e:Dynamic)
 		{

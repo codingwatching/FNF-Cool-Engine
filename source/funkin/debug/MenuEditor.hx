@@ -142,7 +142,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 		camPreview = new FlxCamera(0, TOOLBAR_H, prevW, prevH);
 		camPreview.bgColor = C_PREVIEW;
 		FlxG.cameras.add(camPreview, false);
-		FlxCamera.defaultCameras = [camUI];
+		@:privateAccess FlxCamera._defaultCameras = [camUI];
 
 		_data = _mkDefaultMenu();
 		_buildBg();

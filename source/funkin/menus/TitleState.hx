@@ -16,6 +16,7 @@ import data.PlayerSettings;
 import ui.Alphabet;
 import funkin.scripting.StateScriptHandler;
 import funkin.transitions.StateTransition;
+import funkin.audio.MusicManager;
 import haxe.Json;
 
 using StringTools;
@@ -228,13 +229,8 @@ class TitleState extends funkin.states.MusicBeatState
 		if (initialized)
 		{
 			// Coming back from a mod restart — music was destroyed, restart it
-			if (FlxG.sound.music == null || !FlxG.sound.music.playing)
-			{
-				final snd = Paths.loadMusic('freakyMenu');
-				if (snd != null) FlxG.sound.playMusic(snd, 0.7);
-				else FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
-				Conductor.changeBPM(titleData != null && titleData.bpm != null ? titleData.bpm : 102);
-			}
+			MusicManager.play('freakyMenu', 0.7);
+			Conductor.changeBPM(titleData != null && titleData.bpm != null ? titleData.bpm : 102);
 			skipIntro();
 		}
 		else
@@ -242,14 +238,7 @@ class TitleState extends funkin.states.MusicBeatState
 			transIn = null;
 			transOut = null;
 
-			final freakyPath = Paths.music('freakyMenu');
-			final freakySnd  = Paths.loadMusic('freakyMenu');
-			if (freakySnd != null)
-				FlxG.sound.playMusic(freakySnd, 0);
-			else
-				FlxG.sound.playMusic(freakyPath, 0);
-
-			FlxG.sound.music?.fadeIn(4, 0, 0.7);
+			MusicManager.playWithFade('freakyMenu', 0.7, 4.0);
 			Conductor.changeBPM(titleData != null && titleData.bpm != null ? titleData.bpm : 102);
 			initialized = true;
 		}

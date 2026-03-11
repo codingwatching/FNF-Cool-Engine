@@ -254,7 +254,7 @@ class WindowManager
 			// embebido del proyecto lo conseguimos.
 			try
 			{
-				final defaultIcon = openfl.Assets.getBitmapData('icon.png', false);
+				final defaultIcon = openfl.Assets.getBitmapData('icon.png');
 				if (defaultIcon != null)
 				{
 					final img = lime.graphics.Image.fromBitmapData(defaultIcon);
@@ -649,7 +649,7 @@ class WindowManager
 		{
 			for (cam in FlxG.cameras.list)
 			{
-				if (cam != null && cam._filters != null)
+				if (cam != null && cam.filters != null)
 					_resetSpriteCache(cam.flashSprite);
 			}
 		}

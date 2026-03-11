@@ -18,26 +18,119 @@ typedef RatingData = {
 	var breakCombo:Bool;
 	/** Si false, no muestra popup de rating (útil para "perfect" silencioso, etc.). */
 	var ?showPopup:Bool;
+
+	// ── Display config por rating ─────────────────────────────────────────────
+	/** Offset X adicional para el sprite de rating (sumado al base global). */
+	var ?displayOffsetX:Float;
+	/** Offset Y adicional para el sprite de rating (sumado al base global). */
+	var ?displayOffsetY:Float;
+	/** Escala del sprite de rating (null = usa el valor global). */
+	var ?displayScale:Float;
+	/**
+	 * Ruta del sprite custom para este rating (null = usa "UI/normal/score/{name}" o el prefijo global).
+	 * Ejemplo: "UI/pixel/score/sick" para usar un sprite de pixel art.
+	 */
+	var ?spritePath:Null<String>;
+	/** Si false, no muestra los números de combo con este rating. Null = usar valor global. */
+	var ?showCombo:Null<Bool>;
+	/** Offset X adicional para los números de combo de este rating. */
+	var ?comboOffsetX:Float;
+	/** Offset Y adicional para los números de combo de este rating. */
+	var ?comboOffsetY:Float;
 }
 
 /**
- * RatingManager — Sistema de ratings completamente softcodeado.
+ * Configuración de display del popup de ratings.
+ * Se carga desde `ratings_display.json` (en paralelo a `ratings.json`).
  *
+ * Estructura del JSON:
+ * {
+ *   "baseX": 0,               // X base de todos los ratings (relativo al centro de pantalla)
+ *   "baseY": -60,             // Y base
+ *   "comboBaseX": 0,          // X base de los números de combo
+ *   "comboBaseY": 80,         // Y base de los números de combo
+ *   "ratingScale": 0.785,     // Escala global de sprites de rating
+ *   "comboScale": 0.6,        // Escala global de números de combo
+ *   "spritePrefix": "",       // Prefijo para las rutas de sprite (e.g. "pixel/")
+ *   "spriteSuffix": "",       // Sufijo (e.g. "-hd")
+ *   "numPrefix": "num",       // Prefijo de los números de combo
+ *   "numSuffix": "",          // Sufijo de los números de combo
+ *   "antialiasing": true,     // Antialiasing global (false para pixel art)
+ *   "showCombo": true,        // Mostrar números de combo por defecto
+ *   "animDuration": 0.2,      // Duración del fade-out de los sprites
+ *   "characters": {           // Overrides por personaje (por nombre de personaje)
+ *     "bf-pixel": {
+ *       "baseX": 5, "baseY": -55,
+ *       "spritePrefix": "pixel/", "antialiasing": false
+ *     }
+ *   }
+ * }
+ */
+typedef RatingDisplayConfig = {
+	/** X base de todos los sprites de rating (relativo al centro de pantalla). */
+	var ?baseX:Float;
+	/** Y base. */
+	var ?baseY:Float;
+	/** X base de los números de combo. */
+	var ?comboBaseX:Float;
+	/** Y base de los números de combo. */
+	var ?comboBaseY:Float;
+	/** Escala global de sprites de rating. */
+	var ?ratingScale:Float;
+	/** Escala global de números de combo. */
+	var ?comboScale:Float;
+	/** Prefijo global para rutas de sprite. E.g. "pixel/" para usar sprites de pixel art. */
+	var ?spritePrefix:String;
+	/** Sufijo global para rutas de sprite. E.g. "-hd". */
+	var ?spriteSuffix:String;
+	/** Prefijo de los números de combo. Default: "num". */
+	var ?numPrefix:String;
+	/** Sufijo de los números de combo. Default: "". */
+	var ?numSuffix:String;
+	/** Antialiasing global. false = pixel art. */
+	var ?antialiasing:Bool;
+	/** Mostrar números de combo por defecto. */
+	var ?showCombo:Bool;
+	/** Duración del tween de desvanecimiento (segundos). */
+	var ?animDuration:Float;
+	/**
+	 * Overrides por nombre de personaje.
+	 * La clave es el nombre del personaje (e.g. "bf", "bf-pixel", "gf").
+	 * Los campos coinciden con los de RatingDisplayConfig (sin este campo).
+	 */
+	var ?characters:Dynamic;
+}
+
+/**
+ * RatingManager — Sistema de ratings y display completamente softcodeado.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ *  RATINGS (ventanas de timing, puntos, health)
+ * ═══════════════════════════════════════════════════════════════
  * Jerarquía de carga (primera encontrada gana):
- *   1. mods/{mod}/data/songs/{song}/ratings.json   ← per-song override de mod
- *   2. mods/{mod}/data/ratings.json                ← override global de mod
- *   3. assets/data/songs/{song}/ratings.json       ← per-song base
- *   4. assets/data/ratings.json                    ← global base
+ *   1. mods/{mod}/data/songs/{song}/ratings.json
+ *   2. mods/{mod}/data/ratings.json
+ *   3. assets/data/songs/{song}/ratings.json
+ *   4. assets/data/ratings.json
  *   5. Defaults hardcoded (FNF vanilla)
  *
- * Para añadir un rating nuevo (ejemplo "perfect"):
- *   En ratings.json agregar ANTES de "sick" (window menor):
- *   { "name": "perfect", "window": 20, "score": 500,
- *     "accuracyWeight": 1.0, "health": 0.15, "breakCombo": false }
- *   Y añadir el sprite en: assets/images/UI/normal/score/perfect.png
+ * ═══════════════════════════════════════════════════════════════
+ *  DISPLAY CONFIG (offsets, escala, sprites, personajes)
+ * ═══════════════════════════════════════════════════════════════
+ * Jerarquía de carga:
+ *   1. mods/{mod}/data/songs/{song}/ratings_display.json
+ *   2. mods/{mod}/data/ratings_display.json
+ *   3. assets/data/songs/{song}/ratings_display.json
+ *   4. assets/data/ratings_display.json
+ *   5. Defaults internos
  *
- * Los ratings se ordenan automáticamente por `window` ascendente,
- * así getRating() siempre devuelve la ventana más estricta posible.
+ * Para un personaje específico: añadir en "characters" del JSON con el nombre exacto
+ * del personaje (e.g. "bf-pixel", "pico"). Los campos del override se fusionan
+ * encima de la config global.
+ *
+ * Los scripts de HUD pueden acceder a la config via:
+ *   var cfg = RatingManager.getDisplayConfig();
+ *   var cfgForChar = RatingManager.getDisplayConfigForChar("bf-pixel");
  */
 class RatingManager
 {
@@ -48,6 +141,24 @@ class RatingManager
 		{ name: 'bad',   window: 135.0, score: 100, accuracyWeight: 0.50, health: -0.03, breakCombo: false, showPopup: true },
 		{ name: 'shit',  window: 166.0, score:  50, accuracyWeight: 0.25, health: -0.03, breakCombo: true,  showPopup: true },
 	];
+
+	/** Display config por defecto (usada si no hay JSON). */
+	static final DEFAULT_DISPLAY:RatingDisplayConfig = {
+		baseX:        0.0,
+		baseY:        -60.0,
+		comboBaseX:   0.0,
+		comboBaseY:   80.0,
+		ratingScale:  0.785,
+		comboScale:   0.6,
+		spritePrefix: '',
+		spriteSuffix: '',
+		numPrefix:    'num',
+		numSuffix:    '',
+		antialiasing: true,
+		showCombo:    true,
+		animDuration: 0.2,
+		characters:   null,
+	};
 
 	/** Lista activa de ratings, ordenada por window ascendente. */
 	public static var ratings:Array<RatingData> = [];
@@ -62,6 +173,9 @@ class RatingManager
 	static var _byName:Map<String, RatingData> = new Map();
 
 	static var _initialized:Bool = false;
+
+	/** Config de display cargada (mezcla global + defaults). */
+	static var _displayConfig:Null<RatingDisplayConfig> = null;
 
 	// ────────────────────────────────────────────────────────────────────────
 
@@ -85,6 +199,7 @@ class RatingManager
 	{
 		ratings = [];
 		_byName.clear();
+		_displayConfig = null;
 		_initialized = false;
 	}
 
@@ -93,7 +208,6 @@ class RatingManager
 	/**
 	 * Devuelve el RatingData para una diferencia de timing dada.
 	 * Retorna null si noteDiff > missWindow (= miss, manejar externamente).
-	 * O(n) sobre los ratings activos — en la práctica n ≤ 6, coste insignificante.
 	 */
 	public static function getRating(noteDiff:Float):Null<RatingData>
 	{
@@ -111,30 +225,108 @@ class RatingManager
 	public static inline function showsPopup(r:RatingData):Bool
 		return r.showPopup != false;
 
+	// ── Display Config API ────────────────────────────────────────────────────
+
+	/**
+	 * Devuelve la config de display global (con defaults aplicados).
+	 * Los scripts de HUD deben usar esto para posicionar los sprites.
+	 */
+	public static function getDisplayConfig():RatingDisplayConfig
+	{
+		if (_displayConfig == null)
+			return DEFAULT_DISPLAY;
+		return _displayConfig;
+	}
+
+	/**
+	 * Devuelve la config de display fusionada para un personaje específico.
+	 * Si el personaje no tiene override, devuelve la config global.
+	 *
+	 * Ejemplo de uso en HUD script:
+	 *   var cfg = RatingManager.getDisplayConfigForChar(PlayState.SONG.player1);
+	 *   rating.x = FlxG.width * 0.35 + cfg.baseX;
+	 *   rating.y = FlxG.height * 0.5 + cfg.baseY;
+	 */
+	public static function getDisplayConfigForChar(?charName:String):RatingDisplayConfig
+	{
+		var base = getDisplayConfig();
+		if (charName == null || base.characters == null)
+			return base;
+
+		var overrideState:Dynamic = Reflect.field(base.characters, charName);
+		if (overrideState == null)
+			return base;
+
+		// Fusionar override encima de la base
+		return _mergeDisplayConfig(base, overrideState);
+	}
+
+	/**
+	 * Devuelve la ruta de sprite para un rating dado el config activo.
+	 * Respeta `ratingData.spritePath` si está definido, sino construye
+	 * con el prefijo/sufijo del displayConfig.
+	 *
+	 * Ejemplo: si spritePrefix="pixel/" y name="sick" → "pixel/sick"
+	 */
+	public static function getSpritePathForRating(r:RatingData, ?charName:String):String
+	{
+		// El rating tiene una ruta custom explícita
+		if (r.spritePath != null && r.spritePath.length > 0)
+			return r.spritePath;
+
+		var cfg = getDisplayConfigForChar(charName);
+		var prefix = (cfg.spritePrefix != null) ? cfg.spritePrefix : '';
+		var suffix = (cfg.spriteSuffix != null) ? cfg.spriteSuffix : '';
+		return '${prefix}${r.name}${suffix}';
+	}
+
+	/**
+	 * Devuelve la ruta de sprite para un número de combo dado el config activo.
+	 * Ejemplo: numPrefix="num", numSuffix="" y digit=5 → "num5"
+	 */
+	public static function getNumSpritePath(digit:Int, ?charName:String):String
+	{
+		var cfg = getDisplayConfigForChar(charName);
+		var prefix = (cfg.numPrefix != null) ? cfg.numPrefix : 'num';
+		var suffix = (cfg.numSuffix != null) ? cfg.numSuffix : '';
+		return '${prefix}${digit}${suffix}';
+	}
+
 	// ── Carga interna ─────────────────────────────────────────────────────────
 
 	static function _load(?songName:String):Void
 	{
 		ratings = [];
 		_byName.clear();
+		_displayConfig = null;
 
-		var raw:Null<String> = null;
+		var raw:Null<String>     = null;
+		var rawDisplay:Null<String> = null;
 
 		#if sys
-		// Candidatos en orden de prioridad
 		var candidates:Array<String> = [];
+		var candidatesDisplay:Array<String> = [];
 
 		if (mods.ModManager.isActive())
 		{
 			var modRoot = mods.ModManager.modRoot();
 			if (songName != null)
+			{
 				candidates.push('$modRoot/data/songs/$songName/ratings.json');
+				candidatesDisplay.push('$modRoot/data/songs/$songName/ratings_display.json');
+			}
 			candidates.push('$modRoot/data/ratings.json');
+			candidatesDisplay.push('$modRoot/data/ratings_display.json');
 		}
 		if (songName != null)
+		{
 			candidates.push('assets/data/songs/$songName/ratings.json');
+			candidatesDisplay.push('assets/data/songs/$songName/ratings_display.json');
+		}
 		candidates.push('assets/data/ratings.json');
+		candidatesDisplay.push('assets/data/ratings_display.json');
 
+		// Cargar ratings.json
 		for (path in candidates)
 		{
 			if (sys.FileSystem.exists(path))
@@ -143,8 +335,19 @@ class RatingManager
 				catch (e:Dynamic) { trace('[RatingManager] Error leyendo $path: $e'); }
 			}
 		}
+
+		// Cargar ratings_display.json
+		for (path in candidatesDisplay)
+		{
+			if (sys.FileSystem.exists(path))
+			{
+				try   { rawDisplay = sys.io.File.getContent(path); trace('[RatingManager] Display config: $path'); break; }
+				catch (e:Dynamic) { trace('[RatingManager] Error leyendo $path: $e'); }
+			}
+		}
 		#end
 
+		// ── Parsear ratings ───────────────────────────────────────────────
 		if (raw != null)
 		{
 			try
@@ -152,7 +355,7 @@ class RatingManager
 				var parsed:Array<Dynamic> = haxe.Json.parse(raw);
 				for (r in parsed)
 				{
-					if (r.name == null || r.window == null) continue; // entrada inválida
+					if (r.name == null || r.window == null) continue;
 					ratings.push({
 						name:           Std.string(r.name),
 						window:         r.window,
@@ -160,7 +363,15 @@ class RatingManager
 						accuracyWeight: r.accuracyWeight != null ? r.accuracyWeight : 1.0,
 						health:         r.health  != null ? r.health  : 0.0,
 						breakCombo:     r.breakCombo == true,
-						showPopup:      r.showPopup  != false
+						showPopup:      r.showPopup  != false,
+						// Display fields
+						displayOffsetX: r.displayOffsetX != null ? r.displayOffsetX : 0.0,
+						displayOffsetY: r.displayOffsetY != null ? r.displayOffsetY : 0.0,
+						displayScale:   r.displayScale,
+						spritePath:     r.spritePath,
+						showCombo:      r.showCombo,
+						comboOffsetX:   r.comboOffsetX != null ? r.comboOffsetX : 0.0,
+						comboOffsetY:   r.comboOffsetY != null ? r.comboOffsetY : 0.0,
 					});
 				}
 				trace('[RatingManager] ${ratings.length} ratings cargados desde JSON');
@@ -179,18 +390,83 @@ class RatingManager
 			trace('[RatingManager] Usando ${ratings.length} ratings por defecto');
 		}
 
-		// Ordenar ascendente por window (garantiza getRating() correcto)
+		// Ordenar ascendente por window
 		ratings.sort((a, b) -> {
 			if (a.window < b.window) return -1;
 			if (a.window > b.window) return  1;
 			return 0;
 		});
 
-		// Poblar caché de lookup
 		for (r in ratings)
 			_byName.set(r.name, r);
 
 		topRatingName = ratings.length > 0 ? ratings[0].name : 'sick';
 		missWindow    = ratings.length > 0 ? ratings[ratings.length - 1].window : 166.0;
+
+		// ── Parsear display config ────────────────────────────────────────
+		if (rawDisplay != null)
+		{
+			try
+			{
+				var parsed:Dynamic = haxe.Json.parse(rawDisplay);
+				// Fusionar con los defaults internos
+				_displayConfig = _mergeDisplayConfig(DEFAULT_DISPLAY, parsed);
+				trace('[RatingManager] Display config cargada desde JSON');
+			}
+			catch (e:Dynamic)
+			{
+				trace('[RatingManager] JSON de display inválido: $e — usando defaults');
+				_displayConfig = DEFAULT_DISPLAY;
+			}
+		}
+		else
+		{
+			_displayConfig = DEFAULT_DISPLAY;
+		}
+	}
+
+	/**
+	 * Fusiona los campos de `override` encima de `base`.
+	 * Solo sobreescribe campos presentes y no-null en `override`.
+	 */
+	static function _mergeDisplayConfig(base:RatingDisplayConfig, overrideState:Dynamic):RatingDisplayConfig
+	{
+		// Usamos Dynamic para leer campos opcionales del override
+		inline function _f(field:String, fallback:Float):Float
+		{
+			var v = Reflect.field(overrideState, field);
+			return (v != null) ? v : Reflect.field(base, field) ?? fallback;
+		}
+		inline function _b(field:String, fallback:Bool):Bool
+		{
+			var v = Reflect.field(overrideState, field);
+			return (v != null) ? v : Reflect.field(base, field) ?? fallback;
+		}
+		inline function _s(field:String, fallback:String):String
+		{
+			var v = Reflect.field(overrideState, field);
+			return (v != null) ? Std.string(v) : (Reflect.field(base, field) ?? fallback);
+		}
+
+		// El campo "characters" del resultado es siempre el del base global
+		// (no se anidan overrides de personaje dentro de overrides de personaje)
+		var chars = base.characters;
+
+		return {
+			baseX:        _f('baseX',        0.0),
+			baseY:        _f('baseY',        -60.0),
+			comboBaseX:   _f('comboBaseX',   0.0),
+			comboBaseY:   _f('comboBaseY',   80.0),
+			ratingScale:  _f('ratingScale',  0.785),
+			comboScale:   _f('comboScale',   0.6),
+			spritePrefix: _s('spritePrefix', ''),
+			spriteSuffix: _s('spriteSuffix', ''),
+			numPrefix:    _s('numPrefix',    'num'),
+			numSuffix:    _s('numSuffix',    ''),
+			antialiasing: _b('antialiasing', true),
+			showCombo:    _b('showCombo',    true),
+			animDuration: _f('animDuration', 0.2),
+			characters:   chars,
+		};
 	}
 }

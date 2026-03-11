@@ -39,6 +39,7 @@ using StringTools;
 
 import haxe.Json;
 import haxe.format.JsonParser;
+import funkin.audio.MusicManager;
 #if sys
 import sys.FileSystem;
 #end
@@ -109,11 +110,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		}
 
 		MainMenuState.musicFreakyisPlaying = false;
-		final snd = Paths.loadMusic('girlfriendsRingtone/girlfriendsRingtone');
-		if (snd != null)
-			FlxG.sound.playMusic(snd, 0.7);
-		else
-			FlxG.sound.playMusic(Paths.music('girlfriendsRingtone/girlfriendsRingtone'), 0.7);
+		MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7);
 
 		// Error message text
 		errorText = new FlxText(0, FlxG.height * 0.5 - 50, FlxG.width, "", 32);
@@ -232,16 +229,19 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 		scoreText = new FlxText(FlxG.width * 0.66, 45, 0, "", 28);
 		scoreText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, RIGHT);
+		scoreText.antialiasing = FlxG.save.data.antialiasing;
 		scoreText.setBorderStyle(OUTLINE, FlxColor.BLACK, 2);
 		add(scoreText);
 
 		diffText = new FlxText(FlxG.width * 0.66, 85, 0, "", 24);
 		diffText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.CYAN, RIGHT);
+		diffText.antialiasing = FlxG.save.data.antialiasing;
 		diffText.setBorderStyle(OUTLINE, FlxColor.BLACK, 2);
 		add(diffText);
 
 		var ratingText:FlxText = new FlxText(FlxG.width * 0.66, 115, 0, "", 20);
 		ratingText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.YELLOW, RIGHT);
+		ratingText.antialiasing = FlxG.save.data.antialiasing;
 		ratingText.setBorderStyle(OUTLINE, FlxColor.BLACK, 2);
 		add(ratingText);
 
@@ -271,13 +271,9 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 		var leText:FlxText = new FlxText(0, FlxG.height - 26, FlxG.width, "SPACE: Preview Song | ENTER: Play | ESC: Back | E: Editor", 16);
 		leText.scrollFactor.set();
+		leText.antialiasing = FlxG.save.data.antialiasing;
 		leText.setFormat('VCR OSD Mono', 16, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(leText);
-
-		var versionShit:FlxText = new FlxText(12, FlxG.height - 26, 0, "FNF Cool Engine v" + Application.current.meta.get('version'), 12);
-		versionShit.scrollFactor.set();
-		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.CYAN, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		add(versionShit);
 
 		errorText.visible = false;
 		add(errorText);
@@ -321,7 +317,15 @@ class FreeplayState extends funkin.states.MusicBeatState
 		for (i in 0...songInfo.songsWeeks.length)
 		{
 			addWeek(songInfo.songsWeeks[i].weekSongs, i, songInfo.songsWeeks[i].songIcons);
-			coolColors.push(Std.parseInt(songInfo.songsWeeks[i].color[i]));
+			// BUGFIX: se usaba color[i] (índice de la semana) en lugar de color[0].
+			// Cada semana tiene su propio array de colores (uno por canción), pero
+			// para el fondo de Freeplay solo se necesita el primer color de la semana.
+			// color[i] con i=1,3,4... está fuera de rango → Std.parseInt(null) = null
+			// → coolColors[semana] = 0 (negro) para la mayoría de las semanas.
+			var _wc = songInfo.songsWeeks[i].color;
+			var _cs:String = (_wc != null && _wc.length > 0) ? _wc[0] : '0xFFFFD900';
+			var _ci:Null<Int> = Std.parseInt(_cs);
+			coolColors.push(_ci != null ? _ci : 0xFFFFD900);
 		}
 	}
 
@@ -686,11 +690,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				final gfSnd = Paths.loadMusic('girlfriendsRingtone/girlfriendsRingtone');
-				if (gfSnd != null)
-					FlxG.sound.playMusic(gfSnd, 0.7);
-				else
-					FlxG.sound.playMusic(Paths.music('girlfriendsRingtone/girlfriendsRingtone'), 0.7);
+				MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, true);
 				instPlaying = -1;
 
 				if (discSpr != null)

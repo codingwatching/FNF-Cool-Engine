@@ -66,6 +66,7 @@ function _createScoreText()
 	var healthBarY = FlxG.save.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.98;
 	scoreTxt = makeText(0, healthBarY - 35, '', 20);
 	scoreTxt.fieldWidth = FlxG.width;
+	scoreTxt.antialiasing = FlxG.save.data.antialiasing;
 	scoreTxt.alignment = "center";
 	setTextBorder(scoreTxt, 'outline', 0xFF000000, 2, 1);
 	scoreTxt.font = Paths.font('Funkin.otf');

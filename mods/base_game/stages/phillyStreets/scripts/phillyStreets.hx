@@ -1,94 +1,13 @@
 // phillyStreets.hx — Cool Engine stage script
 //
-// El shader de lluvia está embebido aquí con createShader().
-// NO necesita rain.frag en disco.
-//
-// FIX (shader negro con .frag):
-//   Cuando un shader se aplica como ShaderFilter de cámara, openfl_TextureCoordv
-//   está en pixel-space (ej. 640, 360), NO en UV [0..1].
-//   flixel_texture2D() divide por openfl_TextureSize internamente → correcto.
-//   texture2D() SIN dividir muestrea fuera de [0,1] → GL_CLAMP → negro.
-//
-// FIX (shader sin efecto con createShader):
-//   FlxRuntimeShader compila el GLSL la primera vez que se renderiza, no al
-//   construirse. setFloat() antes del primer render falla silenciosamente
-//   porque el uniform location no está bound todavía.
-//   SOLUCIÓN: crear el shader con `new FlxRuntimeShader(fragCode)` directamente,
-//   aplicarlo con setFilters(camGame, [makeShaderFilter(shader)]) y llamar
-//   setFloat en onUpdate() CADA FRAME en lugar de solo en la inicialización.
-//   Así el primer set exitoso ocurre tras el primer render, garantizando el efecto.
+// Usa ShaderManager.applyShaderToCamera("rain", camGame) para aplicar el shader.
+// A partir de la corrección en ShaderManager, applyShaderToCamera() gestiona
+// internamente un sprite overlay — no hace falta crear ni destruir nada manualmente.
+// Para quitar el shader: ShaderManager.removeShaderFromCamera("rain", camGame).
 
-// ─── GLSL del shader de lluvia ────────────────────────────────────────────────
-
-var RAIN_FRAG =
-    '#pragma header\n'
-  + 'uniform float uTime;\n'
-  + 'uniform float uScale;\n'
-  + 'uniform float uIntensity;\n'
-  + 'uniform float uPuddleY;\n'
-  + 'uniform float uPuddleScaleY;\n'
-  + 'uniform float uScreenW;\n'
-  + 'uniform float uScreenH;\n'
-  + '\n'
-  + 'float hash(float n){return fract(sin(n)*43758.5453123);}\n'
-  + 'float hash2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}\n'
-  + '\n'
-  + 'float raindrop(vec2 uv,float t){\n'
-  + '  float speed=0.7+hash(floor(uv.x*38.0))*0.6;\n'
-  + '  float ofs=hash(floor(uv.x*38.0)*17.3);\n'
-  + '  float xd=t*speed*0.12;\n'
-  + '  float y=fract(uv.y+xd-t*speed+ofs);\n'
-  + '  float head=smoothstep(0.06,0.0,abs(y-0.05));\n'
-  + '  float tail=smoothstep(0.22,0.0,y)*(1.0-smoothstep(0.0,0.05,y));\n'
-  + '  return clamp(head*1.2+tail*0.6,0.0,1.0);\n'
-  + '}\n'
-  + '\n'
-  + 'float rainLayer(vec2 uv,float t,float cw,float ch,float density,float spd){\n'
-  + '  vec2 cs=vec2(cw,ch);\n'
-  + '  vec2 cell=floor(uv/cs);\n'
-  + '  vec2 cuv=fract(uv/cs);\n'
-  + '  if(hash2(cell)>=density)return 0.0;\n'
-  + '  float xf=smoothstep(0.45,0.0,abs(cuv.x*2.0-1.0));\n'
-  + '  return raindrop(cuv,t*spd)*xf;\n'
-  + '}\n'
-  + '\n'
-  + 'float puddle(vec2 px,float t){\n'
-  + '  if(uPuddleScaleY<=0.0)return 0.0;\n'
-  + '  float dy=px.y-uPuddleY;\n'
-  + '  if(dy<0.0)return 0.0;\n'
-  + '  float d=dy*uPuddleScaleY;\n'
-  + '  return(sin(d*20.0-t*4.0)*0.5+0.5)*exp(-d*1.2)*0.35;\n'
-  + '}\n'
-  + '\n'
-  + 'void main(){\n'
-  + '  vec4 tex=flixel_texture2D(bitmap,openfl_TextureCoordv);\n'
-  + '  vec2 sc=openfl_TextureCoordv/openfl_TextureSize;\n'
-  + '  float scale=(uScale>0.01)?uScale:3.5;\n'
-  + '  vec2 uv=sc*scale;\n'
-  + '\n'
-  + '  float dark=clamp(uIntensity*0.7,0.0,0.55);\n'
-  + '  vec3 base=mix(tex.rgb,vec3(0.18,0.22,0.32),dark);\n'
-  + '\n'
-  + '  float rain=0.0;\n'
-  + '  rain+=rainLayer(uv,uTime,0.025,0.09,0.60,1.00)*1.00;\n'
-  + '  rain+=rainLayer(uv*0.65,uTime,0.035,0.12,0.50,0.75)*0.65;\n'
-  + '  rain+=rainLayer(uv*1.5,uTime,0.018,0.07,0.70,1.30)*0.40;\n'
-  + '  rain=clamp(rain,0.0,1.0);\n'
-  + '\n'
-  + '  float df=rain*clamp(uIntensity*5.0,0.5,1.0);\n'
-  + '  base=mix(base,vec3(0.75,0.87,1.0),clamp(df*0.55,0.0,0.55));\n'
-  + '\n'
-  + '  float sw=(uScreenW>1.0)?uScreenW:1280.0;\n'
-  + '  float sh=(uScreenH>1.0)?uScreenH:720.0;\n'
-  + '  base=mix(base,vec3(0.35,0.45,0.75),puddle(vec2(sc.x*sw,sc.y*sh),uTime)*uIntensity);\n'
-  + '\n'
-  + '  gl_FragColor=vec4(base,tex.a);\n'
-  + '}\n';
-
-// ─── Estado ───────────────────────────────────────────────────────────────────
-
-var rainShader = null;    // FlxRuntimeShader creado con new FlxRuntimeShader(RAIN_FRAG)
 var rainTime:Float = 0.0;
+var shaderApplied:Bool = false;
+var shaderDelay:Int = 0;  // esperar 2 frames antes de aplicar
 
 var rainStartIntensity:Float = 0.0;
 var rainEndIntensity:Float   = 0.0;
@@ -99,8 +18,6 @@ var changeInterval:Int     = 8;
 var carWaiting:Bool        = false;
 var carInterruptable:Bool  = true;
 var car2Interruptable:Bool = true;
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function onStageCreate():Void
 {
@@ -121,62 +38,55 @@ function onStageCreate():Void
             rainEndIntensity   = 0.30;
     }
 
-    // Crear el shader aquí — aún no lo aplicamos a la cámara porque
-    // la primera vez que se renderiza se compila el GLSL.
-    // setFilters() y las primeras llamadas setFloat() se hacen en onUpdate.
-    rainShader = FlxRuntimeShader.new(RAIN_FRAG);
-
+    ShaderManager.loadShader("rain");
     resetCar(true, true);
     resetStageValues();
 }
 
-var shaderApplied:Bool = false;
-
 function onUpdate(elapsed:Float):Void
 {
-    // ── Aplicar el filtro de cámara una sola vez ───────────────────────────
-    // Lo hacemos en onUpdate (no en onStageCreate) para asegurarnos de que
-    // el canvas de camGame ya haya tenido al menos un render cycle.
-    if (!shaderApplied && rainShader != null)
+    // Esperar 2 frames para que camGame haya renderizado su primer frame.
+    if (!shaderApplied)
     {
-        setFilters(camGame, [makeShaderFilter(rainShader)]);
+        shaderDelay++;
+        if (shaderDelay < 2) return;
+
+        // applyShaderToCamera() crea el overlay internamente y lo gestiona.
+        // No hace falta crear ningún FlxSprite manualmente.
+        ShaderManager.applyShaderToCamera("rain", camGame);
 
         var puddleProp = stage != null ? stage.getElement('puddle') : null;
         if (puddleProp != null)
         {
-            rainShader.setFloat('uPuddleY',      puddleProp.y + 80.0);
-            rainShader.setFloat('uPuddleScaleY', 0.3);
+            ShaderManager.setShaderParam("rain", "uPuddleY",      puddleProp.y + 80.0);
+            ShaderManager.setShaderParam("rain", "uPuddleScaleY", 0.3);
         }
         else
         {
-            rainShader.setFloat('uPuddleY',      0.0);
-            rainShader.setFloat('uPuddleScaleY', 0.0);
+            ShaderManager.setShaderParam("rain", "uPuddleY",      0.0);
+            ShaderManager.setShaderParam("rain", "uPuddleScaleY", 0.0);
         }
 
         shaderApplied = true;
     }
 
-    // ── Actualizar uniforms CADA frame ────────────────────────────────────
-    // Llamar setFloat() cada frame garantiza que el primer intento exitoso
-    // (tras el primer render/compilación GLSL) aplique los valores correctos.
-    if (rainShader != null)
+    rainTime += elapsed;
+
+    var intensity:Float = rainStartIntensity;
+    if (FlxG.sound.music != null && FlxG.sound.music.length > 100)
     {
-        rainTime += elapsed;
-
-        var songLen:Float = (FlxG.sound.music != null) ? FlxG.sound.music.length : 1.0;
+        var songLen:Float = FlxG.sound.music.length;
         var songPos:Float = (Conductor != null) ? Conductor.songPosition : 0.0;
-        var intensity:Float = (songLen > 0)
-            ? FlxMath.remapToRange(songPos, 0.0, songLen, rainStartIntensity, rainEndIntensity)
-            : rainStartIntensity;
-
-        rainShader.setFloat('uTime',      rainTime);
-        rainShader.setFloat('uIntensity', intensity);
-        rainShader.setFloat('uScale',     FlxG.height / 200.0);
-        rainShader.setFloat('uScreenW',   FlxG.width  * 1.0);
-        rainShader.setFloat('uScreenH',   FlxG.height * 1.0);
+        intensity = FlxMath.remapToRange(songPos, 0.0, songLen, rainStartIntensity, rainEndIntensity);
+        intensity = FlxMath.bound(intensity, rainStartIntensity, rainEndIntensity);
     }
 
-    // ── Sky scroll ─────────────────────────────────────────────────────────
+    ShaderManager.setShaderParam("rain", "uTime",      rainTime);
+    ShaderManager.setShaderParam("rain", "uIntensity", intensity);
+    ShaderManager.setShaderParam("rain", "uScale",     FlxG.height / 200.0);
+    ShaderManager.setShaderParam("rain", "uScreenW",   FlxG.width  * 1.0);
+    ShaderManager.setShaderParam("rain", "uScreenH",   FlxG.height * 1.0);
+
     var sky = stage != null ? stage.getElement('phillySkybox') : null;
     if (sky != null)
         sky.x -= elapsed * 22;
@@ -211,16 +121,18 @@ function onBeatHit(beat:Int):Void
 
 function onGameOver():Void
 {
-    clearFilters(camGame);
-    rainShader = null;
+    // removeShaderFromCamera quita el overlay gestionado por ShaderManager.
+    ShaderManager.removeShaderFromCamera("rain", camGame);
     shaderApplied = false;
+    rainTime = 0.0;
 }
 
 function onRestart():Void
 {
-    // Recrear el shader al reiniciar
+    ShaderManager.removeShaderFromCamera("rain", camGame);
     shaderApplied = false;
-    rainShader = FlxRuntimeShader.new(RAIN_FRAG);
+    shaderDelay   = 0;
+    rainTime      = 0.0;
 }
 
 function onDestroy():Void
@@ -229,10 +141,9 @@ function onDestroy():Void
     var phillyCars2 = stage != null ? stage.getElement('phillyCars2') : null;
     if (phillyCars  != null) FlxTween.cancelTweensOf(phillyCars);
     if (phillyCars2 != null) FlxTween.cancelTweensOf(phillyCars2);
-    rainShader = null;
-}
 
-// ─── Semáforos ────────────────────────────────────────────────────────────────
+    ShaderManager.removeShaderFromCamera("rain", camGame);
+}
 
 function changeLights(beat:Int):Void
 {
@@ -265,8 +176,6 @@ function resetStageValues():Void
     var traffic = stage != null ? stage.getElement('phillyTraffic') : null;
     if (traffic != null) traffic.animation.play('togreen');
 }
-
-// ─── Coches ───────────────────────────────────────────────────────────────────
 
 function resetCar(left:Bool, right:Bool):Void
 {

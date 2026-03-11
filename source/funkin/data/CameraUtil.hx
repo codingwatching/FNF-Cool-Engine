@@ -13,13 +13,12 @@ import openfl.filters.ShaderFilter;
  * `@:privateAccess` por todo el código base — patrón tomado de NightmareVision.
  * Esto también es lo que causaba el error de compilación:
  *   "flixel.FlxCamera has no field filters (Suggestion: _filters)"
- * La API pública de FlxCamera en Flixel 5.x expone `_filters`, no `filters`.
+ * La API pública de FlxCamera en Flixel git expone `filters` (ya no `_filters`).
  * Esta clase centraliza todos los accesos a ese campo.
  *
  * @author  Cool Engine Team
  * @since   0.5.1
  */
-@:access(flixel.FlxCamera)
 class CameraUtil
 {
 	// ── Creación ──────────────────────────────────────────────────────────────
@@ -42,12 +41,12 @@ class CameraUtil
 
 	/**
 	 * Devuelve el array de filtros de la cámara, creándolo si no existe.
-	 * Usa el campo interno `_filters` correctamente.
+	 * Usa el campo público `filters` de FlxCamera.
 	 */
 	public static inline function getFilters(cam:FlxCamera):Array<BitmapFilter>
 	{
-		if (cam._filters == null) cam._filters = [];
-		return cam._filters;
+		if (cam.filters == null) cam.filters = [];
+		return cam.filters;
 	}
 
 	/**
@@ -57,35 +56,48 @@ class CameraUtil
 	 */
 	public static inline function setFilters(cam:FlxCamera, filters:Array<BitmapFilter>):Void
 	{
-		cam._filters = (filters != null && filters.length > 0) ? filters : null;
+		cam.filters = (filters != null && filters.length > 0) ? filters : null;
 	}
 
 	/**
 	 * Añade un shader a la cámara.
-	 * @param cam     Cámara destino. Default: FlxG.camera.
 	 * @param shader  Shader a aplicar.
+	 * @param cam     Cámara destino. Default: FlxG.camera.
 	 * @return El ShaderFilter creado (para poder quitarlo después).
 	 */
+	// NOTE: cam.filters es propiedad con setter en Flixel git.
+	// .push() modifica el array SIN llamar al setter → pipeline no se
+	// reconstruye → shader no se aplica → pantalla negra.
+	// Siempre copiar, modificar, y reasignar para disparar el setter.
+
 	public static function addShader(shader:FlxShader, ?cam:FlxCamera):ShaderFilter
 	{
-		cam ??= FlxG.camera;
+		if (cam == null) cam = FlxG.camera;
 		var filter:ShaderFilter = new ShaderFilter(shader);
-		if (cam._filters == null) cam._filters = [];
-		cam._filters.push(filter);
+		var arr = cam.filters != null ? cam.filters.copy() : [];
+		arr.push(filter);
+		cam.filters = arr;
 		return filter;
 	}
 
-	/**
-	 * Elimina un shader de la cámara por referencia al ShaderFilter.
-	 * @return true si se eliminó correctamente.
-	 */
+	public static function addFilter(filter:BitmapFilter, ?cam:FlxCamera):Void
+	{
+		if (cam == null) cam = FlxG.camera;
+		var arr = cam.filters != null ? cam.filters.copy() : [];
+		if (!arr.contains(filter))
+		{
+			arr.push(filter);
+			cam.filters = arr;
+		}
+	}
+
 	public static function removeFilter(filter:BitmapFilter, ?cam:FlxCamera):Bool
 	{
-		cam ??= FlxG.camera;
-		if (cam._filters == null) return false;
-		var removed:Bool = cam._filters.remove(filter);
-		// Limpia el array si quedó vacío — evita render pass off-screen vacío
-		if (cam._filters.length == 0) cam._filters = null;
+		if (cam == null) cam = FlxG.camera;
+		if (cam.filters == null) return false;
+		var arr = cam.filters.copy();
+		var removed = arr.remove(filter);
+		cam.filters = arr.length > 0 ? arr : null;
 		return removed;
 	}
 
@@ -94,8 +106,8 @@ class CameraUtil
 	 */
 	public static inline function clearFilters(?cam:FlxCamera):Void
 	{
-		cam ??= FlxG.camera;
-		cam._filters = null;
+		if (cam == null) cam = FlxG.camera;
+		cam.filters = null;
 	}
 
 	/**
@@ -104,10 +116,10 @@ class CameraUtil
 	 */
 	public static function pruneEmptyFilters(?cam:FlxCamera):Void
 	{
-		cam ??= FlxG.camera;
-		if (cam._filters == null) return;
-		cam._filters = cam._filters.filter(f -> f != null);
-		if (cam._filters.length == 0) cam._filters = null;
+		if (cam == null) cam = FlxG.camera;
+		if (cam.filters == null) return;
+		cam.filters = cam.filters.filter(f -> f != null);
+		if (cam.filters.length == 0) cam.filters = null;
 	}
 
 	// ── Optimización ──────────────────────────────────────────────────────────

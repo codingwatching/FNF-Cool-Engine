@@ -55,6 +55,10 @@ class ModFormatDetector
 		if (FileSystem.exists('$modPath/pack.json'))
 			return CODENAME_ENGINE;
 
+		// 2b. V-Slice: _polymod_meta.json is the signature file (Polymod-based mod system)
+		if (FileSystem.exists('$modPath/_polymod_meta.json'))
+			return VSLICE_ENGINE;
+
 		// 3. Psych: weekList.txt / weekList.json in songs/ is Psych-specific
 		if (FileSystem.exists('$modPath/songs/weekList.txt')
 			|| FileSystem.exists('$modPath/songs/weekList.json')
@@ -273,6 +277,17 @@ class ModFormatDetector
 			// Codename JSON: has "asset" instead of "path"
 			if (Reflect.hasField(c, 'asset') && !Reflect.hasField(c, 'path'))
 				return CODENAME_ENGINE;
+			// V-Slice: tiene "assetPath" y/o "renderType" — formato propio de Funkin oficial
+			if (Reflect.hasField(c, 'assetPath') || Reflect.hasField(c, 'renderType'))
+				return VSLICE_ENGINE;
+			// V-Slice alternativo: animations con "prefix" en lugar de "name" o "anim"
+			if (c.animations != null && Std.isOfType(c.animations, Array))
+			{
+				final anims:Array<Dynamic> = cast c.animations;
+				if (anims.length > 0 && Reflect.hasField(anims[0], 'prefix')
+					&& !Reflect.hasField(anims[0], 'anim') && !Reflect.hasField(anims[0], 'name'))
+					return VSLICE_ENGINE;
+			}
 		}
 		catch (_:Dynamic)
 		{

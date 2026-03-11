@@ -172,7 +172,7 @@ class DialogueEditor extends FlxState
 	override public function create():Void
 	{
 		funkin.debug.themes.EditorTheme.load();
-		FlxG.sound.playMusic(Paths.music('chartEditorLoop/chartEditorLoop'), 0.7);
+		funkin.audio.MusicManager.play('chartEditorLoop/chartEditorLoop', 0.7);
 
 		if (PlayState.SONG.song == null)
 			PlayState.SONG.song = 'Test';
@@ -1490,8 +1490,8 @@ class DialogueEditor extends FlxState
 	function importPortrait():Void
 	{
 		#if sys
-		var dialog = new FileDialog();
-		dialog.onSelect.add(function(path:String)
+		var _fdDlg1 = new FileDialog();
+		_fdDlg1.onSelect.add(function(path:String)
 		{
 			var fileName = haxe.io.Path.withoutDirectory(path);
 
@@ -1510,8 +1510,7 @@ class DialogueEditor extends FlxState
 				showMessage("Import failed!", FlxColor.RED);
 			}
 		});
-
-		dialog.browse(OPEN, "png;jpg;jpeg", null, "Select Portrait");
+		_fdDlg1.browse(OPEN, "png;jpg;jpeg", null, "Images");
 		#else
 		showMessage("File import not supported on this platform", FlxColor.ORANGE);
 		#end
@@ -1656,8 +1655,8 @@ class DialogueEditor extends FlxState
 	function importBox():Void
 	{
 		#if sys
-		var dialog = new FileDialog();
-		dialog.onSelect.add(function(path:String)
+		var _fdDlg2 = new FileDialog();
+		_fdDlg2.onSelect.add(function(path:String)
 		{
 			var fileName = haxe.io.Path.withoutDirectory(path);
 
@@ -1676,8 +1675,7 @@ class DialogueEditor extends FlxState
 				showMessage("Import failed!", FlxColor.RED);
 			}
 		});
-
-		dialog.browse(OPEN, "png;jpg;jpeg", null, "Select Dialogue Box");
+		_fdDlg2.browse(OPEN, "png;jpg;jpeg", null, "Images");
 		#else
 		showMessage("File import not supported on this platform", FlxColor.ORANGE);
 		#end

@@ -5,7 +5,7 @@ import flixel.FlxSprite;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
-import flixel.system.FlxSound;
+import flixel.sound.FlxSound;
 import funkin.data.Conductor;
 import funkin.gameplay.PlayStateConfig;
 import funkin.scripting.ScriptHandler;

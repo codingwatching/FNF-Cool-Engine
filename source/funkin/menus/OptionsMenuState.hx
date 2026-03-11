@@ -37,16 +37,37 @@ class OptionsMenuState extends MusicBeatSubstate
 	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Controls', 'Note Skin', 'Offset'];
 	#end
 
-	// ── FPS Cap — valores disponibles (inspirado en Codename Engine) ────────────
-	static final FPS_OPTIONS:Array<Int> = [60, 120, #if !mobileC 144, 240 #end];
+	// ── FPS Cap — rango 30–240 en pasos de 5, luego Unlimited (0) ──────────────
+	static inline final FPS_MIN:Int  = 30;
+	static inline final FPS_MAX:Int  = 240;
+	static inline final FPS_STEP:Int = 5;
 
-	static function getFPSIndex():Int
+	/** Devuelve el valor actual guardado (0 = Unlimited, default 60). */
+	static function _getCurrentFPS():Int
 	{
-		var target:Int = FlxG.save.data.fpsTarget != null ? Std.int(FlxG.save.data.fpsTarget) : 60;
-		for (i in 0...FPS_OPTIONS.length)
-			if (FPS_OPTIONS[i] == target)
-				return i;
-		return 1; // default 60
+		return FlxG.save.data.fpsTarget != null ? Std.int(FlxG.save.data.fpsTarget) : 60;
+	}
+
+	/** Siguiente valor al pulsar → (Right/Toggle): sube 5, al llegar a 240 pasa a Unlimited,
+	    desde Unlimited vuelve a 30. */
+	static function _nextFPS(current:Int):Int
+	{
+		if (current <= 0)        return FPS_MIN;       // Unlimited → 30
+		if (current >= FPS_MAX)  return 0;             // 240 → Unlimited
+		// Redondear al múltiplo de 5 más cercano por encima
+		final snapped = Math.ceil(current / FPS_STEP) * FPS_STEP;
+		final next    = (snapped == current) ? current + FPS_STEP : snapped;
+		return next > FPS_MAX ? 0 : next;
+	}
+
+	/** Anterior valor al pulsar ←: baja 5, desde 30 pasa a Unlimited. */
+	static function _prevFPS(current:Int):Int
+	{
+		if (current <= 0)        return FPS_MAX;       // Unlimited → 240
+		if (current <= FPS_MIN)  return 0;             // 30 → Unlimited
+		final snapped = Math.floor(current / FPS_STEP) * FPS_STEP;
+		final prev    = (snapped == current) ? current - FPS_STEP : snapped;
+		return prev < FPS_MIN ? 0 : prev;
 	}
 
 	var curCategory:Int = 0;
@@ -150,6 +171,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		titleText.setFormat(Paths.font("Funkin.otf"), 48, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		titleText.borderSize = 3;
 		titleText.scrollFactor.set();
+		titleText.antialiasing = FlxG.save.data.antialiasing;
 		add(titleText);
 
 		// Crear contentPanel ANTES de usarlo
@@ -181,6 +203,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			var categoryText:FlxText = new FlxText(60 + (i * categoryWidth), tabY + 8, categoryWidth, categories[i], 24);
 			categoryText.setFormat(Paths.font("Funkin.otf"), 22, 0xFF888888, CENTER, OUTLINE, FlxColor.BLACK);
 			categoryText.borderSize = 2;
+			categoryText.antialiasing = FlxG.save.data.antialiasing;
 			categoryText.ID = i;
 			categoryText.scrollFactor.set();
 			categoryTexts.add(categoryText);
@@ -207,6 +230,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		warningText = new FlxText(0, 140, FlxG.width, "", 20);
 		warningText.setFormat(Paths.font("Funkin.otf"), 20, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
 		warningText.borderSize = 2;
+		warningText.antialiasing = FlxG.save.data.antialiasing;
 		warningText.alpha = 0;
 		warningText.scrollFactor.set();
 		add(warningText);
@@ -216,6 +240,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		bindingIndicator.setFormat(Paths.font("Funkin.otf"), 22, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
 		bindingIndicator.borderSize = 2;
 		bindingIndicator.visible = false;
+		bindingIndicator.antialiasing = FlxG.save.data.antialiasing;
 		bindingIndicator.scrollFactor.set();
 		add(bindingIndicator);
 
@@ -232,6 +257,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			"← → : Tab  |  ↑ ↓ : Navigate  |  ENTER : Toggle/Edit  |  A/D : Adjust  |  ESC : Back", 18);
 		helpText.setFormat(Paths.font("Funkin.otf"), 18, 0xFFAAAAAA, CENTER, OUTLINE, FlxColor.BLACK);
 		helpText.borderSize = 1.5;
+		helpText.antialiasing = FlxG.save.data.antialiasing;
 		helpText.scrollFactor.set();
 		add(helpText);
 
@@ -240,6 +266,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		_editModeIndicator.setFormat(Paths.font("Funkin.otf"), 20, FlxColor.LIME, CENTER, OUTLINE, FlxColor.BLACK);
 		_editModeIndicator.borderSize = 2;
 		_editModeIndicator.visible = false;
+		_editModeIndicator.antialiasing = FlxG.save.data.antialiasing;
 		_editModeIndicator.scrollFactor.set();
 		add(_editModeIndicator);
 
@@ -247,12 +274,14 @@ class OptionsMenuState extends MusicBeatSubstate
 		_scrollArrowUp = new FlxText(0, OPT_START_Y - 28, FlxG.width, "▲  More Options Up", 18);
 		_scrollArrowUp.setFormat(Paths.font("Funkin.otf"), 18, 0xFF888888, CENTER, NONE);
 		_scrollArrowUp.visible = false;
+		_scrollArrowUp.antialiasing = FlxG.save.data.antialiasing;
 		_scrollArrowUp.scrollFactor.set();
 		add(_scrollArrowUp);
 
 		_scrollArrowDown = new FlxText(0, OPT_START_Y + OPT_VISIBLE_H + 4, FlxG.width, "▼  More Options Down", 18);
 		_scrollArrowDown.setFormat(Paths.font("Funkin.otf"), 18, 0xFF888888, CENTER, NONE);
 		_scrollArrowDown.visible = false;
+		_scrollArrowDown.antialiasing = FlxG.save.data.antialiasing;
 		_scrollArrowDown.scrollFactor.set();
 		add(_scrollArrowDown);
 
@@ -474,32 +503,43 @@ class OptionsMenuState extends MusicBeatSubstate
 					mainInstance.data.visible = !mainInstance.data.visible;
 				}
 			},
+			#if !mobileC
 			{
 				// ── FPS Cap ─────────────────────────────────────────────────────
-				// Cicla por los valores con ENTER o LEFT/RIGHT.
+				// ← / → suben/bajan de 5 en 5 entre 30 y 240, luego Unlimited (0).
 				// Se guarda en FlxG.save.data.fpsTarget y se aplica de inmediato.
 				name: "FPS Cap",
 				get: function()
 				{
-					var t:Int = FlxG.save.data.fpsTarget != null ? Std.int(FlxG.save.data.fpsTarget) : 60;
-					return t + " FPS";
+					var t:Int = _getCurrentFPS();
+					return t == 0 ? "Unlimited" : t + " FPS";
 				},
 				toggle: function()
 				{
-					var idx = getFPSIndex();
-					applyFPSCap(FPS_OPTIONS[(idx + 1) % FPS_OPTIONS.length]);
+					applyFPSCap(_nextFPS(_getCurrentFPS()));
 				},
 				left: function()
 				{
-					var idx = getFPSIndex();
-					applyFPSCap(FPS_OPTIONS[(idx - 1 + FPS_OPTIONS.length) % FPS_OPTIONS.length]);
+					applyFPSCap(_prevFPS(_getCurrentFPS()));
 				},
 				right: function()
 				{
-					var idx = getFPSIndex();
-					applyFPSCap(FPS_OPTIONS[(idx + 1) % FPS_OPTIONS.length]);
+					applyFPSCap(_nextFPS(_getCurrentFPS()));
+				}
+			},
+			{
+				// ── VSync ────────────────────────────────────────────────────────
+				name: "VSync",
+				get: function()
+				{
+					return (FlxG.save.data.vsync == true) ? "ON" : "OFF";
+				},
+				toggle: function()
+				{
+					applyVSync(!(FlxG.save.data.vsync == true));
 				}
 			}
+			#end
 		];
 
 		createOptionTexts();
@@ -510,32 +550,32 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		FlxG.save.data.fpsTarget = fps;
 		FlxG.save.flush();
-		// Flixel tiene su propio limitador interno independiente del stage:
-		// updateFramerate = lógica/física, drawFramerate = render
-		FlxG.updateFramerate = fps;
-		FlxG.drawFramerate   = fps;
-		openfl.Lib.current.stage.frameRate = fps;
-		trace('[Options] FPS cap -> $fps (update=$fps draw=$fps stage=$fps)');
+
+		// Delegar SIEMPRE en Main.setMaxFps() — es el único punto que sabe
+		// si usar FrameLimiterAPI (desktop/cpp) o stage.frameRate (mobile/html5).
+		// NO tocar stage.frameRate directamente aquí:
+		//   • stage.frameRate = 0 → OpenFL deja de disparar ENTER_FRAME → juego congelado.
+		//   • En desktop el throttle real ya lo hace FrameLimiterAPI, no Lime.
+		var main = cast(openfl.Lib.current.getChildAt(0), Main);
+		if (main != null) main.setMaxFps(fps);
+
+		trace('[Options] FPS cap -> ' + (fps <= 0 ? 'Unlimited' : fps + ' FPS'));
+	}
+
+	/** Aplica/quita VSync via extensión nativa y lo persiste en el save */
+	function applyVSync(value:Bool):Void
+	{
+		FlxG.save.data.vsync = value;
+		FlxG.save.flush();
+		#if cpp
+		extensions.VSyncAPI.setVSync(value);
+		#end
+		trace('[Options] VSync -> ' + (value ? 'ON' : 'OFF'));
 	}
 
 	function loadGraphicsOptions()
 	{
 		currentOptions = [
-			{
-				name: "Render Resolution",
-				get: function()
-				{
-					var r = FlxG.save.data.renderResolution;
-					return (r == '1080p') ? "1080p (HD)" : "720p (Default)";
-				},
-				toggle: function()
-				{
-					var cur = FlxG.save.data.renderResolution;
-					FlxG.save.data.renderResolution = (cur == '1080p') ? '720p' : '1080p';
-					FlxG.save.flush();
-					showWarning("Restart to apply resolution change!");
-				}
-			},
 			#if mobileC
 			{
 				name: "Widescreen",
@@ -678,6 +718,32 @@ class OptionsMenuState extends MusicBeatSubstate
 				toggle: function()
 				{
 					FlxG.save.data.hitsounds = !FlxG.save.data.hitsounds;
+				}
+			},
+			// ── Lane Backdrop (osu-style) ───────────────────────────────────────
+			// Fondo negro semitransparente detrás del carril de notas del jugador.
+			// La posición se adapta automáticamente a Middlescroll / Downscroll / Upscroll.
+			// Alpha 0% = transparente (por defecto). Ajustar con ← / → o A / D.
+			{
+				name: "Lane Backdrop",
+				get: function()
+				{
+					var a:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+					return Std.int(a * 100) + "%";
+				},
+				left: function()
+				{
+					var a:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+					a = Math.max(0.0, Math.round((a - 0.05) * 100) / 100);
+					FlxG.save.data.laneAlpha = a;
+					_applyLaneBackdropAlpha(a);
+				},
+				right: function()
+				{
+					var a:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+					a = Math.min(1.0, Math.round((a + 0.05) * 100) / 100);
+					FlxG.save.data.laneAlpha = a;
+					_applyLaneBackdropAlpha(a);
 				}
 			}
 		];
@@ -865,10 +931,12 @@ class OptionsMenuState extends MusicBeatSubstate
 			nameText.borderSize = 2;
 			nameText.ID = i;
 			nameText.scrollFactor.set();
+			nameText.antialiasing = FlxG.save.data.antialiasing;
 			optionNames.add(nameText);
 
 			var valueText:FlxText = new FlxText(FlxG.width - 400, OPT_START_Y + (i * OPT_SPACING), 320, currentOptions[i].get(), 26);
 			valueText.setFormat(Paths.font("Funkin.otf"), 26, FlxColor.CYAN, RIGHT, OUTLINE, FlxColor.BLACK);
+			valueText.antialiasing = FlxG.save.data.antialiasing;
 			valueText.borderSize = 2;
 			valueText.ID = i;
 			valueText.scrollFactor.set();
@@ -1397,6 +1465,20 @@ class OptionsMenuState extends MusicBeatSubstate
 	}
 
 	/**
+	 * Aplica el alpha del lane backdrop al PlayState activo si existe.
+	 * Si no hay PlayState activo (options desde menú), el cambio solo se
+	 * persiste en FlxG.save.data y se aplicará al siguiente gameplay.
+	 */
+	private function _applyLaneBackdropAlpha(alpha:Float):Void
+	{
+		if (funkin.gameplay.PlayState.instance != null
+			&& funkin.gameplay.PlayState.instance.laneBackdrop != null)
+		{
+			funkin.gameplay.PlayState.instance.laneBackdrop.alpha = alpha;
+		}
+	}
+
+	/**
 	 * Aplica las configuraciones de gameplay en tiempo real al PlayState
 	 */
 	function applyGameplaySettingsRealtime():Void
@@ -1432,13 +1514,16 @@ class OptionsData
 
 		// ── Display / Resolution ──────────────────────────────────────────────
 		if (FlxG.save.data.renderResolution == null)
-			FlxG.save.data.renderResolution = '720p'; // '720p' o '1080p'
+			FlxG.save.data.renderResolution = '1080p'; // '720p' o '1080p'
 
 		if (FlxG.save.data.scaleMode == null)
 			FlxG.save.data.scaleMode = 'letterbox'; // 'letterbox', 'widescreen', 'stretch', 'pixel'
 
 		if (FlxG.save.data.shaders == null)
 			FlxG.save.data.shaders = true;
+
+		if (FlxG.save.data.vsync == null)
+			FlxG.save.data.vsync = false;
 
 		if (FlxG.save.data.accuracyDisplay == null)
 			FlxG.save.data.accuracyDisplay = true;
@@ -1471,7 +1556,7 @@ class OptionsData
 			FlxG.save.data.specialVisualEffects = true;
 
 		if (FlxG.save.data.ghosttap == null)
-			FlxG.save.data.ghosttap = false;
+			FlxG.save.data.ghosttap = true;
 
 		if (FlxG.save.data.hitsounds == null)
 			FlxG.save.data.hitsounds = false;
@@ -1548,6 +1633,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		// Título
 		var title:FlxText = new FlxText(0, panel.y + 30, FlxG.width, "OFFSET CALIBRATION", 40);
 		title.setFormat(Paths.font("Funkin.otf"), 40, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		title.antialiasing = FlxG.save.data.antialiasing;
 		title.borderSize = 3;
 		add(title);
 
@@ -1558,6 +1644,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 			+ "The metronome will play at 100 BPM\n"
 			+ "Press 8 times to calculate your offset", 24);
 		instructions.setFormat(Paths.font("Funkin.otf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		instructions.antialiasing = FlxG.save.data.antialiasing;
 		instructions.borderSize = 2;
 		add(instructions);
 
@@ -1577,18 +1664,21 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		// Display de offset actual
 		offsetDisplay = new FlxText(0, panel.y + 420, FlxG.width, "Current Offset: " + FlxG.save.data.offset + " ms", 28);
 		offsetDisplay.setFormat(Paths.font("Funkin.otf"), 28, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
+		offsetDisplay.antialiasing = FlxG.save.data.antialiasing;
 		offsetDisplay.borderSize = 2;
 		add(offsetDisplay);
 
 		// Contador de taps
 		tapCounter = new FlxText(0, panel.y + 470, FlxG.width, "Taps: 0/" + maxTaps, 24);
 		tapCounter.setFormat(Paths.font("Funkin.otf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		tapCounter.antialiasing = FlxG.save.data.antialiasing;
 		tapCounter.borderSize = 2;
 		add(tapCounter);
 
 		// Countdown
 		countdownText = new FlxText(0, 0, FlxG.width, "3", 80);
 		countdownText.setFormat(Paths.font("Funkin.otf"), 80, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		countdownText.antialiasing = FlxG.save.data.antialiasing;
 		countdownText.borderSize = 4;
 		countdownText.screenCenter();
 		add(countdownText);
@@ -1596,6 +1686,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		// Controles en la parte inferior
 		var controlsText:FlxText = new FlxText(0, panel.y + 530, FlxG.width, "SPACE: Tap | R: Reset | +/-: Adjust manually | ESC: Back", 18);
 		controlsText.setFormat(Paths.font("Funkin.otf"), 18, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
+		controlsText.antialiasing = FlxG.save.data.antialiasing;
 		controlsText.borderSize = 1.5;
 		add(controlsText);
 

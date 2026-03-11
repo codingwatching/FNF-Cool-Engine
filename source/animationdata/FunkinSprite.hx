@@ -710,10 +710,17 @@ class FunkinSprite extends FlxAnimate
 
 	public static function folderHasAnimateAtlas(folderPath:String):Bool
 	{
+		// BUGFIX: En Linux/macOS el sistema de archivos es case-sensitive.
+		// V-Slice usa "Animation.json" (capital A), pero algunos assets exportados
+		// por versiones antiguas de Adobe Animate generan "animation.json" (minúscula).
+		// Comprobamos ambas variantes para evitar que loadAsset devuelva "not found"
+		// cuando el archivo existe con casing diferente.
 		#if sys
-		return FileSystem.exists('$folderPath/Animation.json');
+		return FileSystem.exists('$folderPath/Animation.json')
+		    || FileSystem.exists('$folderPath/animation.json');
 		#else
-		return OpenFlAssets.exists('$folderPath/Animation.json');
+		return OpenFlAssets.exists('$folderPath/Animation.json')
+		    || OpenFlAssets.exists('$folderPath/animation.json');
 		#end
 	}
 

@@ -27,7 +27,9 @@ import funkin.system.WindowManager.ScaleMode;
 import funkin.cache.PathsCache;
 import funkin.cache.FunkinCache;
 import extensions.CppAPI;
+import extensions.FrameLimiterAPI;
 import extensions.InitAPI;
+import extensions.VSyncAPI;
 #if (desktop && cpp)
 import data.Discord.DiscordClient;
 import sys.thread.Thread;
@@ -64,7 +66,7 @@ class Main extends Sprite
 	// ── Configuración del juego ────────────────────────────────────────────────
 	private static inline var GAME_WIDTH:Int = 1280;
 	private static inline var GAME_HEIGHT:Int = 720;
-	private static inline var BASE_FPS:Int = 120;
+	private static inline var BASE_FPS:Int = 2000; // FlxGame construye con este valor para no bloquear FPS reales
 
 	private var gameWidth:Int = GAME_WIDTH;
 	private var gameHeight:Int = GAME_HEIGHT;
@@ -187,6 +189,7 @@ class Main extends Sprite
 		initializeSaveSystem();
 		initializeGameSystems();
 		initializeFramerate();
+		Main.applyVSync();
 		initializeCameras();
 
 		// ── UI overlays ───────────────────────────────────────────────────────
@@ -282,7 +285,7 @@ class Main extends Sprite
 	{
 		// ── Resolución guardada: 720p (default) o 1080p ───────────────────────
 		var tempSave = new flixel.util.FlxSave();
-		tempSave.bind('coolengine', 'manux');
+		tempSave.bind('coolengine', 'CoolTeam');
 		var use1080p = (tempSave.data != null && tempSave.data.renderResolution == '1080p');
 		tempSave.destroy();
 
@@ -337,6 +340,10 @@ class Main extends Sprite
 	{
 		addChild(new FlxGame(gameWidth, gameHeight, initialState, #if (flixel < "5.0.0") zoom, #end framerate, framerate, skipSplash, startFullscreen));
 
+		// Garantizar que el juego siempre arranca en modo ventana,
+		// ignorando cualquier valor de fullscreen guardado en save data.
+		FlxG.fullscreen = false;
+
 		// FIX: drawFramerate y updateFramerate se asignan solo en initializeFramerate()
 		// para evitar el error "Invalid field" al llamarlos antes de que FlxG esté listo.
 		// NO se duplican aquí.
@@ -346,7 +353,7 @@ class Main extends Sprite
 
 	private function initializeSaveSystem():Void
 	{
-		FlxG.save.bind('coolengine', 'manux');
+		FlxG.save.bind('coolengine', 'CoolTeam');
 		funkin.menus.OptionsMenuState.OptionsData.initSave();
 		funkin.gameplay.objects.hud.Highscore.load();
 
@@ -382,6 +389,10 @@ class Main extends Sprite
 
 	private function initializeFramerate():Void
 	{
+		// Inicializar el limitador nativo UNA VEZ (timeBeginPeriod + waitable timer).
+		// Esto también mejora la precisión del loop de Lime como efecto colateral.
+		FrameLimiterAPI.init();
+
 		// FIX: was `!androidC` — that define never existed; `mobileC` is the correct one.
 		// On Android at 120fps the SDL render thread overruns and produces a null-ptr
 		// crash in the native pipeline. Mobile targets run at 60fps max.
@@ -391,6 +402,7 @@ class Main extends Sprite
 		framerate = 60;
 		#end
 
+		#if !mobileC
 		if (FlxG.save.data.fpsTarget != null)
 		{
 			setMaxFps(Std.int(FlxG.save.data.fpsTarget));
@@ -405,6 +417,7 @@ class Main extends Sprite
 			FlxG.save.data.fpsTarget = 60;
 			setMaxFps(60);
 		}
+		#end
 	}
 
 	private function initializeCameras():Void
@@ -433,10 +446,38 @@ class Main extends Sprite
 
 	public function setMaxFps(fps:Int):Void
 	{
-		openfl.Lib.current.stage.frameRate = fps;
-		FlxG.updateFramerate = fps;
-		FlxG.drawFramerate = fps;
+		// fps = 0  → "Unlimited": render as fast as possible (1000 cap for safety),
+		//            but logic updates capped at 240 so Flixel doesn't run 16+ steps/frame.
+		// fps > 0  → exact cap for both render and logic.
+		//
+		// WHY separate updateFramerate cap:
+		//   FlxGame.step() runs floor(elapsed / stepMS) update calls per rendered frame.
+		//   updateFramerate=1000 → stepMS=1ms. At 60Hz display, elapsed≈16ms → 16 update
+		//   calls per frame → 16x CPU cost → game feels slow/unresponsive at high FPS.
+		//   Capping logic at 240 keeps 1-2 updates per frame at typical display rates.
+
+		#if (!html5 && !mobileC)
+		final renderFps:Int = fps <= 0 ? 1000 : fps;
+		final updateFps:Int = fps <= 0 ? 240  : fps;
+		openfl.Lib.current.stage.frameRate = renderFps;
+		FlxG.updateFramerate = updateFps;
+		FlxG.drawFramerate   = renderFps;
+		#else
+		final effective:Int = fps <= 0 ? 60 : fps;
+		openfl.Lib.current.stage.frameRate = effective;
+		FlxG.updateFramerate = effective;
+		FlxG.drawFramerate   = effective;
+		#end
 	}
+
+	/** Aplica el estado de VSync guardado en save via extensión nativa. */
+	public static function applyVSync():Void
+	{
+		#if cpp
+		VSyncAPI.setVSync(FlxG.save.data.vsync == true);
+		#end
+	}
+
 
 	#if android
 	/** Solicita READ/WRITE_EXTERNAL_STORAGE en Android 6+ y llama onGranted() cuando esté listo. */

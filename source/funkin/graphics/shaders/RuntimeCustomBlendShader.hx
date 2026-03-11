@@ -16,10 +16,20 @@ class RuntimeCustomBlendShader extends RuntimePostEffectShader
 
 	function set_sourceSwag(value:BitmapData):BitmapData
 	{
-		// setBitmapData no existe en esta versión de FlxRuntimeShader.
-		// Accedemos al ShaderInput dinámicamente via Reflect sobre this.data.
-		var input:openfl.display.ShaderInput<BitmapData> = cast Reflect.field(this.data, "sourceSwag");
-		if (input != null) input.input = value;
+		// Intentar primero via ShaderInput (API directa) luego fallback a Reflect
+		try
+		{
+			var input:openfl.display.ShaderInput<BitmapData> = cast @:privateAccess this.data.sourceSwag;
+			if (input != null) { input.input = value; return sourceSwag = value; }
+		}
+		catch (_:Dynamic) {}
+		// Fallback Reflect para versiones sin acceso directo
+		try
+		{
+			var input:openfl.display.ShaderInput<BitmapData> = cast Reflect.field(this.data, "sourceSwag");
+			if (input != null) input.input = value;
+		}
+		catch (_:Dynamic) {}
 		return sourceSwag = value;
 	}
 
@@ -28,8 +38,18 @@ class RuntimeCustomBlendShader extends RuntimePostEffectShader
 
 	function set_backgroundSwag(value:BitmapData):BitmapData
 	{
-		var input:openfl.display.ShaderInput<BitmapData> = cast Reflect.field(this.data, "backgroundSwag");
-		if (input != null) input.input = value;
+		try
+		{
+			var input:openfl.display.ShaderInput<BitmapData> = cast @:privateAccess this.data.backgroundSwag;
+			if (input != null) { input.input = value; return backgroundSwag = value; }
+		}
+		catch (_:Dynamic) {}
+		try
+		{
+			var input:openfl.display.ShaderInput<BitmapData> = cast Reflect.field(this.data, "backgroundSwag");
+			if (input != null) input.input = value;
+		}
+		catch (_:Dynamic) {}
 		return backgroundSwag = value;
 	}
 
@@ -44,7 +64,8 @@ class RuntimeCustomBlendShader extends RuntimePostEffectShader
 
 	function set_blendSwag(value:Int):Int
 	{
-		this.setInt("blendMode", value);
+		// safeSetInt prueba setInt() y hace fallback a setFloat() si falla
+		this.safeSetInt("blendMode", value);
 		return blendSwag = value;
 	}
 

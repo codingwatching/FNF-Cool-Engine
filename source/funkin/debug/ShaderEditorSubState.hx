@@ -259,7 +259,7 @@ class ShaderEditorSubState extends flixel.FlxSubState
 
         FlxG.cameras.reset(_nodeCam);
         FlxG.cameras.add(_hudCam, false);
-        FlxCamera.defaultCameras = [_nodeCam];
+        @:privateAccess FlxCamera._defaultCameras = [_nodeCam];
 
         // Canvas BG (solid — grid drawn via openfl Shape)
         _canvasBg = new FlxSprite(0, 0);

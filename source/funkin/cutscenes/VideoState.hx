@@ -34,7 +34,10 @@ class VideoState extends MusicBeatState
 
 	public override function create():Void
 	{
-		FlxG.autoPause = true;
+		// FIX (música al minimizar): mantener false para que el audio no se corte
+		// si el jugador minimiza durante una cutscene. El video se seguirá viendo
+		// igual; solo cambia que el audio no se pausa.
+		FlxG.autoPause = false;
 
 		// On any cpp target (desktop OR mobile) we have MP4Handler available.
 		// On mobile it uses the NetStream path instead of VLC — safe on Android.

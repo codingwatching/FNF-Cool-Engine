@@ -73,7 +73,7 @@ function onCreate()
     eyeWhites.makeGraphic(160, 60, 0xFFFFFFFF);
 
     pupil = new FunkinSprite(0, 0);
-    pupil.loadAsset('characters/images/abot/systemEyes');
+    pupil.loadCharacterSparrow('abot/systemEyes');
     // BUGFIX: comprobar que anim no es null antes de añadir callback
     if (pupil.anim != null)
     {
@@ -83,7 +83,7 @@ function onCreate()
     }
 
     abot = new FunkinSprite(0, 0);
-    abot.loadAsset('characters/images/abot/aBot');
+    abot.loadCharacterSparrow('abot/abotSystem');
 
     log('onCreate OK');
 }
@@ -110,8 +110,9 @@ function onUpdate(elapsed:Float)
     {
         var offX:Float = 0.0;
         var offY:Float = 0.0;
-        var _ca = (character.animation != null) ? character.animation.curAnim : null;
-        var animName = (_ca != null) ? _ca.name : '';
+        // BUGFIX: character.animation.curAnim es null para personajes Animate Atlas.
+        // El engine unifica el acceso al nombre de animación actual en getCurAnimName().
+        var animName = character.getCurAnimName();
         if (character.animOffsets.exists(animName))
         {
             offX = character.animOffsets.get(animName)[0];
@@ -161,8 +162,12 @@ function onUpdate(elapsed:Float)
     // transitionState() (al final) dispare la transición a RAISE.
     if (currentState == STATE_PRE_RAISE)
     {
-        var curAnim = character.animation.curAnim;
-        if (curAnim != null && curAnim.name == 'danceLeft' && curAnim.curFrame == 13)
+        // BUGFIX: character.animation.curAnim es null para Animate Atlas.
+        // Usar getCurAnimName() para el nombre y character.anim.curFrame para el frame.
+        // character.anim es el FlxAnimateController, siempre accesible.
+        var curAnimName = character.getCurAnimName();
+        var curFrame    = (character.anim != null) ? character.anim.curFrame : -1;
+        if (curAnimName == 'danceLeft' && curFrame == 13)
             animationFinished = true;
     }
 
@@ -239,6 +244,35 @@ function onSongEnd()
     if (viz != null) viz.dumpSound();
 }
 
+function onBeatHit(beat:Int)
+{
+    // Disparar el peak de las barras en cada beat
+    if (viz != null) viz.onBeatHit(beat);
+}
+
+/**
+ * onSectionHit: cada vez que cambia la sección del chart, comprobamos
+ * si el jugador (bf) o el oponente (dad) es el foco de la cámara y
+ * movemos las pupilas del A-Bot en consecuencia.
+ *
+ * game.getMustHitSection(section * 16) → true  = cámara en bf  → pupilas derecha
+ *                                       → false = cámara en dad → pupilas izquierda
+ *
+ * Nota: onSongEvent("FocusCamera") no llega a los scripts de personaje
+ * (callOnScripts incluye charScripts pero el engine traduce FocusCamera
+ * a movimiento de cámara antes de emitirlo). onSectionHit sí llega.
+ */
+function onSectionHit(section:Int)
+{
+    if (game == null) return;
+    // getMustHitSection recibe un step; el inicio de cada sección = section * 16 steps
+    var mustHit:Bool = game.getMustHitSection(section * 16);
+    if (mustHit)
+        movePupilsRight();  // cámara en bf (derecha) → pupilas miran a la derecha
+    else
+        movePupilsLeft();   // cámara en dad (izquierda) → pupilas miran a la izquierda
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  PUPILAS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -250,14 +284,6 @@ function moveByNoteKind(kind:String):Void
 {
     if      (kind == 'weekend-1-lightcan') movePupilsLeft();
     else if (kind == 'weekend-1-cockgun')  movePupilsRight();
-}
-
-function onSongEvent(eventName:String, value1:String, value2:String):Void
-{
-    if (eventName != 'FocusCamera') return;
-    var ch:Int = Std.parseInt(value1);
-    if      (ch == 0) movePupilsRight();
-    else if (ch == 1) movePupilsLeft();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -342,8 +368,8 @@ function setupAbot():Void
 
     var offX:Float = 0.0;
     var offY:Float = 0.0;
-    var _ca = (character.animation != null) ? character.animation.curAnim : null;
-    var animName = (_ca != null) ? _ca.name : '';
+    // BUGFIX: mismo que onUpdate — character.animation.curAnim es null para Atlas.
+    var animName = character.getCurAnimName();
     if (character.animOffsets.exists(animName))
     {
         offX = character.animOffsets.get(animName)[0];
@@ -359,25 +385,30 @@ function setupAbot():Void
 
     // Cargar ABotVis como script separado y crear la instancia del visualizador
     var vizBaseX:Float = abot.x + 207;
-    var vizBaseY:Float = abot.y + 84;
+    var vizBaseY:Float = abot.y + 124;
 
     var vizModule:Dynamic = require('ABotVis.hx');
     if (vizModule != null)
-    {
         viz = vizModule.create(vizBaseX, vizBaseY);
-
-        // Añadir las barras al estado antes del abot
-        if (viz != null)
-        {
-            var _vizBars = viz.bars;
-            for (bar in _vizBars)
-                addBehindChar(bar, character);
-        }
-    }
     else
         log('WARN: no se pudo cargar ABotVis.hx');
 
+    // ── Orden de profundidad (de atrás hacia adelante) ────────────────────
+    // 1. stereoBG   — fondo negro de la pantalla (lo más atrás de todo)
+    // 2. barras viz — sobre el fondo de pantalla, pero bajo el marco del aBot
+    // 3. eyeWhites  — blanco de ojos del robot
+    // 4. pupil      — pupilas del robot
+    // 5. abot       — marco/cuerpo del A-Bot (tapa los bordes de las barras)
+    // 6. character  — Nene encima de todo lo anterior
     addBehindChar(stereoBG, character);
+
+    if (viz != null)
+    {
+        var _vizBars = viz.bars;
+        for (bar in _vizBars)
+            addBehindChar(bar, character);
+    }
+
     addBehindChar(eyeWhites, character);
     addBehindChar(pupil, character);
     addBehindChar(abot, character);

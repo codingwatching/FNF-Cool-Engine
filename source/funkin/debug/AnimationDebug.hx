@@ -173,7 +173,7 @@ class AnimationDebug extends MusicBeatState
 	{
 		funkin.debug.themes.EditorTheme.load();
 		FlxG.mouse.visible = true;
-		FlxG.sound.playMusic(Paths.music('configurator'));
+		funkin.audio.MusicManager.play('configurator', 0.7);
 		MainMenuState.musicFreakyisPlaying = false;
 
 		camGame = new FlxCamera();
@@ -1191,21 +1191,16 @@ class AnimationDebug extends MusicBeatState
 	function browseForFile(fileType:String):Void
 	{
 		#if sys
-		var fileDialog = new FileDialog();
 		switch (fileType)
 		{
 			case "sprite":
-				fileDialog.onSelect.add(function(path)
-				{
-					onSpriteSelected(path);
-				});
-				fileDialog.browse(OPEN, "png", null, "Select Sprite PNG");
+				var _fdSpr = new FileDialog();
+				_fdSpr.onSelect.add(function(path:String) { onSpriteSelected(path); });
+				_fdSpr.browse(OPEN, "png", null, "Select Sprite PNG");
 			case "icon":
-				fileDialog.onSelect.add(function(path)
-				{
-					onFileSelected(path, "icon");
-				});
-				fileDialog.browse(OPEN, "png", null, "Select Icon PNG");
+				var _fdIco = new FileDialog();
+				_fdIco.onSelect.add(function(path:String) { onFileSelected(path, "icon"); });
+				_fdIco.browse(OPEN, "png", null, "Select Icon PNG");
 		}
 		#else
 		FlxG.log.warn("File import solo disponible en desktop");
@@ -1295,12 +1290,9 @@ class AnimationDebug extends MusicBeatState
 	function browseForFlxAnimate():Void
 	{
 		#if sys
-		var fileDialog = new FileDialog();
-		fileDialog.onSelect.add(function(path:String)
-		{
-			onFlxAnimateSelected(path);
-		});
-		fileDialog.browse(OPEN, "png", null, "Select Spritemap PNG (FlxAnimate)");
+		var _fdAnim = new FileDialog();
+		_fdAnim.onSelect.add(function(path:String) { onFlxAnimateSelected(path); });
+		_fdAnim.browse(OPEN, "png", null, "Select Spritemap PNG (FlxAnimate)");
 		#else
 		FlxG.log.warn("File import only available on desktop");
 		#end

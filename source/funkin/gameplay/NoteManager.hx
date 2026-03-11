@@ -90,18 +90,17 @@ class NoteManager
 	private static inline var CULL_DISTANCE:Float = 2000;
 
 	private var _scrollSpeed:Float = 0.45;
-	var downscrollOff:Float = 0;
+
 
 	// === SAVE.DATA CACHE (evita acceso Dynamic en hot loop) ===
 	// Se actualizan en generateNotes() y cuando cambia la configuración.
 	private var _cachedNoteSplashes:Bool = false;
-	private var _cachedDownscroll:Bool = false;
+
 	private var _cachedMiddlescroll:Bool = false;
 
 	/** Actualiza el caché de opciones del jugador. Llamar si el jugador cambia config. */
 	public function refreshSaveDataCache():Void {
 		_cachedNoteSplashes  = FlxG.save.data.notesplashes == true;
-		_cachedDownscroll    = FlxG.save.data.downscroll   == true;
 		_cachedMiddlescroll  = FlxG.save.data.middlescroll == true;
 	}
 
@@ -711,11 +710,13 @@ class NoteManager
 
 			// ── Escala / alpha ────────────────────────────────────────────────
 			final newSX = strum.scale.x;
-			final newSY = note.isSustainNote ? note.scale.y : strum.scale.y;
+			// Para sustains usamos sustainBaseScaleY (el valor base sin compensacion de rotacion)
+			// en lugar de note.scale.y para evitar que la compensacion de deformacion
+			// del frame anterior se acumule aqui.
+			final newSY = note.isSustainNote ? note.sustainBaseScaleY : strum.scale.y;
 			final scaleChanged = note.scale.x != newSX || note.scale.y != newSY;
 			note.scale.x = newSX;
-			if (!note.isSustainNote)
-				note.scale.y = newSY;
+			note.scale.y = newSY; // siempre: se sobreescribe luego con compensacion si es sustain
 			if (scaleChanged)
 				note.updateHitbox();
 			note.alpha = FlxMath.bound(strum.alpha, 0.05, 1.0);
@@ -747,6 +748,71 @@ class NoteManager
 			}
 
 			note.x = _noteX;
+
+			// ── Deformación dinámica de sustains (siempre activa) ─────────────
+			// Orienta cada pieza de sustain hacia la posición de la pieza anterior
+			// en la cadena (NightmareVision style). Se aplica SIEMPRE, sin importar
+			// si hay _modState o no, para cubrir casos donde el strum fue movido
+			// por scripts externos, mods, o cambios de x/y/rotación que no pasan
+			// por ModChartManager. Cuando no hay desplazamiento, el ángulo
+			// calculado da deform=0 (neutro, sin cambio visible):
+			//   Upscroll recto:   dX=0, dY<0 → atan2=-90° → deform=-90+90= 0° ✓
+			//   Downscroll recto: dX=0, dY>0 → atan2=+90° → deform=+90-90= 0° ✓
+			if (note.isSustainNote)
+			{
+				// Pieza anterior: un step más cerca del strum
+				final _prevStrumTime:Float = note.strumTime - Conductor.stepCrochet;
+
+				// Y de la pieza anterior al mismo instante de songPosition
+				var _prevY:Float = downscroll
+					? strumLineY + (songPosition - _prevStrumTime) * _effectiveSpeed
+					: strumLineY - (songPosition - _prevStrumTime) * _effectiveSpeed;
+
+				// X de la pieza anterior: strum base + mods evaluados en _prevStrumTime
+				var _prevX:Float = strum.x + (strum.width - note.width) / 2;
+				if (_modState != null)
+				{
+					_prevX += _modState.noteOffsetX;
+
+					if (_modState.drunkX != 0)
+						_prevX += _modState.drunkX * Math.sin(
+							_prevStrumTime * 0.001 * _modState.drunkFreq
+							+ songPosition * 0.0008
+						);
+
+					if (_modState.flipX > 0.5)
+					{
+						final _sc:Float = strum.x + strum.width / 2;
+						_prevX = _sc - (_prevX - _sc + note.width / 2) - note.width / 2;
+					}
+				}
+
+				// Vector de la posición actual hacia la pieza anterior (= hacia el strum)
+				final _dX:Float = _prevX - note.x;
+				final _dY:Float = _prevY - note.y;
+
+				final _rad:Float = Math.atan2(_dY, _dX);
+				final _deg:Float = _rad * (180.0 / Math.PI);
+				final _deform:Float = downscroll ? (_deg - 90.0) : (_deg + 90.0);
+
+				// Sumar al ángulo base para no perder la rotación del strum
+				note.angle = _finalAngle + _deform;
+
+				// Compensar la reducción de cobertura vertical por la rotación.
+				// Al rotar una pieza rectangular, sus esquinas se asoman en los joints.
+				// Alargando la pieza por 1/cos(ángulo), el sprite siempre llega a cubrir
+				// el espacio entre piezas aunque esté inclinado, ocultando las esquinas.
+				//
+				// SEAM_OVERLAP: píxeles de overlap fijo que se añaden encima del
+				// factor 1/cos. Garantiza que incluso a ángulos bajos (<5°) donde
+				// 1/cos ≈ 1 el solapamiento siga siendo suficiente para tapar las
+				// esquinas del sprite rectangular. 4px es imperceptible visualmente
+				// pero suficiente para eliminar las líneas de separación.
+				final _deformRadAbs:Float = Math.abs(_deform * (Math.PI / 180.0));
+				final _cosDeform:Float = Math.cos(_deformRadAbs);
+				final _seamOverlap:Float = 4.0 / (note.frameHeight > 0 ? note.frameHeight : 1.0);
+				note.scale.y = note.sustainBaseScaleY / (_cosDeform > 0.1 ? _cosDeform : 0.1) + _seamOverlap;
+			}
 		}
 
 		// ── V-Slice style fade: desvanecer notas que pasan el strum ─────────
@@ -826,54 +892,49 @@ class NoteManager
 			if (downscroll)
 			{
 				// Downscroll: la nota baja de arriba hacia el strum.
-				// BUG FIX: antes se clipeba desde que el borde inferior del sprite
-				// cruzaba strumLineThreshold, lo que ocurría ~150 ms ANTES de que
-				// el hold fuera procesado como wasGoodHit. Resultado: las notas
-				// largas desaparecían visualmente antes de que el hold terminara.
+				// Con flipY=true, el FRAME TOP = WORLD BOTTOM (parte que pasa el strum).
+				// Clipeamos siempre que el fondo de la nota cruce el threshold, sin
+				// esperar a wasGoodHit. Esto evita que el cuerpo del hold "sobresalga"
+				// visualmente por debajo de la línea de strums mientras se acerca.
 				//
-				// Corrección: solo clipeamos cuando la nota ya fue consumida
-				// (wasGoodHit = true) o fue perdida (tooLate = true). Mientras se
-				// acerca al strum sin ser golpeada aún, se muestra completa.
-				if (!note.wasGoodHit && !note.tooLate)
+				// BUG FIX: el código anterior usaba
+				//   noteEndPos = note.y - note.offset.y * note.scale.y + note.height
+				// que multiplica el offset por scale una segunda vez (ya está en px mundo).
+				// Con hold notes de scale.y alto, noteEndPos era absurdamente grande →
+				// el clip siempre se activaba → clipRect.y negativo → artefactos visuales.
+				// Corrección: usar simplemente note.y + note.height (fondo del hitbox).
+				final noteBottom:Float = note.y + note.height;
+				if (noteBottom >= strumLineThreshold)
 				{
-					note.clipRect = null;
-				}
-				else
-				{
-					var noteEndPos = note.y - note.offset.y * note.scale.y + note.height;
-					if (noteEndPos >= strumLineThreshold)
+					var clipH:Float = (strumLineThreshold - note.y) / note.scale.y;
+					if (clipH <= 0)
 					{
-						var clipH:Float = (strumLineThreshold - note.y) / note.scale.y;
-						if (clipH <= 0)
+						// Nota completamente por debajo del threshold: nada que mostrar.
+						// Si ya fue consumida, eliminarla del grupo.
+						note.clipRect = null;
+						if (note.wasGoodHit)
 						{
-							// Nota completamente por debajo del threshold: nada que mostrar.
-							// Si ya fue consumida, eliminarla del grupo.
-							note.clipRect = null;
-							if (note.wasGoodHit)
-							{
-								note.visible = false;
-								removeNote(note);
-							}
-						}
-						else
-						{
-							if (_cachedDownscroll)
-								downscrollOff = 10;
-							_sustainClipRect.x      = 0;
-							_sustainClipRect.width  = note.frameWidth * 2;
-							_sustainClipRect.height = clipH;
-							_sustainClipRect.y      = note.frameHeight - clipH + downscrollOff;
-							// Usar copyFrom en lugar de asignar referencia directa para
-							// que cada nota tenga su propio rect y no compartan el mismo objeto.
-							if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
-							note.clipRect.copyFrom(_sustainClipRect);
-							note.clipRect = note.clipRect; // forzar update interno de Flixel
+							note.visible = false;
+							removeNote(note);
 						}
 					}
 					else
 					{
-						note.clipRect = null;
+						// clipH = píxeles de frame a mostrar (frame bottom = world top = por encima del strum)
+						_sustainClipRect.x      = 0;
+						_sustainClipRect.width  = note.frameWidth * 2;
+						_sustainClipRect.height = clipH;
+						_sustainClipRect.y      = note.frameHeight - clipH;
+						// Usar copyFrom en lugar de asignar referencia directa para
+						// que cada nota tenga su propio rect y no compartan el mismo objeto.
+						if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
+						note.clipRect.copyFrom(_sustainClipRect);
+						note.clipRect = note.clipRect; // forzar update interno de Flixel
 					}
+				}
+				else
+				{
+					note.clipRect = null;
 				}
 			}
 			else

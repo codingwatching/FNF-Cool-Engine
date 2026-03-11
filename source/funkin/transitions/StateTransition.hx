@@ -322,6 +322,7 @@ class TransitionOverlay extends Sprite
 
 	private var _color:Int;
 	private var _type:TransitionType;
+	private var _currentProgress:Float = 1.0; // progreso actual de la animación (0-1)
 
 	public function new()
 	{
@@ -337,6 +338,7 @@ class TransitionOverlay extends Sprite
 	{
 		_type = type;
 		_color = color;
+		_currentProgress = 0.0;
 		_redraw(type, 0.0);
 		alpha = 0;
 		visible = true;
@@ -348,6 +350,9 @@ class TransitionOverlay extends Sprite
 		// Usar 9998 para estar debajo de StickerTransition (9999)
 		FlxG.addChildBelowMouse(this, 9998);
 		_resize();
+		// FIX: escuchar cambios de tamaño de ventana para que el overlay
+		// siempre cubra toda la pantalla aunque se redimensione durante la transición.
+		FlxG.stage.addEventListener(openfl.events.Event.RESIZE, _onStageResize);
 	}
 
 	public function detach():Void
@@ -357,6 +362,7 @@ class TransitionOverlay extends Sprite
 			_activeTween.cancel();
 			_activeTween = null;
 		}
+		FlxG.stage.removeEventListener(openfl.events.Event.RESIZE, _onStageResize);
 		FlxG.removeChild(this);
 		visible = false;
 		alpha = 0;
@@ -398,7 +404,7 @@ class TransitionOverlay extends Sprite
 			case SLIDE_LEFT:
 				x = -_gw();
 				alpha = 1;
-				_activeTween = FlxTween.num(-_gw(), 0, duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -408,13 +414,14 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					x = v;
+					_currentProgress = v;
+					x = -_gw() * (1.0 - v);
 				});
 
 			case SLIDE_RIGHT:
 				x = _gw();
 				alpha = 1;
-				_activeTween = FlxTween.num(_gw(), 0, duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -424,13 +431,14 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					x = v;
+					_currentProgress = v;
+					x = _gw() * (1.0 - v);
 				});
 
 			case SLIDE_UP:
 				y = -_gh();
 				alpha = 1;
-				_activeTween = FlxTween.num(-_gh(), 0, duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -440,13 +448,14 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					y = v;
+					_currentProgress = v;
+					y = -_gh() * (1.0 - v);
 				});
 
 			case SLIDE_DOWN:
 				y = _gh();
 				alpha = 1;
-				_activeTween = FlxTween.num(_gh(), 0, duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -456,7 +465,8 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					y = v;
+					_currentProgress = v;
+					y = _gh() * (1.0 - v);
 				});
 
 			case CIRCLE_WIPE:
@@ -507,7 +517,7 @@ class TransitionOverlay extends Sprite
 			case SLIDE_LEFT:
 				x = 0;
 				alpha = 1;
-				_activeTween = FlxTween.num(0, _gw(), duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -516,13 +526,14 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					x = v;
+					_currentProgress = 1.0 - v;
+					x = _gw() * v;
 				});
 
 			case SLIDE_RIGHT:
 				x = 0;
 				alpha = 1;
-				_activeTween = FlxTween.num(0, -_gw(), duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -531,13 +542,14 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					x = v;
+					_currentProgress = 1.0 - v;
+					x = -_gw() * v;
 				});
 
 			case SLIDE_UP:
 				y = 0;
 				alpha = 1;
-				_activeTween = FlxTween.num(0, _gh(), duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -546,13 +558,14 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					y = v;
+					_currentProgress = 1.0 - v;
+					y = _gh() * v;
 				});
 
 			case SLIDE_DOWN:
 				y = 0;
 				alpha = 1;
-				_activeTween = FlxTween.num(0, -_gh(), duration, {
+				_activeTween = FlxTween.num(0, 1, duration, {
 					ease: ease,
 					onComplete: function(_)
 					{
@@ -561,7 +574,8 @@ class TransitionOverlay extends Sprite
 					}
 				}, function(v:Float)
 				{
-					y = v;
+					_currentProgress = 1.0 - v;
+					y = -_gh() * v;
 				});
 
 			case CIRCLE_WIPE:
@@ -594,17 +608,47 @@ class TransitionOverlay extends Sprite
 		}
 	}
 
-	private function _gw():Float
-		return FlxG.width;
+	/** Ancho real del stage OpenFL (no la resolución lógica de Flixel). */
+	private inline function _gw():Float
+		return FlxG.stage.stageWidth > 0 ? FlxG.stage.stageWidth : FlxG.width;
 
-	private function _gh():Float
-		return FlxG.height;
+	/** Alto real del stage OpenFL. */
+	private inline function _gh():Float
+		return FlxG.stage.stageHeight > 0 ? FlxG.stage.stageHeight : FlxG.height;
+
+	/** Llamado al redimensionar la ventana — actualiza shape Y posición para slides. */
+	private function _onStageResize(_:openfl.events.Event):Void
+	{
+		_resize();
+	}
 
 	private function _resize():Void
 	{
 		_shape.x = 0;
 		_shape.y = 0;
-		_redraw(_type, 1.0);
+
+		// Redibujar la shape al nuevo tamaño con el progreso actual
+		_redraw(_type, _currentProgress);
+
+		// Para slides, la posición X/Y del overlay depende del tamaño de ventana.
+		// Si hay un tween activo, reposicionar según el progreso actual.
+		// _currentProgress va de 0 (oculto) a 1 (cubriendo pantalla).
+		switch (_type)
+		{
+			case SLIDE_LEFT:
+				// animateOut_reverse: x va de -gw→0; animateOut: x va de 0→gw
+				// No podemos saber en qué fase estamos aquí, pero el tween
+				// actualiza x en su callback. Solo nos aseguramos de que la
+				// shape se redibuja al tamaño correcto (ya hecho arriba).
+			case SLIDE_RIGHT:
+				// ídem
+			case SLIDE_UP:
+				// ídem
+			case SLIDE_DOWN:
+				// ídem
+			default:
+				// FADE y CIRCLE_WIPE no tienen posición — nada más que hacer
+		}
 	}
 
 	/**
@@ -612,6 +656,7 @@ class TransitionOverlay extends Sprite
 	 */
 	private function _redraw(type:TransitionType, progress:Float):Void
 	{
+		_currentProgress = progress; // FIX: guardar progreso para redibujado en resize
 		var gfx = _shape.graphics;
 		gfx.clear();
 

@@ -282,15 +282,15 @@ class AddSongSubState extends FlxSubState
 		// Inst.ogg
 		loadInstBtn = new FlxButton(btnX, btnY, "Load Inst.ogg", function() {
 			#if desktop
-			var d = new FileDialog();
-			d.onSelect.add(function(p) {
+			var _fdInst = new FileDialog();
+			_fdInst.onSelect.add(function(p:String) {
 				currentInstPath = p;
 				instLoaded = true;
 				updateFileStatus();
 				var dest = _songAudioDir(songNameInput.text.trim() != '' ? songNameInput.text.trim() : '(song)');
 				updateStatus("\u2713 Inst.ogg cargado \u2192 " + dest + "/Inst.ogg");
 			});
-			d.browse(OPEN, "ogg", null, "Select Inst.ogg");
+			_fdInst.browse(OPEN, "ogg", null, "Select Inst.ogg");
 			#else updateStatus("File loading only available on Desktop"); #end
 		});
 		styleButton(loadInstBtn, funkin.debug.themes.EditorTheme.current.bgHover, 270); loadInstBtn.alpha = 0; add(loadInstBtn);
@@ -302,15 +302,15 @@ class AddSongSubState extends FlxSubState
 		btnY += 42;
 		loadVocalsBtn = new FlxButton(btnX, btnY, "Load Vocals.ogg", function() {
 			#if desktop
-			var d = new FileDialog();
-			d.onSelect.add(function(p) {
+			var _fdVox = new FileDialog();
+			_fdVox.onSelect.add(function(p:String) {
 				currentVocalsPath = p;
 				vocalsLoaded = true;
 				updateFileStatus();
 				var dest = _songAudioDir(songNameInput.text.trim() != '' ? songNameInput.text.trim() : '(song)');
 				updateStatus("\u2713 Voices.ogg cargado \u2192 " + dest + "/Voices.ogg");
 			});
-			d.browse(OPEN, "ogg", null, "Select Voices.ogg");
+			_fdVox.browse(OPEN, "ogg", null, "Select Voices.ogg");
 			#else updateStatus("File loading only available on Desktop"); #end
 		});
 		styleButton(loadVocalsBtn, funkin.debug.themes.EditorTheme.current.bgHover, 270); loadVocalsBtn.alpha = 0; add(loadVocalsBtn);
@@ -322,8 +322,8 @@ class AddSongSubState extends FlxSubState
 		btnY += 42;
 		loadIconBtn = new FlxButton(btnX, btnY, "Load Icon.png", function() {
 			#if desktop
-			var d = new FileDialog();
-			d.onSelect.add(function(p) {
+			var _fdIcon = new FileDialog();
+			_fdIcon.onSelect.add(function(p:String) {
 				currentIconPath = p;
 				iconFileLoaded = true;
 				updateFileStatus();
@@ -331,7 +331,7 @@ class AddSongSubState extends FlxSubState
 				var dest  = _iconsDir();
 				updateStatus("\u2713 Icon cargado \u2192 " + dest + "/icon-" + iname + ".png");
 			});
-			d.browse(OPEN, "png", null, "Select Icon.png");
+			_fdIcon.browse(OPEN, "png", null, "Select Icon.png");
 			#else updateStatus("File loading only available on Desktop"); #end
 		});
 		styleButton(loadIconBtn, funkin.debug.themes.EditorTheme.current.bgHover, 270); loadIconBtn.alpha = 0; add(loadIconBtn);

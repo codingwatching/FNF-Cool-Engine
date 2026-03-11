@@ -31,8 +31,8 @@ class FPSCount extends TextField
 	@:noCompletion private var memPeak:Float = 0;
 	@:noCompletion private var byteValue:Int32 = 1024;
 
-	// ── Ring buffer: 120 slots fijos (suficiente para 60+ fps en 1 segundo) ──
-	static inline var RING_CAP:Int = 120;
+	// ── Ring buffer: 2000 slots (cubre hasta 2000fps en 1 segundo) ──
+	static inline var RING_CAP:Int = 2000;
 	@:noCompletion private var _ring:Array<Float>;
 	@:noCompletion private var _ringHead:Int = 0;   // siguiente posición de escritura
 	@:noCompletion private var _ringFill:Int = 0;   // cuántas entradas válidas hay
@@ -88,7 +88,7 @@ class FPSCount extends TextField
 			validCount++;
 		}
 
-		currentFPS = Math.round((validCount + cacheCount) / 2);
+		currentFPS = validCount;
 
 		if (currentFPS > showFps)        { showFps = currentFPS; textColor = 0x17FF00; }
 		else if (currentFPS < showFps)   { textColor = 0xFF4444; showFps = currentFPS; }

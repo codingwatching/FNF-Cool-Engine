@@ -48,6 +48,7 @@ import funkin.menus.credits.CreditsData;
 import funkin.menus.credits.CreditsDataHandler;
 import funkin.scripting.ScriptHandler;
 import funkin.transitions.StateTransition;
+import funkin.audio.MusicManager;
 
 using StringTools;
 
@@ -120,9 +121,9 @@ class CreditsState extends funkin.states.MusicBeatState
 		_entries = (data != null && data.entries != null) ? data.entries : [];
 
 		// ── Música ─────────────────────────────────────────────────────────
-		final music = Paths.music('freeplayRandom/freeplayRandom');
-		if (music != null)
-			FlxG.sound.playMusic(music, 0.0);
+		// Cambia a freeplayRandom. MusicManager lo hace solo si la pista es diferente.
+		MainMenuState.musicFreakyisPlaying = false;
+		MusicManager.play('freeplayRandom/freeplayRandom', 0.0);
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.volume = 0.0;
 

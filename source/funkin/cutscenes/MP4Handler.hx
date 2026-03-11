@@ -38,6 +38,11 @@ class MP4Handler
 	var _killed:Bool = false;
 	var _filters:Array<BitmapFilter> = [];
 
+	// Deferred fps restore: how many ENTER_FRAME ticks remain before restoring fps.
+	// Set to N when video starts; _update() counts it down and restores on 0.
+	var _bootFrames:Int = 0;
+	var _bootSavedFps:Int = 0;
+
 	public function new() {}
 
 	// ── Playback ──────────────────────────────────────────────────────────────
@@ -51,6 +56,22 @@ class MP4Handler
 
 		if (!midSong && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
+
+		// FIX SampleDataEvent crash (OpenFL 9.3.0): lower fps briefly so the audio
+		// backend initialises its buffer with ≥ 2048 samples.
+		// We only need this for the first few frames; after that the buffer size is
+		// locked in and we can restore the user's target fps.
+		// Using AudioConfig.frequency for the exact safe-fps calculation so that
+		// non-44100 Hz configurations (e.g. 48 kHz → safe fps = 23) dip less.
+		_bootSavedFps = FlxG.save.data.fpsTarget != null ? Std.int(FlxG.save.data.fpsTarget) : 60;
+		final safeFps:Int = Std.int(Math.floor(funkin.audio.AudioConfig.frequency / 2048));
+		final main = cast(openfl.Lib.current.getChildAt(0), Main);
+		if (main != null) main.setMaxFps(safeFps);
+		#if lime
+		final _limeWin = lime.app.Application.current?.window;
+		if (_limeWin != null) _limeWin.frameRate = safeFps;
+		#end
+		_bootFrames = 4; // restore after 4 rendered frames (~66 ms at safe fps)
 
 		// Cover negro mientras el decoder arranca
 		_cover = new Shape();
@@ -119,14 +140,19 @@ class MP4Handler
 		if (outputTo == null)
 			try FlxG.addChildBelowMouse(_video) catch (_:Dynamic) {}
 
-		// Cargar y reproducir — hxvlc necesita un tick entre load() y play()
-		if (_video.load(path))
-			new FlxTimer().start(0.001, function(_) { if (_video != null && !_killed) _video.play(); });
-		else
+		// Cargar y reproducir — esperar 3 frames para que stage.frameRate=60 esté activo
+		// antes de que hxvlc registre su SampleDataEvent listener.
+		new FlxTimer().start(0.1, function(_)
 		{
-			trace('[MP4Handler] hxvlc: no se pudo cargar "$path"');
-			_finish();
-		}
+			if (_video == null || _killed) return;
+			if (_video.load(path))
+				new FlxTimer().start(0.001, function(_) { if (_video != null && !_killed) _video.play(); });
+			else
+			{
+				trace('[MP4Handler] hxvlc: no se pudo cargar "$path"');
+				_finish();
+			}
+		});
 	}
 
 	// ── Shader / Filter API ───────────────────────────────────────────────────
@@ -160,6 +186,7 @@ class MP4Handler
 		FlxG.stage.removeEventListener(Event.ENTER_FRAME, _update);
 		_removeCover();
 		_stopAndDispose();
+		_restoreFrameRate();
 
 		if (finishCallback != null)
 		{
@@ -172,14 +199,15 @@ class MP4Handler
 	public function pause():Void
 	{
 		if (_video == null) return;
+		// Just pause playback. The video bitmap stays in its current position in
+		// the display list so it remains visible behind the pause-menu overlay.
 		try _video.pause() catch (_:Dynamic) {}
-		try FlxG.game.setChildIndex(_video, 0) catch (_:Dynamic) {}
 	}
 
 	public function resume():Void
 	{
 		if (_video == null) return;
-		try FlxG.game.setChildIndex(_video, FlxG.game.numChildren - 1) catch (_:Dynamic) {}
+		// Video never moved, nothing to reorder. Just resume playback.
 		try _video.resume() catch (_:Dynamic) {}
 		_syncVolume();
 	}
@@ -188,6 +216,15 @@ class MP4Handler
 
 	function _update(_:Event):Void
 	{
+		// Deferred fps restore: once the audio backend has fired its first
+		// SampleDataEvent (after a few frames), we can go back to the target fps.
+		if (_bootFrames > 0)
+		{
+			_bootFrames--;
+			if (_bootFrames == 0)
+				_restoreFrameRate();
+		}
+
 		_syncVolume();
 
 		// Copiar frame al sprite si se usa como outputTo
@@ -214,6 +251,7 @@ class MP4Handler
 		{
 			_removeCover();
 			_stopAndDispose();
+			_restoreFrameRate();
 
 			if (finishCallback != null)
 			{
@@ -242,6 +280,21 @@ class MP4Handler
 		_video  = null;
 		sprite  = null;
 		bitmap  = null;
+	}
+
+	/** Restaura el FPS al valor previo al video via Main.setMaxFps(). */
+	function _restoreFrameRate():Void
+	{
+		// Only restore if there's a saved value (avoids double-restore).
+		if (_bootSavedFps <= 0) return;
+		var main = cast(openfl.Lib.current.getChildAt(0), Main);
+		if (main != null) main.setMaxFps(_bootSavedFps);
+		#if lime
+		final _limeWin = lime.app.Application.current?.window;
+		if (_limeWin != null) _limeWin.frameRate = _bootSavedFps;
+		#end
+		_bootSavedFps = 0;
+		_bootFrames   = 0;
 	}
 }
 

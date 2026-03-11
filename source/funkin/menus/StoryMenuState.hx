@@ -35,6 +35,7 @@ using StringTools;
 // Importar JSON
 import haxe.Json;
 import haxe.format.JsonParser;
+import funkin.audio.MusicManager;
 #if sys
 import sys.FileSystem;
 #end
@@ -79,6 +80,10 @@ class StoryMenuState extends funkin.states.MusicBeatState
 	var txtWeekTitle:FlxText;
 
 	public var curWeek:Int = 0;
+	/** Tween de transición suave del color de fondo entre semanas. */
+	var _bgColorTween:FlxTween = null;
+	/** Última semana para la que se inició el tween (evita relanzarlo cada frame). */
+	var _lastColoredWeek:Int = -1;
 
 	var bg:FlxSprite;
 
@@ -112,14 +117,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			transOut = null;
 		}
 
-		if (FlxG.sound.music == null || !FlxG.sound.music.playing)
-		{
-			final _s = Paths.loadMusic('freakyMenu');
-			if (_s != null)
-				FlxG.sound.playMusic(_s, 0.5);
-			else
-				FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.5);
-		}
+		MusicManager.play('freakyMenu', 0.7);
 
 		persistentUpdate = persistentDraw = true;
 
@@ -508,11 +506,14 @@ class StoryMenuState extends funkin.states.MusicBeatState
 				weekUnlocked.push(!isLocked);
 
 				// Color de la semana (usar el primer color de la lista)
-				var colorStr:String = week.color != null && week.color.length > 0 ? week.color[0] : '0xFF9271FD';
-				var color:FlxColor = Std.parseInt(colorStr);
-				var colornull:Null<FlxColor> = color;
-				if (colornull == null)
-					color = 0xFF9271FD;
+				// BUGFIX: Std.parseInt de colores 0xFF... devuelve entero negativo en C++
+				// (overflow Int32 signed) pero los bits son correctos, así que FlxColor
+				// funciona igualmente. Solo necesitamos verificar null y cero.
+				var colorStr:String = week.color != null && week.color.length > 0 ? week.color[0] : '0xFFFFD900';
+				var colorParsed:Null<Int> = Std.parseInt(colorStr);
+				var color:FlxColor = (colorParsed != null && colorParsed != 0)
+					? (colorParsed : FlxColor)
+					: (0xFFFFD900 : FlxColor);
 				weekColors.push(color);
 
 				trace('Loaded week ${i}: ${weekName} with ${filteredSongs.length} songs (filtered from ${week.weekSongs.length})');
@@ -640,19 +641,20 @@ class StoryMenuState extends funkin.states.MusicBeatState
 					trace("ERROR: Failed to update week title: " + e);
 				}
 
-				// El color de la semana va en yellowBG, no en bg.
-				// bg debe permanecer oscuro siempre para que las semanas
-				// se vean sobre fondo negro.
-				if (yellowBG != null && curWeek >= 0 && curWeek < weekColors.length)
+				// BUGFIX: Antes se asignaba yellowBG.color directamente cada frame,
+				// lo que no producía transición suave y podía verse como blanco/negro
+				// si el color llegaba null o con un valor inesperado.
+				// Ahora solo se lanza un FlxTween.color cuando cambia la semana.
+				if (yellowBG != null && curWeek >= 0 && curWeek < weekColors.length
+					&& curWeek != _lastColoredWeek)
 				{
-					try
-					{
-						yellowBG.color = weekColors[curWeek];
-					}
-					catch (e:Dynamic)
-					{
-						trace("ERROR: Failed to update yellowBG color: " + e);
-					}
+					_lastColoredWeek = curWeek;
+					var targetColor:Null<FlxColor> = weekColors[curWeek];
+					if (targetColor == 0 || targetColor == null)
+						targetColor = 0xFFFFD900; // fallback si el color parseado es inválido
+					if (_bgColorTween != null) { _bgColorTween.cancel(); _bgColorTween = null; }
+					_bgColorTween = FlxTween.color(yellowBG, 0.35, yellowBG.color, targetColor,
+						{ ease: FlxEase.quartOut, onComplete: function(_) _bgColorTween = null });
 				}
 			}
 			else if (curWeek >= weekNames.length)
