@@ -78,6 +78,10 @@ class StrumsGroup
 			{
 				strum.scale.set(scale, scale);
 				strum.updateHitbox();
+				// FIX: después de cambiar el scale hay que volver a centrar Y re-aplicar
+				// los offsets de la skin para la anim 'static'. centerOffsets() solo no
+				// basta porque no recalcula los _animOffsets del JSON de skin.
+				strum.playAnim('static', true);
 			}
 			
 			strums.add(strum);

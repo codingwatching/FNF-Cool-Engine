@@ -517,6 +517,12 @@ class Paths
 			if (FileSystem.exists(path))
 			{
 				snd.loadStream(path);
+				// BUGFIX (Flixel git): FlxSounds creados con `new FlxSound()` + loadStream()
+				// no están en FlxG.sound.list → FlxG.sound.volume no los afecta,
+				// FlxG.sound.pause/resume no los toca, y .length puede quedar 0.
+				// Añadir a list hace que el SoundFrontEnd los gestione igual que
+				// los sonidos creados con FlxG.sound.load().
+				FlxG.sound.list.add(snd);
 				return snd;
 			}
 
@@ -529,10 +535,12 @@ class Paths
 				if (!FileSystem.exists(tmpFile))
 					File.saveBytes(tmpFile, bytes);
 				snd.loadStream(tmpFile);
+				FlxG.sound.list.add(snd);
 				return snd;
 			}
 			#end
 			snd.loadEmbedded(path, false, false);
+			FlxG.sound.list.add(snd);
 		}
 		catch (e:Dynamic)
 		{

@@ -668,7 +668,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 				}
 
 				discSpr = new FlxSprite(750, 280);
-				discSpr.frames = Paths.getSparrowAtlas('freeplay/record player freeplay');
+				discSpr.frames = Paths.getSparrowAtlas('menu/freeplay/record player freeplay');
 				discSpr.antialiasing = FlxG.save.data.antialiasing;
 				discSpr.animation.addByPrefix('idle', 'disco', 24);
 				discSpr.animation.play('idle');
@@ -784,6 +784,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 				FlxG.camera.flash(FlxColor.WHITE, 1);
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
 
+			// Informar al sistema de stickers qué week/song está en curso
+			StickerTransition.setCurrentContext(songs[curSelected].week, songs[curSelected].songName);
 			StickerTransition.start(function()
 			{
 				LoadingState.loadAndSwitchState(new PlayState());

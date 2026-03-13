@@ -174,6 +174,28 @@ class UIScriptedManager extends FlxGroup
 		uiScript.set('metaData', metaData);
 		uiScript.set('SONG', PlayState.SONG);
 
+		// ── Duración total de la canción en ms ─────────────────────────────
+		// IMPORTANTE: UIScriptedManager se construye ANTES de que PlayState llame
+		// a Conductor.mapBPMChanges(), así que Conductor.bpmChangeMap está vacío
+		// aquí → Conductor.getTimeAtStep() usa solo el BPM base y da un resultado
+		// incorrecto para canciones con cambios de BPM.
+		// Solución: replicar la misma suma que hace mapBPMChanges internamente,
+		// iterando sección a sección con el BPM vigente en cada momento.
+		var _songLenMs:Float = 0.0;
+		final _song = PlayState.SONG;
+		if (_song != null && _song.notes != null && _song.bpm > 0)
+		{
+			var _curBpm:Float = _song.bpm;
+			for (section in _song.notes)
+			{
+				if (section.changeBPM && section.bpm > 0)
+					_curBpm = section.bpm;
+				// stepCrochet = 60000 / bpm / 4
+				_songLenMs += section.lengthInSteps * (60000.0 / _curBpm / 4.0);
+			}
+		}
+		uiScript.set('SONG_LENGTH_MS', _songLenMs);
+
 		// ── Clases que el script necesita para replicar UIManager ──────────
 
 		// HealthIcon — para new HealthIcon(name, isPlayer)

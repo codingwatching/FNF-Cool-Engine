@@ -815,10 +815,6 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 			// BUGFIX: storyDifficulty se debe asignar ANTES de llamar a
 			// difficultySuffix(), que lee PlayState.storyDifficulty.
-			// El orden anterior (diffic → storyDifficulty) hacía que se usara el
-			// valor residual de la sesión anterior (p.ej. si venías de FreeplayState
-			// con Hard seleccionado, aquí siempre cargaba Hard aunque el usuario
-			// tuviera Normal en StoryMenu) → chart incorrecto.
 			PlayState.storyDifficulty = curDifficulty;
 
 			var diffic = funkin.data.CoolUtil.difficultySuffix();
@@ -826,10 +822,23 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			PlayState.SONG = Song.loadFromJson(PlayState.storyPlaylist[0].toLowerCase() + diffic, PlayState.storyPlaylist[0].toLowerCase());
 			PlayState.storyWeek = curWeek;
 			PlayState.campaignScore = 0;
-			new FlxTimer().start(1, function(tmr:FlxTimer)
+
+			// Transición con stickers — skin seleccionado por semana
+			if (StickerTransition.enabled)
 			{
-				LoadingState.loadAndSwitchState(new PlayState(), true);
-			});
+				StickerTransition.setCurrentContext(curWeek, PlayState.storyPlaylist[0]);
+				StickerTransition.start(function()
+				{
+					LoadingState.loadAndSwitchState(new PlayState(), true);
+				});
+			}
+			else
+			{
+				new FlxTimer().start(1, function(tmr:FlxTimer)
+				{
+					LoadingState.loadAndSwitchState(new PlayState(), true);
+				});
+			}
 		}
 	}
 

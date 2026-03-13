@@ -243,6 +243,24 @@ class Countdown {
 	}
 
 	/**
+	 * Pausa el countdown sin cancelarlo (el timer deja de contar).
+	 * Llamar desde PlayState.pauseMenu().
+	 */
+	public function pause():Void {
+		if (_timer != null)
+			_timer.active = false;
+	}
+
+	/**
+	 * Reanuda el countdown pausado.
+	 * Llamar desde PlayState.closeSubState().
+	 */
+	public function resume():Void {
+		if (_timer != null)
+			_timer.active = true;
+	}
+
+	/**
 	 * Destruye y libera todos los recursos. Llamar en PlayState.destroy().
 	 */
 	public function destroy():Void {

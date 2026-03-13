@@ -17,6 +17,7 @@ import funkin.menus.FreeplayEditorState;
 import funkin.debug.charting.ChartingState;
 import funkin.debug.StageEditor;
 import funkin.debug.DialogueEditor;
+import funkin.debug.CutsceneEditor;
 import funkin.debug.PlayStateEditorState;
 import funkin.data.Song;
 import funkin.data.CoolUtil;
@@ -33,8 +34,9 @@ import sys.FileSystem;
  *  1 — Chart Editor
  *  2 — Stage Editor
  *  3 — Dialogue Editor
- *  4 — ModChart Editor      ← NUEVO
- *  5 — PlayState Editor     ← NUEVO
+ *  4 — Cutscene Editor      ← NUEVO
+ *  5 — ModChart Editor
+ *  6 — PlayState Editor
  */
 class DebugMenuSubState extends FlxSubState
 {
@@ -43,6 +45,7 @@ class DebugMenuSubState extends FlxSubState
 		"♪  CHART EDITOR",
 		"⬡  STAGE EDITOR",
 		"✦  DIALOGUE EDITOR",
+		"✂  CUTSCENE EDITOR",
 		"◈  MODCHART EDITOR",
 		"▶  PLAYSTATE EDITOR"
 	];
@@ -52,6 +55,7 @@ class DebugMenuSubState extends FlxSubState
 		"Create and edit the note chart for this song",
 		"Build and arrange stage elements and backgrounds",
 		"Write branching dialogue cutscenes",
+		"Create sprite cutscenes (atlas / animate / rect) with timeline",
 		"Script note modifiers and visual effects (ModCharts)",
 		"Preview stage, HUD, characters — add events & scripts in real-time"
 	];
@@ -61,6 +65,7 @@ class DebugMenuSubState extends FlxSubState
 		0xFF00D9FF,
 		0xFFFF8844,
 		0xFFCC44FF,
+		0xFF00E5FF,   // ← Cutscene Editor (cyan)
 		0xFF44FF88,
 		0xFFFF4488,
 	];
@@ -158,7 +163,7 @@ class DebugMenuSubState extends FlxSubState
 		descText.scrollFactor.set(); add(descText);
 
 		var hint = new FlxText(panelX, descY + 52, PANEL_W,
-			'↑↓ Navigate    ENTER Open    1-6 Quick Select    ESC Close', 11);
+			'↑↓ Navigate    ENTER Open    1-7 Quick Select    ESC Close', 11);
 		hint.setFormat(Paths.font('vcr.ttf'), 11, 0xFF444466, CENTER);
 		hint.scrollFactor.set(); add(hint);
 
@@ -185,9 +190,10 @@ class DebugMenuSubState extends FlxSubState
 		if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S) changeSelection(1);
 
 		var numKeys = [
-			FlxG.keys.justPressed.ONE, FlxG.keys.justPressed.TWO,
+			FlxG.keys.justPressed.ONE,   FlxG.keys.justPressed.TWO,
 			FlxG.keys.justPressed.THREE, FlxG.keys.justPressed.FOUR,
-			FlxG.keys.justPressed.FIVE, FlxG.keys.justPressed.SIX,
+			FlxG.keys.justPressed.FIVE,  FlxG.keys.justPressed.SIX,
+			FlxG.keys.justPressed.SEVEN,
 		];
 		for (i in 0...numKeys.length)
 		{
@@ -248,8 +254,9 @@ class DebugMenuSubState extends FlxSubState
 			case 1: _openEditor(CHART_EDITOR);
 			case 2: _openEditor(STAGE_EDITOR);
 			case 3: _openEditor(DIALOGUE_EDITOR);
-			case 4: _openEditor(MODCHART_EDITOR);
-			case 5: _openEditor(PLAYSTATE_EDITOR);
+			case 4: _openEditor(CUTSCENE_EDITOR);
+			case 5: _openEditor(MODCHART_EDITOR);
+			case 6: _openEditor(PLAYSTATE_EDITOR);
 		}
 	}
 
@@ -261,6 +268,7 @@ class DebugMenuSubState extends FlxSubState
 			case CHART_EDITOR:      StateTransition.switchState(new ChartingState());
 			case STAGE_EDITOR:      StateTransition.switchState(new StageEditor());
 			case DIALOGUE_EDITOR:   StateTransition.switchState(new DialogueEditor());
+			case CUTSCENE_EDITOR:   StateTransition.switchState(new CutsceneEditor());
 			case MODCHART_EDITOR:   StateTransition.switchState(new ModChartEditorState());
 			case PLAYSTATE_EDITOR:  StateTransition.switchState(new PlayStateEditorState(songData));
 		}
@@ -268,12 +276,9 @@ class DebugMenuSubState extends FlxSubState
 
 	function _loadSongFromDisk(songName:String):SwagSong
 	{
-		// Use Song.loadFromJson which correctly prioritises .level over legacy .json
-		// and runs ensureMigrated() so characters/strumsGroups are always populated.
-		// Falls back automatically to the legacy .json format if no .level exists.
-		final diffSuffix = CoolUtil.difficultySuffix(); // '' for normal, '-hard', '-easy'…
+		final diffSuffix = CoolUtil.difficultySuffix();
 		final diffInput  = (diffSuffix == '' || diffSuffix == null)
-		                   ? songName           // loadFromJson maps 'songName' → suffix ''
+		                   ? songName
 		                   : songName + diffSuffix;
 		try
 		{
@@ -289,7 +294,6 @@ class DebugMenuSubState extends FlxSubState
 			trace('[DebugMenuSubState] loadFromJson error for "$songName": $e');
 		}
 
-		// Absolute last-resort fallback (no chart found at all)
 		trace('[DebugMenuSubState] Fallback vacío para "$songName"');
 		return cast {
 			song: songName, notes: [], events: [], characters: [], strumsGroups: [],
@@ -315,6 +319,7 @@ enum DebugEditorType
 	CHART_EDITOR;
 	STAGE_EDITOR;
 	DIALOGUE_EDITOR;
+	CUTSCENE_EDITOR;
 	MODCHART_EDITOR;
 	PLAYSTATE_EDITOR;
 }

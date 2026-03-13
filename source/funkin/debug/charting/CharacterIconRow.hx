@@ -96,8 +96,8 @@ class CharacterIconRow extends FlxGroup
 
 	public function isAnyModalOpen():Bool
 		return addCharModalOpen
-		    || (charPickerMenu != null && charPickerMenu.isOpen)
-		    || (charPropsPanel != null && charPropsPanel.isOpen);
+		    || (charPickerMenu != null && (charPickerMenu.isOpen || charPickerMenu._justClosed))
+		    || (charPropsPanel != null && (charPropsPanel.isOpen || charPropsPanel._justClosed));
 
 	// ── Rebuild icon sprites ──────────────────────────────────────────────────
 
@@ -195,6 +195,9 @@ class CharacterIconRow extends FlxGroup
 			_rowScrollX -= FlxG.mouse.wheel * iconSpacing;
 			_rowScrollX  = Math.max(0, Math.min(_rowScrollX, _rowMaxScroll));
 			refreshIcons();
+			// ← Marcar que la rueda fue consumida por este componente para que
+			//   ChartingState NO haga scroll del grid también.
+			parent.wheelConsumed = true;
 			return;
 		}
 
@@ -347,6 +350,13 @@ class CharacterPickerMenu extends FlxGroup
 
 	public var isOpen:Bool = false;
 	var editingIndex:Int = -1;
+
+	/**
+	 * `true` durante el frame inmediatamente posterior al cierre del menú.
+	 * Evita que el click que cerró el panel "se filtre" al grid de fondo.
+	 * Se resetea al inicio del siguiente update().
+	 */
+	public var _justClosed:Bool = false;
 
 	// ── Layout ────────────────────────────────────────────────────────────────
 	static inline var MENU_W:Int    = 460;
@@ -617,12 +627,17 @@ class CharacterPickerMenu extends FlxGroup
 	{
 		isOpen = visible = active = false;
 		editingIndex = -1;
+		_justClosed  = true; // ← consumir el click de cierre durante 1 frame extra
 	}
 
 	// ── Update ────────────────────────────────────────────────────────────────
 
 	override public function update(elapsed:Float):Void
 	{
+		// Resetear _justClosed al inicio del frame siguiente al cierre.
+		// Esto garantiza que handleMouseInput() en ChartingState vea el flag
+		// en el mismo frame que el click, y lo limpia en el frame siguiente.
+		if (_justClosed) { _justClosed = false; return; }
 		if (!isOpen) return;
 		super.update(elapsed);
 
@@ -631,12 +646,13 @@ class CharacterPickerMenu extends FlxGroup
 		var gy0 = _panelY + HEADER_H;
 		var gy1 = _panelY + MENU_H - FOOTER_H;
 
-		// Scroll wheel
+		// Scroll wheel — consumir el evento para que el grid de fondo NO lo procese
 		if (mx >= _panelX && mx <= _panelX + MENU_W && my >= gy0 && my <= gy1 && FlxG.mouse.wheel != 0)
 		{
 			gridScrollY -= FlxG.mouse.wheel * 24;
 			gridScrollY  = Math.max(0, Math.min(gridScrollY, gridMaxScrollY));
 			_rebuildGrid();
+			parent.wheelConsumed = true; // ← no filtrar al grid principal
 		}
 
 		// Hover label
@@ -744,6 +760,8 @@ class CharacterPropertiesPanel extends FlxGroup
 
 	public var isOpen:Bool = false;
 	var editingIndex:Int = -1;
+	/** Igual que en CharacterPickerMenu — evita propagación de clicks al grid. */
+	public var _justClosed:Bool = false;
 
 	static inline var PANEL_W:Int    = 420;
 	static inline var PANEL_H:Int    = 310;
@@ -946,10 +964,12 @@ class CharacterPropertiesPanel extends FlxGroup
 	{
 		isOpen = visible = active = false;
 		editingIndex = -1;
+		_justClosed  = true; // ← consumir el click de cierre durante 1 frame extra
 	}
 
 	override public function update(elapsed:Float):Void
 	{
+		if (_justClosed) { _justClosed = false; return; }
 		if (!isOpen) return;
 		super.update(elapsed);
 		if (FlxG.keys.justPressed.ESCAPE) { _applyChanges(); close(); }

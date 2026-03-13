@@ -87,9 +87,9 @@ echo ""
 echo "==============================================="
 echo "Installing HaxeFlixel..."
 echo "==============================================="
-haxelib git flixel https://github.com/HaxeFlixel/flixel
+haxelib git flixel https://github.com/FunkinCrew/flixel
 
-haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui
+haxelib install flixel-ui
 haxelib install flixel-tools 1.5.1
 
 # ── Additional libraries ─────────────────────────

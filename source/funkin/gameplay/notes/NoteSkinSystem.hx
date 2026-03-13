@@ -29,11 +29,19 @@ using StringTools;
 typedef NoteSkinTexture =
 {
 	var path:String;
-	var ?type:String; // "sparrow" | "packer" | "image"  (default: "sparrow")
-	var ?frameWidth:Int; // solo para type "image" — ancho de cada frame en píxeles
-	var ?frameHeight:Int; // solo para type "image" — alto  de cada frame en píxeles
-	var ?scale:Float; // escala aplicada al sprite (default: 1.0)
-	var ?antialiasing:Bool; // default: true para normal, false para pixel
+	/**
+	 * Tipo de carga de textura:
+	 *   "sparrow"      — Sparrow Atlas (.xml)                  [default]
+	 *   "packer"       — TexturePacker (.txt)
+	 *   "image"        — PNG dividido en frames (frameWidth×frameHeight)
+	 *   "funkinsprite" — Adobe Animate Texture Atlas (FunkinSprite / flxanimate)
+	 *                    path apunta a la CARPETA que contiene Animation.json
+	 */
+	var ?type:String;
+	var ?frameWidth:Int;  // solo para type "image"
+	var ?frameHeight:Int; // solo para type "image"
+	var ?scale:Float;         // escala del sprite (default: 1.0)
+	var ?antialiasing:Bool;   // default: true (false para pixel)
 }
 
 /**
@@ -53,6 +61,16 @@ typedef NoteAnimDef =
 	var ?indices:Array<Int>;
 	var ?framerate:Int;
 	var ?loop:Bool;
+	/**
+	 * Offset [x, y] aplicado al strum cuando esta animación está activa.
+	 * Solo relevante para animaciones de strum (pressed / confirm).
+	 * Opcional — si está ausente, se usan los defaults del engine.
+	 *
+	 * Ejemplo en skin.json:
+	 *   "strumLeftConfirm": { "prefix": "left confirm", "offset": [-13, -13] }
+	 *   "strumLeftPress":   { "prefix": "left press",   "offset": [0, -5] }
+	 */
+	var ?offset:Array<Float>;
 }
 
 /**
@@ -124,16 +142,31 @@ typedef NoteSkinData =
 	var ?author:String;
 	var ?description:String;
 	var ?folder:String;
-	// ── Texturas ──────────────────────────────────────────────────────────
+	// ── Texturas ────────────────────────────────────────────────────────
+	/**
+	 * texture      — textura principal (notas normales + strums).
+	 *               Usada para notas normales cuando notesTexture es null,
+	 *               y para strums cuando strumsTexture es null.
+	 * strumsTexture  — textura SOLO para los strums (opcional).
+	 *               Si es null, se usa texture.
+	 * notesTexture   — textura SOLO para las notas que bajan (cabezas, scroll) (opcional).
+	 *               Si es null, se usa texture.
+	 * holdTexture    — textura para sustain pieces + tails (opcional).
+	 *               Si es null, se usa texture (o notesTexture si se define).
+	 *
+	 * Soporta type:"funkinsprite" en cualquiera de ellas para usar Adobe Animate Atlas.
+	 */
 	var texture:NoteSkinTexture;
-	var ?holdTexture:NoteSkinTexture; // sustain pieces + tails (null → usa texture)
-	// ── Flags y ajustes ───────────────────────────────────────────────────
+	var ?strumsTexture:NoteSkinTexture;  // solo strums  (null → usa texture)
+	var ?notesTexture:NoteSkinTexture;   // solo notas scroll (null → usa texture)
+	var ?holdTexture:NoteSkinTexture;    // sustain pieces + tails (null → usa texture)
+	// ── Flags y ajustes ───────────────────────────────────────────────
 	var ?isPixel:Bool;
-	var ?confirmOffset:Bool; // default: true
+	var ?confirmOffset:Bool; // default: true — aplica offset -13,-13 a todos los confirms si no tienen offset propio
 	var ?offsetDefault:Bool; // alias legacy de confirmOffset
 	var ?sustainOffset:Float; // default: 0.0
 	var ?holdStretch:Float; // default: 1.0
-	// ── Animaciones ───────────────────────────────────────────────────────
+	// ── Animaciones ───────────────────────────────────────────────────
 	var animations:NoteSkinAnims;
 }
 
@@ -1015,6 +1048,192 @@ class NoteSkinSystem
 		return loadAtlas(tex, folder != null ? folder : "Default");
 	}
 
+	/**
+	 * Devuelve la textura correcta para los STRUMS del skin dado.
+	 * Prioridad: strumsTexture > texture
+	 */
+	public static function getStrumsTexture(?skinName:String):NoteSkinTexture
+	{
+		var d = getCurrentSkinData(skinName);
+		if (d == null) return null;
+		return d.strumsTexture != null ? d.strumsTexture : d.texture;
+	}
+
+	/**
+	 * Construye un mapa animName → [offsetX, offsetY] a partir de los campos
+	 * `offset` definidos en cada NoteAnimDef de strum.
+	 *
+	 * Lógica de prioridad (de mayor a menor):
+	 *   1. El campo `offset` explícito en la def de la animación del JSON.
+	 *   2. Si la animación es un confirm Y `confirmOffset:true` en la skin
+	 *      (o no se define, que vale true por defecto para skins no-pixel),
+	 *      se usa el fallback [-13, -13] — comportamiento original del engine.
+	 *   3. Sin offset (sin entrada en el mapa).
+	 *
+	 * Parámetro `noteID`: índice de la flecha (0=left, 1=down, 2=up, 3=right).
+	 * Solo se procesan las defs de la dirección correcta.
+	 *
+	 * El mapa resultante tiene como claves los nombres internos de animación
+	 * usados por StrumNote: 'static', 'pressed', 'confirm'.
+	 */
+	public static function buildStrumOffsets(skinData:NoteSkinData, noteID:Int):Map<String, Array<Float>>
+	{
+		var map:Map<String, Array<Float>> = new Map();
+		if (skinData == null || skinData.animations == null) return map;
+
+		var anims = skinData.animations;
+		var i = Std.int(Math.abs(noteID)) % 4;
+
+		// Defs para este noteID
+		var staticDefs  = [anims.strumLeft,       anims.strumDown,       anims.strumUp,       anims.strumRight];
+		var pressDefs   = [anims.strumLeftPress,   anims.strumDownPress,  anims.strumUpPress,  anims.strumRightPress];
+		var confirmDefs = [anims.strumLeftConfirm, anims.strumDownConfirm,anims.strumUpConfirm,anims.strumRightConfirm];
+
+		// Helper: extrae offset de una def dinámica (String o NoteAnimDef)
+		inline function offsetOf(def:Dynamic):Array<Float>
+		{
+			if (def == null || Std.isOfType(def, String)) return null;
+			var arr:Dynamic = def.offset;
+			if (arr == null) return null;
+			return [Std.parseFloat(Std.string(arr[0])), Std.parseFloat(Std.string(arr[1]))];
+		}
+
+		// static
+		var so = offsetOf(staticDefs[i]);
+		if (so != null)
+			map.set('static', so);
+
+		// pressed
+		var po = offsetOf(pressDefs[i]);
+		if (po != null)
+			map.set('pressed', po);
+
+		// confirm: si la def tiene offset propio, usarlo; si no, fallback a confirmOffset global
+		var co = offsetOf(confirmDefs[i]);
+		if (co != null)
+		{
+			map.set('confirm', co);
+		}
+		else
+		{
+			// confirmOffset global: true para skins normales (default), false para pixel
+			var useDefault = skinData.confirmOffset != null
+				? skinData.confirmOffset
+				: (skinData.offsetDefault != null ? skinData.offsetDefault : !(skinData.isPixel == true));
+			if (useDefault)
+				map.set('confirm', [-13.0, -13.0]);
+		}
+
+		return map;
+	}
+
+	/**
+	 * Devuelve la textura correcta para las NOTAS SCROLL del skin dado.
+	 * Prioridad: notesTexture > texture
+	 * Construye un par [offsetX, offsetY] para las notas scroll/hold de una
+	 * dirección concreta a partir del campo `offset` de las animaciones de nota.
+	 *
+	 * Lógica de prioridad (de mayor a menor):
+	 *   1. offset de la animación scroll (left/down/up/right) — cabeza de nota.
+	 *   2. Sin offset (devuelve [0.0, 0.0]).
+	 *
+	 * Los offsets de hold/holdEnd se resuelven por separado con las defs
+	 * leftHold downHold* etc., pero si no están definidos usan el mismo offset
+	 * de la cabeza para mantener coherencia visual entre cabeza y cuerpo.
+	 *
+	 * @param skinData  Datos de la skin activa.
+	 * @param noteID    Dirección (0=left, 1=down, 2=up, 3=right).
+	 * @return  Array [offsetX, offsetY] listo para aplicar; nunca null.
+	*/
+	public static function buildNoteOffsets(skinData:NoteSkinData, noteID:Int):Array<Float>
+	{
+		if (skinData == null || skinData.animations == null) return [0.0, 0.0];
+
+		var anims = skinData.animations;
+		var i = Std.int(Math.abs(noteID)) % 4;
+
+		// Defs de animación de nota scroll por dirección
+		var scrollDefs:Array<Dynamic> = [anims.left, anims.down, anims.up, anims.right];
+		var def:Dynamic = scrollDefs[i];
+
+		// Extraer offset del def (puede ser String shorthand → sin offset)
+		if (def != null && !Std.isOfType(def, String))
+		{
+			var arr:Dynamic = def.offset;
+			if (arr != null)
+				return [Std.parseFloat(Std.string(arr[0])), Std.parseFloat(Std.string(arr[1]))];
+		}
+
+		return [0.0, 0.0];
+	}
+
+	/**
+	 * Resuelve el offset para notas HOLD/HOLDEND de una dirección.
+	 * Prioridad: offset de la def hold > offset de la def scroll (coherencia) > [0,0].
+	 *
+	 * @param skinData  Datos de la skin activa.
+	 * @param noteID    Dirección (0=left, 1=down, 2=up, 3=right).
+	 * @return  Array [offsetX, offsetY] listo para aplicar; nunca null.
+	 */
+	public static function buildHoldNoteOffsets(skinData:NoteSkinData, noteID:Int):Array<Float>
+	{
+		if (skinData == null || skinData.animations == null) return [0.0, 0.0];
+
+		var anims = skinData.animations;
+		var i = Std.int(Math.abs(noteID)) % 4;
+
+		// Helper inline
+		inline function offsetOf(def:Dynamic):Array<Float>
+		{
+			if (def == null || Std.isOfType(def, String)) return null;
+			var arr:Dynamic = def.offset;
+			if (arr == null) return null;
+			return [Std.parseFloat(Std.string(arr[0])), Std.parseFloat(Std.string(arr[1]))];
+		}
+
+		// Defs de hold (piezas) y holdEnd (tail)
+		var holdDefs:Array<Dynamic>    = [anims.leftHold,    anims.downHold,    anims.upHold,    anims.rightHold];
+		var holdEndDefs:Array<Dynamic> = [anims.leftHoldEnd, anims.downHoldEnd, anims.upHoldEnd, anims.rightHoldEnd];
+
+		// Preferir holdEnd si tiene offset, si no hold, si no fallback al scroll offset
+		var off = offsetOf(holdEndDefs[i]);
+		if (off != null) return off;
+		off = offsetOf(holdDefs[i]);
+		if (off != null) return off;
+
+		// Fallback: mismo offset que la cabeza de nota para coherencia visual
+		return buildNoteOffsets(skinData, noteID);
+	}
+
+	public static function getNotesScrollTexture(?skinName:String):NoteSkinTexture
+	{
+		var d = getCurrentSkinData(skinName);
+		if (d == null) return null;
+		return d.notesTexture != null ? d.notesTexture : d.texture;
+	}
+
+	/**
+	 * Devuelve la textura correcta para los HOLDS del skin dado.
+	 * Prioridad: holdTexture > notesTexture > texture
+	 */
+	public static function getHoldTexture(?skinName:String):NoteSkinTexture
+	{
+		var d = getCurrentSkinData(skinName);
+		if (d == null) return null;
+		if (d.holdTexture != null) return d.holdTexture;
+		if (d.notesTexture != null) return d.notesTexture;
+		return d.texture;
+	}
+
+	/**
+	 * Devuelve true si la textura dada es de tipo "funkinsprite".
+	 * Usado por Note/StrumNote para decidir si usar FunkinSprite en vez de FlxSprite.
+	 */
+	public static inline function isFunkinSpriteType(tex:NoteSkinTexture):Bool
+	{
+		return tex != null && tex.type != null && tex.type.toLowerCase() == "funkinsprite";
+	}
+
 	// ── Helpers de escala convenientes ───────────────────────────────────
 
 	public static function getNoteScale(?skinName:String):Float
@@ -1333,6 +1552,13 @@ class NoteSkinSystem
 				case "packer":
 					result = Paths.skinSpriteTxt('$folder/$path');
 
+				case "funkinsprite":
+					// FunkinSprite (Adobe Animate Atlas) — devolvemos null intencionalmente.
+					// Note.hx y StrumNote.hx detectan isFunkinSpriteType() ANTES de llamar
+					// loadSkinFrames() y crean un FunkinSprite en su lugar.
+					// Este case evita el trace de "tipo desconocido" y el fallback a Default.
+					return null;
+
 				case "image":
 					var graphic = FlxG.bitmap.add('assets/skins/$folder/$path.png');
 					if (graphic == null) throw 'PNG not found para image skin: $folder/$path';
@@ -1469,12 +1695,17 @@ class NoteSkinSystem
 			name: "Custom Skin",
 			author: "Your Name",
 			description: "My custom note skin",
+			// texture: textura principal (fallback para todo si no se definen las otras)
 			texture: {
 				path: "NOTE_assets",
-				type: "sparrow",
+				type: "sparrow", // "sparrow" | "packer" | "image" | "funkinsprite"
 				scale: 0.7,
 				antialiasing: true
 			},
+			// strumsTexture: SOLO para los strums (null = usa texture)
+			// strumsTexture: { path: "MY_strums", type: "sparrow", scale: 0.7 },
+			// notesTexture: SOLO para las notas que bajan (null = usa texture)
+			// notesTexture: { path: "MY_notes", type: "sparrow", scale: 0.7 },
 			confirmOffset: true,
 			animations: {
 				left: "purple0",

@@ -1737,8 +1737,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		// Tab header strip sits at y ≈ TOP_H, height ≈ 20px. 5 tabs share RIGHT_W-2 px.
 		if (FlxG.mouse.justPressed)
 		{
-			var mx = FlxG.mouse.x;
-			var my = FlxG.mouse.y;
+			var mx = FlxG.mouse.gameX;
+			var my = FlxG.mouse.gameY;
 			if (my >= TOP_H && my <= TOP_H + 22 && mx >= FlxG.width - RIGHT_W)
 			{
 				var tabW:Float = (RIGHT_W - 2) / 5;
@@ -1865,7 +1865,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			if (FlxG.mouse.justPressedMiddle)
 			{
 				isDraggingCam = true;
-				dragCamStart.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+				dragCamStart.set(FlxG.mouse.gameX, FlxG.mouse.gameY);
 				dragCamScrollStart.set(camTargetX, camTargetY);
 			}
 		}
@@ -1873,8 +1873,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		{
 			if (FlxG.mouse.pressedMiddle)
 			{
-				camTargetX = dragCamScrollStart.x - (FlxG.mouse.screenX - dragCamStart.x) / camZoom;
-				camTargetY = dragCamScrollStart.y - (FlxG.mouse.screenY - dragCamStart.y) / camZoom;
+				camTargetX = dragCamScrollStart.x - (FlxG.mouse.gameX - dragCamStart.x) / camZoom;
+				camTargetY = dragCamScrollStart.y - (FlxG.mouse.gameY - dragCamStart.y) / camZoom;
 			}
 			else
 			{
@@ -1903,8 +1903,8 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function handleLayerPanelClick():Void
 	{
-		var mx = FlxG.mouse.x;
-		var my = FlxG.mouse.y;
+		var mx = FlxG.mouse.gameX;
+		var my = FlxG.mouse.gameY;
 
 		// Mouse wheel scrolling over layer panel
 		if (FlxG.mouse.wheel != 0 && mx < LEFT_W && my > TOP_H && my < FlxG.height - STATUS_H)
@@ -2082,8 +2082,6 @@ class StageEditor extends funkin.states.MusicBeatState
 		if (isMouseOverUI())
 			return;
 
-		// cameras[0] es camUI (zoom=1) → FlxG.mouse.x/y está en screen-space.
-		// Para el canvas necesitamos coordenadas de mundo relativas a camGame.
 		var worldPos = FlxG.mouse.getWorldPosition(camGame);
 		var worldX = worldPos.x;
 		var worldY = worldPos.y;
@@ -2098,7 +2096,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			// Check characters first (they're on top)
 			for (cid => c in characters)
 			{
-				if (c.overlapsPoint(new FlxPoint(worldX, worldY)))
+				if (worldX >= c.x && worldX <= c.x + c.width && worldY >= c.y && worldY <= c.y + c.height)
 				{
 					clickedChar = cid;
 					break;
@@ -2126,7 +2124,7 @@ class StageEditor extends funkin.states.MusicBeatState
 					if (elem.locked != true && elem.name != null && elementSprites.exists(elem.name))
 					{
 						var spr = elementSprites.get(elem.name);
-						if (spr.overlapsPoint(new FlxPoint(worldX, worldY)))
+						if (worldX >= spr.x && worldX <= spr.x + spr.width && worldY >= spr.y && worldY <= spr.y + spr.height)
 						{
 							clickedIdx = i;
 							break;
@@ -2155,7 +2153,7 @@ class StageEditor extends funkin.states.MusicBeatState
 						if (elem.locked == true && elem.name != null && elementSprites.exists(elem.name))
 						{
 							var spr = elementSprites.get(elem.name);
-							if (spr.overlapsPoint(new FlxPoint(worldX, worldY)))
+							if (worldX >= spr.x && worldX <= spr.x + spr.width && worldY >= spr.y && worldY <= spr.y + spr.height)
 							{
 								selectedIdx = li;
 								selectedCharId = null;
@@ -2244,8 +2242,8 @@ class StageEditor extends funkin.states.MusicBeatState
 	{
 		if (!FlxG.mouse.justPressed)
 			return;
-		var mx = FlxG.mouse.x;
-		var my = FlxG.mouse.y;
+		var mx = FlxG.mouse.gameX;
+		var my = FlxG.mouse.gameY;
 		// Toolbar occupies TITLE_H → TOP_H (i.e. y=34 to y=74)
 		// Use a slightly generous top bound to avoid missing the top row
 		if (my < 0 || my > TOP_H)
@@ -2376,7 +2374,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		// Chequear personajes primero (están encima)
 		for (cid => c in characters)
 		{
-			if (c.overlapsPoint(new FlxPoint(wx, wy)))
+			if (wx >= c.x && wx <= c.x + c.width && wy >= c.y && wy <= c.y + c.height)
 			{
 				foundName = cid;
 				break;
@@ -2393,7 +2391,7 @@ class StageEditor extends funkin.states.MusicBeatState
 				if (elem.name != null && elementSprites.exists(elem.name))
 				{
 					var espr = elementSprites.get(elem.name);
-					if (espr.overlapsPoint(new FlxPoint(wx, wy)))
+					if (wx >= espr.x && wx <= espr.x + espr.width && wy >= espr.y && wy <= espr.y + espr.height)
 					{
 						foundName = elem.name;
 						break;
@@ -2403,7 +2401,10 @@ class StageEditor extends funkin.states.MusicBeatState
 			}
 		}
 
-		if (foundName == null || FlxG.mouse.x < LEFT_W || FlxG.mouse.x > FlxG.width - RIGHT_W)
+		var sx = FlxG.mouse.gameX;
+		var sy = FlxG.mouse.gameY;
+
+		if (foundName == null || sx < LEFT_W || sx > FlxG.width - RIGHT_W)
 		{
 			hoverTooltipBg.visible  = false;
 			hoverTooltipTxt.visible = false;
@@ -2418,14 +2419,14 @@ class StageEditor extends funkin.states.MusicBeatState
 		}
 
 		// Posición: ligeramente por encima y a la derecha del cursor (HUD space)
-		var tx = FlxG.mouse.x + 12;
-		var ty = FlxG.mouse.y - 20;
+		var tx = sx + 12;
+		var ty = sy - 20;
 		var tw = Std.int(hoverTooltipTxt.width) + 8;
 		var th = 18;
 
 		// Evitar salirse por la derecha
 		if (tx + tw > FlxG.width - RIGHT_W - 2)
-			tx = FlxG.mouse.x - tw - 4;
+			tx = sx - tw - 4;
 
 		hoverTooltipBg.setPosition(tx, ty);
 		hoverTooltipBg.makeGraphic(tw, th, 0xCC000000);
@@ -2455,7 +2456,6 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function updateStatusBar():Void
 	{
-		// Necesitamos coordenadas de mundo (camGame) para mostrar en status bar
 		var worldPos = FlxG.mouse.getWorldPosition(camGame);
 		var worldX = Std.int(worldPos.x);
 		var worldY = Std.int(worldPos.y);
@@ -3103,8 +3103,8 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function isMouseOverUI():Bool
 	{
-		var mx = FlxG.mouse.screenX;
-		var my = FlxG.mouse.screenY;
+		var mx = FlxG.mouse.gameX;
+		var my = FlxG.mouse.gameY;
 		return my < TOP_H || my > FlxG.height - STATUS_H || mx < LEFT_W || mx > FlxG.width - RIGHT_W;
 	}
 

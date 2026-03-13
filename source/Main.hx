@@ -36,6 +36,7 @@ import sys.thread.Thread;
 #end
 import funkin.data.KeyBinds;
 import funkin.gameplay.notes.NoteSkinSystem;
+import funkin.addons.AddonManager;
 #if mobileC
 import funkin.util.plugins.TouchPointerPlugin;
 #end
@@ -196,6 +197,32 @@ class Main extends Sprite
 		addChild(data);
 		FlxG.plugins.add(new SoundTray());
 		disableDefaultSoundTray();
+		// V-Slice style: plugin de volumen rebindable que también arregla el
+		// bug de defaultMusicGroup y expone onVolumeChanged para el SoundTray.
+		funkin.audio.VolumePlugin.initialize();
+
+		// ── BUGFIX (Flixel git): forzar curva de volumen lineal ───────────────
+		// En Flixel git, applySoundCurve convierte el volumen 0-1 a una curva
+		// logarítmica antes de enviarlo a OpenAL. El problema: con la curva log
+		// el valor 0.0 puede mapearse a un floor mínimo no-cero (e.g. 0.001),
+		// haciendo que bajar el volumen a 0 o mutear no silencie completamente.
+		// Forzar función identidad garantiza: vol=0.0 → OpenAL gain=0.0 siempre.
+		FlxG.sound.applySoundCurve  = function(v:Float) return v;
+		FlxG.sound.reverseSoundCurve = function(v:Float) return v;
+
+		// ── BUGFIX (Flixel git): propagar volumen global a defaultMusicGroup ──
+		// Manejado por VolumePlugin (registrado justo debajo) que también
+		// se suscribe a onVolumeChange y llama updateTransform() en music.
+		// Mantenemos este listener como safety net por si VolumePlugin
+		// no está registrado en alguna situación de inicio anormal.
+		FlxG.sound.onVolumeChange.add(function(vol:Float):Void
+		{
+			if (FlxG.sound.music != null)
+			{
+				final mv = FlxG.sound.music.volume;
+				FlxG.sound.music.volume = mv;
+			}
+		});
 
 		// ── Mods ──────────────────────────────────────────────────────────────
 		#if android
@@ -204,10 +231,14 @@ class Main extends Sprite
 		_requestAndroidStoragePermission(function() {
 			mods.ModManager.init();
 			mods.ModManager.applyStartupMod();
+			// ── Addons (después de mods para que puedan leer la carpeta activa) ──
+			AddonManager.init();
 		});
 		#else
 		mods.ModManager.init();
 		mods.ModManager.applyStartupMod();
+		// ── Addons (después de mods para que puedan leer la carpeta activa) ────
+		AddonManager.init();
 		#end
 		WindowManager.applyModBranding(mods.ModManager.activeInfo());
 		#if (desktop && cpp)

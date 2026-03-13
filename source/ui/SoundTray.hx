@@ -204,6 +204,9 @@ class SoundTray extends FlxBasic
         else            FlxG.sound.play(volumeUpSound);
 
         FlxG.sound.volume = v;
+        // Asegurarse de que FlxG.sound.muted quede false al subir volumen
+        if (FlxG.sound.muted) FlxG.sound.muted = false;
+        _forceVolumeSync();
         saveVolume();
         updateVolumeBar();
         show();
@@ -218,6 +221,7 @@ class SoundTray extends FlxBasic
 
         FlxG.sound.play(volumeDownSound);
         FlxG.sound.volume = v;
+        _forceVolumeSync();
         saveVolume();
         updateVolumeBar();
         show();
@@ -234,11 +238,16 @@ class SoundTray extends FlxBasic
         else
         {
             isMuted = true;
-            volumeBeforeMute = FlxG.sound.volume;
+            // BUGFIX: si el usuario bajó el volumen a 0 con las teclas
+            // (isMuted=false pero FlxG.sound.volume=0), guardar 0 como
+            // volumeBeforeMute hace que el unmute restaure a 0 → silencio eterno.
+            // En ese caso usamos 0.5 como valor de restauración seguro.
+            volumeBeforeMute = (FlxG.sound.volume > 0) ? FlxG.sound.volume : 0.5;
             FlxG.sound.volume = 0;
             FlxG.sound.play(volumeDownSound);
         }
 
+        _forceVolumeSync();
         updateVolumeBar();
         saveVolume();
         show();
@@ -286,22 +295,62 @@ class SoundTray extends FlxBasic
         syncBarsToBox();
     }
 
+    /**
+     * Sincroniza el estado de mute/volumen con todos los sonidos activos,
+     * incluyendo FlxG.sound.music (defaultMusicGroup).
+     *
+     * Con FunkinCrew/flixel, FlxG.sound.muted propaga correctamente a todos
+     * los grupos, así que esta función solo necesita mantener consistencia.
+     */
+    private function _forceVolumeSync():Void
+    {
+        final wantMute = isMuted || FlxG.sound.volume <= 0.0;
+
+        if (FlxG.sound.muted != wantMute)
+            FlxG.sound.muted = wantMute;
+
+        // Re-disparar el setter de volumen en la música para que updateTransform()
+        // recalcule el gain con el estado global actualizado. MusicManager añade
+        // FlxG.sound.music a list, así que normalmente ya lo alcanza set_muted —
+        // esto es una garantía adicional para el caso de songs en PlayState.
+        if (FlxG.sound.music != null)
+        {
+            final mv = FlxG.sound.music.volume;
+            FlxG.sound.music.volume = mv;
+        }
+    }
+
     private function saveVolume():Void
     {
-        FlxG.save.data.volume = FlxG.sound.volume;
+        // BUGFIX: cuando isMuted=true, FlxG.sound.volume ya es 0.
+        // Guardar 0 hace que al cargar, volumeBeforeMute quede en 0
+        // y el unmute restaure a 0 → mute roto para siempre.
+        // Guardamos siempre el volumen "real" (antes del mute).
+        FlxG.save.data.volume = isMuted ? volumeBeforeMute : FlxG.sound.volume;
         FlxG.save.data.muted  = isMuted;
         FlxG.save.flush();
     }
 
     private function loadVolume():Void
     {
-        FlxG.sound.volume = (FlxG.save.data.volume != null) ? FlxG.save.data.volume : 1.0;
+        final savedVol:Float = (FlxG.save.data.volume != null) ? FlxG.save.data.volume : 1.0;
+        FlxG.sound.volume = savedVol;
 
         if (FlxG.save.data.muted != null)
         {
             isMuted = FlxG.save.data.muted;
-            if (isMuted) { volumeBeforeMute = FlxG.sound.volume; FlxG.sound.volume = 0; }
+            if (isMuted)
+            {
+                // BUGFIX: saves antiguos guardaban 0 como volume cuando estaba
+                // muteado (bug de saveVolume). Si el save da 0, restaurar a 0.5.
+                volumeBeforeMute = (savedVol > 0) ? savedVol : 0.5;
+                FlxG.sound.volume = 0;
+            }
         }
+        // No llamamos _forceVolumeSync() aquí porque en loadVolume() todavía no
+        // hay sonidos activos (se llama desde el constructor, antes de que
+        // exista música o SFX). La sincronía se aplica en el primer cambio de
+        // volumen que el usuario haga.
     }
 }
 

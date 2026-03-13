@@ -3,21 +3,104 @@ package funkin.gameplay.objects.character;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.graphics.FlxGraphic;
+import flixel.graphics.frames.FlxAtlasFrames;
+import funkin.scripting.HScriptInstance;
+import funkin.scripting.ScriptHandler;
+import mods.ModManager;
 
 #if sys
 import sys.FileSystem;
+import sys.io.File;
+import haxe.Json;
 #end
 
 using StringTools;
 
+/**
+ * HealthIcon v2 — icono de salud con soporte de scripts y animaciones custom.
+ *
+ * ─── Formato del icono ──────────────────────────────────────────────────────
+ *
+ *  LEGACY (spritesheet horizontal, 150×150 por frame):
+ *    icons/icon-bf.png        →  [normal][losing]          (2 frames)
+ *    icons/icon-bf.png        →  [normal][losing][winning] (3 frames)
+ *
+ *  ANIMADO (atlas Sparrow):
+ *    icons/icon-bf.png  +  icons/icon-bf.xml
+ *    Las animaciones deben llamarse exactamente: "normal", "losing", "winning"
+ *    Si faltan "losing" o "winning", se hace fallback a "normal".
+ *
+ *  JSON DE CONFIGURACIÓN (opcional, máxima flexibilidad):
+ *    icons/icon-bf.json
+ *    {
+ *      "image"      : "icons/icon-bf",   // ruta al atlas/imagen (sin extensión)
+ *      "scale"      : 1.0,               // escala base del icono
+ *      "flipX"      : false,             // voltear por defecto (ignorado si isPlayer)
+ *      "antialias"  : true,
+ *      "animations" : {
+ *        "normal"  : { "prefix": "icon normal",  "fps": 24, "loop": true  },
+ *        "losing"  : { "prefix": "icon losing",  "fps": 24, "loop": true  },
+ *        "winning" : { "prefix": "icon winning", "fps": 24, "loop": false }
+ *      },
+ *      "offsets" : {
+ *        "normal"  : [0, 0],
+ *        "losing"  : [0, 0],
+ *        "winning" : [0, 0]
+ *      }
+ *    }
+ *
+ * ─── Scripts de mod ─────────────────────────────────────────────────────────
+ *
+ *  Rutas buscadas (primera que exista):
+ *    mods/{mod}/scripts/healthicons/{char}.hx
+ *    mods/{mod}/characters/{char}/healthicon.hx
+ *    assets/scripts/healthicons/{char}.hx
+ *    assets/characters/{char}/healthicon.hx
+ *
+ *  Variables disponibles en el script:
+ *    `icon`     → esta instancia de HealthIcon
+ *    `char`     → nombre del personaje cargado
+ *    `isPlayer` → bool
+ *
+ *  Callbacks llamados:
+ *    onCreate()
+ *    onUpdate(elapsed)
+ *    onStateChange(newState, oldState)   → "normal" | "losing" | "winning"
+ *    onBeatHit(beat)
+ *    onDestroy()
+ */
 @:keep
 class HealthIcon extends FlxSprite
 {
+	// ── pública ──────────────────────────────────────────────────────────────
+
+	/** Sprite al que seguir (p.ej. la barra de salud). */
 	public var sprTracker:FlxSprite;
 
-	/** Last char loaded — avoids redundant reloads when updateIcon is called with the same char. */
-	private var _lastChar:String = '';
-	private var _isPlayer:Bool   = false;
+	/** Nombre del personaje actualmente cargado. */
+	public var characterName(default, null):String = '';
+
+	/** Estado actual: "normal" | "losing" | "winning". */
+	public var currentState(default, null):String = 'normal';
+
+	/** Permite que scripts anulen el flip automático isPlayer. */
+	public var flipOverride:Null<Bool> = null;
+
+	/** Offset de posición relativo a sprTracker (por defecto 10, -30). */
+	public var trackerOffsetX:Float = 10;
+	public var trackerOffsetY:Float = -30;
+
+	/** Offset adicional por animación (leído del JSON si existe). */
+	public var animOffsets:Map<String, Array<Float>> = [];
+
+	// ── privada ───────────────────────────────────────────────────────────────
+
+	var _isPlayer:Bool   = false;
+	var _isAnimated:Bool = false;    // true → atlas sparrow
+	var _script:Null<HScriptInstance> = null;
+	var _iconConfig:Null<Dynamic>     = null;
+
+	// ── constructor ──────────────────────────────────────────────────────────
 
 	public function new(char:String = 'bf', isPlayer:Bool = false)
 	{
@@ -25,96 +108,260 @@ class HealthIcon extends FlxSprite
 		updateIcon(char, isPlayer);
 	}
 
-	public function updateIcon(char:String = 'bf', isPlayer:Bool = false)
+	// ── API pública ───────────────────────────────────────────────────────────
+
+	/**
+	 * Carga o recarga el icono para un personaje.
+	 * Puede llamarse en runtime sin recrear el objeto.
+	 */
+	public function updateIcon(char:String, isPlayer:Bool = false):Void
 	{
-		// Skip reload if same character — avoids unnecessary disk I/O and alloc
-		if (char == _lastChar && isPlayer == _isPlayer && frames != null)
+		// Evitar reload si no cambió nada
+		if (char == characterName && isPlayer == _isPlayer && frames != null)
 		{
-			// Just re-apply flip in case isPlayer changed
-			flipX = isPlayer;
+			flipX = flipOverride ?? isPlayer;
 			return;
 		}
 
-		_lastChar  = char;
-		_isPlayer  = isPlayer;
+		// Limpiar estado anterior
+		_destroyScript();
+		animation.destroyAnimations();
+		animOffsets.clear();
+		_iconConfig  = null;
+		_isAnimated  = false;
+		currentState = 'normal';
 
-		// ── Resolve path + logical key ────────────────────────────────────────
-		// We track the logical key so that Paths.getGraphic receives the same
-		// key that image() will resolve — avoiding the "not found" mismatch
-		// that caused the null-object crash in FlxDrawQuadsItem::render.
-		var iconKey  = 'icons/icon-' + char;
-		var path     = Paths.image(iconKey);
+		characterName = char;
+		_isPlayer     = isPlayer;
 
+		_loadIcon(char);
+		_loadScript(char);
+
+		flipX = flipOverride ?? isPlayer;
+		scrollFactor.set();
+
+		animation.play('normal');
+	}
+
+	/**
+	 * Cambia el estado visual del icono.
+	 * @param state  "normal" | "losing" | "winning"
+	 */
+	public function setState(state:String):Void
+	{
+		if (state == currentState) return;
+
+		var oldState = currentState;
+		currentState = state;
+
+		// Notificar script ANTES de cambiar la animación
+		if (_script != null)
+		{
+			var cancelled = _script.callBool('onStateChange', [state, oldState]);
+			if (cancelled) return;   // el script puede bloquear el cambio
+		}
+
+		_playAnim(state);
+
+		// Aplicar offset si existe
+		if (animOffsets.exists(state))
+		{
+			var off = animOffsets.get(state);
+			offset.set(off[0], off[1]);
+		}
+		else
+		{
+			offset.set(0, 0);
+		}
+	}
+
+	/** Llamado por el gameplay en cada beat para que scripts puedan reaccionar. */
+	public function beatHit(beat:Int):Void
+	{
+		if (_script != null)
+			_script.call('onBeatHit', [beat]);
+	}
+
+	// ── update ────────────────────────────────────────────────────────────────
+
+	override function update(elapsed:Float)
+	{
+		super.update(elapsed);
+
+		if (sprTracker != null)
+			setPosition(sprTracker.x + sprTracker.width + trackerOffsetX,
+			            sprTracker.y + trackerOffsetY);
+
+		if (_script != null)
+			_script.call('onUpdate', [elapsed]);
+	}
+
+	// ── destroy ───────────────────────────────────────────────────────────────
+
+	override function destroy()
+	{
+		_destroyScript();
+		super.destroy();
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	//  Carga del icono
+	// ══════════════════════════════════════════════════════════════════════════
+
+	function _loadIcon(char:String):Void
+	{
+		// 1 · Buscar JSON de config
+		var jsonPath = _resolveAsset('icons/icon-$char.json');
+		if (jsonPath == null) jsonPath = _resolveAsset('icons/$char.json');
+
+		if (jsonPath != null)
+		{
+			_loadFromJson(jsonPath);
+			return;
+		}
+
+		// 2 · Atlas animado (XML sparrow)
+		var atlasXml = _resolveAsset('icons/icon-$char.xml');
+		if (atlasXml == null) atlasXml = _resolveAsset('icons/$char.xml');
+
+		if (atlasXml != null)
+		{
+			var imgKey = atlasXml.endsWith('.xml')
+				? atlasXml.substr(0, atlasXml.length - 4)
+				: atlasXml;
+			// Strip full path to get logical key for Paths
+			var logicalKey = _pathToLogicalKey(imgKey);
+			_loadAnimatedAtlas(logicalKey);
+			return;
+		}
+
+		// 3 · Spritesheet legacy 150×150
+		_loadLegacySheet(char);
+	}
+
+	// ── JSON config ───────────────────────────────────────────────────────────
+
+	function _loadFromJson(jsonPath:String):Void
+	{
 		#if sys
-		var iconExists = FileSystem.exists(path);
-		if (!iconExists)
-		{
-			// Psych mods store icons without the "icon-" prefix
-			final altKey  = 'icons/' + char;
-			final altPath = Paths.image(altKey);
-			if (FileSystem.exists(altPath)) { path = altPath; iconKey = altKey; iconExists = true; }
-		}
-		if (!iconExists)
-		{
-			iconKey = 'icons/icon-face';
-			path    = Paths.image(iconKey);
-		}
-		#else
-		if (!openfl.utils.Assets.exists(path))
-		{
-			iconKey = 'icons/icon-face';
-			path    = Paths.image(iconKey);
-		}
-		#end
+		var raw:String;
+		try   { raw = File.getContent(jsonPath); }
+		catch (e) { _loadLegacySheet(characterName); return; }
 
-		// ── Load through PathsCache so the graphic is tracked and freed properly ──
-		var graphic:FlxGraphic = null;
-
-		#if sys
-		if (FileSystem.exists(path))
+		var cfg:Dynamic;
+		try   { cfg = Json.parse(raw); }
+		catch (e)
 		{
-			// Pass the resolved logical key so getGraphic builds the correct path
-			graphic = Paths.getGraphic(iconKey);
-			// Fallback: if getGraphic still can't resolve, load directly and register
-			// in Flixel's bitmap cache so it is properly freed on state cleanup.
-			if (graphic == null)
+			FlxG.log.warn('[HealthIcon] JSON inválido ($jsonPath): $e');
+			_loadLegacySheet(characterName);
+			return;
+		}
+
+		_iconConfig = cfg;
+
+		var imgKey:String = cfg.image != null ? cfg.image : 'icons/icon-$characterName';
+		var isAtlas = (cfg.animations != null);
+
+		if (isAtlas)
+		{
+			_loadAnimatedAtlas(imgKey, cfg.animations);
+		}
+		else
+		{
+			var graphic = _getGraphicForKey(imgKey);
+			if (graphic == null) { _loadLegacySheet(characterName); return; }
+			antialiasing = cfg.antialias != false;
+			loadGraphic(graphic, true, 150, 150);
+			_addLegacyAnims(Math.floor(graphic.width / 150));
+		}
+
+		if (cfg.scale   != null) { scale.set(cfg.scale, cfg.scale); updateHitbox(); }
+		if (cfg.offsets != null)
+		{
+			for (state in ['normal','losing','winning'])
 			{
-				final bmp = openfl.display.BitmapData.fromFile(path);
-				if (bmp != null)
-				{
-					graphic = FlxGraphic.fromBitmapData(bmp, false, path, true);
-					if (graphic != null) graphic.persist = true;
-				}
+				var o:Dynamic = Reflect.field(cfg.offsets, state);
+				if (o != null) animOffsets.set(state, [o[0], o[1]]);
 			}
 		}
+		#else
+		_loadLegacySheet(characterName);
 		#end
+	}
 
-		if (graphic == null)
-			graphic = FlxG.bitmap.add(path);
+	// ── Atlas animado ─────────────────────────────────────────────────────────
+
+	function _loadAnimatedAtlas(imgKey:String, ?animDefs:Dynamic):Void
+	{
+		var atlas:FlxAtlasFrames = null;
+		try   { atlas = Paths.getSparrowAtlas(imgKey); }
+		catch (e) {}
+
+		if (atlas == null) { _loadLegacySheet(characterName); return; }
+
+		antialiasing = true;
+		frames       = atlas;
+		_isAnimated  = true;
+
+		if (animDefs != null)
+		{
+			// JSON con definiciones explícitas
+			for (state in ['normal', 'losing', 'winning'])
+			{
+				var def:Dynamic = Reflect.field(animDefs, state);
+				if (def == null) continue;
+				var fps:Int    = def.fps  != null ? Std.int(def.fps)  : 24;
+				var loop:Bool  = def.loop != null ? def.loop           : false;
+				var prefix:String = def.prefix != null ? def.prefix : state;
+				animation.addByPrefix(state, prefix, fps, loop);
+			}
+		}
+		else
+		{
+			// Sin JSON: usar prefijos por nombre de estado directamente
+			for (state in ['normal', 'losing', 'winning'])
+				animation.addByPrefix(state, state, 24, false);
+		}
+
+		// Fallbacks: si falta "losing" o "winning", usar "normal"
+		for (state in ['losing', 'winning'])
+			if (animation.getByName(state) == null && animation.getByName('normal') != null)
+				animation.addByPrefix(state, 'normal', 24, false);
+	}
+
+	// ── Spritesheet legacy ────────────────────────────────────────────────────
+
+	function _loadLegacySheet(char:String):Void
+	{
+		var iconKey  = 'icons/icon-$char';
+		var graphic  = _getGraphicForKey(iconKey);
+
+		// Psych: icono sin prefijo "icon-"
+		if (graphic == null) graphic = _getGraphicForKey('icons/$char');
+
+		// Fallback al icono genérico
+		if (graphic == null) graphic = _getGraphicForKey('icons/icon-face');
 
 		if (graphic == null)
 		{
-			trace('[HealthIcon] Could not load icon for "$char" — using transparent placeholder to avoid FlxDrawQuadsItem crash');
-			// BUGFIX: without a graphic, frames == null, which causes a null object
-			// reference in FlxDrawQuadsItem::render on the very first draw call.
-			// makeGraphic() guarantees a valid BitmapData/frames even when the asset
-			// is missing, so the icon is invisible but the game does not crash.
 			makeGraphic(150, 150, 0x00000000);
 			return;
 		}
 
 		antialiasing = true;
 		loadGraphic(graphic, true, 150, 150);
+		_addLegacyAnims(Math.floor(graphic.width / 150));
+	}
 
-		final iconCount:Int = Math.floor(graphic.width / 150);
-
-		if (iconCount >= 3)
+	function _addLegacyAnims(frameCount:Int):Void
+	{
+		if (frameCount >= 3)
 		{
 			animation.add('normal',  [0], 0, false);
 			animation.add('losing',  [1], 0, false);
 			animation.add('winning', [2], 0, false);
 		}
-		else if (iconCount == 2)
+		else if (frameCount == 2)
 		{
 			animation.add('normal',  [0], 0, false);
 			animation.add('losing',  [1], 0, false);
@@ -126,18 +373,125 @@ class HealthIcon extends FlxSprite
 			animation.add('losing',  [0], 0, false);
 			animation.add('winning', [0], 0, false);
 		}
-
-		flipX = isPlayer;
-
-		animation.play('normal');
-		scrollFactor.set();
 	}
 
-	override function update(elapsed:Float)
-	{
-		super.update(elapsed);
+	// ── helpers ───────────────────────────────────────────────────────────────
 
-		if (sprTracker != null)
-			setPosition(sprTracker.x + sprTracker.width + 10, sprTracker.y - 30);
+	function _playAnim(state:String):Void
+	{
+		var target = animation.getByName(state) != null ? state : 'normal';
+		animation.play(target);
+	}
+
+	function _getGraphicForKey(key:String):Null<FlxGraphic>
+	{
+		var path = Paths.image(key);
+
+		#if sys
+		if (!FileSystem.exists(path)) return null;
+		var g = Paths.getGraphic(key);
+		if (g == null)
+		{
+			try
+			{
+				var bmp = openfl.display.BitmapData.fromFile(path);
+				if (bmp != null)
+				{
+					g = FlxGraphic.fromBitmapData(bmp, false, path, true);
+					if (g != null) g.persist = true;
+				}
+			}
+			catch (e) {}
+		}
+		return g;
+		#else
+		return FlxG.bitmap.add(path);
+		#end
+	}
+
+	/** Convierte una ruta de archivo en clave lógica de Paths (sin extensión). */
+	function _pathToLogicalKey(path:String):String
+	{
+		// Si empieza por "assets/", quitar ese prefijo
+		if (path.startsWith('assets/')) path = path.substr(7);
+		// Si empieza por "mods/{mod}/", quitar ese prefijo también
+		var modRoot = ModManager.modRoot();
+		if (modRoot != null && path.startsWith(modRoot + '/'))
+			path = path.substr(modRoot.length + 1);
+		return path;
+	}
+
+	/**
+	 * Resuelve una ruta de asset buscando primero en el mod activo,
+	 * luego en assets/.  Devuelve null si no existe.
+	 */
+	function _resolveAsset(relPath:String):Null<String>
+	{
+		#if sys
+		// mod override
+		var modPath = ModManager.resolveInMod(relPath);
+		if (modPath != null) return modPath;
+		// base assets
+		var basePath = 'assets/$relPath';
+		return FileSystem.exists(basePath) ? basePath : null;
+		#else
+		return null;
+		#end
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	//  Scripts
+	// ══════════════════════════════════════════════════════════════════════════
+
+	function _loadScript(char:String):Void
+	{
+		#if (HSCRIPT_ALLOWED && sys)
+		var scriptPath = _findScriptPath(char);
+		if (scriptPath == null) return;
+
+		_script = ScriptHandler.loadScriptNoInit(scriptPath, 'healthicon', [
+			'icon'     => this,
+			'char'     => char,
+			'isPlayer' => _isPlayer,
+		]);
+
+		if (_script != null)
+		{
+			_script.call('onCreate');
+			_script.call('postCreate');
+			trace('[HealthIcon] Script cargado para "$char": $scriptPath');
+		}
+		#end
+	}
+
+	function _findScriptPath(char:String):Null<String>
+	{
+		#if sys
+		var candidates:Array<String> = [];
+
+		// Mod override primero
+		var modRoot = ModManager.modRoot();
+		if (modRoot != null)
+		{
+			candidates.push('$modRoot/scripts/healthicons/$char.hx');
+			candidates.push('$modRoot/characters/$char/healthicon.hx');
+		}
+
+		// Base game
+		candidates.push('assets/scripts/healthicons/$char.hx');
+		candidates.push('assets/characters/$char/healthicon.hx');
+
+		for (p in candidates)
+			if (FileSystem.exists(p)) return p;
+		#end
+		return null;
+	}
+
+	function _destroyScript():Void
+	{
+		if (_script == null) return;
+		_script.call('onDestroy');
+		_script.dispose();
+		_script = null;
 	}
 }

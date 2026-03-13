@@ -84,6 +84,8 @@ typedef SongMetaData =
 	@:optional var hudVisible:Null<Bool>;
 	@:optional var introVideo:Null<String>;
 	@:optional var outroVideo:Null<String>;
+	@:optional var introCutscene:Null<String>;
+	@:optional var outroCutscene:Null<String>;
 	@:optional var midSongVideo:Null<Bool>;
 	@:optional var disableCameraZoom:Null<Bool>;
 	@:optional var artist:Null<String>;
@@ -113,6 +115,10 @@ class MetaData
 	public var hudVisible:Bool = true;
 	public var introVideo:Null<String> = null;
 	public var outroVideo:Null<String> = null;
+	/** Clave de cutscene de sprites para el intro (assets/data/cutscenes/{key}.json). */
+	public var introCutscene:Null<String> = null;
+	/** Clave de cutscene de sprites para el outro. */
+	public var outroCutscene:Null<String> = null;
 	public var midSongVideo:Bool = false;
 	public var disableCameraZoom:Bool = false;
 	public var artist:Null<String> = null;
@@ -214,6 +220,8 @@ class MetaData
 		meta.hudVisible  = resolveBool(rawData?.hudVisible,  true);
 		meta.introVideo        = rawData?.introVideo  ?? null;
 		meta.outroVideo        = rawData?.outroVideo  ?? null;
+		meta.introCutscene     = rawData?.introCutscene ?? null;
+		meta.outroCutscene     = rawData?.outroCutscene ?? null;
 		meta.midSongVideo      = resolveBool(rawData?.midSongVideo,      false);
 		meta.disableCameraZoom = resolveBool(rawData?.disableCameraZoom, false);
 		meta.artist = (rawData?.artist != null && rawData.artist != '') ? rawData.artist : null;

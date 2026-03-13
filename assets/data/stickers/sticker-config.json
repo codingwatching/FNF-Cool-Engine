@@ -1,5 +1,48 @@
 {
 	"enabled": true,
+
+	"stickerMode": "week",
+
+	"weekStickerSets": {
+		"0": "stickers-set-1",
+		"1": "stickers-set-1",
+		"2": "stickers-set-1",
+		"3": "stickers-set-1",
+		"4": "stickers-set-1",
+		"5": "stickers-set-1",
+		"6": "stickers-set-1",
+		"7": "stickers-set-1",
+		"8": "stickers-set-2"
+	},
+
+	"songStickerSets": {
+		"bopeebo":      "stickers-set-1",
+		"fresh":        "stickers-set-1",
+		"dadbattle":   "stickers-set-1",
+		"spookeez":     "stickers-set-1",
+		"south":        "stickers-set-1",
+		"monster":         "stickers-set-1",
+		"pico":         "stickers-set-1",
+		"philly":       "stickers-set-1",
+		"blammed":      "stickers-set-1",
+		"satin-panties": "stickers-set-1",
+		"high":         "stickers-set-1",
+		"milf":         "stickers-set-1",
+		"eggnog":         "stickers-set-1",
+		"cocoa":         "stickers-set-1",
+		"winter-horrorland":         "stickers-set-1",
+		"senpai":         "stickers-set-1",
+		"roses":         "stickers-set-1",
+		"thorns":         "stickers-set-1",
+		"ugh":         "stickers-set-1",
+		"guns":         "stickers-set-1",
+		"stress":         "stickers-set-1",
+		"blazin":         "stickers-set-2",
+		"2hot":         "stickers-set-2",
+		"lit up":         "stickers-set-2",
+		"darnell":         "stickers-set-2"
+	},
+
 	"stickerSets": [
 		{
 			"name": "stickers-set-1",
@@ -31,7 +74,6 @@
 			"stickers": [
 				"dadSticker1",
 				"dadSticker2",
-				"dadSticker3",
 				"alucardSticker1",
 				"alucardSticker2",
 				"cassandraSticker1",
@@ -58,6 +100,7 @@
 			]
 		}
 	],
+
 	"soundPath": "stickersounds/keys",
 	"sounds": [
 		"keyClick1",
@@ -69,8 +112,9 @@
 		"keyClick8",
 		"keyClick9"
 	],
-	"stickersPerWave": 8,
-	"totalWaves": 10,
+
+	"stickersPerWave": 2,
+	"totalWaves": 4,
 	"delayBetweenStickers": 0.0,
 	"delayBetweenWaves": 0.1,
 	"minScale": 0.85,

@@ -13,11 +13,19 @@ import funkin.data.Conductor;
  * CharacterScript — Script para personalizar un personaje con acceso COMPLETO
  * a todas las variables y funciones de Character.
  *
- * Para usar:
- *   Coloca un archivo .hx en:
- *     assets/characters/{nombrePersonaje}/scripts/
- *     mods/{mod}/characters/{nombrePersonaje}/scripts/
- *     mods/{mod}/characters/{nombrePersonaje}/{script}.hx
+ * ─── Ruta canónica (recomendada) ────────────────────────────────────────────
+ *
+ *   assets/characters/scripts/{nombrePersonaje}/scripts.hx
+ *   mods/{mod}/characters/scripts/{nombrePersonaje}/scripts.hx
+ *
+ *   Ejemplo para "bf":
+ *     assets/characters/scripts/bf/scripts.hx
+ *
+ * ─── Rutas heredadas (siguen funcionando) ────────────────────────────────────
+ *
+ *   assets/characters/{nombrePersonaje}/scripts/
+ *   mods/{mod}/characters/{nombrePersonaje}/scripts/
+ *   mods/{mod}/characters/{nombrePersonaje}/{script}.hx
  *
  * El engine inyecta automáticamente:
  *   `character` → instancia de Character (acceso TOTAL)

@@ -2119,16 +2119,16 @@ class AnimationDebug extends MusicBeatState
 			if (FlxG.mouse.justPressedRight)
 			{
 				isDraggingOffset = true;
-				dragLastX = FlxG.mouse.screenX;
-				dragLastY = FlxG.mouse.screenY;
+				dragLastX = FlxG.mouse.gameX;
+				dragLastY = FlxG.mouse.gameY;
 			}
 
 			if (isDraggingOffset && FlxG.mouse.pressedRight)
 			{
-				var dx = (FlxG.mouse.screenX - dragLastX) * mouseMult;
-				var dy = (FlxG.mouse.screenY - dragLastY) * mouseMult;
-				dragLastX = FlxG.mouse.screenX;
-				dragLastY = FlxG.mouse.screenY;
+				var dx = (FlxG.mouse.gameX - dragLastX) * mouseMult;
+				var dy = (FlxG.mouse.gameY - dragLastY) * mouseMult;
+				dragLastX = FlxG.mouse.gameX;
+				dragLastY = FlxG.mouse.gameY;
 
 				if ((Math.abs(dx) > 0 || Math.abs(dy) > 0) && animList.length > 0 && curAnim >= 0 && curAnim < animList.length)
 				{
@@ -2180,14 +2180,32 @@ class AnimationDebug extends MusicBeatState
 	 */
 	function isMouseOverHUD():Bool
 	{
-		if (FlxG.mouse.overlaps(UI_box, camHUD))
+		// Usamos gameX/Y (flixel-git: screenX/Y están deprecated y siempre valen 0).
+		// (sus coordenadas de mundo == coordenadas de pantalla).
+		// FlxG.mouse.overlaps() en flixel-git no maneja bien cámaras no-default.
+		var mx = FlxG.mouse.gameX;
+		var my = FlxG.mouse.gameY;
+
+		// Panel derecho (UI_box)
+		if (mx >= UI_box.x && mx <= UI_box.x + UI_box.width
+			&& my >= UI_box.y && my <= UI_box.y + UI_box.height)
 			return true;
-		if (FlxG.mouse.overlaps(leftPanel, camHUD))
+
+		// Panel izquierdo (leftPanel)
+		if (mx >= leftPanel.x && mx <= leftPanel.x + leftPanel.width
+			&& my >= leftPanel.y && my <= leftPanel.y + leftPanel.height)
 			return true;
-		if (FlxG.mouse.overlaps(statusBar, camHUD))
+
+		// Barra de estado (statusBar)
+		if (mx >= statusBar.x && mx <= statusBar.x + statusBar.width
+			&& my >= statusBar.y && my <= statusBar.y + statusBar.height)
 			return true;
-		if (FlxG.mouse.overlaps(iconBG, camHUD))
+
+		// Preview del ícono (iconBG)
+		if (mx >= iconBG.x && mx <= iconBG.x + iconBG.width
+			&& my >= iconBG.y && my <= iconBG.y + iconBG.height)
 			return true;
+
 		return false;
 	}
 

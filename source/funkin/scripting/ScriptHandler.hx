@@ -193,7 +193,19 @@ class ScriptHandler
 
 	/** Carga scripts de personaje `charName` desde base + mod.
 	 *  Los scripts quedan taggeados con `charName` para poder filtrarlos después.
-	 *  Retorna la lista de scripts cargados para poder inyectarles variables. */
+	 *  Retorna la lista de scripts cargados para poder inyectarles variables.
+	 *
+	 *  ── Rutas (en orden de prioridad) ───────────────────────────────────────
+	 *
+	 *   NUEVA ruta canónica (recomendada):
+	 *     assets/characters/scripts/{char}/scripts.hx    ← coloca aquí tu script
+	 *     mods/{mod}/characters/scripts/{char}/scripts.hx
+	 *
+	 *   Rutas heredadas (siguen funcionando para compat):
+	 *     assets/characters/{char}/scripts/              ← carpeta con varios .hx
+	 *     mods/{mod}/characters/{char}/scripts/
+	 *     mods/{mod}/characters/{char}/                  ← .hx sueltos (legacy)
+	 */
 	public static function loadCharacterScripts(charName:String):Array<HScriptInstance>
 	{
 		final loaded:Array<HScriptInstance> = [];
@@ -201,10 +213,16 @@ class ScriptHandler
 		if (mods.ModManager.isActive())
 		{
 			final r = mods.ModManager.modRoot();
+			// ── Nueva ruta canónica (mod) ────────────────────────────────────
+			for (s in _loadFolder('$r/characters/scripts/$charName', 'char')) loaded.push(s);
+			// ── Rutas heredadas (mod) — compat con mods anteriores ───────────
 			for (s in _loadFolder('$r/characters/$charName/scripts', 'char')) loaded.push(s);
 			for (s in _loadFolder('$r/characters/$charName',         'char')) loaded.push(s);
 		}
 		#end
+		// ── Nueva ruta canónica (base game) ─────────────────────────────────
+		for (s in _loadFolder('assets/characters/scripts/$charName', 'char')) loaded.push(s);
+		// ── Ruta heredada (base game) ────────────────────────────────────────
 		for (s in _loadFolder('assets/characters/$charName/scripts', 'char')) loaded.push(s);
 		// Taggear y registrar en el índice por nombre
 		if (loaded.length > 0)

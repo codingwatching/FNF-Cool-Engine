@@ -1,0 +1,70 @@
+{
+	"atlasKey": "UI/alphabet",
+	"charFrameRate": 24,
+	"charScale": 1.0,
+
+	"letterSpacing": 3,
+	"spaceWidth": -1,
+	"lineHeight": 55,
+
+	"typedDelay": 0.05,
+	"typedRandom": true,
+	"startDelay": 0,
+
+	"boldRowHeight": 60,
+	"normalRowYBase": 80,
+	"normalRowHeight": 60,
+
+	"typedLetterOffsetX": 90,
+
+	"symbolNameMap": {
+		"." : "period",
+		"," : "comma",
+		"'" : "apostrophe",
+		"!" : "exclamation",
+		"?" : "question",
+		"/" : "forward slash",
+		"\\" : "back slash",
+		"\"" : "quote",
+		"\u2022" : "bullet",
+		"\u00A1" : "inverted exclamation",
+		"\u00BF" : "inverted question",
+		"<" : "less than",
+		">" : "greater than",
+		"&" : "ampersand",
+		";" : "semicolon",
+		":" : "colon",
+		"[" : "open bracket",
+		"]" : "close bracket",
+		"{" : "open curly",
+		"}" : "close curly",
+		"|" : "pipe",
+		"~" : "tilde",
+		"#" : "hash",
+		"$" : "dollar",
+		"%" : "percent",
+		"(" : "open paren",
+		")" : "close paren",
+		"*" : "asterisk",
+		"+" : "plus",
+		"-" : "minus",
+		":" : "colon",
+		";" : "semicolon",
+		"<" : "less than",
+		"=" : "equals",
+		">" : "greater than",
+		"@" : "at",
+		"^" : "caret",
+		"_" : "underscore"
+	},
+
+	"charYOffsets": {
+		"." : 50,
+		"," : 50,
+		"_" : 50,
+		";" : 20,
+		":" : 20,
+		"\u00BF": 10,
+		"\u00A1": 10
+	}
+}

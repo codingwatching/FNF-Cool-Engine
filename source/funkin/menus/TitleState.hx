@@ -109,6 +109,8 @@ class TitleState extends funkin.states.MusicBeatState
 
 	override public function create():Void
 	{
+		super.create(); // DEBE ir primero: inicializa cámaras y grupos de Flixel
+
 		PlayerSettings.init();
 		
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.getGraphic('menu/menuBGtitle'));
@@ -157,8 +159,6 @@ class TitleState extends funkin.states.MusicBeatState
 			];
 		startIntro();
 		#end
-
-		super.create();
 	}
 
 	var logoBl:FlxSprite;

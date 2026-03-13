@@ -331,6 +331,42 @@ class NoteRenderer
 
     // ──────────────────────────── LIMPIEZA ───────────────────────────────────
 
+    /**
+     * Pre-populate the note and sustain pools with dummy Note objects so that
+     * the FIRST notes spawned in gameplay do not trigger a cold object-allocation
+     * hitch.  Should be called after textures are already preloaded.
+     *
+     * @param normalCount   Notes to pre-create for normal (head) pool.
+     * @param sustainCount  Notes to pre-create for sustain/hold pool.
+     */
+    public function prewarmPools(normalCount:Int = 8, sustainCount:Int = 16):Void
+    {
+        // Create dummy notes that immediately go back into the pool.
+        for (i in 0...normalCount)
+        {
+            if (notePool.length >= maxPoolSize) break;
+            try
+            {
+                var n = new Note(0, i % 4, null, false, false);
+                n.kill(); // mark as dead so it's safe to recycle later
+                notePool.push(n);
+            }
+            catch (_:Dynamic) {}
+        }
+        for (i in 0...sustainCount)
+        {
+            if (sustainPool.length >= maxPoolSize) break;
+            try
+            {
+                var n = new Note(0, i % 4, null, true, false);
+                n.kill();
+                sustainPool.push(n);
+            }
+            catch (_:Dynamic) {}
+        }
+        trace('[NoteRenderer] Pool pre-warmed: ${notePool.length} normal + ${sustainPool.length} sustain notes');
+    }
+
     public function clearPools():Void
     {
         // Hold covers activos — solo kill, NO destroy

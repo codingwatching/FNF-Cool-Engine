@@ -4,427 +4,445 @@ import flixel.FlxG;
 import flixel.FlxCamera;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
+import flixel.math.FlxMath;
 import flixel.text.FlxText;
-import flixel.util.FlxColor;
-import flixel.addons.ui.FlxUICheckBox;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
+import flixel.util.FlxColor;
 import funkin.data.Song.SwagSong;
 import funkin.gameplay.objects.character.Character;
 import funkin.gameplay.CharacterController;
-import funkin.data.Conductor;
 
 using StringTools;
 
+// ============================================================================
+//  PreviewPanel v3 — V-Slice style floating character preview windows.
+//
+//  Fixes vs v2:
+//    ① Close (×) button — fully hides the window and releases its camera
+//    ② Input isolation — sets parent.clickConsumed when the mouse is over
+//       the window, so the charting grid never receives those clicks
+//    ③ Correct character positioning — animOffsets are scaled by the preview
+//       ratio so the sprite stays centered regardless of its original offsets
+//
+//  Public API (backward-compatible with v1):
+//    onNotePass(direction, groupIndex)
+//    refreshAll()
+//    selectedGroupIndex   (compat shim)
+// ============================================================================
 class PreviewPanel extends FlxGroup
 {
-	var parent:ChartingState;
-	var _song:SwagSong;
-	var camHUD:FlxCamera;
-	var camGame:FlxCamera;
+	var parent   : ChartingState;
+	var _song    : SwagSong;
+	var camHUD   : FlxCamera;
+	var camGame  : FlxCamera;
 
-	// ── Estado ───────────────────────────────────────────
-	public var isExpanded:Bool = true;
-	var isPreviewActive:Bool   = false;
-	var selectedCharType:Int   = 0;
+	public var windows : Array<CharacterPreviewWindow> = [];
 
-	// ── Grid selector ────────────────────────────────────
-	public var selectedGroupIndex:Int = 0;
+	// v1 compat
+	public var selectedGroupIndex(get, never) : Int;
+	function get_selectedGroupIndex() : Int
+		return (windows.length > 0) ? windows[0].groupIndex : 0;
 
-	// ── Personaje ────────────────────────────────────────
-	// IMPORTANTE: El personaje se añade a este FlxGroup (add()),
-	// NO a parent. Así este grupo controla su ciclo de vida y
-	// no hay riesgo de crash en FlxDrawQuadsItem.
-	var previewChar:Character    = null;
-	var charController:CharacterController = null;
-
-	// Carga diferida: se setea en update() y se procesa al inicio del siguiente frame
-	// (evita destruir previewChar mientras super.update() lo está iterando)
-	var _pendingCharName:String  = null;
-
-	// ── Ajustes en vivo ──────────────────────────────────
-	var debugOffsetX:Float = 0;
-	var debugOffsetY:Float = 0;
-	var debugScale:Float   = 1.0;
-	var debugInfoTxt:FlxText;
-
-	// ── Cámara dedicada ──────────────────────────────────
-	var camPreview:FlxCamera;
-	static inline var CAM_W:Int = 175;
-	static inline var CAM_H:Int = 210;
-	static inline var CAM_X:Int = 0;
-	static inline var CAM_Y:Int = 130;
-
-	// ── UI ───────────────────────────────────────────────
-	var panelBg:FlxSprite;
-	var rightBorder:FlxSprite;
-	var camBorder:FlxSprite;
-	var toggleBtn:FlxSprite;
-	var toggleBtnText:FlxText;
-	var titleText:FlxText;
-	var charLabel:FlxText;
-	var activateLabel:FlxText;
-	var activateCheck:FlxUICheckBox;
-	var gridSelectorBg:FlxSprite;
-	var gridSelectorLabel:FlxText;
-	var gridPrevBtn:FlxSprite;
-	var gridNextBtn:FlxSprite;
-	var gridPrevTxt:FlxText;
-	var gridNextTxt:FlxText;
-	var gridValueTxt:FlxText;
-	var adjXMinusBtn:FlxSprite;
-	var adjXPlusBtn:FlxSprite;
-	var adjYMinusBtn:FlxSprite;
-	var adjYPlusBtn:FlxSprite;
-	var adjSMinusBtn:FlxSprite;
-	var adjSPlusBtn:FlxSprite;
-
-	// Labels y valores de ajuste (necesarios para toggle y actualización en vivo)
-	var adjXLabel:FlxText;
-	var adjYLabel:FlxText;
-	var adjSLabel:FlxText;
-	var adjXValTxt:FlxText;
-	var adjYValTxt:FlxText;
-	var adjSValTxt:FlxText;
-
-	var adjBtnTexts:Array<FlxText>  = [];  // textos "-"/"+" de los botones adj (para toggle)
-	var optionBgs:Array<FlxSprite>  = [];
-	var optionTexts:Array<FlxText>  = [];
-	var charOptions:Array<String>   = ["Opponent", "Player", "Girlfriend"];
-
-	// ── Layout ───────────────────────────────────────────
-	static inline var PANEL_W:Int = 175;
-	static inline var PANEL_H:Int = 520;
-	static inline var PANEL_X:Int = 0;
-	static inline var PANEL_Y:Int = 130;
-
-	// ── Colores ──────────────────────────────────────────
-	static inline var BG_PANEL:Int     = 0xFF0D0D1F;
-	static inline var ACCENT_CYAN:Int  = 0xFF00D9FF;
-	static inline var ACCENT_GREEN:Int = 0xFF00FF88;
-	static inline var ACCENT_WARN:Int  = 0xFFFFAA00;
-	static inline var TEXT_GRAY:Int    = 0xFFAAAAAA;
-	static var TYPE_COLORS:Array<Int>  = [0xFFFF8888, 0xFF88AAFF, 0xFFFF88FF];
-
-	public function new(parent:ChartingState, song:SwagSong, camGame:FlxCamera, camHUD:FlxCamera)
+	public function new(parent:ChartingState, song:SwagSong,
+	                    camGame:FlxCamera, camHUD:FlxCamera)
 	{
 		super();
 		this.parent  = parent;
 		this._song   = song;
 		this.camGame = camGame;
 		this.camHUD  = camHUD;
-		setupCamera();
-		buildUI();
+		_buildWindows();
 	}
 
-	// ─────────────────────────────────────────────────────
-	// CÁMARA
-	// ─────────────────────────────────────────────────────
-
-	function setupCamera():Void
+	function _buildWindows() : Void
 	{
-		camPreview = new FlxCamera(CAM_X, CAM_Y, CAM_W, CAM_H);
-		camPreview.bgColor = 0xFF111122;
-		camPreview.scroll.set(0, 0);
-		camPreview.visible = false;
-		FlxG.cameras.add(camPreview, false);
+		for (w in windows) { w.closeWindow(); remove(w, true); }
+		windows = [];
 
-		camBorder = new FlxSprite(CAM_X, CAM_Y).makeGraphic(CAM_W, CAM_H, ACCENT_CYAN);
-		camBorder.alpha = 0.2;
-		camBorder.scrollFactor.set();
-		camBorder.cameras = [camHUD];
-		camBorder.visible = false;
-		add(camBorder);
+		// Windows start closed — user opens them from the Tools panel
+		var opp = new CharacterPreviewWindow(parent, _song, camHUD,
+			0, _charName(0), 30, 155, true);
+		add(opp);
+		windows.push(opp);
+
+		var plr = new CharacterPreviewWindow(parent, _song, camHUD,
+			1, _charName(1), FlxG.width - CharacterPreviewWindow.WIN_W - 30, 155, true);
+		add(plr);
+		windows.push(plr);
 	}
 
-	// ─────────────────────────────────────────────────────
-	// BUILD UI
-	// ─────────────────────────────────────────────────────
-
-	function buildUI():Void
+	function _charName(typeIndex:Int) : String
 	{
-		panelBg = new FlxSprite(PANEL_X, PANEL_Y).makeGraphic(PANEL_W, PANEL_H, BG_PANEL);
-		panelBg.alpha = 0.93;
-		panelBg.scrollFactor.set();
-		panelBg.cameras = [camHUD];
-		add(panelBg);
+		if (_song.characters != null)
+		{
+			var typeName = ["Opponent", "Player", "Girlfriend"][typeIndex];
+			for (c in _song.characters)
+				if (c.type == typeName) return c.name;
+		}
+		return switch (typeIndex) {
+			case 0: _song.player2   ?? "dad";
+			case 1: _song.player1   ?? "bf";
+			case 2: _song.gfVersion ?? "gf";
+			default: "bf";
+		};
+	}
 
-		rightBorder = new FlxSprite(PANEL_X + PANEL_W - 2, PANEL_Y).makeGraphic(2, PANEL_H, ACCENT_CYAN);
-		rightBorder.alpha = 0.4;
-		rightBorder.scrollFactor.set();
-		rightBorder.cameras = [camHUD];
-		add(rightBorder);
+	public function onNotePass(direction:Int, groupIndex:Int) : Void
+	{
+		for (w in windows)
+			if (!w.isClosed && w.groupIndex == groupIndex && w.isLoaded)
+				w.triggerSing(direction % 4);
+	}
 
-		titleText = new FlxText(PANEL_X + 6, PANEL_Y + 5, PANEL_W - 10, "Preview:", 11);
-		titleText.setFormat(Paths.font("vcr.ttf"), 11, ACCENT_CYAN, LEFT);
+	public function refreshAll() : Void
+	{
+		for (w in windows)
+		{
+			var newName = _charName(w.charType);
+			if (newName != w.charName) w.loadChar(newName);
+			w.autoDetectGroupIndex();
+		}
+	}
+
+	override public function destroy() : Void
+	{
+		for (w in windows) w.closeWindow();
+		super.destroy();
+	}
+}
+
+
+// ============================================================================
+//  CharacterPreviewWindow — one floating, draggable, closeable preview window.
+//
+//  ┌────────────────────────────────────────┐  ← colored accent line (3 px)
+//  │  Opponent Preview — Dad         [−] [×] │  ← title bar
+//  ├────────────────────────────────────────┤
+//  │                                        │
+//  │        [character renders here]        │  ← dedicated FlxCamera
+//  │                                        │
+//  └────────────────────────────────────────┘
+// ============================================================================
+class CharacterPreviewWindow extends FlxGroup
+{
+	// ── Layout ───────────────────────────────────────────────────────────────
+	public  static inline var WIN_W  : Int = 316;
+	public  static inline var WIN_H  : Int = 390;
+	private static inline var BAR_H  : Int = 30;
+	private static inline var BORDER : Int = 2;
+	private static inline var BTN_W  : Int = 26;
+
+	private static inline var CAM_W : Int = WIN_W - BORDER * 2;
+	private static inline var CAM_H : Int = WIN_H - BAR_H - BORDER * 2;
+
+	// ── Colors ───────────────────────────────────────────────────────────────
+	private static inline var C_BG        : Int = 0xCC0A0A1A;
+	private static inline var C_BAR       : Int = 0xFF0D1223;
+	private static inline var C_BORDER    : Int = 0xFF1A2A3A;
+	private static inline var C_CHAR_BG   : Int = 0xFF0D0D1A;
+	private static inline var C_ACCENT_OPP: Int = 0xFFFF5566;
+	private static inline var C_ACCENT_PLR: Int = 0xFF00D9FF;
+	private static inline var C_ACCENT_GF : Int = 0xFFFF88EE;
+	private static inline var C_TEXT      : Int = 0xFFDDDDDD;
+	private static inline var C_SUBTEXT   : Int = 0xFF778899;
+	private static inline var C_BTN       : Int = 0xFF111828;
+	private static inline var C_BTN_CLOSE_HOVER : Int = 0xFF3A0A0A;
+
+	// ── Data ─────────────────────────────────────────────────────────────────
+	var parent   : ChartingState;
+	var _song    : SwagSong;
+	var camHUD   : FlxCamera;
+
+	public var charType   : Int;
+	public var charName   : String;
+	public var groupIndex : Int = 0;
+
+	// ── Camera ────────────────────────────────────────────────────────────────
+	var camChar : FlxCamera = null;
+
+	// ── Frame sprites ─────────────────────────────────────────────────────────
+	var frameBorder  : FlxSprite;
+	var frameBody    : FlxSprite;
+	var charAreaBg   : FlxSprite;
+	var accentLine   : FlxSprite;
+	var titleBar     : FlxSprite;
+	var titleText    : FlxText;
+	var subText      : FlxText;
+	var camBorderSpr : FlxSprite;
+
+	// Close [×]
+	var closeBtn    : FlxSprite;
+	var closeBtnTxt : FlxText;
+
+	// ── Character ─────────────────────────────────────────────────────────────
+	var previewChar    : Character           = null;
+	var charController : CharacterController = null;
+	var _pendingLoad   : String              = null;
+	var _charScale     : Float               = 1.0; // preview ratio, kept for _positionChar
+
+	public var isLoaded  : Bool = false;
+	public var isClosed  : Bool = false;
+
+	// ── Window position ───────────────────────────────────────────────────────
+	var _winX : Float;
+	var _winY : Float;
+
+	// ── Drag ─────────────────────────────────────────────────────────────────
+	var _dragging : Bool  = false;
+	var _dragOffX : Float = 0;
+	var _dragOffY : Float = 0;
+
+	// ── Button hover state ────────────────────────────────────────────────────
+	var _closeHovered : Bool = false;
+
+	// ── All frame elements (for batch move) ───────────────────────────────────
+	var _frameSprites : Array<FlxSprite> = [];
+	var _frameTexts   : Array<FlxText>   = [];
+
+	// ── Constructor ───────────────────────────────────────────────────────────
+	public function new(parent:ChartingState, song:SwagSong, camHUD:FlxCamera,
+	                    charType:Int, charName:String, startX:Float, startY:Float,
+	                    startClosed:Bool = false)
+	{
+		super();
+		this.parent   = parent;
+		this._song    = song;
+		this.camHUD   = camHUD;
+		this.charType = charType;
+		this.charName = charName;
+		this._winX    = startX;
+		this._winY    = startY;
+
+		autoDetectGroupIndex();
+
+		if (startClosed)
+		{
+			isClosed = true;
+			// No camera, no frame built — window is dormant
+		}
+		else
+		{
+			_setupCamera();
+			_buildFrame();
+			_scheduleLoad(charName);
+			_playEntry();
+		}
+	}
+
+	// ── Camera ────────────────────────────────────────────────────────────────
+	function _setupCamera() : Void
+	{
+		camChar = new FlxCamera(
+			Std.int(_winX + BORDER),
+			Std.int(_winY + BAR_H + BORDER),
+			CAM_W, CAM_H
+		);
+		camChar.bgColor = C_CHAR_BG;
+		camChar.scroll.set(0, 0);
+		FlxG.cameras.add(camChar, false);
+	}
+
+	// ── Frame ─────────────────────────────────────────────────────────────────
+	function _buildFrame() : Void
+	{
+		var accent = _accentColor();
+		var closeBtnX = _winX + WIN_W - BTN_W - BORDER;
+
+		frameBorder  = _spr(_winX - 1,     _winY - 1,     WIN_W + 2, WIN_H + 2, C_BORDER);
+		frameBody    = _spr(_winX,          _winY,         WIN_W,     WIN_H,     C_BG);
+		charAreaBg   = _spr(_winX + BORDER, _winY + BAR_H + BORDER, CAM_W, CAM_H, C_CHAR_BG);
+		accentLine   = _spr(_winX,          _winY,         WIN_W,     3,         accent);
+		titleBar     = _spr(_winX,          _winY + 3,     WIN_W,     BAR_H - 3, C_BAR);
+		camBorderSpr = _spr(_winX + BORDER - 1, _winY + BAR_H + BORDER - 1,
+		                    CAM_W + 2, CAM_H + 2, 0x22FFFFFF);
+
+		// Close button [X]
+		closeBtn    = _spr(closeBtnX, _winY + 4, BTN_W, BAR_H - 8, C_BTN);
+		closeBtnTxt = _txt(closeBtnX, _winY + 7, BTN_W, "X", 11);
+
+		// Title text
+		titleText = new FlxText(_winX + 10, _winY + 8,
+		                        WIN_W - BTN_W - BORDER - 20, '', 10);
+		titleText.setFormat(Paths.font("vcr.ttf"), 10, C_TEXT, LEFT);
 		titleText.scrollFactor.set();
 		titleText.cameras = [camHUD];
 		add(titleText);
+		_frameTexts.push(titleText);
 
-		toggleBtn = new FlxSprite(PANEL_X + PANEL_W, PANEL_Y + 60).makeGraphic(18, 44, 0xFF1A1A33);
-		toggleBtn.scrollFactor.set();
-		toggleBtn.cameras = [camHUD];
-		add(toggleBtn);
+		// Char name sub-label (inside the char area)
+		subText = new FlxText(_winX + 8, _winY + BAR_H + 6, CAM_W - 16, '', 8);
+		subText.setFormat(Paths.font("vcr.ttf"), 8, C_SUBTEXT, LEFT);
+		subText.scrollFactor.set();
+		subText.cameras = [camHUD];
+		add(subText);
+		_frameTexts.push(subText);
 
-		toggleBtnText = new FlxText(PANEL_X + PANEL_W, PANEL_Y + 72, 18, "<", 14);
-		toggleBtnText.setFormat(Paths.font("vcr.ttf"), 14, ACCENT_CYAN, CENTER);
-		toggleBtnText.scrollFactor.set();
-		toggleBtnText.cameras = [camHUD];
-		add(toggleBtnText);
-
-		var optY = PANEL_Y + CAM_H + 10;
-
-		charLabel = new FlxText(PANEL_X + 6, optY, 0, "Character:", 10);
-		charLabel.setFormat(Paths.font("vcr.ttf"), 10, TEXT_GRAY, LEFT);
-		charLabel.scrollFactor.set();
-		charLabel.cameras = [camHUD];
-		add(charLabel);
-
-		for (i in 0...charOptions.length)
-		{
-			var bg = new FlxSprite(PANEL_X + 4, optY + 14 + (i * 22)).makeGraphic(PANEL_W - 8, 19, 0xFF1A2233);
-			bg.scrollFactor.set(); bg.cameras = [camHUD];
-			optionBgs.push(bg); add(bg);
-
-			var txt = new FlxText(PANEL_X + 8, optY + 16 + (i * 22), PANEL_W - 14, charOptions[i], 10);
-			txt.setFormat(Paths.font("vcr.ttf"), 10, TEXT_GRAY, LEFT);
-			txt.scrollFactor.set(); txt.cameras = [camHUD];
-			optionTexts.push(txt); add(txt);
-		}
-		updateOptionColors();
-
-		// ── Grid selector ──────────────────────────
-		var gsY = optY + 14 + charOptions.length * 22 + 8;
-
-		gridSelectorLabel = makeLabel(PANEL_X + 6, gsY, "Grid:");
-		gridSelectorBg    = makeBg(PANEL_X + 4, gsY + 13, PANEL_W - 8, 22, 0xFF0D1A2A);
-		gridPrevBtn = makeAdjBtn(PANEL_X + 4,             gsY + 13, "<");
-		gridNextBtn = makeAdjBtn(PANEL_X + PANEL_W - 26,  gsY + 13, ">");
-
-		gridPrevTxt = new FlxText(PANEL_X + 4, gsY + 15, 22, "<", 11);
-		gridPrevTxt.setFormat(Paths.font("vcr.ttf"), 11, ACCENT_CYAN, CENTER);
-		gridPrevTxt.scrollFactor.set(); gridPrevTxt.cameras = [camHUD]; add(gridPrevTxt);
-
-		gridNextTxt = new FlxText(PANEL_X + PANEL_W - 26, gsY + 15, 22, ">", 11);
-		gridNextTxt.setFormat(Paths.font("vcr.ttf"), 11, ACCENT_CYAN, CENTER);
-		gridNextTxt.scrollFactor.set(); gridNextTxt.cameras = [camHUD]; add(gridNextTxt);
-
-		gridValueTxt = new FlxText(PANEL_X + 26, gsY + 15, PANEL_W - 52, "Group 0", 10);
-		gridValueTxt.setFormat(Paths.font("vcr.ttf"), 10, ACCENT_GREEN, CENTER);
-		gridValueTxt.scrollFactor.set(); gridValueTxt.cameras = [camHUD]; add(gridValueTxt);
-		refreshGridSelectorLabel();
-
-		// ── Ajustes en vivo ────────────────────────
-		var adjY = gsY + 42;
-
-		adjXLabel    = makeLabel(PANEL_X + 6, adjY,      "X offset:");
-		adjXMinusBtn = makeAdjBtn(PANEL_X + 4,             adjY + 13, "-");
-		adjXPlusBtn  = makeAdjBtn(PANEL_X + PANEL_W - 26,  adjY + 13, "+");
-		adjXValTxt   = makeValTxt(PANEL_X + 26, adjY + 15, "0");
-
-		adjYLabel    = makeLabel(PANEL_X + 6, adjY + 38, "Y offset:");
-		adjYMinusBtn = makeAdjBtn(PANEL_X + 4,             adjY + 51, "-");
-		adjYPlusBtn  = makeAdjBtn(PANEL_X + PANEL_W - 26,  adjY + 51, "+");
-		adjYValTxt   = makeValTxt(PANEL_X + 26, adjY + 53, "0");
-
-		adjSLabel    = makeLabel(PANEL_X + 6, adjY + 76, "Scale:");
-		adjSMinusBtn = makeAdjBtn(PANEL_X + 4,             adjY + 89, "-");
-		adjSPlusBtn  = makeAdjBtn(PANEL_X + PANEL_W - 26,  adjY + 89, "+");
-		adjSValTxt   = makeValTxt(PANEL_X + 26, adjY + 91, "1.0");
-
-		debugInfoTxt = new FlxText(PANEL_X + 4, adjY + 112, PANEL_W - 8, "", 8);
-		debugInfoTxt.setFormat(Paths.font("vcr.ttf"), 8, 0xFF557799, LEFT);
-		debugInfoTxt.scrollFactor.set(); debugInfoTxt.cameras = [camHUD]; add(debugInfoTxt);
-
-		// ── Activate ──────────────────────────────
-		var checkY = adjY + 130;
-		activateLabel = makeLabel(PANEL_X + 6, checkY + 2, "Activate?");
-
-		activateCheck = new FlxUICheckBox(PANEL_X + 90, checkY, null, null, "", 20);
-		activateCheck.checked = false;
-		activateCheck.scrollFactor.set(); activateCheck.cameras = [camHUD];
-		activateCheck.callback = function() {
-			if (activateCheck.checked) activatePreview();
-			else deactivatePreview();
-		};
-		add(activateCheck);
+		_refreshLabels();
 	}
 
-	function makeLabel(x:Float, y:Float, txt:String):FlxText
-	{
-		var t = new FlxText(x, y, 0, txt, 9);
-		t.setFormat(Paths.font("vcr.ttf"), 9, TEXT_GRAY, LEFT);
-		t.scrollFactor.set(); t.cameras = [camHUD]; add(t);
-		return t;
-	}
-
-	function makeBg(x:Float, y:Float, w:Int, h:Int, col:Int):FlxSprite
+	function _spr(x:Float, y:Float, w:Int, h:Int, col:Int) : FlxSprite
 	{
 		var s = new FlxSprite(x, y).makeGraphic(w, h, col);
-		s.scrollFactor.set(); s.cameras = [camHUD]; add(s);
+		s.scrollFactor.set();
+		s.cameras = [camHUD];
+		add(s);
+		_frameSprites.push(s);
 		return s;
 	}
 
-	function makeAdjBtn(x:Float, y:Float, lbl:String):FlxSprite
+	function _txt(x:Float, y:Float, w:Int, str:String, size:Int) : FlxText
 	{
-		var bg = new FlxSprite(x, y).makeGraphic(22, 22, 0xFF1A2A3A);
-		bg.scrollFactor.set(); bg.cameras = [camHUD]; add(bg);
-		var t = new FlxText(x, y + 3, 22, lbl, 12);
-		t.setFormat(Paths.font("vcr.ttf"), 12, ACCENT_CYAN, CENTER);
-		t.scrollFactor.set(); t.cameras = [camHUD]; add(t);
-		adjBtnTexts.push(t); // guardar referencia para poder ocultar en toggle()
-		return bg;
-	}
-
-	function makeValTxt(x:Float, y:Float, val:String):FlxText
-	{
-		var t = new FlxText(x, y, PANEL_W - 52, val, 10);
-		t.setFormat(Paths.font("vcr.ttf"), 10, ACCENT_WARN, CENTER);
-		t.scrollFactor.set(); t.cameras = [camHUD]; add(t);
+		var t = new FlxText(x, y, w, str, size);
+		t.setFormat(Paths.font("vcr.ttf"), size, C_TEXT, CENTER);
+		t.scrollFactor.set();
+		t.cameras = [camHUD];
+		add(t);
+		_frameTexts.push(t);
 		return t;
 	}
 
-	function refreshGridSelectorLabel():Void
+	function _accentColor() : Int
 	{
-		if (gridValueTxt == null) return;
-		var n = getNumGroups();
-		if (n == 0) { gridValueTxt.text = "No groups"; return; }
-		selectedGroupIndex = Std.int(Math.max(0, Math.min(selectedGroupIndex, n - 1)));
-		if (_song.strumsGroups != null && selectedGroupIndex < _song.strumsGroups.length)
-			gridValueTxt.text = _song.strumsGroups[selectedGroupIndex].id + " (#" + selectedGroupIndex + ")";
-		else
-			gridValueTxt.text = "Group " + selectedGroupIndex;
+		return switch (charType) { case 0: C_ACCENT_OPP; case 1: C_ACCENT_PLR; default: C_ACCENT_GF; };
 	}
 
-	function getNumGroups():Int
+	function _refreshLabels() : Void
 	{
-		if (_song.strumsGroups != null && _song.strumsGroups.length > 0)
-			return _song.strumsGroups.length;
-		return 2;
+		var type = ["Opponent Preview", "Player Preview", "GF Preview"][charType];
+		titleText.text = '$type  —  $charName';
+		subText.text   = charName;
 	}
 
-	// ─────────────────────────────────────────────────────
-	// ACTIVAR / DESACTIVAR
-	// ─────────────────────────────────────────────────────
-
-	function activatePreview():Void
+	// ── Entry animation ───────────────────────────────────────────────────────
+	function _playEntry() : Void
 	{
-		isPreviewActive    = true;
-		camPreview.visible = true;
-		camBorder.visible  = true;
-		loadPreviewCharacter(getCharNameForType(selectedCharType));
-		parent.showMessage('👁 Preview: ${charOptions[selectedCharType]} | Grid #$selectedGroupIndex', ACCENT_CYAN);
+		var slideFrom = (charType == 0) ? -WIN_W - 20.0 : FlxG.width + 20.0;
+		var deltaX    = slideFrom - _winX;
+
+		for (s in _frameSprites) { s.x += deltaX; s.alpha = 0; }
+		for (t in _frameTexts)   { t.x += deltaX; t.alpha = 0; }
+		camChar.alpha = 0;
+
+		var dur  = 0.30;
+		var ease = FlxEase.backOut;
+
+		for (s in _frameSprites)
+			FlxTween.tween(s, {x: s.x - deltaX, alpha: 1.0}, dur, {ease: ease, startDelay: 0.04});
+		for (t in _frameTexts)
+			FlxTween.tween(t, {x: t.x - deltaX, alpha: 1.0}, dur, {ease: ease, startDelay: 0.04});
+		FlxTween.tween(camChar, {alpha: 1.0}, dur, {ease: FlxEase.quadOut, startDelay: 0.10});
 	}
 
-	function deactivatePreview():Void
-	{
-		isPreviewActive    = false;
-		camPreview.visible = false;
-		camBorder.visible  = false;
-		destroyPreviewChar();
-		parent.showMessage('👁 Preview desactivated', 0xFF555555);
-	}
+	// ── Character loading ─────────────────────────────────────────────────────
+	function _scheduleLoad(name:String) : Void { _pendingLoad = name; }
 
-	// ─────────────────────────────────────────────────────
-	// CARGAR PERSONAJE
-	// ─────────────────────────────────────────────────────
+	public function loadChar(name:String) : Void { _scheduleLoad(name); }
 
-	function getCharNameForType(typeIndex:Int):String
+	function _doLoad(name:String) : Void
 	{
-		if (_song.characters == null || _song.characters.length == 0)
-			return switch (typeIndex) {
-				case 0: (_song.player2   != null) ? _song.player2   : "dad";
-				case 1: (_song.player1   != null) ? _song.player1   : "bf";
-				case 2: (_song.gfVersion != null) ? _song.gfVersion : "gf";
-				default: "bf";
-			}
-		var typeName = charOptions[typeIndex];
-		for (c in _song.characters)
-			if (c.type == typeName) return c.name;
-		return switch (typeIndex) { case 0: "dad"; case 1: "bf"; case 2: "gf"; default: "bf"; }
-	}
-
-	function loadPreviewCharacter(charName:String):Void
-	{
-		// Destruir anterior de forma segura
-		destroyPreviewChar();
+		_destroyChar();
+		isLoaded    = false;
+		this.charName = name;
+		_refreshLabels();
 
 		try
 		{
-			var isPlayer = (selectedCharType == 1);
-			previewChar = new Character(0, 0, charName, isPlayer);
-
-			// Asignar cámara y scroll ANTES de add()
-			previewChar.cameras     = [camPreview];
+			var isPlayer = (charType == 1);
+			previewChar = new Character(0, 0, name, isPlayer);
+			previewChar.cameras = [camChar];
 			previewChar.scrollFactor.set(1, 1);
-
-			// add() al FlxGroup PROPIO — no a parent
-			// Esto evita el crash en FlxDrawQuadsItem porque este group
-			// controla el render del personaje de forma aislada
 			add(previewChar);
 
-			// Crear controller con el personaje en el slot correcto según su tipo:
-			// - Opponent (0) → dad
-			// - Player (1)   → boyfriend
-			// - Girlfriend (2) → gf
-			// Esto hace que CharacterController.sing() use la lógica correcta
-			if (selectedCharType == 1) // Player/BF
-				charController = new CharacterController(previewChar, null, null);
-			else if (selectedCharType == 2) // Girlfriend
-				charController = new CharacterController(null, null, previewChar);
-			else // Opponent/Dad (default)
-				charController = new CharacterController(null, previewChar, null);
+			charController = switch (charType) {
+				case 1:  new CharacterController(previewChar, null, null);
+				case 2:  new CharacterController(null, null, previewChar);
+				default: new CharacterController(null, previewChar, null);
+			};
 
-			// Idle inicial para obtener dimensiones reales (protegido)
-			try { previewChar.dance(); } catch (e:Dynamic) { trace('[PreviewPanel] dance() falló: $e'); }
-
-			// Calcular escala usando hitbox (no frameWidth que incluye espacio vacío)
+			// ── Sprite-scale approach (V-Slice style) ────────────────────────
+			// Scale the sprite to fit the preview viewport.
+			// animOffsets are LEFT UNTOUCHED — they work correctly as-is when
+			// combined with the scaled sprite because _positionChar compensates
+			// by adding offset to the sprite position (so Flixel's x-offset.x
+			// rendering cancels it out).
 			previewChar.scale.set(1, 1);
 			previewChar.updateHitbox();
 
-			var hw = previewChar.width  > 0 ? previewChar.width  : 150.0;
-			var hh = previewChar.height > 0 ? previewChar.height : 250.0;
+			// Play idle BEFORE measuring so frameWidth/Height are stable.
+			try { previewChar.dance(); } catch (_:Dynamic) {}
 
-			var ratioH = (CAM_H * 0.9)  / hh;
-			var ratioW = (CAM_W * 0.95) / hw;
-			var ratio  = Math.min(ratioH, ratioW) * debugScale;
+			var fw:Float = previewChar.frameWidth  > 0 ? previewChar.frameWidth  : 200.0;
+			var fh:Float = previewChar.frameHeight > 0 ? previewChar.frameHeight : 300.0;
+
+			// Scale: fit character in ~80% of camera height, ~85% of camera width.
+			// Smaller margins avoid clipping on characters with large empty frames.
+			var ratio:Float = Math.min((CAM_H * 0.80) / fh, (CAM_W * 0.85) / fw);
+			ratio = FlxMath.bound(ratio, 0.05, 2.0);
+			_charScale = ratio;
+
+			// Reset camera zoom (we scale the sprite, not the camera).
+			if (camChar != null)
+				camChar.zoom = 1.0;
 
 			previewChar.scale.set(ratio, ratio);
 			previewChar.updateHitbox();
 
-			applyCharPosition();
+			// Re-trigger idle after scale update.
+			try { previewChar.dance(); } catch (_:Dynamic) {}
 
-			trace('[PreviewPanel] "$charName" ratio=${Math.round(ratio*100)/100} size=${Math.round(previewChar.width)}x${Math.round(previewChar.height)} offset=(${previewChar.offset.x},${previewChar.offset.y})');
+			_positionChar();
+			isLoaded = true;
+
+			trace('[PreviewPanel] "$name" loaded — scale=${Math.round(ratio*1000)/1000}');
 		}
 		catch (e:Dynamic)
 		{
-			trace('[PreviewPanel] ERROR "$charName": $e');
-			if (previewChar != null)
-			{
-				remove(previewChar, true);
-				previewChar.destroy();
-				previewChar = null;
-			}
-			parent.showMessage('❌ Could not load: $charName', 0xFFFF3366);
+			trace('[PreviewPanel] ERROR loading "$name": $e');
+			if (previewChar != null) { remove(previewChar, true); previewChar.destroy(); previewChar = null; }
+			parent.showMessage('Preview: could not load "$name"', 0xFFFF3366);
 		}
 	}
 
-	function applyCharPosition():Void
+	// ── Positioning ───────────────────────────────────────────────────────────
+	/**
+	 * Sprite-based positioning (camera scroll stays at 0,0).
+	 *
+	 * The character is scaled by _charScale. We position the sprite so that
+	 * its visual frame appears:
+	 *   · Centered horizontally in the camera viewport
+	 *   · Bottom-anchored (a small margin from the bottom edge)
+	 *
+	 * Flixel renders a sprite's texture at (x − offset.x, y − offset.y).
+	 * To make the texture appear at world position (targetX, targetY) we set:
+	 *   sprite.x = targetX + offset.x
+	 *   sprite.y = targetY + offset.y
+	 *
+	 * We reset the character to world origin each frame to prevent position
+	 * drift caused by CharacterController, idle-bob effects, etc.
+	 */
+	function _positionChar() : Void
 	{
 		if (previewChar == null) return;
-		// targetX/Y = posición visual deseada (dentro de camPreview 0..CAM_W, 0..CAM_H)
-		// x = targetX + offset.x  porque FNF renderiza en (x - offset.x, y - offset.y)
-		var targetX = CAM_W / 2 - previewChar.width  / 2 - 160 + debugOffsetX;
-		var targetY = CAM_H     - previewChar.height  - 5 - 290 + debugOffsetY;
+
+		// Scaled visual dimensions of the sprite frame.
+		var sw:Float = previewChar.frameWidth  * _charScale;
+		var sh:Float = previewChar.frameHeight * _charScale;
+
+		// Where we want the texture top-left to appear in camera world-space.
+		var targetX:Float = (CAM_W - sw) / 2.0;
+		var targetY:Float = CAM_H - sh - 8.0; // 8 px margin from bottom
+
+		// Sprite world position that results in texture at (targetX, targetY).
 		previewChar.x = targetX + previewChar.offset.x;
 		previewChar.y = targetY + previewChar.offset.y;
 	}
 
-	function destroyPreviewChar():Void
+	function _destroyChar() : Void
 	{
+		isLoaded = false;
 		if (charController != null) { charController.destroy(); charController = null; }
-
-		if (previewChar != null)
+		if (previewChar    != null)
 		{
 			previewChar.exists  = false;
 			previewChar.visible = false;
@@ -435,254 +453,174 @@ class PreviewPanel extends FlxGroup
 		}
 	}
 
-	// ─────────────────────────────────────────────────────
-	// NOTA HIT
-	// ─────────────────────────────────────────────────────
-
-	public function onNotePass(direction:Int, dataGroupIndex:Int):Void
+	// ── Group index ───────────────────────────────────────────────────────────
+	public function autoDetectGroupIndex() : Void
 	{
-		if (!isPreviewActive || previewChar == null || charController == null) return;
-		if (dataGroupIndex != selectedGroupIndex) return;
+		if (_song == null) { groupIndex = charType == 1 ? 1 : 0; return; }
 
-		// CharacterController.sing() maneja nombre de anim, fallback y holdTimer
-		charController.sing(previewChar, direction % 4);
-		applyCharPosition();
-	}
-
-	// ─────────────────────────────────────────────────────
-	// TOGGLE
-	// ─────────────────────────────────────────────────────
-
-	public function toggle():Void
-	{
-		isExpanded = !isExpanded;
-
-		// ── Animación de slide horizontal ────────────────────────────────
-		// El panel desliza hacia la izquierda (ocultar) o desde la izquierda (mostrar).
-		// El botón toggle siempre permanece visible en el borde.
-		final slideTarget:Float = isExpanded ? PANEL_X : -PANEL_W;
-		final slideDur:Float   = 0.28;
-		final slideEase        = isExpanded ? FlxEase.backOut : FlxEase.quintIn;
-
-		// Recolectar todos los sprites del panel para moverlos juntos
-		var panelMembers:Array<FlxSprite> = [];
-		forEach(function(m:flixel.FlxBasic)
+		if (_song.characters != null && _song.strumsGroups != null)
 		{
-			// El botón toggle y su texto NO participan en el slide
-			if (m == toggleBtn || m == toggleBtnText) return;
-			if (Std.isOfType(m, FlxSprite))
-				panelMembers.push(cast m);
-		});
-
-		// Antes del slide: asegurarse de que todos estén visibles para la animación
-		if (isExpanded)
-		{
-			// Activar los elementos ANTES de animar para que sean visibles
-			panelBg.visible = true; rightBorder.visible = true;
-			titleText.visible = true; charLabel.visible = true;
-			activateLabel.visible = true;
-			activateCheck.visible = true; activateCheck.active = true;
-			gridSelectorBg.visible = true; gridSelectorLabel.visible = true;
-			gridPrevBtn.visible = true; gridNextBtn.visible = true;
-			gridPrevTxt.visible = true; gridNextTxt.visible = true;
-			gridValueTxt.visible = true; debugInfoTxt.visible = true;
-			adjXMinusBtn.visible = true; adjXPlusBtn.visible = true;
-			adjYMinusBtn.visible = true; adjYPlusBtn.visible = true;
-			adjSMinusBtn.visible = true; adjSPlusBtn.visible = true;
-			if (adjXLabel  != null) adjXLabel.visible  = true;
-			if (adjYLabel  != null) adjYLabel.visible  = true;
-			if (adjSLabel  != null) adjSLabel.visible  = true;
-			if (adjXValTxt != null) adjXValTxt.visible = true;
-			if (adjYValTxt != null) adjYValTxt.visible = true;
-			if (adjSValTxt != null) adjSValTxt.visible = true;
-			for (t in adjBtnTexts)  t.visible = true;
-			for (bg  in optionBgs)   bg.visible  = true;
-			for (txt in optionTexts) txt.visible = true;
-			camPreview.visible = isPreviewActive;
-			camBorder.visible  = isPreviewActive;
-		}
-
-		// Deslizar todos los miembros del panel
-		for (spr in panelMembers)
-		{
-			final offsetFromPanel = spr.x - (isExpanded ? -PANEL_W : PANEL_X);
-			FlxTween.cancelTweensOf(spr);
-			FlxTween.tween(spr, {x: slideTarget + offsetFromPanel}, slideDur, {
-				ease: slideEase,
-				onComplete: !isExpanded ? function(_)
-				{
-					// Ocultar DESPUÉS del slide de salida
-					panelBg.visible           = false;
-					rightBorder.visible       = false;
-					titleText.visible         = false;
-					charLabel.visible         = false;
-					activateLabel.visible     = false;
-					activateCheck.visible     = false;
-					activateCheck.active      = false;
-					gridSelectorBg.visible    = false;
-					gridSelectorLabel.visible = false;
-					gridPrevBtn.visible       = false;
-					gridNextBtn.visible       = false;
-					gridPrevTxt.visible       = false;
-					gridNextTxt.visible       = false;
-					gridValueTxt.visible      = false;
-					debugInfoTxt.visible      = false;
-					adjXMinusBtn.visible      = false;
-					adjXPlusBtn.visible       = false;
-					adjYMinusBtn.visible      = false;
-					adjYPlusBtn.visible       = false;
-					adjSMinusBtn.visible      = false;
-					adjSPlusBtn.visible       = false;
-					if (adjXLabel  != null) adjXLabel.visible  = false;
-					if (adjYLabel  != null) adjYLabel.visible  = false;
-					if (adjSLabel  != null) adjSLabel.visible  = false;
-					if (adjXValTxt != null) adjXValTxt.visible = false;
-					if (adjYValTxt != null) adjYValTxt.visible = false;
-					if (adjSValTxt != null) adjSValTxt.visible = false;
-					for (t in adjBtnTexts)  t.visible          = false;
-					for (bg  in optionBgs)   bg.visible  = false;
-					for (txt in optionTexts) txt.visible = false;
-					camPreview.visible = false;
-					camBorder.visible  = false;
-				} : null
-			});
-		}
-
-		// Botón toggle: siempre visible, desliza al borde correcto
-		final btnTarget:Float = isExpanded ? PANEL_X + PANEL_W : 0;
-		FlxTween.cancelTweensOf(toggleBtn);
-		FlxTween.cancelTweensOf(toggleBtnText);
-		FlxTween.tween(toggleBtn,     {x: btnTarget}, slideDur, {ease: slideEase});
-		FlxTween.tween(toggleBtnText, {x: btnTarget}, slideDur, {ease: slideEase});
-		toggleBtnText.text = isExpanded ? "<" : ">";
-	}
-
-	// ─────────────────────────────────────────────────────
-	// UPDATE
-	// ─────────────────────────────────────────────────────
-
-	override public function update(elapsed:Float):Void
-	{
-		// Procesar carga diferida ANTES de super.update() para que el personaje
-		// anterior ya no esté en la lista de iteración cuando se destruye
-		if (_pendingCharName != null)
-		{
-			var name = _pendingCharName;
-			_pendingCharName = null;
-			loadPreviewCharacter(name);
-		}
-
-		if (camPreview != null)
-			camPreview.scroll.set(0, 0);
-
-		super.update(elapsed);
-
-		if (previewChar != null && isPreviewActive)
-		{
-			// NO llamar charController.update() aquí — previewChar ya fue actualizado
-			// por super.update() (es parte del grupo), y Character.update() maneja
-			// su propio holdTimer e idle. CharacterController solo se usa para sing().
-			applyCharPosition();
-
-			if (debugInfoTxt != null)
-				debugInfoTxt.text = 'ox:${debugOffsetX} oy:${debugOffsetY} s:${Math.round(debugScale*100)/100}\nw:${Math.round(previewChar.width)} h:${Math.round(previewChar.height)}\noff:(${Math.round(previewChar.offset.x)},${Math.round(previewChar.offset.y)})';
-		}
-
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(toggleBtn, camHUD)) { toggle(); return; }
-		if (!isExpanded) return;
-
-		// Grid selector
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(gridPrevBtn, camHUD))
-		{ selectedGroupIndex = (selectedGroupIndex - 1 + getNumGroups()) % getNumGroups(); refreshGridSelectorLabel(); return; }
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(gridNextBtn, camHUD))
-		{ selectedGroupIndex = (selectedGroupIndex + 1) % getNumGroups(); refreshGridSelectorLabel(); return; }
-
-		// Ajuste X (+/- 5px)
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(adjXMinusBtn, camHUD))
-		{ debugOffsetX -= 5; if (adjXValTxt != null) adjXValTxt.text = '${Std.int(debugOffsetX)}'; applyCharPosition(); return; }
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(adjXPlusBtn, camHUD))
-		{ debugOffsetX += 5; if (adjXValTxt != null) adjXValTxt.text = '${Std.int(debugOffsetX)}'; applyCharPosition(); return; }
-
-		// Ajuste Y (+/- 5px)
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(adjYMinusBtn, camHUD))
-		{ debugOffsetY -= 5; if (adjYValTxt != null) adjYValTxt.text = '${Std.int(debugOffsetY)}'; applyCharPosition(); return; }
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(adjYPlusBtn, camHUD))
-		{ debugOffsetY += 5; if (adjYValTxt != null) adjYValTxt.text = '${Std.int(debugOffsetY)}'; applyCharPosition(); return; }
-
-		// Ajuste escala (+/- 5%)
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(adjSMinusBtn, camHUD))
-		{
-			debugScale = Math.max(0.1, debugScale - 0.05);
-			if (adjSValTxt != null) adjSValTxt.text = '${Math.round(debugScale * 100) / 100}';
-			if (isPreviewActive) _pendingCharName = getCharNameForType(selectedCharType);
-			return;
-		}
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(adjSPlusBtn, camHUD))
-		{
-			debugScale += 0.05;
-			if (adjSValTxt != null) adjSValTxt.text = '${Math.round(debugScale * 100) / 100}';
-			if (isPreviewActive) _pendingCharName = getCharNameForType(selectedCharType);
-			return;
-		}
-
-		// Click en opción de personaje
-		for (i in 0...charOptions.length)
-		{
-			if (optionBgs[i] != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(optionBgs[i], camHUD))
-			{
-				selectedCharType = i;
-				updateOptionColors();
-				autoSelectGroupForType(i);
-				if (isPreviewActive)
-					_pendingCharName = getCharNameForType(i);
-				break;
-			}
-		}
-	}
-
-	function autoSelectGroupForType(typeIndex:Int):Void
-	{
-		if (_song.strumsGroups == null || _song.strumsGroups.length == 0)
-		{ selectedGroupIndex = (typeIndex == 1) ? 1 : 0; refreshGridSelectorLabel(); return; }
-		if (_song.characters != null)
-		{
-			var typeName = charOptions[typeIndex];
+			var typeName = ["Opponent", "Player", "Girlfriend"][charType];
 			for (c in _song.characters)
 			{
 				if (c.type != typeName || c.strumsGroup == null) continue;
 				for (gi in 0..._song.strumsGroups.length)
 					if (_song.strumsGroups[gi].id == c.strumsGroup)
-					{ selectedGroupIndex = gi; refreshGridSelectorLabel(); return; }
+					{ groupIndex = gi; return; }
 			}
 		}
-		for (gi in 0..._song.strumsGroups.length)
+
+		if (_song.strumsGroups != null && _song.strumsGroups.length > 0)
 		{
-			var cpu = _song.strumsGroups[gi].cpu;
-			if (typeIndex == 0 && cpu)  { selectedGroupIndex = gi; break; }
-			if (typeIndex == 1 && !cpu) { selectedGroupIndex = gi; break; }
+			for (gi in 0..._song.strumsGroups.length)
+			{
+				var cpu = _song.strumsGroups[gi].cpu;
+				if (charType == 0 &&  cpu) { groupIndex = gi; return; }
+				if (charType == 1 && !cpu) { groupIndex = gi; return; }
+			}
 		}
-		refreshGridSelectorLabel();
+
+		groupIndex = (charType == 1) ? 1 : 0;
 	}
 
-	// ─────────────────────────────────────────────────────
-	// HELPERS
-	// ─────────────────────────────────────────────────────
-
-	function updateOptionColors():Void
+	// ── Sing ─────────────────────────────────────────────────────────────────
+	public function triggerSing(direction:Int) : Void
 	{
-		for (i in 0...charOptions.length)
+		if (previewChar == null || charController == null) return;
+		charController.sing(previewChar, direction);
+		_positionChar();
+	}
+
+	// ── Open / Close ─────────────────────────────────────────────────────────
+	public function openWindow() : Void
+	{
+		if (!isClosed) return;
+		isClosed = false;
+		_setupCamera();
+		_buildFrame();
+		_scheduleLoad(charName);
+		_playEntry();
+	}
+
+	public function closeWindow() : Void
+	{
+		if (isClosed) return;
+		isClosed = true;
+		_destroyChar();
+
+		// Fade + slide out then destroy camera
+		var slideDir = (charType == 0) ? -1.0 : 1.0;
+		var slideAmt = WIN_W + 40.0;
+
+		for (s in _frameSprites)
+			FlxTween.tween(s, {x: s.x + slideDir * slideAmt, alpha: 0.0}, 0.22,
+			               {ease: FlxEase.quintIn, onComplete: function(_) s.visible = false});
+		for (t in _frameTexts)
+			FlxTween.tween(t, {x: t.x + slideDir * slideAmt, alpha: 0.0}, 0.22,
+			               {ease: FlxEase.quintIn, onComplete: function(_) t.visible = false});
+		FlxTween.tween(camChar, {alpha: 0.0}, 0.18, {ease: FlxEase.quintIn,
+			onComplete: function(_) {
+				if (camChar != null) { FlxG.cameras.remove(camChar); camChar = null; }
+				// Clear frame lists so openWindow() starts fresh
+				_frameSprites = [];
+				_frameTexts   = [];
+			}});
+	}
+
+	// ── Window movement ───────────────────────────────────────────────────────
+	function _moveTo(nx:Float, ny:Float) : Void
+	{
+		var dx = nx - _winX;
+		var dy = ny - _winY;
+		_winX = nx; _winY = ny;
+
+		for (s in _frameSprites) { s.x += dx; s.y += dy; }
+		for (t in _frameTexts)   { t.x += dx; t.y += dy; }
+
+		if (camChar != null)
 		{
-			if (optionBgs[i]   != null) optionBgs[i].color   = (i == selectedCharType) ? 0xFF0D1A2A : 0xFF0D0D1F;
-			if (optionTexts[i] != null) optionTexts[i].color = (i == selectedCharType) ? TYPE_COLORS[i] : TEXT_GRAY;
+			camChar.x = Std.int(_winX + BORDER);
+			camChar.y = Std.int(_winY + BAR_H + BORDER);
 		}
 	}
 
-	public function getCurrentPreviewType():String { return charOptions[selectedCharType]; }
-
-	override public function destroy():Void
+	// ── Hit-test helpers ──────────────────────────────────────────────────────
+	function _mouseOver(x1:Float, y1:Float, w:Float, h:Float) : Bool
 	{
-		destroyPreviewChar();
-		if (camPreview != null) { FlxG.cameras.remove(camPreview); camPreview = null; }
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+		return mx >= x1 && mx <= x1 + w && my >= y1 && my <= y1 + h;
+	}
+
+	function _isMouseOnWindow()   : Bool return _mouseOver(_winX, _winY, WIN_W, WIN_H);
+	function _isMouseOnTitleBar() : Bool return _mouseOver(_winX, _winY, WIN_W, BAR_H);
+	function _isMouseOnCloseBtn() : Bool
+	{
+		var bx = _winX + WIN_W - BTN_W - BORDER;
+		return _mouseOver(bx, _winY + 4, BTN_W, BAR_H - 8);
+	}
+
+	// ── Update ────────────────────────────────────────────────────────────────
+	override public function update(elapsed:Float) : Void
+	{
+		if (isClosed) return;
+
+		// Deferred character load (safe: before super.update iterates children)
+		if (_pendingLoad != null)
+		{
+			var name = _pendingLoad;
+			_pendingLoad = null;
+			_doLoad(name);
+		}
+
+		// Keep camera scroll at (0,0): character is positioned in camera world-space directly.
+
+		super.update(elapsed);
+
+		// Reposition every frame (anim offset can change each frame)
+		if (previewChar != null && isLoaded) _positionChar();
+
+		// ── Input block: consume ANY click/wheel on the window ─────────────
+		if (_isMouseOnWindow())
+		{
+			parent.clickConsumed = true;
+			parent.wheelConsumed = true;
+		}
+
+		// ── Button hover colors ───────────────────────────────────────────
+		var onClose = _isMouseOnCloseBtn();
+		if (onClose != _closeHovered) { _closeHovered = onClose; closeBtn.color = onClose ? C_BTN_CLOSE_HOVER : C_BTN; }
+
+		// ── Button clicks ─────────────────────────────────────────────────
+		if (FlxG.mouse.justPressed)
+		{
+			if (_isMouseOnCloseBtn()) { closeWindow(); return; }
+			if (_isMouseOnTitleBar())
+			{
+				_dragging  = true;
+				_dragOffX  = FlxG.mouse.x - _winX;
+				_dragOffY  = FlxG.mouse.y - _winY;
+				return;
+			}
+		}
+
+		// ── Drag ─────────────────────────────────────────────────────────
+		if (_dragging)
+		{
+			if (FlxG.mouse.pressed)
+				_moveTo(
+					FlxMath.bound(FlxG.mouse.x - _dragOffX, 0, FlxG.width  - WIN_W),
+					FlxMath.bound(FlxG.mouse.y - _dragOffY, 0, FlxG.height - BAR_H)
+				);
+			else _dragging = false;
+		}
+	}
+
+	// ── Destroy ───────────────────────────────────────────────────────────────
+	override public function destroy() : Void
+	{
+		_destroyChar();
+		if (camChar != null) { FlxG.cameras.remove(camChar); camChar = null; }
 		super.destroy();
 	}
 }

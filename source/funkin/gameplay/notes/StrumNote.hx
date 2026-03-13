@@ -19,8 +19,12 @@ class StrumNote extends FlxSprite
 	/** true si la skin tiene isPixel:true. */
 	private var _isPixelSkin:Bool = false;
 
-	/** Si la skin aplica el offset -13,-13 al confirm. */
-	private var _skinConfirmOffset:Bool = true;
+	/**
+	 * Mapa animName → [offsetX, offsetY] construido desde la skin activa.
+	 * Puede tener entradas para 'pressed' y/o 'confirm'.
+	 * Si no hay entrada para una animación, no se aplica ningún offset extra.
+	 */
+	private var _animOffsets:Map<String, Array<Float>> = new Map();
 
 	public function new(x:Float, y:Float, noteID:Int = 0)
 	{
@@ -33,8 +37,11 @@ class StrumNote extends FlxSprite
 
 		updateHitbox();
 		scrollFactor.set();
-		animation.play('static');
-		centerOffsets();
+		// FIX: usar playAnim() en lugar de animation.play() para que los
+		// _animOffsets de la skin (centerOffsets + offset de la anim 'static')
+		// se apliquen desde el primer frame. Sin esto los strums aparecen
+		// desplazados hasta que se reproduce otra animación y vuelven a 'static'.
+		playAnim('static');
 		// Los strums NO llevan NoteGlowShader — el glow de proximidad va en las notas entrantes
 	}
 
@@ -53,11 +60,20 @@ class StrumNote extends FlxSprite
 
 		_isPixelSkin = skinData.isPixel == true;
 
-		// confirmOffset: leer del JSON; si no está, true para normal, false para pixel
-		_skinConfirmOffset = skinData.confirmOffset != null ? skinData.confirmOffset : (skinData.offsetDefault != null ? skinData.offsetDefault : !_isPixelSkin);
+		// Construir el mapa de offsets por animación desde la skin.
+		// buildStrumOffsets() aplica la prioridad: offset del JSON > confirmOffset global > sin offset.
+		_animOffsets = NoteSkinSystem.buildStrumOffsets(skinData, noteID);
 
-		// ── Cargar textura principal (strums siempre usan texture, nunca holdTexture) ──
-		var tex = skinData.texture;
+		// ── Cargar textura de strums ────────────────────────────────────────────
+		// Prioridad: strumsTexture > texture
+		var tex = NoteSkinSystem.getStrumsTexture(skinData.name);
+		// FunkinSprite en StrumNote (FlxSprite) no es posible directamente;
+		// si el tipo es funkinsprite, fallback a texture principal.
+		if (NoteSkinSystem.isFunkinSpriteType(tex))
+		{
+			trace('[StrumNote] FunkinSprite type detectado — fallback a texture principal (StrumNote es FlxSprite)');
+			tex = skinData.texture;
+		}
 		frames = NoteSkinSystem.loadSkinFrames(tex, skinData.folder);
 
 		// BUGFIX CRÍTICO: si frames sigue siendo null aquí (asset faltante, XML roto, etc.)
@@ -152,12 +168,12 @@ class StrumNote extends FlxSprite
 		animation.play(animName, force);
 		centerOffsets();
 
-		// centerOffsets() resetea el offset a 0, así que re-aplicar -13,-13
-		// siempre que la animación sea 'confirm' para mantener la posición correcta.
-		if (animName == 'confirm' && _skinConfirmOffset)
+		// Aplicar offset de la skin para esta animación (pressed / confirm), si existe.
+		var off = _animOffsets.get(animName);
+		if (off != null)
 		{
-			offset.x -= 13;
-			offset.y -= 13;
+			offset.x += off[0];
+			offset.y += off[1];
 		}
 	}
 

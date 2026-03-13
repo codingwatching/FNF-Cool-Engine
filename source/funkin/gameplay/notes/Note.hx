@@ -7,6 +7,7 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.FlxG;
 import funkin.data.Conductor;
 import funkin.gameplay.PlayStateConfig;
+import animationdata.FunkinSprite;
 
 using StringTools;
 
@@ -60,7 +61,16 @@ class Note extends FlxSprite
 	private var _skinSustainOffset:Float = 0.0;
 
 	/** Multiplicador de scale.y para hold chain, leído del JSON de skin. */
-	private var _skinHoldStretch:Float = 1.0;
+	public var _skinHoldStretch:Float = 1.0;
+
+	/**
+	 * Offset X/Y para notas scroll (cabeza), leído del campo `offset` de la
+	 * animación de nota en el JSON de skin (e.g. "left": { "offset": [2, -4] }).
+	 * Se aplica en NoteManager.updateNotePosition() a la posición calculada.
+	 * 0.0 por defecto → sin efecto si la skin no define offsets de nota.
+	 */
+	public var noteOffsetX:Float = 0.0;
+	public var noteOffsetY:Float = 0.0;
 
 	// ── Cache de hit window ───────────────────────────────────────────────
 	private var _lastSongPos:Float = -1;
@@ -74,6 +84,8 @@ class Note extends FlxSprite
 	static inline final GLOW_START_MS:Float  = 500.0;
 	/** Distancia (ms) en la que el glow alcanza su máximo antes del hit. */
 	static inline final GLOW_PEAK_MS:Float   = 60.0;
+
+
 
 	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false)
 	{
@@ -95,6 +107,9 @@ class Note extends FlxSprite
 
 		NoteSkinSystem.init();
 		loadSkin(NoteSkinSystem.getCurrentSkinData());
+
+		// NOTA: los offsets de nota se construyen dentro de loadSkin() para que
+		// se reconstruyan automáticamente cuando la skin cambia (recycle).
 
 		// Glow de proximidad: shader propio en notas normales, no en sustain
 		if (!isSustainNote && shaders.ShaderManager.enabled)
@@ -139,12 +154,44 @@ class Note extends FlxSprite
 		_skinSustainOffset = skinData.sustainOffset != null ? skinData.sustainOffset : 0.0;
 		_skinHoldStretch = skinData.holdStretch != null ? skinData.holdStretch : 1.0;
 
+		// ── Offsets de nota desde la skin ────────────────────────────────────
+		// buildNoteOffsets / buildHoldNoteOffsets leen el campo `offset` de las
+		// animaciones de nota en el JSON de skin. Son [0,0] si no se definen.
+		// TIMING: seguro — la skin ya está cargada en NoteSkinSystem al inicio de
+		// PlayState. Se re-evalúan en cada loadSkin() (constructor + recycle) por
+		// si la skin cambia a mitad de la canción (stage con skin diferente, etc.).
+		if (!isSustainNote)
+		{
+			var off = NoteSkinSystem.buildNoteOffsets(skinData, noteData);
+			noteOffsetX = off[0];
+			noteOffsetY = off[1];
+		}
+		else
+		{
+			var off = NoteSkinSystem.buildHoldNoteOffsets(skinData, noteData);
+			noteOffsetX = off[0];
+			noteOffsetY = off[1];
+		}
+
 		// ── Elegir textura ────────────────────────────────────────────────
 		// Notas cabeza y strums → texture principal
 		// Sustain pieces + tails → holdTexture (si existe) o fallback a texture
-		var tex = (isSustainNote && skinData.holdTexture != null) ? skinData.holdTexture : skinData.texture;
+		var tex:NoteSkinSystem.NoteSkinTexture;
+		// Por tipo de nota: hold usa holdTexture > notesTexture > texture
+		//                   nota scroll usa notesTexture > texture
+		// Strums usan strumsTexture en StrumNote.hx
+		if (isSustainNote)
+			tex = NoteSkinSystem.getHoldTexture(skinData.name);
+		else
+			tex = NoteSkinSystem.getNotesScrollTexture(skinData.name);
 
-		// ── Cargar frames ─────────────────────────────────────────────────
+		// FunkinSprite (type:"funkinsprite") no puede usarse directamente
+		// en Note (que extiende FlxSprite). Fallback a texture principal.
+		if (NoteSkinSystem.isFunkinSpriteType(tex))
+		{
+			trace('[Note] FunkinSprite type detectado — fallback a texture principal (Note es FlxSprite)');
+			tex = skinData.texture;
+		}
 		frames = NoteSkinSystem.loadSkinFrames(tex, skinData.folder);
 
 		// BUGFIX CRÍTICO: si frames es null (asset faltante, XML roto, etc.)
@@ -229,13 +276,28 @@ class Note extends FlxSprite
 
 		revive();
 
+		// Resetear offsets de nota — se recalculan en loadSkin() si la skin o tipo cambia,
+		// y también en el bloque de restauración de animación abajo si la skin no cambió.
+		noteOffsetX = 0.0;
+		noteOffsetY = 0.0;
+
 		// ── Recargar skin si cambió nombre O si cambió el tipo (sustain↔normal) ────
 		// BUGFIX: el tipo de nota puede cambiar si el pool de NoteRenderer mezcla
 		// sustain y normales. loadSkin registra animaciones distintas según isSustainNote,
 		// así que hay que recargar también cuando cambia el tipo aunque la skin sea igual.
 		var skinData = NoteSkinSystem.getCurrentSkinData();
 		if (skinData.name != _loadedSkinName || isSustainNote != _loadedAsSustain)
-			loadSkin(skinData);
+			loadSkin(skinData); // loadSkin() ya recalcula noteOffsetX/Y
+		else
+		{
+			// La skin no cambió pero noteData puede haber cambiado (nota reciclada
+			// a otra dirección). Re-calcular los offsets de nota para la nueva dirección.
+			var off = isSustainNote
+				? NoteSkinSystem.buildHoldNoteOffsets(skinData, noteData)
+				: NoteSkinSystem.buildNoteOffsets(skinData, noteData);
+			noteOffsetX = off[0];
+			noteOffsetY = off[1];
+		}
 
 		// ── Restaurar animación y escala ──────────────────────────────────
 		if (!isSustainNote)
@@ -243,8 +305,7 @@ class Note extends FlxSprite
 			scale.set(_noteScale, _noteScale);
 			updateHitbox();
 
-			if (animation.exists(animArrows[noteData] + 'Scroll'))
-				animation.play(animArrows[noteData] + 'Scroll');
+			_applyNoteAnim(animArrows[noteData] + 'Scroll');
 
 			// Re-crear shader de glow al reciclar (la dirección puede haber cambiado)
 			if (shaders.ShaderManager.enabled)
@@ -279,9 +340,9 @@ class Note extends FlxSprite
 		if (isSustainNote)
 			return;
 
-		// Solo reproducir la animación de scroll (X ya calculada en constructor)
-		if (animation.exists(animArrows[noteData] + 'Scroll'))
-			animation.play(animArrows[noteData] + 'Scroll');
+		// Solo reproducir la animación de scroll (X ya calculada en constructor).
+		// _applyNoteAnim aplica centerOffsets() + noteOffsetX/Y (igual que StrumNote.playAnim).
+		_applyNoteAnim(animArrows[noteData] + 'Scroll');
 	}
 
 	function setupSustainNote():Void
@@ -303,14 +364,17 @@ class Note extends FlxSprite
 			{
 				// BUGFIX: check existence para no disparar WARNING si la skin
 				// aún no tiene esta animación registrada
-				if (animation.exists(animArrows[i] + 'holdend'))
-					animation.play(animArrows[i] + 'holdend');
+				_applyNoteAnim(animArrows[i] + 'holdend');
 				break;
 			}
 		}
 
 
 		updateHitbox();
+		// Re-aplicar offset de skin: el updateHitbox() de arriba (para recalcular
+		// width y centrar x) llama centerOffsets() borrando el offset de _applyNoteAnim.
+		offset.x += noteOffsetX;
+		offset.y += noteOffsetY;
 		x -= width / 2;
 
 		// Offset X extra (leído del JSON de skin — e.g. 30 para pixel, 0 para normal)
@@ -322,8 +386,7 @@ class Note extends FlxSprite
 			{
 				if (prevNote.noteData == i)
 				{
-					if (prevNote.animation.exists(animArrows[i] + 'hold'))
-						prevNote.animation.play(animArrows[i] + 'hold');
+					prevNote._applyNoteAnim(animArrows[i] + 'hold');
 					break;
 				}
 			}
@@ -359,6 +422,10 @@ class Note extends FlxSprite
 			// rotacion de deformacion sin acumulacion (lee este valor, no scale.y).
 			prevNote.sustainBaseScaleY = prevNote.scale.y;
 			prevNote.updateHitbox();
+			// Re-aplicar offset de skin: updateHitbox() borra el offset que
+			// _applyNoteAnim('hold') aplicó justo arriba.
+			prevNote.offset.x += prevNote.noteOffsetX;
+			prevNote.offset.y += prevNote.noteOffsetY;
 		}
 	}
 
@@ -391,9 +458,9 @@ class Note extends FlxSprite
 				}
 			}
 			for (i in 0...dirs.length)
-				if (noteData == i && animation.exists(dirs[i] + 'Scroll'))
+				if (noteData == i)
 				{
-					animation.play(dirs[i] + 'Scroll');
+					_applyNoteAnim(dirs[i] + 'Scroll');
 					break;
 				}
 		}
@@ -431,9 +498,9 @@ class Note extends FlxSprite
 				}
 			}
 			for (i in 0...dirs.length)
-				if (noteData == i && animation.exists(dirs[i] + 'holdend'))
+				if (noteData == i)
 				{
-					animation.play(dirs[i] + 'holdend');
+					_applyNoteAnim(dirs[i] + 'holdend');
 					break;
 				}
 		}
@@ -442,6 +509,23 @@ class Note extends FlxSprite
 	}
 
 	// ==================== UTILIDADES ====================
+
+	/**
+	 * Reproduce una animación de nota aplicando el offset de skin correspondiente.
+	 * Equivalente a StrumNote.playAnim() pero para notas scroll/hold/holdend.
+	 *
+	 * Flujo: animation.play() → centerOffsets() → offset.x += noteOffsetX, offset.y += noteOffsetY
+	 * Si la animación no existe se ignora silenciosamente (sin WARNING).
+	 */
+	private function _applyNoteAnim(animName:String, force:Bool = false):Void
+	{
+		if (animation == null || !animation.exists(animName))
+			return;
+		animation.play(animName, force);
+		centerOffsets();
+		offset.x += noteOffsetX;
+		offset.y += noteOffsetY;
+	}
 
 	/** Calcula la posición X base según mustPress y middlescroll. */
 	inline function _calcBaseX(mustHitNote:Bool):Float

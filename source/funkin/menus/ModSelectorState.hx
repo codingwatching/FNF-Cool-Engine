@@ -633,9 +633,6 @@ class ModSelectorState extends MusicBeatState
 
 	function _handleMouse():Void
 	{
-		final mx = FlxG.mouse.screenX;
-		final my = FlxG.mouse.screenY;
-
 		// ── Scroll de rueda en lista ─────────────────────────────────────────
 		if (_curTab == 0 && FlxG.mouse.wheel != 0 && _mods.length > 0)
 		{
@@ -648,15 +645,12 @@ class ModSelectorState extends MusicBeatState
 			return;
 
 		// ── Click en tabs ────────────────────────────────────────────────────
-		final tabStartX = LIST_W + 4;
-		final tabW = (FlxG.width - tabStartX) / TAB_NAMES.length;
-		if (my >= 0 && my <= 28 && mx >= tabStartX)
+		for (i in 0..._tabBtns.length)
 		{
-			final tabIdx = Math.floor((mx - tabStartX) / tabW);
-			if (tabIdx >= 0 && tabIdx < TAB_NAMES.length && tabIdx != _curTab)
+			if (FlxG.mouse.overlaps(_tabBtns[i], _camUI) && i != _curTab)
 			{
 				_sndScroll();
-				_switchTab(tabIdx);
+				_switchTab(i);
 				return;
 			}
 		}
@@ -665,55 +659,45 @@ class ModSelectorState extends MusicBeatState
 		if (_curTab == 0)
 		{
 			// Botón "⬆ IMPORT MOD"
-			if (_importBtn != null && mx >= _importBtn.x && mx <= _importBtn.x + _importBtn.width
-				&& my >= _importBtn.y && my <= _importBtn.y + _importBtn.height)
+			if (_importBtn != null && FlxG.mouse.overlaps(_importBtn, _camUI))
 			{
 				_sndConfirm();
 				_openImportMod();
 				return;
 			}
 			// Botón "+ NEW MOD"
-			if (_newBtn != null && mx >= _newBtn.x && mx <= _newBtn.x + _newBtn.width
-				&& my >= _newBtn.y && my <= _newBtn.y + _newBtn.height)
+			if (_newBtn != null && FlxG.mouse.overlaps(_newBtn, _camUI))
 			{
 				_sndConfirm();
 				_openCreateMod();
 				return;
 			}
 			// Click en item de lista
-			if (mx >= 0 && mx <= LIST_W)
+			_itemGroup.forEachAlive(function(item:ModListItem)
 			{
-				_itemGroup.forEachAlive(function(item:ModListItem)
+				if (FlxG.mouse.overlaps(item, _camUI))
 				{
-					final screenY = item.y - _camUI.scroll.y;
-					if (my >= screenY && my < screenY + LIST_ITEM_H)
+					if (item.modIndex == _cur)
 					{
-						if (item.modIndex == _cur)
-						{
-							// Segundo click en seleccionado → activar
-							_sndConfirm();
-							_activateMod();
-						}
-						else
-						{
-							_sndScroll();
-							_cur = item.modIndex;
-							_selectItem(_cur);
-						}
+						_sndConfirm();
+						_activateMod();
 					}
-				});
-			}
+					else
+					{
+						_sndScroll();
+						_cur = item.modIndex;
+						_selectItem(_cur);
+					}
+				}
+			});
 		}
 
 		// ── Tab CONFIG ────────────────────────────────────────────────────────
 		if (_curTab == 1)
 		{
-			final ix = PREVIEW_X + 12;
-			final iy = CONTENT_Y + 8;
 			for (i in 0..._cfgItems.length)
 			{
-				final itemY:Float = iy + i * 44;
-				if (mx >= ix && mx <= FlxG.width - 20 && my >= itemY && my < itemY + 44)
+				if (FlxG.mouse.overlaps(_cfgItems[i].value, _camUI))
 				{
 					if (i == _cfgCursor)
 					{
@@ -734,12 +718,9 @@ class ModSelectorState extends MusicBeatState
 		// ── Tab SYSTEM ────────────────────────────────────────────────────────
 		if (_curTab == 2)
 		{
-			final ix = PREVIEW_X + 12;
-			final iy = CONTENT_Y + 8;
 			for (i in 0..._sysItems.length)
 			{
-				final itemY:Float = iy + i * 44;
-				if (mx >= ix && mx <= FlxG.width - 20 && my >= itemY && my < itemY + 44)
+				if (FlxG.mouse.overlaps(_sysItems[i].value, _camUI))
 				{
 					if (i == _sysCursor)
 					{
@@ -1705,30 +1686,25 @@ class ModEditSubState extends FlxSubState
 		// ── Mouse ─────────────────────────────────────────────────────────────
 		if (FlxG.mouse.justPressed)
 		{
-			final mx = FlxG.mouse.screenX;
-			final my = FlxG.mouse.screenY;
 			// Botón SAVE
-			if (_saveBtn != null && mx >= _saveBtn.x && mx <= _saveBtn.x + _saveBtn.width
-				&& my >= _saveBtn.y && my <= _saveBtn.y + _saveBtn.height)
+			if (_saveBtn != null && FlxG.mouse.overlaps(_saveBtn, cameras[0]))
 			{
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 				_save();
 			}
 			// Botón CLOSE
-			else if (_closeBtn != null && mx >= _closeBtn.x && mx <= _closeBtn.x + _closeBtn.width
-				&& my >= _closeBtn.y && my <= _closeBtn.y + _closeBtn.height)
+			else if (_closeBtn != null && FlxG.mouse.overlaps(_closeBtn, cameras[0]))
 			{
 				FlxG.mouse.visible = true;
 				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 				close();
 			}
-			// Click en campo
-			else if (mx >= _panelX && mx <= _panelX + _panelW)
+			// Click en campo — usar value FlxText como hitbox de cada fila
+			else
 			{
-				for (i in 0..._fields.length)
+				for (i in 0..._fieldValues.length)
 				{
-					final fy = _panelY + 58 + i * 48;
-					if (my >= fy && my < fy + 44)
+					if (FlxG.mouse.overlaps(_fieldValues[i], cameras[0]))
 					{
 						if (i == _curField)
 						{

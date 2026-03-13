@@ -40,9 +40,9 @@ echo ===============================================
 echo Installing HaxeFlixel...
 echo ===============================================
 
-haxelib git flixel https://github.com/HaxeFlixel/flixel
+haxelib git flixel https://github.com/FunkinCrew/flixel
 
-haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui
+haxelib install flixel-ui
 haxelib install flixel-tools 1.5.1
 
 cls
@@ -93,7 +93,7 @@ echo.
 echo Installed versions:
 echo  - Lime:        8.1.0
 echo  - OpenFL:      9.3.0
-echo  - Flixel:      5.4.0
+echo  - Flixel:      FunkinCrew/flixel git
 echo.
 echo You are now ready to compile your project.
 echo.

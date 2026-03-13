@@ -12,6 +12,15 @@ import flixel.sound.FlxSound;
 import funkin.transitions.StateTransition;
 import funkin.transitions.StickerTransition;
 import funkin.scripting.ScriptableState.ScriptableSubState;
+import funkin.addons.AddonManager;
+import funkin.graphics.scene3d.Flx3DScene;
+import funkin.graphics.scene3d.Flx3DSprite;
+import funkin.graphics.scene3d.Flx3DObject;
+import funkin.graphics.scene3d.Flx3DPrimitives;
+import funkin.graphics.scene3d.Flx3DMesh;
+import funkin.graphics.scene3d.Flx3DCamera;
+import funkin.graphics.scene3d.Vec3;
+import funkin.graphics.scene3d.Mat4;
 
 #if HSCRIPT_ALLOWED
 import hscript.Interp;
@@ -105,6 +114,11 @@ class ScriptAPI
 		exposeModPaths(interp);       // ModPaths completo
 		// ── v7: Nuevas clases base de script ──────────────────────────────────
 		exposeScriptTemplates(interp); // PlayStateScript, CharacterScript, StateScript
+		// ── v8: Acceso directo a todos los states (igual que Haxe normal) ───
+		exposeStatesAndCasting(interp);
+		// ── v9: Sistema 3D y AddonManager ─────────────────────────────────────
+		expose3D(interp);             // Flx3DSprite, Flx3DScene, primitivas GPU, etc.
+		exposeAddonManager(interp);   // AddonManager + sistemas registrados por addons
 	}
 
 	// ─── Flixel core ──────────────────────────────────────────────────────────
@@ -2498,6 +2512,316 @@ class ScriptAPI
 			);
 			flixel.FlxG.state.openSubState(editor);
 		});
+	}
+
+	// ─── States + casting directo ────────────────────────────────────────────
+	//
+	// Permite escribir en scripts exactamente igual que en Haxe normal:
+	//
+	//   FreeplayState.songInfo          → campo estático directo
+	//   MainMenuState.firstStart = true → escritura estática
+	//   PlayState.instance.health       → instancia del gameplay
+	//
+	//   var fs = getState()             → estado actual ya casteado al tipo correcto
+	//   fs.curSong                      → campo de instancia sin Reflect
+	//
+	//   var ps = getState('PlayState')  → igual pero pides el tipo explícito
+	//   var ms = getState('FreeplayState')
+	//
+	// Si el state actual no es del tipo pedido, devuelve null en lugar de crashear.
+	//
+	static function exposeStatesAndCasting(interp:Interp):Void
+	{
+		// ── Clases de state expuestas directamente ────────────────────────────
+		// Scripts pueden acceder a campos estáticos igual que en Haxe:
+		//   FreeplayState.songInfo
+		//   FreeplayState.difficultyStuff[0]
+		//   MainMenuState.firstStart
+		interp.variables.set('PlayState',            funkin.gameplay.PlayState);
+		interp.variables.set('GameState',            funkin.gameplay.GameState);
+		interp.variables.set('MainMenuState',        funkin.menus.MainMenuState);
+		interp.variables.set('FreeplayState',        funkin.menus.FreeplayState);
+		interp.variables.set('StoryMenuState',       funkin.menus.StoryMenuState);
+		interp.variables.set('TitleState',           funkin.menus.TitleState);
+		interp.variables.set('OptionsMenuState',     funkin.menus.OptionsMenuState);
+		interp.variables.set('CreditsState',         funkin.menus.CreditsState);
+		interp.variables.set('PauseSubState',        funkin.menus.PauseSubState);
+		interp.variables.set('GameOverSubstate',     funkin.states.GameOverSubstate);
+		interp.variables.set('LoadingState',         funkin.states.LoadingState);
+		interp.variables.set('MusicBeatState',       funkin.states.MusicBeatState);
+		interp.variables.set('MusicBeatSubstate',    funkin.states.MusicBeatSubstate);
+		interp.variables.set('CharacterSelectorState', funkin.menus.CharacterSelectorState);
+		interp.variables.set('ModSelectorState',     funkin.menus.ModSelectorState);
+		interp.variables.set('ChartingState',        funkin.debug.charting.ChartingState);
+		interp.variables.set('ScriptableState',      funkin.scripting.ScriptableState);
+
+		// ── currentState: el state activo ya listo para usar ─────────────────
+		// Igual que FlxG.state pero sin necesitar cast.
+		// En gameplay devuelve PlayState.instance directamente.
+		interp.variables.set('currentState', function():Dynamic {
+			final ps = funkin.gameplay.PlayState.instance;
+			if (ps != null) return ps;
+			return FlxG.state;
+		});
+
+		// ── getState(nombre?): cast automático al tipo correcto ───────────────
+		//
+		// Sin argumento → devuelve el state actual, sea lo que sea.
+		// Con nombre    → devuelve el state si es de ese tipo, null si no.
+		//
+		// Ejemplos:
+		//   var ps  = getState();                   // Dynamic, sin cast
+		//   var fs  = getState('FreeplayState');     // FreeplayState o null
+		//   var ms  = getState('MainMenuState');
+		//   var pau = getState('PauseSubState');     // substate activo
+		//
+		interp.variables.set('getState', function(?typeName:String):Dynamic {
+			// Sin argumento: state/substate actual
+			if (typeName == null || typeName == '') {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps != null) return ps;
+				// Substate activo tiene prioridad sobre el state padre
+				if (FlxG.state != null && FlxG.state.subState != null)
+					return FlxG.state.subState;
+				return FlxG.state;
+			}
+
+			// Resolver la clase por nombre
+			final cls = _resolveStateClass(typeName);
+			if (cls == null) {
+				trace('[ScriptAPI] getState: tipo "$typeName" no encontrado.');
+				return null;
+			}
+
+			// Comprobar substate primero (PauseSubState, GameOver, etc.)
+			if (FlxG.state != null && FlxG.state.subState != null
+				&& Std.isOfType(FlxG.state.subState, cls))
+				return FlxG.state.subState;
+
+			// Luego el state principal
+			if (FlxG.state != null && Std.isOfType(FlxG.state, cls))
+				return FlxG.state;
+
+			// PlayState por singleton (evitar cast inútil si ya es el mismo)
+			final ps = funkin.gameplay.PlayState.instance;
+			if (ps != null && Std.isOfType(ps, cls)) return ps;
+
+			return null;
+		});
+
+		// ── isState(nombre): saber en qué state estás ────────────────────────
+		//
+		//   if (isState('FreeplayState')) { ... }
+		//   if (isState('PauseSubState')) { ... }
+		//
+		interp.variables.set('isState', function(typeName:String):Bool {
+			final cls = _resolveStateClass(typeName);
+			if (cls == null) return false;
+			if (FlxG.state != null && FlxG.state.subState != null
+				&& Std.isOfType(FlxG.state.subState, cls)) return true;
+			if (FlxG.state != null && Std.isOfType(FlxG.state, cls)) return true;
+			return false;
+		});
+
+		// ── switchState: ir a un state directamente por clase o nombre ────────
+		//
+		//   switchState(new FreeplayState());     // instancia directa
+		//   switchState('MainMenuState');          // por nombre de clase
+		//
+		interp.variables.set('switchState', function(stateOrName:Dynamic):Void {
+			if (stateOrName == null) return;
+			if (Std.isOfType(stateOrName, String)) {
+				funkin.scripting.ScriptBridge.switchStateByName(stateOrName);
+			} else {
+				funkin.transitions.StateTransition.switchState(stateOrName);
+			}
+		});
+
+		// ── Variables directas de state ─────────────────────────────────────
+		// Instancias reales, no funciones. En el script se usan igual que Haxe:
+		//
+		//   freeplay.curSong = "x";
+		//   mainmenu.firstStart = false;
+		//   pause.resume();
+		//
+		// Son null si el state activo no es ese tipo.
+		interp.variables.set('freeplay',    _castState(funkin.menus.FreeplayState));
+		interp.variables.set('mainmenu',    _castState(funkin.menus.MainMenuState));
+		interp.variables.set('storymenu',   _castState(funkin.menus.StoryMenuState));
+		interp.variables.set('titlescreen', _castState(funkin.menus.TitleState));
+		interp.variables.set('options',     _castState(funkin.menus.OptionsMenuState));
+		interp.variables.set('pause',    (FlxG.state != null && FlxG.state.subState != null
+			&& Std.isOfType(FlxG.state.subState, funkin.menus.PauseSubState))
+			? FlxG.state.subState : null);
+		interp.variables.set('gameover', (FlxG.state != null && FlxG.state.subState != null
+			&& Std.isOfType(FlxG.state.subState, funkin.states.GameOverSubstate))
+			? FlxG.state.subState : null);
+	}
+
+	/** Devuelve el state actual si es del tipo dado, null si no. */
+	static function _castState(cls:Class<Dynamic>):Dynamic {
+		if (FlxG.state != null && Std.isOfType(FlxG.state, cls)) return FlxG.state;
+		final ps = funkin.gameplay.PlayState.instance;
+		if (ps != null && Std.isOfType(ps, cls)) return ps;
+		return null;
+	}
+
+	/** Resuelve el nombre de clase de state al tipo real. */
+	static function _resolveStateClass(name:String):Null<Class<Dynamic>> {
+		return switch (name) {
+			case 'PlayState':             funkin.gameplay.PlayState;
+			case 'GameState':             funkin.gameplay.GameState;
+			case 'MainMenuState':         funkin.menus.MainMenuState;
+			case 'FreeplayState':         funkin.menus.FreeplayState;
+			case 'StoryMenuState':        funkin.menus.StoryMenuState;
+			case 'TitleState':            funkin.menus.TitleState;
+			case 'OptionsMenuState':      funkin.menus.OptionsMenuState;
+			case 'CreditsState':          funkin.menus.CreditsState;
+			case 'PauseSubState':         funkin.menus.PauseSubState;
+			case 'GameOverSubstate':      funkin.states.GameOverSubstate;
+			case 'LoadingState':          funkin.states.LoadingState;
+			case 'MusicBeatState':        funkin.states.MusicBeatState;
+			case 'MusicBeatSubstate':     funkin.states.MusicBeatSubstate;
+			case 'CharacterSelectorState': funkin.menus.CharacterSelectorState;
+			case 'ModSelectorState':      funkin.menus.ModSelectorState;
+			case 'ChartingState':         funkin.debug.charting.ChartingState;
+			case 'ScriptableState':       funkin.scripting.ScriptableState;
+			default: Type.resolveClass('funkin.menus.$name')
+				?? Type.resolveClass('funkin.gameplay.$name')
+				?? Type.resolveClass('funkin.states.$name')
+				?? Type.resolveClass('funkin.menus.substate.$name')
+				?? Type.resolveClass(name);
+		};
+	}
+
+	// ─── Sistema 3D ───────────────────────────────────────────────────────────
+	//
+	// Expone las clases del sistema de escena 3D GPU-acelerada a HScript.
+	// Permite a mods y addons crear sprites con geometría 3D renderizada
+	// sobre Stage3D/Context3D directamente desde scripts.
+	//
+	// Uso básico en HScript:
+	//   var sp = new Flx3DSprite(0, 0, 640, 480);
+	//   add(sp);
+	//   var cube = Flx3DPrimitives.cube();
+	//   var obj = new Flx3DObject();
+	//   obj.mesh = cube;
+	//   sp.scene.add(obj);
+	//
+	//   // Controlar la cámara
+	//   sp.scene.camera.z = -5;
+	//
+	//   // En onUpdate:
+	//   obj.rotY += elapsed;
+	//   sp.scene.render();
+	//
+	static function expose3D(interp:Interp):Void
+	{
+		// ── Clases principales ────────────────────────────────────────────────
+		interp.variables.set('Flx3DSprite',     Flx3DSprite);
+		interp.variables.set('Flx3DScene',      Flx3DScene);
+		interp.variables.set('Flx3DObject',     Flx3DObject);
+		interp.variables.set('Flx3DMesh',       Flx3DMesh);
+		interp.variables.set('Flx3DCamera',     Flx3DCamera);
+		interp.variables.set('Flx3DPrimitives', Flx3DPrimitives);
+		interp.variables.set('Vec3',            Vec3);
+		interp.variables.set('Mat4',            Mat4);
+
+		// ── Proxy de fábrica para uso ergonómico desde scripts ───────────────
+		// Los métodos estáticos de Flx3DPrimitives no son reflectables en C++.
+		// Este proxy los envuelve en lambdas exactamente igual que _shaderManagerProxy().
+		interp.variables.set('scene3d', {
+			// Crear un sprite 3D listo para usar
+			createSprite: function(x:Float, y:Float, w:Int, h:Int):Flx3DSprite
+				return new Flx3DSprite(x, y, w, h),
+
+			// Crear un objeto 3D vacío (sin malla)
+			createObject: function():Flx3DObject
+				return new Flx3DObject(),
+
+			// ── Primitivas ────────────────────────────────────────────────────
+			// Devuelven un Flx3DMesh listo para asignar a obj.mesh
+			cube:         function():Flx3DMesh     return Flx3DPrimitives.cube(),
+			plane:        function(?w:Float, ?h:Float):Flx3DMesh
+				return Flx3DPrimitives.plane(w ?? 1.0, h ?? 1.0),
+			sphere:       function(?r:Float, ?segs:Int):Flx3DMesh
+				return Flx3DPrimitives.sphere(r ?? 0.5, segs ?? 16),
+			cylinder:     function(?r:Float, ?height:Float, ?segs:Int):Flx3DMesh
+				return Flx3DPrimitives.cylinder(r ?? 0.5, height ?? 1.0, segs ?? 16),
+
+			// ── Helpers de cámara ─────────────────────────────────────────────
+			// Obtiene la cámara 3D de un Flx3DSprite
+			getCamera:    function(sprite:Flx3DSprite):Flx3DCamera {
+				return sprite?.scene?.camera;
+			},
+
+			// ── Vec3 factory ─────────────────────────────────────────────────
+			vec3:         function(x:Float, y:Float, z:Float):Vec3
+				return new Vec3(x, y, z),
+
+			// ── Mat4 identity ─────────────────────────────────────────────────
+			mat4:         function():Mat4
+				return new Mat4()
+		});
+	}
+
+	// ─── AddonManager ─────────────────────────────────────────────────────────
+	//
+	// Expone AddonManager al intérprete HScript y llama al hook 'exposeAPI'
+	// de cada addon cargado para que registren sus propias variables.
+	//
+	// Variables inyectadas:
+	//   AddonManager          → clase estática completa
+	//   addon_<id>            → API de cada sistema registrado (por registerSystem)
+	//   addons                → objeto proxy con helpers de alto nivel
+	//
+	// Uso en HScript:
+	//   // Comprobar si un sistema está disponible
+	//   if (AddonManager.hasSystem('myParticles')) {
+	//     var api = AddonManager.getSystem('myParticles');
+	//     api.burst(x, y, 20);
+	//   }
+	//
+	//   // Alias corto via proxy
+	//   var sys = addons.getSystem('myParticles');
+	//   addons.callHook('onSongStart', []);
+	//
+	static function exposeAddonManager(interp:Interp):Void
+	{
+		#if HSCRIPT_ALLOWED
+		// Delegar a AddonManager.exposeToScript() que:
+		//  1. Inyecta la clase AddonManager
+		//  2. Expone cada sistema registrado como "addon_<id>"
+		//  3. Llama el hook 'exposeAPI' en todos los addons cargados
+		AddonManager.exposeToScript(interp);
+
+		// Proxy de alto nivel para uso ergonómico en scripts
+		interp.variables.set('addons', {
+			// ── Query de sistemas ─────────────────────────────────────────────
+			getSystem:   function(id:String):Dynamic
+				return AddonManager.getSystem(id),
+			hasSystem:   function(id:String):Bool
+				return AddonManager.hasSystem(id),
+			allSystems:  function():Array<String>
+				return [for (k in AddonManager.registeredSystems.keys()) k],
+
+			// ── Dispatch de hooks ─────────────────────────────────────────────
+			// callHook: primer addon que retorna non-null gana
+			callHook:    function(hookName:String, ?args:Array<Dynamic>):Dynamic
+				return AddonManager.callHook(hookName, args ?? []),
+			// broadcastHook: todos los addons reciben el hook (sin early-exit)
+			broadcastHook: function(hookName:String, ?args:Array<Dynamic>):Void
+				AddonManager.broadcastHook(hookName, args ?? []),
+
+			// ── Info de addons cargados ───────────────────────────────────────
+			count:       function():Int
+				return AddonManager.loadedAddons.length,
+			ids:         function():Array<String>
+				return [for (ae in AddonManager.loadedAddons) ae.id],
+			isLoaded:    function():Bool
+				return AddonManager.initialized
+		});
+		#end
 	}
 
 	#end // HSCRIPT_ALLOWED

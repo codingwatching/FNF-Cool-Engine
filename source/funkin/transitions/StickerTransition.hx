@@ -13,16 +13,34 @@ import haxe.Json;
 import sys.FileSystem;
 
 /**
- * Sistema de transición con stickers al estilo FNF
- * ✅ BASADO en el sistema del FNF base - usa OpenFL Sprite para persistir entre states
+ * Sistema de transición con stickers — animación idéntica al V-Slice (FNF base).
+ *
+ * APARICIÓN (regenStickers):
+ *   • Grid que cubre toda la pantalla usando frameWidth * 0.5 de avance horizontal
+ *     y 70-120 px de avance vertical (igual que v-slice).
+ *   • Se mezcla el orden aleatoriamente.
+ *   • Se añade un sticker CENTRAL al final (ángulo 0, escala pop grande).
+ *   • timing = remapToRange(ind, 0, N, 0, 0.9).
+ *   • Al aparecer: visible=true → delay 0-2 frames → snap de escala (0.97-1.02).
+ *   • El último sticker siempre usa 2 frames de delay y escala 1.08 → dispara callback.
+ *
+ * DESAPARICIÓN (degenStickers):
+ *   • Cada sticker se oculta con visible=false usando su mismo timing de aparición.
+ *   • Sin tweens de posición ni escala (igual que v-slice).
+ *
+ * SKIN POR WEEK / SONG:
+ *   Llama StickerTransition.setCurrentContext(weekIdx, songName) antes de start().
+ *   El campo stickerMode del config decide cómo elegir el set:
+ *     "week"   → weekStickerSets[weekIdx]  (default)
+ *     "song"   → songStickerSets[songName]
+ *     "random" → set aleatorio
  */
 class StickerTransition
 {
-	// Configuración
+	// ── Config ────────────────────────────────────────────────────────────────
+
 	public static var enabled:Bool = true;
-	// FIX: Paths.resolveWrite() no debe llamarse como inicializador estático en HXCPP.
-	// Los estáticos se inicializan antes de main() y pueden ejecutarse antes de que
-	// ModManager o el FS estén listos. Se resuelve lazy en la primera lectura.
+
 	public static var configPath(get, set):String;
 	static var _configPath:Null<String> = null;
 	static function get_configPath():String
@@ -34,665 +52,489 @@ class StickerTransition
 	static function set_configPath(v:String):String return _configPath = v;
 
 	private static var config:StickerConfig;
-	private static var onComplete:Void->Void;
-	private static var isPlaying:Bool = false;
-	
-	// ✅ OpenFL Sprite container (como StickerTransitionSprite del FNF base)
-	private static var transitionSprite:Null<StickerTransitionContainer> = null;
-	
-	// Cache de gráficos
-	private static var graphicsCache:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
-	private static var cacheLoaded:Bool = false;
-	
-	// ✅ Map para guardar datos de cada sticker
-	private static var stickerData:Map<FlxSprite, StickerSpriteData> = new Map<FlxSprite, StickerSpriteData>();
-	
-	// ✅ Lista de timers activos para poder cancelarlos
-	private static var activeTimers:Array<FlxTimer> = [];
+
+	// ── Contexto para elegir skin ─────────────────────────────────────────────
+
+	/** Índice de la semana actual (StoryMenu o Freeplay). */
+	public static var currentWeek:Int = -1;
+	/** Nombre de canción actual en lowercase. */
+	public static var currentSong:String = "";
 
 	/**
-	 * Inicializa el sistema de transición
+	 * Establece el contexto de week/song ANTES de llamar start().
+	 * El motor elegirá el set correcto según stickerMode del config.
+	 *
+	 * @param weekIdx  Índice de week. -1 = no especificado.
+	 * @param songName Nombre de la canción (lowercase). Opcional.
 	 */
+	public static function setCurrentContext(weekIdx:Int, ?songName:String):Void
+	{
+		currentWeek = weekIdx;
+		currentSong = songName != null ? songName.toLowerCase() : "";
+	}
+
+	// ── Estado interno ────────────────────────────────────────────────────────
+
+	private static var onComplete:Void->Void;
+	private static var isPlaying:Bool = false;
+
+	private static var transitionSprite:Null<StickerTransitionContainer> = null;
+
+	private static var graphicsCache:Map<String, FlxGraphic> = new Map();
+	private static var cacheLoaded:Bool = false;
+
+	/**
+	 * timing de aparición por sticker — reutilizado en disipación.
+	 * Público para que StickerTransitionContainer pueda leerlo.
+	 */
+	public static var stickerTimings:Map<FlxSprite, Float> = new Map();
+
+	private static var activeTimers:Array<FlxTimer> = [];
+
+	// ═════════════════════════════════════════════════════════════════════════
+	//  API PÚBLICA
+	// ═════════════════════════════════════════════════════════════════════════
+
 	public static function init():Void
 	{
 		loadConfig();
 		preloadGraphics();
-		
-		// Crear el contenedor de transición
 		if (transitionSprite == null)
-		{
 			transitionSprite = new StickerTransitionContainer();
-		}
-		
-		trace('[StickerTransition] System initialized');
+		trace('[StickerTransition] System initialized (mode: ${config?.stickerMode ?? "random"})');
 	}
 
 	/**
-	 * Pre-carga todos los gráficos de stickers
-	 */
-	private static function preloadGraphics():Void
-	{
-		if (cacheLoaded || config == null)
-			return;
-			
-		trace('[StickerTransition] ========== PRE-LOADING GRAPHICS ==========');
-		
-		var loadedCount = 0;
-		var failedCount = 0;
-		
-		for (set in config.stickerSets)
-		{
-			for (stickerName in set.stickers)
-			{
-				var stickerPath = '${set.path}/$stickerName';
-				var cacheKey = stickerPath;
-				
-				if (!graphicsCache.exists(cacheKey))
-				{
-					try
-					{
-						// En native cpp, openfl.Assets.getBitmapData() solo funciona con
-						// assets embebidos, no con rutas de filesystem de mods — de ahí
-						// el crash en lime build (FlxImageFrame::findFrame con bitmap null).
-						// Solución: usar BitmapData.fromFile() en targets sys.
-						var resolvedPath = Paths.image(stickerPath);
-						var bitmapData:openfl.display.BitmapData = null;
-						#if sys
-						if (sys.FileSystem.exists(resolvedPath))
-							bitmapData = openfl.display.BitmapData.fromFile(resolvedPath);
-						#else
-						bitmapData = openfl.Assets.getBitmapData(resolvedPath);
-						#end
-						if (bitmapData == null)
-						{
-							trace('[StickerTransition] ❌ BitmapData null (asset no existe): $stickerPath');
-							failedCount++;
-						}
-						else
-						{
-							var graphic = FlxGraphic.fromBitmapData(bitmapData);
-							graphic.persist = true;
-							graphicsCache.set(cacheKey, graphic);
-							loadedCount++;
-						}
-					}
-					catch (e:Dynamic)
-					{
-						trace('[StickerTransition] ❌ Failed to cache: $stickerPath ($e)');
-						failedCount++;
-					}
-				}
-			}
-		}
-		
-		cacheLoaded = true;
-		trace('[StickerTransition] ========== CACHE COMPLETE ==========');
-		trace('[StickerTransition] Loaded: $loadedCount | Failed: $failedCount');
-	}
-
-	/**
-	 * Carga la configuración desde JSON
-	 */
-	private static function loadConfig():Void
-	{
-		try
-		{
-			var jsonPath = configPath;
-
-			#if sys
-			if (!FileSystem.exists(jsonPath))
-			{
-				trace('[StickerTransition] Config not found, using defaults');
-				config = getDefaultConfig();
-				return;
-			}
-			#end
-
-			var rawJson = sys.io.File.getContent(jsonPath);
-			config = Json.parse(rawJson);
-			trace('[StickerTransition] Config loaded successfully');
-		}
-		catch (e:Dynamic)
-		{
-			trace('[StickerTransition] Error loading config: $e');
-			config = getDefaultConfig();
-		}
-	}
-
-	/**
-	 * Configuración por defecto
-	 */
-	private static function getDefaultConfig():StickerConfig
-	{
-		return {
-			enabled: true,
-			stickerSets: [
-				{
-					name: "stickers-set-1",
-					path: "transitionSwag/stickers-set-1",
-					stickers: [
-						"bfSticker3",
-						"picoSticker1",
-						"dadSticker1",
-						"gfSticker1",
-						"momSticker1",
-						"monsterSticker1"
-					]
-				},
-				{
-					name: "stickers-set-2",
-					path: "transitionSwag/stickers-set-2",
-					stickers: ["bfSticker3", "picoSticker1", "dadSticker1"]
-				}
-			],
-			soundPath: "stickersounds/keys",
-			sounds: ["keyClick1", "keyClick2", "keyClick3"],
-			stickersPerWave: 8,
-			totalWaves: 12,
-			delayBetweenStickers: 0.0,
-			delayBetweenWaves: 0.1,
-			minScale: 0.85,
-			maxScale: 1.0,
-			animationDuration: 0.25,
-			stickerLifetime: 999
-		};
-	}
-
-	/**
-	 * Inicia la transición con stickers
+	 * Inicia la transición — llena la pantalla de stickers.
+	 * El callback se dispara cuando el último sticker aparece.
+	 *
+	 * @param callback  Función a llamar cuando los stickers cubren la pantalla.
+	 * @param customSet Override manual del nombre del set.
 	 */
 	public static function start(?callback:Void->Void, ?customSet:String):Void
 	{
-		if (!enabled)
-			return;
-		
-		// ✅ CRÍTICO: Si ya hay una transición corriendo, cancelarla primero
+		if (!enabled) return;
+
 		if (isPlaying)
 		{
-			trace('[StickerTransition] Transition already playing, cancelling it first');
+			trace('[StickerTransition] Already playing — cancelling first');
 			cancel();
 		}
 
-		if (config == null)
-			loadConfig();
-			
-		if (!cacheLoaded)
-			preloadGraphics();
-			
+		if (config == null) loadConfig();
+		if (!cacheLoaded) preloadGraphics();
 		if (transitionSprite == null)
-		{
 			transitionSprite = new StickerTransitionContainer();
-		}
 
-		isPlaying = true;
-		onComplete = callback;
+		isPlaying   = true;
+		onComplete  = callback;
 
-		trace('[StickerTransition] ========== STARTING TRANSITION ==========');
-
-		// ✅ Insertar el sprite en OpenFL (como hace el FNF base)
+		trace('[StickerTransition] ===== START =====');
 		transitionSprite.insert();
 
-		// Seleccionar set de stickers
-		var selectedSet:StickerSet = null;
-
-		if (customSet != null)
-		{
-			for (set in config.stickerSets)
-			{
-				if (set.name == customSet)
-				{
-					selectedSet = set;
-					break;
-				}
-			}
-		}
-
-		if (selectedSet == null)
-			selectedSet = FlxG.random.getObject(config.stickerSets);
-
-		trace('[StickerTransition] Selected set: ${selectedSet.name}');
-
-		// Generar stickers
-		generateStickers(selectedSet);
+		var selectedSet = _pickSet(customSet);
+		trace('[StickerTransition] Set: ${selectedSet.name}');
+		_regenStickers(selectedSet);
 	}
 
 	/**
-	 * Genera todos los stickers
+	 * Oculta los stickers una vez que el nuevo state fue creado.
+	 * Los stickers desaparecen con visible=false en el mismo timing con que
+	 * aparecieron (comportamiento idéntico al v-slice degenStickers).
+	 *
+	 * @param onFinished Callback cuando todos los stickers desaparecieron.
 	 */
-	private static function generateStickers(stickerSet:StickerSet):Void
+	public static function clearStickers(?onFinished:Void->Void):Void
 	{
-		transitionSprite.clearStickers();
-		
-		// ✅ Limpiar datos viejos
-		stickerData.clear();
-		
-		// ✅ CRÍTICO: CANCELAR timers viejos ANTES de limpiar la lista
-		// Si no hacemos esto, los timers viejos siguen corriendo como "fantasmas"
-		cancelAllTimers();
-		
-		var allStickers:Array<FlxSprite> = [];
-
-		// ✅ VOLVER A DISTRIBUCIÓN ALEATORIA (como antes que funcionaba bien)
-		var totalStickers = config.totalWaves * config.stickersPerWave; // 12 * 8 = 96
-		
-		for (i in 0...totalStickers)
+		if (!isPlaying)
 		{
-			var sticker = createSticker(stickerSet);
-			if (sticker != null)
-			{
-				sticker.x = FlxG.random.float(-sticker.width * 0.5 - 200, FlxG.width + sticker.width * 0.5 - 150);
-				sticker.y = FlxG.random.float(-sticker.height * 0.5 - 200, FlxG.height + sticker.height * 0.5 - 150);
-				
-				allStickers.push(sticker);
-				transitionSprite.addSticker(sticker);
-			}
+			if (onFinished != null) onFinished();
+			return;
 		}
-		
-		// ✅ Mezclar orden de aparición
-		FlxG.random.shuffle(allStickers);
 
-		trace('[StickerTransition] Created ${allStickers.length} stickers with random distribution');
+		trace('[StickerTransition] ===== CLEAR (degen) =====');
+		cancelAllTimers();
 
-		// Animar aparición en el orden mezclado
-		for (i in 0...allStickers.length)
+		if (transitionSprite != null)
 		{
-			var sticker = allStickers[i];
-			// Timing distribuido uniformemente entre 0 y 0.9 segundos
-			var timing = FlxMath.remapToRange(i, 0, allStickers.length, 0, 0.9);
-			
-			// ✅ Usar globalManager para que sobreviva cambios de state
-			var timer = new FlxTimer(FlxTimer.globalManager);
-			activeTimers.push(timer); // ✅ Guardar referencia
-			
-			timer.start(timing, function(t:FlxTimer)
+			transitionSprite.degenStickers(function()
 			{
-				animateStickerIn(sticker);
-				playRandomSound();
+				finish();
+				if (onFinished != null) onFinished();
 			});
 		}
-
-		// Llamar callback cuando terminen de aparecer
-		// ✅ Usar globalManager
-		var callbackTimer = new FlxTimer(FlxTimer.globalManager);
-		activeTimers.push(callbackTimer); // ✅ Guardar referencia
-		
-		callbackTimer.start(0.9 + config.animationDuration, function(t:FlxTimer)
+		else
 		{
-			trace('[StickerTransition] All stickers appeared, calling callback');
-			if (onComplete != null)
+			finish();
+			if (onFinished != null) onFinished();
+		}
+	}
+
+	public static function isActive():Bool return isPlaying;
+
+	public static function cancel():Void
+	{
+		if (!isPlaying) return;
+		trace('[StickerTransition] Cancelled');
+		finish();
+	}
+
+	public static function invalidateCache():Void
+	{
+		graphicsCache.clear();
+		cacheLoaded = false;
+		trace('[StickerTransition] Cache invalidated');
+	}
+
+	public static function reloadConfig():Void
+	{
+		loadConfig();
+		preloadGraphics();
+	}
+
+	public static function playRandomSound():Void
+	{
+		if (config == null || config.sounds == null || config.sounds.length == 0) return;
+		var name = FlxG.random.getObject(config.sounds);
+		try { FlxG.sound.play(Paths.sound('${config.soundPath}/$name'), FlxG.random.float(0.9, 1.3)); }
+		catch (_:Dynamic) {}
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	//  INTERNOS — generación y disipación
+	// ═════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Genera el grid de stickers al estilo v-slice y programa su aparición.
+	 */
+	private static function _regenStickers(stickerSet:StickerSet):Void
+	{
+		transitionSprite.clearStickers();
+		stickerTimings.clear();
+		cancelAllTimers();
+
+		var regularStickers:Array<FlxSprite> = [];
+
+		// ── Paso 1: grid que cubre la pantalla ────────────────────────────────
+		var xPos:Float = -100;
+		var yPos:Float = -100;
+
+		while (yPos <= FlxG.height)
+		{
+			var sticker = _makeSprite(stickerSet);
+			if (sticker == null) break;
+
+			sticker.x = xPos;
+			sticker.y = yPos;
+			sticker.angle = FlxG.random.int(-60, 70);
+
+			xPos += sticker.frameWidth * 0.65;
+			regularStickers.push(sticker);
+			transitionSprite.addSticker(sticker);
+
+			if (xPos >= FlxG.width)
 			{
-				onComplete();
+				if (yPos > FlxG.height) break;
+				xPos = -100;
+				yPos += FlxG.random.float(90, 140);
 			}
-		});
+		}
+
+		// ── Paso 2: mezclar orden ─────────────────────────────────────────────
+		FlxG.random.shuffle(regularStickers);
+
+		// ── Paso 3: sticker central (siempre el último en aparecer) ──────────
+		var centerSticker = _makeSprite(stickerSet);
+		if (centerSticker != null)
+		{
+			centerSticker.angle = 0;
+			centerSticker.updateHitbox();
+			centerSticker.x = (FlxG.width  - centerSticker.frameWidth)  * 0.5;
+			centerSticker.y = (FlxG.height - centerSticker.frameHeight) * 0.5;
+			transitionSprite.addSticker(centerSticker);
+		}
+
+		var allStickers = regularStickers.slice(0);
+		if (centerSticker != null) allStickers.push(centerSticker);
+
+		var totalN = allStickers.length;
+		trace('[StickerTransition] $totalN stickers generated');
+
+		// ── Paso 4: programar aparición con timing escalonado ─────────────────
+		for (ind in 0...totalN)
+		{
+			var sticker = allStickers[ind];
+			var timing  = FlxMath.remapToRange(ind, 0, totalN, 0, 0.9);
+			var isLast  = (ind == totalN - 1);
+
+			stickerTimings.set(sticker, timing); // guardado para degen
+
+			var t = new FlxTimer(FlxTimer.globalManager);
+			activeTimers.push(t);
+
+			t.start(timing, function(_:FlxTimer)
+			{
+				if (sticker == null || !sticker.exists) return;
+
+				sticker.visible = true;
+				playRandomSound();
+
+				// v-slice: 0-2 frames extra antes del snap de escala
+				var frameDelay = isLast ? 2 : FlxG.random.int(0, 2);
+				var frameTime  = (1.0 / 24.0) * frameDelay;
+
+				var snapAndCallback = function()
+				{
+					if (sticker != null && sticker.exists)
+					{
+						var snap:Float = isLast ? 1.08 : FlxG.random.float(0.97, 1.02);
+						sticker.scale.set(snap, snap);
+						sticker.updateHitbox();
+					}
+					if (isLast && onComplete != null)
+						onComplete();
+				};
+
+				if (frameTime > 0)
+				{
+					var ft = new FlxTimer(FlxTimer.globalManager);
+					activeTimers.push(ft);
+					ft.start(frameTime, function(_:FlxTimer) snapAndCallback());
+				}
+				else
+				{
+					snapAndCallback();
+				}
+			});
+		}
 	}
 
 	/**
-	 * Crea un sticker individual
+	 * Crea un FlxSprite para el sticker (sin posición ni ángulo — los asigna _regenStickers).
+	 * Empieza invisible con escala 1×1.
 	 */
-	private static function createSticker(stickerSet:StickerSet):Null<FlxSprite>
+	private static function _makeSprite(set:StickerSet):Null<FlxSprite>
 	{
-		var stickerName = FlxG.random.getObject(stickerSet.stickers);
-		var stickerPath = '${stickerSet.path}/$stickerName';
-		var cacheKey = stickerPath;
+		var name     = FlxG.random.getObject(set.stickers);
+		var cacheKey = '${set.path}/$name';
 
-		// Obtener gráfico del cache
 		var graphic = graphicsCache.get(cacheKey);
-		if (graphic == null)
+		if (graphic == null || graphic.bitmap == null)
 		{
-			trace('[StickerTransition] ⚠️ Graphic not in cache: $cacheKey');
-			return null;
-		}
-		// Segunda defensa: bitmap puede ser null si el asset no existía al cachear
-		if (graphic.bitmap == null)
-		{
-			trace('[StickerTransition] ⚠️ Graphic bitmap=null, descartando: $cacheKey');
-			graphicsCache.remove(cacheKey);
+			trace('[StickerTransition] ⚠ Not cached: $cacheKey');
 			return null;
 		}
 
 		var sticker = new FlxSprite();
-		try
-		{
-			sticker.loadGraphic(graphic);
-		}
+		try { sticker.loadGraphic(graphic); }
 		catch (e:Dynamic)
 		{
-			// El bitmap fue dispuesto (p.ej. por PlayState.destroy) — invalidar cache
-			trace('[StickerTransition] ⚠️ loadGraphic falló ($cacheKey): $e — invalidando cache');
+			trace('[StickerTransition] ⚠ loadGraphic failed ($cacheKey): $e');
 			graphicsCache.remove(cacheKey);
 			cacheLoaded = false;
 			sticker.destroy();
 			return null;
 		}
 
-		// ✅ La posición se asigna en generateStickers()
-
-		// Escala inicial
-		var targetScale = FlxG.random.float(config.minScale, config.maxScale);
-		sticker.scale.set(0.1, 0.1);
+		sticker.visible  = false;
+		sticker.scale.set(1, 1);
 		sticker.updateHitbox();
-
-		// Ángulo
-		var targetAngle = FlxG.random.float(-15, 15);
-		sticker.angle = targetAngle + FlxG.random.float(-45, 45);
-
-		// Alpha inicial
-		sticker.alpha = 0;
-		sticker.visible = false;
-
-		// ScrollFactor
 		sticker.scrollFactor.set(0, 0);
-
-		// ✅ Guardar datos en el Map
-		stickerData.set(sticker, {
-			targetScale: targetScale,
-			targetAngle: targetAngle
-		});
-
 		return sticker;
 	}
 
-	/**
-	 * Anima la entrada de un sticker
-	 */
-	private static function animateStickerIn(sticker:FlxSprite):Void
+	// ── Selección de set ──────────────────────────────────────────────────────
+
+	private static function _pickSet(?customSet:String):StickerSet
 	{
-		if (sticker == null)
-			return;
+		// 1. Override manual
+		if (customSet != null)
+			for (set in config.stickerSets)
+				if (set.name == customSet) return set;
 
-		sticker.visible = true;
+		// 2. Por contexto
+		var mode = config.stickerMode ?? "week";
 
-		// ✅ Obtener datos del Map
-		var data = stickerData.get(sticker);
-		if (data == null)
-			return;
-			
-		var targetScale:Float = data.targetScale;
-		var targetAngle:Float = data.targetAngle;
+		if (mode == "week" && currentWeek >= 0 && config.weekStickerSets != null)
+		{
+			var setName:String = Reflect.field(config.weekStickerSets, Std.string(currentWeek));
+			if (setName != null)
+				for (set in config.stickerSets)
+					if (set.name == setName) return set;
+		}
+		else if (mode == "song" && currentSong != "" && config.songStickerSets != null)
+		{
+			var setName:String = Reflect.field(config.songStickerSets, currentSong);
+			if (setName != null)
+				for (set in config.stickerSets)
+					if (set.name == setName) return set;
+		}
 
-		// Animación de escala
-		FlxTween.tween(sticker.scale, {x: targetScale, y: targetScale}, config.animationDuration, {
-			ease: FlxEase.backOut,
-			onUpdate: function(tween:FlxTween)
-			{
-				if (sticker != null && sticker.exists)
-					sticker.updateHitbox();
-			}
-		});
-
-		// Animación de ángulo y alpha
-		FlxTween.tween(sticker, {angle: targetAngle, alpha: 1}, config.animationDuration, {
-			ease: FlxEase.cubeOut
-		});
+		// 3. Aleatorio
+		return FlxG.random.getObject(config.stickerSets);
 	}
 
-	/**
-	 * Reproduce un sonido aleatorio
-	 */
-	public static function playRandomSound():Void
+	// ── Finish / cancel / timers ──────────────────────────────────────────────
+
+	private static function finish():Void
 	{
-		if (config.sounds.length == 0)
-			return;
+		isPlaying = false;
+		activeTimers = [];
+		if (transitionSprite != null) transitionSprite.clear();
+		stickerTimings.clear();
+		onComplete = null;
+		trace('[StickerTransition] ===== FINISHED =====');
+	}
 
-		var soundName = FlxG.random.getObject(config.sounds);
-		var soundPath = '${config.soundPath}/$soundName';
+	private static function cancelAllTimers():Void
+	{
+		for (t in activeTimers) if (t != null && t.active) t.cancel();
+		activeTimers = [];
+	}
 
+	// ── Config ────────────────────────────────────────────────────────────────
+
+	private static function loadConfig():Void
+	{
 		try
 		{
-			FlxG.sound.play(Paths.sound(soundPath), FlxG.random.float(0.9, 1.3));
+			var jsonPath = configPath;
+			#if sys
+			if (!FileSystem.exists(jsonPath)) { config = _defaultConfig(); return; }
+			#end
+			config = Json.parse(sys.io.File.getContent(jsonPath));
+			trace('[StickerTransition] Config loaded (mode: ${config.stickerMode ?? "week"})');
 		}
 		catch (e:Dynamic)
 		{
-			// Silenciar error de sonido
+			trace('[StickerTransition] Config error: $e');
+			config = _defaultConfig();
 		}
 	}
 
-	/**
-	 * ✅ NUEVO: Cancela todos los timers activos para evitar stickers fantasma
-	 */
-	private static function cancelAllTimers():Void
+	private static function preloadGraphics():Void
 	{
-		trace('[StickerTransition] Cancelling ${activeTimers.length} active timers');
-		
-		for (timer in activeTimers)
+		if (cacheLoaded || config == null) return;
+		var loaded = 0; var failed = 0;
+		for (set in config.stickerSets)
 		{
-			if (timer != null && timer.active)
+			for (sn in set.stickers)
 			{
-				timer.cancel();
-			}
-		}
-		
-		activeTimers = [];
-	}
-
-	/**
-	 * Verifica si hay una transición activa
-	 */
-	public static function isActive():Bool
-	{
-		return isPlaying;
-	}
-
-	/**
-	 * Limpia todos los stickers
-	 * @param onFinished Callback opcional que se llama cuando los stickers terminan de desaparecer
-	 */
-	public static function clearStickers(?onFinished:Void->Void):Void
-	{
-		if (!isPlaying)
-		{
-			trace('[StickerTransition] clearStickers called but not playing - calling callback immediately');
-			if (onFinished != null)
-				onFinished(); // Llamar callback inmediatamente si no está activo
-			return;
-		}
-
-		trace('[StickerTransition] ========== CLEARING STICKERS ==========');
-		
-		// ✅ CRÍTICO: Cancelar todos los timers de aparición pendientes
-		// Esto evita que aparezcan stickers durante la disipación
-		cancelAllTimers();
-
-		// ✅ Tiempo de aparición: 0.9s (timing) + config.animationDuration
-		var totalAppearTime = 0.9 + config.animationDuration;
-		// ✅ REDUCIDO: Empezar a disipar más rápido (antes: 0.4, ahora: 0.2)
-		var delayBeforeDissipate = totalAppearTime + 0.2;
-
-		trace('[StickerTransition] Waiting ${delayBeforeDissipate}s before dissipation');
-
-		var dissipateTimer = new FlxTimer(FlxTimer.globalManager);
-		activeTimers.push(dissipateTimer); // ✅ CRÍTICO: Agregar a la lista para poder cancelarlo
-		dissipateTimer.start(delayBeforeDissipate, function(timer:FlxTimer)
-		{
-			trace('[StickerTransition] Starting dissipation');
-			
-			if (transitionSprite != null)
-			{
-				transitionSprite.dissipateStickers(function()
+				var key = '${set.path}/$sn';
+				if (graphicsCache.exists(key)) continue;
+				try
 				{
-					trace('[StickerTransition] Dissipation complete, finishing transition');
-					finish();
-					
-					// ✅ Llamar callback INMEDIATAMENTE - sin delay
-					if (onFinished != null)
-					{
-						trace('[StickerTransition] Calling onFinished callback');
-						onFinished();
-					}
-				});
+					var resolved = Paths.image(key);
+					var bmp:openfl.display.BitmapData = null;
+					#if sys
+					if (sys.FileSystem.exists(resolved))
+						bmp = openfl.display.BitmapData.fromFile(resolved);
+					#else
+					bmp = openfl.Assets.getBitmapData(resolved);
+					#end
+					if (bmp == null) { failed++; continue; }
+					var g = FlxGraphic.fromBitmapData(bmp);
+					g.persist = true;
+					graphicsCache.set(key, g);
+					loaded++;
+				}
+				catch (e:Dynamic) { failed++; }
 			}
-			else
-			{
-				finish();
-				if (onFinished != null)
-					onFinished();
-			}
-		});
-	}
-
-	/**
-	 * Finaliza la transición
-	 */
-	private static function finish():Void
-	{
-		trace('[StickerTransition] ========== FINISHING ==========');
-
-		isPlaying = false;
-		
-		// ✅ NO cancelar timers aquí - ya deberían estar completos
-		// Solo limpiar la lista de referencias
-		activeTimers = [];
-
-		if (transitionSprite != null)
-		{
-			transitionSprite.clear();
 		}
-
-		// ✅ Limpiar Map de datos
-		stickerData.clear();
-
-		onComplete = null;
-
-		trace('[StickerTransition] ========== FINISHED ==========');
+		cacheLoaded = true;
+		trace('[StickerTransition] Cache: $loaded ok / $failed failed');
 	}
 
-	/**
-	 * Cancela la transición
-	 */
-	public static function cancel():Void
+	private static function _defaultConfig():StickerConfig
 	{
-		if (!isPlaying)
-			return;
-
-		trace('[StickerTransition] Cancelled');
-		finish();
-	}
-
-	/**
-	 * Invalida el cache de gráficos para que se recarguen en el próximo start().
-	 * Llamar desde PlayState.destroy() para evitar crash por bitmaps dispuestos.
-	 */
-	public static function invalidateCache():Void
-	{
-		graphicsCache.clear();
-		cacheLoaded = false;
-		trace('[StickerTransition] Cache invalidado — se recargará en el próximo start()');
-	}
-
-	/**
-	 * Recarga la configuración
-	 */
-	public static function reloadConfig():Void
-	{
-		loadConfig();
-		preloadGraphics();
-		trace('[StickerTransition] Config reloaded');
+		return {
+			enabled: true,
+			stickerMode: "week",
+			stickerSets: [
+				{name:"stickers-set-1", path:"transitionSwag/stickers-set-1",
+				 stickers:["bfSticker3","picoSticker1","dadSticker1","gfSticker1","momSticker1","monsterSticker1"]},
+				{name:"stickers-set-2", path:"transitionSwag/stickers-set-2",
+				 stickers:["bfSticker3","picoSticker1","dadSticker1"]}
+			],
+			weekStickerSets: {"0":"stickers-set-1","1":"stickers-set-1","2":"stickers-set-2",
+			                  "3":"stickers-set-2","4":"stickers-set-1","5":"stickers-set-2",
+			                  "6":"stickers-set-1","7":"stickers-set-2"},
+			songStickerSets: {},
+			soundPath: "stickersounds/keys",
+			sounds: ["keyClick1","keyClick2","keyClick3","keyClick4"],
+			stickersPerWave: 4, totalWaves: 4, delayBetweenStickers: 0.0,
+			delayBetweenWaves: 0.1, minScale: 0.85, maxScale: 1.0,
+			animationDuration: 0.25, stickerLifetime: 999
+		};
 	}
 }
 
-/**
- * ✅ Container de OpenFL Sprite (como StickerTransitionSprite del FNF base)
- * Este sprite persiste entre cambios de state porque está en la capa de OpenFL
- */
+// ═════════════════════════════════════════════════════════════════════════════
+//  StickerTransitionContainer — capa OpenFL que renderiza los stickers
+// ═════════════════════════════════════════════════════════════════════════════
+
 @:access(flixel.FlxCamera)
 class StickerTransitionContainer extends openfl.display.Sprite
 {
 	public var stickersCamera:FlxCamera;
 	public var grpStickers:FlxTypedGroup<FlxSprite>;
-	
-	// ✅ CRÍTICO: Trackear timers de disipación para poder cancelarlos
+
 	private var dissipationTimers:Array<FlxTimer> = [];
 
 	public function new():Void
 	{
 		super();
 		visible = false;
-		
-		// Crear cámara dedicada
+
 		stickersCamera = new FlxCamera();
-		stickersCamera.bgColor = 0x00000000; // Transparente
+		stickersCamera.bgColor = 0x00000000;
 		addChild(stickersCamera.flashSprite);
-		
-		// Crear grupo
+
 		grpStickers = new FlxTypedGroup<FlxSprite>();
 		grpStickers.camera = stickersCamera;
-		
-		// Listener de resize
-		FlxG.signals.gameResized.add((_, _) -> this.onResize());
+
+		FlxG.signals.gameResized.add((_, _) -> onResize());
 		scrollRect = new openfl.geom.Rectangle();
 		onResize();
-		
-		trace('[StickerTransitionContainer] Created');
 	}
 
 	public function update(elapsed:Float):Void
 	{
 		stickersCamera.visible = visible;
 		if (!visible) return;
-		
-		// Actualizar stickers
 		grpStickers?.update(elapsed);
 		stickersCamera.update(elapsed);
-
-		// Limpiar y renderizar
 		stickersCamera?.clearDrawStack();
 		stickersCamera?.canvas?.graphics.clear();
-
 		grpStickers?.draw();
-
 		stickersCamera.render();
 	}
 
-	/**
-	 * ✅ Insertar en OpenFL (como hace el FNF base)
-	 */
 	public function insert():Void
 	{
-		// Agregar a OpenFL en un nivel alto para que esté encima de todo
 		FlxG.addChildBelowMouse(this, 9999);
 		visible = true;
 		onResize();
-		
-		// ✅ Conectar update manual
-		FlxG.signals.preUpdate.add(manualUpdate);
-		
-		trace('[StickerTransitionContainer] Inserted into OpenFL');
+		FlxG.signals.preUpdate.add(_tick);
 	}
 
-	/**
-	 * Update manual (llamado por signal)
-	 */
-	private function manualUpdate():Void
-	{
-		update(FlxG.elapsed);
-	}
+	private function _tick():Void update(FlxG.elapsed);
 
-	/**
-	 * Limpiar y remover de OpenFL
-	 */
 	public function clear():Void
 	{
-		FlxG.signals.preUpdate.remove(manualUpdate);
+		FlxG.signals.preUpdate.remove(_tick);
 		FlxG.removeChild(this);
 		visible = false;
 		clearStickers();
 		stickersCamera?.clearDrawStack();
 		stickersCamera?.canvas?.graphics.clear();
-		
-		trace('[StickerTransitionContainer] Cleared from OpenFL');
 	}
 
 	public function onResize():Void
 	{
-		x = y = 0;
-		scaleX = 1;
-		scaleY = 1;
-
-		// FIX: FlxG.camera._scrollRect can be null on mobile during the first
-		// few frames if the camera hasn't been fully initialised yet.
-		// Guard to avoid a null-pointer crash in native builds.
+		x = y = 0; scaleX = scaleY = 1;
 		if (FlxG.camera != null && FlxG.camera._scrollRect != null
-		    && FlxG.camera._scrollRect.scrollRect != null)
+			&& FlxG.camera._scrollRect.scrollRect != null)
 		{
 			__scrollRect.setTo(0, 0,
 				FlxG.camera._scrollRect.scrollRect.width,
@@ -702,148 +544,84 @@ class StickerTransitionContainer extends openfl.display.Sprite
 		{
 			__scrollRect.setTo(0, 0, FlxG.width, FlxG.height);
 		}
-
 		stickersCamera.onResize();
 		stickersCamera._scrollRect.scrollRect = scrollRect;
 	}
 
-	public function addSticker(sticker:FlxSprite):Void
-	{
-		grpStickers.add(sticker);
-	}
+	public function addSticker(s:FlxSprite):Void grpStickers.add(s);
 
 	public function clearStickers():Void
 	{
+		_cancelDissipation();
 		if (grpStickers != null)
 		{
-			// Destruir cada sticker
-			for (sticker in grpStickers.members)
+			for (s in grpStickers.members)
 			{
-				if (sticker != null)
-				{
-					FlxTween.cancelTweensOf(sticker);
-					if (sticker.scale != null)
-						FlxTween.cancelTweensOf(sticker.scale);
-					sticker.destroy();
-				}
+				if (s == null) continue;
+				FlxTween.cancelTweensOf(s);
+				FlxTween.cancelTweensOf(s.scale);
+				s.destroy();
 			}
 			grpStickers.clear();
 		}
-		
-		// ✅ También cancelar timers de disipación
-		cancelDissipationTimers();
-	}
-	
-	/**
-	 * ✅ Cancela todos los timers de disipación activos
-	 */
-	private function cancelDissipationTimers():Void
-	{
-		for (timer in dissipationTimers)
-		{
-			if (timer != null && timer.active)
-			{
-				timer.cancel();
-			}
-		}
-		dissipationTimers = [];
 	}
 
 	/**
-	 * Animar disipación de stickers
+	 * Disipación v-slice: cada sticker se hace invisible con visible=false
+	 * usando el mismo timing con que apareció (0 → 0.9 s).
 	 */
-	public function dissipateStickers(onComplete:Void->Void):Void
+	public function degenStickers(onComplete:Void->Void):Void
 	{
+		_cancelDissipation();
+
 		if (grpStickers == null || grpStickers.members.length == 0)
 		{
-			if (onComplete != null)
-				onComplete();
+			if (onComplete != null) onComplete();
 			return;
 		}
-		
-		// ✅ Cancelar cualquier timer de disipación anterior
-		cancelDissipationTimers();
 
-		var dissipatedCount = 0;
-		var totalStickers = grpStickers.members.length;
-		
-		// ✅ Mezclar orden de desaparición para efecto más natural
-		FlxG.random.shuffle(grpStickers.members);
+		var total = 0;
+		for (s in grpStickers.members) if (s != null && s.exists) total++;
+		if (total == 0) { if (onComplete != null) onComplete(); return; }
 
-		// ✅ Animar desaparición escalonada más RÁPIDA
-		for (i in 0...grpStickers.members.length)
+		var done = 0;
+
+		for (sticker in grpStickers.members)
 		{
-			var sticker = grpStickers.members[i];
-			if (sticker == null || !sticker.exists)
-				continue;
-			
-			// ✅ REDUCIDO: Timing más corto (antes: 0.6, ahora: 0.4)
-			var timing = FlxMath.remapToRange(i, 0, grpStickers.members.length, 0, 0.4);
-			
-			// ✅ CRÍTICO: Usar globalManager y guardar referencia del timer
-			var dissipationTimer = new FlxTimer(FlxTimer.globalManager);
-			dissipationTimers.push(dissipationTimer);
-			
-			dissipationTimer.start(timing, function(timer:FlxTimer)
+			if (sticker == null || !sticker.exists) continue;
+
+			var timing:Float = StickerTransition.stickerTimings.exists(sticker)
+				? StickerTransition.stickerTimings.get(sticker)
+				: 0.0;
+
+			var t = new FlxTimer(FlxTimer.globalManager);
+			dissipationTimers.push(t);
+
+			var captured = sticker;
+			var capturedTotal = total;
+
+			t.start(timing, function(_:FlxTimer)
 			{
-				if (sticker == null || !sticker.exists)
-					return;
-				
-				// ✅ Reproducir sonido al desaparecer
+				if (captured != null && captured.exists)
+					captured.visible = false;
 				StickerTransition.playRandomSound();
-				
-				// Cancelar tweens previos
-				FlxTween.cancelTweensOf(sticker);
-				if (sticker.scale != null)
-					FlxTween.cancelTweensOf(sticker.scale);
-
-				var disperseX = FlxG.random.float(-1000, 1000);
-				var disperseY = FlxG.random.float(-1100, 1100);
-
-				// ✅ REDUCIDO: Animación más rápida (antes: 0.4, ahora: 0.3)
-				FlxTween.tween(sticker.scale, {x: 0.05, y: 0.05}, 0.3, {
-					type: PERSIST,
-					ease: FlxEase.backIn,
-					onUpdate: function(tween:FlxTween)
-					{
-						if (sticker != null && sticker.exists)
-							sticker.updateHitbox();
-					},
-					onComplete: function(tween:FlxTween)
-					{
-						dissipatedCount++;
-						if (sticker != null && sticker.exists)
-						{
-							sticker.kill();
-							sticker.destroy();
-						}
-						
-						// Si todos terminaron, llamar callback
-						if (dissipatedCount >= totalStickers && onComplete != null)
-						{
-							onComplete();
-						}
-					}
-				});
-
-				FlxTween.tween(sticker, {
-					alpha: 0,
-					x: sticker.x + disperseX,
-					y: sticker.y + disperseY
-				}, 0.3, {
-					type: PERSIST,
-					ease: FlxEase.cubeIn
-				});
+				done++;
+				if (done >= capturedTotal && onComplete != null)
+					onComplete();
 			});
 		}
+	}
 
-		trace('[StickerTransitionContainer] Dissipating $totalStickers stickers');
+	private function _cancelDissipation():Void
+	{
+		for (t in dissipationTimers) if (t != null && t.active) t.cancel();
+		dissipationTimers = [];
 	}
 }
 
-// ==========================================
-// TYPEDEFS
-// ==========================================
+// ═════════════════════════════════════════════════════════════════════════════
+//  Typedefs
+// ═════════════════════════════════════════════════════════════════════════════
 
 typedef StickerConfig =
 {
@@ -851,6 +629,7 @@ typedef StickerConfig =
 	var stickerSets:Array<StickerSet>;
 	var soundPath:String;
 	var sounds:Array<String>;
+	// Legacy (compatible con configs anteriores)
 	var stickersPerWave:Int;
 	var totalWaves:Int;
 	var delayBetweenStickers:Float;
@@ -859,6 +638,10 @@ typedef StickerConfig =
 	var maxScale:Float;
 	var animationDuration:Float;
 	var stickerLifetime:Float;
+	// Nuevos campos para selección de skin por contexto
+	@:optional var stickerMode:String;        // "week" | "song" | "random"
+	@:optional var weekStickerSets:Dynamic;   // { "0": "stickers-set-1", ... }
+	@:optional var songStickerSets:Dynamic;   // { "bopeebo": "stickers-set-2", ... }
 }
 
 typedef StickerSet =
@@ -866,10 +649,4 @@ typedef StickerSet =
 	var name:String;
 	var path:String;
 	var stickers:Array<String>;
-}
-
-typedef StickerSpriteData =
-{
-	var targetScale:Float;
-	var targetAngle:Float;
 }

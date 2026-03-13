@@ -92,6 +92,17 @@ class ChartingState extends funkin.states.MusicBeatState
 	var _gridWindowOffset:Int = 0;  // fila absoluta donde empieza la textura
 	var _gridWindowRows:Int   = 0;  // filas que caben en la textura
 
+	/**
+	 * Flag que los sub-componentes del editor (CharacterIconRow, etc.) ponen a `true`
+	 * cuando consumen el evento de la rueda del mouse en su propio update().
+	 * ChartingState lo resetea al inicio de cada frame y lo chequea antes de hacer
+	 * scroll del grid — evita que el scroll "se filtre" al grid de fondo.
+	 */
+	public var wheelConsumed:Bool = false;
+	/** Set to true by CharacterPreviewWindow when the mouse is over it.
+	 *  handleMouseInput() skips grid interaction while this is true. */
+	public var clickConsumed:Bool = false;
+
 	var gridBG:FlxSprite;
 	var gridBlackWhite:FlxSprite;
 	var strumLine:FlxSprite;
@@ -107,12 +118,29 @@ class ChartingState extends funkin.states.MusicBeatState
 	var curSelectedNote:Array<Dynamic>;
 	var tempBpm:Float = 0;
 	var vocals:FlxSound;
-	/** Vocal track del BF (si existen Voices-bf.ogg) */
-	var vocalsBf:FlxSound;
-	/** Vocal track del Dad (si existen Voices-dad.ogg) */
-	var vocalsDad:FlxSound;
+	/**
+	 * Mapa dinámico de vocals por personaje para el editor.
+	 * Clave = nombre del personaje. Soporta N personajes.
+	 */
+	var vocalsPerChar:Map<String, FlxSound> = new Map();
+	/** Alias de compatibilidad — primer track Player */
+	var vocalsBf(get, never):FlxSound;
+	inline function get_vocalsBf():FlxSound
+	{
+		for (k in _chartPlayerKeys) { var v = vocalsPerChar.get(k); if (v != null) return v; }
+		return null;
+	}
+	/** Alias de compatibilidad — primer track Opponent */
+	var vocalsDad(get, never):FlxSound;
+	inline function get_vocalsDad():FlxSound
+	{
+		for (k in _chartOpponentKeys) { var v = vocalsPerChar.get(k); if (v != null) return v; }
+		return null;
+	}
 	/** true cuando se cargaron vocals por personaje */
 	var _chartPerCharVocals:Bool = false;
+	var _chartPlayerKeys:Array<String>   = [];
+	var _chartOpponentKeys:Array<String> = [];
 
 	/**
 	 * Sufijo de dificultad actual para guardar el chart con el nombre correcto.
@@ -189,6 +217,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	var eventsSidebar:EventsSidebar;
 	var previewPanel:PreviewPanel;
 	var metaPopup:MetaPopup;
+	var toolsPanel:ToolsPanel;
 
 	// Botón META en toolbar (zona clickeable)
 	var metaBtn:FlxSprite;
@@ -203,9 +232,9 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	// HERRAMIENTAS
 	var clipboard:Array<Dynamic> = [];
-	var currentSnap:Int = 16;
-	var hitsoundsEnabled:Bool = false;
-	var metronomeEnabled:Bool = false;
+	public var currentSnap:Int = 16;
+	public var hitsoundsEnabled:Bool = false;
+	public var metronomeEnabled:Bool = false;
 	var lastMetronomeBeat:Int = -1;
 	var autosaveTimer:Float = 0;
 
@@ -214,7 +243,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	var _lastHitsoundTime:Float = -999;
 
 	// WAVEFORM
-	var waveformEnabled:Bool = false;
+	public var waveformEnabled:Bool = false;
 	var waveformSprite:FlxSprite;
 	var _waveformData:Array<Float> = [];
 	var _waveformBuilt:Bool = false;
@@ -400,16 +429,23 @@ class ChartingState extends funkin.states.MusicBeatState
 		toolbar.cameras = [camHUD];
 		add(toolbar);
 
-		// Botones de playback
-		playBtn = createToolButton(10, 40, "▶");
-		pauseBtn = createToolButton(55, 40, "⏸");
-		stopBtn = createToolButton(100, 40, "⏹");
-		testBtn = createToolButton(145, 40, "🎮");
+		// Botones de playback — primero añadir el FONDO, luego el TEXTO encima
+		playBtn  = createToolButton(10,  40);
+		pauseBtn = createToolButton(55,  40);
+		stopBtn  = createToolButton(100, 40);
+		testBtn  = createToolButton(145, 40);
 
 		add(playBtn);
 		add(pauseBtn);
 		add(stopBtn);
 		add(testBtn);
+
+		// Labels DESPUES de los sprites para que queden encima (z-order correcto)
+		// VCR.ttf soporta ASCII; evitamos emojis/unicode que pueden no renderizar
+		addToolButtonLabel(playBtn,  ">");
+		addToolButtonLabel(pauseBtn, "||");
+		addToolButtonLabel(stopBtn,  "[]");
+		addToolButtonLabel(testBtn,  "F5");
 
 		// Time (solo display)
 		timeText = new FlxText(200, 45, 0, "00:00.000", 12);
@@ -467,7 +503,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		waveformBtn.cameras = [camHUD];
 		add(waveformBtn);
 
-		waveformBtnText = new FlxText(568, 10, 68, "🌊 Wave", 11);
+		waveformBtnText = new FlxText(568, 10, 68, "Wave", 11);
 		waveformBtnText.setFormat(Paths.font("vcr.ttf"), 11, TEXT_GRAY, CENTER);
 		waveformBtnText.scrollFactor.set();
 		waveformBtnText.cameras = [camHUD];
@@ -478,6 +514,24 @@ class ChartingState extends funkin.states.MusicBeatState
 		waveBorder.scrollFactor.set();
 		waveBorder.cameras = [camHUD];
 		add(waveBorder);
+
+		// Tools button — abre el panel de herramientas (sin tocar el grid)
+		var toolsBtnBg = new FlxSprite(648, 10).makeGraphic(58, 22, 0xFF1A1A00);
+		toolsBtnBg.scrollFactor.set();
+		toolsBtnBg.cameras = [camHUD];
+		add(toolsBtnBg);
+
+		var toolsBtnTxt = new FlxText(648, 10, 58, "Tools", 12);
+		toolsBtnTxt.setFormat(Paths.font("vcr.ttf"), 12, ACCENT_WARNING, CENTER);
+		toolsBtnTxt.scrollFactor.set();
+		toolsBtnTxt.cameras = [camHUD];
+		add(toolsBtnTxt);
+
+		var toolsBorder = new FlxSprite(648, 29).makeGraphic(58, 2, ACCENT_WARNING);
+		toolsBorder.alpha = 0.6;
+		toolsBorder.scrollFactor.set();
+		toolsBorder.cameras = [camHUD];
+		add(toolsBorder);
 
 		// ✨ Botón de tema (abre ThemePickerSubState)
 		var themeBtnBg = new FlxSprite(FlxG.width - 38, 40).makeGraphic(32, 32, BG_PANEL);
@@ -492,20 +546,33 @@ class ChartingState extends funkin.states.MusicBeatState
 		add(themeBtnTxt);
 	}
 
-	function createToolButton(x:Float, y:Float, icon:String):FlxSprite
+	/**
+	 * Creates a toolbar button sprite WITHOUT adding a text overlay.
+	 * Text labels are added separately in setupToolbar() AFTER all buttons
+	 * so the text renders on top of the button background (correct z-order).
+	 */
+	function createToolButton(x:Float, y:Float):FlxSprite
 	{
 		var btn = new FlxSprite(x, y);
 		btn.makeGraphic(35, 35, 0xFF3A3A3A);
 		btn.scrollFactor.set();
 		btn.cameras = [camHUD];
-
-		var txt = new FlxText(x, y, 35, icon, 18);
-		txt.setFormat(Paths.font("vcr.ttf"), 18, TEXT_WHITE, CENTER);
-		txt.scrollFactor.set();
-		txt.cameras = [camHUD];
-		add(txt);
-
 		return btn;
+	}
+
+	/**
+	 * Adds a text label centered over a button sprite.
+	 * Call this AFTER adding the button sprite to the display list.
+	 */
+	function addToolButtonLabel(btn:FlxSprite, label:String):FlxText
+	{
+		// Vertical center: nudge slightly to optically center the glyph
+		var lbl = new FlxText(btn.x, btn.y + 9, Std.int(btn.width), label, 14);
+		lbl.setFormat(Paths.font("vcr.ttf"), 14, TEXT_WHITE, CENTER);
+		lbl.scrollFactor.set();
+		lbl.cameras = [camHUD];
+		add(lbl);
+		return lbl;
 	}
 
 	function getGridColumns():Int
@@ -733,6 +800,9 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (charIconRow != null)
 			charIconRow.refreshIcons();
 
+		if (previewPanel != null)
+			previewPanel.refreshAll();
+
 		showMessage('🔧 Grid updated: ${getGridColumns() / 4} groups of strums', ACCENT_CYAN);
 		trace('[ChartingState] Grid rebuilt with ${getGridColumns()} columns');
 	}
@@ -911,14 +981,6 @@ class ChartingState extends funkin.states.MusicBeatState
 		});
 		noteTypeDropdown.selectedLabel = '0: normal';
 
-		// Snap
-		var snapLabel = new FlxText(10, 135, 0, 'Note Snap:', 10);
-		tab_group_note.add(snapLabel);
-
-		var snapText = new FlxText(10, 150, 0, 'Current: 1/4 (Q/E to change)', 10);
-		snapText.color = ACCENT_CYAN;
-		tab_group_note.add(snapText);
-
 		tab_group_note.add(noteTypeDropdown);
 
 		UI_box.addGroup(tab_group_note);
@@ -932,59 +994,29 @@ class ChartingState extends funkin.states.MusicBeatState
 		tab_group_settings = new FlxUI(null, UI_box);
 		tab_group_settings.name = 'Settings';
 
-		// Hitsounds
-		var hitsoundCheck = new FlxUICheckBox(10, 10, null, null, "Hitsounds (T)", 100);
-		hitsoundCheck.checked = hitsoundsEnabled;
-		hitsoundCheck.callback = function()
-		{
-			hitsoundsEnabled = !hitsoundsEnabled;
-			showMessage(hitsoundsEnabled ? '🔊 Hitsounds ON' : '🔇 Hitsounds OFF', ACCENT_CYAN);
-		};
-		tab_group_settings.add(hitsoundCheck);
-
-		// Metronome
-		var metronomeCheck = new FlxUICheckBox(10, 38, null, null, "Metronome (M)", 100);
-		metronomeCheck.checked = metronomeEnabled;
-		metronomeCheck.callback = function()
-		{
-			metronomeEnabled = !metronomeEnabled;
-			showMessage(metronomeEnabled ? '🎵 Metronome ON' : '🔇 Metronome OFF', ACCENT_CYAN);
-		};
-		tab_group_settings.add(metronomeCheck);
-
-		// Waveform toggle
-		var waveformCheck = new FlxUICheckBox(10, 66, null, null, "Waveform (toolbar btn)", 150);
-		waveformCheck.checked = waveformEnabled;
-		waveformCheck.callback = function()
-		{
-			_toggleWaveform();
-		};
-		tab_group_settings.add(waveformCheck);
-
 		// Separador
-		var sep = new FlxText(10, 96, 270, '── Audio Analysis ──', 9);
+		var sep = new FlxText(10, 10, 270, '── Audio Analysis ──', 9);
 		sep.color = TEXT_GRAY;
 		tab_group_settings.add(sep);
 
 		// Botón Auto-Detect BPM
-		var detectBpmBtn = new FlxButton(10, 110, "Auto-Detect BPM", function()
+		var detectBpmBtn = new FlxButton(10, 24, "Auto-Detect BPM", function()
 		{
 			detectBPM();
 		});
 		tab_group_settings.add(detectBpmBtn);
 
-		var bpmHint = new FlxText(10, 135, 270, "Analyses the loaded audio to\nestimate BPM automatically.", 9);
+		var bpmHint = new FlxText(10, 50, 270, "Analyses the loaded audio to\nestimate BPM automatically.", 9);
 		bpmHint.color = TEXT_GRAY;
 		tab_group_settings.add(bpmHint);
 
 		// Separador
-		var sep2 = new FlxText(10, 165, 270, '── Chart Files ──', 9);
+		var sep2 = new FlxText(10, 80, 270, '── Chart Files ──', 9);
 		sep2.color = TEXT_GRAY;
 		tab_group_settings.add(sep2);
 
 		// ── Selector de dificultad dinámica ─────────────────────────────────
-		// Permite guardar el chart como song.json, song-easy.json, song-nightmare.json, etc.
-		var diffLabel = new FlxText(10, 178, 270, 'Difficulty suffix (for saving):', 9);
+		var diffLabel = new FlxText(10, 93, 270, 'Difficulty suffix (for saving):', 9);
 		diffLabel.color = TEXT_GRAY;
 		tab_group_settings.add(diffLabel);
 
@@ -1015,7 +1047,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				diffSuffixes.push(curDiffSuffix);
 			}
 		}
-		final diffDropdown = new FlxUIDropDownMenu(10, 192, FlxUIDropDownMenu.makeStrIdLabelArray(diffOptions, true),
+		final diffDropdown = new FlxUIDropDownMenu(10, 107, FlxUIDropDownMenu.makeStrIdLabelArray(diffOptions, true),
 			function(selected:String)
 			{
 				final idx = Std.parseInt(selected);
@@ -1024,7 +1056,7 @@ class ChartingState extends funkin.states.MusicBeatState
 					curDiffSuffix = diffSuffixes[idx];
 					// Recargar vocals con la nueva dificultad
 					loadSong(_song.song);
-					showMessage('📂 Difficulty: ${diffOptions[idx]} → reloading audio...', ACCENT_CYAN);
+					showMessage('Difficulty: ${diffOptions[idx]} reloading audio...', ACCENT_CYAN);
 				}
 			});
 		diffDropdown.selectedLabel = diffOptions[0];
@@ -1037,19 +1069,19 @@ class ChartingState extends funkin.states.MusicBeatState
 		tab_group_settings.add(diffDropdown);
 
 		// Save/Load
-		var saveBtn = new FlxButton(10, 225, "Save Chart (.level)", saveChart);
+		var saveBtn = new FlxButton(10, 140, "Save Chart (.level)", saveChart);
 		tab_group_settings.add(saveBtn);
 
-		var loadBtn = new FlxButton(10, 255, "Load Chart", loadChart);
+		var loadBtn = new FlxButton(10, 170, "Load Chart", loadChart);
 		tab_group_settings.add(loadBtn);
 
 		// Migrate: convierte los .json viejos de esta canción a un único .level
-		var migrateBtn = new FlxButton(10, 285, "Migrate → .level", function()
+		var migrateBtn = new FlxButton(10, 200, "Migrate to .level", function()
 		{
 			final ok = funkin.data.LevelFile.migrateFromJson(_song.song);
 			showMessage(ok
-				? '✓ Migrated to ${_song.song.toLowerCase()}.level'
-				: '⚠ Migration failed (check console)',
+				? 'Migrated to ${_song.song.toLowerCase()}.level'
+				: 'Migration failed (check console)',
 				ok ? ACCENT_SUCCESS : ACCENT_WARNING);
 		});
 		tab_group_settings.add(migrateBtn);
@@ -1121,8 +1153,8 @@ class ChartingState extends funkin.states.MusicBeatState
 		add(waveformSprite);
 	}
 
-	/** Toggle waveform ON/OFF — usado por el botón en toolbar. */
-	function _toggleWaveform():Void
+	/** Toggle waveform ON/OFF — usado por el botón en toolbar y ToolsPanel. */
+	public function _toggleWaveform():Void
 	{
 		waveformEnabled = !waveformEnabled;
 		if (waveformEnabled)
@@ -1360,6 +1392,11 @@ class ChartingState extends funkin.states.MusicBeatState
 		charIconRow = new CharacterIconRow(this, _song, camHUD, gridBG.x);
 		add(charIconRow);
 
+		// 5. Tools panel — panel lateral con controles de preview y herramientas
+		//    Se abre/cierra desde la toolbar sin interactuar con el grid
+		toolsPanel = new ToolsPanel(this, _song, previewPanel, camHUD);
+		add(toolsPanel);
+
 		// Asegurar que los eventos estén inicializados en la canción
 		if (_song.events == null)
 			_song.events = [];
@@ -1497,43 +1534,51 @@ class ChartingState extends funkin.states.MusicBeatState
 		_destroyChartVocals();
 		if (_song.needsVoices)
 		{
-			// Intentar cargar vocals por personaje primero — buscar por TIPO (no por índice)
-			var bfName  = (_song.player1  != null && _song.player1  != '') ? _song.player1  : 'bf';
-			var dadName = (_song.player2  != null && _song.player2  != '') ? _song.player2  : 'dad';
+			// Construir lista de candidatos desde SONG.characters
+			var candidates:Array<{name:String, type:String}> = [];
 			if (_song.characters != null && _song.characters.length > 0)
 			{
 				for (c in _song.characters)
 				{
-					if (c.type == 'Player' || c.type == 'Boyfriend')
-						bfName = c.name;
-					else if (c.type == 'Opponent' || c.type == 'Dad')
-						dadName = c.name;
+					var t = c.type != null ? c.type : 'Opponent';
+					if (t == 'Girlfriend' || t == 'Other') continue;
+					var dup = false;
+					for (prev in candidates) if (prev.name == c.name) { dup = true; break; }
+					if (!dup) candidates.push({name: c.name, type: t});
 				}
 			}
+			// Fallback legacy player1/player2
+			if (candidates.length == 0)
+			{
+				var p1 = (_song.player1 != null && _song.player1 != '') ? _song.player1 : 'bf';
+				var p2 = (_song.player2 != null && _song.player2 != '') ? _song.player2 : 'dad';
+				candidates.push({name: p1, type: 'Player'});
+				if (p2 != p1) candidates.push({name: p2, type: 'Opponent'});
+			}
 
-			final bfVocals  = Paths.loadVoicesForChar(daSong, bfName,  curDiffSuffix);
-			final dadVocals = Paths.loadVoicesForChar(daSong, dadName, curDiffSuffix);
+			_chartPlayerKeys   = [];
+			_chartOpponentKeys = [];
+			var loaded = 0;
+			for (cand in candidates)
+			{
+				var snd = Paths.loadVoicesForChar(daSong, cand.name, curDiffSuffix);
+				if (snd == null) continue;
+				snd.volume = 0.6;
+				snd.looped = false;
+				snd.pause();
+				FlxG.sound.list.add(snd);
+				vocalsPerChar.set(cand.name, snd);
+				if (cand.type == 'Player' || cand.type == 'Boyfriend')
+					_chartPlayerKeys.push(cand.name);
+				else
+					_chartOpponentKeys.push(cand.name);
+				loaded++;
+			}
 
-			if (bfVocals != null || dadVocals != null)
+			if (loaded > 0)
 			{
 				_chartPerCharVocals = true;
-				if (bfVocals != null)
-				{
-					vocalsBf = bfVocals;
-					vocalsBf.volume = 0.6;
-					vocalsBf.looped = false;
-					vocalsBf.pause();
-					FlxG.sound.list.add(vocalsBf);
-				}
-				if (dadVocals != null)
-				{
-					vocalsDad = dadVocals;
-					vocalsDad.volume = 0.6;
-					vocalsDad.looped = false;
-					vocalsDad.pause();
-					FlxG.sound.list.add(vocalsDad);
-				}
-				trace('[ChartingState] Per-char vocals cargadas: bf=${bfVocals != null}, dad=${dadVocals != null}');
+				trace('[ChartingState] Per-char vocals cargadas: $loaded / ${candidates.length} personajes');
 			}
 			else
 			{
@@ -1562,15 +1607,14 @@ class ChartingState extends funkin.states.MusicBeatState
 		Conductor.mapBPMChanges(_song);
 	}
 
-	// ✨ FUNCIÓN NUEVA: Sincronizar vocales con la música
+	// Sincronizar vocales con la música
 	function syncVocals():Void
 	{
 		if (FlxG.sound.music == null) return;
 
 		if (_chartPerCharVocals)
 		{
-			// Sincronizar ambos tracks por personaje
-			for (v in [vocalsBf, vocalsDad])
+			for (v in vocalsPerChar)
 			{
 				if (v == null) continue;
 				if (Math.abs(v.time - FlxG.sound.music.time) > 50)
@@ -1903,7 +1947,9 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 
 		// Scroll con rueda del mouse
-		if (FlxG.mouse.wheel != 0)
+		// • No scrollear si hay un popup abierto (CharacterPickerMenu, MetaPopup, etc.)
+		// • No scrollear si un sub-componente ya consumió el evento (p.ej. CTRL+wheel en el icon row)
+		if (FlxG.mouse.wheel != 0 && !isAnyPopupOpen() && !wheelConsumed)
 		{
 			updateSectionIndicators();
 			var scrollAmount = FlxG.mouse.wheel * (FlxG.keys.pressed.SHIFT ? GRID_SIZE : GRID_SIZE * 4);
@@ -1928,39 +1974,50 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function handleMouseInput():Void
 	{
-		if (isAnyPopupOpen())
-			return;
-		// Click en grid
-		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(gridBG, camGame))
+		// ── Bounds check manual — más fiable que FlxG.mouse.overlaps con múltiples cámaras ──
+		// FlxG.mouse.x/y son coordenadas de pantalla (camGame sin scroll = screen space).
+		// gridBG.y ya incluye el offset del windowing, por eso NO sumamos nada extra aquí.
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+		var mouseOverGrid = (mx >= gridBG.x && mx < gridBG.x + gridBG.width
+		                  && my >= gridBG.y && my < gridBG.y + gridBG.height);
+
+		// El grid SOLO se bloquea con popups reales — clickConsumed es para panels de UI,
+		// no debe impedir añadir/quitar notas en el grid.
+		var popupBlocking = isAnyPopupOpen();
+
+		// ── Left click: seleccionar o crear nota ─────────────────────────────
+		if (FlxG.mouse.justPressed && mouseOverGrid && !popupBlocking)
 		{
-			var mouseGridX = FlxG.mouse.x - gridBG.x;
-			var mouseGridY = FlxG.mouse.y - gridBG.y; // ✨ NO sumar gridScrollY
+			// Limpiar foco de TextField para que los shortcuts de teclado funcionen de inmediato
+			if (openfl.Lib.current.stage.focus != null)
+				openfl.Lib.current.stage.focus = null;
+
+			var mouseGridX = mx - gridBG.x;
+			var mouseGridY = my - gridBG.y;
 
 			var noteData = Math.floor(mouseGridX / GRID_SIZE);
 
-			// ✨ Primero intentar seleccionar una nota existente
+			// Primero intentar seleccionar nota existente
 			var noteSelected = selectNoteAtPosition(mouseGridY, noteData);
 
-			// Si no hay nota, crear una nueva
-			// overlaps(gridBG) ya garantiza que noteData es válido — sin límite superior hardcodeado
+			// Si no había nota, crear una nueva
 			if (!noteSelected && noteData >= 0)
-			{
 				addNoteAtWorldPosition(mouseGridY, noteData);
-			}
 		}
 
-		// Highlight
-		if (FlxG.mouse.overlaps(gridBG, camGame))
+		// ── Highlight del cursor ─────────────────────────────────────────────
+		if (mouseOverGrid)
 		{
-			var mouseGridX = FlxG.mouse.x - gridBG.x;
-			var mouseGridY = FlxG.mouse.y - gridBG.y;
+			var mouseGridX = mx - gridBG.x;
+			var mouseGridY = my - gridBG.y;
 
-			var gridX = Math.floor(mouseGridX / GRID_SIZE) * GRID_SIZE;
+			var gridX     = Math.floor(mouseGridX / GRID_SIZE) * GRID_SIZE;
 			var stepHeight = GRID_SIZE / (currentSnap / 16);
-			var gridY = Math.floor(mouseGridY / stepHeight) * stepHeight;
+			var gridY     = Math.floor(mouseGridY / stepHeight) * stepHeight;
 
-			highlight.x = gridBG.x + gridX;
-			highlight.y = gridBG.y + gridY;
+			highlight.x       = gridBG.x + gridX;
+			highlight.y       = gridBG.y + gridY;
 			highlight.visible = true;
 		}
 		else
@@ -1968,19 +2025,15 @@ class ChartingState extends funkin.states.MusicBeatState
 			highlight.visible = false;
 		}
 
-		// Right click - delete
-		if (FlxG.mouse.justPressedRight && FlxG.mouse.overlaps(gridBG, camGame))
+		// ── Right click: borrar nota ─────────────────────────────────────────
+		if (FlxG.mouse.justPressedRight && mouseOverGrid && !popupBlocking)
 		{
-			var mouseGridX = FlxG.mouse.x - gridBG.x;
-			var mouseGridY = FlxG.mouse.y - gridBG.y;
+			var mouseGridX = mx - gridBG.x;
+			var mouseGridY = my - gridBG.y;
+			var noteData   = Math.floor(mouseGridX / GRID_SIZE);
 
-			var noteData = Math.floor(mouseGridX / GRID_SIZE);
-
-			// overlaps(gridBG) ya garantiza que noteData es válido
 			if (noteData >= 0)
-			{
 				deleteNoteAtPosition(mouseGridY, noteData);
-			}
 		}
 	}
 
@@ -1998,13 +2051,19 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (eventsSidebar != null && eventsSidebar.isAnyPopupOpen())
 			return true;
 
+		// NOTE: toolsPanel is NOT a modal popup — it handles its own mouse
+		// consumption via parent.clickConsumed in ToolsPanel.update().
+		// Adding it here blocked Space, note placement keys (1-8) and all
+		// other shortcuts whenever the panel was visible. Removed.
+
 		return false;
 	}
 
 	function addNoteAtWorldPosition(worldY:Float, noteData:Int):Void
 	{
-		// Convertir worldY a step global
-		var clickedStep = worldY / GRID_SIZE;
+		// worldY es relativo al origen de la textura del gridBG (que empieza en _gridWindowOffset).
+		// Sumamos _gridWindowOffset para obtener el step global absoluto.
+		var clickedStep = (worldY / GRID_SIZE) + _gridWindowOffset;
 
 		// Snap
 		var snapSteps = (currentSnap / 16);
@@ -2091,7 +2150,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function deleteNoteAtPosition(worldY:Float, noteData:Int):Void
 	{
-		var clickedStep = worldY / GRID_SIZE;
+		var clickedStep = (worldY / GRID_SIZE) + _gridWindowOffset;
 		var snapSteps = (currentSnap / 16);
 		clickedStep = Math.floor(clickedStep / snapSteps) * snapSteps;
 
@@ -2149,7 +2208,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	// ✨ NUEVA FUNCIÓN: Seleccionar una nota al hacer clic en ella
 	function selectNoteAtPosition(worldY:Float, noteData:Int):Bool
 	{
-		var clickedStep = worldY / GRID_SIZE;
+		var clickedStep = (worldY / GRID_SIZE) + _gridWindowOffset;
 		var snapSteps = (currentSnap / 16);
 		clickedStep = Math.floor(clickedStep / snapSteps) * snapSteps;
 
@@ -2206,28 +2265,22 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function handleKeyboardInput():Void
 	{
-		if (isAnyPopupOpen() || openSectionNav)
-			return;
-		// ESC - Volver al PlayState (empezar desde el inicio)
+		// ── Space / ESC / Enter SIEMPRE funcionan — van ANTES del guard de popups ──
 		if (FlxG.keys.justPressed.ESCAPE)
-		{
 			testChart();
-		}
 
-		// PLAYBACK
 		if (FlxG.keys.justPressed.SPACE)
 		{
 			if (FlxG.sound.music != null && FlxG.sound.music.playing)
 			{
 				FlxG.sound.music.pause();
-				syncVocals(); // FIX: usar syncVocals() en vez de vocals.pause() directo (vocals puede ser null)
+				syncVocals();
 			}
 			else if (FlxG.sound.music != null)
 			{
-				// ✨ Reproducir desde la sección actual basado en el scroll del grid
 				FlxG.sound.music.time = getSectionStartTime(curSection);
 				FlxG.sound.music.play();
-				syncVocals(); // FIX: sincronizar vocals correctamente (per-char o generic)
+				syncVocals();
 				showMessage('▶ Playing from Section ${curSection + 1}', ACCENT_CYAN);
 			}
 		}
@@ -2236,11 +2289,20 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			FlxG.sound.music.time = getSectionStartTime(curSection);
 			FlxG.sound.music.play();
-
-			// ✨ SINCRONIZAR VOCALES cuando pulsas ENTER
 			syncVocals();
 			showMessage('▶ Playing from Section ${curSection + 1}', ACCENT_CYAN);
 		}
+
+		// El resto de shortcuts sí se bloquean con popups
+		if (isAnyPopupOpen() || openSectionNav)
+			return;
+
+		// ── All remaining shortcuts blocked while a text widget has focus ────
+		// Typing numbers in a BPM/speed/sustain stepper must not accidentally
+		// place notes or seek the timeline.
+		var stageFocus = openfl.Lib.current.stage.focus;
+		if (stageFocus != null && (stageFocus is openfl.text.TextField))
+			return;
 
 		// F5 - Ir al PlayState para probar el chart desde la sección actual
 		if (FlxG.keys.justPressed.ONE)
@@ -2429,6 +2491,16 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (waveformBtn != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(waveformBtn, camHUD))
 		{
 			_toggleWaveform();
+		}
+
+		// Tools button → toggle panel
+		if (toolsPanel != null && FlxG.mouse.justPressed)
+		{
+			// El botón de Tools está en x=648, y=10, w=58, h=22
+			var mx = FlxG.mouse.x;
+			var my = FlxG.mouse.y;
+			if (mx >= 648 && mx <= 706 && my >= 10 && my <= 32)
+				toolsPanel.toggle();
 		}
 	}
 
@@ -3519,8 +3591,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	function _stopChartVocals():Void
 	{
 		if (vocals != null) vocals.stop();
-		if (vocalsBf != null) vocalsBf.stop();
-		if (vocalsDad != null) vocalsDad.stop();
+		for (snd in vocalsPerChar) if (snd != null) snd.stop();
 	}
 
 	/** Destruye y libera todos los tracks de vocales del editor. */
@@ -3533,20 +3604,16 @@ class ChartingState extends funkin.states.MusicBeatState
 			vocals.destroy();
 			vocals = null;
 		}
-		if (vocalsBf != null)
+		for (snd in vocalsPerChar)
 		{
-			FlxG.sound.list.remove(vocalsBf, true);
-			vocalsBf.stop();
-			vocalsBf.destroy();
-			vocalsBf = null;
+			if (snd == null) continue;
+			FlxG.sound.list.remove(snd, true);
+			snd.stop();
+			snd.destroy();
 		}
-		if (vocalsDad != null)
-		{
-			FlxG.sound.list.remove(vocalsDad, true);
-			vocalsDad.stop();
-			vocalsDad.destroy();
-			vocalsDad = null;
-		}
+		vocalsPerChar.clear();
+		_chartPlayerKeys   = [];
+		_chartOpponentKeys = [];
 		_chartPerCharVocals = false;
 	}
 

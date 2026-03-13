@@ -293,11 +293,11 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 				default:
 					// Toggle Bot Play (devmode)
-					if (daSelected.startsWith("BotPlay:"))
+					if (daSelected.startsWith("BotPlay"))
 					{
 						PlayState.isBotPlay = !PlayState.isBotPlay;
 						// Actualizar label en el menú
-						menuItems[curSelected] = PlayState.isBotPlay ? "BotPlay: ON" : "BotPlay: OFF";
+						menuItems[curSelected] = PlayState.isBotPlay ? "BotPlay ON" : "BotPlay OFF";
 						_rebuildMenu();
 						_acted = false; // permitir más acciones en este menú
 						return;
@@ -331,7 +331,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 				// Añadir "Bot Play" si el Developer Mode está activo
 				if (funkin.menus.MainMenuState.developerMode)
 				{
-					var botLabel = PlayState.isBotPlay ? "BotPlay: ON" : "BotPlay: OFF";
+					var botLabel = PlayState.isBotPlay ? "BotPlay ON" : "BotPlay OFF";
 					menuItems.insert(menuItems.length - 3, botLabel);
 				}
 

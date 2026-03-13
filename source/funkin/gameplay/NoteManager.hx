@@ -90,6 +90,9 @@ class NoteManager
 	private static inline var CULL_DISTANCE:Float = 2000;
 
 	private var _scrollSpeed:Float = 0.45;
+	/** Último valor de _scrollSpeed con el que se calcularon los sustainBaseScaleY.
+	 *  Si cambia (modchart o evento de velocidad), recalculamos todos los sustains activos. */
+	private var _lastSustainSpeed:Float = -1.0;
 
 
 	// === SAVE.DATA CACHE (evita acceso Dynamic en hot loop) ===
@@ -224,6 +227,7 @@ class NoteManager
 		_prevSpawnedNote.clear();
 		songSpeed = SONG.speed;
 		_scrollSpeed = 0.45 * FlxMath.roundDecimal(songSpeed, 2);
+		_lastSustainSpeed = _scrollSpeed; // reset so first frame recalculates all
 
 		// Cachear opciones del jugador ahora — se usan en el hot loop de notas
 		refreshSaveDataCache();
@@ -446,6 +450,15 @@ class NoteManager
 	{
 		final hitWindow:Float = Conductor.safeZoneOffset;
 
+		// V-Slice: si el scroll speed cambió (evento de velocidad o modchart),
+		// recalcular sustainBaseScaleY de todos los sustains activos para que
+		// no queden gaps ni solapamientos a velocidades muy altas/bajas.
+		if (_scrollSpeed != _lastSustainSpeed)
+		{
+			_lastSustainSpeed = _scrollSpeed;
+			_recalcAllSustainScales();
+		}
+
 		// Limpiar el set de miss-por-hold al inicio de cada frame
 		// OPTIMIZADO: asignación directa × 4 vs Map.clear() que rehashea internamente
 		_missedHoldDir[0] = false;
@@ -638,6 +651,47 @@ class NoteManager
 		}
 	}
 
+	/**
+	 * V-Slice style: recalcula sustainBaseScaleY de todos los sustains activos
+	 * cuando el scroll speed cambia en mitad de una canción (eventos de velocidad,
+	 * modcharts, etc.). Sin esto, al cambiar la velocidad quedan gaps o solapamientos
+	 * permanentes en los holds que ya estaban spawneados con el speed anterior.
+	 */
+	private function _recalcAllSustainScales():Void
+	{
+		final conductor = funkin.data.Conductor;
+		if (conductor.stepCrochet <= 0) return;
+
+		// Calcular el scale.y correcto para el nuevo speed
+		// Fórmula igual que Note.setupSustainNote() con V-Slice approach
+		inline function calcScaleY(note:funkin.gameplay.notes.Note):Float
+		{
+			if (note.frameHeight <= 0) return note.sustainBaseScaleY; // sin datos de frame
+			final _speed:Float = songSpeed;
+			final _stretch:Float = note._skinHoldStretch; // campo público en Note
+			final _extra:Float = (_speed > 3.0) ? ((_speed - 3.0) * 0.02) : 0.0;
+			final targetH:Float = conductor.stepCrochet * 0.45 * _speed;
+			return (targetH * (_stretch + _extra)) / note.frameHeight;
+		}
+
+		// Iterar sobre todos los sustains activos en el grupo de notas largas
+		for (note in sustainNotes.members)
+		{
+			if (note == null || !note.alive || !note.isSustainNote) continue;
+			// Solo piezas hold (no las colas/tails — tienen frameHeight distinto)
+			var newSY = calcScaleY(note);
+			if (newSY > 0 && newSY != note.sustainBaseScaleY)
+			{
+				note.sustainBaseScaleY = newSY;
+				note.scale.y = newSY;
+				note.updateHitbox();
+				// Re-aplicar offset de skin: updateHitbox() llama centerOffsets() que lo resetea
+				note.offset.x += note.noteOffsetX;
+				note.offset.y += note.noteOffsetY;
+			}
+		}
+	}
+
 	private function handleStrumAnimation(noteData:Int, groupIndex:Int, isPlayer:Bool):Void
 	{
 		var strum = getStrumForDirection(noteData, groupIndex, isPlayer);
@@ -662,6 +716,16 @@ class NoteManager
 			return;
 		}
 
+		// ── Obtener el strum PRIMERO — su Y es la referencia real de posición ──
+		// Las notas ya seguían la X del strum (strum.x + centrado).
+		// Ahora también siguen la Y del strum para que cualquier offset de strum
+		// (por script, por canción con strums en posiciones distintas, etc.)
+		// se refleje correctamente en la trayectoria de la nota.
+		// FIX: si no hay strum (nota huérfana, race condition al spawn), usar
+		// strumLineY como fallback para no crashear y mantener comportamiento previo.
+		var strum = getStrumForDirection(note.noteData, note.strumsGroupIndex, note.mustPress);
+		final _refY:Float = (strum != null) ? strum.y : strumLineY;
+
 		// ── Leer modificadores per-nota del ModChartManager (si existe) ────────
 		var _modState:funkin.gameplay.modchart.StrumState = null;
 		if (modManager != null && modManager.enabled)
@@ -679,17 +743,21 @@ class NoteManager
 		final _scrollMult:Float = (_modState != null) ? _modState.scrollMult : 1.0;
 		final _effectiveSpeed:Float = _scrollSpeed * _scrollMult;
 
+		// ── Posición Y de la nota: relativa al strum actual, no al strumLineY global ──
+		// Antes: todas las notas usaban strumLineY (valor fijo al iniciar PlayState).
+		// Ahora: cada nota usa strum.y, que refleja cualquier offset aplicado al strum
+		// (downscroll, scripts de stage, eventos de canción, mods, etc.).
+		// Cuando nadie mueve los strums, strum.y == strumLineY → comportamiento idéntico.
 		var noteY:Float;
 		if (downscroll)
-			noteY = strumLineY + (songPosition - note.strumTime) * _effectiveSpeed;
+			noteY = _refY + (songPosition - note.strumTime) * _effectiveSpeed;
 		else
-			noteY = strumLineY - (songPosition - note.strumTime) * _effectiveSpeed;
+			noteY = _refY - (songPosition - note.strumTime) * _effectiveSpeed;
 
 		// Para notas normales, Y es directo
 		if (!note.isSustainNote)
 			note.y = noteY;
 
-		var strum = getStrumForDirection(note.noteData, note.strumsGroupIndex, note.mustPress);
 		if (strum != null)
 		{
 			// ── Ángulo base del strum ─────────────────────────────────────────
@@ -718,7 +786,15 @@ class NoteManager
 			note.scale.x = newSX;
 			note.scale.y = newSY; // siempre: se sobreescribe luego con compensacion si es sustain
 			if (scaleChanged)
+			{
 				note.updateHitbox();
+				// Re-aplicar offset de skin tras updateHitbox().
+				// updateHitbox() llama centerOffsets() internamente, que resetea offset a
+				// (frameWidth-width)/2 borrando el noteOffsetX/Y de la skin. Sin esto
+				// los sustains pierden su offset cada frame que el scale cambia.
+				note.offset.x += note.noteOffsetX;
+				note.offset.y += note.noteOffsetY;
+			}
 			note.alpha = FlxMath.bound(strum.alpha, 0.05, 1.0);
 
 			// ── Posición X base ───────────────────────────────────────────────
@@ -763,10 +839,12 @@ class NoteManager
 				// Pieza anterior: un step más cerca del strum
 				final _prevStrumTime:Float = note.strumTime - Conductor.stepCrochet;
 
-				// Y de la pieza anterior al mismo instante de songPosition
+				// Y de la pieza anterior al mismo instante de songPosition.
+				// FIX: usar _refY (= strum.y) para que la deformación sea coherente
+				// cuando el strum tiene un offset distinto al strumLineY global.
 				var _prevY:Float = downscroll
-					? strumLineY + (songPosition - _prevStrumTime) * _effectiveSpeed
-					: strumLineY - (songPosition - _prevStrumTime) * _effectiveSpeed;
+					? _refY + (songPosition - _prevStrumTime) * _effectiveSpeed
+					: _refY - (songPosition - _prevStrumTime) * _effectiveSpeed;
 
 				// X de la pieza anterior: strum base + mods evaluados en _prevStrumTime
 				var _prevX:Float = strum.x + (strum.width - note.width) / 2;
