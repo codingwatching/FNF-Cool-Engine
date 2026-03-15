@@ -23,7 +23,7 @@ import flixel.addons.ui.FlxUICheckBox;
 import flixel.addons.ui.FlxUIDropDownMenu;
 import flixel.addons.ui.FlxUIInputText;
 import flixel.addons.ui.FlxUINumericStepper;
-import flixel.addons.ui.FlxUITabMenu;
+import funkin.debug.CoolTabMenu;
 import flixel.addons.ui.FlxUITooltip.FlxUITooltipStyle;
 import openfl.net.FileReference;
 import openfl.events.Event;
@@ -50,7 +50,7 @@ using StringTools;
 
 class AnimationDebug extends MusicBeatState
 {
-	var UI_box:FlxUITabMenu;
+	var UI_box:CoolTabMenu;
 
 	var char:Character;
 	var textAnim:FlxText;
@@ -174,7 +174,6 @@ class AnimationDebug extends MusicBeatState
 		funkin.debug.themes.EditorTheme.load();
 		FlxG.mouse.visible = true;
 		funkin.audio.MusicManager.play('configurator', 0.7);
-		MainMenuState.musicFreakyisPlaying = false;
 
 		camGame = new FlxCamera();
 		camHUD = new FlxCamera();
@@ -392,7 +391,7 @@ class AnimationDebug extends MusicBeatState
 			{name: "Export", label: "Export"}
 		];
 
-		UI_box = new FlxUITabMenu(null, tabs, true);
+		UI_box = new CoolTabMenu(null, tabs, true);
 		UI_box.cameras = [camHUD];
 		UI_box.resize(320, 450);
 		UI_box.x = FlxG.width - UI_box.width - 10;

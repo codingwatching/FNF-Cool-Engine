@@ -194,6 +194,10 @@ typedef CutsceneStep = {
 	// ── script ──
 	@:optional var func:String;          // nombre de función a llamar en el script
 	@:optional var args:Array<Dynamic>;
+
+	// ── stageAnim ──
+	/** Si true, la cutscene espera a que la animación termine antes de continuar. */
+	@:optional var wait:Bool;
 }
 
 // ── Documento completo ────────────────────────────────────────────────────────

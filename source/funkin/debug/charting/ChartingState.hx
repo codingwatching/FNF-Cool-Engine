@@ -11,6 +11,7 @@ import flixel.FlxSprite;
 import flixel.FlxCamera;
 import flixel.addons.display.FlxGridOverlay;
 import flixel.addons.ui.*;
+import funkin.debug.CoolTabMenu;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxGroup;
 import flixel.math.FlxMath;
@@ -150,7 +151,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	public var curDiffSuffix:String = '';
 
 	// UI PRINCIPAL
-	var UI_box:FlxUITabMenu;
+	var UI_box:CoolTabMenu;
 	var camGame:FlxCamera;
 	var camHUD:FlxCamera;
 
@@ -818,7 +819,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function setupUITabs():Void
 	{
-		UI_box = new FlxUITabMenu(null, [
+		UI_box = new CoolTabMenu(null, [
 			{name: "Song", label: 'Song'},
 			{name: "Section", label: 'Section'},
 			{name: "Note", label: 'Note'},
@@ -1637,6 +1638,10 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	override function update(elapsed:Float):Void
 	{
+		// Resetear el flag de consumo de rueda ANTES de actualizar los hijos
+		// (CharacterIconRow y otros componentes lo ponen a true si consumen el wheel)
+		wheelConsumed = false;
+		clickConsumed = false;
 		super.update(elapsed);
 
 		updateToolbar();

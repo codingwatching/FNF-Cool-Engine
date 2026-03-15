@@ -121,8 +121,6 @@ class TitleState extends funkin.states.MusicBeatState
 		bg.screenCenter();
 		add(bg);
 
-		MainMenuState.musicFreakyisPlaying = true;
-
 		// DEBUG BULLSHIT
 
 		#if HSCRIPT_ALLOWED

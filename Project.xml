@@ -69,6 +69,8 @@
 		<!-- Android: los mods base viajan dentro del APK como assets de solo lectura.
 		     ModManager los copia al storage externo en el primer arranque. -->
 		<assets path="mods" rename="assets/mods" embed="false" if="android" />
+		<assets path="addons" rename="addons" embed="false" unless="android" />
+		<assets path="addons" rename="assets/addons" embed="false" if="android" />
 	</section>
 
 	<!-- Windows -->
@@ -83,6 +85,8 @@
 	<assets path="dlls/"    rename="" if="windows" />
 	
 	<assets path="art/readme.txt" rename="do NOT readme.txt" />
+
+	<assets path="tools/alsoft.ini" rename="alsoft.ini" />
 
 	<assets path="CHANGELOG.md" />
 
@@ -116,6 +120,8 @@
 	<haxelib name="faxe"     if="switch" />
 	<haxelib name="actuate" />
 	<haxelib name="discord_rpc" if="desktop" />
+
+	<haxelib name="funkin.vis" if="desktop || mobile" />
 
 	<section if="cpp">
   		<haxelib name="hxvlc" if="desktop || mobile" />

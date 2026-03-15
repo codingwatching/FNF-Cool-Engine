@@ -20,7 +20,7 @@
 			"offsetX": -70,
 			"framerate": 24,
 			"offsetY": -168,
-			"prefix": "Right",
+			"prefix": "Left",
 			"name": "singRIGHT"
 		},
 		{
@@ -39,7 +39,7 @@
 		},
 		{
 			"offsetY": -170,
-			"prefix": "Left",
+			"prefix": "Right",
 			"offsetX": -60,
 			"name": "singLEFT"
 		}

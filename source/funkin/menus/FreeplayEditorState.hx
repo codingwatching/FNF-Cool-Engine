@@ -110,8 +110,7 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 		FlxG.mouse.visible = true;
 		// MusicManager cambia solo si chartEditorLoop no está ya sonando.
 		if (!MusicManager.isPlaying('chartEditorLoop/chartEditorLoop'))
-			MainMenuState.musicFreakyisPlaying = false;
-		MusicManager.play('chartEditorLoop/chartEditorLoop', 0.7);
+			MusicManager.play('chartEditorLoop/chartEditorLoop', 0.7);
 
 		loadSongsData();
 

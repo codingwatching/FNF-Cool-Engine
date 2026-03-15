@@ -42,9 +42,6 @@ class EngineSettings
 	/** FPS máximo aceptado. 0 = sin límite. */
 	public static inline var MAX_FPS:Int = 2000;
 
-	/** Opciones de FPS en el menú (la opción "resolución" se elimina). */
-	public static var FPS_OPTIONS:Array<Int> = [30, 60, 75, 120, 144, 165, 240];
-
 	// ── Resolución ───────────────────────────────────────────────────────────
 
 	/** Ancho por defecto (1080p). */

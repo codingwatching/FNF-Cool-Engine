@@ -80,8 +80,10 @@ class StoryMenuState extends funkin.states.MusicBeatState
 	var txtWeekTitle:FlxText;
 
 	public var curWeek:Int = 0;
+
 	/** Tween de transición suave del color de fondo entre semanas. */
 	var _bgColorTween:FlxTween = null;
+
 	/** Última semana para la que se inició el tween (evita relanzarlo cada frame). */
 	var _lastColoredWeek:Int = -1;
 
@@ -134,7 +136,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			loadDefaultWeeks();
 		}
 
-		scoreText = new FlxText(10, 10, 0, "WEEK SCORE: 49324858", 36);
+		scoreText = new FlxText(10, 10, 0, "LEVEL SCORE: 49324858", 36);
 		scoreText.setFormat("VCR OSD Mono", 32);
 
 		txtWeekTitle = new FlxText(FlxG.width * 0.7, 10, 0, "", 32);
@@ -206,7 +208,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			for (i in 0...weekData.length)
 			{
 				var weekThing:MenuItem = new MenuItem(0, yellowBG.y + yellowBG.height + 10, i,
-						(weekPaths != null && i < weekPaths.length) ? weekPaths[i] : null);
+					(weekPaths != null && i < weekPaths.length) ? weekPaths[i] : null);
 				weekThing.y += ((weekThing.height + 20) * i);
 				weekThing.targetY = i;
 				grpWeekText.add(weekThing);
@@ -511,9 +513,8 @@ class StoryMenuState extends funkin.states.MusicBeatState
 				// funciona igualmente. Solo necesitamos verificar null y cero.
 				var colorStr:String = week.color != null && week.color.length > 0 ? week.color[0] : '0xFFFFD900';
 				var colorParsed:Null<Int> = Std.parseInt(colorStr);
-				var color:FlxColor = (colorParsed != null && colorParsed != 0)
-					? (colorParsed : FlxColor)
-					: (0xFFFFD900 : FlxColor);
+				var color:FlxColor = (colorParsed != null && colorParsed != 0) ? (colorParsed : FlxColor) : (0xFFFFD900 : FlxColor);
+				color.alpha = 255;
 				weekColors.push(color);
 
 				trace('Loaded week ${i}: ${weekName} with ${filteredSongs.length} songs (filtered from ${week.weekSongs.length})');
@@ -625,7 +626,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			if (Math.abs(intendedScore - lerpScore) < 10)
 				lerpScore = intendedScore;
 
-			scoreText.text = "WEEK SCORE:" + lerpScore;
+			scoreText.text = "LEVEL SCORE:" + lerpScore;
 
 			// Actualizar título de la semana si es válido
 			// VALIDACIÓN TRIPLE: curWeek, weekNames, y txtWeekTitle
@@ -645,16 +646,19 @@ class StoryMenuState extends funkin.states.MusicBeatState
 				// lo que no producía transición suave y podía verse como blanco/negro
 				// si el color llegaba null o con un valor inesperado.
 				// Ahora solo se lanza un FlxTween.color cuando cambia la semana.
-				if (yellowBG != null && curWeek >= 0 && curWeek < weekColors.length
-					&& curWeek != _lastColoredWeek)
+				if (yellowBG != null && curWeek >= 0 && curWeek < weekColors.length && curWeek != _lastColoredWeek)
 				{
 					_lastColoredWeek = curWeek;
 					var targetColor:Null<FlxColor> = weekColors[curWeek];
 					if (targetColor == 0 || targetColor == null)
 						targetColor = 0xFFFFD900; // fallback si el color parseado es inválido
-					if (_bgColorTween != null) { _bgColorTween.cancel(); _bgColorTween = null; }
+					if (_bgColorTween != null)
+					{
+						_bgColorTween.cancel();
+						_bgColorTween = null;
+					}
 					_bgColorTween = FlxTween.color(yellowBG, 0.35, yellowBG.color, targetColor,
-						{ ease: FlxEase.quartOut, onComplete: function(_) _bgColorTween = null });
+						{ease: FlxEase.quartOut, onComplete: function(_) _bgColorTween = null});
 				}
 			}
 			else if (curWeek >= weekNames.length)
@@ -823,22 +827,10 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			PlayState.storyWeek = curWeek;
 			PlayState.campaignScore = 0;
 
-			// Transición con stickers — skin seleccionado por semana
-			if (StickerTransition.enabled)
+			new FlxTimer().start(1, function(tmr:FlxTimer)
 			{
-				StickerTransition.setCurrentContext(curWeek, PlayState.storyPlaylist[0]);
-				StickerTransition.start(function()
-				{
-					LoadingState.loadAndSwitchState(new PlayState(), true);
-				});
-			}
-			else
-			{
-				new FlxTimer().start(1, function(tmr:FlxTimer)
-				{
-					LoadingState.loadAndSwitchState(new PlayState(), true);
-				});
-			}
+				LoadingState.loadAndSwitchState(new PlayState(), true);
+			});
 		}
 	}
 

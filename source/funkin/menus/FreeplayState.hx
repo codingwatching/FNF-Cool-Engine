@@ -109,7 +109,6 @@ class FreeplayState extends funkin.states.MusicBeatState
 			transOut = null;
 		}
 
-		MainMenuState.musicFreakyisPlaying = false;
 		MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7);
 
 		// Error message text
@@ -578,7 +577,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		{
 			if (instPlaying != curSelected)
 			{
-				if (FlxG.sound.music != null) FlxG.sound.music.volume = 0;
+				// No silenciar aquí — playPreloadedMusic() para la música anterior automáticamente
 
 				// Verify chart exists — .level (new format) or legacy .json
 				var songLowercase:String = songs[curSelected].songName.toLowerCase();
@@ -634,11 +633,9 @@ class FreeplayState extends funkin.states.MusicBeatState
 				final instSnd = Paths.loadInst(PlayState.SONG.song, audioSuffix);
 				if (instSnd != null)
 				{
-					FlxG.sound.music = instSnd;
-					FlxG.sound.music.persist = true;
-					FlxG.sound.music.looped = true;
-					FlxG.sound.music.volume = 0.7;
-					FlxG.sound.music.play();
+					// playPreloadedMusic detiene la música anterior, registra en CoreAudio
+					// y añade el sound a FlxG.sound.list (necesario para loadStream()).
+					funkin.audio.CoreAudio.playPreloadedMusic(instSnd, 0.7);
 				}
 				else
 				{
@@ -778,7 +775,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 			{
 				colorTween.cancel();
 			}
-			if (FlxG.sound.music != null) FlxG.sound.music.volume = 0;
+			// Parar la música correctamente via CoreAudio (nula la referencia, evita ghost sounds)
+			funkin.audio.MusicManager.stop();
 
 			if (FlxG.save.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 1);
@@ -1087,12 +1085,11 @@ class FreeplayState extends funkin.states.MusicBeatState
 	{
 		super.onFocus();
 
-		// CRÍTICO: Con loadStream(), FlxG.sound.music NO se reanuda automáticamente
-		// Necesitamos reanudarlo manualmente si hay una preview sonando
-		if (FlxG.sound.music != null && instPlaying == curSelected)
+		// CRÍTICO: Con loadStream(), FlxG.sound.music NO se reanuda automáticamente.
+		// Usar CoreAudio.play() para que el volumen se aplique correctamente.
+		if (FlxG.sound.music != null && instPlaying == curSelected && !FlxG.sound.music.playing)
 		{
-			// Reanudar el instrumental
-			FlxG.sound.music.play();
+			funkin.audio.CoreAudio.play(FlxG.sound.music);
 			trace('[FreeplayState] Focus gained - music resumed');
 		}
 	}

@@ -34,8 +34,6 @@ class MainMenuState extends funkin.states.MusicBeatState
 
 	var canSnap:Array<Float> = [];
 
-	public static var musicFreakyisPlaying:Bool = false;
-
 	var camFollow:FlxObject;
 	var newInput:Bool = true;
 	var menuItem:FlxSprite;
@@ -64,7 +62,6 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#if !MAINMENU
 		// MusicManager solo llama playMusic si freakyMenu no está ya sonando
 		MusicManager.play('freakyMenu', 0.7);
-		musicFreakyisPlaying = true;
 		#end
 
 		persistentUpdate = persistentDraw = true;
@@ -223,26 +220,8 @@ class MainMenuState extends funkin.states.MusicBeatState
 		StateScriptHandler.callOnScripts('onUpdate', [elapsed]);
 		#end
 
-		#if !MAINMENU
-		// BUG FIX: FlxG.sound.music no está en FlxG.sound.list, así que el
-		// setter de FlxG.sound.volume no propaga el cambio al music directamente.
-		// Calculamos el target como masterVolume * 0.7 y lo aplicamos cada frame,
-		// de modo que bajar el master a 0 silencia la música inmediatamente.
-		var _musicTarget:Float = FlxG.sound.volume * 0.7;
-		if (FlxG.sound.music != null)
-		{
-			if (FlxG.sound.music.volume < _musicTarget)
-			{
-				FlxG.sound.music.volume += 0.5 * FlxG.elapsed;
-				if (FlxG.sound.music.volume > _musicTarget)
-					FlxG.sound.music.volume = _musicTarget;
-			}
-			else if (FlxG.sound.music.volume > _musicTarget)
-			{
-				FlxG.sound.music.volume = _musicTarget; // Bajar inmediatamente
-			}
-		}
-		#end
+		// El volumen de la música de menú lo gestiona CoreAudio._applyAll() cada frame.
+		// No manipular FlxG.sound.music.volume aquí — pelea con el sistema de volumen.
 
 		// ── Teclas de editor (solo en developer mode) ──────────────────────────
 		if (developerMode)

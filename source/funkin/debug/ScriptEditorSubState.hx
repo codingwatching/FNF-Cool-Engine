@@ -12,7 +12,7 @@ import funkin.data.Song.SwagSong;
 import openfl.events.TextEvent;
 import openfl.events.KeyboardEvent;
 import openfl.ui.Keyboard;
-import ui.SoundTray;
+import funkin.audio.SoundTray;
 
 using StringTools;
 

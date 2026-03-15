@@ -1,6 +1,6 @@
 {
 	"gameOverEnd": "gameplay/gameOverEnd",
-	"gameOverSound": "fnf_loss_sfx",
+	"gameOverSound": "gameplay/gameover/fnf_loss_sfx",
 	"isFlxAnimate": true,
 	"charDeath": "bf-dead",
 	"cameraOffset": [

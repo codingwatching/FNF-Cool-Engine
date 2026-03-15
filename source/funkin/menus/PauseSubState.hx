@@ -272,16 +272,22 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 					if (PlayState.instance != null)
 						PlayState.instance.paused = false;
 					_soundHandled = true; // la transición gestiona el audio, no queremos resume aquí
-					if (PlayState.isStoryMode)
-						StickerTransition.start(() ->
-						{
-							StateTransition.switchState(new StoryMenuState());
-						});
-					else
-						StickerTransition.start(() ->
-						{
-							StateTransition.switchState(new FreeplayState());
-						});
+					if (StickerTransition.enabled){
+						if (PlayState.isStoryMode){
+							StickerTransition.setCurrentContext(PlayState.storyWeek, PlayState.storyPlaylist[0]);
+							StickerTransition.start(() ->
+							{
+								StateTransition.switchState(new StoryMenuState());
+							});
+						}
+						else{
+							StickerTransition.setCurrentContext(PlayState.storyWeek, PlayState.storyPlaylist[0]);
+							StickerTransition.start(() ->
+							{
+								StateTransition.switchState(new FreeplayState());
+							});
+						}
+					}
 
 				case "Skip Cutscene":
 					_skipCutscene();

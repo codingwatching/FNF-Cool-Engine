@@ -154,12 +154,16 @@ class HealthIcon extends FlxSprite
 		var oldState = currentState;
 		currentState = state;
 
-		// Notificar script ANTES de cambiar la animación
+		// Notificar script del icono ANTES de cambiar la animación
 		if (_script != null)
 		{
 			var cancelled = _script.callBool('onStateChange', [state, oldState]);
-			if (cancelled) return;   // el script puede bloquear el cambio
+			if (cancelled) return;
 		}
+
+		// Notificar char scripts del personaje en gameplay
+		// (cargados en PlayState via ScriptHandler.loadCharacterScripts)
+		ScriptHandler.callOnCharacterScripts(characterName, 'onHealthIconStateChange', [state, oldState]);
 
 		_playAnim(state);
 
@@ -180,6 +184,8 @@ class HealthIcon extends FlxSprite
 	{
 		if (_script != null)
 			_script.call('onBeatHit', [beat]);
+		// Char scripts del personaje en gameplay
+		ScriptHandler.callOnCharacterScripts(characterName, 'onHealthIconBeatHit', [beat]);
 	}
 
 	// ── update ────────────────────────────────────────────────────────────────

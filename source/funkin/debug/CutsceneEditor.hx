@@ -9,12 +9,14 @@ import flixel.addons.ui.FlxUICheckBox;
 import flixel.addons.ui.FlxUIDropDownMenu;
 import flixel.addons.ui.FlxUIInputText;
 import flixel.addons.ui.FlxUINumericStepper;
-import flixel.addons.ui.FlxUITabMenu;
+import funkin.debug.CoolTabMenu;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.ui.FlxButton;
+import flixel.util.FlxTimer;
+import animationdata.FunkinSprite;
 import flixel.util.FlxColor;
 import funkin.cutscenes.SpriteCutsceneData;
 import funkin.debug.themes.EditorTheme;
@@ -35,6 +37,7 @@ using StringTools;
 //  CutsceneEditor
 // ─────────────────────────────────────────────────────────────────────────────
 
+@:access(flixel.FlxCamera)
 class CutsceneEditor extends funkin.states.MusicBeatState
 {
 	// ── Layout ────────────────────────────────────────────────────────────────
@@ -46,6 +49,13 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 	static inline final RIGHT_W:Int  = 272;
 	static inline final ROW_H:Int    = 27;
 	static inline final MAX_ROWS:Int = 20;
+
+	// ── Preview panel constants ───────────────────────────────────────────────
+	static inline final PREV_W:Int         = 380;
+	static inline final PREV_TITLE_H:Int   = 22;
+	static inline final PREV_CONTENT_H:Int = 214;  // ≈ PREV_W × 9/16
+	static inline final PREV_BTN_H:Int     = 26;
+	static inline final PREV_PANEL_H:Int   = 262;  // PREV_TITLE_H + PREV_CONTENT_H + PREV_BTN_H
 
 	// ── Colors ────────────────────────────────────────────────────────────────
 	static inline final C_ACCENT:Int     = 0xFF00E5FF;
@@ -85,7 +95,7 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 	var stepActionDropdown:FlxUIDropDownMenu;
 
 	// ── Center: FlxUITabMenu ───────────────────────────────────────────────────
-	var centerPanel:FlxUITabMenu;
+	var centerPanel:CoolTabMenu;
 	static inline final CENTER_X:Int = LEFT_W + 2;
 	var CENTER_W(get, never):Int;
 	inline function get_CENTER_W() return FlxG.width - LEFT_W - RIGHT_W - 4;
@@ -188,6 +198,49 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 	var _fileRef:FileReference;
 	var _applyLock:Bool = false; // prevents feedback loops when populating widgets
 
+	// Modo de entrada de ruta por teclado (LOAD en desktop)
+	var _pathInputMode:Bool   = false;
+	var _pathInputBuf:String  = '';
+	var _pathInputLbl:FlxText = null;
+
+	// ── Preview panel ─────────────────────────────────────────────────────────
+	// Cámara separada que vive SOBRE camHUD — su flashSprite se posiciona
+	// con @:access para crear la ventana flotante de preview.
+	var camPreview:FlxCamera;
+
+	// Posición de la ventana (esquina sup-izq del panel completo, en pantalla)
+	var _prevX:Float = 0;
+	var _prevY:Float = 0;
+
+	// UI del panel (en camHUD, coords de pantalla absolutas)
+	var _prevPanelBg:FlxSprite;
+	var _prevTitleBg:FlxSprite;
+	var _prevTitleLbl:FlxText;
+	var _prevSep1:FlxSprite;
+	var _prevStatusLbl:FlxText;
+	var _prevBtnPlay:FlxButton;
+	var _prevBtnStop:FlxButton;
+	var _prevBtnReset:FlxButton;
+	var _prevBtnClose:FlxButton;
+
+	// Sprites de preview (en camPreview, coords de mundo del juego)
+	var _previewSprGrp:FlxTypedGroup<FlxSprite>;
+	var _previewSprites:Map<String, FlxSprite> = [];
+
+	// Estado inicial para reset (coords de mundo)
+	var _previewInitState:Map<String, _PrevInitState> = [];
+
+	// Drag
+	var _prevDragging:Bool  = false;
+	var _prevDragOffX:Float = 0;
+	var _prevDragOffY:Float = 0;
+
+	// Playback
+	var _prevPlaying:Bool             = false;
+	var _prevStepIdx:Int              = -1;
+	var _prevActiveTimers:Array<FlxTimer> = [];
+	var _prevActiveTweens:Array<FlxTween> = [];
+
 	// ─────────────────────────────────────────────────────────────────────────
 	//  LIFECYCLE
 	// ─────────────────────────────────────────────────────────────────────────
@@ -204,11 +257,20 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		// ── Cameras ───────────────────────────────────────────────────────────
 		camUI  = new FlxCamera();
 		camUI.bgColor.alpha = 0;
+
+		// camPreview debe estar en la lista ANTES de camHUD para que el HUD
+		// (panel, botones) se renderice encima de la preview, no al revés.
+		// buildPreviewPanel() la reposiciona pero NO la re-añade.
+		camPreview = new FlxCamera(0, 0, PREV_W, PREV_CONTENT_H);
+		camPreview.bgColor = 0xFF0B0D1A;
+		camPreview.zoom    = PREV_W / FlxG.width;
+
 		camHUD = new FlxCamera();
 		camHUD.bgColor = T.bgDark;
 
 		FlxG.cameras.reset(camUI);
-		FlxG.cameras.add(camHUD, false);
+		FlxG.cameras.add(camPreview, false);  // ← bajo el HUD
+		FlxG.cameras.add(camHUD, false);       // ← HUD encima de todo
 
 		// ── Initial document ──────────────────────────────────────────────────
 		doc = { sprites: {}, steps: [], skippable: true };
@@ -221,14 +283,17 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		buildStatus();
 		buildSpriteList();
 		buildStepList();
+		buildPathsOverlay(); // DEBE ir antes de buildCenterTabMenu — éste llama buildSpriteTab()
+		                     // → _updateSpriteTypeVisibility() → refreshPathsOverlay(), que
+		                     // necesita pathRowsBg/pathRowsInputs/pathRowsBtns ya inicializados.
 		buildCenterTabMenu();
-		buildPathsOverlay();
 		// buildAnimListOverlay: los grupos animListBg/animListText se crean
 		// dentro de buildAnimTab() al registrar la pestaña Anim. No se necesita
 		// un paso separado — la llamada queda como no-op para compatibilidad.
 
 		refreshSpriteList();
 		refreshStepList();
+		buildPreviewPanel();
 		setStatus('New cutscene — ready.');
 	}
 
@@ -236,6 +301,27 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 	{
 		super.update(elapsed);
 		handleMouse();
+
+		// ── Preview panel drag ────────────────────────────────────────────────
+		if (_prevDragging)
+		{
+			if (FlxG.mouse.pressed)
+			{
+				_prevX = FlxG.mouse.screenX - _prevDragOffX;
+				_prevY = FlxG.mouse.screenY - _prevDragOffY;
+				// Clamp dentro de la pantalla
+				_prevX = Math.max(0, Math.min(FlxG.width  - PREV_W,      _prevX));
+				_prevY = Math.max(0, Math.min(FlxG.height - PREV_PANEL_H, _prevY));
+				_applyPreviewPanelPos();
+			}
+			else _prevDragging = false;
+		}
+
+		// ── Actualizar blockInput según el foco de los inputs de texto ─────────
+		// Cuando un FlxUIInputText tiene el foco, las teclas van a él, no al juego.
+		// Sincronizamos blockInput para que VolumePlugin (tecla 0, +, -) no intente
+		// procesar pulsaciones que ya se tragó el input.
+		funkin.audio.SoundTray.blockInput = _isTyping();
 
 		if (FlxG.keys.pressed.CONTROL)
 		{
@@ -338,10 +424,11 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 			b.cameras = [camHUD]; b.scrollFactor.set(); add(b);
 			return b;
 		}
-		btn(8,   'NEW',        0xFF334422, newDocument);
-		btn(80,  'LOAD',       0xFF333344, loadCutscene);
-		btn(152, 'SAVE',       0xFF334422, saveCutscene);
-		btn(224, 'SAVE TO MOD',0xFF332233, saveCutsceneMod);
+		btn(8,   'NEW',          0xFF334422, newDocument);
+		btn(80,  'LOAD',         0xFF333344, loadCutscene);
+		btn(152, 'LOAD SONG',    0xFF333355, loadFromSong);
+		btn(248, 'SAVE',         0xFF334422, saveCutscene);
+		btn(320, 'SAVE TO MOD',  0xFF332233, saveCutsceneMod);
 
 		// + Sprite and + Step quick buttons
 		btn(FlxG.width - RIGHT_W + 6, '+ SPRITE', 0xFF004422, addSpriteDialog);
@@ -590,7 +677,7 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 			{ name: 'Step',   label: 'STEP' },
 		];
 
-		centerPanel = new FlxUITabMenu(null, tabs, true);
+		centerPanel = new CoolTabMenu(null, tabs, true);
 		centerPanel.resize(cw, panelH);
 		centerPanel.x = cx;
 		centerPanel.y = TOP_H;
@@ -1158,6 +1245,16 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		var mx = FlxG.mouse.screenX;
 		var my = FlxG.mouse.screenY;
 
+		// ── Preview panel title bar — drag ────────────────────────────────────
+		if (mx >= _prevX && mx < _prevX + PREV_W
+		    && my >= _prevY && my < _prevY + PREV_TITLE_H)
+		{
+			_prevDragging  = true;
+			_prevDragOffX  = mx - _prevX;
+			_prevDragOffY  = my - _prevY;
+			return;
+		}
+
 		// ── Sprite list (left panel) ──────────────────────────────────────────
 		if (mx >= 0 && mx < LEFT_W)
 		{
@@ -1421,6 +1518,7 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		Reflect.setField(doc.sprites, selectedSprKey, data);
 		_markUnsaved();
 		refreshSpriteList();
+		if (_previewSprGrp != null) rebuildPreviewSprites();
 		setStatus('Sprite "$selectedSprKey" actualizado.');
 	}
 
@@ -1524,6 +1622,7 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		if (selectedSprKey == key) selectedSprKey = null;
 		_markUnsaved();
 		refreshSpriteList();
+		if (_previewSprGrp != null) rebuildPreviewSprites();
 		setStatus('Sprite "$key" eliminado.');
 	}
 
@@ -1695,8 +1794,11 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 	function saveCutscene():Void
 	{
 		#if sys
-		var key = _cutsceneKey();
-		var path = 'assets/data/cutscenes/$key.json';
+		// Si ya tenemos una ruta (cargado con LOAD SONG o previo SAVE), usar esa.
+		// Esto respeta que el archivo esté en assets/songs/, mods/songs/, etc.
+		var path = (currentFilePath != '')
+			? currentFilePath
+			: 'assets/data/cutscenes/${_cutsceneKey()}.json';
 		try
 		{
 			_ensureDir(path);
@@ -1716,8 +1818,11 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 	{
 		#if sys
 		if (!mods.ModManager.isActive()) { saveCutscene(); return; }
-		var key = _cutsceneKey();
-		var path = '${mods.ModManager.modRoot()}/data/cutscenes/$key.json';
+		// Si la ruta actual ya está dentro del mod, guardar ahí directamente.
+		var modRoot = mods.ModManager.modRoot();
+		var path = (currentFilePath != '' && currentFilePath.startsWith(modRoot))
+			? currentFilePath
+			: '$modRoot/songs/${(PlayState.SONG?.song ?? 'cutscene').toLowerCase()}/${_cutsceneKey()}.json';
 		try
 		{
 			_ensureDir(path);
@@ -1733,6 +1838,18 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 
 	function loadCutscene():Void
 	{
+		#if sys
+		// En desktop usamos un input de texto en el status bar para que el usuario
+		// escriba la ruta. Más simple y robusto que FileReference en targets nativos.
+		// Si currentFilePath ya apunta a algo, se recarga desde ahí directamente.
+		if (currentFilePath != '' && FileSystem.exists(currentFilePath))
+		{
+			_loadCutsceneFromPath(currentFilePath);
+			return;
+		}
+		setStatus('Escribe la ruta del JSON y pulsa ENTER — o usa LOAD SONG para cargar la cutscene del song actual.');
+		#else
+		// Fallback web/flash: FileReference
 		_fileRef = new FileReference();
 		_fileRef.addEventListener(Event.SELECT, function(_)
 		{
@@ -1741,16 +1858,7 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 				try
 				{
 					var raw:String = _fileRef.data.toString();
-					doc = Json.parse(raw);
-					_rebuildSpriteKeys();
-					selectedSprKey  = null;
-					selectedStepIdx = -1;
-					hasUnsavedChanges = false;
-					unsavedDot.visible = false;
-					currentFilePath = _fileRef.name;
-					refreshSpriteList();
-					refreshStepList();
-					setStatus('Cargado: ${_fileRef.name}');
+					_applyRawDoc(raw, _fileRef.name);
 				}
 				catch (e) { setStatus('Error parseando JSON: $e'); }
 			});
@@ -1759,6 +1867,93 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		_fileRef.addEventListener(Event.CANCEL, function(_) {});
 		_fileRef.addEventListener(IOErrorEvent.IO_ERROR, function(_) { setStatus('Error leyendo archivo.'); });
 		_fileRef.browse([new openfl.net.FileFilter('Cutscene JSON', '*.json')]);
+		#end
+	}
+
+	/**
+	 * Busca la cutscene del song actual (del PlayState o el último usado)
+	 * probando las rutas estándar, y la carga automáticamente.
+	 * Si no existe, prepara un documento vacío con la clave correcta.
+	 */
+	function loadFromSong():Void
+	{
+		#if sys
+		var song = (PlayState.SONG?.song ?? '').toLowerCase();
+		if (song == '') { setStatus('No hay canción activa. Entra desde el PlayState.'); return; }
+
+		var modRoot = mods.ModManager.modRoot();
+
+		// Mismas rutas que SpriteCutscene._resolvePath(), en el mismo orden.
+		var keysToTry = ['$song-intro', '$song-outro', song];
+		var found = false;
+		for (key in keysToTry)
+		{
+			var candidates:Array<String> = [];
+			if (modRoot != null)
+			{
+				candidates.push('$modRoot/data/cutscenes/$song/$key.json');
+				candidates.push('$modRoot/data/cutscenes/$key.json');
+				candidates.push('$modRoot/songs/$song/$key.json');   // ← dentro de songs/
+			}
+			candidates.push('assets/data/cutscenes/$song/$key.json');
+			candidates.push('assets/songs/$song/$key.json');         // ← dentro de songs/
+			candidates.push('assets/data/cutscenes/$key.json');
+
+			for (p in candidates)
+			{
+				if (FileSystem.exists(p))
+				{
+					_loadCutsceneFromPath(p);
+					found = true;
+					break;
+				}
+			}
+			if (found) break;
+		}
+
+		if (!found)
+		{
+			newDocument();
+			// Ruta de guardado por defecto: songs/{song}/{song}-intro.json
+			currentFilePath = (modRoot != null)
+				? '$modRoot/songs/$song/$song-intro.json'
+				: 'assets/songs/$song/$song-intro.json';
+			setStatus('No se encontró cutscene para "$song". Doc vacío — SAVE guardará en: $currentFilePath');
+		}
+		#else
+		setStatus('loadFromSong solo disponible en desktop.');
+		#end
+	}
+
+	function _loadCutsceneFromPath(path:String):Void
+	{
+		#if sys
+		try
+		{
+			var raw = File.getContent(path);
+			_applyRawDoc(raw, path);
+		}
+		catch (e) { setStatus('Error leyendo "$path": $e'); }
+		#end
+	}
+
+	function _applyRawDoc(raw:String, sourcePath:String):Void
+	{
+		try
+		{
+			doc = haxe.Json.parse(raw);
+			_rebuildSpriteKeys();
+			selectedSprKey  = null;
+			selectedStepIdx = -1;
+			hasUnsavedChanges = false;
+			unsavedDot.visible = false;
+			currentFilePath = sourcePath;
+			refreshSpriteList();
+			refreshStepList();
+			if (_previewSprGrp != null) rebuildPreviewSprites();
+			setStatus('Cargado: $sourcePath');
+		}
+		catch (e) { setStatus('Error parseando JSON: $e'); }
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -1867,6 +2062,45 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		return arr.length > 0 ? arr : null;
 	}
 
+	/**
+	 * Devuelve true si algún FlxUIInputText del editor tiene el foco.
+	 * Se usa para sincronizar SoundTray.blockInput y evitar que teclas como
+	 * 0 / + / - se interpreten como controles de volumen mientras el usuario escribe.
+	 */
+	function _isTyping():Bool
+	{
+		// Inputs del tab SPRITE
+		inline function chk(i:FlxUIInputText) return i != null && i.hasFocus;
+		if (chk(spr_idInput))      return true;
+		if (chk(spr_colorInput))   return true;
+		if (chk(spr_imageInput))   return true;
+		if (chk(spr_xmlInput))     return true;
+		// Inputs del tab ANIM
+		if (chk(anim_nameInput))   return true;
+		if (chk(anim_prefixInput)) return true;
+		if (chk(anim_indicesInput))return true;
+		// Inputs del tab STEP
+		if (chk(step_colorInput))  return true;
+		if (chk(step_keyInput))    return true;
+		if (chk(step_animInput))   return true;
+		if (chk(step_idInput))     return true;
+		if (chk(step_funcInput))   return true;
+		if (chk(step_propsInput))  return true;
+		// Inputs dinámicos de paths (animate)
+		if (pathRowsInputs != null)
+			for (inp in pathRowsInputs.members)
+				if (inp != null && inp.hasFocus) return true;
+		return false;
+	}
+
+	override public function destroy():Void
+	{
+		// Garantía: limpiar blockInput al salir del editor,
+		// independientemente del camino de salida.
+		funkin.audio.SoundTray.blockInput = false;
+		super.destroy();
+	}
+
 	static function _ensureDir(path:String):Void
 	{
 		#if sys
@@ -1910,4 +2144,581 @@ class CutsceneEditor extends funkin.states.MusicBeatState
 		if (step.func     != null) p.push('fn:${step.func}');
 		return p.join(' · ');
 	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	//  PREVIEW PANEL
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function buildPreviewPanel():Void
+	{
+		// Default position: bottom-centre of the centre column
+		_prevX = CENTER_X + (CENTER_W - PREV_W) / 2.0;
+		_prevY = FlxG.height - STATUS_H - PREV_PANEL_H - 8.0;
+
+		// camPreview ya fue creada y añadida a FlxG.cameras en create(),
+		// entre camUI y camHUD para que quede bajo el HUD.
+		// Aquí solo actualizamos sus propiedades si hace falta.
+
+		// ── Background panel sprite (camHUD) ──────────────────────────────────
+		_prevPanelBg = new FlxSprite();
+		_prevPanelBg.makeGraphic(PREV_W, PREV_PANEL_H, 0xEE0A1020);
+		_prevPanelBg.scrollFactor.set();
+		_prevPanelBg.cameras = [camHUD];
+		add(_prevPanelBg);
+
+		// ── Title bar ─────────────────────────────────────────────────────────
+		_prevTitleBg = new FlxSprite();
+		_prevTitleBg.makeGraphic(PREV_W, PREV_TITLE_H, 0xFF0D3050);
+		_prevTitleBg.scrollFactor.set();
+		_prevTitleBg.cameras = [camHUD];
+		add(_prevTitleBg);
+
+		_prevTitleLbl = new FlxText(0, 0, PREV_W - 4, '▶ PREVIEW  •  drag', 10);
+		_prevTitleLbl.color = C_ACCENT;
+		_prevTitleLbl.scrollFactor.set();
+		_prevTitleLbl.cameras = [camHUD];
+		add(_prevTitleLbl);
+
+		// 1-px accent line below title bar
+		_prevSep1 = new FlxSprite();
+		_prevSep1.makeGraphic(PREV_W, 1, C_ACCENT);
+		_prevSep1.scrollFactor.set();
+		_prevSep1.cameras = [camHUD];
+		add(_prevSep1);
+
+		// ── Status label ──────────────────────────────────────────────────────
+		_prevStatusLbl = new FlxText(0, 0, PREV_W - 4, 'Ready.', 9);
+		_prevStatusLbl.color = 0xFFAAAAAA;
+		_prevStatusLbl.scrollFactor.set();
+		_prevStatusLbl.cameras = [camHUD];
+		add(_prevStatusLbl);
+
+		// ── Buttons row ───────────────────────────────────────────────────────
+		_prevBtnPlay  = _mkPrevBtn(4,              0, '▶ PLAY',  previewPlay);
+		_prevBtnStop  = _mkPrevBtn(100,             0, '■ STOP',  previewStop);
+		_prevBtnReset = _mkPrevBtn(196,             0, '⟳ RESET', previewReset);
+		_prevBtnClose = _mkPrevBtn(PREV_W - 76,    0, '✕ HIDE',  _prevToggleVisible);
+
+		// ── Preview sprite group (draws on camPreview) ─────────────────────────
+		_previewSprGrp = new FlxTypedGroup<FlxSprite>();
+		_previewSprGrp.cameras = [camPreview];
+		add(_previewSprGrp);
+
+		_applyPreviewPanelPos();
+		rebuildPreviewSprites();
+	}
+
+	/** Helper: create a small FlxButton assigned to camHUD. */
+	function _mkPrevBtn(offX:Float, offY:Float, label:String, cb:Void->Void):FlxButton
+	{
+		var btn = new FlxButton(0, 0, label, cb);
+		btn.scale.set(0.85, 0.85);
+		btn.updateHitbox();
+		btn.scrollFactor.set();
+		btn.cameras = [camHUD];
+		add(btn);
+		return btn;
+	}
+
+	/**
+	 * Reposition every piece of the preview panel to (_prevX, _prevY).
+	 * Also repositions the camPreview flashSprite viewport on screen.
+	 */
+	function _applyPreviewPanelPos():Void
+	{
+		if (_prevPanelBg == null) return;
+
+		var px:Float = _prevX;
+		var py:Float = _prevY;
+
+		_prevPanelBg.x  = px;  _prevPanelBg.y  = py;
+		_prevTitleBg.x  = px;  _prevTitleBg.y  = py;
+		_prevTitleLbl.x = px + 4; _prevTitleLbl.y = py + 4;
+		_prevSep1.x     = px;  _prevSep1.y     = py + PREV_TITLE_H;
+
+		_prevStatusLbl.x = px + 4;
+		_prevStatusLbl.y = py + PREV_TITLE_H + PREV_CONTENT_H + 4;
+
+		// Button row y = below content area
+		var btnY:Float = py + PREV_TITLE_H + PREV_CONTENT_H + 1;
+		_prevBtnPlay.x  = px + 4;              _prevBtnPlay.y  = btnY;
+		_prevBtnStop.x  = px + 100;            _prevBtnStop.y  = btnY;
+		_prevBtnReset.x = px + 196;            _prevBtnReset.y = btnY;
+		_prevBtnClose.x = px + PREV_W - 76;   _prevBtnClose.y = btnY;
+
+		// Move camPreview viewport on the OpenFL stage using @:access
+		// The flashSprite x/y controls the on-screen position of the camera.
+		if (camPreview != null)
+		{
+			camPreview.x = Std.int(px);
+			camPreview.y = Std.int(py + PREV_TITLE_H + 1);
+		}
+	}
+
+	/** Show/hide the entire preview panel. */
+	function _prevToggleVisible():Void
+	{
+		var v = !_prevPanelBg.visible;
+		_prevPanelBg.visible  = v;
+		_prevTitleBg.visible  = v;
+		_prevTitleLbl.visible = v;
+		_prevSep1.visible     = v;
+		_prevStatusLbl.visible = v;
+		_prevBtnPlay.visible  = v;
+		_prevBtnStop.visible  = v;
+		_prevBtnReset.visible = v;
+		_prevBtnClose.visible = v;
+		if (camPreview != null) camPreview.visible = v;
+	}
+
+	// ── Sprite building ───────────────────────────────────────────────────────
+
+	/**
+	 * Destroy any existing preview sprites and re-create them from doc.sprites.
+	 * The sprites are added to _previewSprGrp (renders on camPreview) but start
+	 * invisible — the playback steps call 'add' to show them, matching the real
+	 * cutscene behaviour.  After rebuild the preview is reset automatically.
+	 */
+	function rebuildPreviewSprites():Void
+	{
+		_prevStopPlayback();
+
+		if (_previewSprGrp != null) _previewSprGrp.clear();
+		_previewSprites   = [];
+		_previewInitState = [];
+
+		if (doc == null || doc.sprites == null) return;
+
+		// ── Fondo de rejilla (para que la preview no parezca vacía) ───────────
+		var gridBg = new FlxSprite(0, 0);
+		gridBg.makeGraphic(FlxG.width, FlxG.height, 0xFF111622);
+		// Dibujamos líneas de rejilla de 80px directamente en el BitmapData
+		var bmd = gridBg.pixels;
+		bmd.lock();
+		final gridCol:Int = 0xFF1E2A40;
+		final gStep:Int   = 80;
+		for (gx in 0...Std.int(FlxG.width / gStep) + 2)
+		{
+			var xx = gx * gStep;
+			if (xx >= FlxG.width) break;
+			for (py in 0...FlxG.height) bmd.setPixel32(xx, py, gridCol);
+		}
+		for (gy in 0...Std.int(FlxG.height / gStep) + 2)
+		{
+			var yy = gy * gStep;
+			if (yy >= FlxG.height) break;
+			for (px in 0...FlxG.width) bmd.setPixel32(px, yy, gridCol);
+		}
+		bmd.unlock();
+		gridBg.scrollFactor.set(0, 0);
+		gridBg.cameras = [camPreview];
+		_previewSprGrp.add(gridBg);
+
+		// ── Sprites del documento — visibles en la vista estática inicial ─────
+		for (key in spriteKeys)
+		{
+			var data:CutsceneSpriteData = Reflect.field(doc.sprites, key);
+			if (data == null) continue;
+
+			var spr:FlxSprite = _buildPreviewSprite(key, data);
+			if (spr == null) continue;
+
+			spr.scrollFactor.set(0, 0);
+			spr.cameras = [camPreview];
+			spr.visible = true;           // Vista estática: se ven todos en su posición inicial
+			spr.alpha   = data.alpha ?? 1.0;
+			_previewSprGrp.add(spr);
+			_previewSprites.set(key, spr);
+
+			_previewInitState.set(key, {
+				x:       spr.x,
+				y:       spr.y,
+				alpha:   data.alpha ?? 1.0,
+				angle:   spr.angle,
+				scaleX:  spr.scale.x,
+				scaleY:  spr.scale.y,
+				centered: data.center == true
+			});
+		}
+
+		var count = [for (_ in _previewSprites.keys()) true].length;
+		_prevSetStatus('Vista estática — $count sprite(s). ▶ PLAY para animar.');
+	}
+
+	/** Build a lightweight FlxSprite (or FunkinSprite) from CutsceneSpriteData. */
+	function _buildPreviewSprite(id:String, data:CutsceneSpriteData):FlxSprite
+	{
+		var spr:FlxSprite;
+		switch (data.type ?? 'rect')
+		{
+			case 'rect':
+				spr = new FlxSprite();
+				var w = Std.int((data.width  ?? 1.0) * FlxG.width);
+				var h = Std.int((data.height ?? 1.0) * FlxG.height);
+				spr.makeGraphic(w, h, _parseColorPreview(data.color ?? '0xFF000000'));
+
+			case 'image':
+				var fs = new FunkinSprite();
+				var g  = Paths.getGraphic(data.image ?? id);
+				if (g != null) fs.loadGraphic(g);
+				else           fs.makeGraphic(150, 150, 0x44FFFFFF);
+				spr = fs;
+
+			case 'atlas', 'sparrow', 'packer', 'animate', 'auto':
+				var fs = new FunkinSprite();
+				var pathList:Array<String> = data.paths;
+				try {
+					if (pathList != null && pathList.length > 1)
+						fs.loadMultiAnimateAtlas(pathList);
+					else if (pathList != null && pathList.length == 1)
+						fs.loadAsset(pathList[0]);
+					else
+						fs.loadAsset(data.image ?? id);
+					// Register animations
+					if (data.animations != null)
+						for (a in (data.animations : Array<CutsceneSpriteAnim>))
+							fs.addAnim(a.name, a.prefix, a.fps ?? 24, a.loop ?? false, a.indices);
+					// Play first anim if any
+					if (data.animations != null && data.animations.length > 0)
+						try fs.playAnim(data.animations[0].name) catch (_) {}
+				} catch (e:Dynamic) {
+					trace('[Preview] Error cargando "$id": $e');
+					fs.makeGraphic(60, 60, 0x44FF4444);
+				}
+				spr = fs;
+
+			default:
+				spr = new FlxSprite();
+				spr.makeGraphic(60, 60, 0x44FF0000);
+		}
+
+		// Apply initial transform
+		if (data.x     != null) spr.x     = data.x;
+		if (data.y     != null) spr.y     = data.y;
+		if (data.alpha != null) spr.alpha = data.alpha;
+		if (data.angle != null) spr.angle = data.angle;
+		if (data.flipX == true) spr.flipX = true;
+		if (data.flipY == true) spr.flipY = true;
+		spr.antialiasing = data.antialiasing ?? true;
+
+		if (data.scale != null) {
+			spr.setGraphicSize(Std.int(spr.width * data.scale));
+			spr.updateHitbox();
+		} else if (data.scaleX != null || data.scaleY != null) {
+			spr.scale.set(data.scaleX ?? 1.0, data.scaleY ?? 1.0);
+			spr.updateHitbox();
+		}
+
+		if (data.center == true) {
+			spr.x = (FlxG.width  - spr.width)  / 2;
+			spr.y = (FlxG.height - spr.height) / 2;
+		}
+
+		return spr;
+	}
+
+	// ── Playback ──────────────────────────────────────────────────────────────
+
+	function previewPlay():Void
+	{
+		if (doc == null || doc.steps == null || doc.steps.length == 0)
+		{
+			_prevSetStatus('No hay steps para reproducir.');
+			return;
+		}
+		// Resetear posiciones pero ocultar sprites —
+		// los steps 'add' los van a ir mostrando en orden, igual que en el juego real.
+		_prevStopPlayback();
+		for (key => spr in _previewSprites)
+		{
+			var init = _previewInitState.get(key);
+			if (init == null) { spr.visible = false; continue; }
+			spr.alpha   = init.alpha;
+			spr.angle   = init.angle;
+			spr.scale.set(init.scaleX, init.scaleY);
+			spr.color   = 0xFFFFFFFF;
+			if (init.centered)
+			{
+				spr.x = (FlxG.width  - spr.width)  / 2;
+				spr.y = (FlxG.height - spr.height) / 2;
+			}
+			else { spr.x = init.x; spr.y = init.y; }
+			spr.visible = false;   // ocultos hasta que el step 'add' los muestre
+		}
+		_prevPlaying = true;
+		_prevStepIdx = 0;
+		_prevSetStatus('▶ Playing...');
+		_prevRunStep();
+	}
+
+	function previewStop():Void
+	{
+		_prevStopPlayback();
+		// Volver a la vista estática con todos los sprites visibles
+		previewReset();
+		_prevSetStatus('Detenido. Vista estática.');
+	}
+
+	function previewReset():Void
+	{
+		_prevStopPlayback();
+
+		// Restaurar cada sprite a su estado inicial y mostrarlo
+		// (modo estático: todos visibles en su posición de partida)
+		for (key => spr in _previewSprites)
+		{
+			var init = _previewInitState.get(key);
+			if (init == null) continue;
+			spr.alpha   = init.alpha;
+			spr.angle   = init.angle;
+			spr.scale.set(init.scaleX, init.scaleY);
+			spr.color   = 0xFFFFFFFF;
+			if (init.centered)
+			{
+				spr.x = (FlxG.width  - spr.width)  / 2;
+				spr.y = (FlxG.height - spr.height) / 2;
+			}
+			else
+			{
+				spr.x = init.x;
+				spr.y = init.y;
+			}
+			spr.visible = true;   // vista estática → todos visibles
+		}
+		_prevSetStatus('Reset. Vista estática — ▶ PLAY para animar.');
+	}
+
+	function _prevStopPlayback():Void
+	{
+		_prevPlaying = false;
+		_prevStepIdx = -1;
+		for (t in _prevActiveTimers) if (t != null) { try t.cancel() catch (_) {} }
+		for (tw in _prevActiveTweens) if (tw != null) { try tw.cancel() catch (_) {} }
+		_prevActiveTimers  = [];
+		_prevActiveTweens  = [];
+	}
+
+	function _prevRunStep():Void
+	{
+		if (!_prevPlaying) return;
+		if (_prevStepIdx < 0 || _prevStepIdx >= doc.steps.length)
+		{
+			_prevPlaying = false;
+			_prevSetStatus('Terminado. (${doc.steps.length} steps)');
+			return;
+		}
+
+		var step:CutsceneStep = doc.steps[_prevStepIdx];
+		_prevStepIdx++;
+
+		switch (step.action)
+		{
+			// ── add ────────────────────────────────────────────────────────
+			case 'add':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null)
+				{
+					spr.visible = true;
+					if (step.alpha != null) spr.alpha = step.alpha;
+				}
+				_prevRunStep();
+
+			// ── remove ─────────────────────────────────────────────────────
+			case 'remove':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null) spr.visible = false;
+				_prevRunStep();
+
+			// ── setAlpha ───────────────────────────────────────────────────
+			case 'setAlpha':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null && step.alpha != null) spr.alpha = step.alpha;
+				_prevRunStep();
+
+			// ── setColor ───────────────────────────────────────────────────
+			case 'setColor':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null && step.color != null)
+					spr.color = _parseColorPreview(step.color);
+				_prevRunStep();
+
+			// ── setVisible ─────────────────────────────────────────────────
+			case 'setVisible':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null && step.visible != null) spr.visible = step.visible;
+				_prevRunStep();
+
+			// ── setPosition ────────────────────────────────────────────────
+			case 'setPosition':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null) {
+					if (step.x != null) spr.x = step.x;
+					if (step.y != null) spr.y = step.y;
+				}
+				_prevRunStep();
+
+			// ── screenCenter ───────────────────────────────────────────────
+			case 'screenCenter':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null) {
+					var axis = step.axis ?? 'xy';
+					if (axis != 'y') spr.x = (FlxG.width  - spr.width)  / 2;
+					if (axis != 'x') spr.y = (FlxG.height - spr.height) / 2;
+				}
+				_prevRunStep();
+
+			// ── wait ───────────────────────────────────────────────────────
+			case 'wait':
+				var t = step.time ?? 1.0;
+				_prevSetStatus('⏳ wait ${t}s...');
+				var tmr = new FlxTimer();
+				_prevActiveTimers.push(tmr);
+				tmr.start(t, function(_) {
+					_prevActiveTimers.remove(tmr);
+					_prevRunStep();
+				});
+
+			// ── fadeTimer ──────────────────────────────────────────────────
+			case 'fadeTimer':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr == null) { _prevRunStep(); return; }
+				var target   = step.target   ?? 0.0;
+				var stepAmt  = step.step     ?? 0.15;
+				var interval = step.interval ?? 0.3;
+				_prevSetStatus('⏳ fadeTimer → ${step.sprite}...');
+				var tmr = new FlxTimer();
+				_prevActiveTimers.push(tmr);
+				tmr.start(interval, function(ft:FlxTimer) {
+					if (!_prevPlaying) { ft.cancel(); return; }
+					spr.alpha = (target < spr.alpha)
+						? Math.max(target, spr.alpha - stepAmt)
+						: Math.min(target, spr.alpha + stepAmt);
+					if (Math.abs(spr.alpha - target) < 0.001) {
+						spr.alpha = target;
+						_prevActiveTimers.remove(tmr);
+						ft.cancel();
+						_prevRunStep();
+					} else {
+						ft.reset(interval);
+					}
+				});
+
+			// ── tween ──────────────────────────────────────────────────────
+			case 'tween':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr == null || step.props == null) { _prevRunStep(); return; }
+				var dur  = step.duration ?? 1.0;
+				var ease = _parsePrevEase(step.ease);
+				_prevSetStatus('⏳ tween ${step.sprite} (${dur}s)...');
+				var tw = FlxTween.tween(spr, step.props, dur, {
+					ease: ease,
+					onComplete: function(_) {
+						_prevActiveTweens.remove(_);
+						if (!(step.async ?? false)) _prevRunStep();
+					}
+				});
+				_prevActiveTweens.push(tw);
+				if (step.async ?? false) _prevRunStep();
+
+			// ── playAnim ───────────────────────────────────────────────────
+			case 'playAnim':
+				var spr = _previewSprites.get(step.sprite ?? '');
+				if (spr != null && step.anim != null)
+					try cast(spr, FunkinSprite).playAnim(step.anim, step.force ?? false)
+					catch (_) {}
+				_prevRunStep();
+
+			// ── playSound / waitSound ──────────────────────────────────────
+			// Skip audio in preview — just advance
+			case 'playSound', 'waitSound':
+				_prevRunStep();
+
+			// ── cameraFade ─────────────────────────────────────────────────
+			case 'cameraFade':
+				var dur   = step.duration ?? 1.0;
+				var col   = _parseColorPreview(step.color ?? 'BLACK');
+				var fadeIn = step.fadeIn ?? false;
+				_prevSetStatus('⏳ cameraFade (${dur}s)...');
+				if (fadeIn)
+					camPreview.fade(col, dur, true, function() _prevRunStep());
+				else
+					camPreview.fade(col, dur, false, function() _prevRunStep());
+
+			// ── cameraFlash ────────────────────────────────────────────────
+			case 'cameraFlash':
+				var dur = step.duration ?? 1.0;
+				var col = _parseColorPreview(step.color ?? 'WHITE');
+				camPreview.flash(col, dur);
+				_prevRunStep();
+
+			// ── cameraShake ────────────────────────────────────────────────
+			case 'cameraShake':
+				camPreview.shake(step.intensity ?? 0.05, step.duration ?? 0.5);
+				_prevRunStep();
+
+			// ── end ────────────────────────────────────────────────────────
+			case 'end':
+				_prevPlaying = false;
+				_prevSetStatus('✓ Fin de la cutscene.');
+
+			// ── script / unknown ───────────────────────────────────────────
+			default:
+				_prevRunStep();
+		}
+	}
+
+	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	inline function _prevSetStatus(msg:String):Void
+	{
+		if (_prevStatusLbl != null) _prevStatusLbl.text = msg;
+	}
+
+	function _parseColorPreview(s:String):FlxColor
+	{
+		if (s == null) return FlxColor.BLACK;
+		return switch (s.toUpperCase()) {
+			case 'BLACK':   FlxColor.BLACK;
+			case 'WHITE':   FlxColor.WHITE;
+			case 'RED':     FlxColor.RED;
+			case 'GREEN':   FlxColor.GREEN;
+			case 'BLUE':    FlxColor.BLUE;
+			case 'YELLOW':  FlxColor.YELLOW;
+			case 'CYAN':    0xFF00FFFF;
+			case 'MAGENTA': FlxColor.MAGENTA;
+			case 'ORANGE':  FlxColor.ORANGE;
+			case 'TRANSPARENT': FlxColor.TRANSPARENT;
+			default:
+				try Std.parseInt(s) catch (_) FlxColor.BLACK;
+		};
+	}
+
+	function _parsePrevEase(s:String):Float->Float
+	{
+		if (s == null) return FlxEase.linear;
+		return switch (s) {
+			case 'quadIn':    FlxEase.quadIn;
+			case 'quadOut':   FlxEase.quadOut;
+			case 'quadInOut': FlxEase.quadInOut;
+			case 'cubeIn':    FlxEase.cubeIn;
+			case 'cubeOut':   FlxEase.cubeOut;
+			case 'cubeInOut': FlxEase.cubeInOut;
+			case 'sineIn':    FlxEase.sineIn;
+			case 'sineOut':   FlxEase.sineOut;
+			case 'sineInOut': FlxEase.sineInOut;
+			case 'quartIn':   FlxEase.quartIn;
+			case 'quartOut':  FlxEase.quartOut;
+			case 'elasticIn': FlxEase.elasticIn;
+			case 'elasticOut':FlxEase.elasticOut;
+			case 'bounceOut': FlxEase.bounceOut;
+			case 'bounceIn':  FlxEase.bounceIn;
+			default:          FlxEase.linear;
+		};
+	}
+}
+
+/** Estado inicial de un sprite de preview — usado para reset. */
+typedef _PrevInitState = {
+	x:Float, y:Float, alpha:Float, angle:Float,
+	scaleX:Float, scaleY:Float, centered:Bool
 }

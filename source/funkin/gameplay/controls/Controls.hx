@@ -32,6 +32,7 @@ enum abstract Action(String) to String from String
 	var ACCEPT = "accept";
 	var BACK = "back";
 	var PAUSE = "pause";
+	var SCREENSHOT = "screenshot";
 	var RESET = "reset";
 	var CHEAT = "cheat";
 }
@@ -57,6 +58,7 @@ enum Control
 	ACCEPT;
 	BACK;
 	PAUSE;
+	SCREENSHOT;
 	CHEAT;
 }
 
@@ -89,6 +91,7 @@ class Controls extends FlxActionSet
 	var _accept = new FlxActionDigital(Action.ACCEPT);
 	var _back = new FlxActionDigital(Action.BACK);
 	var _pause = new FlxActionDigital(Action.PAUSE);
+	var _screenshot = new FlxActionDigital(Action.SCREENSHOT);
 	var _reset = new FlxActionDigital(Action.RESET);
 	var _cheat = new FlxActionDigital(Action.CHEAT);
 
@@ -176,6 +179,11 @@ class Controls extends FlxActionSet
 	inline function get_PAUSE()
 		return _pause.check();
 
+	public var SCREENSHOT(get, never):Bool;
+
+	inline function get_SCREENSHOT()
+		return _screenshot.check();
+
 	public var RESET(get, never):Bool;
 
 	inline function get_RESET()
@@ -206,6 +214,7 @@ class Controls extends FlxActionSet
 		add(_accept);
 		add(_back);
 		add(_pause);
+		add(_screenshot);
 		add(_reset);
 		add(_cheat);
 
@@ -234,6 +243,7 @@ class Controls extends FlxActionSet
 		add(_accept);
 		add(_back);
 		add(_pause);
+		add(_screenshot);
 		add(_reset);
 		add(_cheat);
 
@@ -388,6 +398,7 @@ class Controls extends FlxActionSet
 			case ACCEPT: _accept;
 			case BACK: _back;
 			case PAUSE: _pause;
+			case SCREENSHOT: _screenshot;
 			case RESET: _reset;
 			case CHEAT: _cheat;
 		}
@@ -431,6 +442,8 @@ class Controls extends FlxActionSet
 				func(_back, JUST_PRESSED);
 			case PAUSE:
 				func(_pause, JUST_PRESSED);
+			case SCREENSHOT:
+				func(_screenshot, JUST_PRESSED);
 			case RESET:
 				func(_reset, JUST_PRESSED);
 			case CHEAT:
@@ -600,6 +613,11 @@ class Controls extends FlxActionSet
 		var pauseKeys = [pauseKey, ENTER, ESCAPE];
 		inline bindKeys(Control.PAUSE, pauseKeys);
 
+		// SCREENSHOT: tecla configurable + fallback F12
+		var screenshotKey = FlxKey.fromString(FlxG.save.data.screenshotBind);
+		var screenshotKeys = [screenshotKey, F12];
+		inline bindKeys(Control.SCREENSHOT, screenshotKeys);
+
 		// CHEAT: tecla configurable
 		var cheatKey = FlxKey.fromString(FlxG.save.data.cheatBind);
 		inline bindKeys(Control.CHEAT, [cheatKey]);
@@ -680,6 +698,7 @@ class Controls extends FlxActionSet
 			Control.ACCEPT => [A, START],
 			Control.BACK   => [B],
 			Control.PAUSE  => [START],
+			Control.SCREENSHOT => [FlxGamepadInputID.BACK, LEFT_STICK_CLICK, RIGHT_STICK_CLICK],
 			Control.CHEAT  => [Y],
 			Control.RESET  => [Y],
 
@@ -695,6 +714,7 @@ class Controls extends FlxActionSet
 			Control.ACCEPT => [B],
 			Control.BACK   => [A],
 			Control.PAUSE  => [START],
+			Control.SCREENSHOT => [FlxGamepadInputID.BACK, LEFT_STICK_CLICK, RIGHT_STICK_CLICK],
 			Control.CHEAT  => [X],
 			Control.RESET  => [X],
 			Control.UP    => [DPAD_UP,    LEFT_STICK_DIGITAL_UP,    RIGHT_STICK_DIGITAL_UP,    Y],

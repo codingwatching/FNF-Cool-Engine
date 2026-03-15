@@ -120,7 +120,7 @@
 			"framerate": 24,
 			"assetPath": "pico/death",
 			"offsetY": 14,
-			"prefix": "Death Loop0",
+			"prefix": "Death Loop",
 			"looped": true,
 			"name": "deathLoop"
 		},

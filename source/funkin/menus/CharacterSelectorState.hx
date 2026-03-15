@@ -110,9 +110,8 @@ class CharacterSelectorState extends MusicBeatState
 		// MusicManager solo cambia si 'configurator' no está sonando ya.
 		// Resetear la flag solo cuando realmente se cambia la pista.
 		if (!MusicManager.isPlaying('configurator'))
-			MainMenuState.musicFreakyisPlaying = false;
-		MusicManager.play('configurator', 0.7);
-
+			MusicManager.play('configurator', 0.7);
+		
 		loadCharList();
 
 		// ── BG ────────────────────────────────────────────────────────────────

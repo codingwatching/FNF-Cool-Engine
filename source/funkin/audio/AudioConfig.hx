@@ -101,7 +101,6 @@ class AudioConfig
 			// Buscar en orden de prioridad
 			final candidates:Array<String> = [
 				"alsoft.ini",
-				"assets/alsoft.ini",
 				#if windows
 				Sys.getEnv("APPDATA") + "/alsoft.ini",
 				#end

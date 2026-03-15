@@ -41,6 +41,7 @@ echo Installing HaxeFlixel...
 echo ===============================================
 
 haxelib git flixel https://github.com/FunkinCrew/flixel
+haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
 
 haxelib install flixel-ui
 haxelib install flixel-tools 1.5.1

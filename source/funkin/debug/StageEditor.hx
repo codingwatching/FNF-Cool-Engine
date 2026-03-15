@@ -10,7 +10,7 @@ import flixel.addons.ui.FlxUICheckBox;
 import flixel.addons.ui.FlxUIDropDownMenu;
 import flixel.addons.ui.FlxUIInputText;
 import flixel.addons.ui.FlxUINumericStepper;
-import flixel.addons.ui.FlxUITabMenu;
+import funkin.debug.CoolTabMenu;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
@@ -155,7 +155,7 @@ class StageEditor extends funkin.states.MusicBeatState
 	var layerHoverIdx:Int = -1;
 
 	// ── HUD: right panel (FlxUITabMenu) ──────────────────────────────────────
-	var rightPanel:FlxUITabMenu;
+	var rightPanel:CoolTabMenu;
 
 	// Element tab widgets
 	var elemNameInput:FlxUIInputText;
@@ -1197,7 +1197,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			{name: 'Shaders', label: 'Shaders'}
 		];
 
-		rightPanel = new FlxUITabMenu(null, tabs, true);
+		rightPanel = new CoolTabMenu(null, tabs, true);
 		rightPanel.resize(RIGHT_W - 2, panelH);
 		rightPanel.x = FlxG.width - RIGHT_W + 2;
 		rightPanel.y = TOP_H;

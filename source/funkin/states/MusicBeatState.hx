@@ -14,11 +14,15 @@ import ui.FlxVirtualPad;
 import flixel.input.actions.FlxActionInput;
 #end
 import funkin.gameplay.controls.Controls;
-import ui.SoundTray;
+import funkin.audio.SoundTray;
 import funkin.transitions.StateTransition;
 import funkin.scripting.StateScriptHandler;
 #if debug
 import funkin.debug.GameDevConsole;
+#end
+#if (sys && debug)
+import funkin.debug.JsonWatcher;
+import sys.FileSystem;
 #end
 
 /**
@@ -105,6 +109,30 @@ class MusicBeatState extends FlxUIState
 		GameDevConsole.init();
 		#end
 
+		#if (sys && debug)
+		// ── Limpiar watcher del state anterior y configurar el nuevo ──────────
+		JsonWatcher.clear();
+
+		// Callback: se llama automáticamente cuando un JSON vigilado cambia en disco.
+		// En developerMode reinicia el state para que los cambios surtan efecto.
+		// En cualquier otro caso solo loguea el cambio en la consola.
+		JsonWatcher.onChange = function(type:String, name:String, path:String):Void
+		{
+			final msg = '[HotReload] ${type.toUpperCase()} "$name" modificado — caché invalidado.';
+			GameDevConsole.log(msg, 0xFF69F0AE);
+			trace(msg);
+
+			if (funkin.menus.MainMenuState.developerMode)
+			{
+				GameDevConsole.log('[HotReload] Developer Mode activo → reiniciando state...', 0xFFFFCC00);
+				// Pequeño delay de 1 frame para que el log sea visible antes del switch
+				new flixel.util.FlxTimer(flixel.util.FlxTimer.globalManager).start(0.05, function(_) {
+					_hotReloadRestart();
+				});
+			}
+		};
+		#end
+
 		// Auto-cargar scripts si el state lo permite y no los cargó manualmente
 		if (autoScriptLoad)
 			_autoLoadScripts();
@@ -135,6 +163,34 @@ class MusicBeatState extends FlxUIState
 
 		#if debug
 		GameDevConsole.update();
+
+		// ── F6: Hot-reload de cachés JSON ────────────────────────────────────
+		// Limpia los datos parseados de personajes y stages para que el próximo
+		// acceso los lea de nuevo desde disco. No recarga la partida actual —
+		// solo invalida el caché estático. Útil mientras se editan JSONs sin
+		// tener que reiniciar el juego.
+		if (FlxG.keys.justPressed.F6)
+		{
+			funkin.gameplay.objects.character.Character.clearCharCaches();
+			funkin.gameplay.objects.stages.Stage.clearStageCache();
+			GameDevConsole.log('[HotReload] F6 → JSON caches (chars + stages) limpiados.', 0xFF69F0AE);
+			trace('[MusicBeatState] F6 → JSON caches (chars + stages) limpiados.');
+		}
+
+		// ── F5: Reiniciar state (developer mode) ─────────────────────────────
+		// En PlayState recarga el chart desde disco antes de reiniciar,
+		// para que los cambios al JSON de la canción surtan efecto al instante.
+		// En cualquier otro state hace un FlxG.resetState() limpio.
+		if (FlxG.keys.justPressed.F5 && funkin.menus.MainMenuState.developerMode)
+		{
+			GameDevConsole.log('[DevMode] F5 → Reiniciando state...', 0xFFFFCC00);
+			_hotReloadRestart();
+		}
+		#end
+
+		#if (sys && debug)
+		// ── Poll del JsonWatcher (auto hot-reload) ───────────────────────────
+		JsonWatcher.poll(elapsed);
 		#end
 
 		updateCurStep();
@@ -194,15 +250,77 @@ class MusicBeatState extends FlxUIState
 
 	function _onDestroy():Void
 	{
+		// Garantía de seguridad: limpiar blockInput al salir de cualquier state.
+		// Si OptionsMenuState (u otro state con inputs de texto) lo dejó en true
+		// por salir de forma inesperada, la tecla 0 quedaría bloqueada para siempre.
+		funkin.audio.SoundTray.blockInput = false;
+
 		var soundTray = FlxG.plugins.get(SoundTray);
 		if (soundTray != null)
 			cast(soundTray, SoundTray).forceHide();
+
+		#if (sys && debug)
+		// Limpiar el watcher para que no queden entradas huérfanas del state anterior.
+		// El nuevo state registrará sus propios archivos en create().
+		JsonWatcher.clear();
+		JsonWatcher.onChange = null;
+		#end
 
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onDestroy', []);
 		StateScriptHandler.clearStateScripts();
 		#end
 	}
+
+	/**
+	 * Hot-reload restart — reinicia el state actual releyendo assets desde disco.
+	 *
+	 * En PlayState:
+	 *   1. Limpia los cachés de chars y stages.
+	 *   2. Recarga el SONG desde el .json en disco (recoge cambios al chart).
+	 *   3. Hace FlxG.resetState() — el PlayState se re-crea con el SONG fresco.
+	 *
+	 * En cualquier otro state:
+	 *   Limpia cachés y hace FlxG.resetState() directamente.
+	 *
+	 * Solo activo en `#if debug` — no se compila en builds de release.
+	 */
+	#if debug
+	private function _hotReloadRestart():Void
+	{
+		funkin.gameplay.objects.character.Character.clearCharCaches();
+		funkin.gameplay.objects.stages.Stage.clearStageCache();
+
+		// Si estamos en PlayState, recargar el SONG desde disco antes de resetear.
+		// Esto permite editar el .json del chart y ver los cambios al reiniciar.
+		#if sys
+		var ps = Std.downcast(this, funkin.gameplay.PlayState);
+		if (ps != null && funkin.gameplay.PlayState.SONG != null)
+		{
+			final songName = funkin.gameplay.PlayState.SONG.song;
+			final diffSuffix = funkin.data.CoolUtil.difficultySuffix();
+			try
+			{
+				final reloaded = funkin.data.Song.loadFromJson(
+					songName.toLowerCase() + diffSuffix,
+					songName
+				);
+				if (reloaded != null)
+				{
+					funkin.gameplay.PlayState.SONG = reloaded;
+					GameDevConsole.log('[HotReload] Chart "$songName$diffSuffix" recargado desde disco.', 0xFF69F0AE);
+				}
+			}
+			catch (e:Dynamic)
+			{
+				GameDevConsole.log('[HotReload] Error recargando chart: $e', 0xFFFF5252);
+			}
+		}
+		#end
+
+		FlxG.resetState();
+	}
+	#end
 
 	// ─── BPM / Beat ───────────────────────────────────────────────────────────
 

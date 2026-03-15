@@ -122,7 +122,6 @@ class CreditsState extends funkin.states.MusicBeatState
 
 		// ── Música ─────────────────────────────────────────────────────────
 		// Cambia a freeplayRandom. MusicManager lo hace solo si la pista es diferente.
-		MainMenuState.musicFreakyisPlaying = false;
 		MusicManager.play('freeplayRandom/freeplayRandom', 0.0);
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.volume = 0.0;

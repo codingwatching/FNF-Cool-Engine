@@ -89,7 +89,7 @@ class Countdown {
 	/** Skin para stages normales (HD). */
 	public static final SKIN_NORMAL:CountdownSkin = {
 		sprPaths:        ["UI/normal/ready", "UI/normal/set", "UI/normal/go"],
-		sndPaths:        ["intro3", "intro2", "intro1", "introGo"],
+		sndPaths:        ["gameplay/countdown/intro3", "gameplay/countdown/intro2", "gameplay/countdown/intro1", "gameplay/countdown/introGo"],
 		hdScale:         0.7,
 		pixelScale:      PlayStateConfig.PIXEL_ZOOM,
 		soundVolume:     0.6,
@@ -114,7 +114,7 @@ class Countdown {
 	/** Skin para stages pixel (school). */
 	public static final SKIN_PIXEL:CountdownSkin = {
 		sprPaths:        ["UI/pixelUI/ready-pixel", "UI/pixelUI/set-pixel", "UI/pixelUI/date-pixel"],
-		sndPaths:        ["intro3-pixel", "intro2-pixel", "intro1-pixel", "introGo-pixel"],
+		sndPaths:        ["gameplay/countdown/intro3-pixel", "gameplay/countdown/intro2-pixel", "gameplay/countdown/intro1-pixel", "gameplay/countdown/introGo-pixel"],
 		hdScale:         0.7,
 		pixelScale:      PlayStateConfig.PIXEL_ZOOM,
 		soundVolume:     0.6,

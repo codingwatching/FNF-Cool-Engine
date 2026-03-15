@@ -298,10 +298,8 @@ class PlayState extends funkin.states.MusicBeatState
 	// ─── Cooldown para resync de vocals (evita resyncs demasiado frecuentes) ───
 	private var _resyncCooldown:Int = 0;
 
-	// ─── Audio boot: mantiene FPS bajo por N frames tras _safePlay para que ───
-	// ─── el buffer de SampleDataEvent se inicialice con ≥2048 samples.       ───
-	private var _audioBootFrames:Int  = 0;
-	private var _audioBootSavedFps:Int = 0;
+	// _audioBootFrames/_audioBootSavedFps eliminados: CoreAudio.play() no baja
+	// FPS en targets nativos (OpenAL). Ver funkin/audio/CoreAudio.hx.
 
 	private var characterSlots:Array<CharacterSlot> = [];
 
@@ -1155,24 +1153,31 @@ class PlayState extends funkin.states.MusicBeatState
 		// Cargar instrumental usando el método seguro que soporta archivos externos
 		// MusicManager ya no controla el audio — PlayState lo toma directamente.
 		funkin.audio.MusicManager.invalidate();
-		FlxG.sound.music = Paths.loadInst(SONG.song, _diffSuffix);
-		// FIX: loadInst can return null on Android if the file is missing or OOM.
-		// Guard every access so a bad song doesn't crash the whole game.
-		if (FlxG.sound.music != null)
+
+		// ── Cargar instrumental y registrarlo en CoreAudio ────────────────────
+		// CoreAudio.setInst() añade el sound a FlxG.sound.list (fix defaultMusicGroup)
+		// y lo mantiene sincronizado con FlxG.sound.volume / muted.
+		final _rawInst = Paths.loadInst(SONG.song, _diffSuffix);
+		if (_rawInst != null)
 		{
-			FlxG.sound.music.volume = 0;
-			FlxG.sound.music.pause();
+			_rawInst.volume = 0;
+			_rawInst.pause();
 		}
 		else
 		{
 			trace('[PlayState] WARNING: Paths.loadInst returned null for "${SONG.song}" — audio will be silent.');
 		}
+		funkin.audio.CoreAudio.setInst(_rawInst);
+		// Compatibilidad: FlxG.sound.music sigue apuntando al inst
+		if (_rawInst != null) FlxG.sound.music = _rawInst;
 
 		// Limpiar vocals anterior si existía (por si se llama generateSong más de una vez)
+		// CRÍTICO: desregistrar de CoreAudio ANTES de destruir el FlxSound,
+		// para que clearVocals() no intente llamar .stop() en un objeto ya muerto.
+		funkin.audio.CoreAudio.clearVocals();
 		if (vocals != null)
 		{
 			FlxG.sound.list.remove(vocals, true);
-			vocals.stop();
 			vocals.destroy();
 			vocals = null;
 		}
@@ -1190,9 +1195,10 @@ class PlayState extends funkin.states.MusicBeatState
 		{
 			if (vocals == null)
 				vocals = new FlxSound();
-			vocals.volume = 0;
 			vocals.pause();
 			FlxG.sound.list.add(vocals);
+			// Registrar en CoreAudio (baseVolume=1.0); volumen efectivo = masterVolume×1.0
+			funkin.audio.CoreAudio.addVocal('vocals', vocals);
 		}
 
 		// Limpiar NotePool antes de regenerar (evita acumulación en retry)
@@ -1395,19 +1401,30 @@ class PlayState extends funkin.states.MusicBeatState
 	function fixInstandVocals():Void
 	{
 		final _diffSuffix:String = (SONG.instSuffix != null && SONG.instSuffix != '') ? '-' + SONG.instSuffix : funkin.data.CoolUtil.difficultySuffix();
+
+		// Recargar instrumental si es necesario y registrar en CoreAudio
 		if (FlxG.sound.music == null || !FlxG.sound.music.active)
-			FlxG.sound.music = Paths.loadInst(SONG.song, _diffSuffix);
-		if (FlxG.sound.music != null)
 		{
-			FlxG.sound.music.volume = 0;
-			FlxG.sound.music.pause();
+			final _reloadedInst = Paths.loadInst(SONG.song, _diffSuffix);
+			if (_reloadedInst != null)
+			{
+				_reloadedInst.volume = 0;
+				_reloadedInst.pause();
+			}
+			funkin.audio.CoreAudio.setInst(_reloadedInst);
+			if (_reloadedInst != null) FlxG.sound.music = _reloadedInst;
+		}
+		else if (funkin.audio.CoreAudio.inst == null)
+		{
+			// El sound existe pero no está registrado en CoreAudio (p.ej. tras una cutscene)
+			funkin.audio.CoreAudio.setInst(FlxG.sound.music);
 		}
 
 		// CRÍTICO: Recargar las vocales también
+		funkin.audio.CoreAudio.clearVocals();
 		if (vocals != null)
 		{
 			FlxG.sound.list.remove(vocals, true);
-			vocals.stop();
 			vocals.destroy();
 			vocals = null;
 		}
@@ -1424,9 +1441,9 @@ class PlayState extends funkin.states.MusicBeatState
 		{
 			if (vocals == null)
 				vocals = new FlxSound();
-			vocals.volume = 0;
 			vocals.pause();
 			FlxG.sound.list.add(vocals);
+			funkin.audio.CoreAudio.addVocal('vocals', vocals);
 		}
 	}
 
@@ -1479,12 +1496,11 @@ class PlayState extends funkin.states.MusicBeatState
 						return;
 					}
 
-					// Configurar callbacks y volumen
-					FlxG.sound.music.volume = 1;
+					// CoreAudio gestiona el volumen — NO tocar .volume directamente.
 					FlxG.sound.music.onComplete = endSong;
 
-					// ✨ CRITICAL: Primero REPRODUCIR, luego setear el tiempo
-					_safePlay(FlxG.sound.music);
+					// CRITICAL: Primero REPRODUCIR, luego setear el tiempo.
+					funkin.audio.CoreAudio.play(FlxG.sound.music);
 
 					// Ahora setear el tiempo DESPUÉS de play()
 					FlxG.sound.music.time = targetTime;
@@ -1503,15 +1519,13 @@ class PlayState extends funkin.states.MusicBeatState
 						for (snd in vocalsPerChar)
 						{
 							if (snd == null) continue;
-							snd.volume = 1;
-							_safePlay(snd);
+							funkin.audio.CoreAudio.play(snd);
 							snd.time = targetTime;
 						}
 					}
 					else if (vocals != null)
 					{
-						vocals.volume = 1;
-						_safePlay(vocals);
+						funkin.audio.CoreAudio.play(vocals);
 						vocals.time = targetTime;
 					}
 
@@ -1551,23 +1565,8 @@ class PlayState extends funkin.states.MusicBeatState
 
 	override public function update(elapsed:Float)
 	{
-		// ── Audio-boot FPS restore ────────────────────────────────────────────
-		// After _safePlay lowers FPS to ensure ≥2048 SampleDataEvent samples,
-		// wait a few frames so the audio backend can initialise its buffers,
-		// then restore the user's target FPS.
-		if (_audioBootFrames > 0)
-		{
-			_audioBootFrames--;
-			if (_audioBootFrames == 0 && _audioBootSavedFps > 0)
-			{
-				final main = Std.downcast(openfl.Lib.current.getChildAt(0), Main);
-				if (main != null)
-					main.setMaxFps(_audioBootSavedFps);
-				else
-					openfl.Lib.current.stage.frameRate = _audioBootSavedFps;
-				_audioBootSavedFps = 0;
-			}
-		}
+		// Audio-boot FPS restore eliminado: CoreAudio.play() no manipula FPS
+		// en targets nativos (OpenAL). En Flash solo lo hace una vez al inicio.
 		// ─────────────────────────────────────────────────────────────────────
 
 		if (scriptsEnabled)
@@ -1699,11 +1698,11 @@ class PlayState extends funkin.states.MusicBeatState
 			{
 				// Las per-char vocals se controlan directamente en los callbacks de notas
 			}
-			else if (vocals != null && vocals.volume < 1)
+			else if (vocals != null && funkin.audio.CoreAudio.getBaseVolume(vocals) < 1.0)
 			{
-				vocals.volume += elapsed * 2;
-				if (vocals.volume > 1)
-					vocals.volume = 1;
+				// Usar setBaseVolume para no pelear con CoreAudio._applyAll()
+				final newBase = Math.min(1.0, funkin.audio.CoreAudio.getBaseVolume(vocals) + elapsed * 2);
+				funkin.audio.CoreAudio.setBaseVolume(vocals, newBase);
 			}
 		}
 
@@ -1827,10 +1826,10 @@ class PlayState extends funkin.states.MusicBeatState
 		// Iniciar música e instrumental juntos
 		if (FlxG.sound.music != null && !inCutscene)
 		{
-			// La música ya está cargada, solo necesitamos reproducirla
-			FlxG.sound.music.volume = 1;
+			// CoreAudio ya tiene el baseVolume en 1.0 y aplica masterVolume correctamente.
+			// NO tocar .volume directamente — eso pelea con CoreAudio._applyAll().
 			FlxG.sound.music.time = 0;
-			_safePlay(FlxG.sound.music);
+			funkin.audio.CoreAudio.play(FlxG.sound.music);
 			FlxG.sound.music.onComplete = endSong;
 		}
 
@@ -1842,16 +1841,14 @@ class PlayState extends funkin.states.MusicBeatState
 				for (snd in vocalsPerChar)
 				{
 					if (snd == null) continue;
-					snd.volume = 1;
 					snd.time = 0;
-					_safePlay(snd);
+					funkin.audio.CoreAudio.play(snd);
 				}
 			}
 			else if (vocals != null)
 			{
-				vocals.volume = 1;
 				vocals.time = 0;
-				_safePlay(vocals);
+				funkin.audio.CoreAudio.play(vocals);
 			}
 		}
 
@@ -2077,12 +2074,12 @@ class PlayState extends funkin.states.MusicBeatState
 				for (k in _vocalsPlayerKeys)
 				{
 					var snd = vocalsPerChar.get(k);
-					if (snd != null) snd.volume = 1;
+					if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 1.0);
 				}
 			}
 			else
 			{
-				vocals.volume = 1;
+				if (vocals != null) funkin.audio.CoreAudio.setBaseVolume(vocals, 1.0);
 			}
 
 			for (hook in _noteHitHookArr)
@@ -2173,12 +2170,12 @@ class PlayState extends funkin.states.MusicBeatState
 			for (k in _vocalsPlayerKeys)
 			{
 				var snd = vocalsPerChar.get(k);
-				if (snd != null) snd.volume = 0;
+				if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 0.0);
 			}
 		}
 		else
 		{
-			vocals.volume = 0;
+			if (vocals != null) funkin.audio.CoreAudio.setBaseVolume(vocals, 0.0);
 		}
 
 		if (scriptsEnabled)
@@ -2307,12 +2304,12 @@ class PlayState extends funkin.states.MusicBeatState
 				for (k in _vocalsOpponentKeys)
 				{
 					var snd = vocalsPerChar.get(k);
-					if (snd != null) snd.volume = 1;
+					if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 1.0);
 				}
 			}
 			else
 			{
-				vocals.volume = 1;
+				if (vocals != null) funkin.audio.CoreAudio.setBaseVolume(vocals, 1.0);
 			}
 		}
 	}
@@ -2445,10 +2442,9 @@ class PlayState extends funkin.states.MusicBeatState
 			{
 				// BUGFIX: Si el audio ya está reproduciéndose (PauseSubState llamó
 				// FlxG.sound.resume() antes de close()), NO llamar resyncVocals():
-				// _safePlay() baja el FPS a 20 por 6 frames para inicializar el
-				// buffer de audio, lo que causa el spike de FPS visible al reanudar.
-				// Cuando el audio ya está activo el buffer está inicializado — solo
-				// hay que sincronizar la posición del Conductor.
+				// resyncVocals() usaría play() que en Flash haría el warmup de FPS,
+				// pero en nativos (OpenAL) siempre usa resume() — sin stutter.
+				// Cuando el audio ya está activo solo hay que sincronizar el Conductor.
 				if (FlxG.sound.music.playing)
 					Conductor.songPosition = FlxG.sound.music.time;
 				else
@@ -2549,6 +2545,7 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	function resyncVocals():Void
 	{
+		// Pausar vocales antes del resync para evitar glitch de audio
 		if (_usingPerCharVocals)
 		{
 			for (snd in vocalsPerChar) if (snd != null) snd.pause();
@@ -2558,98 +2555,38 @@ class PlayState extends funkin.states.MusicBeatState
 			vocals.pause();
 		}
 
+		// Reanudar instrumental (sin FPS drop: usa resume() si ya estaba running,
+		// play() solo si está detenido por algún motivo inesperado).
 		if (FlxG.sound.music != null)
 		{
-			_safePlay(FlxG.sound.music);
+			if (!FlxG.sound.music.playing)
+				funkin.audio.CoreAudio.play(FlxG.sound.music);
+			else
+				FlxG.sound.music.resume();
 			Conductor.songPosition = FlxG.sound.music.time;
 		}
 
+		// Sincronizar vocales al tiempo del instrumental usando resume()
+		// → NO reinicializa el backend de audio → CERO FPS drop durante el juego.
 		if (_usingPerCharVocals)
 		{
 			for (snd in vocalsPerChar)
 			{
 				if (snd == null) continue;
 				snd.time = Conductor.songPosition;
-				_safePlay(snd);
+				snd.resume();
 			}
 		}
 		else if (SONG.needsVoices && vocals != null)
 		{
 			vocals.time = Conductor.songPosition;
-			_safePlay(vocals);
+			vocals.resume();
 		}
 	}
 
-	/**
-	 * Plays a FlxSound safely, capping FPS so OpenFL's SampleDataEvent buffer ≥ 2048 samples.
-	 *
-	 * ROOT CAUSE
-	 * ----------
-	 * OpenFL computes the streaming audio buffer as:
-	 *   bufferSize = ceil(sampleRate / stage.frameRate)   [samples per callback]
-	 * Flash spec requires bufferSize ∈ [2048, 8192].
-	 * At "unlimited" FPS (stage.frameRate = 1000):  ceil(44100/1000) = 45  → THROWS.
-	 * At fps = 20:                                   ceil(44100/20)  = 2205 → OK.
-	 *
-	 * WHY THE OLD ONE-LINE FIX FAILED
-	 * ---------------------------------
-	 * The old code set stage.frameRate = 20 synchronously and restored it right after
-	 * play(). But OpenFL's audio backend dispatches SampleDataEvent asynchronously
-	 * from its own timer / audio callback, so by the time the first buffer is actually
-	 * requested, stage.frameRate was already back to 1000 → still 45 samples → THROWS.
-	 *
-	 * Additionally, Main.setMaxFps() controls *both* stage.frameRate *and*
-	 * FlxG.drawFramerate. Setting only stage.frameRate left FlxG.drawFramerate at 1000,
-	 * which some OpenFL paths read instead of (or in addition to) stage.frameRate.
-	 *
-	 * FIX
-	 * ---
-	 * 1. Use Main.setMaxFps(20) to lower BOTH stage.frameRate and FlxG.drawFramerate.
-	 * 2. Call snd.play() while FPS is safely low.
-	 * 3. Do NOT restore immediately. Instead, set _audioBootFrames = 6 so that
-	 *    update() waits 6 rendered frames before restoring the target FPS.
-	 *    6 frames at 20fps ≈ 300ms — enough for the audio backend to fire its first
-	 *    SampleDataEvent callback and lock in the 2205-sample buffer size.
-	 * 4. Multiple rapid _safePlay calls (music + vocalsBf + vocalsDad) reset the
-	 *    counter each time but share one deferred restore, so the FPS dip is a
-	 *    single ~300ms window regardless of how many sounds are started.
-	 */
-	function _safePlay(snd:FlxSound):Void
-	{
-		if (snd == null) return;
-		#if (!html5 && !mobileC)
-		final stage = openfl.Lib.current.stage;
-		final currentFps:Int = Std.int(stage.frameRate);
-		if (currentFps > 21)
-		{
-			// Only save the "real" target fps once (first call in a batch).
-			// Subsequent calls in the same batch see fps=20 already set.
-			if (_audioBootSavedFps <= 0)
-				_audioBootSavedFps = currentFps;
-
-			final main = Std.downcast(openfl.Lib.current.getChildAt(0), Main);
-			if (main != null)
-				main.setMaxFps(20);   // lowers stage.frameRate AND FlxG.drawFramerate
-			else
-				stage.frameRate = 20;
-		}
-		else if (_audioBootSavedFps <= 0)
-		{
-			// FPS ya está en 20 o menos — ocurre cuando una sesión anterior salió
-			// antes de que update() restaurara el FPS (mid-countdown).
-			// destroy() debería haberlo corregido, pero como defensa adicional:
-			// recuperar el target real desde el save para que el restore funcione.
-			final savedTarget:Int = (FlxG.save.data.fpsTarget != null) ? Std.int(FlxG.save.data.fpsTarget) : 60;
-			_audioBootSavedFps = savedTarget > 21 ? savedTarget : 60;
-		}
-		try snd.play() catch (e:Dynamic) trace('[PlayState] _safePlay error: $e');
-		// Reset (or start) the deferred-restore countdown.
-		// update() will call setMaxFps(_audioBootSavedFps) after 6 frames.
-		_audioBootFrames = 6;
-		#else
-		try snd.play() catch (e:Dynamic) trace('[PlayState] _safePlay error: $e');
-		#end
-	}
+	// _safePlay() eliminado: reemplazado por CoreAudio.play() que no manipula
+	// stage.frameRate en targets nativos (OpenAL). Ver funkin/audio/CoreAudio.hx.
+	// En Flash, CoreAudio.play() hace el warmup de FPS solo la primera vez.
 
 	/**
 	 * End song
@@ -2662,14 +2599,15 @@ class PlayState extends funkin.states.MusicBeatState
 		}
 
 		canPause = false;
+		// Silenciar todo via CoreAudio para no pelear con _applyAll()
 		if (FlxG.sound.music != null)
-			FlxG.sound.music.volume = 0;
+			funkin.audio.CoreAudio.setInstVolume(0.0);
 		if (_usingPerCharVocals)
 		{
-			for (snd in vocalsPerChar) if (snd != null) snd.volume = 0;
+			for (snd in vocalsPerChar) if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 0.0);
 		}
 		else if (vocals != null)
-			vocals.volume = 0;
+			funkin.audio.CoreAudio.setBaseVolume(vocals, 0.0);
 		isPlaying = false;
 
 		if (SONG.validScore)
@@ -2899,11 +2837,14 @@ class PlayState extends funkin.states.MusicBeatState
 		// Parar audio inmediatamente
 		if (FlxG.sound.music != null)
 		{
-			FlxG.sound.music.volume = 0; // Silenciar ANTES de pausar para que no suene
-			FlxG.sound.music.pause(); // si PauseSubState.destroy() llama a resume()
+			funkin.audio.CoreAudio.setInstVolume(0.0); // Silenciar via CoreAudio antes de pausar
+			FlxG.sound.music.pause();
 		}
 		if (vocals != null)
+		{
+			funkin.audio.CoreAudio.setBaseVolume(vocals, 0.0);
 			vocals.pause();
+		}
 
 		if (camHUD.alpha == 0)
 			camHUD.alpha = 1;
@@ -3034,21 +2975,21 @@ class PlayState extends funkin.states.MusicBeatState
 			{
 				if (snd == null) continue;
 				snd.time = 0;
-				snd.volume = 0;
 				snd.stop();
+				funkin.audio.CoreAudio.setBaseVolume(snd, 1.0); // restaurar a full para el retry
 			}
 		}
 		else if (vocals != null)
 		{
 			vocals.time = 0;
-			vocals.volume = 0;
 			vocals.stop();
+			funkin.audio.CoreAudio.setBaseVolume(vocals, 1.0);
 		}
 		if (FlxG.sound.music != null)
 		{
 			FlxG.sound.music.time = 0;
-			FlxG.sound.music.volume = 0;
 			FlxG.sound.music.pause();
+			funkin.audio.CoreAudio.setInstVolume(1.0);
 		}
 
 		// ── 9. Resetear flags de gameplay ────────────────────────────────────
@@ -3152,21 +3093,9 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	override function destroy()
 	{
-		// ── BUGFIX: Restaurar FPS si _safePlay lo bajó y destroy() ocurre ───
-		//    antes de que update() completara el countdown de 6 frames.
-		//    Sin esto el FPS queda atascado en 20 al salir mid-countdown o al
-		//    entrar al PlayState por segunda vez (currentFps > 21 → false → no
-		//    guarda _audioBootSavedFps → restore nunca ocurre).
-		if (_audioBootSavedFps > 0)
-		{
-			final main = Std.downcast(openfl.Lib.current.getChildAt(0), Main);
-			if (main != null)
-				main.setMaxFps(_audioBootSavedFps);
-			else
-				openfl.Lib.current.stage.frameRate = _audioBootSavedFps;
-			_audioBootSavedFps = 0;
-			_audioBootFrames   = 0;
-		}
+		// Limpiar el instrumental del sistema CoreAudio (quita de sound.list y
+		// detiene el audio sin destruir el FlxSound — PlayState es el dueño).
+		funkin.audio.CoreAudio.stopAll();
 
 		// ── Quitar listener global de foco ───────────────────────────────────
 		FlxG.signals.focusLost.remove(_onGlobalFocusLost);
@@ -3606,14 +3535,13 @@ class PlayState extends funkin.states.MusicBeatState
 	{
 		super.onFocus();
 
-		// CRÍTICO: Con loadStream(), FlxG.sound.music NO se reanuda automáticamente
-		// Necesitamos reanudarlo manualmente
+		// Reanudar audio al recuperar foco de ventana.
+		// Usamos resumeAll() en lugar de play() porque el backend OpenAL ya está
+		// caliente — play() reinicializaría el buffer innecesariamente.
 		if (FlxG.sound.music != null && !startingSong && generatedMusic && !paused)
 		{
-			// Reanudar el instrumental
-			_safePlay(FlxG.sound.music);
-
-			// Reanudar vocals sincronizadas con el instrumental
+			// Sincronizar tiempo de vocales con el instrumental antes de reanudar
+			final t = FlxG.sound.music.time;
 			if (SONG.needsVoices)
 			{
 				if (_usingPerCharVocals)
@@ -3621,16 +3549,15 @@ class PlayState extends funkin.states.MusicBeatState
 					for (snd in vocalsPerChar)
 					{
 						if (snd == null) continue;
-						snd.time = FlxG.sound.music.time;
-						_safePlay(snd);
+						snd.time = t;
 					}
 				}
 				else if (vocals != null)
 				{
-					vocals.time = FlxG.sound.music.time;
-					_safePlay(vocals);
+					vocals.time = t;
 				}
 			}
+			funkin.audio.CoreAudio.resumeAll();
 		}
 	}
 
@@ -3684,10 +3611,12 @@ class PlayState extends funkin.states.MusicBeatState
 			var snd = Paths.loadVoicesForChar(SONG.song, cand.name, diffSuffix);
 			if (snd == null) continue;
 
-			snd.volume = 0;
 			snd.pause();
 			FlxG.sound.list.add(snd);
 			vocalsPerChar.set(cand.name, snd);
+
+			// Registrar en CoreAudio (baseVolume=1.0); volumen efectivo = masterVolume×1.0
+			funkin.audio.CoreAudio.addVocal(cand.name, snd);
 
 			if (cand.type == 'Player' || cand.type == 'Boyfriend')
 				_vocalsPlayerKeys.push(cand.name);

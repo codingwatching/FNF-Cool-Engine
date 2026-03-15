@@ -7,6 +7,7 @@
     "hudVisible": true,
     "midSongVideo": false,
     "artist": "Kawai Sprite",
+    "introCutscene":"thorns-intro",
     "difficultyOverrides": {
         "erect":     { "artist": "Kawai Sprite (feat. Saster)" },
         "nightmare": { "artist": "Kawai Sprite (feat. Saster)" }

@@ -12,7 +12,7 @@ import openfl.display.StageScaleMode;
 import openfl.display.StageAlign;
 import CacheState;
 import ui.DataInfoUI;
-import ui.SoundTray;
+import funkin.audio.SoundTray;
 import funkin.menus.TitleState;
 import data.PlayerSettings;
 import CrashHandler;
@@ -195,34 +195,22 @@ class Main extends Sprite
 
 		// ── UI overlays ───────────────────────────────────────────────────────
 		addChild(data);
+		// CoreAudio PRIMERO: carga el save (masterVolume/muted) para que
+		// SoundTray.loadVolume() lea valores correctos al construirse.
+		funkin.audio.CoreAudio.initialize();
 		FlxG.plugins.add(new SoundTray());
 		disableDefaultSoundTray();
-		// V-Slice style: plugin de volumen rebindable que también arregla el
-		// bug de defaultMusicGroup y expone onVolumeChanged para el SoundTray.
+		// V-Slice style: plugin de volumen rebindable.
 		funkin.audio.VolumePlugin.initialize();
 
+		// Capturas de pantalla al estilo V-Slice (F12 → PNG + preview en esquina).
+		funkin.util.plugins.ScreenshotPlugin.initialize();
+
 		// ── BUGFIX (Flixel git): forzar curva de volumen lineal ───────────────
-		// En Flixel git, applySoundCurve convierte el volumen 0-1 a una curva
-		// logarítmica antes de enviarlo a OpenAL. El problema: con la curva log
-		// el valor 0.0 puede mapearse a un floor mínimo no-cero (e.g. 0.001),
-		// haciendo que bajar el volumen a 0 o mutear no silencie completamente.
-		// Forzar función identidad garantiza: vol=0.0 → OpenAL gain=0.0 siempre.
+		// CoreAudio gestiona su propio volumen directamente sobre FlxSound.volume,
+		// pero dejamos la curva lineal por si algún SFX usa FlxG.sound.play().
 		FlxG.sound.applySoundCurve  = function(v:Float) return v;
 		FlxG.sound.reverseSoundCurve = function(v:Float) return v;
-
-		// ── BUGFIX (Flixel git): propagar volumen global a defaultMusicGroup ──
-		// Manejado por VolumePlugin (registrado justo debajo) que también
-		// se suscribe a onVolumeChange y llama updateTransform() en music.
-		// Mantenemos este listener como safety net por si VolumePlugin
-		// no está registrado en alguna situación de inicio anormal.
-		FlxG.sound.onVolumeChange.add(function(vol:Float):Void
-		{
-			if (FlxG.sound.music != null)
-			{
-				final mv = FlxG.sound.music.volume;
-				FlxG.sound.music.volume = mv;
-			}
-		});
 
 		// ── Mods ──────────────────────────────────────────────────────────────
 		#if android

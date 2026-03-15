@@ -324,5 +324,4 @@ class CharacterScript
 	public inline function log(msg:Dynamic):Void{
 		trace('[CharacterScript($name)]:'  + character?.curCharacter + msg);
 	}
-	
 }

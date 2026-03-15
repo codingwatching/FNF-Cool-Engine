@@ -63,7 +63,7 @@ class RatingState extends FlxSubState
 {
 	// ─── Visual elements ──────────────────────────────────────────────────────
 	public var comboText:FlxText;
-	public var bf:animationdata.FunkinSprite;
+	public var bf:funkin.gameplay.objects.character.Character;
 	public var bg:FlxSprite;
 	public var bgGradient:FlxSprite;
 	public var bgPattern:FlxSprite;
@@ -314,7 +314,8 @@ class RatingState extends FlxSubState
 		var bfChar = StateScriptHandler.callOnScriptsReturn('getBFCharacter', [], char);
 
 		bf = new funkin.gameplay.objects.character.Character(-100, FlxG.height + 100, bfChar);
-		bf.scale.set(1.2, 1.2);
+		
+		bf.scale.set(bf.width + 0.2, bf.height + 0.2);
 		add(bf);
 
 		pulseElements.push(bf);
@@ -577,7 +578,7 @@ class RatingState extends FlxSubState
 		if (StateScriptHandler.callOnScripts('onExit', [retry])) return;
 
 		isExiting = true;
-		if (bf != null) bf.animation.play('hey', true);
+		if (bf != null && bf.hasAnim('hey')) bf.animation.play('hey', true);
 
 		if (FlxG.save.data.flashing) FlxG.camera.flash(FlxColor.WHITE, 0.5);
 		FlxG.camera.shake(0.005, 0.3);

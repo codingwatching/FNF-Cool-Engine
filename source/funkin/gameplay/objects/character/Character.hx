@@ -39,6 +39,7 @@ typedef CharacterData =
 	@:optional var gameOverEnd:String;
 	@:optional var gameOverBpm:Float;
 	@:optional var gameOverCamFrame:Int;
+	@:optional var deathAnimSuffix:String;
 }
 
 // También modificar AnimData para incluir la hoja a la que pertenece:
@@ -287,6 +288,11 @@ class Character extends FunkinSprite
 			_dataCache.set(character, haxe.Json.stringify(characterData));
 
 			applyCharacterDataDefaults(characterData, character);
+
+			// ── Hot-reload: registrar path en JsonWatcher (solo en sys + debug) ──
+			#if (sys && debug)
+			funkin.debug.JsonWatcher.watch(jsonPath, 'character', character);
+			#end
 		}
 		catch (e:Dynamic)
 		{

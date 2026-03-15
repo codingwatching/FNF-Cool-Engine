@@ -71,7 +71,7 @@ class AddSongSubState extends FlxSubState
 
 	// ── Window layout ─────────────────────────────────────────────────────────
 	var windowWidth:Int  = 860;
-	var windowHeight:Int = 560;
+	var windowHeight:Int = 620;
 	var windowX:Float;
 	var windowY:Float;
 
@@ -92,6 +92,14 @@ class AddSongSubState extends FlxSubState
 	// ── Step containers (groups that get shown/hidden) ─────────────────────
 	var stepGroups:Array<FlxTypedGroup<Dynamic>> = [];
 	var currentStep:Int = STEP_FILES;
+
+	/**
+	 * Posiciones X originales de cada objeto en cada step group.
+	 * FIX: _slideIn leía obj.x en mitad de un tween → acumulaba el offset
+	 * en cada navegación. Guardando las X al construir cada paso y
+	 * restaurándolas antes de la animación, el drift queda eliminado.
+	 */
+	var _stepOrigX:Array<Map<flixel.FlxObject, Float>> = [];
 
 	// ─── PASO 1: Archivos & BPM ───────────────────────────────────────────────
 	var songNameInput:FlxInputText;
@@ -234,6 +242,18 @@ class AddSongSubState extends FlxSubState
 
 		for (g in stepGroups) add(g);
 
+		// ── Snapshot de posiciones X originales (anti-drift en transiciones) ─
+		// Debe hacerse DESPUÉS de _buildStep* y ANTES de cualquier animación
+		// de slide, para que las X capturadas sean siempre las de diseño.
+		for (_ in 0...TOTAL_STEPS) _stepOrigX.push(new Map<flixel.FlxObject, Float>());
+		for (i in 0...stepGroups.length)
+		{
+			var map = _stepOrigX[i];
+			for (m in stepGroups[i].members)
+				if (m != null && Std.isOfType(m, flixel.FlxObject))
+					map.set(cast m, (cast m : flixel.FlxObject).x);
+		}
+
 		// ── Theme button ──────────────────────────────────────────────────────
 		var themeBtn = new FlxButton(windowX + 10, windowY + 10, "\u2728 Theme", function()
 			openSubState(new funkin.debug.themes.ThemePickerSubState()));
@@ -262,8 +282,7 @@ class AddSongSubState extends FlxSubState
 		// ── Song Name ─────────────────────────────────────────────────────────
 		_lbl(g, cx, cy, "Song Name:", 0.3);
 		songNameInput = _inp(g, cx, cy + 22, windowWidth - 80, "", 60, 0.35);
-
-		cy += 72;
+		cy += 68;
 
 		// ── BPM ───────────────────────────────────────────────────────────────
 		_lbl(g, cx, cy, "BPM:", 0.35);
@@ -280,15 +299,13 @@ class AddSongSubState extends FlxSubState
 		}, 0.42);
 		needsVoicesToggleText = _toggleTxt(g, cx + 437, cy + 20, 0.44);
 		_refreshVoicesToggle();
-
-		cy += 72;
+		cy += 68;
 
 		// ── Separador ─────────────────────────────────────────────────────────
 		var sep = new FlxSprite(windowX + 20, cy);
 		sep.makeGraphic(windowWidth - 40, 2, funkin.debug.themes.EditorTheme.current.borderColor);
 		sep.alpha = 0; g.add(sep);
 		FlxTween.tween(sep, {alpha: 0.5}, 0.3, {startDelay: 0.42});
-
 		cy += 14;
 
 		// ── Inst ──────────────────────────────────────────────────────────────
@@ -315,14 +332,12 @@ class AddSongSubState extends FlxSubState
 		}, 0.44);
 		instStatusText = _statusIcon(g, cx + fileW + 6, cy + 10, 0.46);
 
-		// Info bar de inst (edit mode — oculta al inicio)
 		instInfoText = new FlxText(cx, cy + 40, fileW, "", 10);
 		instInfoText.setFormat(Paths.font("vcr.ttf"), 10,
 			funkin.debug.themes.EditorTheme.current.textSecondary, LEFT);
 		instInfoText.visible = false;
 		g.add(instInfoText);
-
-		cy += 48;
+		cy += 52;
 
 		// ── Toggle: Split vocals por personaje ────────────────────────────────
 		_lbl(g, cx, cy, "Split vocals per character:", 0.44);
@@ -344,11 +359,15 @@ class AddSongSubState extends FlxSubState
 			funkin.debug.themes.EditorTheme.current.textSecondary, LEFT);
 		hintSplit.alpha = 0; g.add(hintSplit);
 		FlxTween.tween(hintSplit, {alpha: 0.65}, 0.3, {startDelay: 0.47});
+		cy += 40;
 
-		cy += 42;
+		// ── Área de vocales (cy fijado aquí) ──────────────────────────────────
+		// Guardar la Y base para que _buildVocalSlotUI y _repositionSlotControls
+		// usen siempre la posición correcta, sin hardcodear ni depender de cy local.
+		_vocalAreaY = cy;
 
 		// ── Vocals unificadas (Voices.ogg) — visibles cuando split=false ──────
-		loadVocalsBtn = _fileBtn(g, cx, cy, "  [Voz]  Load Voices.ogg",
+		loadVocalsBtn = _fileBtn(g, cx, cy, "  [Voice]  Load Voices.ogg",
 			funkin.debug.themes.EditorTheme.current.bgHover, fileW, function()
 		{
 			#if desktop
@@ -370,7 +389,6 @@ class AddSongSubState extends FlxSubState
 		}, 0.47);
 		vocalsStatusText = _statusIcon(g, cx + fileW + 6, cy + 10, 0.49);
 
-		// Info bar de Voices.ogg unificado (edit mode)
 		vocalsInfoText = new FlxText(cx, cy + 40, fileW, "", 10);
 		vocalsInfoText.setFormat(Paths.font("vcr.ttf"), 10,
 			funkin.debug.themes.EditorTheme.current.textSecondary, LEFT);
@@ -381,15 +399,22 @@ class AddSongSubState extends FlxSubState
 		_slotContainer = new FlxTypedGroup<Dynamic>();
 		g.add(_slotContainer);
 
-		// Slot inicial: bf + dad
+		// Slots iniciales: bf + dad
 		vocalSlots = [];
 		_buildVocalSlotUI({charName: "bf",  filePath: "", loaded: false, btn: null, statusText: null, nameInput: null});
 		_buildVocalSlotUI({charName: "dad", filePath: "", loaded: false, btn: null, statusText: null, nameInput: null});
 
-		cy += 48;
+		// ── Botón + agregar slot (debajo de los slots) ────────────────────────
+		_addSlotBtn = new FlxButton(cx, _vocalAreaY + vocalSlots.length * 54 - 6,
+			"+ Add character", _onAddSlot);
+		_styleBtn(_addSlotBtn, 0xFF388E3C, 180);
+		_addSlotBtn.alpha = 0; _slotContainer.add(_addSlotBtn);
+		FlxTween.tween(_addSlotBtn, {alpha: 1}, 0.3, {startDelay: 0.52});
 
 		// ── Icon ──────────────────────────────────────────────────────────────
-		loadIconBtn = _fileBtn(g, cx, cy + vocalSlots.length * 54, "  [Img]  Load Icon.png",
+		// Se posiciona dinámicamente; _repositionSlotControls lo mueve siempre.
+		final iconY = _vocalAreaY + 50;   // posición inicial (sin split)
+		loadIconBtn = _fileBtn(g, cx, iconY, "  [Img]  Load Icon.png",
 			funkin.debug.themes.EditorTheme.current.bgHover, fileW, function()
 		{
 			#if desktop
@@ -403,16 +428,13 @@ class AddSongSubState extends FlxSubState
 			fd.browse(OPEN, "png", null, "Select Icon.png");
 			#else updateStatus("Desktop only"); #end
 		}, 0.50);
-		iconStatusText = _statusIcon(g, cx + fileW + 6, cy + vocalSlots.length * 54 + 10, 0.52);
-
-		// Botón + agregar slot
-		_addSlotBtn = new FlxButton(cx, cy + vocalSlots.length * 54 - 6, "+ Add character", _onAddSlot);
-		_styleBtn(_addSlotBtn, 0xFF388E3C, 180);
-		_addSlotBtn.alpha = 0; _slotContainer.add(_addSlotBtn);
-		FlxTween.tween(_addSlotBtn, {alpha: 1}, 0.3, {startDelay: 0.52});
+		iconStatusText = _statusIcon(g, cx + fileW + 6, iconY + 10, 0.52);
 
 		updateFileStatus();
 		_rebuildVocalSlots();
+
+		// Posicionar icon según el estado inicial (sin split)
+		_repositionSlotControls();
 	}
 
 	/**
@@ -425,7 +447,9 @@ class AddSongSubState extends FlxSubState
 		var cx    = windowX + 40;
 		var fileW = windowWidth - 80;
 		var slotIndex = vocalSlots.length;
-		var slotY = windowY + 68 + 154 + slotIndex * 54; // debajo del toggle split
+
+		// Posición correcta: justo debajo de _vocalAreaY, apilados verticalmente.
+		var slotY = _vocalAreaY + slotIndex * 54;
 
 		// Icono del personaje — reserva 36px a la izquierda del nameInput
 		// (inicialmente oculto; _populateExistingAudioInfo lo llena en edit mode)
@@ -442,7 +466,7 @@ class AddSongSubState extends FlxSubState
 
 		// Botón de carga
 		var charCapture = slot;
-		var btn = _fileBtn(g, cx + 134, slotY, "  [Voz]  Voices-" + slot.charName + ".ogg",
+		var btn = _fileBtn(g, cx + 134, slotY, "  [Voice]  Voices-" + slot.charName + ".ogg",
 			0xFF1565C0, fileW - 174, function()
 		{
 			#if desktop
@@ -514,13 +538,14 @@ class AddSongSubState extends FlxSubState
 	/** Reposiciona iconBtn y _addSlotBtn después de añadir/quitar slots. */
 	function _repositionSlotControls():Void
 	{
-		var cx  = windowX + 40;
-		var baseY = windowY + 68 + 154;
+		var cx    = windowX + 40;
 		var fileW = windowWidth - 80;
-		var bottomY = baseY + vocalSlots.length * 54 - 6;
-		if (_addSlotBtn  != null) _addSlotBtn.y  = bottomY;
-		if (loadIconBtn  != null) loadIconBtn.y  = bottomY + 48;
-		if (iconStatusText != null) iconStatusText.y = bottomY + 58;
+		// Cuántos slots hay ahora (en split) — en unified siempre 0 slot visible
+		var slotsBottom = _vocalAreaY + (splitVocals ? vocalSlots.length * 54 : 50);
+
+		if (_addSlotBtn   != null) _addSlotBtn.y   = slotsBottom - 6;
+		if (loadIconBtn   != null) loadIconBtn.y   = slotsBottom + 44;
+		if (iconStatusText != null) iconStatusText.y = slotsBottom + 54;
 	}
 
 	/**
@@ -537,9 +562,14 @@ class AddSongSubState extends FlxSubState
 
 		if (_slotContainer != null)
 		{
+			// FIX: Reflect.hasField falla para propiedades con setter en Haxe.
+			// Usar isOfType + cast directo para acceder a visible correctamente.
 			for (m in _slotContainer.members)
-				if (m != null && Reflect.hasField(m, "visible"))
-					Reflect.setProperty(m, "visible", showSplit);
+			{
+				if (m == null) continue;
+				if (Std.isOfType(m, flixel.FlxBasic))
+					cast(m, flixel.FlxBasic).visible = showSplit;
+			}
 		}
 	}
 
@@ -846,9 +876,16 @@ class AddSongSubState extends FlxSubState
 	{
 		currentStep = step;
 
-		// Mostrar/ocultar grupos de paso
+		// FIX: _setGroupVisible usa cast directo a FlxBasic (no Reflect.hasField)
+		// para garantizar que los pasos ocultos realmente queden invisible.
+		// Además resetamos el alpha de los grupos ocultos a 1.0 para que
+		// _slideIn pueda animarlos desde 0 correctamente cuando se activan.
 		for (i in 0...stepGroups.length)
-			_setGroupVisible(stepGroups[i], i == currentStep - 1);
+		{
+			var vis = (i == currentStep - 1);
+			_setGroupVisible(stepGroups[i], vis);
+			if (!vis) _resetGroupAlpha(stepGroups[i], 1.0);
+		}
 
 		// Botones de nav
 		prevBtn.visible = (currentStep > 1);
@@ -856,13 +893,23 @@ class AddSongSubState extends FlxSubState
 		saveBtn.visible = (currentStep == TOTAL_STEPS);
 
 		// Indicador
-		stepIndicator.text = 'Paso $currentStep / $TOTAL_STEPS';
+		stepIndicator.text = 'Step $currentStep / $TOTAL_STEPS';
 
 		// Título de paso
 		var stepTitles = ["FILES & BPM", "METADATA", "STORY MENU"];
 		titleText.text = (editMode ? "EDIT: " : "ADD: ") + stepTitles[currentStep - 1];
 
 		updateStatus(_stepHint(currentStep));
+	}
+
+	/** Fuerza el alpha de todos los FlxSprite en el grupo al valor dado. */
+	function _resetGroupAlpha(g:FlxTypedGroup<Dynamic>, a:Float):Void
+	{
+		for (m in g.members)
+		{
+			if (m != null && Std.isOfType(m, flixel.FlxSprite))
+				cast(m, flixel.FlxSprite).alpha = a;
+		}
 	}
 
 	function _goStep(step:Int):Void
@@ -887,56 +934,102 @@ class AddSongSubState extends FlxSubState
 
 		// Animación de transición entre pasos
 		var dir:Int = (step > currentStep) ? 1 : -1;
-		var oldGroup = stepGroups[currentStep - 1];
-		var newGroup = stepGroups[step - 1];
+		var oldGroup  = stepGroups[currentStep - 1];
+		var newGroup  = stepGroups[step - 1];
+		var oldIndex  = currentStep - 1;
+		var newIndex  = step - 1;
 
-		_slideOut(oldGroup, dir, function()
+		_slideOut(oldGroup, oldIndex, dir, function()
 		{
 			_setGroupVisible(oldGroup, false);
+			// Restaurar X originales del grupo saliente para que la próxima
+			// vez que se muestre, los elementos partan desde la posición correcta.
+			_restoreOrigX(oldIndex);
 			_showStep(step);
-			_slideIn(newGroup, dir);
+			_slideIn(newGroup, newIndex, dir);
 		});
 	}
 
-	function _slideOut(g:FlxTypedGroup<Dynamic>, dir:Int, onDone:Void->Void):Void
+	function _slideOut(g:FlxTypedGroup<Dynamic>, groupIdx:Int, dir:Int, onDone:Void->Void):Void
 	{
-		var targetX:Float = dir > 0 ? -80 : 80;
-		var count = 0; var total = 0;
-		for (m in g.members) if (m != null && Reflect.hasField(m, "x")) total++;
+		var offset:Float = dir > 0 ? -80 : 80;
+		var count:Int = 0;
+		var total:Int = 0;
+		for (m in g.members)
+			if (m != null && Std.isOfType(m, flixel.FlxObject)) total++;
 		if (total == 0) { onDone(); return; }
+
+		var origMap = (groupIdx >= 0 && groupIdx < _stepOrigX.length) ? _stepOrigX[groupIdx] : null;
+
 		for (m in g.members)
 		{
-			if (m == null || !Reflect.hasField(m, "x")) continue;
-			FlxTween.tween(m, {alpha: 0, x: Reflect.getProperty(m, "x") + targetX},
-				0.18, {ease: FlxEase.quadIn, onComplete: function(_)
-				{
-					count++;
-					if (count >= total) onDone();
-				}});
+			if (m == null || !Std.isOfType(m, flixel.FlxObject)) continue;
+			var obj:flixel.FlxObject = cast m;
+			FlxTween.cancelTweensOf(obj);
+
+			// Partir siempre desde la X original (no desde obj.x que puede
+			// estar en mitad de un tween previo → la fuente del drift).
+			var origX:Float = (origMap != null && origMap.exists(obj)) ? origMap.get(obj) : obj.x;
+			obj.x = origX;
+
+			FlxTween.tween(obj, {alpha: 0, x: origX + offset}, 0.18,
+			{
+				ease: FlxEase.quadIn,
+				onComplete: function(_) { count++; if (count >= total) onDone(); }
+			});
 		}
 	}
 
-	function _slideIn(g:FlxTypedGroup<Dynamic>, dir:Int):Void
+	function _slideIn(g:FlxTypedGroup<Dynamic>, groupIdx:Int, dir:Int):Void
 	{
 		var startOff:Float = dir > 0 ? 80 : -80;
 		_setGroupVisible(g, true);
+
+		var origMap = (groupIdx >= 0 && groupIdx < _stepOrigX.length) ? _stepOrigX[groupIdx] : null;
+
 		for (m in g.members)
 		{
-			if (m == null || !Reflect.hasField(m, "x")) continue;
-			var tx = Reflect.getProperty(m, "x");
-			Reflect.setProperty(m, "x", tx + startOff);
-			Reflect.setProperty(m, "alpha", 0.0);
-			FlxTween.tween(m, {alpha: 1, x: tx}, 0.22, {ease: FlxEase.quadOut});
+			if (m == null || !Std.isOfType(m, flixel.FlxObject)) continue;
+			var obj:flixel.FlxObject = cast m;
+			FlxTween.cancelTweensOf(obj);
+
+			// Destino siempre = X original de diseño (no obj.x actual).
+			var origX:Float = (origMap != null && origMap.exists(obj)) ? origMap.get(obj) : obj.x;
+
+			obj.x = origX + startOff;
+			if (Std.isOfType(obj, flixel.FlxSprite))
+				cast(obj, flixel.FlxSprite).alpha = 0;
+			FlxTween.tween(obj, {alpha: 1, x: origX}, 0.22, {ease: FlxEase.quadOut});
 		}
 	}
 
-	function _setGroupVisible(g:FlxTypedGroup<Dynamic>, visible:Bool):Void
+	/** Restaura todos los elementos de un grupo a sus X originales de diseño. */
+	function _restoreOrigX(groupIdx:Int):Void
+	{
+		if (groupIdx < 0 || groupIdx >= _stepOrigX.length) return;
+		var origMap = _stepOrigX[groupIdx];
+		for (obj in origMap.keys()) obj.x = origMap.get(obj);
+	}
+
+	/**
+	 * Muestra u oculta todos los miembros de un grupo de paso.
+	 *
+	 * FIX: Reflect.hasField(m, "visible") devuelve FALSE para propiedades
+	 * con setter custom (visible(default,set) en FlxBasic), lo que causaba
+	 * que TODOS los pasos quedasen visibles a la vez. Ahora se usa cast
+	 * directo a FlxBasic para acceder al setter correctamente.
+	 */
+	function _setGroupVisible(g:FlxTypedGroup<Dynamic>, vis:Bool):Void
 	{
 		for (m in g.members)
 		{
 			if (m == null) continue;
-			if (Reflect.hasField(m, "visible"))
-				Reflect.setProperty(m, "visible", visible);
+			if (Std.isOfType(m, flixel.FlxBasic))
+			{
+				var fb:flixel.FlxBasic = cast m;
+				fb.visible = vis;
+				if (!vis) FlxTween.cancelTweensOf(fb);
+			}
 		}
 	}
 
@@ -1548,12 +1641,15 @@ class AddSongSubState extends FlxSubState
 	var _splitToggleBtn:FlxButton  = null;
 	var _splitToggleText:FlxText   = null;
 
+	/** Y absoluta donde empieza el área de vocales (después del toggle split). */
+	var _vocalAreaY:Float = 0;
+
 	function _refreshSplitToggle():Void
 	{
 		if (_splitToggleBtn  == null) return;
 		if (_splitToggleText == null) return;
 		_splitToggleBtn.makeGraphic(88, 34, splitVocals ? 0xFF9C27B0 : 0xFF607D8B);
-		_splitToggleText.text  = splitVocals ? "SPLIT" : "ÚNICO";
+		_splitToggleText.text  = splitVocals ? "SPLIT" : "ONLY";
 		_splitToggleText.color = splitVocals ? 0xFFCE93D8 : 0xFFB0BEC5;
 	}
 

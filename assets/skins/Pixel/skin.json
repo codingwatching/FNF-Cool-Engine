@@ -49,9 +49,9 @@
         "strumUpPress":    { "indices": [6, 10], "framerate": 12 },
         "strumRightPress": { "indices": [7, 11], "framerate": 12 },
 
-        "strumLeftConfirm":  { "indices": [12, 16], "framerate": 24, "offset": [-13, -13] },
-        "strumDownConfirm":  { "indices": [13, 17], "framerate": 24, "offset": [-13, -13] },
-        "strumUpConfirm":    { "indices": [14, 18], "framerate": 24, "offset": [-13, -13] },
-        "strumRightConfirm": { "indices": [15, 19], "framerate": 24, "offset": [-13, -13] }
+        "strumLeftConfirm":  { "indices": [12, 16], "framerate": 24},
+        "strumDownConfirm":  { "indices": [13, 17], "framerate": 24},
+        "strumUpConfirm":    { "indices": [14, 18], "framerate": 24},
+        "strumRightConfirm": { "indices": [15, 19], "framerate": 24}
     }
 }

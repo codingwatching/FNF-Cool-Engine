@@ -21,6 +21,7 @@ import funkin.gameplay.PlayState;
 import funkin.states.MusicBeatState;
 import funkin.states.MusicBeatSubstate;
 import funkin.menus.MainMenuState;
+import funkin.audio.MusicManager;
 import data.PlayerSettings;
 import openfl.Lib;
 
@@ -100,8 +101,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	// Keybind state
 	var bindingState:String = "select"; // "select", "binding", "editing"
 	var tempKey:String = "";
-	var keyBindNames:Array<String>    = ["LEFT", "DOWN", "UP", "RIGHT", "RESET", "ACCEPT", "BACK", "PAUSE", "CHEAT"];
-	var defaultKeys:Array<String>     = ["A",    "S",    "W",  "D",     "R",     "ENTER",  "ESCAPE","ENTER",    "SEVEN"];
+	var keyBindNames:Array<String>    = ["LEFT", "DOWN", "UP", "RIGHT", "RESET", "ACCEPT", "BACK", "PAUSE", "SCREENSHOT", "CHEAT"];
+	var defaultKeys:Array<String>     = ["A",    "S",    "W",  "D",     "R",     "ENTER",  "ESCAPE","ENTER", "F12",    "SEVEN"];
 	var blacklistKeys:Array<String>   = ["SPACE"];
 	// Teclas que solo pueden usarse en ciertos controles:
 	var reservedKeys:Array<String>    = ["ESCAPE", "ENTER", "BACKSPACE"]; // solo para ACCEPT/BACK/PAUSE
@@ -335,6 +336,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		if (FlxG.save.data.acceptBind == null) FlxG.save.data.acceptBind = "ENTER";
 		if (FlxG.save.data.backBind   == null) FlxG.save.data.backBind   = "ESCAPE";
 		if (FlxG.save.data.pauseBind  == null) FlxG.save.data.pauseBind  = "ENTER";
+		if (FlxG.save.data.screenshotBind  == null) FlxG.save.data.screenshotBind  = "F12";
 		if (FlxG.save.data.cheatBind  == null) FlxG.save.data.cheatBind  = "SEVEN";
 
 		keys = [
@@ -346,6 +348,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			FlxG.save.data.acceptBind,
 			FlxG.save.data.backBind,
 			FlxG.save.data.pauseBind,
+			FlxG.save.data.screenshotBind,
 			FlxG.save.data.cheatBind
 		];
 	}
@@ -360,7 +363,8 @@ class OptionsMenuState extends MusicBeatSubstate
 		FlxG.save.data.acceptBind = keys[5];
 		FlxG.save.data.backBind   = keys[6];
 		FlxG.save.data.pauseBind  = keys[7];
-		FlxG.save.data.cheatBind  = keys[8];
+		FlxG.save.data.screenshotBind  = keys[8];
+		FlxG.save.data.cheatBind  = keys[9];
 
 		FlxG.save.flush();
 		PlayerSettings.player1.controls.loadKeyBinds();
@@ -744,6 +748,22 @@ class OptionsMenuState extends MusicBeatSubstate
 					a = Math.min(1.0, Math.round((a + 0.05) * 100) / 100);
 					FlxG.save.data.laneAlpha = a;
 					_applyLaneBackdropAlpha(a);
+				}
+			},
+			// ── Rating Position ────────────────────────────────────────────────
+			// Abre un substate visual donde se puede mover la posición del popup
+			// de rating (Sick, Good, Bad, etc.) en pantalla.
+			{
+				name: "Rating Position",
+				get: function()
+				{
+					var ox:Int = FlxG.save.data.ratingOffsetX != null ? FlxG.save.data.ratingOffsetX : 0;
+					var oy:Int = FlxG.save.data.ratingOffsetY != null ? FlxG.save.data.ratingOffsetY : 0;
+					return 'X:$ox  Y:$oy';
+				},
+				toggle: function()
+				{
+					openSubState(new RatingPositionSubState());
 				}
 			}
 		];
@@ -1594,250 +1614,620 @@ class OptionsData
 }
 
 /**
- * Offset Calibration State - Metrónomo a 100 BPM
+ * OffsetCalibrationState — Calibración de offset de audio al estilo pro.
+ *
+ * Reproduce un click track generado por código a exactamente 120 BPM.
+ * El usuario presiona SPACE en cada beat; tras 8 taps se calcula el offset
+ * como promedio de (tiempo_tap - tiempo_beat_más_cercano).
+ *
+ * Teclas:
+ *   SPACE   → Tap en el beat
+ *   ← / →   → Ajustar offset ±1 ms manualmente
+ *   R       → Resetear taps
+ *   ESC     → Guardar y salir
  */
 class OffsetCalibrationState extends MusicBeatSubstate
 {
-	var metronomeSound:String = "menus/chartingSounds/metronome";
-	var bpm:Float = 100;
-	var beatTime:Float = 0;
-	var currentBeat:Int = 0;
+	// ── Constantes de ritmo ───────────────────────────────────────────────────
+	static final BPM:Float         = 120.0;
+	static final BEAT_SEC:Float    = 60.0 / BPM;      // 0.5 s
+	static final MAX_TAPS:Int      = 8;
+	static final CLICK_MUSIC:String = "offsetMusic";
+	static final CLICK_SOUND:String = "menus/chartingSounds/metronome";
 
-	var instructions:FlxText;
-	var offsetDisplay:FlxText;
-	var beatIndicator:FlxSprite;
-	var visualMetronome:FlxSprite;
-	var tapCounter:FlxText;
+	// ── Estado del metrónomo ──────────────────────────────────────────────────
+	var _beatTimer:Float  = 0.0;
+	var _beatCount:Int    = 0;
 
-	var taps:Array<Float> = [];
-	var maxTaps:Int = 8;
+	/** Timestamps de cada click (segundos absolutos desde apertura). */
+	var _clickTimes:Array<Float> = [];
 
-	var countdownText:FlxText;
-	var isCountingDown:Bool = true;
-	var countdownTimer:Float = 3;
+	/** Timestamps de cada tap del usuario. */
+	var _tapTimes:Array<Float>   = [];
+
+	/** Tiempo transcurrido desde que se abrió el substate. */
+	var _elapsed:Float = 0.0;
+
+	/** Countdown inicial de 2 s antes de empezar. */
+	var _countdown:Float  = 2.0;
+	var _counting:Bool    = true;
+
+	// ── UI ────────────────────────────────────────────────────────────────────
+	var _panel:FlxSprite;
+	var _pulseDot:FlxSprite;
+	var _tapBar:FlxSprite;          // Barra de progreso de taps
+	var _tapBarFill:FlxSprite;
+	var _offsetTxt:FlxText;
+	var _tapsTxt:FlxText;
+	var _feedbackTxt:FlxText;
+	var _countdownTxt:FlxText;
+	var _resultsTxt:FlxText;
+
+	// Línea de tiempo visual — último tap vs último beat
+	var _timelineBg:FlxSprite;
+	var _timelineBeat:FlxSprite;
+	var _timelineTap:FlxSprite;
+
+	override function create()
+	{
+		super.create();
+		funkin.audio.SoundTray.blockInput = true; // No cambiar volumen con +/-
+
+		MusicManager.playWithFade(CLICK_MUSIC, 0.7, 4.0);
+
+		// ── Fondo oscuro ──────────────────────────────────────────────────────
+		var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF000000);
+		bg.alpha = 0.88;
+		add(bg);
+
+		// ── Panel central ─────────────────────────────────────────────────────
+		_panel = new FlxSprite(0, 0).makeGraphic(820, 580, 0xFF141428);
+		_panel.screenCenter();
+		add(_panel);
+
+		// Borde del panel
+		var border = new FlxSprite(_panel.x - 2, _panel.y - 2).makeGraphic(824, 584, 0xFF5555FF);
+		border.alpha = 0.4;
+		addBehindSprite(_panel, border);
+		add(border);
+
+		// ── Título ────────────────────────────────────────────────────────────
+		var title = new FlxText(0, _panel.y + 24, FlxG.width, "OFFSET CALIBRATION", 38);
+		title.setFormat(Paths.font("vcr.ttf"), 38, FlxColor.WHITE, CENTER, OUTLINE, 0xFF5555FF);
+		title.borderSize = 2;
+		add(title);
+
+		var bpmLabel = new FlxText(0, _panel.y + 68, FlxG.width, "♩ = " + Std.int(BPM) + " BPM", 18);
+		bpmLabel.setFormat(Paths.font("vcr.ttf"), 18, 0xFF8888FF, CENTER);
+		add(bpmLabel);
+
+		// ── Instrucciones ─────────────────────────────────────────────────────
+		var instr = new FlxText(0, _panel.y + 100, FlxG.width,
+			"Press SPACE in sync with the metronome beat.\nRepeat " + MAX_TAPS + " times to calculate offset.", 20);
+		instr.setFormat(Paths.font("vcr.ttf"), 20, 0xFFCCCCCC, CENTER);
+		add(instr);
+
+		// ── Punto pulsante central ────────────────────────────────────────────
+		_pulseDot = new FlxSprite(0, _panel.y + 200).makeGraphic(80, 80, 0xFF5555FF);
+		_pulseDot.screenCenter(X);
+		_pulseDot.alpha = 0.15;
+		add(_pulseDot);
+
+		// ── Línea de tiempo (diff visual entre tap y beat) ────────────────────
+		_timelineBg = new FlxSprite(0, _panel.y + 305).makeGraphic(500, 6, 0xFF333355);
+		_timelineBg.screenCenter(X);
+		add(_timelineBg);
+
+		// Marcador central (= beat perfecto)
+		var centerMark = new FlxSprite(_timelineBg.x + 247, _panel.y + 296).makeGraphic(6, 24, 0xFF5555FF);
+		add(centerMark);
+
+		// Indicador de beat (azul, siempre en el centro)
+		_timelineBeat = new FlxSprite(_timelineBg.x + 247, _panel.y + 299).makeGraphic(6, 18, 0xFF4488FF);
+		add(_timelineBeat);
+
+		// Indicador de tap (amarillo, se mueve según el error)
+		_timelineTap = new FlxSprite(_timelineBg.x + 247, _panel.y + 299).makeGraphic(6, 18, FlxColor.YELLOW);
+		_timelineTap.alpha = 0;
+		add(_timelineTap);
+
+		var earlyLabel = new FlxText(_timelineBg.x - 2, _panel.y + 315, 50, "EARLY", 11);
+		earlyLabel.setFormat(Paths.font("vcr.ttf"), 11, 0xFF8888CC, LEFT);
+		add(earlyLabel);
+		var lateLabel = new FlxText(_timelineBg.x + 460, _panel.y + 315, 50, "LATE", 11);
+		lateLabel.setFormat(Paths.font("vcr.ttf"), 11, 0xFF8888CC, RIGHT);
+		add(lateLabel);
+
+		// ── Barra de progreso de taps ─────────────────────────────────────────
+		_tapBar = new FlxSprite(0, _panel.y + 345).makeGraphic(500, 16, 0xFF222244);
+		_tapBar.screenCenter(X);
+		add(_tapBar);
+		_tapBarFill = new FlxSprite(_tapBar.x, _tapBar.y).makeGraphic(4, 16, 0xFF5555FF);
+		add(_tapBarFill);
+
+		// ── Textos de estado ─────────────────────────────────────────────────
+		_tapsTxt = new FlxText(0, _panel.y + 368, FlxG.width, "Taps: 0 / " + MAX_TAPS, 20);
+		_tapsTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
+		add(_tapsTxt);
+
+		_feedbackTxt = new FlxText(0, _panel.y + 396, FlxG.width, "", 18);
+		_feedbackTxt.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
+		_feedbackTxt.borderSize = 1;
+		add(_feedbackTxt);
+
+		_resultsTxt = new FlxText(0, _panel.y + 422, FlxG.width, "", 22);
+		_resultsTxt.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.LIME, CENTER, OUTLINE, FlxColor.BLACK);
+		_resultsTxt.borderSize = 2;
+		add(_resultsTxt);
+
+		// ── Offset actual ─────────────────────────────────────────────────────
+		_offsetTxt = new FlxText(0, _panel.y + 462, FlxG.width,
+			"Current Offset: " + (FlxG.save.data.offset ?? 0) + " ms", 26);
+		_offsetTxt.setFormat(Paths.font("vcr.ttf"), 26, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
+		_offsetTxt.borderSize = 2;
+		add(_offsetTxt);
+
+		// ── Controles ─────────────────────────────────────────────────────────
+		var ctrl = new FlxText(0, _panel.y + 510, FlxG.width,
+			"SPACE: Tap  |  ← →: ±1 ms  |  R: Reset  |  ESC: Save & Back", 15);
+		ctrl.setFormat(Paths.font("vcr.ttf"), 15, 0xFF888888, CENTER);
+		add(ctrl);
+
+		// ── Countdown overlay ─────────────────────────────────────────────────
+		_countdownTxt = new FlxText(0, 0, FlxG.width, "2", 90);
+		_countdownTxt.setFormat(Paths.font("vcr.ttf"), 90, FlxColor.WHITE, CENTER, OUTLINE, 0xFF5555FF);
+		_countdownTxt.borderSize = 4;
+		_countdownTxt.screenCenter(Y);
+		add(_countdownTxt);
+
+		if (FlxG.save.data.offset == null) FlxG.save.data.offset = 0;
+	}
+
+	override function update(elapsed:Float)
+	{
+		super.update(elapsed);
+		_elapsed += elapsed;
+
+		// ── Countdown ─────────────────────────────────────────────────────────
+		if (_counting)
+		{
+			_countdown -= elapsed;
+			var display = Math.ceil(_countdown);
+			_countdownTxt.text = display > 0 ? Std.string(display) : "GO!";
+			_countdownTxt.alpha = FlxMath.lerp(_countdownTxt.alpha, _countdown > 0 ? 1.0 : 0.0, elapsed * 8);
+
+			if (_countdown <= -0.3)
+			{
+				_counting = false;
+				_countdownTxt.visible = false;
+				_beatTimer = 0;
+				_elapsed   = 0;
+			}
+			return; // no input durante countdown
+		}
+
+		// ── Metrónomo ─────────────────────────────────────────────────────────
+		_beatTimer += elapsed;
+		if (_beatTimer >= BEAT_SEC)
+		{
+			_beatTimer -= BEAT_SEC;
+			_beatCount++;
+			FlxG.sound.play(Paths.soundRandom(CLICK_SOUND,1,2), 0.3);
+			_clickTimes.push(_elapsed - _beatTimer); // tiempo exacto del beat
+			_pulseDot.alpha = 1.0;
+			_pulseDot.scale.set(1.35, 1.35);
+		}
+
+		// Animar punto pulsante
+		_pulseDot.alpha   = FlxMath.lerp(_pulseDot.alpha,   0.12, elapsed * 9);
+		_pulseDot.scale.x = FlxMath.lerp(_pulseDot.scale.x, 1.0,  elapsed * 9);
+		_pulseDot.scale.y = FlxMath.lerp(_pulseDot.scale.y, 1.0,  elapsed * 9);
+		_pulseDot.updateHitbox();
+		_pulseDot.screenCenter(X);
+
+		// Fade del indicador de tap en la timeline
+		if (_timelineTap.alpha > 0)
+			_timelineTap.alpha = FlxMath.lerp(_timelineTap.alpha, 0.0, elapsed * 3);
+
+		// ── Input ─────────────────────────────────────────────────────────────
+		if (FlxG.keys.justPressed.SPACE) _doTap();
+
+		if (FlxG.keys.justPressed.LEFT || FlxG.keys.justPressed.A)
+		{
+			FlxG.save.data.offset -= 1;
+			_updateOffsetTxt();
+			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
+		}
+		if (FlxG.keys.justPressed.RIGHT || FlxG.keys.justPressed.D)
+		{
+			FlxG.save.data.offset += 1;
+			_updateOffsetTxt();
+			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
+		}
+
+		if (FlxG.keys.justPressed.R) _reset();
+
+		if (FlxG.keys.justPressed.ESCAPE || controls.BACK)
+		{
+			funkin.audio.SoundTray.blockInput = false;
+			FlxG.save.flush();
+			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
+			MusicManager.playWithFade('freakyMenu', 0.7, 4.0);
+			close();
+		}
+	}
+
+	function _doTap():Void
+	{
+		if (_beatCount == 0) return; // Esperar al menos un beat
+
+		// Calcular diferencia con el beat más cercano
+		var tapTime = _elapsed - _beatTimer; // tiempo absoluto del tap en la escala del metrónomo
+		var beatPhase = _beatTimer;           // fracción de beat actual (0 = justo en el beat)
+		// Normalizar al rango [-BEAT_SEC/2, BEAT_SEC/2]
+		var diff = beatPhase;
+		if (diff > BEAT_SEC / 2) diff -= BEAT_SEC;
+		var diffMs = Std.int(diff * 1000);
+
+		_tapTimes.push(diffMs);
+		_tapsTxt.text = "Taps: " + _tapTimes.length + " / " + MAX_TAPS;
+
+		// Barra de progreso
+		var pct = Math.min(1.0, _tapTimes.length / MAX_TAPS);
+		_tapBarFill.makeGraphic(Std.int(Math.max(4, Std.int(500 * pct))), 16, 0xFF5555FF);
+
+		// Timeline visual: posición del tap relativa al beat
+		var lineW:Float = 500;
+		var halfBeat    = BEAT_SEC / 2;
+		var normDiff    = (diff / halfBeat) * 0.5; // -0.5 .. +0.5
+		_timelineTap.x  = _timelineBg.x + 247 + normDiff * lineW * 0.5;
+		_timelineTap.alpha = 1.0;
+		_timelineTap.color = diffMs < -20 ? 0xFF4488FF
+		                   : diffMs >  20 ? FlxColor.RED
+		                   :                FlxColor.LIME;
+
+		// Feedback inmediato
+		if (Math.abs(diffMs) < 15)
+			_feedbackTxt.text = "Perfect!";
+		else if (diffMs < 0)
+			_feedbackTxt.text = "Early (" + diffMs + " ms)";
+		else
+			_feedbackTxt.text = "Late (+" + diffMs + " ms)";
+
+		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
+
+		if (_tapTimes.length >= MAX_TAPS) _calculateOffset();
+	}
+
+	function _calculateOffset():Void
+	{
+		var sum:Float = 0;
+		for (t in _tapTimes) sum += t;
+		var avg = Std.int(sum / _tapTimes.length);
+
+		FlxG.save.data.offset = avg;
+		_updateOffsetTxt();
+		_resultsTxt.text = "Calculated: " + avg + " ms — Saved!";
+		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
+
+		// Flash del panel
+		_pulseDot.alpha = 1.0;
+		_pulseDot.color = FlxColor.LIME;
+		_tapTimes = [];
+		_tapsTxt.text = "Taps: 0 / " + MAX_TAPS;
+		_tapBarFill.makeGraphic(4, 16, 0xFF5555FF);
+	}
+
+	function _reset():Void
+	{
+		_tapTimes = [];
+		_tapsTxt.text = "Taps: 0 / " + MAX_TAPS;
+		_feedbackTxt.text = "";
+		_resultsTxt.text = "";
+		_tapBarFill.makeGraphic(4, 16, 0xFF5555FF);
+		FlxG.save.data.offset = 0;
+		_updateOffsetTxt();
+		FlxG.sound.play(Paths.sound('menus/cancelMenu'), 0.6);
+	}
+
+	function _updateOffsetTxt():Void
+	{
+		_offsetTxt.text = "Current Offset: " + (FlxG.save.data.offset ?? 0) + " ms";
+	}
+
+	/** Añade un sprite justo detrás de otro en la display list. */
+	function addBehindSprite(target:FlxSprite, spr:FlxSprite):Void
+	{
+		// simplificado — spr ya se añade antes que _panel, así que queda detrás
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * RatingPositionSubState — Editor visual de posición del popup de rating.
+ *
+ * Muestra una recreación simplificada del HUD de gameplay y un popup de
+ * rating de ejemplo que el usuario puede mover con WASD / flechas o arrastrando
+ * con el ratón. Guarda los offsets en FlxG.save.data.ratingOffsetX / ratingOffsetY.
+ */
+class RatingPositionSubState extends FlxSubState
+{
+	// Offset acumulado (píxeles desde la posición base del juego)
+	var _offsetX:Int = 0;
+	var _offsetY:Int = 0;
+
+	// Sprites de la preview
+	var _ratingPreview:FlxSprite;
+	var _sickLabel:FlxText;
+	var _comboPreview:Array<FlxSprite> = [];
+
+	// HUD simulado
+	var _healthBarFill:FlxSprite;
+	var _scoreTxt:FlxText;
+
+	// UI del editor
+	var _crosshairH:FlxSprite;
+	var _crosshairV:FlxSprite;
+	var _positionTxt:FlxText;
+
+	// Velocidad de movimiento (px/frame)
+	static final MOVE_SPEED:Float = 2.0;
+	static final FAST_SPEED:Float = 10.0;
+
+	// Posición base del rating (igual que en script.hx por defecto)
+	var _baseX:Float;
+	var _baseY:Float;
+
+	// Demo bounce
+	var _demoTimer:Float = 0.0;
+
+	// ── Mouse drag ────────────────────────────────────────────────────────────
+	var _dragging:Bool    = false;
+	var _dragStartMouseX:Float = 0;
+	var _dragStartMouseY:Float = 0;
+	var _dragStartOffX:Int = 0;
+	var _dragStartOffY:Int = 0;
+
+	var posX:Float = 0;
+	var posY:Float = 0;
+
+	function onInit()
+	{
+		// Leer los offsets guardados (default: posición base original = -50, 0)
+		posX = (FlxG.save.data.ratingOffsetX != null) ? FlxG.save.data.ratingOffsetX : -100;
+		posY = (FlxG.save.data.ratingOffsetY != null) ? FlxG.save.data.ratingOffsetY : 0;
+	}
 
 	override function create()
 	{
 		super.create();
 
-		// Background
-		var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-		bg.alpha = 0.85;
+		_offsetX = FlxG.save.data.ratingOffsetX != null ? FlxG.save.data.ratingOffsetX : 0;
+		_offsetY = FlxG.save.data.ratingOffsetY != null ? FlxG.save.data.ratingOffsetY : 0;
+
+		// ── Fondo oscuro ──────────────────────────────────────────────────────
+		var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+		bg.alpha = 0.82;
 		add(bg);
 
-		// Panel principal
-		var panel:FlxSprite = new FlxSprite(0, 0).makeGraphic(800, 600, 0xFF1a1a1a);
-		panel.screenCenter();
-		add(panel);
+		// ── HUD simulado ──────────────────────────────────────────────────────
+		_buildSimulatedHUD();
 
-		// Título
-		var title:FlxText = new FlxText(0, panel.y + 30, FlxG.width, "OFFSET CALIBRATION", 40);
-		title.setFormat(Paths.font("Funkin.otf"), 40, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-		title.antialiasing = FlxG.save.data.antialiasing;
-		title.borderSize = 3;
+		// ── Posición base ─────────────────────────────────────────────────────
+		_baseX = FlxG.width  * 0.55 - 40;
+		_baseY = FlxG.height * 0.5  - 90;
+
+		// Línea de referencia Y base
+		var refLine = new FlxSprite(0, _baseY).makeGraphic(FlxG.width, 1, 0xFF5555FF);
+		refLine.alpha = 0.30;
+		add(refLine);
+
+		var baseRef = new FlxText(_baseX, _baseY - 14, 0, "▼ BASE", 11);
+		baseRef.setFormat(Paths.font("vcr.ttf"), 11, 0xFF5555FF, LEFT);
+		add(baseRef);
+
+		// ── Crosshairs ────────────────────────────────────────────────────────
+		_crosshairH = new FlxSprite(0, 0).makeGraphic(FlxG.width, 1, 0xFFFFFF00);
+		_crosshairH.alpha = 0.30;
+		add(_crosshairH);
+
+		_crosshairV = new FlxSprite(0, 0).makeGraphic(1, FlxG.height, 0xFFFFFF00);
+		_crosshairV.alpha = 0.30;
+		add(_crosshairV);
+
+		onInit();
+
+		// ── Rating preview ────────────────────────────────────────────────────
+		_ratingPreview = new FlxSprite(FlxG.width * 0.55 - 40 + posX,FlxG.height * 0.5 - 90 + posY);
+		_ratingPreview.loadGraphic(Paths.image('UI/normal/score/sick'));
+		_ratingPreview.setGraphicSize(Std.int(_ratingPreview.width * 0.7));
+		_ratingPreview.antialiasing = FlxG.save.data.antialiasing;
+		_ratingPreview.updateHitbox();
+		add(_ratingPreview);
+
+		// Borde del preview
+		var previewBorder = new FlxSprite();
+		previewBorder.makeGraphic(204, 94, 0xFF5555FF);
+		previewBorder.alpha = 0.6;
+		add(previewBorder);
+
+		_sickLabel = new FlxText(0, 0, 200, "SICK!", 32);
+		_sickLabel.setFormat(Paths.font("vcr.ttf"), 32, 0xFFCCCCFF, CENTER, OUTLINE, FlxColor.BLACK);
+		_sickLabel.borderSize = 2;
+		_sickLabel.visible = false;
+		add(_sickLabel);
+
+		// Números del combo de demo
+		for (i in 0...3)
+		{
+			var num = new FlxSprite();
+			num.makeGraphic(40, 40, 0xFF1A2244);
+			add(num);
+			_comboPreview.push(num);
+		}
+
+		// Etiqueta "drag me"
+		var dragLabel = new FlxText(0, 0, 200, "drag me ↕↔", 11);
+		dragLabel.setFormat(Paths.font("vcr.ttf"), 11, 0xFF888888, CENTER);
+		add(dragLabel);
+
+		// ── Panel inferior ────────────────────────────────────────────────────
+		var infoBg = new FlxSprite(0, FlxG.height - 64).makeGraphic(FlxG.width, 64, 0xFF0A0A1A);
+		infoBg.alpha = 0.95;
+		add(infoBg);
+
+		_positionTxt = new FlxText(0, FlxG.height - 58, FlxG.width, "", 18);
+		_positionTxt.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
+		add(_positionTxt);
+
+		var hint = new FlxText(0, FlxG.height - 36, FlxG.width,
+			"WASD/Arrows: Move  |  SHIFT: Fast  |  Mouse Drag  |  R: Reset  |  ENTER/ESC: Save", 14);
+		hint.setFormat(Paths.font("vcr.ttf"), 14, 0xFF888888, CENTER);
+		add(hint);
+
+		// ── Título superior ───────────────────────────────────────────────────
+		var titleBg = new FlxSprite(0, 0).makeGraphic(FlxG.width, 36, 0xFF0A0A1A);
+		titleBg.alpha = 0.92;
+		add(titleBg);
+		var title = new FlxText(0, 6, FlxG.width, "RATING POSITION EDITOR", 20);
+		title.setFormat(Paths.font("vcr.ttf"), 20, 0xFF8888FF, CENTER);
 		add(title);
 
-		// Instrucciones
-		instructions = new FlxText(0, panel.y
-			+ 100, FlxG.width,
-			"Press SPACE in sync with the beat!\n\n"
-			+ "The metronome will play at 100 BPM\n"
-			+ "Press 8 times to calculate your offset", 24);
-		instructions.setFormat(Paths.font("Funkin.otf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-		instructions.antialiasing = FlxG.save.data.antialiasing;
-		instructions.borderSize = 2;
-		add(instructions);
-
-		// Indicador visual de beat (círculo que pulsa)
-		visualMetronome = new FlxSprite(0, 0).makeGraphic(120, 120, FlxColor.TRANSPARENT);
-		visualMetronome.screenCenter();
-		visualMetronome.y = panel.y + 280;
-		add(visualMetronome);
-
-		// Beat indicator
-		beatIndicator = new FlxSprite(0, 0).makeGraphic(100, 100, FlxColor.CYAN);
-		beatIndicator.screenCenter();
-		beatIndicator.y = visualMetronome.y + 10;
-		beatIndicator.alpha = 0;
-		add(beatIndicator);
-
-		// Display de offset actual
-		offsetDisplay = new FlxText(0, panel.y + 420, FlxG.width, "Current Offset: " + FlxG.save.data.offset + " ms", 28);
-		offsetDisplay.setFormat(Paths.font("Funkin.otf"), 28, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
-		offsetDisplay.antialiasing = FlxG.save.data.antialiasing;
-		offsetDisplay.borderSize = 2;
-		add(offsetDisplay);
-
-		// Contador de taps
-		tapCounter = new FlxText(0, panel.y + 470, FlxG.width, "Taps: 0/" + maxTaps, 24);
-		tapCounter.setFormat(Paths.font("Funkin.otf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-		tapCounter.antialiasing = FlxG.save.data.antialiasing;
-		tapCounter.borderSize = 2;
-		add(tapCounter);
-
-		// Countdown
-		countdownText = new FlxText(0, 0, FlxG.width, "3", 80);
-		countdownText.setFormat(Paths.font("Funkin.otf"), 80, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-		countdownText.antialiasing = FlxG.save.data.antialiasing;
-		countdownText.borderSize = 4;
-		countdownText.screenCenter();
-		add(countdownText);
-
-		// Controles en la parte inferior
-		var controlsText:FlxText = new FlxText(0, panel.y + 530, FlxG.width, "SPACE: Tap | R: Reset | +/-: Adjust manually | ESC: Back", 18);
-		controlsText.setFormat(Paths.font("Funkin.otf"), 18, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
-		controlsText.antialiasing = FlxG.save.data.antialiasing;
-		controlsText.borderSize = 1.5;
-		add(controlsText);
-
-		// Inicializar offset si no existe
-		if (FlxG.save.data.offset == null)
-			FlxG.save.data.offset = 0;
+		FlxG.mouse.visible = true;
+		_applyPosition();
+		_updateUI();
 	}
 
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
 
-		// Countdown inicial
-		if (isCountingDown)
+		// ── Mouse drag ────────────────────────────────────────────────────────
+		if (FlxG.mouse.justPressed)
 		{
-			countdownTimer -= elapsed;
-			countdownText.text = Std.string(Math.ceil(countdownTimer));
-
-			if (countdownTimer <= 0)
+			// Solo iniciar drag si el clic está sobre el rating preview
+			var mx = FlxG.mouse.x;
+			var my = FlxG.mouse.y;
+			if (mx >= _ratingPreview.x && mx <= _ratingPreview.x + _ratingPreview.width
+			&&  my >= _ratingPreview.y && my <= _ratingPreview.y + _ratingPreview.height + 50)
 			{
-				isCountingDown = false;
-				countdownText.visible = false;
-				beatTime = 0;
+				_dragging       = true;
+				_dragStartMouseX = mx;
+				_dragStartMouseY = my;
+				_dragStartOffX  = _offsetX;
+				_dragStartOffY  = _offsetY;
 			}
-			return;
 		}
 
-		// Actualizar timer del beat
-		beatTime += elapsed;
-		var beatDuration = 60 / bpm; // Tiempo por beat en segundos
+		if (FlxG.mouse.justReleased)
+			_dragging = false;
 
-		// Reproducir metrónomo en cada beat
-		if (beatTime >= beatDuration)
+		if (_dragging)
 		{
-			beatTime = 0;
-			currentBeat++;
-			playMetronome();
-			flashBeatIndicator();
+			_offsetX = _dragStartOffX + Std.int(FlxG.mouse.x - _dragStartMouseX);
+			_offsetY = _dragStartOffY + Std.int(FlxG.mouse.y - _dragStartMouseY);
+			_applyPosition();
+			_updateUI();
 		}
 
-		// Input del usuario
-		if (FlxG.keys.justPressed.SPACE)
+		// ── Teclado ───────────────────────────────────────────────────────────
+		if (!_dragging)
 		{
-			recordTap();
+			var fast  = FlxG.keys.pressed.SHIFT;
+			var speed = fast ? FAST_SPEED : MOVE_SPEED;
+			var moved = false;
+
+			if (FlxG.keys.pressed.LEFT  || FlxG.keys.pressed.A) { _offsetX -= Std.int(speed); moved = true; }
+			if (FlxG.keys.pressed.RIGHT || FlxG.keys.pressed.D) { _offsetX += Std.int(speed); moved = true; }
+			if (FlxG.keys.pressed.UP    || FlxG.keys.pressed.W) { _offsetY -= Std.int(speed); moved = true; }
+			if (FlxG.keys.pressed.DOWN  || FlxG.keys.pressed.S) { _offsetY += Std.int(speed); moved = true; }
+
+			if (FlxG.keys.justPressed.R)
+			{
+				_offsetX = 0; _offsetY = 0;
+				moved = true;
+				FlxG.sound.play(Paths.sound('menus/cancelMenu'), 0.6);
+			}
+
+			if (moved) { _applyPosition(); _updateUI(); }
 		}
 
-		// Ajuste manual con PLUS o MINUS
-		if (FlxG.keys.justPressed.PLUS || FlxG.keys.justPressed.NUMPADPLUS)
-		{
-			FlxG.save.data.offset += 1;
-			updateOffsetDisplay();
-			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
-		}
-		if (FlxG.keys.justPressed.MINUS || FlxG.keys.justPressed.NUMPADMINUS)
-		{
-			FlxG.save.data.offset -= 1;
-			updateOffsetDisplay();
-			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
-		}
+		// Demo bounce
+		_demoTimer += elapsed;
+		var bounce = Math.sin(_demoTimer * 3.5) * 3;
+		if (!_dragging)
+			_ratingPreview.y = _baseY + _offsetY + bounce;
 
-		// Reset
-		if (FlxG.keys.justPressed.R)
-		{
-			FlxG.save.data.offset = 0;
-			updateOffsetDisplay();
-			taps = [];
-			updateTapCounter();
-			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
-		}
+		// Cursor de mano cuando está sobre el rating
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+		var overPreview = (mx >= _ratingPreview.x && mx <= _ratingPreview.x + _ratingPreview.width
+		               &&  my >= _ratingPreview.y && my <= _ratingPreview.y + _ratingPreview.height + 50);
+		FlxG.mouse.useSystemCursor = !overPreview;
 
-		// Volver
-		if (FlxG.keys.justPressed.ESCAPE || controls.BACK)
+		// Sincronizar sickLabel y combo con ratingPreview.y (que puede estar en bounce)
+		_sickLabel.x = _ratingPreview.x;
+		_sickLabel.y = _ratingPreview.y + 20;
+		for (i in 0..._comboPreview.length)
+			_comboPreview[i].setPosition(
+				_ratingPreview.x + (44 * i) - 10 + 140,
+				_ratingPreview.y + _ratingPreview.height + 4);
+
+		if (FlxG.keys.justPressed.ENTER || FlxG.keys.justPressed.ESCAPE)
 		{
-			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
-			FlxG.save.flush();
+			FlxG.mouse.useSystemCursor = false;
+			_save();
 			close();
 		}
-
-		// Animación del indicador visual
-		beatIndicator.alpha = FlxMath.lerp(beatIndicator.alpha, 0, elapsed * 5);
-		beatIndicator.scale.set(FlxMath.lerp(beatIndicator.scale.x, 1, elapsed * 8), FlxMath.lerp(beatIndicator.scale.y, 1, elapsed * 8));
 	}
 
-	function playMetronome()
+	function _buildSimulatedHUD():Void
 	{
-		FlxG.sound.play(Paths.soundRandom(metronomeSound, 1, 2), 0.5);
+		var hbY = FlxG.height * 0.88;
+
+		var hbBg = new FlxSprite(0, hbY).makeGraphic(600, 22, 0xFF333333);
+		hbBg.screenCenter(X);
+		add(hbBg);
+
+		_healthBarFill = new FlxSprite(hbBg.x + 2, hbY + 2).makeGraphic(296, 18, 0xFF66FF33);
+		add(_healthBarFill);
+
+		// Iconos de salud simulados
+		var iconP1 = new FlxSprite(hbBg.x + 296 - 20, hbY - 10).makeGraphic(30, 30, 0xFF44AAFF);
+		add(iconP1);
+		var iconP2 = new FlxSprite(hbBg.x + 296 - 48, hbY - 10).makeGraphic(30, 30, 0xFFFF4444);
+		add(iconP2);
+
+		_scoreTxt = new FlxText(0, hbY - 28, FlxG.width, "Score: 123,456   Misses: 0   Acc: 100.00%", 18);
+		_scoreTxt.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		_scoreTxt.borderSize = 1;
+		add(_scoreTxt);
 	}
 
-	function flashBeatIndicator()
+	function _applyPosition():Void
 	{
-		beatIndicator.alpha = 1;
-		beatIndicator.scale.set(1.3, 1.3);
+		var rx:Float = _baseX + _offsetX;
+		var ry:Float = _baseY + _offsetY;
+
+		_ratingPreview.x = rx;
+		_ratingPreview.y = ry;
+
+		_crosshairH.y = ry + _ratingPreview.height / 2;
+		_crosshairV.x = rx + _ratingPreview.width  / 2;
 	}
 
-	function recordTap()
+	function _updateUI():Void
 	{
-		// Registrar el tiempo del tap relativo al beat
-		var tapOffset = beatTime * 1000; // Convertir a milisegundos
-		taps.push(tapOffset);
-
-		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
-
-		// Visual feedback
-		beatIndicator.alpha = 0.5;
-		beatIndicator.color = FlxColor.YELLOW;
-
-		updateTapCounter();
-
-		// Si completamos los taps necesarios, calcular offset
-		if (taps.length >= maxTaps)
-		{
-			calculateOffset();
-		}
+		var label = (_offsetX == 0 && _offsetY == 0) ? "  (default)" : "";
+		_positionTxt.text = 'Offset   X: $_offsetX px    Y: $_offsetY px$label';
 	}
 
-	function calculateOffset()
+	function _save():Void
 	{
-		// Calcular el promedio de los offsets
-		var sum:Float = 0;
-		for (tap in taps)
-		{
-			sum += tap;
-		}
-
-		var average = sum / taps.length;
-		var beatDurationMs = (60 / bpm) * 1000;
-
-		// Calcular el offset real (cuánto antes o después está presionando)
-		var offset = Std.int(average - (beatDurationMs / 2));
-
-		FlxG.save.data.offset = offset;
-		updateOffsetDisplay();
-
-		// Reset taps
-		taps = [];
-		updateTapCounter();
-
+		FlxG.save.data.ratingOffsetX = _offsetX;
+		FlxG.save.data.ratingOffsetY = _offsetY;
+		FlxG.save.flush();
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
-
-		// Feedback visual
-		beatIndicator.color = FlxColor.LIME;
-		flashBeatIndicator();
-	}
-
-	function updateOffsetDisplay()
-	{
-		offsetDisplay.text = "Current Offset: " + FlxG.save.data.offset + " ms";
-	}
-
-	function updateTapCounter()
-	{
-		tapCounter.text = "Taps: " + taps.length + "/" + maxTaps;
 	}
 }

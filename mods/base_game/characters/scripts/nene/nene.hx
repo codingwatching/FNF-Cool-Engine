@@ -251,26 +251,38 @@ function onBeatHit(beat:Int)
 }
 
 /**
- * onSectionHit: cada vez que cambia la sección del chart, comprobamos
- * si el jugador (bf) o el oponente (dad) es el foco de la cámara y
- * movemos las pupilas del A-Bot en consecuencia.
+ * onEvent: intercepta los eventos de cámara ANTES de que el engine los procese.
  *
- * game.getMustHitSection(section * 16) → true  = cámara en bf  → pupilas derecha
- *                                       → false = cámara en dad → pupilas izquierda
+ * Por qué esto funciona y onSectionHit no:
+ *   • EventManager.triggerEvent() llama callOnScriptsReturn('onEvent', ...) ANTES
+ *     de ejecutar el handler built-in → los scripts SÍ reciben el evento.
+ *   • onSectionHit + getMustHitSection solo funcionaba para charts viejos con
+ *     mustHitSection. Para charts V-Slice (que usan eventos Camera Follow),
+ *     mustHitSection puede ser null → getMustHitSection devuelve true siempre.
+ *   • EventManager auto-genera Camera Follow desde mustHitSection en charts viejos,
+ *     así que onEvent cubre AMBOS formatos de chart sin necesidad de onSectionHit.
  *
- * Nota: onSongEvent("FocusCamera") no llega a los scripts de personaje
- * (callOnScripts incluye charScripts pero el engine traduce FocusCamera
- * a movimiento de cámara antes de emitirlo). onSectionHit sí llega.
+ * Retornar false = no cancelar el evento (el engine sigue moviéndola cámara).
  */
-function onSectionHit(section:Int)
+function onEvent(name:String, v1:String, v2:String, time:Float):Bool
 {
-    if (game == null) return;
-    // getMustHitSection recibe un step; el inicio de cada sección = section * 16 steps
-    var mustHit:Bool = game.getMustHitSection(section * 16);
-    if (mustHit)
-        movePupilsRight();  // cámara en bf (derecha) → pupilas miran a la derecha
-    else
-        movePupilsLeft();   // cámara en dad (izquierda) → pupilas miran a la izquierda
+    var lname:String = (name != null) ? name.toLowerCase() : '';
+
+    // Nombres soportados por este engine (ver EventManager._handleBuiltin):
+    //   'camera follow' | 'camera'          → seguimiento normal
+    //   'camera focus'  | 'focus camera' | 'focus' → foco entre personajes
+    if (lname == 'camera follow' || lname == 'camera'
+     || lname == 'camera focus'  || lname == 'focus camera' || lname == 'focus')
+    {
+        var target:String = (v1 != null) ? v1.toLowerCase() : '';
+        if (target == 'bf')
+            movePupilsRight();  // cámara en bf (derecha del stage)
+        else if (target == 'dad' || target == 'opponent')
+            movePupilsLeft();   // cámara en dad (izquierda del stage)
+        // 'gf' / 'both' / '' → mantener posición actual de las pupilas
+    }
+
+    return false; // nunca cancelar — el engine debe seguir procesando el evento
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

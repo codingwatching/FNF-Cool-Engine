@@ -62,8 +62,17 @@ class SpriteCutscene
 	var _sounds:Map<String, FlxSound>   = [];
 	var _onComplete:Null<Void->Void>    = null;
 	var _stepIdx:Int   = 0;
-	var _blocked:Bool  = false;          // true = esperando timer/tween/sonido
+	var _blocked:Bool  = false;
 	var _skipped:Bool  = false;
+
+	// Seguimiento propio de timers y tweens para cancelarlos sin tocar
+	// el globalManager (que mataría timers de audio y otros sistemas).
+	var _timers:Array<FlxTimer>  = [];
+	var _tweens:Array<FlxTween>  = [];
+
+	// Cámara dedicada para los sprites de cutscene — se sitúa ENCIMA
+	// de camHUD para que los sprites tapen el gameplay completamente.
+	var _camCutscene:FlxCamera;
 
 	// ── constructor ───────────────────────────────────────────────────────────
 
@@ -77,6 +86,12 @@ class SpriteCutscene
 		_state = state;
 		_doc   = _loadDocument(key, song);
 		if (_doc != null && _doc.skippable == false) skippable = false;
+
+		// Crear cámara dedicada que se añade AL FINAL de la lista de cámaras
+		// → se renderiza encima de camGame y camHUD, tapando el gameplay.
+		_camCutscene = new FlxCamera();
+		_camCutscene.bgColor = 0x00000000; // transparente
+		FlxG.cameras.add(_camCutscene, false);
 	}
 
 	/** Inicia la cutscene. `onComplete` se llama cuando termina o se salta. */
@@ -162,7 +177,10 @@ class SpriteCutscene
 
 			case 'wait':
 				_blocked = true;
-				new FlxTimer().start(step.time ?? 0.1, function(_) {
+				var _t = new FlxTimer();
+				_timers.push(_t);
+				_t.start(step.time ?? 0.1, function(_) {
+					_timers.remove(_t);
 					_blocked = false;
 					_nextStep();
 				});
@@ -178,6 +196,17 @@ class SpriteCutscene
 				if (spr != null && spr.animation != null)
 					spr.animation.play(step.anim ?? '', step.force ?? false);
 				_nextStep();
+
+			// ── stageAnim ─────────────────────────────────────────────────────
+			// Controla personajes YA EXISTENTES en el PlayState (bf, dad, gf, o
+			// cualquier nombre del stage) sin necesidad de añadir sprites nuevos.
+			// JSON: { "action": "stageAnim", "sprite": "bf", "anim": "hey", "force": true }
+			// Nombres válidos para "sprite":
+			//   "bf" / "boyfriend"  → PlayState.boyfriend
+			//   "dad" / "opponent"  → PlayState.dad
+			//   "gf" / "girlfriend" → PlayState.gf
+			case 'stageAnim':
+				_doStageAnim(step);
 
 			case 'playSound':
 				_doPlaySound(step);
@@ -232,6 +261,9 @@ class SpriteCutscene
 		}
 
 		if (step.alpha != null) spr.alpha = step.alpha;
+		// Asignar la cámara de cutscene para que el sprite se renderice
+		// por encima del HUD y el gameplay.
+		spr.cameras = [_camCutscene];
 		_state.add(spr);
 		_nextStep();
 	}
@@ -362,21 +394,22 @@ class SpriteCutscene
 		var interval = step.interval ?? 0.3;
 		_blocked = true;
 
-		new FlxTimer().start(interval, function(tmr:FlxTimer)
+		var _ft = new FlxTimer();
+		_timers.push(_ft);
+		_ft.start(interval, function(tmr:FlxTimer)
 		{
 			if (_skipped) return;
 
-			// Mover alpha en dirección correcta
 			if (target < spr.alpha)
 				spr.alpha = Math.max(target, spr.alpha - stepAmt);
 			else
 				spr.alpha = Math.min(target, spr.alpha + stepAmt);
 
-			// ¿Llegamos?
 			if (Math.abs(spr.alpha - target) < 0.001)
 			{
 				spr.alpha = target;
 				_blocked  = false;
+				_timers.remove(tmr);
 				_nextStep();
 			}
 			else
@@ -395,21 +428,109 @@ class SpriteCutscene
 
 		var dur  = step.duration ?? 1.0;
 		var ease = _parseEase(step.ease);
-		var opts = ease != null ? { ease: ease } : null;
 
 		if (step.async ?? false)
 		{
-			FlxTween.tween(spr, step.props ?? {}, dur, opts);
+			var tw = FlxTween.tween(spr, step.props ?? {}, dur, { ease: ease ?? FlxEase.linear });
+			_tweens.push(tw);
 			_nextStep();
 		}
 		else
 		{
 			_blocked = true;
-			FlxTween.tween(spr, step.props ?? {}, dur, {
+			var tw = FlxTween.tween(spr, step.props ?? {}, dur, {
 				ease:       ease ?? FlxEase.linear,
-				onComplete: function(_) { _blocked = false; _nextStep(); }
+				onComplete: function(t) { _tweens.remove(t); _blocked = false; _nextStep(); }
+			});
+			_tweens.push(tw);
+		}
+	}
+
+	// ── stageAnim ─────────────────────────────────────────────────────────────
+
+	/**
+	 * Busca un personaje existente en el PlayState por nombre y le lanza la
+	 * animación indicada. Esto permite hacer cutscenes usando directamente
+	 * los personajes del stage sin añadir sprites extra.
+	 *
+	 * Nombres reconocidos para el campo "sprite":
+	 *   "bf" | "boyfriend"  → PlayState.boyfriend
+	 *   "dad" | "opponent"  → PlayState.dad
+	 *   "gf" | "girlfriend" → PlayState.gf
+	 *
+	 * Si "wait" es true, la cutscene se bloquea hasta que la animación termine.
+	 * JSON: { "action": "stageAnim", "sprite": "bf", "anim": "hey",
+	 *         "force": true, "wait": false }
+	 */
+	function _doStageAnim(step:SpriteCutsceneData.CutsceneStep):Void
+	{
+		var char = _resolveStageChar(step.sprite ?? '');
+		if (char == null)
+		{
+			trace('[SpriteCutscene] stageAnim: personaje "${step.sprite}" no encontrado.');
+			_nextStep();
+			return;
+		}
+
+		var animName = step.anim ?? '';
+		var force    = step.force ?? true;
+
+		// Usar playAnim si es un Character (FNF), animation.play si es genérico
+		if (Std.isOfType(char, funkin.gameplay.objects.character.Character))
+			cast(char, funkin.gameplay.objects.character.Character).playAnim(animName, force);
+		else if (char.animation != null)
+			char.animation.play(animName, force);
+
+		// Si wait=true esperar a que la animación termine antes de continuar
+		if ((step : Dynamic).wait == true && char.animation != null)
+		{
+			_blocked = true;
+			var _wt = new FlxTimer();
+			_timers.push(_wt);
+			// Poll cada frame (0.016s) hasta que la anim acabe
+			_wt.start(0.016, function(t:FlxTimer)
+			{
+				if (_skipped) return;
+				var anim = char.animation;
+				// La animación acabó si finished=true o ya no está la misma
+				if (anim == null || anim.curAnim == null || anim.curAnim.finished)
+				{
+					_timers.remove(t);
+					t.cancel();
+					_blocked = false;
+					_nextStep();
+				}
+				else
+				{
+					t.reset(0.016);
+				}
 			});
 		}
+		else
+		{
+			_nextStep();
+		}
+	}
+
+	/**
+	 * Resuelve el nombre de personaje a un FlxSprite del PlayState activo.
+	 * Devuelve null si no hay PlayState activo o el nombre no coincide.
+	 */
+	function _resolveStageChar(name:String):Null<FlxSprite>
+	{
+		var ps = funkin.gameplay.PlayState.instance;
+		if (ps == null) return null;
+
+		return switch (name.toLowerCase())
+		{
+			case 'bf', 'boyfriend':           ps.boyfriend;
+			case 'dad', 'opponent', 'enemy':  ps.dad;
+			case 'gf', 'girlfriend':          ps.gf;
+			// Fallback: buscar en sprites de cutscene por si alguien reutilizó el nombre
+			default:
+				var found = _sprites.get(name);
+				if (found != null) found else null;
+		};
 	}
 
 	// ── playSound ─────────────────────────────────────────────────────────────
@@ -537,7 +658,20 @@ class SpriteCutscene
 		for (snd in _sounds)  if (snd.playing) snd.stop();
 		_sprites.clear();
 		_sounds.clear();
-		FlxTimer.globalManager.clear(); // cancela timers pendientes de esta cutscene
+
+		// Cancelar solo los timers y tweens de ESTA cutscene,
+		// sin tocar el globalManager (que mataría timers de audio/música).
+		for (t in _timers)  { try t.cancel() catch (_) {}; }
+		for (tw in _tweens) { try tw.cancel() catch (_) {}; }
+		_timers  = [];
+		_tweens  = [];
+
+		// Eliminar la cámara dedicada de la lista de Flixel.
+		if (_camCutscene != null)
+		{
+			FlxG.cameras.remove(_camCutscene, true);
+			_camCutscene = null;
+		}
 	}
 
 	function _finish():Void

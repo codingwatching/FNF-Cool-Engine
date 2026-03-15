@@ -286,7 +286,24 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			{
 				file = mods.compat.ModCompatLayer.readStageFile(stageName);
 				if (file != null)
+				{
 					_dataCache.set(stageName, file); // guardar en caché
+
+					// ── Hot-reload: registrar path en JsonWatcher ─────────────
+					#if (sys && debug)
+					{
+						var _watchPath:String = mods.compat.ModPathResolver.stageFile(stageName);
+						if (_watchPath == null)
+						{
+							// Fallback: path estándar de assets
+							final _rel = Paths.stageJSON(stageName);
+							if (sys.FileSystem.exists(_rel)) _watchPath = _rel;
+						}
+						if (_watchPath != null)
+							funkin.debug.JsonWatcher.watch(_watchPath, 'stage', stageName);
+					}
+					#end
+				}
 			}
 
 			if (file == null)

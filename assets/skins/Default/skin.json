@@ -29,34 +29,34 @@
   "holdStretch": 1.02,
 
   "animations": {
-    "left":         { "prefix": "noteLeft",  "framerate": 24, "offset": [10, 0] },
-    "down":         { "prefix": "noteDown",  "framerate": 24, "offset": [10, 0] },
-    "up":           { "prefix": "noteUp",    "framerate": 24, "offset": [10, 0] },
-    "right":        { "prefix": "noteRight", "framerate": 24, "offset": [10, 0] },
+    "left":         { "prefix": "noteLeft",  "framerate": 24, "offset": [25, 5] },
+    "down":         { "prefix": "noteDown",  "framerate": 24, "offset": [25, 5] },
+    "up":           { "prefix": "noteUp",    "framerate": 24, "offset": [25, 5] },
+    "right":        { "prefix": "noteRight", "framerate": 24, "offset": [25, 5] },
 
-    "leftHold":     { "indices": [0], "framerate": 24, "offset": [10, 0] },
-    "downHold":     { "indices": [2], "framerate": 24, "offset": [10, 0] },
-    "upHold":       { "indices": [4], "framerate": 24, "offset": [10, 0] },
-    "rightHold":    { "indices": [6], "framerate": 24, "offset": [10, 0] },
+    "leftHold":     { "indices": [0], "framerate": 24, "offset": [25, 5] },
+    "downHold":     { "indices": [2], "framerate": 24, "offset": [25, 5] },
+    "upHold":       { "indices": [4], "framerate": 24, "offset": [25, 5] },
+    "rightHold":    { "indices": [6], "framerate": 24, "offset": [25, 5] },
 
-    "leftHoldEnd":  { "indices": [1], "framerate": 24, "offset": [10, 0] },
-    "downHoldEnd":  { "indices": [3], "framerate": 24, "offset": [10, 0] },
-    "upHoldEnd":    { "indices": [5], "framerate": 24, "offset": [10, 0] },
-    "rightHoldEnd": { "indices": [7], "framerate": 24, "offset": [10, 0] },
+    "leftHoldEnd":  { "indices": [1], "framerate": 24, "offset": [25, 5] },
+    "downHoldEnd":  { "indices": [3], "framerate": 24, "offset": [25, 5] },
+    "upHoldEnd":    { "indices": [5], "framerate": 24, "offset": [25, 5] },
+    "rightHoldEnd": { "indices": [7], "framerate": 24, "offset": [25, 5] },
 
-    "strumLeft":         { "prefix": "staticLeft",  "framerate": 24, "offset": [10, 10] },
-    "strumDown":         { "prefix": "staticDown",  "framerate": 24, "offset": [10, 10] },
-    "strumUp":           { "prefix": "staticUp",    "framerate": 24, "offset": [10, 10] },
-    "strumRight":        { "prefix": "staticRight", "framerate": 24, "offset": [10, 10] },
+    "strumLeft":         { "prefix": "staticLeft",  "framerate": 24, "offset": [25, 15] },
+    "strumDown":         { "prefix": "staticDown",  "framerate": 24, "offset": [25, 15] },
+    "strumUp":           { "prefix": "staticUp",    "framerate": 24, "offset": [25, 15] },
+    "strumRight":        { "prefix": "staticRight", "framerate": 24, "offset": [25, 15] },
 
-    "strumLeftPress":    { "prefix": "pressLeft",   "framerate": 24, "offset": [25, 22] },
-    "strumDownPress":    { "prefix": "pressDown",   "framerate": 24, "offset": [25, 22] },
-    "strumUpPress":      { "prefix": "pressUp",     "framerate": 24, "offset": [23, 22] },
-    "strumRightPress":   { "prefix": "pressRight",  "framerate": 24, "offset": [25, 22] },
+    "strumLeftPress":    { "prefix": "pressLeft",   "framerate": 24, "offset": [40, 27] },
+    "strumDownPress":    { "prefix": "pressDown",   "framerate": 24, "offset": [40, 27] },
+    "strumUpPress":      { "prefix": "pressUp",     "framerate": 24, "offset": [38, 27] },
+    "strumRightPress":   { "prefix": "pressRight",  "framerate": 24, "offset": [40, 27] },
 
-    "strumLeftConfirm":  { "prefix": "confirmLeft",  "framerate": 24, "offset": [10, 10] },
-    "strumDownConfirm":  { "prefix": "confirmDown",  "framerate": 24, "offset": [10, 10] },
-    "strumUpConfirm":    { "prefix": "confirmUp",    "framerate": 24, "offset": [10, 10] },
-    "strumRightConfirm": { "prefix": "confirmRight", "framerate": 24, "offset": [10, 10] }
+    "strumLeftConfirm":  { "prefix": "confirmLeft",  "framerate": 24, "offset": [25, 15] },
+    "strumDownConfirm":  { "prefix": "confirmDown",  "framerate": 24, "offset": [25, 15] },
+    "strumUpConfirm":    { "prefix": "confirmUp",    "framerate": 24, "offset": [25, 15] },
+    "strumRightConfirm": { "prefix": "confirmRight", "framerate": 24, "offset": [25, 15] }
   }
 }

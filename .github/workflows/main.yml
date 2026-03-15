@@ -65,6 +65,7 @@ jobs:
           haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
           haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6
+          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
           
       - name: Lock library versions
         shell: cmd
@@ -153,6 +154,7 @@ jobs:
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
           haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
           haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6
+          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
       
       - name: Lock library versions
         run: |
@@ -242,6 +244,7 @@ jobs:
           haxelib install hxp --quiet
           haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
+          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
           haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
 
       - name: Lock library versions
@@ -311,6 +314,7 @@ jobs:
           haxelib install openfl 9.3.0
           haxelib git flixel https://github.com/HaxeFlixel/flixel --quiet
           haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6
+          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
           haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui
           haxelib install flixel-tools 1.5.1 --quiet
           haxelib install actuate --quiet

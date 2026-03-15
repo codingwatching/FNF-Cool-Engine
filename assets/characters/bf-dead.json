@@ -1,6 +1,6 @@
 {
 	"isFlxAnimate": true,
-	"path": "bf-dead",
+	"path": "bf/dead",
 	"isPlayer": true,
 	"antialiasing": true,
 	"scale": 1.0,
@@ -29,6 +29,15 @@
 			"looped": false,
 			"offsetX": 0,
 			"offsetY": 0
+		},
+		{
+			"assetPath": "bf/bfFakeOut",
+			"name": "fakeoutDeath",
+			"prefix": "fake out death BF",
+			"offsetX": -3,
+			"offsetY": -65,
+			"framerate": 24,
+			"looped": false
 		}
 	]
 }
