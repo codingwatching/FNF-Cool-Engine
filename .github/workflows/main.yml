@@ -49,23 +49,26 @@ jobs:
 
       # 4 ── Haxe libraries ───────────────────────────────────────────────────
       - name: Install haxelibs
-        shell: cmd
+        shell: bash
         run: |
-          haxelib install hxcpp --quiet
-          haxelib install lime 8.1.0
-          haxelib install openfl 9.3.0
-          haxelib git flixel https://github.com/HaxeFlixel/flixel --quiet
-          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui
-          haxelib install flixel-tools 1.5.1 --quiet
-          haxelib install actuate --quiet
-          haxelib install hscript --quiet
-          haxelib install format --quiet
-          haxelib install hxp --quiet
-          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
-          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
-          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
-          haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6 --never
-          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
+          haxelib setup C:/haxelib
+          echo "HAXELIB_PATH=C:/haxelib" >> $GITHUB_ENV
+          haxelib install hxcpp --quiet --never
+          haxelib install lime 8.1.0 --never
+          haxelib install openfl 9.3.0 --never
+          haxelib git flixel https://github.com/HaxeFlixel/flixel.git --never
+          haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons.git funkin-4.0.6 --never
+          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui.git --never
+          haxelib install flixel-tools 1.5.1 --quiet --never
+          haxelib install actuate --quiet --never
+          haxelib install hscript --quiet --never
+          haxelib install format --quiet --never
+          haxelib install hxp --quiet --never
+          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc.git --never
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate.git --never
+          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis.git --never
+          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git --never
+          haxelib list
           
       - name: Lock library versions
         shell: cmd
@@ -140,21 +143,24 @@ jobs:
       # 6 ── Haxe libraries ───────────────────────────────────────────────────
       - name: Install haxelibs
         run: |
+          mkdir C:\haxelib
+          haxelib setup C:\haxelib
           haxelib install hxcpp --quiet
-          haxelib install lime 8.1.0
-          haxelib install openfl 9.3.0
-          haxelib git flixel https://github.com/HaxeFlixel/flixel --quiet
-          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui
-          haxelib install flixel-tools 1.5.1 --quiet
-          haxelib install actuate --quiet
-          haxelib install hscript --quiet
-          haxelib install format --quiet
-          haxelib install hxp --quiet
-          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
-          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
-          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
+          haxelib install lime 8.1.0 --never
+          haxelib install openfl 9.3.0 --never
+          haxelib git flixel https://github.com/HaxeFlixel/flixel --never
           haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6 --never
-          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
+          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui --never
+          haxelib install flixel-tools 1.5.1 --quiet --never
+          haxelib install actuate --quiet --never
+          haxelib install hscript --quiet --never
+          haxelib install format --quiet --never
+          haxelib install hxp --quiet --never
+          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc --never
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --never
+          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis --never
+          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git --never
+          haxelib list
       
       - name: Lock library versions
         run: |
@@ -231,21 +237,23 @@ jobs:
       # 4 ── Haxe libraries ───────────────────────────────────────────────────
       - name: Install haxelibs
         run: |
+          haxelib setup ~/haxelib
           haxelib install hxcpp --quiet
-          haxelib install lime 8.1.0
-          haxelib install openfl 9.3.0
-          haxelib git flixel https://github.com/HaxeFlixel/flixel --quiet
+          haxelib install lime 8.1.0 --never
+          haxelib install openfl 9.3.0 --never
+          haxelib git flixel https://github.com/HaxeFlixel/flixel --quiet --never
           haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6 --never
-          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui
-          haxelib install flixel-tools 1.5.1 --quiet
-          haxelib install actuate --quiet
-          haxelib install hscript --quiet
-          haxelib install format --quiet
-          haxelib install hxp --quiet
-          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
-          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
-          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
-          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
+          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui --never
+          haxelib install flixel-tools 1.5.1 --quiet --never
+          haxelib install actuate --quiet --never
+          haxelib install hscript --quiet --never
+          haxelib install format --quiet --never
+          haxelib install hxp --quiet --never
+          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc --never
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --never
+          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis --never
+          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git --never
+          haxelib list #
 
       - name: Lock library versions
         run: |
