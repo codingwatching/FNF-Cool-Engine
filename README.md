@@ -1,11 +1,13 @@
-# [Cool Engine REBORN (65%)](https://github.com/Manux123/FNF-Cool-Engine)
+# [Cool Engine REBORN (70%)](https://github.com/Manux123/FNF-Cool-Engine)
+> **Note**  
+> This engine is currently a work in progress. If you find any bugs or unexpected behavior, please open an issue in the repository.
 
 **FNF': Cool Engine is a modification of the original FNF' source code the mod includes new Options and better Graphics!!**
 ----------------------------------------------
 
 ![](/art/cool-logo-animated.gif)
 ----------------------------------------------
-
+  
 ## The Cool Engine Team Credits
 - [Manux (me)](https://x.com/ManuxAc) - Programmer Friday Night Funkin: Cool Engine
 - [Jloor](https://twitter.com/GamerJloor) - Programmer Friday Night Funkin: Cool Engine
