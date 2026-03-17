@@ -7,7 +7,20 @@
 <p align="center">
   <img src="/art/posterCool-min.png" width="455">
   <img src="/art/cool-logo-animated.gif" width="345">
+  <img width="400" alt="Captura de pantalla 2026-03-14 203029" src="https://github.com/user-attachments/assets/af9c7d84-f749-4cf6-9d51-79d0dfcb894a" />
+  <img width="400" alt="Captura de pantalla 2026-03-11 221232" src="https://github.com/user-attachments/assets/80ab40aa-9f88-414a-8cfe-d2eddcd3e51b" />
+  <img width="400" alt="Captura de pantalla 2026-03-11 213628" src="https://github.com/user-attachments/assets/5294054f-44c3-4186-9004-e808eecae4d9" />
+  <img width="400" alt="Captura de pantalla 2026-03-04 011947" src="https://github.com/user-attachments/assets/7016a562-e777-4034-9d64-279704331cbf" />
 </p>
+
+**MODS SUPPORT AND COMPATIBILITY WITH PSYCH MODS!**
+----------------------------------------------
+<p align="center">
+  <img width="400" alt="Captura de pantalla 2026-02-25 163406" src="https://github.com/user-attachments/assets/349bf923-6781-4e37-a7d8-c07df237364e" />
+  <img width="400" alt="Captura de pantalla 2026-03-04 162713" src="https://github.com/user-attachments/assets/4692dfb2-8450-426b-ab07-aea5c86db9d8" />
+</p>
+
+
 ----------------------------------------------
   
 ## The Cool Engine Team Credits
