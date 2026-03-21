@@ -331,6 +331,10 @@ class Song
 
 			rawJson = File.getContent(resolvedPath).trim();
 			trace('[Song] Cargado desde: $resolvedPath');
+
+			// ── Hot-reload: vigilar el chart JSON ─────────────────────────
+			if (mods.ModManager.developerMode)
+				funkin.debug.JsonWatcher.watch(resolvedPath, 'chart', diffName);
 		}
 		#else
 		final assetPath = Paths.jsonSong('$songFolder/$diffName');

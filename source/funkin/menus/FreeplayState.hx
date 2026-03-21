@@ -444,7 +444,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			showError('No songs found!\nPlease add songs to your songList.json');
 			new FlxTimer().start(2.0, function(_)
 			{
-				if (funkin.menus.MainMenuState.developerMode)
+				if (mods.ModManager.developerMode)
 					StateTransition.switchState(new funkin.debug.editors.FreeplayEditorState());
 			});
 		}
@@ -875,7 +875,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 			StateTransition.switchState(new MainMenuState());
 		}
-		if (FlxG.keys.justPressed.E && funkin.menus.MainMenuState.developerMode)
+		if (FlxG.keys.justPressed.E && mods.ModManager.developerMode)
 			StateTransition.switchState(new funkin.debug.editors.FreeplayEditorState());
 
 		#if sys

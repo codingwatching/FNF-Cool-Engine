@@ -374,12 +374,12 @@ class Stage extends FlxTypedGroup<FlxBasic>
 					_dataCache.set(stageName, file); // guardar en caché
 
 					// ── Hot-reload: registrar path en JsonWatcher ─────────────
-					#if (sys && debug)
+					#if sys
+					if (mods.ModManager.developerMode)
 					{
 						var _watchPath:String = mods.compat.ModPathResolver.stageFile(stageName);
 						if (_watchPath == null)
 						{
-							// Fallback: path estándar de assets
 							final _rel = Paths.stageJSON(stageName);
 							if (sys.FileSystem.exists(_rel)) _watchPath = _rel;
 						}

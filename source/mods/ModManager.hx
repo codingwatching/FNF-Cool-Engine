@@ -393,6 +393,29 @@ class ModManager
 		return null;
 	}
 
+	/** Developer Mode — controla el acceso a editores (Chart, Stage, Dialogue, AnimDebug, etc.).
+	 *  Se lee y escribe en mod.json del mod activo ("developerMode": true).
+	 *  Si no hay mod activo o el campo no está presente devuelve FALSE.
+	 *  Por defecto es FALSE; debe activarse explícitamente en mod.json. */
+	public static var developerMode(get, set):Bool;
+
+	static function get_developerMode():Bool
+	{
+		final info = activeInfo();
+		return info != null && info.developerMode == true;
+	}
+
+	static function set_developerMode(v:Bool):Bool
+	{
+		final info = activeInfo();
+		if (info != null)
+		{
+			info.developerMode = v;
+			saveModInfo(info);
+		}
+		return v;
+	}
+
 	// ─── Helpers internos ─────────────────────────────────────────────────────
 	#if sys
 	static function _loadModInfo(id:String, path:String):Null<ModInfo>
@@ -407,7 +430,7 @@ class ModManager
 		var website        = '';
 		var enabledDef     = true;
 		var startupDef       = false;
-		var developerModeDef:Null<Bool> = null; // null = default (true)
+		var developerModeDef:Null<Bool> = false; // default OFF — activar explícitamente en mod.json
 		var gamebananaid:Null<Int> = null;
 		var appTitle:Null<String> = null;
 		var appIcon:Null<String>  = null;
@@ -512,7 +535,7 @@ class ModManager
 				website:        info.website,
 				enabled:        info.enabled,
 				startupDefault: info.startupDefault,
-				developerMode:  info.developerMode != false // null/true → true, false → false
+				developerMode:  info.developerMode == true // false/null → false, true → true
 			};
 			// Solo serializar si están definidos, para no ensuciar mod.json sin esos campos
 			if (info.appTitle     != null) Reflect.setField(obj, 'appTitle',     info.appTitle);
@@ -671,8 +694,9 @@ typedef ModInfo =
 	var folder:String;
 	/**
 	 * Activa/desactiva el modo desarrollador para este mod.
-	 * true (default) = acceso a editores (Chart, Stage, Dialogue, AnimDebug).
-	 * false = modo jugador normal sin herramientas de desarrollo.
+	 * false (default) = modo jugador normal sin herramientas de desarrollo.
+	 * true = acceso a editores (Chart, Stage, Dialogue, AnimDebug).
+	 * Debe activarse explícitamente en mod.json con "developerMode": true.
 	 */
 	var ?developerMode:Null<Bool>;
 	/** Título de ventana personalizado. null = usar el default del engine. */

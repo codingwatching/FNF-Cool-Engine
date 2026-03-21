@@ -142,6 +142,9 @@ class JsonWatcher
             case 'stage':
                 Stage.invalidateStageCache(entry.name);
 
+            case 'chart':
+                // Sin caché estático — MusicBeatState.onChange reinicia el state.
+
             default:
                 // Tipo desconocido — solo notificar
         }

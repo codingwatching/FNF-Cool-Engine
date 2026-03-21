@@ -930,9 +930,9 @@ class ModSelectorState extends MusicBeatState
 		switch (item.key)
 		{
 			case 'devMode':
-				MainMenuState.developerMode = !MainMenuState.developerMode;
+				mods.ModManager.developerMode = !mods.ModManager.developerMode;
 				item.value.text = _devModeStr();
-				_showStatus(MainMenuState.developerMode ? '⚙ Developer Mode ACTIVATED' : '⚙ Developer Mode desactivated', true);
+				_showStatus(mods.ModManager.developerMode ? '⚙ Developer Mode ACTIVATED' : '⚙ Developer Mode desactivated', true);
 			case 'theme':
 				final sub = new ThemePickerSubState(function()
 				{
@@ -1219,7 +1219,7 @@ class ModSelectorState extends MusicBeatState
 		return (v == true) ? 'ON' : 'OFF';
 
 	inline function _devModeStr():String
-		return MainMenuState.developerMode ? 'ACTIVATED  ⚙' : 'OFF';
+		return mods.ModManager.developerMode ? 'ACTIVATED  ⚙' : 'OFF';
 
 	function _showStatus(msg:String, ok:Bool):Void
 	{

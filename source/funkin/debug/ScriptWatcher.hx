@@ -503,9 +503,9 @@ class ScriptWatcher
 
 	static function _log(msg:String, color:Int = 0xFFFFFFFF):Void
 	{
-		#if debug
-		try { funkin.debug.GameDevConsole.log(msg, color); } catch (_) {}
-		#end
+		if (mods.ModManager.developerMode){
+			try { funkin.debug.GameDevConsole.log(msg, color); } catch (_) {}
+		}
 	}
 }
 

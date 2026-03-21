@@ -6,7 +6,7 @@ function postCreate()
 {
     _evilTrail = new FlxTrail(character, null, 4, 24, 0.3, 0.069);
     if (FlxG.save.data.specialVisualEffects)
-        add(_evilTrail);
+        insert(members.indexOf(character), _evilTrail)
 }
 
 function onUpdate(elapsed:Float)

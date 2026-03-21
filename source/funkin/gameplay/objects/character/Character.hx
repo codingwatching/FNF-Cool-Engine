@@ -337,9 +337,10 @@ class Character extends FunkinSprite
 
 			applyCharacterDataDefaults(characterData, character);
 
-			// ── Hot-reload: registrar path en JsonWatcher (solo en sys + debug) ──
-			#if (sys && debug)
-			funkin.debug.JsonWatcher.watch(jsonPath, 'character', character);
+			// ── Hot-reload: registrar path en JsonWatcher ──
+			#if sys
+			if (mods.ModManager.developerMode)
+				funkin.debug.JsonWatcher.watch(jsonPath, 'character', character);
 			#end
 		}
 		catch (e:Dynamic)

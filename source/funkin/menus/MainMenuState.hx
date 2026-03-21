@@ -178,42 +178,6 @@ class MainMenuState extends funkin.states.MusicBeatState
 
 	var selectedSomethin:Bool = false;
 
-	/** Developer Mode — da acceso a los editores (Chart, Stage, Dialogue, AnimDebug).
-	 *  Se almacena en mod.json del mod activo como "developerMode": true/false.
-	 *  Si no hay mod activo o el campo no existe, cae al save.data como fallback.
-	 *  Por defecto es TRUE. */
-	public static var developerMode(get, set):Bool;
-
-	static function get_developerMode():Bool
-	{
-		// Leer desde mod.json del mod activo (si hay uno)
-		final info = mods.ModManager.activeInfo();
-		if (info != null)
-			return info.developerMode != false; // null/true → true, false → false
-		// Fallback al save para el modo base (sin mod activo)
-		if (FlxG.save.data.developerMode == null)
-			return true; // default TRUE
-		return FlxG.save.data.developerMode == true;
-	}
-
-	static function set_developerMode(v:Bool):Bool
-	{
-		final info = mods.ModManager.activeInfo();
-		if (info != null)
-		{
-			// Guardar en mod.json
-			info.developerMode = v;
-			mods.ModManager.saveModInfo(info);
-		}
-		else
-		{
-			// Modo base: guardar en save.data
-			FlxG.save.data.developerMode = v;
-			FlxG.save.flush();
-		}
-		return v;
-	}
-
 	override function update(elapsed:Float)
 	{
 		#if HSCRIPT_ALLOWED
@@ -224,7 +188,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		// No manipular FlxG.sound.music.volume aquí — pelea con el sistema de volumen.
 
 		// ── Teclas de editor (solo en developer mode) ──────────────────────────
-		if (developerMode)
+		if (mods.ModManager.developerMode)
 		{
 			if (FlxG.keys.justPressed.ONE)
 				StateTransition.switchState(new funkin.debug.EditorHubState());

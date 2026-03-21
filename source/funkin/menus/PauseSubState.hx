@@ -348,7 +348,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 				if (PlayState.storyPlaylist.length > 1 && PlayState.isStoryMode)
 					menuItems.insert(2, "Skip Song");
 				// Añadir "Bot Play" si el Developer Mode está activo
-				if (funkin.menus.MainMenuState.developerMode)
+				if (mods.ModManager.developerMode)
 				{
 					var botLabel = PlayState.isBotPlay ? "BotPlay ON" : "BotPlay OFF";
 					menuItems.insert(menuItems.length - 3, botLabel);
