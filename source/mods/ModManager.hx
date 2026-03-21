@@ -402,7 +402,9 @@ class ModManager
 	static function get_developerMode():Bool
 	{
 		final info = activeInfo();
-		return info != null && info.developerMode == true;
+		if (info != null)
+			return info.developerMode != false; // null/true → true, false → false
+		return true; // sin mod activo → true por defecto
 	}
 
 	static function set_developerMode(v:Bool):Bool
@@ -430,7 +432,7 @@ class ModManager
 		var website        = '';
 		var enabledDef     = true;
 		var startupDef       = false;
-		var developerModeDef:Null<Bool> = false; // default OFF — activar explícitamente en mod.json
+		var developerModeDef:Null<Bool> = null; // null = no definido → default true
 		var gamebananaid:Null<Int> = null;
 		var appTitle:Null<String> = null;
 		var appIcon:Null<String>  = null;
@@ -535,7 +537,7 @@ class ModManager
 				website:        info.website,
 				enabled:        info.enabled,
 				startupDefault: info.startupDefault,
-				developerMode:  info.developerMode == true // false/null → false, true → true
+				developerMode:  info.developerMode != false // null/true → true, false → false
 			};
 			// Solo serializar si están definidos, para no ensuciar mod.json sin esos campos
 			if (info.appTitle     != null) Reflect.setField(obj, 'appTitle',     info.appTitle);
@@ -694,9 +696,9 @@ typedef ModInfo =
 	var folder:String;
 	/**
 	 * Activa/desactiva el modo desarrollador para este mod.
-	 * false (default) = modo jugador normal sin herramientas de desarrollo.
-	 * true = acceso a editores (Chart, Stage, Dialogue, AnimDebug).
-	 * Debe activarse explícitamente en mod.json con "developerMode": true.
+	 * null/true (default) = acceso a editores (Chart, Stage, Dialogue, AnimDebug).
+	 * false = modo jugador normal sin herramientas de desarrollo.
+	 * Para desactivarlo en un mod de distribución: "developerMode": false en mod.json.
 	 */
 	var ?developerMode:Null<Bool>;
 	/** Título de ventana personalizado. null = usar el default del engine. */
