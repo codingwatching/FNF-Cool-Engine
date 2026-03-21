@@ -222,6 +222,15 @@ class PlayState extends funkin.states.MusicBeatState
 	/** Si está activo, el CPU juega en lugar del jugador (solo disponible en Developer Mode). */
 	public static var isBotPlay:Bool = false;
 
+	// ── Modo cinemático ────────────────────────────────────────────────────────
+	/** true = sin strums, sin HUD de score/health, sin game-over, sin pause.
+	*  Diseñado para el CutsceneEditorState — el editor pone su propia barra. */
+	public static var cinematicMode    : Bool = false;
+
+	/** Callback que llama el PlayState cuando la canción termina en cinematicMode.
+ *  El CutsceneEditorState lo asigna para recibir el evento "fin de canción". */
+	public var onCinematicEnd : Void -> Void = null;
+
 	public var canPause:Bool = true;
 
 	public var paused:Bool = false;
@@ -850,6 +859,18 @@ class PlayState extends funkin.states.MusicBeatState
 		grpHoldCovers = new FlxTypedGroup<NoteHoldCover>();
 		grpHoldCovers.cameras = [camHUD];
 		add(grpHoldCovers);
+
+		// ── Modo cinemático: ocultar strums y notas ──────────────────────────
+		if (cinematicMode)
+		{
+			strumLineNotes.visible  = false;
+			sustainNotes.visible    = false;
+			notes.visible           = false;
+			grpNoteSplashes.visible = false;
+			grpHoldCovers.visible   = false;
+			laneBackdrop.visible    = false;
+			if (noteBatcher != null) noteBatcher.visible = false;
+		}
 	}
 
 	/**
@@ -1079,6 +1100,15 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	public function setupUI():Void
 	{
+		if (cinematicMode)
+		{
+			uiManager = new UIScriptedManager(camHUD, gameState, metaData);
+			uiManager.active  = false;
+			uiManager.visible = false;
+			add(uiManager);
+			return;
+		}
+
 		var icons:Array<String> = [SONG.player1, SONG.player2];
 
 		// ✅ Verificar que existan antes de acceder a sus propiedades
@@ -1092,9 +1122,6 @@ class PlayState extends funkin.states.MusicBeatState
 		uiManager.setIcons(icons[0], icons[1]);
 		uiManager.setStage(curStage);
 		add(uiManager);
-		// BUGFIX: Evitar que super.update() llame a uiManager.update() automáticamente,
-		// ya que PlayState lo actualiza manualmente dentro de if(!paused && !inCutscene).
-		// Sin esto, el UI se actualizaba dos veces por frame causando lag y animaciones dobles.
 		uiManager.active = false;
 	}
 
@@ -1350,24 +1377,6 @@ class PlayState extends funkin.states.MusicBeatState
 			return;
 		}
 
-		// ── Hook onIntroCutscene para scripts ────────────────────────────────
-		// Si un script define onIntroCutscene(startCountdown) y devuelve true,
-		// PlayState asume que el script se encarga de la cutscene completa
-		// y llama a startCountdown() cuando quiera continuar.
-		// Funciona igual en StoryMode y en FreePlay.
-		//
-		// Ejemplo en el script:
-		//   function onIntroCutscene(startCountdown) {
-		//       game.inCutscene = true;
-		//       game.canPause   = false;
-		//       bf.playAnim('intro1', true);
-		//       new FlxTimer().start(3.0, function(_) {
-		//           game.inCutscene = false;
-		//           game.canPause   = true;
-		//           startCountdown();   // ← continúa el juego
-		//       });
-		//       return true;  // ← imprescindible para que PlayState no arranque el countdown él solo
-		//   }
 		if (scriptsEnabled)
 		{
 			var _startCb:Dynamic = function() {
@@ -1510,6 +1519,14 @@ class PlayState extends funkin.states.MusicBeatState
 	public function executeCountdown():Void
 	{
 		isCutscene = false;
+
+		if (cinematicMode)
+		{
+			startingSong     = false;
+			startedCountdown = true;
+			startSong();
+			return;
+		}
 
 		// ✨ CHART TESTING: Si hay un tiempo de inicio específico, skipear countdown
 		if (startFromTime != null)
@@ -1744,7 +1761,7 @@ class PlayState extends funkin.states.MusicBeatState
 			syncLegacyStats();
 
 			// Check death
-			if (gameState.isDead() || FlxG.keys.anyJustPressed(inputHandler.killBind))
+			if (!cinematicMode && (gameState.isDead() || FlxG.keys.anyJustPressed(inputHandler.killBind)))
 				gameOver();
 
 			// NOTA: El CPU hold cleanup con key >= 4 fue removido — noteData siempre
@@ -2645,8 +2662,16 @@ class PlayState extends funkin.states.MusicBeatState
 	public function endSong():Void
 	{
 		if (scriptsEnabled)
-		{
 			ScriptHandler.callOnScripts('onSongEnd', ScriptHandler._argsEmpty);
+
+		// ── Modo cinemático: notificar al editor en lugar de continuar ───────
+		if (cinematicMode)
+		{
+			isPlaying = false;
+			if (FlxG.sound.music != null)
+				FlxG.sound.music.pause();
+			if (onCinematicEnd != null) onCinematicEnd();
+			return;
 		}
 
 		canPause = false;

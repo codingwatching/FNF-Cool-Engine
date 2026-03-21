@@ -1431,7 +1431,10 @@ class SimpleTextInputSubState extends FlxSubState
 		hint.scrollFactor.set();
 		add(hint);
 
-		// Escucha nativa via Lime — independiente de foco
+		// Escucha nativa via Lime — independiente de foco.
+		// CRÍTICO: textInputEnabled = true activa SDL_StartTextInput() en desktop,
+		// sin esto onTextInput nunca dispara y no se puede escribir nada.
+		LimeApp.current.window.textInputEnabled = true;
 		LimeApp.current.window.onTextInput.add(_onLimeTextInput);
 		FlxG.stage.addEventListener(OflKeyboardEvent.KEY_DOWN, _onKeyDown);
 
@@ -1463,6 +1466,7 @@ class SimpleTextInputSubState extends FlxSubState
 			if (cam != null)
 				FlxG.cameras.remove(cam, true);
 		}
+		LimeApp.current.window.textInputEnabled = false;
 		LimeApp.current.window.onTextInput.remove(_onLimeTextInput);
 		FlxG.stage.removeEventListener(OflKeyboardEvent.KEY_DOWN, _onKeyDown);
 		super.destroy();
@@ -1666,7 +1670,10 @@ class ModEditSubState extends FlxSubState
 
 		_updateCursor();
 
-		// Captura nativa de texto via Lime — independiente de foco
+		// Captura nativa de texto via Lime — independiente de foco.
+		// CRÍTICO: textInputEnabled = true activa SDL_StartTextInput() en desktop,
+		// sin esto onTextInput nunca dispara y no se puede escribir nada.
+		LimeApp.current.window.textInputEnabled = true;
 		LimeApp.current.window.onTextInput.add(_onLimeTextInput);
 		FlxG.stage.addEventListener(OflKeyboardEvent.KEY_DOWN, _onKeyDown);
 		funkin.system.CursorManager.show();
@@ -1919,6 +1926,7 @@ class ModEditSubState extends FlxSubState
 			if (cam != null)
 				FlxG.cameras.remove(cam, true);
 		}
+		LimeApp.current.window.textInputEnabled = false;
 		LimeApp.current.window.onTextInput.remove(_onLimeTextInput);
 		FlxG.stage.removeEventListener(OflKeyboardEvent.KEY_DOWN, _onKeyDown);
 		super.destroy();
