@@ -3,6 +3,7 @@
     "name": "Base Game",
     "description": "",
     "author": "The Funkin Crew",
+    "developerMode": true,
     "version": "1.0.0",
     "priority": 0,
     "color": "#6633CC",
