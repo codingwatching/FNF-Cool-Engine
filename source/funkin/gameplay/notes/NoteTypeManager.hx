@@ -145,7 +145,7 @@ class NoteTypeManager
 
 		if (path != null)
 		{
-			inst = ScriptHandler.loadScript(path, 'song');
+			inst = cast ScriptHandler.loadScript(path, 'song');
 			if (inst != null)
 			{
 				inst.set('NoteTypeManager', NoteTypeManager);

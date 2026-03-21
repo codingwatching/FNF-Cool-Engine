@@ -1,0 +1,466 @@
+package;
+
+import hxp.*;
+import lime.tools.*;
+
+using StringTools;
+
+/**
+ * project.hxp — FNF: Cool Engine build configuration
+ *
+ * Haxe puro en vez de Project.xml, igual que V-Slice.
+ * Ventajas:
+ *  • Lógica condicional real (if/switch) sin los limitations de los atributos if= de XML
+ *  • icon.ico NO se genera en Linux ni en plataformas donde no aplica
+ *  • WinMacroFix se aplica DESPUÉS de registrar el classpath → sin "Type not found"
+ *  • Fácil de mantener, refactorizar y documentar
+ *
+ * Para compilar:
+ *   lime build windows
+ *   lime build linux
+ *   lime build mac
+ *   lime build html5
+ *   lime build android
+ */
+class Project extends HXProject
+{
+  // ── Metadatos ──────────────────────────────────────────────────────────────
+  static final TITLE:String        = "Friday Night Funkin': Cool Engine";
+  static final FILE:String         = "FNF-CE";
+  static final PACKAGE:String      = "com.coolTeam.coolEngine";
+  static final MAIN_CLASS:String   = "Main";
+  static final VERSION:String      = "0.6.0B";
+  static final COMPANY:String      = "CoolTeam";
+  static final SOURCE_DIR:String   = "source";
+  static final TEMPLATES_DIR:String = "templates";
+  static final SWITCH_APP_ID:String = "0x0100f6c013bbc000";
+
+  public function new()
+  {
+    super();
+
+    // FIX: Corregir HAXE_STD_PATH si apunta a una ruta incorrecta.
+    // Cuando Lime corre el .hxp con `haxe --interp`, hereda las variables
+    // de entorno del proceso padre. Si HAXE_STD_PATH tiene barra final
+    // o apunta a C:\ en vez de H:\ (u otro drive), haxe no encuentra stdlib.
+    // Este bloque lo corrige en runtime antes de que hxp empiece.
+    _fixHaxeStdPath();
+
+    configureApp();
+    configureWindow();
+    configureAssets();
+    configureLibraries();
+    configureDefines();
+    configureCompilerFlags();
+    configureMacros();
+    configureAndroid();
+
+    // Iconos: llamar SOLO para las plataformas que los necesitan.
+    // En Linux Lime genera icon.ico de todas formas si se llama configureIcons() → lo saltamos.
+    // V-Slice hace exactamente lo mismo: `if (!isLinux()) configureIcons();`
+    if (!isLinux())
+      configureIcons();
+  }
+
+  // ── App ─────────────────────────────────────────────────────────────────────
+
+  function configureApp():Void
+  {
+    meta.title       = TITLE;
+    meta.version     = VERSION;
+    meta.packageName = PACKAGE;
+    meta.company     = COMPANY;
+
+    app.main      = MAIN_CLASS;
+    app.file      = FILE;
+    app.preloader = "flixel.system.FlxPreloader";
+
+    sources.push(SOURCE_DIR);
+    templatePaths.push(TEMPLATES_DIR);
+  }
+
+  // ── Window ──────────────────────────────────────────────────────────────────
+
+  function configureWindow():Void
+  {
+    // Base (todas las plataformas)
+    window.width      = 1280;
+    window.height     = 720;
+    window.fps        = 120;
+    window.background = 0xFF000000;
+    window.hardware   = true;
+    window.vsync      = false;
+
+    if (isWeb())
+    {
+      window.resizable = true;
+    }
+
+    if (isDesktop())
+    {
+      window.orientation = Orientation.LANDSCAPE;
+      window.fullscreen  = false;
+      window.resizable   = true;
+      window.vsync       = false;
+    }
+
+    if (isMobile())
+    {
+      window.orientation = Orientation.LANDSCAPE;
+      window.fullscreen  = true;
+      window.resizable   = false;
+    }
+
+    // Nintendo Switch uses defines["switch"] — handled via external templates
+
+    // Output dir
+    var buildType = debug ? "debug" : "release";
+    if (defines.exists("32bit")) buildType = "32bit";
+    app.path = 'export/$buildType/';
+  }
+
+  // ── Assets ──────────────────────────────────────────────────────────────────
+
+  function configureAssets():Void
+  {
+    // Preload en todas las plataformas excepto web
+    var shouldPreload = !isWeb();
+    if (shouldPreload) setHaxedef("PRELOAD_ALL"); else unsetHaxedef("PRELOAD_ALL");
+    if (!shouldPreload) setHaxedef("NO_PRELOAD_ALL"); else unsetHaxedef("NO_PRELOAD_ALL");
+
+    addLibrary("default", false, shouldPreload);
+    addLibrary("assets",  false, shouldPreload);
+
+    var audioExclude = isWeb() ? "*.ogg" : "*.mp3";
+    addAssetPath("assets/", "assets", audioExclude);
+
+    // Fuentes: siempre embebidas
+    addEmbeddedAssetPath("assets/fonts");
+
+    if (isMobile())
+      addAssetPath("assets/images/hitbox");
+
+    // Mods
+    if (isAndroid())
+    {
+      addAssetPath("mods",   "assets/mods",   null, false);
+      addAssetPath("addons", "assets/addons",  null, false);
+    }
+    else
+    {
+      addAssetPath("mods",   "mods",   null, false);
+      addAssetPath("addons", "addons", null, false);
+    }
+
+    // DLLs / plugins nativos de Windows
+    if (isWindows())
+    {
+      addAssetPath("plugins/", "");
+      addAssetPath("dlls/",    "");
+    }
+
+    // Extras
+    assets.push(new Asset("tools/alsoft.ini",  "alsoft.ini",          null, false, true));
+    // Icono embebido como asset de OpenFL → disponible en runtime via
+    // openfl.Assets.getBitmapData("icon.png") sin depender de rutas en disco.
+    // SDL no lee el recurso PE del .exe para la ventana — necesita setIcon() explícito.
+    assets.push(new Asset("art/iconOG.png", "icon.png", null, true, true));
+
+    assets.push(new Asset("art/readme.txt",    "do NOT readme.txt",   null, false, true));
+    assets.push(new Asset("CHANGELOG.md",      "CHANGELOG.md",        null, false, true));
+
+    // Prebuild: sincronizar mods editados de vuelta al árbol fuente.
+    // Ejecutado aquí directamente (no via preBuildCallbacks) porque CommandHelper
+    // no existe en hxp 1.3.1 y preBuildCallbacks tiene API inestable entre versiones.
+    if (isWindows())
+    {
+      var binDir = debug ? "export\\debug\\windows\\cpp\\bin" : "export\\release\\windows\\cpp\\bin";
+      if (sys.FileSystem.exists(binDir + "\\mods"))
+        Sys.command("cmd", ["/c", "xcopy /E /I /Y /Q " + binDir + "\\mods mods >nul"]);
+    }
+    else if (isLinux())
+    {
+      var binDir = debug ? "export/debug/linux/cpp/bin" : "export/release/linux/cpp/bin";
+      if (sys.FileSystem.exists(binDir + "/mods"))
+        Sys.command("bash", ["-c", "cp -rn " + binDir + "/mods/. mods/"]);
+    }
+  }
+
+  // Helpers para addAssetPath con parámetro embed named (HXP no soporta named args directamente)
+  function addAssetPath(path:String, ?rename:String, ?exclude:String, embed:Bool = false):Void
+  {
+    if (!sys.FileSystem.exists(path)) return;
+    var targetPath = rename ?? path;
+    if (targetPath != "") targetPath += "/";
+    for (file in sys.FileSystem.readDirectory(path))
+    {
+      var full = '$path/$file';
+      if (exclude != null && matchGlob(file, exclude)) continue;
+      if (sys.FileSystem.isDirectory(full))
+        addAssetPath(full, '$targetPath$file', exclude, embed);
+      else
+        assets.push(new Asset(full, '$targetPath$file', null, embed, true));
+    }
+  }
+
+  function addEmbeddedAssetPath(path:String):Void
+    addAssetPath(path, null, null, true);
+
+  function addLibrary(name:String, embed:Bool, preload:Bool):Void
+    libraries.push(new Library("", name, null, embed, preload, false, ""));
+
+  // Minimalist glob: solo soporta *.ext
+  static function matchGlob(file:String, glob:String):Bool
+  {
+    if (glob.startsWith("*."))
+      return file.endsWith(glob.substr(1));
+    return file == glob;
+  }
+
+  // ── Librerías ────────────────────────────────────────────────────────────────
+
+  function configureLibraries():Void
+  {
+    // lime DEBE declararse antes de openfl con versión explícita.
+    // Esto silencia el warning "Lime version may not be compatible with OpenFL"
+    // que aparece cuando openfl es un fork de git sin version tag.
+    haxelibs.push(new Haxelib("lime",   "8.3.1"));
+    haxelibs.push(new Haxelib("openfl", "9.3.0"));
+    addLib("flixel");
+    addLib("flixel-addons");
+    addLib("linc_luajit");
+    addLib("flixel-ui");
+    addLib("hscript");
+    addLib("flixel-animate");
+    addLib("actuate");
+
+    if (isWeb())
+      setHaxedef("webgl");
+
+    if (isDesktop() || isMobile())
+      addLib("funkin.vis");
+
+    if (isCPP() && (isDesktop() || isMobile()))
+      addLib("hxvlc");
+
+    if (isDesktop())
+      addLib("discord_rpc");
+
+    if (isSwitch())
+      addLib("faxe");
+  }
+
+  function addLib(name:String):Void
+    haxelibs.push(new Haxelib(name, ""));
+
+  // ── Defines y flags ──────────────────────────────────────────────────────────
+
+  function configureDefines():Void
+  {
+    setHaxedef("HSCRIPT_ALLOWED");
+    setHaxedef("LUA_ALLOWED");
+    setHaxedef("FLX_NO_FOCUS_LOST_SCREEN");
+    setHaxedef("HXCPP_CHECK_POINTER");
+    setHaxedef("openfl_enable_handle_error");
+    setHaxedef("HXCPP_LARGE_BLOCKS");
+
+    if (!debug)
+    {
+      setHaxedef("FLX_NO_DEBUG");
+      setHaxedef("NAPE_RELEASE_BUILD");
+      setHaxedef("no-deprecation-warnings");
+      haxeflags.push("-dce"); haxeflags.push("full");
+    }
+
+    // define mobileC para targets mobile (usado en Main.hx y otros)
+    if (isMobile())
+      setHaxedef("mobileC");
+  }
+
+  function setHaxedef(name:String, ?value:String):Void
+  {
+    // No value passed → define with empty string (e.g. setHaxedef("HSCRIPT_ALLOWED"))
+    // This matches how Lime XML <haxedef name="X" /> works — sets X to "".
+    haxedefs.set(name, value ?? "");
+  }
+
+  function unsetHaxedef(name:String):Void
+  {
+    haxedefs.remove(name);
+  }
+
+  function addHaxeFlag(flag:String):Void
+    haxeflags.push(flag);
+
+  // ── Macros ──────────────────────────────────────────────────────────────────
+
+  function configureMacros():Void
+  {
+    // Embeber el PNG del ícono como haxe.Resource para que WindowManager
+    // pueda cargarlo en runtime sin depender de rutas en disco.
+    // Equivalente a <haxeresource path="art/iconOG.png" name="AppIcon" /> en XML.
+    if (sys.FileSystem.exists("art/iconOG.png"))
+      haxeflags.push("--resource art/iconOG.png@AppIcon");
+    else if (sys.FileSystem.exists("art/icon64.png"))
+      haxeflags.push("--resource art/icon64.png@AppIcon");
+
+    // WinMacroFix: parchea los .h de FlxKey y FlxColor para evitar colisiones
+    // con macros de windows.h (TRANSPARENT, DELETE, etc.).
+    // Se aplica aquí, DESPUÉS de que el classpath "source" ya está registrado
+    // (via sources.push(SOURCE_DIR) en configureApp) → no hay "Type not found".
+    if (isWindows())
+      addHaxeFlag("--macro WinMacroFix.apply()");
+  }
+
+  // ── Flags de compilador C++ ──────────────────────────────────────────────────
+
+  function configureCompilerFlags():Void
+  {
+    if (!isCPP()) return;
+
+    // HXProject no expone compilerFlags / linkerFlags directamente.
+    // Las optimizaciones de C++ se configuran mediante haxedefs que
+    // HXCPP lee en su propio Build.xml:
+    //   HXCPP_OPTIMIZE_SPEED  → -O3 / /O2
+    //   HXCPP_DEBUG_LINK      → sin LTO en debug
+    // Para flags más específicos lo correcto es un Build.xml personalizado
+    // en source/funkin/external/<platform>/project/Build.xml (como V-Slice).
+    if (!debug)
+    {
+      // Pedir a HXCPP que optimice para velocidad (equivale a -O3 / /O2)
+      setHaxedef("HXCPP_OPTIMIZE_SPEED");
+    }
+
+    // Dependencias nativas para VSyncAPI (opengl32 en Windows, GL en Linux)
+    if (isWindows())
+    {
+      dependencies.push(new Dependency("opengl32.lib", ""));
+      dependencies.push(new Dependency("opengl32",     ""));
+    }
+    if (isLinux())
+      dependencies.push(new Dependency("GL", ""));
+  }
+
+  // ── Android ──────────────────────────────────────────────────────────────────
+
+  function configureAndroid():Void
+  {
+    if (!isAndroid()) return;
+
+    config.set("android.target-sdk-version",  33);
+    config.set("android.minimum-sdk-version", 21);
+    config.set("android.install-location",    "auto");
+
+    // Permisos Android: se añaden via config (HXProject no tiene androidPermissions)
+    var perms = [
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.WAKE_LOCK",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+    ];
+    for (p in perms)
+      config.push("android.permission", p);
+  }
+
+  // ── Iconos ───────────────────────────────────────────────────────────────────
+  // Llamado solo cuando !isLinux() — igual que V-Slice — para evitar que Lime
+  // genere icon.ico en plataformas donde no se necesita.
+
+  function configureIcons():Void
+  {
+    if (isAndroid())
+    {
+      // Density buckets para el launcher del SO
+      for (size in [48, 72, 96, 144, 192])
+        icons.push(new Icon("art/iconOG.png", size));
+    }
+    else if (isIOS())
+    {
+      // iOS requiere tamaños exactos sin canal alpha
+      var iosSizes = [29, 40, 58, 60, 80, 87, 120, 180, 1024];
+      for (size in iosSizes)
+        icons.push(new Icon("art/iconOG.png", size));
+    }
+    else if (isWeb())
+    {
+      // Favicon
+      icons.push(new Icon("art/icon16.png", 16));
+      icons.push(new Icon("art/iconOG.png", 32));
+    }
+    else if (isMac())
+    {
+      // Lime genera el .icns completo desde un PNG grande
+      icons.push(new Icon("art/iconOG.png", null));
+    }
+    else if (isWindows())
+    {
+      // .ico multi-resolución — Lime necesita tamaños pequeños explícitos
+      // para la entrada de la bandeja del sistema
+      icons.push(new Icon("art/icon16.png", 16));
+      icons.push(new Icon("art/iconOG.png", 32));
+      icons.push(new Icon("art/iconOG.png", 48));
+      icons.push(new Icon("art/iconOG.png", 64));
+      icons.push(new Icon("art/iconOG.png", 128));
+      icons.push(new Icon("art/iconOG.png", 256));
+    }
+    // Switch: no icon API in standard Lime — handled via platform templates
+    // Linux: sin iconos — el gestor de ventanas los toma del .desktop entry
+  }
+
+  // ── Runtime environment fix ──────────────────────────────────────────────────
+
+  /**
+   * Lime corre el .hxp con `haxe --interp`, que hereda HAXE_STD_PATH del proceso
+   * padre (el Neko bundleado de Lime). En Windows ese Neko puede tener una variable
+   * incorrecta (barra final, drive incorrecto, etc.).
+   *
+   * Este método busca haxe.exe en PATH y deriva la ruta de std correcta desde ahí,
+   * sobrescribiendo HAXE_STD_PATH si es necesario.
+   */
+  static function _fixHaxeStdPath():Void
+  {
+    #if sys
+    // Verificar si la ruta actual existe y tiene contenido
+    var current = Sys.getEnv("HAXE_STD_PATH") ?? "";
+    // Normalizar: quitar barra final
+    if (current.endsWith("\\") || current.endsWith("/"))
+      current = current.substr(0, current.length - 1);
+
+    if (current != "" && sys.FileSystem.exists(current)
+      && sys.FileSystem.exists(current + "/StdTypes.hx"))
+      return; // Ya está correcto
+
+    // Buscar haxe.exe en PATH para derivar la ruta correcta
+    var pathDirs = (Sys.getEnv("PATH") ?? "").split(";");
+    for (dir in pathDirs)
+    {
+      var haxeExe = dir.endsWith("\\") ? dir + "haxe.exe" : dir + "\\haxe.exe";
+      if (sys.FileSystem.exists(haxeExe))
+      {
+        // haxe.exe está en dir — la std está en dir/std
+        var stdPath = (dir.endsWith("\\") ? dir + "std" : dir + "\\std");
+        if (sys.FileSystem.exists(stdPath + "\\StdTypes.hx"))
+        {
+          Sys.putEnv("HAXE_STD_PATH", stdPath);
+          Sys.println('[project.hxp] HAXE_STD_PATH corrected: $stdPath');
+          return;
+        }
+      }
+    }
+    #end
+  }
+
+  // ── Helpers de plataforma ────────────────────────────────────────────────────
+
+  function isWindows():Bool  return target == Platform.WINDOWS;
+  function isMac():Bool      return target == Platform.MAC;
+  function isLinux():Bool    return target == Platform.LINUX;
+  function isAndroid():Bool  return target == Platform.ANDROID;
+  function isIOS():Bool      return target == Platform.IOS;
+  function isSwitch():Bool   return defines.exists("switch");
+  function isWeb():Bool      return platformType == PlatformType.WEB;
+  function isDesktop():Bool  return platformType == PlatformType.DESKTOP;
+  function isMobile():Bool   return platformType == PlatformType.MOBILE;
+  function isCPP():Bool      return defines.exists("cpp");
+}

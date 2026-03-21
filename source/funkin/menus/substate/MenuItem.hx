@@ -20,7 +20,7 @@ class MenuItem extends FlxSpriteGroup
 
 	var weekPath:String = 'week1';
 
-	var weekInfo:funkin.menus.StoryMenuState.SongsInfo;
+	var weekInfo:Dynamic; // formerly StoryMenuState.SongsInfo
 
 	public function new(x:Float, y:Float, weekNum:Int = 0, ?customWeekPath:String = null)
 	{

@@ -1,0 +1,21 @@
+{
+  "name": "Subtitle",
+  "description": "Muestra un subtítulo en pantalla durante el gameplay.",
+  "color": "#AACCFF",
+  "context": ["chart"],
+  "aliases": ["Show Subtitle", "show subtitle"],
+  "params": [
+    {
+      "name": "Text",
+      "type": "String",
+      "defaultValue": "Hello World",
+      "description": "Texto a mostrar (usa | para opciones avanzadas: texto|size|color|bgAlpha)"
+    },
+    {
+      "name": "Duration",
+      "type": "Float(0,30)",
+      "defaultValue": "3.0",
+      "description": "Segundos en pantalla. 0 = sin auto-hide"
+    }
+  ]
+}

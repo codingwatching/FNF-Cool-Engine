@@ -1,0 +1,17 @@
+{
+	"id": "week2",
+	"weekName": "SPOOKY MONTH",
+	"weekSongs": [
+		"Spookeez",
+		"South",
+		"Monster"
+	],
+	"weekCharacters": [
+		"spooky",
+		"bf",
+		"gf"
+	],
+	"color": "0xFF2A2A2A",
+	"locked": false,
+	"order": 3
+}

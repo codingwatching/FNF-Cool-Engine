@@ -180,6 +180,23 @@ class Song
 						final p = '$base/$fv/$dv.json';
 						if (FileSystem.exists(p)) return p;
 					}
+					// ── Charts de variación V-Slice: sufijo compuesto "easy-bf" ──────
+					// IMPORTANTE: debe comprobarse ANTES que el -chart.json genérico.
+					// Si diff="lit up-easy-bf" y existe lit up-chart.json, sin este orden
+					// se cargaría el chart base (Pico) en lugar de la variante (BF).
+					{
+						final dvLow = dv.toLowerCase();
+						final lastDash = dvLow.lastIndexOf('-');
+						if (lastDash > 0)
+						{
+							final variation = dvLow.substr(lastDash + 1); // "bf"
+							for (base in ['$modRoot/songs', '$modRoot/assets/songs'])
+							{
+								final p = '$base/$fv/$fv-$variation.json';
+								if (FileSystem.exists(p)) return p;
+							}
+						}
+					}
 					// V-Slice: songs/name/name-chart.json  (todos los diffs en un archivo)
 					for (base in ['$modRoot/songs', '$modRoot/assets/songs'])
 					{
@@ -192,6 +209,15 @@ class Song
 						for (p in ['$base/$fv/$fv-$dv.json', '$base/$fv/$dv.json'])
 							if (FileSystem.exists(p)) return p;
 					}
+					// ── Formatos externos: osu!mania (.osu), StepMania (.sm / .ssc) ──
+					for (base in ['$modRoot/songs', '$modRoot/assets/songs'])
+					{
+						for (ext in ['osu', 'sm', 'ssc'])
+						{
+							for (p in ['$base/$fv/$dv.$ext', '$base/$fv/$fv.$ext'])
+								if (FileSystem.exists(p)) return p;
+						}
+					}
 				}
 		}
 
@@ -202,12 +228,33 @@ class Song
 				if (FileSystem.exists(p)) return p;
 			}
 
+		// Charts de variación en assets/ — ANTES que -chart.json (mismo motivo que en mods)
+		for (fv in folderVars)
+			for (dv in diffVars)
+			{
+				final dvLow = dv.toLowerCase();
+				final lastDash = dvLow.lastIndexOf('-');
+				if (lastDash > 0)
+				{
+					final variation = dvLow.substr(lastDash + 1);
+					final p = 'assets/songs/$fv/$fv-$variation.json';
+					if (FileSystem.exists(p)) return p;
+				}
+			}
+
 		// V-Slice: assets/songs/name/name-chart.json  (todos los diffs en un archivo)
 		for (fv in folderVars)
 		{
 			final p = 'assets/songs/$fv/$fv-chart.json';
 			if (FileSystem.exists(p)) return p;
 		}
+
+		// Formatos externos en assets/
+		for (fv in folderVars)
+			for (dv in diffVars)
+				for (ext in ['osu', 'sm', 'ssc'])
+					for (p in ['assets/songs/$fv/$dv.$ext', 'assets/songs/$fv/$fv.$ext'])
+						if (FileSystem.exists(p)) return p;
 
 		return null;
 		#else
@@ -247,6 +294,41 @@ class Song
 		final resolvedPath = findChart(songFolder, diffName);
 		if (resolvedPath != null)
 		{
+			// ── Formatos externos: osu!mania / StepMania ──────────────────────
+			// Si findChart encontró un archivo .osu / .sm / .ssc, lo convertimos
+			// directamente con ChartLoader + ChartConverter y retornamos sin pasar
+			// por parseJSONshit (que sólo entiende JSON).
+			final extCheck = resolvedPath.toLowerCase();
+			if (extCheck.endsWith('.osu') || extCheck.endsWith('.sm') || extCheck.endsWith('.ssc'))
+			{
+				trace('[Song] Formato externo detectado: $resolvedPath (diff=$diffName)');
+				final chartData = funkin.data.charts.ChartLoader.load(resolvedPath, diffName);
+				if (chartData == null)
+				{
+					trace('[Song] ERROR: ChartLoader no pudo parsear: $resolvedPath');
+					throw 'Chart not found: $songFolder/$diffName';
+				}
+				// ChartConverter tiene su propio typedef SwagSong (subconjunto).
+				// Usamos Dynamic para evitar conflicto de tipos entre módulos —
+				// en runtime ambos son objetos anónimos estructuralmente compatibles.
+				final converted:Dynamic = funkin.data.charts.ChartConverter.toSwagSong(chartData);
+				if (converted == null)
+				{
+					trace('[Song] ERROR: ChartConverter devolvió null para: $resolvedPath');
+					throw 'Chart conversion failed: $resolvedPath';
+				}
+				// Añadir los campos requeridos por SwagSong de Song.hx que
+				// ChartConverter no conoce (módulos distintos, typedefs distintos).
+				if (!Reflect.hasField(converted, 'validScore'))
+					Reflect.setField(converted, 'validScore', true);
+				if (!Reflect.hasField(converted, 'events'))
+					Reflect.setField(converted, 'events', []);
+				final swagConverted:SwagSong = cast converted;
+				ensureMigrated(swagConverted);
+				swagConverted.validScore = true;
+				return swagConverted;
+			}
+
 			rawJson = File.getContent(resolvedPath).trim();
 			trace('[Song] Cargado desde: $resolvedPath');
 		}
@@ -560,6 +642,24 @@ class Song
 				// "metadata.json" NO son charts, son metadatos del song en formato V-Slice.
 				if (base.contains('metadata')) continue;
 
+				// ── Filtro intro / dialogue ────────────────────────────────────────
+				// Charts de cutscene/intro (ej: "senpai-intro.json", "senpai-dialogue.json",
+				// "darnell-dialogue-erect.json") no deben aparecer como dificultades jugables.
+				// Regla: si el sufijo (todo lo que va DESPUÉS del nombre de carpeta) contiene
+				// "intro" o "dialogue" como segmento completo separado por guión, se ignora.
+				// Esto evita que aparezcan opciones de dificultad vacías o rotas en Freeplay.
+				{
+					final suffixCheck = base.startsWith(folderLow + '-')
+						? base.substr(folderLow.length + 1) // ej: "intro", "dialogue-erect"
+						: base;
+					final segments = suffixCheck.split('-');
+					var isIntroOrDialogue = false;
+					for (seg in segments)
+						if (seg == 'intro' || seg == 'dialogue')
+						{ isIntroOrDialogue = true; break; }
+					if (isIntroOrDialogue) continue;
+				}
+
 				// ── Chart multi-dificultad V-Slice (ej: "darnell-chart.json") ────
 				// Contiene todas las dificultades en un solo archivo bajo "notes": { easy, normal, hard... }
 				// Leemos sus keys y las añadimos como sufijos, sin hacer continue.
@@ -573,12 +673,57 @@ class Song
 						if (notesObj != null)
 							for (diffKey in Reflect.fields(notesObj))
 							{
-								final sfx = '-' + diffKey.toLowerCase();
+								// Ignorar dificultades internas que sean intro o dialogue
+								final dk = diffKey.toLowerCase();
+								final dkSegments = dk.split('-');
+								var skipDiff = false;
+								for (seg in dkSegments)
+									if (seg == 'intro' || seg == 'dialogue')
+									{ skipDiff = true; break; }
+								if (skipDiff) continue;
+
+								final sfx = '-' + dk;
 								found.set(sfx, true);
 							}
 					}
 					catch (_) {}
 					continue;
+				}
+
+				// ── Chart de variación V-Slice (ej: "lit_up-bf.json") ─────────────
+				// Patrón: el archivo empieza con el nombre del folder + '-' y tiene
+				// un objeto "notes" con múltiples claves de dificultad. En este caso
+				// NO es una dificultad individual: es un rework/variación completa.
+				// Se generan sufijos compuestos: "-easy-bf", "-normal-bf", "-hard-bf"
+				// para distinguirlos de las dificultades del chart base y permitir
+				// seleccionarlos individualmente en Freeplay.
+				if (base.startsWith(folderLow + '-'))
+				{
+					final variation = base.substr(folderLow.length + 1); // ej: "bf"
+					try
+					{
+						final fullPath = '$dir/$entry';
+						final parsed:Dynamic = haxe.Json.parse(sys.io.File.getContent(fullPath));
+						final notesObj:Dynamic = parsed.notes;
+						if (notesObj != null && Reflect.fields(notesObj).length > 1)
+						{
+							// Tiene múltiples dificultades → es un chart de variación
+							for (diffKey in Reflect.fields(notesObj))
+							{
+								final dk = diffKey.toLowerCase();
+								final dkSegs = dk.split('-');
+								var skipDiff = false;
+								for (seg in dkSegs)
+									if (seg == 'intro' || seg == 'dialogue')
+									{ skipDiff = true; break; }
+								if (skipDiff) continue;
+								// Sufijo compuesto: "-easy-bf", "-hard-bf", etc.
+								found.set('-$dk-$variation', true);
+							}
+							continue; // No caer al tratamiento de dificultad única
+						}
+					}
+					catch (_) {}
 				}
 
 				// ── Filtro de nombre: solo aceptar archivos que empiecen con el folder ──
@@ -601,12 +746,48 @@ class Song
 			}
 		}
 
+		// ── Formatos externos: osu!mania / StepMania ──────────────────────────
+		// Si hay archivos .osu / .sm / .ssc en la carpeta, consultamos al parser
+		// para obtener las dificultades disponibles y las añadimos al listado.
+		// Ejemplo: "mysong.sm" con difs [Easy, Hard] genera sufijos ['-easy', '-hard'].
+		for (dir in searchDirs)
+		{
+			if (!FileSystem.exists(dir) || !FileSystem.isDirectory(dir)) continue;
+			for (extEntry in FileSystem.readDirectory(dir))
+			{
+				final extLow = extEntry.toLowerCase();
+				if (!extLow.endsWith('.osu') && !extLow.endsWith('.sm') && !extLow.endsWith('.ssc'))
+					continue;
+				final fullPath = '$dir/$extEntry';
+				try
+				{
+					final extData = funkin.data.charts.ChartLoader.load(fullPath);
+					if (extData == null) continue;
+					final diffs = funkin.data.charts.ChartLoader.getDifficulties(extData);
+					for (diffLabel in diffs)
+					{
+						final dk = diffLabel.toLowerCase();
+						// Ignorar intro/dialogue también en charts externos
+						final dkSegs = dk.split('-');
+						var skip = false;
+						for (seg in dkSegs)
+							if (seg == 'intro' || seg == 'dialogue') { skip = true; break; }
+						if (skip) continue;
+						// Normalizar a sufijo: "Normal" → "", el resto → "-diff"
+						final sfx = (dk == 'normal') ? '' : '-$dk';
+						found.set(sfx, true);
+					}
+				}
+				catch (_) {}
+			}
+		}
+
 		// Si no encontramos nada, fallback a las 3 clásicas
 		if (!found.keys().hasNext())
 			return [['Easy', '-easy'], ['Normal', ''], ['Hard', '-hard']];
 
 		// Construir array con orden preferido: easy, normal, hard, resto
-		final ordered:Array<Array<String>> = [];
+		var ordered:Array<Array<String>> = [];
 		final knownOrder:Array<Array<String>> = [
 			['-easy',   'Easy'],
 			['',        'Normal'],
@@ -629,9 +810,33 @@ class Song
 		for (suffix in extras)
 		{
 			// Capitalizar: "-nightmare" → "Nightmare"
-			final label = suffix.substr(1, 1).toUpperCase() + suffix.substr(2);
+			// Para sufijos compuestos V-Slice como "-easy-bf" → "Easy"
+			// (solo la parte de dificultad, sin la variación al final)
+			final inner   = suffix.startsWith('-') ? suffix.substr(1) : suffix; // "easy-bf"
+			final dashIdx = inner.indexOf('-');
+			final diffPart = dashIdx > 0 ? inner.substr(0, dashIdx) : inner;    // "easy"
+			final label = diffPart.substr(0, 1).toUpperCase() + diffPart.substr(1); // "Easy"
 			ordered.push([label, suffix]);
 		}
+
+		// ── Filtro por meta.json: campo "difficulties" ────────────────────────
+		// Si el meta de la canción define allowedDifficulties, solo se muestran
+		// las dificultades cuyos sufijos estén en esa lista.
+		// Esto permite que el creador de la canción decida qué dificultades
+		// son visibles aunque existan charts de más en disco.
+		#if sys
+		try
+		{
+			final meta = funkin.data.MetaData.load(folder);
+			if (meta.allowedDifficulties != null && meta.allowedDifficulties.length > 0)
+			{
+				final allowed = meta.allowedDifficulties;
+				ordered = ordered.filter(pair -> allowed.contains(pair[1]));
+				trace('[Song] getAvailableDifficulties: filtrado por meta → ${ordered.map(p -> p[0]).join(", ")}');
+			}
+		}
+		catch (_) {}
+		#end
 
 		return ordered;
 		#else

@@ -181,12 +181,24 @@ class ScriptBridge
 				FlxTween.tween(FlxG.camera, {zoom: target}, duration, {ease: FlxEase.quadOut}),
 
 			// ─── Sonido ────────────────────────────────────────────────────────
+			// Usamos Paths.getSound() para que los assets de mods (no en el manifest
+			// de OpenFL) se carguen directamente desde disco via Sound.fromFile().
 
 			playSound: function(path:String, vol:Float = 1.0)
-				FlxG.sound.play(Paths.sound(path), vol),
+			{
+				final resolvedPath = Paths.sound(path);
+				final snd = Paths.getSound(resolvedPath);
+				if (snd != null) FlxG.sound.play(snd, vol);
+				else FlxG.sound.play(resolvedPath, vol);
+			},
 
 			playMusic: function(path:String, vol:Float = 1.0)
-				FlxG.sound.playMusic(Paths.music(path), vol),
+			{
+				final resolvedPath = Paths.music(path);
+				final snd = Paths.getSound(resolvedPath);
+				if (snd != null) FlxG.sound.playMusic(snd, vol);
+				else FlxG.sound.playMusic(resolvedPath, vol);
+			},
 
 			stopMusic: function() { if (FlxG.sound.music != null) FlxG.sound.music.stop(); },
 

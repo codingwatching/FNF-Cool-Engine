@@ -741,18 +741,48 @@ class NoteManager
 
 		// ── Scroll speed con multiplicador per-strum ────────────────────────────
 		final _scrollMult:Float = (_modState != null) ? _modState.scrollMult : 1.0;
+
+		// INVERT: invierte el eje de scroll solo para este strum.
+		// Con invert=1, el signo del desplazamiento de tiempo se invierte,
+		// produciendo notas "al revés" sin tocar el downscroll global.
+		final _invertSign:Float  = (_modState != null && _modState.invert > 0.5) ? -1.0 : 1.0;
 		final _effectiveSpeed:Float = _scrollSpeed * _scrollMult;
 
-		// ── Posición Y de la nota: relativa al strum actual, no al strumLineY global ──
-		// Antes: todas las notas usaban strumLineY (valor fijo al iniciar PlayState).
-		// Ahora: cada nota usa strum.y, que refleja cualquier offset aplicado al strum
-		// (downscroll, scripts de stage, eventos de canción, mods, etc.).
-		// Cuando nadie mueve los strums, strum.y == strumLineY → comportamiento idéntico.
+		// ── Posición Y base (referenciada al strum) ─────────────────────────────
 		var noteY:Float;
 		if (downscroll)
-			noteY = _refY + (songPosition - note.strumTime) * _effectiveSpeed;
+			noteY = _refY + (songPosition - note.strumTime) * _effectiveSpeed * _invertSign;
 		else
-			noteY = _refY - (songPosition - note.strumTime) * _effectiveSpeed;
+			noteY = _refY - (songPosition - note.strumTime) * _effectiveSpeed * _invertSign;
+
+		// ── Y modifiers (BUG FIX v3: drunkY, noteOffsetY, bumpy, wave nunca se aplicaban) ─
+		var _noteYOffset:Float = 0;
+		if (_modState != null)
+		{
+			// NOTE_OFFSET_Y: offset plano en Y para todas las notas
+			_noteYOffset += _modState.noteOffsetY;
+
+			// DRUNK_Y: onda senoidal en Y según strumTime (espejo de drunkX en el eje Y)
+			if (_modState.drunkY != 0)
+				_noteYOffset += _modState.drunkY * Math.sin(
+					note.strumTime * 0.001 * _modState.drunkFreq
+					+ songPosition * 0.0008
+				);
+
+			// BUMPY: todas las notas del strum oscilan en Y juntas según songPosition.
+			// Produce una ola "en bloque" que baja y sube todas las notas al mismo tiempo.
+			if (_modState.bumpy != 0)
+				_noteYOffset += _modState.bumpy * Math.sin(songPosition * 0.001 * _modState.bumpySpeed);
+
+			// WAVE: ola Y viajante — cada nota tiene desfase según su strumTime.
+			// Produce ondas que "viajan" de abajo hacia arriba por la columna de notas.
+			if (_modState.wave != 0)
+				_noteYOffset += _modState.wave * Math.sin(
+					songPosition * 0.001 * _modState.waveSpeed
+					- note.strumTime * 0.001
+				);
+		}
+		noteY += _noteYOffset;
 
 		// Para notas normales, Y es directo
 		if (!note.isSustainNote)
@@ -769,33 +799,44 @@ class NoteManager
 				_finalAngle += _modState.confusion;
 
 				// TORNADO: cada nota rota según su strumTime (efecto carrusel).
-				// La onda usa drunkFreq como frecuencia compartida con drunk.
 				if (_modState.tornado != 0)
-					_finalAngle += _modState.tornado * Math.sin(note.strumTime * 0.001 * _modState.drunkFreq);
+					_finalAngle += _modState.tornado * Math.sin(
+						note.strumTime * 0.001 * _modState.drunkFreq
+					);
 			}
 
 			note.angle = _finalAngle;
 
 			// ── Escala / alpha ────────────────────────────────────────────────
-			final newSX = strum.scale.x;
-			// Para sustains usamos sustainBaseScaleY (el valor base sin compensacion de rotacion)
-			// en lugar de note.scale.y para evitar que la compensacion de deformacion
-			// del frame anterior se acumule aqui.
+			var newSX = strum.scale.x;
 			final newSY = note.isSustainNote ? note.sustainBaseScaleY : strum.scale.y;
+
+			// BEAT_SCALE: pulso de escala lanzado en cada beat desde onBeatHit
+			if (_modState != null && _modState._beatPulse > 0)
+				newSX = newSX * (1.0 + _modState._beatPulse);
+
 			final scaleChanged = note.scale.x != newSX || note.scale.y != newSY;
 			note.scale.x = newSX;
-			note.scale.y = newSY; // siempre: se sobreescribe luego con compensacion si es sustain
+			note.scale.y = newSY;
 			if (scaleChanged)
 			{
 				note.updateHitbox();
-				// Re-aplicar offset de skin tras updateHitbox().
-				// updateHitbox() llama centerOffsets() internamente, que resetea offset a
-				// (frameWidth-width)/2 borrando el noteOffsetX/Y de la skin. Sin esto
-				// los sustains pierden su offset cada frame que el scale cambia.
 				note.offset.x += note.noteOffsetX;
 				note.offset.y += note.noteOffsetY;
 			}
-			note.alpha = FlxMath.bound(strum.alpha, 0.05, 1.0);
+
+			// ── Alpha: strum + NOTE_ALPHA override + STEALTH ─────────────────
+			var _baseAlpha:Float = FlxMath.bound(strum.alpha, 0.05, 1.0);
+			if (_modState != null)
+			{
+				// NOTE_ALPHA: multiplicador de alpha per-nota (independent del strum)
+				_baseAlpha *= FlxMath.bound(_modState.noteAlpha, 0.0, 1.0);
+
+				// STEALTH: notas completamente invisibles pero todavía hiteables
+				if (_modState.stealth > 0.5)
+					_baseAlpha = 0.0;
+			}
+			note.alpha = _baseAlpha;
 
 			// ── Posición X base ───────────────────────────────────────────────
 			var _noteX:Float = strum.x + (strum.width - note.width) / 2;
@@ -806,16 +847,27 @@ class NoteManager
 				_noteX += _modState.noteOffsetX;
 
 				// DRUNK_X: onda senoidal en X usando strumTime de la nota.
-				// El segundo término (songPosition) hace que la onda se desplace
-				// en el tiempo incluso cuando no llegan notas nuevas.
 				if (_modState.drunkX != 0)
 					_noteX += _modState.drunkX * Math.sin(
 						note.strumTime * 0.001 * _modState.drunkFreq
 						+ songPosition * 0.0008
 					);
 
-				// FLIP_X: espejo horizontal alrededor del centro del strum.
-				// Con flipX=1 las notas aparecen en el lado opuesto del strum.
+				// TIPSY: ola X global por songPosition (todas las notas oscilan juntas en X)
+				if (_modState.tipsy != 0)
+					_noteX += _modState.tipsy * Math.sin(
+						songPosition * 0.001 * _modState.tipsySpeed
+					);
+
+				// ZIGZAG: patrón escalonado en X alternando +amp / -amp
+				if (_modState.zigzag != 0)
+				{
+					// sign(sin(x)) da exactamente +1 o -1, produciendo el escalón
+					var _zz = Math.sin(note.strumTime * 0.001 * _modState.zigzagFreq * Math.PI);
+					_noteX += _modState.zigzag * (_zz >= 0 ? 1.0 : -1.0);
+				}
+
+				// FLIP_X: espejo horizontal alrededor del centro del strum
 				if (_modState.flipX > 0.5)
 				{
 					final _strumCenter = strum.x + strum.width / 2;
@@ -825,28 +877,46 @@ class NoteManager
 
 			note.x = _noteX;
 
-			// ── Deformación dinámica de sustains (siempre activa) ─────────────
-			// Orienta cada pieza de sustain hacia la posición de la pieza anterior
-			// en la cadena (NightmareVision style). Se aplica SIEMPRE, sin importar
-			// si hay _modState o no, para cubrir casos donde el strum fue movido
-			// por scripts externos, mods, o cambios de x/y/rotación que no pasan
-			// por ModChartManager. Cuando no hay desplazamiento, el ángulo
-			// calculado da deform=0 (neutro, sin cambio visible):
-			//   Upscroll recto:   dX=0, dY<0 → atan2=-90° → deform=-90+90= 0° ✓
-			//   Downscroll recto: dX=0, dY>0 → atan2=+90° → deform=+90-90= 0° ✓
+			// ── Deformación dinámica de sustains ─────────────────────────────
+			// Orienta cada pieza hacia la posición de la pieza anterior (la más
+			// cercana al strum). BUG FIX v3: _prevY ahora incluye TODOS los
+			// offsets Y (drunkY, bumpy, wave, noteOffsetY) evaluados en
+			// _prevStrumTime, igual que se hace para el X.
 			if (note.isSustainNote)
 			{
-				// Pieza anterior: un step más cerca del strum
 				final _prevStrumTime:Float = note.strumTime - Conductor.stepCrochet;
 
-				// Y de la pieza anterior al mismo instante de songPosition.
-				// FIX: usar _refY (= strum.y) para que la deformación sea coherente
-				// cuando el strum tiene un offset distinto al strumLineY global.
+				// Y base de la pieza anterior
 				var _prevY:Float = downscroll
-					? _refY + (songPosition - _prevStrumTime) * _effectiveSpeed
-					: _refY - (songPosition - _prevStrumTime) * _effectiveSpeed;
+					? _refY + (songPosition - _prevStrumTime) * _effectiveSpeed * _invertSign
+					: _refY - (songPosition - _prevStrumTime) * _effectiveSpeed * _invertSign;
 
-				// X de la pieza anterior: strum base + mods evaluados en _prevStrumTime
+				// Sumar los mismos Y-offsets evaluados en _prevStrumTime
+				if (_modState != null)
+				{
+					_prevY += _modState.noteOffsetY;
+
+					if (_modState.drunkY != 0)
+						_prevY += _modState.drunkY * Math.sin(
+							_prevStrumTime * 0.001 * _modState.drunkFreq
+							+ songPosition * 0.0008
+						);
+
+					// bumpy y wave: usan songPosition, no strumTime → igual para ambas piezas
+					// pero se incluyen para mantener coherencia visual en offsets grandes
+					if (_modState.bumpy != 0)
+						_prevY += _modState.bumpy * Math.sin(
+							songPosition * 0.001 * _modState.bumpySpeed
+						);
+
+					if (_modState.wave != 0)
+						_prevY += _modState.wave * Math.sin(
+							songPosition * 0.001 * _modState.waveSpeed
+							- _prevStrumTime * 0.001
+						);
+				}
+
+				// X de la pieza anterior (ya existía, se mantiene)
 				var _prevX:Float = strum.x + (strum.width - note.width) / 2;
 				if (_modState != null)
 				{
@@ -858,6 +928,17 @@ class NoteManager
 							+ songPosition * 0.0008
 						);
 
+					if (_modState.tipsy != 0)
+						_prevX += _modState.tipsy * Math.sin(
+							songPosition * 0.001 * _modState.tipsySpeed
+						);
+
+					if (_modState.zigzag != 0)
+					{
+						var _zzP = Math.sin(_prevStrumTime * 0.001 * _modState.zigzagFreq * Math.PI);
+						_prevX += _modState.zigzag * (_zzP >= 0 ? 1.0 : -1.0);
+					}
+
 					if (_modState.flipX > 0.5)
 					{
 						final _sc:Float = strum.x + strum.width / 2;
@@ -865,30 +946,19 @@ class NoteManager
 					}
 				}
 
-				// Vector de la posición actual hacia la pieza anterior (= hacia el strum)
+				// Vector hacia la pieza anterior → ángulo de deformación
 				final _dX:Float = _prevX - note.x;
 				final _dY:Float = _prevY - note.y;
 
-				final _rad:Float = Math.atan2(_dY, _dX);
-				final _deg:Float = _rad * (180.0 / Math.PI);
+				final _rad:Float    = Math.atan2(_dY, _dX);
+				final _deg:Float    = _rad * (180.0 / Math.PI);
 				final _deform:Float = downscroll ? (_deg - 90.0) : (_deg + 90.0);
 
-				// Sumar al ángulo base para no perder la rotación del strum
 				note.angle = _finalAngle + _deform;
 
-				// Compensar la reducción de cobertura vertical por la rotación.
-				// Al rotar una pieza rectangular, sus esquinas se asoman en los joints.
-				// Alargando la pieza por 1/cos(ángulo), el sprite siempre llega a cubrir
-				// el espacio entre piezas aunque esté inclinado, ocultando las esquinas.
-				//
-				// SEAM_OVERLAP: píxeles de overlap fijo que se añaden encima del
-				// factor 1/cos. Garantiza que incluso a ángulos bajos (<5°) donde
-				// 1/cos ≈ 1 el solapamiento siga siendo suficiente para tapar las
-				// esquinas del sprite rectangular. 4px es imperceptible visualmente
-				// pero suficiente para eliminar las líneas de separación.
 				final _deformRadAbs:Float = Math.abs(_deform * (Math.PI / 180.0));
-				final _cosDeform:Float = Math.cos(_deformRadAbs);
-				final _seamOverlap:Float = 4.0 / (note.frameHeight > 0 ? note.frameHeight : 1.0);
+				final _cosDeform:Float    = Math.cos(_deformRadAbs);
+				final _seamOverlap:Float  = 4.0 / (note.frameHeight > 0 ? note.frameHeight : 1.0);
 				note.scale.y = note.sustainBaseScaleY / (_cosDeform > 0.1 ? _cosDeform : 0.1) + _seamOverlap;
 			}
 		}

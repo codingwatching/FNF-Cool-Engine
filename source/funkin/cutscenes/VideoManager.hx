@@ -10,6 +10,8 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import funkin.states.LoadingState;
 import funkin.graphics.shaders.FunkinRuntimeShader;
+import funkin.cutscenes.SRTParser;
+import funkin.ui.SubtitleManager;
 
 using StringTools;
 
@@ -70,8 +72,136 @@ class VideoManager
 		instance: FunkinRuntimeShader
 	}> = new Map();
 
+	// ── SRT subtitle state ────────────────────────────────────────────────────
+
+	/** Entradas SRT cargadas para el video actual. Vacío si no hay .srt. */
+	static var _srtEntries:Array<SRTEntry> = [];
+
+	/** Índice de la última entrada mostrada (-1 = ninguna). */
+	static var _srtLastIndex:Int = -1;
+
+	/** Texto del subtítulo actualmente visible (para no re-mostrar el mismo). */
+	static var _srtCurrentText:String = '';
+
+
+
 	/** Invalidate resolved-path cache (call when the active mod changes). */
 	public static function clearPathCache():Void _pathCache.clear();
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// SRT subtitle helpers
+	// ─────────────────────────────────────────────────────────────────────────
+
+	/**
+	 * Carga el archivo .srt que corresponde al video en `videoPath` y conecta
+	 * el callback onTick del handler para mostrar los subtítulos en tiempo real.
+	 * Si el usuario desactivó los subtítulos en opciones, no hace nada.
+	 * Si no existe ningún .srt junto al video, no hace nada.
+	 */
+	static function _setupSrt(handler:MP4Handler, videoPath:String):Void
+	{
+		// Resetear estado
+		_srtEntries     = [];
+		_srtLastIndex   = -1;
+		_srtCurrentText = '';
+
+		// Si subtítulos desactivados, no conectar nada
+		if (FlxG.save.data.subtitlesEnabled == false) return;
+
+		// Buscar .srt: primero en el idioma de traducción configurado, luego genérico
+		var srtPath:Null<String> = null;
+		var langCode:String = FlxG.save.data.subtitleTranslateLang != null
+			? FlxG.save.data.subtitleTranslateLang : '';
+
+		if (langCode != '')
+		{
+			// Intentar variante de idioma primero: intro.es.srt
+			var base = videoPath.endsWith('.mp4')
+				? videoPath.substr(0, videoPath.length - 4) : videoPath;
+			var langCandidate = base + '.$langCode.srt';
+			#if sys
+			if (sys.FileSystem.exists(langCandidate)) srtPath = langCandidate;
+			#else
+			if (openfl.utils.Assets.exists(langCandidate)) srtPath = langCandidate;
+			#end
+		}
+
+		// Fallback: .srt genérico junto al video
+		if (srtPath == null)
+			srtPath = SRTParser.srtPathForVideo(videoPath);
+
+		if (srtPath == null)
+		{
+			trace('[VideoManager] No .srt found for: $videoPath');
+			return;
+		}
+
+		// Cargar y parsear (con strip de etiquetas HTML)
+		_srtEntries = SRTParser.parseFileClean(srtPath);
+
+		if (_srtEntries.length == 0)
+		{
+			trace('[VideoManager] .srt parsed but empty: $srtPath');
+			return;
+		}
+
+		trace('[VideoManager] SRT loaded: $srtPath (${_srtEntries.length} entries)');
+
+		// Conectar tick para sincronización frame a frame
+		handler.onTick = function(ms:Int)
+		{
+			_tickSrt(ms);
+		};
+	}
+
+	/**
+	 * Llamado cada frame con el tiempo actual del video en ms.
+	 * Muestra u oculta el subtítulo apropiado según los tiempos SRT.
+	 */
+	static function _tickSrt(ms:Int):Void
+	{
+		if (_srtEntries.length == 0) return;
+
+		var entry = SRTParser.getEntryAt(_srtEntries, ms);
+
+		if (entry == null)
+		{
+			// Fuera de cualquier rango → ocultar si había algo visible
+			if (_srtCurrentText != '')
+			{
+				SubtitleManager.instance.hide();
+				_srtCurrentText = '';
+				_srtLastIndex   = -1;
+			}
+			return;
+		}
+
+		// Misma entrada → no hacer nada (ya se está mostrando)
+		if (entry.index == _srtLastIndex) return;
+
+		// Nueva entrada → mostrar con duration=0 (control manual por SRT)
+		_srtLastIndex   = entry.index;
+		_srtCurrentText = entry.text;
+
+		// Duración real del subtítulo en segundos
+		var durationSec:Float = (entry.endMs - entry.startMs) / 1000.0;
+
+		SubtitleManager.instance.show(entry.text, durationSec);
+	}
+
+	/**
+	 * Detiene y limpia el reproductor SRT activo.
+	 * Llamado automáticamente en _cleanup() al terminar/detener el video.
+	 */
+	static function _stopSrt():Void
+	{
+		_srtEntries     = [];
+		_srtLastIndex   = -1;
+		_srtCurrentText = '';
+		SubtitleManager.instance.clear();
+	}
+
+
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// Public API
@@ -104,6 +234,9 @@ class VideoManager
 		// Music was already paused; stop() would invalidate the streaming FlxSound on CPP.
 		handler.playMP4(path, true, false, null, false, false);
 		handler.finishCallback = _buildFinish();
+
+		// ── SRT subtítulos ────────────────────────────────────────────────────
+		_setupSrt(handler, path);
 
 		onVideoStarted.dispatch();
 	}
@@ -149,6 +282,9 @@ class VideoManager
 			_buildFinish()();
 		};
 
+		// ── SRT subtítulos ────────────────────────────────────────────────────
+		_setupSrt(handler, path);
+
 		onVideoStarted.dispatch();
 	}
 
@@ -191,6 +327,9 @@ class VideoManager
 		current = handler;
 		handler.playMP4(path, true, false, sprite, false, false);
 		handler.finishCallback = _buildFinish();
+
+		// ── SRT subtítulos ────────────────────────────────────────────────────
+		_setupSrt(handler, path);
 
 		onVideoStarted.dispatch();
 	}
@@ -305,6 +444,7 @@ class VideoManager
 	public static function stop():Void
 	{
 		if (current == null) return;
+		_stopSrt();
 		current.kill();
 		_cleanup();
 	}
@@ -337,6 +477,7 @@ class VideoManager
 	public static function stopSilent():Void
 	{
 		if (current == null) return;
+		_stopSrt();
 		_onComplete            = null;
 		current.finishCallback = null;
 		current.kill();
@@ -393,6 +534,7 @@ class VideoManager
 	static function _stopCurrent():Void
 	{
 		if (current == null) return;
+		_stopSrt();
 		_onComplete            = null;
 		current.finishCallback = null;
 		current.kill();
@@ -405,6 +547,7 @@ class VideoManager
 		return function()
 		{
 			final cb = _onComplete;
+			_stopSrt();
 			_cleanup();
 			onVideoEnded.dispatch();
 			if (cb != null) cb();

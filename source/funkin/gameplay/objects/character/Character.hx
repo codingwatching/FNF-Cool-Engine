@@ -40,6 +40,41 @@ typedef CharacterData =
 	@:optional var gameOverBpm:Float;
 	@:optional var gameOverCamFrame:Int;
 	@:optional var deathAnimSuffix:String;
+
+	// ── Renderizado 3D ────────────────────────────────────────────────────────
+	/**
+	 * Tipo de renderizado alternativo.
+	 * Si se omite o es null, usa el renderizado 2D estándar (Sparrow/Atlas).
+	 *
+	 *   "model3d"  → carga un archivo .obj como companion Flx3DSprite
+	 *                visible en la posición del personaje; el sprite 2D
+	 *                se oculta. Los scripts controlan la animación del modelo.
+	 */
+	@:optional var renderType:String;
+
+	/**
+	 * Nombre del archivo .obj a cargar (sin extensión) cuando renderType = "model3d".
+	 * Rutas buscadas:
+	 *   mods/{mod}/characters/models/{modelFile}.obj
+	 *   assets/characters/models/{modelFile}.obj
+	 * Si es null, se usa el nombre del personaje.
+	 */
+	@:optional var modelFile:String;
+
+	/** Escala del modelo 3D (unidades del mundo 3D → píxeles). Default: 1.0. */
+	@:optional var modelScale:Float;
+
+	/** Ancho del render 3D en píxeles. Default: 320. */
+	@:optional var modelWidth:Int;
+
+	/** Alto del render 3D en píxeles. Default: 400. */
+	@:optional var modelHeight:Int;
+
+	/** Posición Z de la cámara 3D (alejamiento). Default: 5.0. */
+	@:optional var modelCamZ:Float;
+
+	/** Offset 2D del sprite 3D respecto a la posición base del personaje [x, y]. */
+	@:optional var modelOffset:Array<Float>;
 }
 
 // También modificar AnimData para incluir la hoja a la que pertenece:
@@ -111,7 +146,20 @@ class Character extends FunkinSprite
 
 	public var characterData:CharacterData;
 
+	/**
+	 * Companion Flx3DSprite activo cuando renderType = "model3d".
+	 * Null para personajes 2D estándar.
+	 * Los scripts pueden acceder a él para animar el modelo:
+	 *   character.model3D.scene.objects[0].rotY += elapsed * 2;
+	 */
+	public var model3D:Null<funkin.graphics.scene3d.Flx3DSprite> = null;
+
 	var danced:Bool = false;
+
+	/** Nombre de la animación del frame anterior — para detectar fin de anim. */
+	var _prevAnimName  :String = '';
+	/** Si la animación estaba terminada en el frame anterior. */
+	var _prevAnimDone  :Bool   = false;
 	var _singAnimPrefix:String = "sing";
 	var _idleAnim:String = "idle";
 
@@ -371,6 +419,8 @@ class Character extends FunkinSprite
 
 		for (animData in characterData.animations)
 		{
+			var loop:Null<Bool> = animData.looped;
+			if (loop == null) animData.looped = false;
 			addAnim(animData.name, animData.prefix, Std.int(animData.framerate), animData.looped,
 				(animData.indices != null && animData.indices.length > 0) ? animData.indices : null);
 
@@ -396,6 +446,50 @@ class Character extends FunkinSprite
 			playAnim('danceLeft');
 		else if (animOffsets.exists(_idleAnim))
 			playAnim(_idleAnim);
+
+		// ── Modelo 3D companion ───────────────────────────────────────────────────
+		// renderType: "model3d" → crea un Flx3DSprite que reemplaza visualmente
+		// al sprite 2D. El sprite 2D sigue activo para hitbox y posición.
+		if (characterData.renderType == 'model3d')
+			_initModel3D();
+	}
+
+	/** Inicializa el companion Flx3DSprite para personajes con renderType = "model3d". */
+	function _initModel3D():Void
+	{
+		final modelName  = characterData.modelFile ?? curCharacter;
+		final mw     = characterData.modelWidth  != null ? characterData.modelWidth  : 320;
+		final mh     = characterData.modelHeight != null ? characterData.modelHeight : 400;
+		final mscale = characterData.modelScale  != null ? characterData.modelScale  : 1.0;
+		final mCamZ  = characterData.modelCamZ   != null ? characterData.modelCamZ   : 5.0;
+		final offX   = characterData.modelOffset != null && characterData.modelOffset.length > 0 ? characterData.modelOffset[0] : 0.0;
+		final offY   = characterData.modelOffset != null && characterData.modelOffset.length > 1 ? characterData.modelOffset[1] : 0.0;
+
+		final spr = new funkin.graphics.scene3d.Flx3DSprite(x + offX - mw * 0.5, y + offY - mh * 0.5, mw, mh);
+		spr.scrollFactor.set(scrollFactor.x, scrollFactor.y);
+		spr.scene.camera.position.set(0, 1, mCamZ);
+		spr.scene.camera.target.set(0, 0, 0);
+		spr.scene.clearA = 0.0;
+
+		spr.onReady = function()
+		{
+			final mesh = funkin.graphics.scene3d.Model3DLoader.loadForCharacter(modelName);
+			if (mesh == null)
+			{
+				trace('[Character] Modelo 3D "$modelName" no encontrado — usa un script para cargar el mesh manualmente.');
+				return;
+			}
+			final obj3d = new funkin.graphics.scene3d.Flx3DObject();
+			obj3d.mesh = mesh;
+			obj3d.scaleX = mscale; obj3d.scaleY = mscale; obj3d.scaleZ = mscale;
+			spr.scene.add(obj3d);
+			trace('[Character] Modelo 3D "$modelName" listo para "$curCharacter" (${mesh.triangleCount} tri).');
+		};
+
+		model3D = spr;
+		// Ocultar sprite 2D — el modelo 3D lo reemplaza visualmente
+		alpha = 0.0;
+		trace('[Character] renderType=model3d inicializado para "$curCharacter".');
 	}
 
 	// ── playAnim ──────────────────────────────────────────────────────────────
@@ -488,6 +582,20 @@ class Character extends FunkinSprite
 		var curAnimName = getCurAnimName();
 		var curAnimDone = isCurAnimFinished();
 
+		// ── Detectar fin de animación y disparar onAnimEnd ────────────────────
+		// Condición: la animación acaba de terminar (esta frame está done, la anterior no)
+		// O: la animación cambió mientras estaba terminada (animación no-looped completada)
+		#if HSCRIPT_ALLOWED
+		if (curAnimDone && (!_prevAnimDone || curAnimName != _prevAnimName))
+		{
+			funkin.scripting.ScriptHandler._argsAnim[0] = curAnimName;
+			funkin.scripting.ScriptHandler._argsAnim[1] = null;
+			funkin.scripting.ScriptHandler.callOnCharacterScripts(curCharacter, 'onAnimEnd', funkin.scripting.ScriptHandler._argsAnim);
+		}
+		#end
+		_prevAnimName = curAnimName;
+		_prevAnimDone = curAnimDone;
+
 		if (!isPlayer)
 		{
 			if (curAnimName.startsWith(_singAnimPrefix))
@@ -514,7 +622,14 @@ class Character extends FunkinSprite
 			{
 				holdTimer = 0;
 				if (curAnimDone)
-					dance();
+				{
+					// FIX: No llamar dance() cada frame cuando termina danceLeft/danceRight.
+					// danceOnBeat() avanza el ciclo en cada beat. Si llamamos dance() aquí,
+					// el personaje cicla danceLeft↔danceRight a 60 fps ignorando la música.
+					// Solo relanzar dance() si la animación que terminó NO es ya una dance.
+					if (!curAnimName.startsWith('dance'))
+						dance();
+				}
 			}
 		}
 		else if (!debugMode)
@@ -545,7 +660,9 @@ class Character extends FunkinSprite
 				{
 					if (curAnimName == 'firstDeath')
 						playAnim('deathLoop');
-					else
+					// FIX: igual que el branch opponent — no ciclar danceLeft↔danceRight
+					// a 60fps. Solo llamar returnToIdle() si la anim terminada no es dance.
+					else if (!curAnimName.startsWith('dance'))
 						returnToIdle();
 				}
 			}
@@ -697,7 +814,6 @@ class Character extends FunkinSprite
 	override function destroy():Void
 	{
 		// Liberar los atlases cargados con destroyOnNoUse=false (al estilo V-Slice destroy())
-		// Esto restaura destroyOnNoUse=true para que Flixel los pueda limpiar de memoria.
 		releaseTrackedAtlases();
 
 		if (animOffsets != null)
@@ -706,6 +822,14 @@ class Character extends FunkinSprite
 			animOffsets = null;
 		}
 		characterData = null;
+
+		// Destruir el companion 3D si existe
+		if (model3D != null)
+		{
+			model3D.destroy();
+			model3D = null;
+		}
+
 		super.destroy();
 	}
 }

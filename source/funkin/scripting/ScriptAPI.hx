@@ -119,6 +119,8 @@ class ScriptAPI
 		// ── v9: Sistema 3D y AddonManager ─────────────────────────────────────
 		expose3D(interp);             // Flx3DSprite, Flx3DScene, primitivas GPU, etc.
 		exposeAddonManager(interp);   // AddonManager + sistemas registrados por addons
+		// ── v10: Subtítulos ────────────────────────────────────────────────────
+		exposeSubtitles(interp);      // subtitle.show(), subtitle.hide(), etc.
 	}
 
 	// ─── Flixel core ──────────────────────────────────────────────────────────
@@ -185,6 +187,9 @@ class ScriptAPI
 		// OpenFL
 		interp.variables.set('BitmapData', openfl.display.BitmapData);
 		interp.variables.set('Sound',      openfl.media.Sound);
+
+		interp.variables.set('RuntimeRainShader', funkin.graphics.shaders.RuntimeRainShader);
+		interp.variables.set('ShaderFilter', openfl.filters.ShaderFilter);
 
 		// BlendMode — expuesto como proxy con las constantes más usadas.
 		// En HScript la conversión abstracta `from String` de BlendMode no se
@@ -529,6 +534,73 @@ class ScriptAPI
 			if (cls == null) { trace('[ScriptAPI] createInstance: "$className" no encontrada.'); return null; }
 			return Type.createInstance(cls, args ?? []);
 		});
+
+		// ─── defineClass / newClass ─────────────────────────────────────────
+		// Registro local de clases definidas en este script.
+		// Permite crear clases con prototype pattern desde HScript.
+		//
+		// ESTILO A — objeto prototipo (siempre disponible):
+		//
+		//   defineClass('MiEfecto', {
+		//     'new': function(x:Float, y:Float) {
+		//       var self = { x:x, y:y, alpha:1.0 };
+		//       self.update = function(dt:Float) { self.x += 100 * dt; };
+		//       self.setAlpha = function(a:Float) { self.alpha = a; };
+		//       return self;
+		//     }
+		//   });
+		//   var obj = newClass('MiEfecto', 100, 200);
+		//   obj.update(0.016);
+		//
+		// ESTILO B — clase Haxe nativa (si el parser soporta 'class'):
+		//
+		//   class MiEfecto extends FlxSprite {
+		//     public function new(x:Float, y:Float) {
+		//       super(x, y);
+		//       makeGraphic(16, 16, FlxColor.RED);
+		//     }
+		//   }
+		//   defineClass('MiEfecto', MiEfecto);
+		//   var obj = newClass('MiEfecto', 100, 200);
+		//
+		final _scriptClasses:Map<String, Dynamic> = new Map();
+
+		interp.variables.set('defineClass', function(name:String, proto:Dynamic):Void {
+			if (name == null || proto == null) return;
+			_scriptClasses.set(name, proto);
+			interp.variables.set(name, proto);
+			trace('[Script] Clase definida: "$name"');
+		});
+
+		interp.variables.set('newClass', function(name:String, ?args:Array<Dynamic>):Dynamic {
+			var proto:Dynamic = _scriptClasses.get(name);
+			if (proto == null) proto = interp.variables.get(name);
+			if (proto == null) {
+				trace('[Script] newClass: "$name" no encontrada.');
+				return null;
+			}
+			// 1. método 'new'
+			var ctor:Dynamic = Reflect.field(proto, 'new');
+			if (ctor != null && Reflect.isFunction(ctor))
+				return Reflect.callMethod(proto, ctor, args ?? []);
+			// 2. método 'create'
+			ctor = Reflect.field(proto, 'create');
+			if (ctor != null && Reflect.isFunction(ctor))
+				return Reflect.callMethod(proto, ctor, args ?? []);
+			// 3. la clase misma es una función constructora
+			if (Reflect.isFunction(proto))
+				return Reflect.callMethod(null, proto, args ?? []);
+			trace('[Script] newClass: "$name" no tiene constructor.');
+			return null;
+		});
+
+		interp.variables.set('getClass', function(name:String):Dynamic {
+			var proto:Dynamic = _scriptClasses.get(name);
+			return proto ?? interp.variables.get(name);
+		});
+
+		interp.variables.set('hasClass', function(name:String):Bool
+			return _scriptClasses.exists(name) || interp.variables.exists(name));
 	}
 
 	// ─── Math extendido ───────────────────────────────────────────────────────
@@ -1195,7 +1267,37 @@ class ScriptAPI
 
 	static function exposeUtils(interp:Interp):Void
 	{
+		// FIX: StringTools.endsWith / startsWith / trim son funciones `inline`
+		// en Haxe → Reflect.field las devuelve null → Null Function Pointer en HScript.
+		// Se expone 'Str' como wrapper con lambdas non-inline para cada utilidad.
 		interp.variables.set('StringTools', StringTools);
+		interp.variables.set('Str', {
+			endsWith:   function(s:String, end:String):Bool {
+				if (s == null || end == null) return false;
+				final eLen = end.length;
+				return eLen == 0 || (s.length >= eLen && s.substr(s.length - eLen) == end);
+			},
+			startsWith: function(s:String, start:String):Bool {
+				if (s == null || start == null) return false;
+				return s.length >= start.length && s.substr(0, start.length) == start;
+			},
+			trim:       function(s:String):String {
+				if (s == null) return '';
+				return StringTools.ltrim(StringTools.rtrim(s));
+			},
+			ltrim:      function(s:String):String  return s == null ? '' : StringTools.ltrim(s),
+			rtrim:      function(s:String):String  return s == null ? '' : StringTools.rtrim(s),
+			contains:   function(s:String, sub:String):Bool {
+				return s != null && sub != null && s.indexOf(sub) != -1;
+			},
+			replace:    function(s:String, sub:String, by:String):String {
+				if (s == null) return '';
+				return StringTools.replace(s, sub, by);
+			},
+			hex:        function(n:Int, ?digits:Int):String  return StringTools.hex(n, digits),
+			padLeft:    function(s:String, c:String, l:Int):String return StringTools.lpad(s, c, l),
+			padRight:   function(s:String, c:String, l:Int):String return StringTools.rpad(s, c, l),
+		});
 		interp.variables.set('Std',         Std);
 		interp.variables.set('Math',        Math);
 		interp.variables.set('Json',        haxe.Json);
@@ -1259,7 +1361,97 @@ class ScriptAPI
 
 	static function exposeEvents(interp:Interp):Void
 	{
-		interp.variables.set('EventManager', funkin.scripting.EventManager);
+		interp.variables.set('EventManager',      funkin.scripting.EventManager);
+		interp.variables.set('EventRegistry',     funkin.scripting.EventRegistry);
+		interp.variables.set('EventHandlerLoader',funkin.scripting.EventHandlerLoader);
+
+		// Objeto 'events' con API de alto nivel para scripts de mods
+		interp.variables.set('events', {
+			/**
+			 * Dispara un evento inmediatamente (fuera del timeline del chart).
+			 *   events.fire("Camera Shake", "0.01", "0.5")
+			 */
+			fire: function(name:String, ?v1:String, ?v2:String) {
+				funkin.scripting.EventManager.fireEvent(name, v1 ?? '', v2 ?? '');
+			},
+			/**
+			 * Registra un handler para un evento concreto.
+			 * El handler recibe (v1, v2, time) y puede retornar true para
+			 * cancelar el built-in.
+			 *   events.on("My Event", function(v1, v2, time) { ... })
+			 */
+			on: function(name:String, handler:Dynamic) {
+				funkin.scripting.EventManager.registerCustomEvent(name, function(evArr) {
+					final e = evArr != null && evArr.length > 0 ? evArr[0] : null;
+					if (e == null) return false;
+					try { return handler(e.value1, e.value2, e.time) == true; }
+					catch(_) return false;
+				});
+			},
+			/**
+			 * Lista de todos los nombres de eventos registrados en un contexto.
+			 *   events.list("chart")   → ["Camera Follow", "BPM Change", ...]
+			 *   events.list()          → todos
+			 */
+			list: function(?context:String):Array<String> {
+				if (context != null)
+					return funkin.scripting.EventRegistry.getNamesForContext(context);
+				return funkin.scripting.EventRegistry.eventList;
+			},
+			/**
+			 * Definición completa de un evento (params, color, descripción, etc.)
+			 *   var def = events.get("Camera Follow")
+			 *   trace(def.description)
+			 *   trace(def.params.length)
+			 */
+			get: function(name:String):Dynamic {
+				return funkin.scripting.EventRegistry.get(name);
+			},
+			/**
+			 * Registra un nuevo evento con su definición completa.
+			 * Si tiene scriptPath, lo carga como handler.
+			 *   events.register({
+			 *     name: "My Event",
+			 *     description: "Does something cool",
+			 *     color: 0xFF88FF88,
+			 *     contexts: ["chart"],
+			 *     aliases: ["ME"],
+			 *     params: [{ name: "Value", type: "String", defaultValue: "" }]
+			 *   })
+			 */
+			register: function(def:Dynamic) {
+				final paramDefs:Array<funkin.scripting.EventInfoSystem.EventParamDef> = [];
+				if (def.params != null && Std.isOfType(def.params, Array))
+				{
+					for (p in (def.params : Array<Dynamic>))
+					{
+						if (p == null || p.name == null) continue;
+						paramDefs.push({
+							name:     Std.string(p.name),
+							type:     funkin.scripting.EventInfoSystem.parseParamType(
+							              Std.string(p.type ?? 'String')),
+							defValue: p.defaultValue != null ? Std.string(p.defaultValue) : '',
+							description: p.description != null ? Std.string(p.description) : null
+						});
+					}
+				}
+				funkin.scripting.EventRegistry.register({
+					name:        Std.string(def.name ?? ''),
+					description: def.description != null ? Std.string(def.description) : null,
+					color:       def.color  != null ? Std.int(def.color) : 0xFFAAAAAA,
+					contexts:    def.contexts != null && Std.isOfType(def.contexts, Array)
+					             ? [for (c in (def.contexts:Array<Dynamic>)) Std.string(c)]
+					             : ['chart'],
+					aliases:     def.aliases != null && Std.isOfType(def.aliases, Array)
+					             ? [for (a in (def.aliases:Array<Dynamic>)) Std.string(a)]
+					             : [],
+					params:      paramDefs,
+					hscriptPath: def.hscriptPath != null ? Std.string(def.hscriptPath) : null,
+					luaPath:     def.luaPath     != null ? Std.string(def.luaPath)     : null,
+					sourceDir:   null
+				});
+			}
+		});
 	}
 
 	// ─── Debug ────────────────────────────────────────────────────────────────
@@ -1888,25 +2080,58 @@ class ScriptAPI
 		});
 	}
 
-	// ─── CharacterList ────────────────────────────────────────────────────────
+	// ─── CharacterList ────────────────────────────────────────────────────────────────────────────
 
 	static function exposeCharacterList(interp:Interp):Void
 	{
-		interp.variables.set('CharacterList', funkin.gameplay.objects.character.CharacterList);
+		// FIX: HScript no puede acceder a campos/métodos estáticos de una clase
+		// Haxe expuesta directamente (Reflect.getProperty falla en static fields).
+		//
+		// Problema con un objeto anónimo simple:
+		//   CharacterList.reload() reemplaza los arrays con nuevas instancias
+		//   (boyfriends = []), así que un campo capturado al inicio quedaría obsoleto.
+		//
+		// Solución: crear el wrapper primero, luego asignar 'reload' e 'init' como
+		// lambdas que llaman a CL.reload/init Y actualizan los campos del propio
+		// wrapper via Reflect.setField. Así CharacterList.boyfriends siempre
+		// refleja el estado actual después de cada reload.
+		final CL = funkin.gameplay.objects.character.CharacterList;
+		final w:Dynamic = {
+			boyfriends:  CL.boyfriends,
+			opponents:   CL.opponents,
+			girlfriends: CL.girlfriends,
+			stages:      CL.stages,
+			getCharacterName:       function(c:String)    return CL.getCharacterName(c),
+			getStageName:           function(s:String)    return CL.getStageName(s),
+			getDefaultStageForSong: function(song:String) return CL.getDefaultStageForSong(song),
+			getDefaultGFForStage:   function(stg:String)  return CL.getDefaultGFForStage(stg),
+			getAllCharacters:       function()            return CL.getAllCharacters()
+		};
+		w.init   = function():Void {
+			CL.init();
+			Reflect.setField(w, 'boyfriends',  CL.boyfriends);
+			Reflect.setField(w, 'opponents',   CL.opponents);
+			Reflect.setField(w, 'girlfriends', CL.girlfriends);
+			Reflect.setField(w, 'stages',      CL.stages);
+		};
+		w.reload = function():Void {
+			CL.reload();
+			Reflect.setField(w, 'boyfriends',  CL.boyfriends);
+			Reflect.setField(w, 'opponents',   CL.opponents);
+			Reflect.setField(w, 'girlfriends', CL.girlfriends);
+			Reflect.setField(w, 'stages',      CL.stages);
+		};
+		interp.variables.set('CharacterList', w);
+
+		// charList se mantiene por compatibilidad con scripts que ya lo usen
 		interp.variables.set('charList', {
-			boyfriends:  function():Array<String> { return funkin.gameplay.objects.character.CharacterList.boyfriends; },
-			opponents:   function():Array<String> { return funkin.gameplay.objects.character.CharacterList.opponents; },
-			girlfriends: function():Array<String> { return funkin.gameplay.objects.character.CharacterList.girlfriends; },
-			stages:      function():Array<String> { return funkin.gameplay.objects.character.CharacterList.stages; },
-			getName:     function(char:String):String {
-				return funkin.gameplay.objects.character.CharacterList.getCharacterName(char);
-			},
-			getStageName: function(stage:String):String {
-				return funkin.gameplay.objects.character.CharacterList.getStageName(stage);
-			},
-			getDefaultStage: function(song:String):String {
-				return funkin.gameplay.objects.character.CharacterList.getDefaultStageForSong(song);
-			}
+			boyfriends:      function():Array<String>  { return CL.boyfriends; },
+			opponents:       function():Array<String>  { return CL.opponents; },
+			girlfriends:     function():Array<String>  { return CL.girlfriends; },
+			stages:          function():Array<String>  { return CL.stages; },
+			getName:         function(c:String):String { return CL.getCharacterName(c); },
+			getStageName:    function(s:String):String { return CL.getStageName(s); },
+			getDefaultStage: function(song:String):String { return CL.getDefaultStageForSong(song); }
 		});
 	}
 
@@ -2500,7 +2725,7 @@ class ScriptAPI
 			if (sprite != null && Std.isOfType(sprite, flixel.FlxSprite))
 				targetSprite = cast sprite;
 
-			var editor = new funkin.debug.ShaderEditorSubState(
+			var editor = new funkin.debug.editors.ShaderEditorSubState(
 				name ?? 'script_shader',
 				fragCode ?? '',
 				null,
@@ -2933,5 +3158,63 @@ class ScriptAPI
 			weak: function(x:Float = 0, y:Float = 0, w:Float = 0, h:Float = 0):flixel.math.FlxRect
 				return flixel.math.FlxRect.weak(x, y, w, h)
 		};
+	}
+
+	// ── Subtítulos ────────────────────────────────────────────────────────────
+
+	static function exposeSubtitles(interp:Interp):Void
+	{
+		final sm = funkin.ui.SubtitleManager.instance;
+		interp.variables.set('subtitle', {
+			/**
+			 * Muestra un subtítulo.
+			 *   subtitle.show("Hola", 3.0)
+			 *   subtitle.show("Hola", 2.0, { size: 28, color: 0xFFFF00 })
+			 */
+			show: function(text:String, ?duration:Float, ?options:Dynamic) {
+				sm.show(text, duration ?? 3.0, options);
+			},
+			/**
+			 * Oculta el subtítulo activo con fade-out.
+			 *   subtitle.hide()       -- suave
+			 *   subtitle.hide(true)   -- instantáneo
+			 */
+			hide: function(?instant:Bool) {
+				sm.hide(instant == true);
+			},
+			/**
+			 * Vacía la cola y oculta el subtítulo actual.
+			 */
+			clear: function() {
+				sm.clear();
+			},
+			/**
+			 * Encola una lista de subtítulos. Se muestran secuencialmente.
+			 *   subtitle.queue([
+			 *     { text: "Línea 1", duration: 2.0 },
+			 *     { text: "Línea 2", duration: 1.5, options: { color: 0xFFFF00 } }
+			 *   ])
+			 */
+			queue: function(entries:Array<Dynamic>) {
+				sm.queue(entries);
+			},
+			/**
+			 * Establece el estilo global para futuros show().
+			 *   subtitle.setStyle({ size: 28, color: 0xFFFFFF, bgAlpha: 0.6 })
+			 */
+			setStyle: function(opts:Dynamic) {
+				sm.setStyle(opts);
+			},
+			/**
+			 * Restaura el estilo global a los valores por defecto.
+			 */
+			resetStyle: function() {
+				sm.resetStyle();
+			},
+			/** Referencia directa a la instancia (para acceso a propiedades). */
+			manager: sm
+		});
+		// También exponer la clase completa para acceso avanzado
+		interp.variables.set('SubtitleManager', funkin.ui.SubtitleManager);
 	}
 }

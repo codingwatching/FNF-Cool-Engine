@@ -550,11 +550,35 @@ class CoreAudio extends FlxBasic
 	{
 		if (snd == null) return;
 		final base = _registry.exists(snd) ? _registry.get(snd) : 1.0;
-		// CRÍTICO: la música vive en defaultMusicGroup, que NO recibe el update
-		// de FlxG.sound.volume automáticamente (Flixel solo itera FlxG.sound.list).
-		// Por eso multiplicamos manualmente por masterVolume aquí. Sin esto,
-		// bajar el volumen con '-' hasta 0 deja la música sonando a tope.
-		snd.volume = muted ? 0.0 : (masterVolume * base);
+
+		// FIX: doble-volumen en música / mute roto
+		// ─────────────────────────────────────────────────────────────────────
+		// La música vive en defaultMusicGroup (FlxG.sound.music), que Flixel
+		// gestiona con su propio FlxSoundGroup.  El volumen efectivo de
+		// cualquier FlxSound se calcula en updateTransform():
+		//
+		//   effective = FlxG.sound.volume  ← masterVolume (nosotros lo controlamos)
+		//             × group.volume       ← 1.0 (defaultMusicGroup sin tocar)
+		//             × snd._volume        ← lo que ponemos con snd.volume
+		//
+		// ANTES: snd.volume = masterVolume × base
+		//   → effective = masterVolume × 1.0 × (masterVolume × base)
+		//               = masterVolume²  × base   ← DOBLE aplicación
+		//   A vol=0.7 la música sonaba a 0.49 en lugar de 0.70.
+		//   Con muted=true, FlxG.sound.volume = 0, pero snd.volume
+		//   se seteaba a 0 también → al desmutear snd.volume seguía en 0
+		//   hasta el siguiente _applyAll() → se oía un frame de silencio
+		//   extra y en race conditions la música no arrancaba.
+		//
+		// AHORA: snd.volume = base  (solo baseVolume, sin masterVolume)
+		//   → effective = masterVolume × 1.0 × base   ← correcto
+		//   Mute: FlxG.sound.volume = 0 → effective = 0 para todos los sounds
+		//   sin necesidad de tocar snd.volume individualmente.
+		// ─────────────────────────────────────────────────────────────────────
+		if (muted)
+			snd.volume = 0.0;  // silencio explícito por si defaultMusicGroup ignora FlxG.sound.volume
+		else
+			snd.volume = base; // FlxG.sound.volume = masterVolume ya actúa de multiplicador
 	}
 
 	/** Aplica el volumen efectivo a todos los sounds registrados. */

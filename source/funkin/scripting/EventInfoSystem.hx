@@ -35,6 +35,8 @@ typedef EventParamDef =
 	var name:String;
 	var type:EventParamType;
 	var defValue:String;
+	/** Descripción breve para tooltip del editor (opcional). */
+	@:optional var description:Null<String>;
 }
 
 /**
@@ -304,6 +306,10 @@ class EventInfoSystem
 		}
 		return result;
 	}
+
+	/** Parsea un string de tipo de param (público para uso de EventRegistry). */
+	public static function parseParamType(raw:String):EventParamType
+		return _parseType(raw);
 
 	static function _parseType(raw:String):EventParamType
 	{

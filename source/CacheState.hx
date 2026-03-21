@@ -35,7 +35,7 @@ class CacheState extends funkin.states.MusicBeatState
         // preStateSwitch en FunkinCache.init(). No llamarlo aquí para evitar doble
         // beginSession() que causaría que los assets del state anterior queden huérfanos.
 
-        FlxG.mouse.visible = false;
+        funkin.system.CursorManager.hide();
 
         Highscore.load();
         KeyBinds.keyCheck();

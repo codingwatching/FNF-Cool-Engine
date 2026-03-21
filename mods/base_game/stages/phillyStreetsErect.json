@@ -1,0 +1,716 @@
+{
+	"name": "phillyStreetsErect",
+	"gfVersion": "nene",
+	"isPixelStage": false,
+	"defaultZoom": 0.77,
+	"hideGirlfriend": false,
+	"scripts": [],
+	"boyfriendPosition": [
+		2000,
+		800
+	],
+	"dadPosition": [
+		640,
+		690
+	],
+	"gfPosition": [
+		1120,
+		390
+	],
+	"cameraBoyfriend": [
+		-350,
+		-75
+	],
+	"cameraDad": [
+		200,
+		-120
+	],
+	"customProperties": {
+		"charOrder": {
+			"bf": 100,
+			"gf": 1,
+			"dad": 0
+		}
+	},
+	"elements": [
+		{
+			"name": "phillySkybox",
+			"asset": "phillySkybox",
+			"type": "backdrop",
+			"zIndex": 10,
+			"aboveChars": false,
+			"position": [
+				-650,
+				-375
+			],
+			"scale": [
+				0.65,
+				0.65
+			],
+			"scrollFactor": [
+				0.1,
+				0.1
+			],
+			"alpha": 1.0,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": -22,
+			"velocityY": 0
+		},
+		{
+			"name": "phillySkyline",
+			"asset": "phillySkyline",
+			"type": "sprite",
+			"zIndex": 20,
+			"aboveChars": false,
+			"position": [
+				-545,
+				-273
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.2,
+				0.2
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "phillyForegroundCity",
+			"asset": "phillyForegroundCity",
+			"type": "sprite",
+			"zIndex": 30,
+			"aboveChars": false,
+			"position": [
+				600,
+				69
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.3,
+				0.3
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "phillyForegroundCity2",
+			"asset": "phillyForegroundCity",
+			"type": "sprite",
+			"zIndex": 30,
+			"aboveChars": false,
+			"position": [
+				1860,
+				185
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.3,
+				0.3
+			],
+			"alpha": 1,
+			"flipX": true,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"angle": 5
+		},
+		{
+			"name": "phillyConstruction2",
+			"asset": "phillyConstruction",
+			"type": "sprite",
+			"zIndex": 40,
+			"aboveChars": false,
+			"position": [
+				1795,
+				360
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.7,
+				1
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "phillyHighwayLights",
+			"asset": "phillyHighwayLights",
+			"type": "sprite",
+			"zIndex": 50,
+			"aboveChars": false,
+			"position": [
+				122,
+				201
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.8,
+				0.8
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "phillyHighwayLights_lightmap",
+			"asset": "phillyHighwayLights_lightmap",
+			"assetLibrary": "phillyStreets",
+			"type": "sprite",
+			"zIndex": 50,
+			"aboveChars": false,
+			"blend": "add",
+			"position": [
+				122,
+				201
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.8,
+				0.8
+			],
+			"alpha": 0.6,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "phillyHighway2",
+			"asset": "phillyHighway",
+			"type": "sprite",
+			"zIndex": 60,
+			"aboveChars": false,
+			"position": [
+				-23,
+				105
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.8,
+				0.8
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "phillyCars2",
+			"asset": "phillyCars",
+			"type": "animated",
+			"zIndex": 78,
+			"aboveChars": false,
+			"position": [
+				1200,
+				818
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.9,
+				1
+			],
+			"alpha": 1,
+			"flipX": true,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"firstAnimation": "car4",
+			"animations": [
+				{
+					"name": "car1",
+					"prefix": "car1",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				},
+				{
+					"name": "car2",
+					"prefix": "car2",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				},
+				{
+					"name": "car3",
+					"prefix": "car3",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				},
+				{
+					"name": "car4",
+					"prefix": "car4",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				}
+			]
+		},
+		{
+			"name": "phillyCars",
+			"asset": "phillyCars",
+			"type": "animated",
+			"zIndex": 80,
+			"aboveChars": false,
+			"position": [
+				1200,
+				818
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.9,
+				1
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"firstAnimation": "car4",
+			"animations": [
+				{
+					"name": "car1",
+					"prefix": "car1",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				},
+				{
+					"name": "car2",
+					"prefix": "car2",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				},
+				{
+					"name": "car3",
+					"prefix": "car3",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				},
+				{
+					"name": "car4",
+					"prefix": "car4",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				}
+			]
+		},
+		{
+			"name": "phillyTraffic",
+			"asset": "phillyTraffic",
+			"type": "animated",
+			"zIndex": 90,
+			"aboveChars": false,
+			"position": [
+				1840,
+				608
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.9,
+				1
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"firstAnimation": "tored",
+			"animations": [
+				{
+					"name": "togreen",
+					"prefix": "redtogreen",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				},
+				{
+					"name": "tored",
+					"prefix": "greentored",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				}
+			]
+		},
+		{
+			"name": "phillyTraffic_lightmap",
+			"asset": "phillyTraffic_lightmap",
+			"type": "sprite",
+			"zIndex": 90,
+			"aboveChars": false,
+			"blend": "add",
+			"position": [
+				1840,
+				608
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				0.9,
+				1
+			],
+			"alpha": 0.6,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "grey1",
+			"asset": "greyGradient",
+			"type": "sprite",
+			"zIndex": 91,
+			"aboveChars": false,
+			"position": [
+				-388,
+				7
+			],
+			"scale": [
+				1.3,
+				1.3
+			],
+			"scrollFactor": [
+				1,
+				1
+			],
+			"alpha": 0.3,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"blend": "add"
+		},
+		{
+			"name": "grey2",
+			"asset": "greyGradient",
+			"type": "sprite",
+			"zIndex": 91,
+			"aboveChars": false,
+			"position": [
+				-388,
+				7
+			],
+			"scale": [
+				1.3,
+				1.3
+			],
+			"scrollFactor": [
+				1,
+				1
+			],
+			"alpha": 0.8,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"blend": "multiply"
+		},
+		{
+			"name": "phillyForeground",
+			"asset": "phillyForeground",
+			"type": "sprite",
+			"zIndex": 100,
+			"aboveChars": false,
+			"position": [
+				88,
+				317
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				1,
+				1
+			],
+			"alpha": 1,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null
+		},
+		{
+			"name": "paper",
+			"asset": "paper",
+			"type": "animated",
+			"zIndex": 800,
+			"aboveChars": true,
+			"position": [
+				350,
+				608
+			],
+			"scale": [
+				1,
+				1
+			],
+			"scrollFactor": [
+				1.1,
+				1.1
+			],
+			"alpha": 0,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": null,
+			"firstAnimation": "paperBlow",
+			"animations": [
+				{
+					"name": "paperBlow",
+					"prefix": "Paper Blowing instance 1",
+					"framerate": 24,
+					"looped": false,
+					"indices": null
+				}
+			]
+		},
+		{
+			"name": "mist5",
+			"asset": "mistMid",
+			"type": "backdrop",
+			"zIndex": 39,
+			"aboveChars": false,
+			"position": [
+				-650,
+				-80
+			],
+			"scale": [
+				1.1,
+				1.1
+			],
+			"scrollFactor": [
+				0.5,
+				0.5
+			],
+			"alpha": 1.0,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"blend": "add",
+			"visible": true,
+			"color": "#5c5c5c",
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 20,
+			"velocityY": 0
+		},
+		{
+			"name": "mist4",
+			"asset": "mistBack",
+			"type": "backdrop",
+			"zIndex": 88,
+			"aboveChars": false,
+			"blend": "add",
+			"position": [
+				-650,
+				170
+			],
+			"scale": [
+				0.7,
+				0.7
+			],
+			"scrollFactor": [
+				0.8,
+				0.8
+			],
+			"alpha": 1.0,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": "#5c5c5c",
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 40,
+			"velocityY": 0
+		},
+		{
+			"name": "mist3",
+			"asset": "mistMid",
+			"type": "backdrop",
+			"blend": "add",
+			"zIndex": 99,
+			"aboveChars": false,
+			"position": [
+				-650,
+				230
+			],
+			"scale": [
+				0.8,
+				0.8
+			],
+			"scrollFactor": [
+				0.95,
+				0.95
+			],
+			"alpha": 0.5,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": "#5c5c5c",
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": -50,
+			"velocityY": 0
+		},
+		{
+			"name": "mist0",
+			"asset": "mistMid",
+			"type": "backdrop",
+			"blend": "add",
+			"zIndex": 1000,
+			"aboveChars": true,
+			"position": [
+				-650,
+				660
+			],
+			"scale": [
+				1.0,
+				1.0
+			],
+			"scrollFactor": [
+				1.2,
+				1.2
+			],
+			"alpha": 0.6,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": "#5c5c5c",
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 172,
+			"velocityY": 0
+		},
+		{
+			"name": "mist1",
+			"asset": "mistMid",
+			"type": "backdrop",
+			"blend": "add",
+			"zIndex": 1000,
+			"aboveChars": true,
+			"position": [
+				-650,
+				500
+			],
+			"scale": [
+				1.0,
+				1.0
+			],
+			"scrollFactor": [
+				1.1,
+				1.1
+			],
+			"alpha": 0.6,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": "#5c5c5c",
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 150,
+			"velocityY": 0
+		},
+		{
+			"name": "mist2",
+			"asset": "mistBack",
+			"type": "backdrop",
+			"blend": "add",
+			"zIndex": 1001,
+			"aboveChars": true,
+			"position": [
+				-650,
+				540
+			],
+			"scale": [
+				1.0,
+				1.0
+			],
+			"scrollFactor": [
+				1.2,
+				1.2
+			],
+			"alpha": 0.8,
+			"flipX": false,
+			"flipY": false,
+			"antialiasing": true,
+			"visible": true,
+			"color": "#5c5c5c",
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": -80,
+			"velocityY": 0
+		}
+	]
+}

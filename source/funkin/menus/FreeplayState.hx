@@ -3,15 +3,19 @@ package funkin.menus;
 #if desktop
 import data.Discord.DiscordClient;
 #end
+import openfl.filters.BitmapFilterQuality;
+import openfl.filters.GlowFilter;
+import openfl.filters.BlurFilter;
 import flash.text.TextField;
+import flash.geom.Rectangle;
 import flixel.FlxG;
 import lime.app.Application;
 import flixel.FlxSprite;
-import flixel.addons.display.FlxGridOverlay;
-import flixel.addons.transition.FlxTransitionableState;
+import flixel.FlxCamera;
 import flixel.util.FlxTimer;
 import funkin.transitions.StateTransition;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxGroup;
 import flixel.math.FlxMath;
 import flixel.tweens.FlxEase;
 import funkin.menus.StoryMenuState;
@@ -20,87 +24,177 @@ import flixel.util.FlxColor;
 import flixel.tweens.FlxTween;
 import lime.utils.Assets;
 import flixel.sound.FlxSound;
-import openfl.utils.Assets as OpenFlAssets;
-import flixel.effects.particles.FlxEmitter;
 import funkin.states.LoadingState;
+import flixel.effects.particles.FlxEmitter;
 import flixel.effects.particles.FlxParticle;
 import funkin.gameplay.objects.character.HealthIcon;
 import funkin.data.Song;
 import funkin.gameplay.objects.hud.Highscore;
 import funkin.scripting.StateScriptHandler;
 import funkin.transitions.StickerTransition;
-import funkin.menus.StoryMenuState.Songs;
+import funkin.data.FreeplayList;
+import funkin.data.FreeplayList.FreeplayListData;
+import funkin.data.FreeplayList.FreeplaySongEntry;
 import funkin.gameplay.PlayState;
 import funkin.data.Conductor;
 import funkin.data.CoolUtil;
-import ui.Alphabet;
 
 using StringTools;
 
 import haxe.Json;
-import haxe.format.JsonParser;
 import funkin.audio.MusicManager;
 #if sys
 import sys.FileSystem;
 #end
 
+/**
+ * FreeplayState v3 — cinematic two-panel layout.
+ *
+ * Changes from v2:
+ *   • Song names use CapsuleText-style (Funkin.otf + cyan glow, no more Alphabet)
+ *   • Album art bottom-right, softcoded from songList.json via `album` + `albumText` fields
+ */
 class FreeplayState extends funkin.states.MusicBeatState
 {
 	var toBeFinished = 0;
 	var finished = 0;
 
-	public static var songInfo:Songs;
+	/** Datos de freeplay (freeplayList.json). */
+	public static var freeplayData:FreeplayListData;
 
 	var songs:Array<SongMetadata> = [];
 
-	var selector:FlxText;
-	var discSpr:FlxSprite;
-
+	// ── Selection state ────────────────────────────────────────────────────────
 	private static var curSelected:Int = 0;
 	private static var curDifficulty:Int = 1;
 
-	var scoreBG:FlxSprite;
-	var scoreText:FlxText;
-	var diffText:FlxText;
-	var lerpScore:Int = 0;
+	// ── Score data ────────────────────────────────────────────────────────────
+	var lerpScore:Float = 0;
 	var lerpRating:Float = 0;
 	var intendedScore:Int = 0;
 	var intendedRating:Float = 0;
-	var songText:Alphabet;
 
-	private var grpSongs:FlxTypedGroup<Alphabet>;
-	private var curPlaying:Bool = false;
-
+	// ── Left panel — song list ─────────────────────────────────────────────────
+	private var grpSongs:FlxTypedGroup<FreeplaySongText>;
 	private var iconArray:Array<HealthIcon> = [];
 
-	public static var coolColors:Array<Int> = [];
+	// ── Right panel — spotlight ───────────────────────────────────────────────
+	var cardBg:FlxSprite;
+	var cardAccent:FlxSprite;
+	var spotlightTitle:FreeplaySongText; // big song name (CapsuleText style)
+	var spotlightArtist:FlxText;
+	var spotlightIcon:HealthIcon;
+	var rankBadge:FlxSprite;
+	var rankBadgeBg:FlxSprite;
+	var congrats:FlxText;
+	var scoreCard:FlxSprite;
+	var scoreValueTxt:FlxText;
+	var accuracyTxt:FlxText;
+	var diffPills:FlxTypedGroup<FlxSprite>;
+	var diffTexts:Array<FlxText> = [];
 
+	// ── Album art (bottom-right) ───────────────────────────────────────────────
+	var albumArt:FlxSprite; // static cover image
+	var albumTextSpr:FlxSprite; // animated title text atlas
+	var _curAlbumKey:String = '';
+	var _curAlbumTextKey:String = '';
+
+	// ── Waveform bars ─────────────────────────────────────────────────────────
+	static inline final NUM_BARS = 32;
+	static inline final BAR_W = 8;
+	static inline final BAR_GAP = 4;
+
+	var waveGroup:FlxTypedGroup<FlxSprite>;
+	var beatTimer:Float = 0;
+
+	// ── Background ────────────────────────────────────────────────────────────
 	var bg:FlxSprite;
-	var bgGradient:FlxSprite;
-	var intendedColor:Int;
+	var bgTint:FlxSprite;
+	var intendedColor:Int = 0xFF0d0820;
 	var colorTween:FlxTween;
 
-	// Error message
+	// ── Disc / record player ──────────────────────────────────────────────────
+	var discSpr:FlxSprite;
+
+	var _discBaseAngle:Float  = 0.0;   // accumulated rotation (deg)
+	var _discSpinSpeed:Float  = 45.0;  // deg/sec at rest
+	var _discBeatBump:Float   = 0.0;   // extra speed added on beat, decays to 0
+
+	// ── Error overlay ─────────────────────────────────────────────────────────
 	var errorText:FlxText;
 	var errorTween:FlxTween;
 
-	// Nuevas variables para efectos visuales
-	var particleEmitter:FlxEmitter;
-	var screenBumpAmount:Float = 0;
-	var bpmTarget:Float = 0;
-	var beatTimer:Float = 0;
-	var visualBars:FlxTypedGroup<FlxSprite>;
-	var glowOverlay:FlxSprite;
+	// ── Layout constants ──────────────────────────────────────────────────────
+	static inline final LEFT_W = 440;
+	static inline final CARD_X = 450;
+	static inline final CARD_W = 790;
+	static inline final CARD_Y = 60;
+	static inline final CARD_H = 570;
 
-	// Variables para el screen shake/bump al ritmo
-	var camBumpIntensity:Float = 1.0;
-	var lastScreenBumpBeat:Int = -1;
+	// ── Album layout ──────────────────────────────────────────────────────────
+	static inline final ALBUM_X = 1000; // center X of album art
+	static inline final ALBUM_Y = 480; // center Y of album art
+	static inline final ALBUM_SZ = 235; // display size
+	static inline final ATEXT_Y = 570; // Y of album text label
+
+	public static var instPlaying:Int = -1;
+	public static var difficultyStuff:Array<Dynamic> = [['Easy', '-easy'], ['Normal', ''], ['Hard', '-hard']];
+	public static var coolColors:Array<Int> = [];
+
+	// ── Rank helpers ──────────────────────────────────────────────────────────
+	static function _rankFromAcc(acc:Float):String
+	{
+		if (acc <= 0)
+			return '';
+		var p = acc * 100.0;
+		if (p >= 99.99)
+			return 'SS';
+		if (p >= 94.99)
+			return 'S';
+		if (p >= 89.99)
+			return 'A';
+		if (p >= 79.99)
+			return 'B';
+		if (p >= 69.99)
+			return 'C';
+		if (p >= 59.99)
+			return 'D';
+		return 'F';
+	}
+
+	static function _rankColor(rank:String):FlxColor
+	{
+		return switch (rank)
+		{
+			case 'SS': FlxColor.fromString('#FFD700');
+			case 'S': FlxColor.fromString('#64FF64');
+			case 'A': FlxColor.fromString('#64FFFF');
+			case 'B': FlxColor.fromString('#FFFF00');
+			case 'C': FlxColor.fromString('#FFA000');
+			case 'D': FlxColor.fromString('#FF6464');
+			default: FlxColor.fromString('#888888');
+		};
+	}
+
+	static function _congratsMsg(rank:String):String
+	{
+		return switch (rank)
+		{
+			case 'SS': 'ABSOLUTELY PERFECT!! ✦';
+			case 'S': 'Amazing job! Keep it up! ✦';
+			case 'A': 'Excellent run! So clean!';
+			case 'B': 'Great work! Almost there!';
+			case 'C': 'Nice try! Practice makes perfect.';
+			case 'D': 'Keep grinding, you got this!';
+			default: '';
+		};
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
 
 	override function create()
 	{
 		FlxG.mouse.visible = false;
-
-		// ✅ FIX: Limpiar inputs al inicio para evitar inputs residuales del state anterior
 		FlxG.keys.reset();
 
 		if (StickerTransition.enabled)
@@ -109,196 +203,251 @@ class FreeplayState extends funkin.states.MusicBeatState
 			transOut = null;
 		}
 
+		// Resetear preview estático — puede quedar con índice viejo si venimos de PlayState
+		instPlaying = -1;
+
+		// Registrar el resolver de paths en PathsCache para que la clave corta
+		// 'menu/ratings/SS' se resuelva a 'assets/images/menu/ratings/SS.png', etc.
+		// Esto elimina los falsos "No se pudo cargar" cuando el asset sí existe.
+		funkin.cache.PathsCache.pathResolver = function(k) return Paths.image(k);
+
 		MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7);
 
-		// Error message text
-		errorText = new FlxText(0, FlxG.height * 0.5 - 50, FlxG.width, "", 32);
-		errorText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.RED, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		errorText.setBorderStyle(OUTLINE, FlxColor.BLACK, 4);
-		errorText.scrollFactor.set();
-		errorText.alpha = 0;
-
 		loadSongsData();
-		if (songInfo != null)
-		{
+
+		// FIX: cargar scripts ANTES de songsSystem() para que preFilterSongs()
+		// pueda modificar freeplayData.songs antes de que se construya la UI.
+		// Sin este cambio, los scripts se cargaban DESPUÉS de la lista de canciones
+		// y no podían filtrarla.
+		#if HSCRIPT_ALLOWED
+		StateScriptHandler.init();
+		StateScriptHandler.loadStateScripts('FreeplayState', this);
+		StateScriptHandler.exposeElement('freeplayData', freeplayData);
+		StateScriptHandler.callOnScripts('preFilterSongs', []);
+		#end
+
+		if (freeplayData != null && freeplayData.songs != null)
 			songsSystem();
-		}
-		else
-		{
-			songInfo = null;
-		}
 
 		#if desktop
 		DiscordClient.changePresence("In the FreePlay", null);
 		#end
 
-		// === FONDO MEJORADO CON DEGRADADO ===
+		// ── Background ────────────────────────────────────────────────────────
 		bg = new FlxSprite();
-		if (Paths.image('menu/menuDesat') != null)
+		try
 		{
 			bg.loadGraphic(Paths.image('menu/menuDesat'));
 		}
-		else
+		catch (_)
 		{
-			// Fallback: crear un fondo sólido si no existe la imagen
-			bg.makeGraphic(FlxG.width, FlxG.height, 0xFF2A2A2A);
+			bg.makeGraphic(FlxG.width, FlxG.height, 0xFF0d0820);
 		}
-		bg.color = 0xFF2A2A2A;
-		bg.scrollFactor.set(0.1, 0.1);
+		bg.color = 0xFF0d0820;
+		bg.alpha = 0.5;
+		bg.scrollFactor.set(0.06, 0.06);
+		bg.scale.set(1.05, 1.05);
+		bg.screenCenter();
 		add(bg);
 
-		// Degradado overlay para dar profundidad
-		bgGradient = new FlxSprite();
-		bgGradient.makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT, true);
-		bgGradient.pixels.lock(); // requerido en native cpp antes de operaciones pixel
-		for (i in 0...FlxG.height)
-		{
-			var ratio:Float = i / FlxG.height;
-			var alpha:Int = Std.int(ratio * 0x88);
-			bgGradient.pixels.fillRect(new flash.geom.Rectangle(0, i, FlxG.width, 1), alpha << 24);
-		}
-		bgGradient.pixels.unlock();
-		add(bgGradient);
+		bgTint = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF0d0820);
+		bgTint.alpha = 0.82;
+		bgTint.scrollFactor.set();
+		add(bgTint);
 
-		// === BARRAS VISUALES DE AUDIO (decorativas) ===
-		visualBars = new FlxTypedGroup<FlxSprite>();
-		add(visualBars);
+		// ── Left stripe ───────────────────────────────────────────────────────
+		var leftStripe = new FlxSprite().makeGraphic(LEFT_W + 10, FlxG.height, 0xFF000000);
+		leftStripe.alpha = 0.35;
+		leftStripe.scrollFactor.set();
+		add(leftStripe);
 
-		for (i in 0...10)
+		var divider = new FlxSprite(LEFT_W, 0).makeGraphic(2, FlxG.height, 0xFFffffff);
+		divider.alpha = 0.07;
+		divider.scrollFactor.set();
+		add(divider);
+
+		// ── Right card ────────────────────────────────────────────────────────
+		cardBg = new FlxSprite(CARD_X, CARD_Y).makeGraphic(CARD_W, CARD_H, 0xFF0d0820);
+		cardBg.alpha = 0.55;
+		cardBg.scrollFactor.set();
+		add(cardBg);
+
+		cardAccent = new FlxSprite(CARD_X, CARD_Y).makeGraphic(4, CARD_H, 0xFFffffff);
+		cardAccent.scrollFactor.set();
+		add(cardAccent);
+
+		// ── Waveform bars ─────────────────────────────────────────────────────
+		waveGroup = new FlxTypedGroup<FlxSprite>();
+		add(waveGroup);
+		for (i in 0...NUM_BARS)
 		{
-			var bar:FlxSprite = new FlxSprite(0 + (i * 140), FlxG.height - 150 + 100);
-			bar.makeGraphic(120, 220, FlxColor.fromRGB(100 + i * 15, 150, 255 - i * 15));
-			bar.alpha = 0.3;
+			var bar = new FlxSprite(CARD_X + 20 + i * (BAR_W + BAR_GAP), CARD_Y + CARD_H - 10);
+			bar.makeGraphic(BAR_W, 80, FlxColor.WHITE);
+			bar.alpha = 0.18;
 			bar.scrollFactor.set();
-			visualBars.add(bar);
+			waveGroup.add(bar);
 		}
 
-		// === SISTEMA DE PARTÍCULAS ===
-		particleEmitter = new FlxEmitter(0, 0, 50);
-		particleEmitter.makeParticles(2, 2, FlxColor.WHITE, 50);
-		particleEmitter.launchMode = FlxEmitterMode.SQUARE;
-		particleEmitter.velocity.set(-50, -100, 50, -200);
-		particleEmitter.lifespan.set(3, 6);
-		particleEmitter.alpha.set(0.4, 0.8, 0, 0);
-		particleEmitter.scale.set(1, 1, 0.5, 0.5);
-		particleEmitter.width = FlxG.width;
-		particleEmitter.y = FlxG.height;
-		add(particleEmitter);
-		particleEmitter.start(false, 0.1);
-
-		grpSongs = new FlxTypedGroup<Alphabet>();
+		// ── Song list (left panel) ─────────────────────────────────────────────
+		grpSongs = new FlxTypedGroup<FreeplaySongText>();
 		add(grpSongs);
 
 		for (i in 0...songs.length)
 		{
-			songText = new Alphabet(0, (70 * i) + 30, songs[i].songName, true, false);
-			songText.isMenuItem = true;
-			songText.targetY = i;
-			grpSongs.add(songText);
+			var txt = new FreeplaySongText(28, (70 * i) + 60, songs[i].songName);
+			txt.isMenuItem = true;
+			txt.targetY = i;
+			grpSongs.add(txt);
 
-			var icon:HealthIcon = new HealthIcon(songs[i].songCharacter);
-			icon.sprTracker = songText;
-
-			// CORRECCIÓN: Verificar que el icono se creó correctamente antes de agregarlo
-			if (icon != null)
-			{
-				iconArray.push(icon);
-				add(icon);
-			}
+			var icon = new HealthIcon(songs[i].songCharacter);
+			icon.sprTracker = txt;
+			icon.scale.set(0.6, 0.6);
+			icon.updateHitbox();
+			iconArray.push(icon);
+			add(icon);
 		}
 
+		// Scripts ya cargados arriba (antes de songsSystem).
+		// Aquí solo llamamos onCreate — la UI ya está construida,
+		// el script puede añadir elementos extra o modificar estado.
 		#if HSCRIPT_ALLOWED
-		StateScriptHandler.init();
-		StateScriptHandler.loadStateScripts('FreeplayState', this);
 		StateScriptHandler.callOnScripts('onCreate', []);
 		#end
 
-		// === OVERLAY DE GLOW PARA EFECTOS ===
-		glowOverlay = new FlxSprite();
-		glowOverlay.makeGraphic(FlxG.width, FlxG.height, FlxColor.WHITE);
-		glowOverlay.alpha = 0;
-		glowOverlay.blend = ADD;
-		add(glowOverlay);
+		// ── Right panel ───────────────────────────────────────────────────────
 
-		// === UI MEJORADA ===
-		scoreBG = new FlxSprite(FlxG.width * 0.65, 30);
-		scoreBG.makeGraphic(1, 95, 0xFF000000);
-		scoreBG.alpha = 0.7;
-		add(scoreBG);
+		// Large icon
+		spotlightIcon = new HealthIcon('bf');
+		spotlightIcon.setGraphicSize(148, 148);
+		spotlightIcon.updateHitbox();
+		spotlightIcon.x = CARD_X + CARD_W - 180;
+		spotlightIcon.y = CARD_Y;
+		spotlightIcon.scrollFactor.set();
+		add(spotlightIcon);
 
-		scoreText = new FlxText(FlxG.width * 0.66, 45, 0, "", 28);
-		scoreText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, RIGHT);
-		scoreText.antialiasing = FlxG.save.data.antialiasing;
-		scoreText.setBorderStyle(OUTLINE, FlxColor.BLACK, 2);
-		add(scoreText);
+		// Song title — CapsuleText style (big, glow)
+		spotlightTitle = new FreeplaySongText(CARD_X + 20, CARD_Y + 18, '', 44);
+		spotlightTitle.maxWidth = CARD_W - 230;
+		spotlightTitle.scrollFactor.set();
+		add(spotlightTitle);
 
-		diffText = new FlxText(FlxG.width * 0.66, 85, 0, "", 24);
-		diffText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.CYAN, RIGHT);
-		diffText.antialiasing = FlxG.save.data.antialiasing;
-		diffText.setBorderStyle(OUTLINE, FlxColor.BLACK, 2);
-		add(diffText);
+		// Artist / week subtitle
+		spotlightArtist = new FlxText(CARD_X + 20, CARD_Y + 72, CARD_W - 220, '', 18);
+		spotlightArtist.setFormat(Paths.font('vcr.ttf'), 18, FlxColor.fromString('#aaaacc'), LEFT);
+		spotlightArtist.scrollFactor.set();
+		add(spotlightArtist);
 
-		var ratingText:FlxText = new FlxText(FlxG.width * 0.66, 115, 0, "", 20);
-		ratingText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.YELLOW, RIGHT);
-		ratingText.antialiasing = FlxG.save.data.antialiasing;
-		ratingText.setBorderStyle(OUTLINE, FlxColor.BLACK, 2);
-		add(ratingText);
+		// Difficulty pills
+		diffPills = new FlxTypedGroup<FlxSprite>();
+		add(diffPills);
 
+		// Score sub-card
+		scoreCard = new FlxSprite(CARD_X + 20, CARD_Y + 140).makeGraphic(CARD_W - 40, 80, 0xFF000000);
+		scoreCard.alpha = 0.45;
+		scoreCard.scrollFactor.set();
+		add(scoreCard);
+
+		scoreValueTxt = new FlxText(CARD_X + 36, CARD_Y + 148, 0, 'BEST: 0', 28);
+		scoreValueTxt.setFormat(Paths.font('vcr.ttf'), 28, FlxColor.WHITE, LEFT);
+		scoreValueTxt.scrollFactor.set();
+		add(scoreValueTxt);
+
+		accuracyTxt = new FlxText(CARD_X + 36, CARD_Y + 182, 0, '', 18);
+		accuracyTxt.setFormat(Paths.font('vcr.ttf'), 18, FlxColor.fromString('#aaddff'), LEFT);
+		accuracyTxt.scrollFactor.set();
+		add(accuracyTxt);
+
+		// Rank badge
+		rankBadgeBg = new FlxSprite(CARD_X + CARD_W - 132, CARD_Y + 136).makeGraphic(100, 100, FlxColor.WHITE);
+		rankBadgeBg.alpha = 0;
+		rankBadgeBg.scrollFactor.set();
+		add(rankBadgeBg);
+
+		rankBadge = new FlxSprite(CARD_X + CARD_W - 130, CARD_Y + 140);
+		rankBadge.alpha = 0;
+		rankBadge.scrollFactor.set();
+		add(rankBadge);
+
+		// Congrats
+		congrats = new FlxText(CARD_X + 30, CARD_Y + 280, CARD_W - 40, '', 20);
+		congrats.setFormat(Paths.font('Funkin.otf'), 20, FlxColor.fromString('#ffee88'), LEFT, OUTLINE, FlxColor.BLACK);
+		congrats.borderSize = 1;
+		congrats.alpha = 0;
+		congrats.scrollFactor.set();
+		add(congrats);
+
+		// ── Album art (bottom-right) ───────────────────────────────────────────
+		albumArt = new FlxSprite();
+		albumArt.makeGraphic(1, 1, FlxColor.TRANSPARENT);
+		albumArt.alpha = 0;
+		albumArt.scrollFactor.set();
+		add(albumArt);
+
+		albumTextSpr = new FlxSprite();
+		albumTextSpr.makeGraphic(1, 1, FlxColor.TRANSPARENT);
+		albumTextSpr.alpha = 0;
+		albumTextSpr.scrollFactor.set();
+		add(albumTextSpr);
+
+		// ── Footer hint ───────────────────────────────────────────────────────
+		var footerBg = new FlxSprite(0, FlxG.height - 32).makeGraphic(FlxG.width, 32, 0xFF000000);
+		footerBg.alpha = 0.65;
+		footerBg.scrollFactor.set();
+		add(footerBg);
+
+		var hintText = new FlxText(0, FlxG.height - 28, FlxG.width, 'UP/DOWN Select  |  LEFT/RIGHT Difficulty  |  SPACE Preview  |  ENTER Play  |  ESC Back',
+			16);
+		hintText.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.fromString('#888899'), CENTER);
+		hintText.scrollFactor.set();
+		add(hintText);
+
+		// ── Error text ────────────────────────────────────────────────────────
+		errorText = new FlxText(0, FlxG.height * 0.5 - 50, FlxG.width, '', 28);
+		errorText.setFormat(Paths.font('vcr.ttf'), 28, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
+		errorText.setBorderStyle(OUTLINE, FlxColor.BLACK, 3);
+		errorText.scrollFactor.set();
+		errorText.alpha = 0;
+		add(errorText);
+
+		// ── Initial state ─────────────────────────────────────────────────────
 		if (songs.length > 0)
 		{
-			bg.color = songs[curSelected].color;
-			intendedColor = bg.color;
+			bgTint.color = songs[curSelected].color;
+			intendedColor = songs[curSelected].color;
+			cardAccent.color = songs[curSelected].color;
 		}
-		else
-		{
-			bg.color = 0xFF2A2A2A;
-			intendedColor = 0xFF2A2A2A;
-		}
-		changeSelection(0);
 
-		// Auto-detectar dificultades del primer song seleccionado
 		_updateDifficultyStuff();
-		changeDiff();
-
-		// === TEXTO INFERIOR MEJORADO ===
-		var textBG:FlxSprite = new FlxSprite(0, FlxG.height - 30);
-		textBG.makeGraphic(FlxG.width, 30, 0xFF000000);
-		textBG.alpha = 0.8;
-		add(textBG);
+		// Precachear álbumes y rank badges en el main thread.
+		// PathsCache/FlxG.bitmap/HarfBuzz NO son thread-safe — llamarlos desde
+		// un hilo secundario corrompe buffers internos de HarfBuzz y causa
+		// "Assertion failed: bits == (allocated_var_bits & bits)" al volver al freeplay.
+		#if sys
+		for (s in songs)
+		{
+			var ak = _albumKeyFor(s);
+			if (ak != '' && Paths.exists('images/menu/freeplay/albums/$ak.png'))
+				try { funkin.cache.PathsCache.instance.cacheGraphic('menu/freeplay/albums/$ak'); } catch (_) {}
+		}
+		for (rank in ['SS', 'S', 'A', 'B', 'C', 'D'])
+			if (Paths.exists('images/menu/ratings/$rank.png'))
+				try { funkin.cache.PathsCache.instance.cacheGraphic('menu/ratings/$rank'); } catch (_) {}
+		#end
+		changeSelection(0);
+		_rebuildDiffPills();
+		changeDiff(0);
 
 		StickerTransition.clearStickers();
 
-		var leText:FlxText = new FlxText(0, FlxG.height - 26, FlxG.width, "SPACE: Preview Song | ENTER: Play | ESC: Back | E: Editor", 16);
-		leText.scrollFactor.set();
-		leText.antialiasing = FlxG.save.data.antialiasing;
-		leText.setFormat('VCR OSD Mono', 16, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		add(leText);
-
-		errorText.visible = false;
-		add(errorText);
-
 		if (songs.length == 0)
 		{
-			showError("No songs found!\nPlease add songs to your songList.json");
-
-			// ✅ FIX: Abrir automáticamente el editor si no hay canciones
-			// Esperar un momento para que el mensaje de error sea visible primero
+			showError('No songs found!\nPlease add songs to your songList.json');
 			new FlxTimer().start(2.0, function(_)
 			{
 				if (funkin.menus.MainMenuState.developerMode)
-				{
-					StateTransition.switchState(new FreeplayEditorState());
-				}
-				else
-				{
-					// Si el modo desarrollador no está activo, mostrar un mensaje adicional
-					showError("No songs found!\n\nEnable Developer Mode in Mod Menu\nSection ''System'' to use the Freeplay Editor");
-				}
+					StateTransition.switchState(new funkin.debug.editors.FreeplayEditorState());
 			});
 		}
-
-		// Animación de entrada
-		FlxTween.tween(bg, {alpha: 1, "scale.x": 1, "scale.y": 1}, 0.6, {ease: FlxEase.expoOut});
 
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('postCreate', []);
@@ -311,182 +460,312 @@ class FreeplayState extends funkin.states.MusicBeatState
 		super.create();
 	}
 
+	// ── Album loading / display ───────────────────────────────────────────────
+
+	/**
+	 * Returns the album key for the currently selected song, or '' if none.
+	 * Album is stored directly on SongMetadata, populated from freeplayList.json.
+	 */
+	function _albumKeyFor(song:SongMetadata):String
+		return (song.album != null && song.album != '') ? song.album : '';
+
+	function _albumTextKeyFor(song:SongMetadata):String
+		return (song.albumText != null && song.albumText != '') ? song.albumText : '';
+
+	/**
+	 * Updates the album art + text label for the given song.
+	 * Animates old out, new in. Works for both base game and mods —
+	 * Paths.resolve() automatically checks mods/{activeMod}/ first.
+	 *
+	 * Asset paths checked (in order):
+	 *   mods/{mod}/images/menu/freeplay/albums/{key}.png   ← mod override
+	 *   assets/images/menu/freeplay/albums/{key}.png       ← base game
+	 *
+	 * If the file does not exist in either location the album is hidden.
+	 */
+	function _updateAlbum(song:SongMetadata):Void
+	{
+		var artKey = _albumKeyFor(song);
+		var textKey = _albumTextKeyFor(song);
+
+		// No change — skip
+		if (artKey == _curAlbumKey && textKey == _curAlbumTextKey)
+			return;
+		_curAlbumKey = artKey;
+		_curAlbumTextKey = textKey;
+
+		FlxTween.cancelTweensOf(albumArt);
+		FlxTween.cancelTweensOf(albumTextSpr);
+
+		// ── Hide both if no album key ──────────────────────────────────────────
+		if (artKey == '')
+		{
+			_hideAlbum();
+			return;
+		}
+
+		// ── Check art file exists (mod-aware via Paths.exists) ────────────────
+		//   Paths.image returns a resolved path; Paths.exists checks that path.
+		var artAssetKey = 'images/menu/freeplay/albums/$artKey.png';
+		if (!Paths.exists(artAssetKey))
+		{
+			// Not in base assets — also check mod root explicitly for safety
+			#if sys
+			var modPath = mods.ModManager.isActive() ? '${mods.ModManager.modRoot()}/images/menu/freeplay/albums/$artKey.png' : null;
+			var found = (modPath != null && sys.FileSystem.exists(modPath));
+			if (!found)
+			{
+				_hideAlbum();
+				return;
+			}
+			#else
+			_hideAlbum();
+			return;
+			#end
+		}
+
+		// ── Load art via PathsCache (evita decodificar PNG cada cambio) ────────
+		try
+		{
+			final _cacheKey = 'menu/freeplay/albums/$artKey';
+			final _gfx = funkin.cache.PathsCache.instance.cacheGraphic(_cacheKey);
+			if (_gfx != null && _gfx.bitmap != null)
+			{
+				albumArt.loadGraphic(_gfx);
+			}
+			else
+			{
+				albumArt.loadGraphic(Paths.image(_cacheKey));
+			}
+			albumArt.setGraphicSize(ALBUM_SZ, ALBUM_SZ);
+			albumArt.updateHitbox();
+		}
+		catch (e:Dynamic)
+		{
+			trace('[FreeplayState] Failed to load album art "$artKey": $e');
+			_hideAlbum();
+			return;
+		}
+
+		// Slide in from right
+		albumArt.x = FlxG.width + 10;
+		albumArt.y = ALBUM_Y - albumArt.height / 2;
+		albumArt.alpha = 0;
+		FlxTween.tween(albumArt, {
+			alpha: 1.0,
+			x: ALBUM_X - albumArt.width / 2 + 50
+		}, 0.4, {ease: FlxEase.expoOut});
+
+		// ── Load text atlas (optional) ─────────────────────────────────────────
+		if (textKey != '')
+		{
+			var textPngKey = 'images/menu/freeplay/albums/$textKey.png';
+			var textXmlKey = 'images/menu/freeplay/albums/$textKey.xml';
+
+			var textExists = Paths.exists(textPngKey) && Paths.exists(textXmlKey);
+			#if sys
+			if (!textExists && mods.ModManager.isActive())
+			{
+				var r = mods.ModManager.modRoot();
+				textExists = sys.FileSystem.exists('$r/images/menu/freeplay/albums/$textKey.png')
+					&& sys.FileSystem.exists('$r/images/menu/freeplay/albums/$textKey.xml');
+			}
+			#end
+
+			if (textExists)
+			{
+				try
+				{
+					albumTextSpr.frames = Paths.getSparrowAtlas('menu/freeplay/albums/$textKey');
+					albumTextSpr.animation.addByPrefix('idle', 'idle', 24, true);
+					albumTextSpr.animation.addByPrefix('switch', 'switch', 24, false);
+					albumTextSpr.setGraphicSize(Std.int(albumTextSpr.width * 0.9));
+					albumTextSpr.updateHitbox();
+					albumTextSpr.x = FlxG.width + 10;
+					albumTextSpr.y = ATEXT_Y;
+					albumTextSpr.alpha = 0;
+					albumTextSpr.animation.play('switch', true);
+					FlxTween.tween(albumTextSpr, {
+						alpha: 1.0,
+						x: ALBUM_X - albumTextSpr.width / 2 + 50
+					}, 0.4, {
+						ease: FlxEase.expoOut,
+						startDelay: 0.05,
+						onComplete: function(_)
+						{
+							if (albumTextSpr.animation.getByName('idle') != null)
+								albumTextSpr.animation.play('idle', true);
+						}
+					});
+				}
+				catch (e:Dynamic)
+				{
+					trace('[FreeplayState] Failed to load album text "$textKey": $e');
+					albumTextSpr.alpha = 0;
+					albumTextSpr.visible = false;
+				}
+			}
+			else
+			{
+				// Text atlas declared but file missing — hide gracefully
+				FlxTween.tween(albumTextSpr, {alpha: 0}, 0.2, {
+					ease: FlxEase.quadIn,
+					onComplete: function(_)
+					{
+						albumTextSpr.visible = false;
+					}
+				});
+			}
+		}
+		else
+		{
+			// No albumText key — just hide
+			FlxTween.tween(albumTextSpr, {alpha: 0}, 0.2, {
+				ease: FlxEase.quadIn,
+				onComplete: function(_)
+				{
+					albumTextSpr.visible = false;
+				}
+			});
+		}
+	}
+
+	/** Fades out and hides both album sprites. */
+	inline function _hideAlbum():Void
+	{
+		FlxTween.tween(albumArt, {alpha: 0}, 0.2, {
+			ease: FlxEase.quadIn,
+			onComplete: function(_)
+			{
+				albumArt.visible = false;
+			}
+		});
+		FlxTween.tween(albumTextSpr, {alpha: 0}, 0.2, {
+			ease: FlxEase.quadIn,
+			onComplete: function(_)
+			{
+				albumTextSpr.visible = false;
+			}
+		});
+	}
+
+	// ── Data loading (unchanged) ──────────────────────────────────────────────
+
 	function songsSystem()
 	{
-		for (i in 0...songInfo.songsWeeks.length)
+		for (i in 0...freeplayData.songs.length)
 		{
-			addWeek(songInfo.songsWeeks[i].weekSongs, i, songInfo.songsWeeks[i].songIcons);
-			// BUGFIX: se usaba color[i] (índice de la semana) en lugar de color[0].
-			// Cada semana tiene su propio array de colores (uno por canción), pero
-			// para el fondo de Freeplay solo se necesita el primer color de la semana.
-			// color[i] con i=1,3,4... está fuera de rango → Std.parseInt(null) = null
-			// → coolColors[semana] = 0 (negro) para la mayoría de las semanas.
-			var _wc = songInfo.songsWeeks[i].color;
-			var _cs:String = (_wc != null && _wc.length > 0) ? _wc[0] : '0xFFFFD900';
-			var _ci:Null<Int> = Std.parseInt(_cs);
-			coolColors.push(_ci != null ? _ci : 0xFFFFD900);
+			final entry = freeplayData.songs[i];
+			final meta  = new SongMetadata(entry.name, entry.group ?? i, entry.icon ?? 'bf', i);
+
+			// Artista: campo directo > meta.json
+			var artist = entry.artist ?? '';
+			if (artist == '')
+			{
+				#if sys
+				try
+				{
+					final m = funkin.data.MetaData.load(entry.name.toLowerCase());
+					if (m.artist != null && m.artist != '') artist = m.artist;
+				}
+				catch (_) {}
+				#end
+			}
+			meta.artist    = artist;
+			meta.album     = entry.album     ?? '';
+			meta.albumText = entry.albumText ?? '';
+
+			songs.push(meta);
+
+			// Color del grupo (un color por grupo, usando el de la primera canción del grupo)
+			if (i >= coolColors.length)
+			{
+				final colorInt:Null<Int> = Std.parseInt(entry.color ?? '0xFFFFD900');
+				coolColors.push(colorInt != null ? colorInt : 0xFFFFD900);
+			}
 		}
 	}
 
 	function loadSongsData():Void
 	{
+		// Compat: Psych Engine mods inyectan sus canciones con su propio sistema
 		#if sys
-		// ── Cuando hay un mod activo, solo mostrar las canciones del mod ──────
 		if (mods.ModManager.isActive())
 		{
 			final fmt = mods.compat.ModCompatLayer.getActiveModFormat();
-
 			if (fmt == mods.compat.ModFormat.PSYCH_ENGINE)
 			{
-				songInfo = {songsWeeks: []};
+				final entries:Array<FreeplaySongEntry> = [];
 				for (modWeek in mods.compat.ModCompatLayer.getModSongsInfo())
 				{
-					var hideFP:Bool = Reflect.field(modWeek, 'hideFreeplay') == true;
-					if (!hideFP)
-						songInfo.songsWeeks.push(cast modWeek);
+					if (Reflect.field(modWeek, 'hideFreeplay') == true) continue;
+					final ws:Array<String>  = cast (Reflect.field(modWeek, 'weekSongs') ?? []);
+					final si:Array<String>  = cast (Reflect.field(modWeek, 'songIcons') ?? []);
+					final bp:Array<Float>   = cast (Reflect.field(modWeek, 'bpm') ?? []);
+					final cl:Array<String>  = cast (Reflect.field(modWeek, 'color') ?? []);
+					for (j in 0...ws.length)
+						entries.push({
+							name:  ws[j],
+							icon:  (si != null && j < si.length) ? si[j] : 'bf',
+							bpm:   (bp != null && j < bp.length) ? bp[j] : 120.0,
+							color: (cl != null && cl.length > 0) ? cl[0] : '0xFFFFD900',
+							group: 0
+						});
 				}
-				trace('[FreeplayEditorState] Mod Psych activo "${mods.ModManager.activeMod}" — semanas: ${songInfo.songsWeeks.length}');
+				freeplayData = { songs: entries };
+				return;
 			}
-			else
-			{
-				var modSongListPath = '${mods.ModManager.modRoot()}/songs/songList.json';
-				var file:String = null;
-				if (sys.FileSystem.exists(modSongListPath))
-					file = sys.io.File.getContent(modSongListPath);
-
-				if (file != null && file.trim() != '')
-				{
-					try
-					{
-						songInfo = cast haxe.Json.parse(file);
-					}
-					catch (e:Dynamic)
-					{
-						songInfo = null;
-					}
-				}
-
-				if (songInfo == null)
-				{
-					songInfo = _autoDiscoverModSongs();
-					if (songInfo != null)
-						trace('[FreeplayEditorState] Mod "${mods.ModManager.activeMod}" — canciones auto-descubiertas: ${songInfo.songsWeeks.length} semanas');
-				}
-			}
-			return; // No cargar canciones base
 		}
 		#end
+		// Cargar freeplayList.json (con fallback a songList.json legacy)
+		freeplayData = FreeplayList.load();
 
-		// ── Sin mod activo: cargar songList base ──────────────────────────────
-		var songListPath:String = Paths.jsonSong('songList');
-		var file:String = null;
+		// Mod sin freeplayList.json → auto-discover
 		#if sys
-		if (sys.FileSystem.exists(songListPath))
-			file = sys.io.File.getContent(songListPath);
+		if (mods.ModManager.isActive() && (freeplayData == null || freeplayData.songs.length == 0))
+			freeplayData = _autoDiscoverModSongs();
 		#end
-		if (file == null)
-		{
-			try
-			{
-				file = lime.utils.Assets.getText(songListPath);
-			}
-			catch (_:Dynamic)
-			{
-			}
-		}
-		try
-		{
-			if (file != null && file.trim() != '')
-				songInfo = cast haxe.Json.parse(file);
-		}
-		catch (e:Dynamic)
-		{
-			trace("Error loading song data for " + songListPath + ": " + e);
-			songInfo = null;
-		}
 	}
-
 	#if sys
-	/** Auto-descubre canciones desde la carpeta songs/ del mod activo como una semana única. */
-	function _autoDiscoverModSongs():StoryMenuState.Songs
+	function _autoDiscoverModSongs():FreeplayListData
 	{
 		final modId = mods.ModManager.activeMod;
-		if (modId == null)
-			return null;
+		if (modId == null) return { songs: [] };
 		final songsDir = '${mods.ModManager.MODS_FOLDER}/$modId/songs';
-		if (!sys.FileSystem.exists(songsDir))
-			return null;
-
-		var songNames:Array<String> = [];
-		var songIcons:Array<String> = [];
-		var bpms:Array<Float> = [];
+		if (!sys.FileSystem.exists(songsDir)) return { songs: [] };
+		final entries:Array<FreeplaySongEntry> = [];
 		for (entry in sys.FileSystem.readDirectory(songsDir))
 		{
 			final ep = '$songsDir/$entry';
-			if (!sys.FileSystem.isDirectory(ep))
-				continue;
-			// Check that a chart file exists — .level format (new) OR legacy .json
-			var hasChart = false;
-			if (sys.FileSystem.exists('$ep/$entry.level'))
-			{
-				hasChart = true;
-			}
+			if (!sys.FileSystem.isDirectory(ep)) continue;
+			var hasChart = sys.FileSystem.exists('$ep/$entry.level');
 			if (!hasChart)
 				for (diff in ['hard', 'normal', 'easy', 'chart'])
-					if (sys.FileSystem.exists('$ep/$diff.json'))
-					{
-						hasChart = true;
-						break;
-					}
-			if (!hasChart)
-				continue;
-			songNames.push(entry);
-			songIcons.push('icon-$entry');
-			bpms.push(120.0);
+					if (sys.FileSystem.exists('$ep/$diff.json')) { hasChart = true; break; }
+			if (!hasChart) continue;
+			entries.push({ name: entry, icon: 'icon-$entry', bpm: 120.0, color: '0xFFFF9900', group: 0 });
 		}
-		if (songNames.length == 0)
-			return null;
-
-		final modInfo = mods.ModManager.getInfo(modId);
-		final colorHex = modInfo != null ? StringTools.hex(modInfo.color & 0xFFFFFF, 6) : 'FF9900';
-		return {
-			songsWeeks: [
-				{
-					weekName: modInfo != null ? modInfo.name : modId,
-					weekSongs: songNames,
-					songIcons: songIcons,
-					color: [colorHex],
-					bpm: bpms,
-					weekCharacters: ['bf', 'gf', 'dad']
-				}
-			]
-		};
+		if (entries.length > 0)
+			trace('[Freeplay] Auto-discovered ${entries.length} songs from mod $modId');
+		return { songs: entries };
 	}
 	#end
 
 	override function closeSubState()
 	{
-		trace('[FreeplayState] Songs loaded: ' + songs.length);
 		changeSelection();
-
-		// ✅ FIX: Limpiar inputs residuales al volver de un substate
-		// Esto evita que un ENTER usado para salir del pause menu se procese en FreeplayState
 		FlxG.keys.reset();
-
 		super.closeSubState();
 	}
 
 	public function addSong(songName:String, weekNum:Int, songCharacter:String)
-	{
 		songs.push(new SongMetadata(songName, weekNum, songCharacter));
-	}
 
 	public function addWeek(songs:Array<String>, weekNum:Int, ?songCharacters:Array<String>)
 	{
 		if (songCharacters == null)
 			songCharacters = ['bf'];
-
-		var num:Int = 0;
+		var num = 0;
 		for (song in songs)
 		{
 			addSong(song, weekNum, songCharacters[num]);
@@ -494,7 +773,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 				num++;
 		}
 	}
-	public static var instPlaying:Int = -1;
+
+	// ── Update ────────────────────────────────────────────────────────────────
 
 	override function update(elapsed:Float)
 	{
@@ -505,32 +785,65 @@ class FreeplayState extends funkin.states.MusicBeatState
 		if (StickerTransition.isActive())
 		{
 			super.update(elapsed);
-			return; // ← CRÍTICO: No procesar inputs durante la transición
+			return;
 		}
 
-		// Actualizar efectos visuales
-		updateScreenBump(elapsed);
-		updateVisualBars(elapsed);
-
-		// Interpolar score
-		lerpScore = Math.floor(FlxMath.lerp(lerpScore, intendedScore, boundTo(elapsed * 24, 0, 1)));
-		lerpRating = FlxMath.lerp(lerpRating, intendedRating, boundTo(elapsed * 12, 0, 1));
-
-		if (Math.abs(lerpScore - intendedScore) <= 10)
+		// Score lerp
+		lerpScore = FlxMath.lerp(lerpScore, intendedScore, boundTo(elapsed * 22, 0, 1));
+		lerpRating = FlxMath.lerp(lerpRating, intendedRating, boundTo(elapsed * 14, 0, 1));
+		if (Math.abs(lerpScore - intendedScore) <= 5)
 			lerpScore = intendedScore;
-		if (Math.abs(lerpRating - intendedRating) <= 0.01)
+		if (Math.abs(lerpRating - intendedRating) <= 0.001)
 			lerpRating = intendedRating;
 
-		scoreText.text = 'PERSONAL BEST: ' + lerpScore;
-		positionHighscore();
+		scoreValueTxt.text = 'BEST: ${Std.int(lerpScore)}';
+		var pct = lerpRating * 100.0 / 100;
+		var pctStr = Std.string(Math.floor(pct * 100) / 100);
+		accuracyTxt.text = pct > 0 ? 'Accuracy: $pctStr%' : 'Not played yet';
 
+		if (discSpr != null)
+		{
+			_discBeatBump = _discBeatBump * Math.pow(0.04, elapsed); // fast decay
+			var curSpeed = _discSpinSpeed + _discBeatBump;
+			_discBaseAngle += curSpeed * elapsed;
+			discSpr.angle = _discBaseAngle;
+		}
+
+		// Waveform
+		beatTimer += elapsed;
+		var i = 0;
+		for (bar in waveGroup.members)
+		{
+			var phase = beatTimer * 3.5 + i * 0.45;
+			var target = 0.06 + Math.abs(Math.sin(phase)) * 0.55;
+			if (FlxG.sound.music != null && FlxG.sound.music.playing)
+				target = 0.1 + Math.abs(Math.sin(phase * 1.8)) * 0.85;
+			bar.scale.y = FlxMath.lerp(bar.scale.y, target, elapsed * 7);
+			bar.y = (CARD_Y + CARD_H - 14) - bar.scale.y * 80;
+			bar.alpha = 0.12 + bar.scale.y * 0.22;
+			i++;
+		}
+
+		// Update FreeplaySongText positions (mirrors old Alphabet system)
+		for (txt in grpSongs.members)
+		{
+			if (txt == null)
+				continue;
+			var targetX = 28.0;
+			var targetY = (txt.targetY * 70.0) + 30;
+			txt.x = FlxMath.lerp(txt.x, targetX, boundTo(elapsed * 20, 0, 1));
+			txt.y = FlxMath.lerp(txt.y, targetY, boundTo(elapsed * 18, 0, 1)) + 15;
+		}
+
+		FlxG.camera.zoom = FlxMath.lerp(FlxG.camera.zoom, 1.0, elapsed * 4);
+
+		// Input
 		var upP = controls.UP_P;
 		var downP = controls.DOWN_P;
 		var leftP = controls.LEFT_P;
 		var rightP = controls.RIGHT_P;
 		var accepted = FlxG.keys.justPressed.ENTER;
 		var space = FlxG.keys.justPressed.SPACE;
-
 		if (songs.length == 0)
 		{
 			accepted = false;
@@ -562,139 +875,91 @@ class FreeplayState extends funkin.states.MusicBeatState
 			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 			StateTransition.switchState(new MainMenuState());
 		}
-
-		// Abrir el editor con la tecla E (solo en Developer Mode — Ctrl+D en MainMenu para activarlo)
 		if (FlxG.keys.justPressed.E && funkin.menus.MainMenuState.developerMode)
-		{
-			StateTransition.switchState(new FreeplayEditorState());
-		}
+			StateTransition.switchState(new funkin.debug.editors.FreeplayEditorState());
 
-		// BUGFIX: era #if cpp → el bloque NO compilaba en HashLink/Neko/otros targets
-		// que no sean C++. Cambiado a #if sys para que funcione en todos los targets
-		// de escritorio (cpp + hl + neko + etc.).
 		#if sys
 		if (space)
 		{
 			if (instPlaying != curSelected)
 			{
-				// No silenciar aquí — playPreloadedMusic() para la música anterior automáticamente
-
-				// Verify chart exists — .level (new format) or legacy .json
-				var songLowercase:String = songs[curSelected].songName.toLowerCase();
-				var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
-
-				var chartExists:Bool = funkin.data.LevelFile.exists(songLowercase) || Song.findChart(songLowercase, poop) != null;
-
-				if (!chartExists)
+				var songLowercase = songs[curSelected].songName.toLowerCase();
+				var poop = Highscore.formatSong(songLowercase, curDifficulty);
+				if (!(funkin.data.LevelFile.exists(songLowercase) || Song.findChart(songLowercase, poop) != null))
 				{
-					// Show error message
-					showError('Cannot preview: Chart file not found!\n"$songLowercase" has no .level or .json');
+					showError('Cannot preview: chart not found!');
 					FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 					return;
 				}
-
-				// Try to load chart (.level first, then .json fallback via loadFromJson)
 				try
 				{
 					PlayState.SONG = Song.loadFromJson(poop, songLowercase);
-
-					if (PlayState.SONG == null || PlayState.SONG.song == null)
-					{
-						showError('Cannot preview: Chart file is corrupted!');
-						FlxG.sound.play(Paths.sound('menus/cancelMenu'));
-						return;
-					}
 				}
-				catch (e:Dynamic)
+				catch (_:Dynamic)
 				{
-					showError('Cannot preview: Failed to load chart!');
+					showError('Cannot preview: failed to load!');
 					FlxG.sound.play(Paths.sound('menus/cancelMenu'));
-					trace('Error loading song for preview: ' + e);
+					return;
+				}
+				if (PlayState.SONG == null)
+				{
+					showError('Cannot preview: corrupted!');
+					FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 					return;
 				}
 
-				// Cargar voces usando el método seguro
-				final diffSuffix:String = difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : '';
-
-				// BUGFIX 1: no silenciar aquí porque playMusic() destruye el music anterior.
-				// BUGFIX 2: respetar instSuffix del chart V-Slice (ej: erect/nightmare usan
-				//   audio "-erect" aunque la dificultad sea "-nightmare").
-				// BUGFIX 3: usar FlxG.sound.playMusic() en lugar de asignación directa
-				//   (FlxG.sound.music = x). La asignación directa NO añade el sonido a
-				//   FlxG.sound.list → Flixel nunca llama update() en él → el buffer de
-				//   loadStream() jamás se lee → silencio total. playMusic() hace todo:
-				//   destroyMusic(), list.add(), persist, looped, volume, play().
-				final audioSuffix:String = (PlayState.SONG.instSuffix != null && PlayState.SONG.instSuffix != '')
-					? '-' + PlayState.SONG.instSuffix
-					: diffSuffix;
-
-				final instPath = Paths.inst(PlayState.SONG.song, audioSuffix);
-				trace('[FreeplayState] Preview inst path: $instPath');
-				final instSnd = Paths.loadInst(PlayState.SONG.song, audioSuffix);
-				if (instSnd != null)
+				final diffSuffix = difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : '';
+				final audioSuffix = (PlayState.SONG.instSuffix != null && PlayState.SONG.instSuffix != '') ? '-' + PlayState.SONG.instSuffix : diffSuffix;
+				// loadStream lanza SampleDataEvent en cpp/Windows cuando el backend OpenAL
+				// no puede cumplir el requisito de 2048-8192 muestras por ciclo.
+				// El try/catch de Haxe no puede capturar esa excepción nativa de cpp.
+				// Solución: usar loadEmbedded para el preview (decodifica el OGG completo,
+				// ligeramente más RAM pero sin excepciones nativas).
+				final _instPath = Paths.inst(PlayState.SONG.song, audioSuffix);
+				if (_instPath != null)
 				{
-					// playPreloadedMusic detiene la música anterior, registra en CoreAudio
-					// y añade el sound a FlxG.sound.list (necesario para loadStream()).
+					final instSnd = new flixel.sound.FlxSound();
+					instSnd.loadEmbedded(_instPath, true, false);
+					FlxG.sound.list.add(instSnd);
 					funkin.audio.CoreAudio.playPreloadedMusic(instSnd, 0.7);
 				}
-				else
-				{
-					trace('[FreeplayState] WARNING: loadInst returned null for preview.');
-				}
-
 				instPlaying = curSelected;
 
-				// Establecer BPM para el screen bump
-				if (songInfo != null && songInfo.songsWeeks.length > curSelected)
-				{
-					var weekIndex = songs[curSelected].week;
-					if (weekIndex < songInfo.songsWeeks.length
-						&& songInfo.songsWeeks[weekIndex].bpm != null
-						&& songInfo.songsWeeks[weekIndex].bpm.length > 0)
-					{
-						bpmTarget = songInfo.songsWeeks[weekIndex].bpm[0];
-					}
-				}
-
-				Conductor.changeBPM(bpmTarget);
+				// BPM handled by Conductor on chart load
 
 				if (discSpr != null)
 				{
 					remove(discSpr);
 					discSpr.destroy();
 				}
-
-				discSpr = new FlxSprite(750, 280);
-				discSpr.frames = Paths.getSparrowAtlas('menu/freeplay/record player freeplay');
+				discSpr = new FlxSprite(CARD_X, CARD_Y + 280);
+				discSpr.loadGraphic(Paths.image('menu/freeplay/disc'));
 				discSpr.antialiasing = FlxG.save.data.antialiasing;
-				discSpr.animation.addByPrefix('idle', 'disco', 24);
-				discSpr.animation.play('idle');
-				discSpr.x += 750;
-				discSpr.setGraphicSize(Std.int(discSpr.width * 0.5));
+				discSpr.setGraphicSize(Std.int(discSpr.width * 0.45));
 				discSpr.updateHitbox();
-				add(discSpr);
-
-				FlxTween.tween(discSpr, {"x": 750}, 0.6, {ease: FlxEase.elasticInOut});
-
-				// Efecto de glow al reproducir
-				FlxTween.tween(glowOverlay, {alpha: 0.15}, 0.2, {
-					ease: FlxEase.quadOut,
-					onComplete: function(twn:FlxTween)
-					{
-						FlxTween.tween(glowOverlay, {alpha: 0}, 0.4, {ease: FlxEase.quadIn});
-					}
-				});
+				discSpr.scrollFactor.set();
+				// Insertar el disco DEBAJO del albumArt en el display list
+				// para que el album quede encima y el disco sobresalga por detrás.
+				var _albumIdx = members.indexOf(albumArt);
+				if (_albumIdx >= 0)
+					insert(_albumIdx, discSpr);
+				else
+					add(discSpr);
+				// Destino: centrado verticalmente sobre el album, sobresaliendo ~60px a la izquierda
+				final _discTargetX = ALBUM_X - ALBUM_SZ / 2;
+				final _discTargetY = ALBUM_Y - discSpr.height / 2;
+				discSpr.x = _discTargetX;
+				discSpr.y = _discTargetY;
+				FlxTween.tween(discSpr, {x: _discTargetX - 15}, 0.55, {ease: FlxEase.elasticOut});
 			}
 			else
 			{
 				MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, true);
 				instPlaying = -1;
-
 				if (discSpr != null)
-				{
-					FlxTween.tween(discSpr, {"x": discSpr.x + 750}, 0.6, {
-						ease: FlxEase.elasticInOut,
-						onComplete: function(twn:FlxTween)
+					FlxTween.tween(discSpr, {x: FlxG.width + 50}, 0.4, {
+						ease: FlxEase.expoIn,
+						onComplete: function(_)
 						{
 							if (discSpr != null)
 							{
@@ -704,7 +969,6 @@ class FreeplayState extends funkin.states.MusicBeatState
 							}
 						}
 					});
-				}
 			}
 		}
 		#end
@@ -712,278 +976,141 @@ class FreeplayState extends funkin.states.MusicBeatState
 		if (accepted)
 		{
 			#if HSCRIPT_ALLOWED
-			var cancelled = StateScriptHandler.callOnScriptsReturn('onAccept', [], false);
-			if (cancelled)
+			if (StateScriptHandler.callOnScriptsReturn('onAccept', [], false))
 				return;
 			#end
-
-			var songLowercase:String = songs[curSelected].songName.toLowerCase();
-			var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
-			trace('[FreeplayState] Attempting to load song: $songLowercase');
-			trace('[FreeplayState] Formatted filename: $poop');
-			trace('[FreeplayState] Current difficulty: $curDifficulty');
-
-			// Verify chart exists — .level (new format) or legacy .json
-			var chartExists:Bool = funkin.data.LevelFile.exists(songLowercase) || Song.findChart(songLowercase, poop) != null;
-			trace('[FreeplayState] chartExists($songLowercase) = $chartExists');
-
-			if (!chartExists)
+			var songLowercase = songs[curSelected].songName.toLowerCase();
+			var poop = Highscore.formatSong(songLowercase, curDifficulty);
+			if (!(funkin.data.LevelFile.exists(songLowercase) || Song.findChart(songLowercase, poop) != null))
 			{
-				// Show error message
-				trace('[FreeplayState] ERROR: Chart not found!');
-				showError('ERROR: Chart file not found!\n"$songLowercase" has no .level or .json');
+				showError('ERROR: chart not found!\n"$songLowercase"');
 				FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 				FlxG.camera.shake(0.01, 0.3);
 				return;
 			}
-
-			// Try to load chart (.level first, then .json fallback via loadFromJson)
 			try
 			{
-				trace('[FreeplayState] Attempting to load chart...');
 				PlayState.SONG = Song.loadFromJson(poop, songLowercase);
-				trace('[FreeplayState] Chart loaded successfully');
-
-				// Validate song data
-				if (PlayState.SONG == null || PlayState.SONG.song == null)
-				{
-					trace('[FreeplayState] ERROR: Song data is null or corrupted');
-					showError('ERROR: Chart file is corrupted!\nPlease check "$songLowercase"');
-					FlxG.sound.play(Paths.sound('menus/cancelMenu'));
-					FlxG.camera.shake(0.01, 0.3);
-					return;
-				}
-
-				trace('[FreeplayState] Song name: ${PlayState.SONG.song}');
 			}
 			catch (e:Dynamic)
 			{
-				trace('[FreeplayState] ERROR loading chart: $e');
-				showError('ERROR: Failed to load chart!\n' + e);
+				showError('ERROR: failed to load!\n' + e);
 				FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 				FlxG.camera.shake(0.01, 0.3);
 				return;
 			}
-
-			trace('[FreeplayState] All validations passed, loading PlayState...');
+			if (PlayState.SONG == null || PlayState.SONG.song == null)
+			{
+				showError('ERROR: corrupted chart!\n"$songLowercase"');
+				FlxG.sound.play(Paths.sound('menus/cancelMenu'));
+				FlxG.camera.shake(0.01, 0.3);
+				return;
+			}
 			PlayState.isStoryMode = false;
 			PlayState.storyDifficulty = curDifficulty;
-
 			PlayState.storyWeek = songs[curSelected].week;
-			trace('CURRENT WEEK: ' + getCurrentWeekNumber());
 			if (colorTween != null)
-			{
 				colorTween.cancel();
-			}
-			// Parar la música correctamente via CoreAudio (nula la referencia, evita ghost sounds)
 			funkin.audio.MusicManager.stop();
-
 			if (FlxG.save.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 1);
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
-
-			// Informar al sistema de stickers qué week/song está en curso
 			StickerTransition.setCurrentContext(songs[curSelected].week, songs[curSelected].songName);
-			StickerTransition.start(function()
-			{
-				LoadingState.loadAndSwitchState(new PlayState());
-			});
+			StickerTransition.start(function() LoadingState.loadAndSwitchState(new PlayState()));
 		}
 
 		super.update(elapsed);
-
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onUpdatePost', [elapsed]);
 		#end
 	}
 
-	// === FUNCIÓN PARA SCREEN BUMP AL RITMO ===
-	function updateScreenBump(elapsed:Float):Void
-	{
-		if (FlxG.sound.music != null && FlxG.sound.music.playing)
-		{
-			var curBPM:Float = bpmTarget > 0 ? bpmTarget : 102; // BPM por defecto
-			var songPos:Float = Conductor.songPosition;
-
-			beatTimer += elapsed * 1000;
-
-			var calculatedBeat:Int = Math.floor((songPos / 1000) * (curBPM / 60));
-
-			if (calculatedBeat != lastScreenBumpBeat && calculatedBeat % 1 == 0)
-			{
-				lastScreenBumpBeat = calculatedBeat;
-				screenBump();
-
-				// Bump de iconos cada 4 beats
-				if (calculatedBeat % 4 == 0)
-				{
-					for (icon in iconArray)
-					{
-						if (icon != null && icon.scale != null)
-						{
-							icon.scale.set(1.3, 1.3);
-							FlxTween.tween(icon.scale, {x: 1, y: 1}, 0.2, {ease: FlxEase.expoOut});
-						}
-					}
-				}
-			}
-		}
-
-		// Suavizar el zoom de vuelta
-		FlxG.camera.zoom = FlxMath.lerp(FlxG.camera.zoom, 1, elapsed * 3);
-	}
-
-	// === BUMP DE PANTALLA ===
-	function screenBump():Void
-	{
-		FlxG.camera.zoom += 0.015 * camBumpIntensity;
-
-		// Pequeño shake
-		FlxG.camera.shake(0.002, 0.05);
-
-		// Pulse en el glow overlay
-		if (glowOverlay != null)
-		{
-			glowOverlay.alpha = 0.05;
-			FlxTween.tween(glowOverlay, {alpha: 0}, 0.3, {ease: FlxEase.quadOut});
-		}
-	}
-
-	// === ACTUALIZAR BARRAS VISUALES ===
-	function updateVisualBars(elapsed:Float):Void
-	{
-		var i:Int = 0;
-		for (bar in visualBars)
-		{
-			if (bar != null && bar.scale != null)
-			{
-				var targetHeight:Float = 50 + Math.sin((beatTimer / 100) + i) * 40;
-				bar.scale.y = FlxMath.lerp(bar.scale.y, targetHeight / 100, elapsed * 8);
-				bar.y = FlxG.height - 150 + 100 - (bar.scale.y * 150);
-			}
-			i++;
-		}
-	}
-
-	/**
-	 * Detecta las dificultades disponibles para la canción actualmente
-	 * seleccionada y actualiza difficultyStuff. Si curDifficulty queda
-	 * fuera de rango después del cambio, se ajusta al índice válido más cercano.
-	 */
-	function _updateDifficultyStuff():Void
-	{
-		if (songs == null || songs.length == 0)
-			return;
-		final songName = songs[curSelected].songName.toLowerCase();
-		difficultyStuff = cast Song.getAvailableDifficulties(songName);
-
-		// Clamp curDifficulty al nuevo rango
-		if (curDifficulty >= difficultyStuff.length)
-			curDifficulty = difficultyStuff.length - 1;
-		if (curDifficulty < 0)
-			curDifficulty = 0;
-	}
-
-	function changeDiff(change:Int = 0)
-	{
-		if (songs.length == 0)
-			return;
-
-		curDifficulty += change;
-
-		if (curDifficulty < 0)
-			curDifficulty = difficultyStuff.length - 1;
-		if (curDifficulty >= difficultyStuff.length)
-			curDifficulty = 0;
-
-		#if !switch
-		intendedScore = Highscore.getScore(songs[curSelected].songName, difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : "");
-		intendedRating = Highscore.getRating(songs[curSelected].songName, difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : "");
-		#end
-
-		PlayState.storyDifficulty = curDifficulty;
-		diffText.text = '< ' + CoolUtil.difficultyString() + ' >';
-		positionHighscore();
-
-		#if HSCRIPT_ALLOWED
-		StateScriptHandler.callOnScripts('onDifficultyChanged', [curDifficulty]);
-		#end
-	}
+	// ── changeSelection ────────────────────────────────────────────────────────
 
 	function changeSelection(change:Int = 0)
 	{
 		if (songs.length == 0)
 			return;
-
 		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.4);
 
-		curSelected += change;
+		// ── Detener preview de música al navegar ──────────────────────────────
+		// Si había una canción previsualizándose y el jugador scrollea, detener
+		// la música y restaurar el menú. Evita que suenen dos audios a la vez
+		// y que instPlaying quede desincronizado con curSelected.
+		#if sys
+		if (change != 0 && instPlaying != -1)
+		{
+			MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, true);
+			instPlaying = -1;
+			if (discSpr != null)
+			{
+				FlxTween.cancelTweensOf(discSpr);
+				FlxTween.tween(discSpr, {x: FlxG.width + 50}, 0.3, {
+					ease: FlxEase.expoIn,
+					onComplete: function(_)
+					{
+						if (discSpr != null)
+						{
+							remove(discSpr);
+							discSpr.destroy();
+							discSpr = null;
+						}
+					}
+				});
+			}
+		}
+		#end
 
+		curSelected += change;
 		if (curSelected < 0)
 			curSelected = songs.length - 1;
 		if (curSelected >= songs.length)
 			curSelected = 0;
 
+		// Background color tween
 		var newColor:Int = songs[curSelected].color;
 		if (newColor != intendedColor)
 		{
 			if (colorTween != null)
-			{
 				colorTween.cancel();
-			}
 			intendedColor = newColor;
-			colorTween = FlxTween.color(bg, 1, bg.color, intendedColor, {
-				onComplete: function(twn:FlxTween)
-				{
-					colorTween = null;
-				}
-			});
+			colorTween = FlxTween.color(bgTint, 0.55, bgTint.color, intendedColor, {ease: FlxEase.sineInOut, onComplete: function(_) colorTween = null});
+			cardAccent.color = intendedColor;
 		}
 
-		#if !switch
-		intendedScore = Highscore.getScore(songs[curSelected].songName, difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : "");
-		intendedRating = Highscore.getRating(songs[curSelected].songName, difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : "");
-		#end
-
-		var bullShit:Int = 0;
-
+		// Song list
 		for (i in 0...iconArray.length)
-		{
 			if (iconArray[i] != null)
-				iconArray[i].alpha = 0.6;
-		}
-
+				iconArray[i].alpha = 0.5;
 		if (iconArray[curSelected] != null)
 			iconArray[curSelected].alpha = 1;
-
+		var bullShit = 0;
 		for (item in grpSongs.members)
 		{
-			if (item != null)
+			if (item == null)
+				continue;
+			item.targetY = bullShit - curSelected;
+			bullShit++;
+			item.alpha = (item.targetY == 0) ? 1.0 : 0.45;
+			if (item.targetY == 0)
 			{
-				item.targetY = bullShit - curSelected;
-				bullShit++;
-
-				item.alpha = 0.6;
-
-				if (item.targetY == 0)
-				{
-					item.alpha = 1;
-
-					// Efecto de pulse en la canción seleccionada
-					FlxTween.cancelTweensOf(item.scale);
-					item.scale.set(1.05, 1.05);
-					FlxTween.tween(item.scale, {x: 1, y: 1}, 0.3, {ease: FlxEase.expoOut});
-				}
+				FlxTween.cancelTweensOf(item.scale);
+				item.scale.set(1.04, 1.04);
+				FlxTween.tween(item.scale, {x: 1, y: 1}, 0.22, {ease: FlxEase.expoOut});
 			}
 		}
 
-		// Auto-detectar las dificultades disponibles para la canción seleccionada
+		_updateAlbum(songs[curSelected]);
 		_updateDifficultyStuff();
+		FlxG.camera.zoom = 1.018;
 
-		// Pequeño bump al cambiar selección
-		FlxG.camera.zoom = 1.02;
+		// changeDiff con suppressSpotlight=true para que NO llame _refreshSpotlight()
+		// aquí — lo llamamos nosotros UNA sola vez al final.
+		// Esto evita el doble-render del spotlight que causaba stutter perceptible
+		// al scrollear rápido (HealthIcon.updateIcon, rank badge load, tweens).
+		changeDiff(0, true);
 
-		changeDiff();
+		_refreshSpotlight(); // ← única llamada por selección
 
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onSelectionChanged', [curSelected]);
@@ -991,26 +1118,249 @@ class FreeplayState extends funkin.states.MusicBeatState
 		#end
 	}
 
-	private function positionHighscore()
+	function _refreshSpotlight()
 	{
-		scoreText.x = FlxG.width - scoreText.width - 20;
+		if (songs.length == 0)
+			return;
+		var song = songs[curSelected];
+		spotlightTitle.setText(song.songName);
 
-		scoreBG.scale.x = FlxG.width - scoreText.x + 16;
-		scoreBG.x = FlxG.width - (scoreBG.scale.x / 2);
-		diffText.x = Std.int(scoreBG.x + (scoreBG.width / 2));
-		diffText.x -= diffText.width / 2;
+		// ── Artist — lee del SongMetadata (ya resuelto en songsSystem) ────────
+		// Formato: "by <artista>"  si hay artista; si no, "from <weekName>" como antes.
+		var artistStr = song.artist != null ? song.artist.trim() : '';
+		if (artistStr != '')
+		{
+			spotlightArtist.text = 'by  $artistStr';
+		}
+		else
+		{
+			var weekName = '';
+			// week name no longer available here; cleared in songsSystem refactor
+			spotlightArtist.text = weekName.length > 0 ? 'from  $weekName' : '';
+		}
+
+		if (spotlightIcon == null)
+		{
+			// Primera vez: crear el icono y añadirlo
+			spotlightIcon = new HealthIcon(song.songCharacter);
+			spotlightIcon.scrollFactor.set();
+			add(spotlightIcon);
+		}
+		else
+		{
+			// Reusar icono existente — updateIcon() cambia el atlas sin destruir el objeto
+			FlxTween.cancelTweensOf(spotlightIcon.scale);
+			spotlightIcon.updateIcon(song.songCharacter);
+		}
+		spotlightIcon.setGraphicSize(148, 148);
+		spotlightIcon.updateHitbox();
+		spotlightIcon.x = CARD_X + CARD_W - 180;
+		spotlightIcon.y = CARD_Y;
+		// Guardar la escala correcta calculada por setGraphicSize (puede diferir de 1.0
+		// si el atlas tiene frames grandes), y animar desde 0.6× hasta esa escala.
+		// Si se hiciera tween hasta {x:1, y:1}, el icono terminaría en tamaño incorrecto
+		// y el offset quedaría desajustado, provocando que se desplace a la derecha/abajo.
+		var _tgX = spotlightIcon.scale.x;
+		var _tgY = spotlightIcon.scale.y;
+		spotlightIcon.scale.set(_tgX * 0.6, _tgY * 0.6);
+		spotlightIcon.updateHitbox(); // recalcular offset para la escala inicial del pop-in
+		var _ico = spotlightIcon;    // captura local para el closure del tween
+		FlxTween.tween(spotlightIcon.scale, {x: _tgX, y: _tgY}, 0.35, {
+			ease:     FlxEase.elasticOut,
+			type:     ONESHOT,
+			// updateHitbox() en cada frame mantiene el offset alineado con la escala
+			// durante la animación, evitando el desplazamiento visual incorrecto.
+			onUpdate: function(_) { if (_ico != null && _ico.alive && _ico.frames != null) _ico.updateHitbox(); }
+		});
+
+		var diffSuffix = difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : '';
+		var acc = Highscore.getRating(song.songName, diffSuffix);
+		var rank = _rankFromAcc(acc);
+
+		FlxTween.cancelTweensOf(rankBadge);
+		FlxTween.cancelTweensOf(rankBadgeBg);
+		if (rank.length > 0)
+		{
+			try
+			{
+				// Usar PathsCache para badges de rank (pocas imágenes, muy repetidas)
+				final _rankGfx = funkin.cache.PathsCache.instance.cacheGraphic('menu/ratings/$rank');
+				if (_rankGfx != null && _rankGfx.bitmap != null)
+					rankBadge.loadGraphic(_rankGfx);
+				else
+					rankBadge.loadGraphic(Paths.image('menu/ratings/$rank'));
+				rankBadge.setGraphicSize(88, 88);
+				rankBadge.updateHitbox();
+				rankBadge.x = CARD_X + CARD_W - 122;
+				rankBadge.y = CARD_Y + 146;
+				rankBadge.alpha = 0;
+				FlxTween.tween(rankBadge, {alpha: 1}, 0.3, {ease: FlxEase.quadOut});
+				rankBadgeBg.makeGraphic(100, 100, _rankColor(rank));
+				rankBadgeBg.x = CARD_X + CARD_W - 132;
+				rankBadgeBg.y = CARD_Y + 136;
+				rankBadgeBg.alpha = 0;
+				FlxTween.tween(rankBadgeBg, {alpha: 0.18}, 0.3, {ease: FlxEase.quadOut});
+			}
+			catch (_)
+			{
+				rankBadge.alpha = 0;
+				rankBadgeBg.alpha = 0;
+			}
+			var msg = _congratsMsg(rank);
+			if (msg.length > 0)
+			{
+				congrats.text = msg;
+				congrats.color = _rankColor(rank);
+				congrats.alpha = 0;
+				FlxTween.tween(congrats, {alpha: 1}, 0.4, {ease: FlxEase.quadOut, startDelay: 0.15});
+			}
+			else
+			{
+				congrats.alpha = 0;
+				FlxTween.cancelTweensOf(congrats);
+			}
+		}
+		else
+		{
+			rankBadge.alpha = 0;
+			rankBadgeBg.alpha = 0;
+			congrats.alpha = 0;
+			FlxTween.cancelTweensOf(congrats);
+		}
+
+		intendedScore = Highscore.getScore(song.songName, diffSuffix);
+		intendedRating = acc;
 	}
 
-	public static var difficultyStuff:Array<Dynamic> = [['Easy', '-easy'], ['Normal', ''], ['Hard', '-hard']];
+	// ── changeDiff ─────────────────────────────────────────────────────────────
+
+	/**
+	 * @param suppressSpotlight  Pasar true cuando se llama desde changeSelection para
+	 *                           evitar que _refreshSpotlight() se invoque dos veces
+	 *                           (changeSelection ya lo llama después de changeDiff).
+	 */
+	function changeDiff(change:Int = 0, suppressSpotlight:Bool = false)
+	{
+		if (songs.length == 0)
+			return;
+		curDifficulty += change;
+		if (curDifficulty < 0)
+			curDifficulty = difficultyStuff.length - 1;
+		if (curDifficulty >= difficultyStuff.length)
+			curDifficulty = 0;
+		#if !switch
+		var diffSuffix = difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : '';
+		intendedScore = Highscore.getScore(songs[curSelected].songName, diffSuffix);
+		intendedRating = Highscore.getRating(songs[curSelected].songName, diffSuffix);
+		#end
+		PlayState.storyDifficulty = curDifficulty;
+		_rebuildDiffPills();
+		if (!suppressSpotlight)
+			_refreshSpotlight();
+		#if HSCRIPT_ALLOWED
+		StateScriptHandler.callOnScripts('onDifficultyChanged', [curDifficulty]);
+		#end
+	}
+
+	function _rebuildDiffPills()
+	{
+		if (diffPills == null)
+			return;
+		diffPills.clear();
+		for (t in diffTexts)
+			remove(t);
+		diffTexts = [];
+		var pillY = CARD_Y + 234;
+		var pillH = 26;
+		var pillW = 86;
+		var gap = 6;
+		var startX = CARD_X + 20;
+		for (i in 0...difficultyStuff.length)
+		{
+			var label:String = difficultyStuff[i][0];
+			var px = startX + i * (pillW + gap);
+			var pill = new FlxSprite(px, pillY).makeGraphic(pillW, pillH, FlxColor.BLACK);
+			pill.alpha = (i == curDifficulty) ? 0.75 : 0.30;
+			pill.scrollFactor.set();
+			diffPills.add(pill);
+			var color:FlxColor = switch (label.toLowerCase())
+			{
+				case 'easy': FlxColor.fromString('#64ff64');
+				case 'normal': FlxColor.fromString('#64ffff');
+				case 'hard': FlxColor.fromString('#ff6464');
+				case 'erect': FlxColor.fromString('#ff64ff');
+				default: FlxColor.WHITE;
+			};
+			var txt = new FlxText(px, pillY + 5, pillW, label, 14);
+			txt.setFormat(Paths.font('vcr.ttf'), 14, i == curDifficulty ? color : FlxColor.fromString('#778899'), CENTER);
+			txt.scrollFactor.set();
+			add(txt);
+			diffTexts.push(txt);
+		}
+	}
+
+	override function beatHit()
+	{
+		super.beatHit();
+
+		_discBeatBump = 280.0; // deg/sec extra burst (decays in ~_onBeat)
+	}
+
+	// ── Helpers ────────────────────────────────────────────────────────────────
+
+	function _updateDifficultyStuff():Void
+	{
+		if (songs == null || songs.length == 0)
+			return;
+		difficultyStuff = cast Song.getAvailableDifficulties(songs[curSelected].songName.toLowerCase());
+
+		// ── Hook para scripts: permite filtrar dificultades por variante de personaje ──
+		// El script recibe (songName, diffs) y devuelve el array filtrado.
+		// Si devuelve null o un valor no-Array, se conserva el original.
+		// Uso en freeplay_main.hx:
+		//   function onDifficultyStuffBuilt(songName, diffs) { ... return filteredDiffs; }
+		final _filtered = StateScriptHandler.callOnScriptsReturn(
+			'onDifficultyStuffBuilt', [songs[curSelected].songName, difficultyStuff], null);
+		if (_filtered != null && Std.isOfType(_filtered, Array))
+			difficultyStuff = cast _filtered;
+
+		if (curDifficulty >= difficultyStuff.length)
+			curDifficulty = difficultyStuff.length - 1;
+		if (curDifficulty < 0)
+			curDifficulty = 0;
+	}
+
+	function showError(message:String):Void
+	{
+		if (errorTween != null)
+			errorTween.cancel();
+		errorText.text = message;
+		errorText.visible = true;
+		errorText.alpha = 0;
+		errorTween = FlxTween.tween(errorText, {alpha: 1}, 0.3, {
+			ease: FlxEase.expoOut,
+			onComplete: function(_)
+			{
+				errorTween = FlxTween.tween(errorText, {alpha: 0}, 0.5, {
+					ease: FlxEase.expoIn,
+					startDelay: 3.0,
+					onComplete: function(_)
+					{
+						errorText.visible = false;
+						errorTween = null;
+					}
+				});
+			}
+		});
+	}
 
 	public static function boundTo(value:Float, min:Float, max:Float):Float
 	{
-		var newValue:Float = value;
-		if (newValue < min)
-			newValue = min;
-		else if (newValue > max)
-			newValue = max;
-		return newValue;
+		if (value < min)
+			return min;
+		if (value > max)
+			return max;
+		return value;
 	}
 
 	public static function getCurrentWeekNumber():Int
@@ -1020,106 +1370,91 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 	public static function getWeekNumber(num:Int):Int
 	{
-		var value:Int = 0;
-		var weekNumber:Int = 0;
-
-		if (songInfo != null && songInfo.songsWeeks != null)
-			weekNumber = songInfo.songsWeeks.length;
-
-		if (num < weekNumber)
-		{
-			value = num;
-		}
-
-		return value;
-	}
-
-	function showError(message:String):Void
-	{
-		// Cancel any existing error tween
-		if (errorTween != null)
-		{
-			errorTween.cancel();
-		}
-
-		// Set error message
-		errorText.text = message;
-		errorText.visible = true;
-		errorText.alpha = 0;
-
-		// Fade in
-		errorTween = FlxTween.tween(errorText, {alpha: 1}, 0.3, {
-			ease: FlxEase.expoOut,
-			onComplete: function(twn:FlxTween)
-			{
-				// Wait 3 seconds then fade out
-				errorTween = FlxTween.tween(errorText, {alpha: 0}, 0.5, {
-					ease: FlxEase.expoIn,
-					startDelay: 3.0,
-					onComplete: function(twn:FlxTween)
-					{
-						errorText.visible = false;
-					}
-				});
-			}
-		});
-	}
-
-	/**
-	 * Llamado cuando el juego pierde foco (minimizar ventana)
-	 * Pausa las vocals para que estén sincronizadas con el instrumental
-	 */
-	override public function onFocusLost():Void
-	{
-		super.onFocusLost();
-
-		// FlxG.sound.music se pausa automáticamente
-		trace('[FreeplayState] Focus lost - music will be paused by FlxG');
-	}
-
-	/**
-	 * Llamado cuando el juego recupera foco (volver a la ventana)
-	 * Reanuda TANTO el instrumental como las vocals
-	 */
-	override public function onFocus():Void
-	{
-		super.onFocus();
-
-		// CRÍTICO: Con loadStream(), FlxG.sound.music NO se reanuda automáticamente.
-		// Usar CoreAudio.play() para que el volumen se aplique correctamente.
-		if (FlxG.sound.music != null && instPlaying == curSelected && !FlxG.sound.music.playing)
-		{
-			funkin.audio.CoreAudio.play(FlxG.sound.music);
-			trace('[FreeplayState] Focus gained - music resumed');
-		}
-	}
-
-	override function destroy()
-	{
-		#if HSCRIPT_ALLOWED
-		StateScriptHandler.callOnScripts('onDestroy', []);
-		StateScriptHandler.clearStateScripts();
-		#end
-
-		super.destroy();
+		return num; // group index from freeplayList.json
 	}
 }
 
+// ── SongMetadata ──────────────────────────────────────────────────────────────
+
 class SongMetadata
 {
-	public var songName:String = "";
+	public var songName:String = '';
 	public var week:Int = 0;
-	public var songCharacter:String = "";
+	public var songCharacter:String = '';
 	public var color:Int = -7179779;
 
-	public function new(song:String, week:Int, songCharacter:String)
+	/** Índice dentro del array de canciones (para leer album, etc.). */
+	public var songIndex:Int = 0;
+
+	/** Artista de la canción — leído desde freeplayList.json o meta.json. */
+	public var artist:String = '';
+
+	/** Clave de álbum para esta canción. */
+	public var album:String = '';
+
+	/** Clave de atlas de texto de álbum para esta canción. */
+	public var albumText:String = '';
+
+	public function new(song:String, week:Int, songCharacter:String, ?songIndex:Int = 0)
 	{
-		this.songName = song;
-		this.week = week;
+		this.songName      = song;
+		this.week          = week;
 		this.songCharacter = songCharacter;
-		if (week < funkin.menus.FreeplayState.coolColors.length)
-		{
-			this.color = funkin.menus.FreeplayState.coolColors[week];
-		}
+		this.songIndex     = songIndex;
+		this.color         = -7179779;
+	}
+}
+
+// ── FreeplaySongText ──────────────────────────────────────────────────────────
+//
+// Replaces Alphabet for song names in the freeplay list and spotlight.
+// Renders with Funkin.otf + cyan GlowFilter (matching V-Slice CapsuleText feel).
+// Has targetY for smooth scroll animation (same pattern as Alphabet.isMenuItem).
+//
+
+class FreeplaySongText extends FlxText
+{
+	/** Scroll target — same convention as Alphabet.targetY. */
+	public var targetY:Float = 0;
+
+	/** Set true for list items — enables targetY-based scroll. */
+	public var isMenuItem:Bool = false;
+
+	/** Maximum width before text clips. */
+	public var maxWidth:Float = 380;
+
+	/** Glow color (cyan by default, matches CapsuleText). */
+	public var glowColor(default, set):FlxColor = FlxColor.fromString('#00ccff');
+
+	function set_glowColor(v:FlxColor):FlxColor
+	{
+		glowColor = v;
+		_applyFilters();
+		return v;
+	}
+
+	static inline final FONT_SIZE_DEFAULT = 28;
+	static inline final FONT_SIZE_LARGE = 50;
+
+	public function new(x:Float, y:Float, text:String = '', fontSize:Int = FONT_SIZE_DEFAULT)
+	{
+		super(x, y, 0, text, fontSize);
+		font = Paths.font('Funkin.otf');
+		color = FlxColor.WHITE;
+		antialiasing = true;
+		_applyFilters();
+	}
+
+	/** Change displayed text and re-apply glow. */
+	public function setText(value:String):Void
+	{
+		this.text = value;
+		_applyFilters();
+	}
+
+	function _applyFilters():Void
+	{
+		var glow = new openfl.filters.GlowFilter(glowColor, 1.0, 6, 6, 200, BitmapFilterQuality.MEDIUM);
+		textField.filters = [glow];
 	}
 }

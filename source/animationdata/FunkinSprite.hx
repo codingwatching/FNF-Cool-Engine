@@ -109,7 +109,7 @@ class FunkinSprite extends FlxAnimate
 		if (idx >= 0) _frameLRU.splice(idx, 1);
 		// Invalidar también caché de FlxAnimateFrames si la key coincide con una carpeta
 		_animateFrameCache.remove(key);
-		trace('[FunkinSprite] Cache invalidado: $key');
+		trace('[FunkinSprite] Cache invalidated: $key');
 	}
 
 	public static function clearAllCaches():Void
@@ -118,7 +118,7 @@ class FunkinSprite extends FlxAnimate
 		_atlasResCache.clear();
 		_frameLRU = [];
 		_animateFrameCache.clear();
-		trace('[FunkinSprite] Todos los cachés limpiados.');
+		trace('[FunkinSprite] All caches cleared.');
 	}
 
 	public static function pruneStaleCache():Void
@@ -132,7 +132,7 @@ class FunkinSprite extends FlxAnimate
 		}
 		for (key in toRemove) _frameCache.remove(key);
 		if (toRemove.length > 0)
-			trace('[FunkinSprite] pruneStaleCache: ${toRemove.length} entradas eliminadas.');
+			trace('[FunkinSprite] pruneStaleCache: ${toRemove.length} deleted entries.');
 	}
 
 	static function _frameCachePut(key:String, frames:FlxAtlasFrames):Void
@@ -166,6 +166,38 @@ class FunkinSprite extends FlxAnimate
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
+	 * Resuelve una ruta de carpeta/asset al path físico correcto,
+	 * dando prioridad al mod activo sobre assets/.
+	 *
+	 * Regla:
+	 *   - Si el path ya es absoluto (empieza por 'mods/', 'assets/' o '/') → se devuelve tal cual.
+	 *   - Si no → se consulta primero el mod activo, luego se cae a 'assets/'.
+	 *
+	 * Esto reemplaza el patrón:
+	 *   folderPath.startsWith('assets/') || folderPath.startsWith('mods/') ? folderPath : 'assets/$folderPath'
+	 * que ignoraba el mod activo para rutas relativas.
+	 */
+	static function _resolveFolderPath(path:String):String
+	{
+		// Ya tiene prefijo absoluto → no modificar
+		if (path.startsWith('assets/') || path.startsWith('mods/') || path.startsWith('/'))
+			return path;
+
+		// Consultar mod activo primero
+		#if sys
+		if (mods.ModManager.activeMod != null)
+		{
+			final modPath = '${mods.ModManager.MODS_FOLDER}/${mods.ModManager.activeMod}/$path';
+			if (FileSystem.exists(modPath))
+				return modPath;
+		}
+		#end
+
+		// Fallback a assets/
+		return 'assets/$path';
+	}
+
+	/**
 	 * Detección automática:
 	 *   1. Carpeta Animation.json → Texture Atlas
 	 *   2. PNG + XML              → Sparrow
@@ -179,26 +211,31 @@ class FunkinSprite extends FlxAnimate
 		if (atlasFolder != null) return loadAnimateAtlas(atlasFolder);
 
 		// Rutas candidatas: mod primero (si hay mod activo), luego assets/
-		final candidates:Array<String> = [];
+		// Para cada raíz se comprueba también la subcarpeta images/ porque es
+		// donde FNF/Psych almacena los atlas de sprites de cutscene (y en general).
+		// loadSparrow/loadPacker siempre reciben el assetPath sin prefijo de raíz
+		// porque Paths.getSparrowAtlas ya añade images/ internamente.
+		final roots:Array<String> = [];
 		if (mods.ModManager.activeMod != null)
-		{
-			final base = '${mods.ModManager.MODS_FOLDER}/${mods.ModManager.activeMod}';
-			candidates.push('$base/$assetPath');
-		}
-		candidates.push('assets/$assetPath');
+			roots.push('${mods.ModManager.MODS_FOLDER}/${mods.ModManager.activeMod}');
+		roots.push('assets');
 
-		for (base in candidates)
+		for (root in roots)
 		{
-			if (assetExists('$base.xml')) return loadSparrow(base == 'assets/$assetPath' ? assetPath : base);
-			if (assetExists('$base.txt')) return loadPacker(base == 'assets/$assetPath' ? assetPath : base);
-			if (assetExists('$base.png'))
-			{
-				loadGraphic('$base.png');
-				return this;
-			}
+			// Primero: ruta directa (para activos que no viven bajo images/)
+			final direct = '$root/$assetPath';
+			if (assetExists('$direct.xml')) return loadSparrow(assetPath);
+			if (assetExists('$direct.txt')) return loadPacker(assetPath);
+			if (assetExists('$direct.png')) { loadGraphic('$direct.png'); return this; }
+
+			// Segundo: bajo images/ — donde residen los atlas de sprites en FNF
+			final imgBase = '$root/images/$assetPath';
+			if (assetExists('$imgBase.xml')) return loadSparrow(assetPath);
+			if (assetExists('$imgBase.txt')) return loadPacker(assetPath);
+			if (assetExists('$imgBase.png')) { loadGraphic('$imgBase.png'); return this; }
 		}
 
-		trace('[FunkinSprite] WARNING: asset not found para "$assetPath"');
+		trace('[FunkinSprite] WARNING: asset not found for "$assetPath"');
 		return this;
 	}
 
@@ -208,14 +245,12 @@ class FunkinSprite extends FlxAnimate
 	public function loadAnimateAtlas(folderPath:String):FunkinSprite
 	{
 		releaseTrackedAtlases();
-		final fullPath = (folderPath.startsWith('assets/') || folderPath.startsWith('mods/') || folderPath.startsWith('/'))
-			? folderPath
-			: 'assets/$folderPath';
+		final fullPath = _resolveFolderPath(folderPath);
 		_preloadFolderBitmaps(fullPath);
 		final atlas:FlxAnimateFrames = FlxAnimateFrames.fromAnimate(fullPath);
 		if (atlas != null) _trackAtlas(atlas);
 		this.frames = atlas;
-		trace('[FunkinSprite] Texture Atlas cargado: $fullPath');
+		trace('[FunkinSprite] Texture Atlas loaded: $fullPath');
 		return this;
 	}
 
@@ -242,13 +277,10 @@ class FunkinSprite extends FlxAnimate
 
 		releaseTrackedAtlases();
 
-		// Resolver paths absolutos
+		// Resolver paths absolutos (mod primero, luego assets/)
 		final fullPaths:Array<String> = [];
 		for (folder in folders)
-		{
-			fullPaths.push((folder.startsWith('assets/') || folder.startsWith('mods/') || folder.startsWith('/'))
-				? folder : 'assets/$folder');
-		}
+			fullPaths.push(_resolveFolderPath(folder));
 
 		final textureList:Array<FlxAnimateFrames> = [];
 
@@ -256,14 +288,14 @@ class FunkinSprite extends FlxAnimate
 		final mainPath = fullPaths[0];
 		if (!folderHasAnimateAtlas(mainPath))
 		{
-			trace('[FunkinSprite] loadMultiAnimateAtlas: sin Animation.json en path principal $mainPath.');
+			trace('[FunkinSprite] loadMultiAnimateAtlas: without Animation.json in main path $mainPath.');
 			return this;
 		}
 		_preloadFolderBitmaps(mainPath);
 		final mainAtlas:FlxAnimateFrames = FlxAnimateFrames.fromAnimate(mainPath);
 		if (mainAtlas == null)
 		{
-			trace('[FunkinSprite] loadMultiAnimateAtlas: fromAnimate→null para $mainPath.');
+			trace('[FunkinSprite] loadMultiAnimateAtlas: fromAnimate→null for $mainPath.');
 			return this;
 		}
 		_trackAtlas(mainAtlas);
@@ -277,14 +309,14 @@ class FunkinSprite extends FlxAnimate
 			if (addedPaths.contains(subPath)) continue;
 			if (!folderHasAnimateAtlas(subPath))
 			{
-				trace('[FunkinSprite] loadMultiAnimateAtlas: sin Animation.json en $subPath, saltando.');
+				trace('[FunkinSprite] loadMultiAnimateAtlas: without Animation.json in $subPath, skipping.');
 				continue;
 			}
 			_preloadFolderBitmaps(subPath);
 			final subAtlas:FlxAnimateFrames = FlxAnimateFrames.fromAnimate(subPath);
 			if (subAtlas == null)
 			{
-				trace('[FunkinSprite] loadMultiAnimateAtlas: fromAnimate→null para $subPath, saltando.');
+				trace('[FunkinSprite] loadMultiAnimateAtlas: fromAnimate→null in $subPath, skipping.');
 				continue;
 			}
 			_trackAtlas(subAtlas);
@@ -304,12 +336,12 @@ class FunkinSprite extends FlxAnimate
 		{
 			_trackAtlas(cast combined);
 			this.frames = combined;
-			trace('[FunkinSprite] Multi-atlas combinado: ${textureList.length} atlas → (${fullPaths.join(", ")})');
+			trace('[FunkinSprite] Multi-atlas combined: ${textureList.length} atlas → (${fullPaths.join(", ")})');
 		}
 		else
 		{
 			this.frames = textureList[0];
-			trace('[FunkinSprite] WARN: combineAtlas→null — usando atlas principal (${fullPaths[0]}).');
+			trace('[FunkinSprite] WARN: combineAtlas→null — using main atlas (${fullPaths[0]}).');
 		}
 		return this;
 	}
@@ -401,7 +433,7 @@ class FunkinSprite extends FlxAnimate
 		}
 		final frames = Paths.getSparrowAtlas(key);
 		if (frames != null) { _frameCachePut(cacheKey, frames); this.frames = frames; trace('[FunkinSprite] Sparrow: $key'); }
-		else trace('[FunkinSprite] WARNING: Sparrow not found para "$key"');
+		else trace('[FunkinSprite] WARNING: Sparrow not found in "$key"');
 		return this;
 	}
 
@@ -419,7 +451,7 @@ class FunkinSprite extends FlxAnimate
 		}
 		final frames = Paths.getPackerAtlas(key);
 		if (frames != null) { _frameCachePut(cacheKey, frames); this.frames = frames; trace('[FunkinSprite] Packer: $key'); }
-		else trace('[FunkinSprite] WARNING: Packer not found para "$key"');
+		else trace('[FunkinSprite] WARNING: Packer not found in "$key"');
 		return this;
 	}
 
@@ -437,7 +469,7 @@ class FunkinSprite extends FlxAnimate
 				final parentKey = spritemapRe.replace(key, '');
 				if (parentKey.length > 0)
 				{
-					trace('[FunkinSprite] loadCharacterSparrow: ruta con spritemap detectada "$key" → folder "$parentKey"');
+					trace('[FunkinSprite] loadCharacterSparrow: path with detected spritemap "$key" → folder "$parentKey"');
 					resolvedKey = parentKey;
 				}
 			}
@@ -476,7 +508,7 @@ class FunkinSprite extends FlxAnimate
 		if (c != null) { @:privateAccess final v = c.parent != null && c.parent.bitmap != null; if (v) { _frameCacheTouch(ck); this.frames = c; return this; } _frameCache.remove(ck); }
 		final f = Paths.stageSprite(key);
 		if (f != null) { _frameCachePut(ck, f); this.frames = f; }
-		else { trace('[FunkinSprite] WARNING: Stage asset not found para "$key" — placeholder invisible'); makeGraphic(1, 1, 0x00000000); visible = false; }
+		else { trace('[FunkinSprite] WARNING: Stage asset not found in "$key" — placeholder invisible'); makeGraphic(1, 1, 0x00000000); visible = false; }
 		return this;
 	}
 
@@ -509,7 +541,7 @@ class FunkinSprite extends FlxAnimate
 					this.anim.addBySymbol(name, prefix, fps, looped);
 			}
 			if (!this.animation.getNameList().contains(name))
-				trace('[FunkinSprite] WARN: addAnim("$name", "$prefix") — not found en atlas.');
+				trace('[FunkinSprite] WARN: addAnim("$name", "$prefix") — not found in atlas.');
 		}
 		else
 		{
@@ -526,7 +558,7 @@ class FunkinSprite extends FlxAnimate
 	{
 		if (!hasAnim(name))
 		{
-			trace('[FunkinSprite] WARN: playAnim("$name") — no existe, ignorando.');
+			trace('[FunkinSprite] WARN: playAnim("$name") — does not exist, ignoring.');
 			return;
 		}
 		this.animation.play(name, force, reversed, startFrame);

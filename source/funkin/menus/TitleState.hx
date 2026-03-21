@@ -222,7 +222,7 @@ class TitleState extends funkin.states.MusicBeatState
 
 		FlxTween.tween(credTextShit, {y: credTextShit.y + 20}, 2.9, {ease: FlxEase.quadInOut, type: PINGPONG});
 
-		FlxG.mouse.visible = false;
+		funkin.system.CursorManager.hide();
 
 		if (initialized)
 		{
@@ -303,34 +303,57 @@ class TitleState extends funkin.states.MusicBeatState
 
 			new FlxTimer().start(2, function(tmr:FlxTimer)
 			{
-				// Check if version is outdated also changelog
+				// ── Comprobar si la versión está desactualizada ────────────────
+				// Formato de ver.thing:
+				//   Línea 1:  <versión>-
+				//   Resto:    changelog (puede tener múltiples líneas)
+				// Ejemplo:
+				//   0.6.0B-
+				//   - Stage Editor Fixed
+				//   - Notes System Fixed
 
 				var http = new haxe.Http("https://raw.githubusercontent.com/Manux123/FNF-Cool-Engine/master/ver.thing");
-				var returnedData:Array<String> = [];
-				var version:String = Application.current.meta.get('version');
+				var version:String = Application.current.meta.get('version') ?? '';
 
 				http.onData = function(data:String)
 				{
-					returnedData[0] = data.substring(0, data.indexOf('-'));
-					returnedData[1] = data.substring(data.indexOf('+'), data.length);
-					if (!version.contains(returnedData[0].trim()) && !OutdatedSubState.leftState)
+					// Normalizar saltos de línea (el archivo puede tener \r\n en Windows)
+					var normalized:String = data.replace('\r\n', '\n').replace('\r', '\n');
+
+					// La primera línea contiene la versión; termina con '-' por formato
+					var firstNewline:Int = normalized.indexOf('\n');
+					var versionRaw:String = firstNewline >= 0
+						? normalized.substring(0, firstNewline)
+						: normalized;
+
+					// Quitar el '-' final y espacios
+					var latestVersion:String = versionRaw.replace('-', '').trim();
+
+					// El changelog es todo lo que hay a partir de la segunda línea
+					var changelog:String = firstNewline >= 0
+						? normalized.substring(firstNewline + 1).trim()
+						: '';
+
+					if (latestVersion.length > 0
+						&& !version.contains(latestVersion)
+						&& !OutdatedSubState.leftState)
 					{
-						trace('Poor guy, he is outdated');
-						OutdatedSubState.daVersionNeeded = returnedData[0];
-						OutdatedSubState.daChangelogNeeded = returnedData[1];
+						trace('[TitleState] Versión desactualizada: local=$version latest=$latestVersion');
+						OutdatedSubState.daVersionNeeded    = latestVersion;
+						OutdatedSubState.daChangelogNeeded  = changelog;
+						OutdatedSubState.downloadUrl        = 'https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/releases/latest';
 						StateTransition.switchState(new OutdatedSubState());
 					}
 					else
 					{
-						// StateTransition.switchState(new states.VideoState('test/sus',new states.PlayState()));
 						StateTransition.switchState(new MainMenuState());
 					}
 				}
 
 				http.onError = function(error)
 				{
-					trace('error: $error');
-					StateTransition.switchState(new MainMenuState()); // fail but we go anyway
+					trace('[TitleState] Error al comprobar versión: $error');
+					StateTransition.switchState(new MainMenuState()); // fallo suave
 				}
 
 				http.request();

@@ -86,7 +86,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 
 	override public function create() : Void
 	{
-		FlxG.mouse.visible = false;
+		funkin.system.CursorManager.hide();
 		persistentUpdate = persistentDraw = true;
 
 		// ── Cargar datos ──────────────────────────────────────────────────────

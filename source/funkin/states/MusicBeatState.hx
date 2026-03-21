@@ -22,6 +22,7 @@ import funkin.debug.GameDevConsole;
 #end
 #if (sys && debug)
 import funkin.debug.JsonWatcher;
+import funkin.debug.ScriptWatcher;
 import sys.FileSystem;
 #end
 
@@ -189,8 +190,21 @@ class MusicBeatState extends FlxUIState
 		#end
 
 		#if (sys && debug)
-		// ── Poll del JsonWatcher (auto hot-reload) ───────────────────────────
+		// ── Poll del JsonWatcher (auto hot-reload de JSONs) ────────────────────
 		JsonWatcher.poll(elapsed);
+
+		// ── Poll del ScriptWatcher (live reload de .hx / .lua) ─────────────────
+		// Detecta cambios en disco cada 0.5 s y recarga el script en caliente
+		// sin reiniciar el state. Los objetos actuales (bf, dad, stage…)
+		// se re-inyectan automáticamente en el script recargado.
+		ScriptWatcher.poll(elapsed);
+
+		// ── F7: Forzar reload de TODOS los scripts ahora mismo ─────────────────
+		if (FlxG.keys.justPressed.F7 && funkin.menus.MainMenuState.developerMode)
+		{
+			GameDevConsole.log('[ScriptWatcher] F7 → Live reload de todos los scripts...', 0xFFFFCC00);
+			ScriptWatcher.forceReloadAll();
+		}
 		#end
 
 		updateCurStep();
@@ -229,7 +243,14 @@ class MusicBeatState extends FlxUIState
 		#if HSCRIPT_ALLOWED
 		// Si el state ya cargó scripts manualmente antes de super.create(),
 		// no volver a cargar — evita duplicados en TitleState, MainMenuState, etc.
-		if (Lambda.count(StateScriptHandler.scripts) > 0) return;
+		if (Lambda.count(StateScriptHandler.scripts) > 0)
+		{
+			// Scripts ya cargados externamente — iniciar watcher de todas formas
+			#if (sys && debug)
+			_initScriptWatcher();
+			#end
+			return;
+		}
 
 		final className = Type.getClassName(Type.getClass(this)).split('.').pop();
 
@@ -246,7 +267,54 @@ class MusicBeatState extends FlxUIState
 			trace('[MusicBeatState] Scripts cargados para $className.');
 		}
 		#end
+
+		// Iniciar ScriptWatcher siempre (aunque no haya scripts aún — detecta nuevos)
+		#if (sys && debug)
+		_initScriptWatcher();
+		#end
 	}
+
+	#if (sys && debug)
+	/**
+	 * Inicializa ScriptWatcher con el state actual.
+	 * Registra todos los scripts ya cargados y vigila las carpetas del mod
+	 * activo para detectar archivos nuevos mientras el juego corre.
+	 */
+	function _initScriptWatcher():Void
+	{
+		ScriptWatcher.init(this);
+
+		final cn = Type.getClassName(Type.getClass(this)).split('.').pop().toLowerCase();
+
+		if (mods.ModManager.isActive())
+		{
+			final r = mods.ModManager.modRoot();
+
+			// Carpetas globales + state
+			ScriptWatcher.watchFolder('$r/scripts/global',   'global');
+			ScriptWatcher.watchFolder('$r/data/scripts',     'global');
+			ScriptWatcher.watchFolder('$r/states/$cn',       'menu');
+
+			// Si estamos en PlayState: vigilar carpetas de canción, stage y personajes
+			final ps = funkin.gameplay.PlayState.instance;
+			if (ps != null && funkin.gameplay.PlayState.SONG != null)
+			{
+				final songName = funkin.gameplay.PlayState.SONG.song.toLowerCase();
+				ScriptWatcher.watchSongScripts(songName);
+				if (ps.currentStage != null) ScriptWatcher.watchStageScripts(ps.currentStage.curStage ?? '');
+				if (ps.boyfriend != null) ScriptWatcher.watchCharacterScripts(ps.boyfriend.curCharacter);
+				if (ps.dad       != null) ScriptWatcher.watchCharacterScripts(ps.dad.curCharacter);
+				if (ps.gf        != null) ScriptWatcher.watchCharacterScripts(ps.gf.curCharacter);
+			}
+		}
+
+		// Carpetas base del juego
+		ScriptWatcher.watchFolder('assets/data/scripts/global', 'global');
+		ScriptWatcher.watchFolder('assets/states/$cn',          'menu');
+
+		trace('[MusicBeatState] ScriptWatcher listo.');
+	}
+	#end
 
 	function _onDestroy():Void
 	{
@@ -260,10 +328,10 @@ class MusicBeatState extends FlxUIState
 			cast(soundTray, SoundTray).forceHide();
 
 		#if (sys && debug)
-		// Limpiar el watcher para que no queden entradas huérfanas del state anterior.
-		// El nuevo state registrará sus propios archivos en create().
+		// Limpiar watchers del state anterior.
 		JsonWatcher.clear();
 		JsonWatcher.onChange = null;
+		ScriptWatcher.clear();
 		#end
 
 		#if HSCRIPT_ALLOWED

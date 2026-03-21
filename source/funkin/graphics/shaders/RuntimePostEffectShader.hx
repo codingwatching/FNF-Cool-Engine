@@ -103,8 +103,10 @@ class RuntimePostEffectShader extends FunkinRuntimeShader
 	 */
 	public function updateViewInfo(screenWidth:Float, screenHeight:Float, camera:FlxCamera):Void
 	{
-		uScreenResolution.value = [screenWidth, screenHeight];
-		uCameraBounds.value     = [camera.viewLeft, camera.viewTop, camera.viewRight, camera.viewBottom];
+		// Null-guard: los uniforms pueden ser null si el GL program no compiló correctamente
+		if (uScreenResolution != null) uScreenResolution.value = [screenWidth, screenHeight];
+		if (uCameraBounds != null && camera != null)
+			uCameraBounds.value = [camera.viewLeft, camera.viewTop, camera.viewRight, camera.viewBottom];
 	}
 
 	/**
@@ -112,7 +114,8 @@ class RuntimePostEffectShader extends FunkinRuntimeShader
 	 */
 	public function updateFrameInfo(frame:FlxFrame):Void
 	{
-		uFrameBounds.value = [frame.uv.left, frame.uv.top, frame.uv.right, frame.uv.bottom];
+		if (uFrameBounds != null && frame != null && frame.uv != null)
+			uFrameBounds.value = [frame.uv.left, frame.uv.top, frame.uv.right, frame.uv.bottom];
 	}
 
 	// __createGLProgram ya está manejado en FunkinRuntimeShader con Log.warn()

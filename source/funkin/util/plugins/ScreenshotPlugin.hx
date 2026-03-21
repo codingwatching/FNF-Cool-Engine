@@ -18,21 +18,24 @@ import openfl.events.MouseEvent;
  * ScreenshotPlugin — Capturas de pantalla al estilo V-Slice.
  *
  * ─── Uso ───────────────────────────────────────────────────────────────────
- *  • Pulsa F12 para capturar la pantalla.
+ *  • Pulsa F12 (o la tecla asignada en controles) para capturar la pantalla.
  *  • Aparece un flash blanco + sonido de confirmación.
  *  • Una miniatura de la captura aparece en la esquina inferior-derecha
  *    durante ~1.5 s y se puede clicar para abrir la carpeta de capturas.
  *  • Las capturas se guardan en screenshots/ como PNG con timestamp.
+ *
+ * ─── Fix: capturas al primer frame ─────────────────────────────────────────
+ *  El botón SCREENSHOT está mapeado en gamepad a BACK / SELECT, que en algunas
+ *  plataformas reporta "justPressed" en el frame 0 de un state nuevo.
+ *  Solución: _inputCooldown bloquea cualquier captura durante los primeros
+ *  COOLDOWN_ON_INIT segundos al inicializar, y COOLDOWN_ON_STATE_SWITCH
+ *  segundos adicionales después de cada cambio de estado.
  *
  * ─── Integración ───────────────────────────────────────────────────────────
  *  Llama a ScreenshotPlugin.initialize() en Main.setupGame(), después de
  *  createGame() (necesita FlxG disponible). Ejemplo:
  *
  *      funkin.util.plugins.ScreenshotPlugin.initialize();
- *
- * ─── Sonido ────────────────────────────────────────────────────────────────
- *  Coloca assets/sounds/screenshot.ogg (o .mp3) para el sonido de captura.
- *  Si el archivo no existe, simplemente no se reproduce ningún sonido.
  */
 class ScreenshotPlugin extends FlxBasic
 {
@@ -50,6 +53,19 @@ class ScreenshotPlugin extends FlxBasic
     static final PREVIEW_FADE_OUT_DURATION:Float = 0.30;
     static final PREVIEW_MARGIN:Int              = 12;
 
+    // ── FIX: Cooldown para evitar capturas accidentales ───────────────────────
+    /**
+     * Tiempo de espera al inicializar el plugin antes de aceptar capturas.
+     * Evita el falso "justPressed" del botón BACK en el primer frame.
+     */
+    static final COOLDOWN_ON_INIT:Float         = 1.5;
+
+    /**
+     * Tiempo de espera tras cada cambio de estado.
+     * El botón BACK/SELECT puede dispararse de nuevo durante la transición.
+     */
+    static final COOLDOWN_ON_STATE_SWITCH:Float = 0.15;
+
     // ── Objetos OpenFL ────────────────────────────────────────────────────────
 
     /** Overlay blanco que parpadea al capturar. */
@@ -62,11 +78,22 @@ class ScreenshotPlugin extends FlxBasic
     var outlineBitmap:Bitmap;
 
     // ── Estado ────────────────────────────────────────────────────────────────
-    /** Frames desde que se pulsó F12 (necesitamos saltar 1 frame para capturar sin UI flash). */
+
+    /**
+     * Frames desde que se pulsó la tecla de captura.
+     * Necesitamos saltar 1 frame para capturar sin el UI flash visible.
+     */
     var screenshotTakenFrame:Int = 0;
 
     /** true mientras el state está cambiando → cancelar feedback visual. */
     var stateChanging:Bool = false;
+
+    /**
+     * Tiempo restante de cooldown.
+     * Mientras sea > 0 cualquier pulsación de captura se ignora.
+     * Se inicializa con COOLDOWN_ON_INIT y se recarga tras cada state switch.
+     */
+    var _inputCooldown:Float = COOLDOWN_ON_INIT;
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -131,20 +158,25 @@ class ScreenshotPlugin extends FlxBasic
     {
         super.update(elapsed);
 
+        // Tick down del cooldown — mientras sea > 0, no se procesa ningún input
+        if (_inputCooldown > 0)
+        {
+            _inputCooldown -= elapsed;
+            return;
+        }
+
         var justPressedScreenshot:Bool = false;
 
-        if (FlxG.state is MusicBeatState) 
+        if (FlxG.state is MusicBeatState)
         {
             var curState = cast(FlxG.state, MusicBeatState);
-            
-            // Usamos @:privateAccess para leer 'controls' aunque sea privado
             @:privateAccess {
                 if (curState.controls != null)
                     justPressedScreenshot = curState.controls.SCREENSHOT;
             }
         }
-        
-        // También dejamos el F12 por si acaso
+
+        // Fallback: F12 siempre funciona independientemente de los controles
         if (FlxG.keys.justPressed.F12) justPressedScreenshot = true;
 
         // Esperamos un frame extra tras la pulsación para que el flash
@@ -152,7 +184,8 @@ class ScreenshotPlugin extends FlxBasic
         if (justPressedScreenshot && screenshotTakenFrame == 0)
         {
             // Quitar preview anterior antes de capturar
-            FlxG.stage.removeChild(previewSprite);
+            if (previewSprite.parent != null)
+                FlxG.stage.removeChild(previewSprite);
             screenshotTakenFrame++;
         }
         else if (screenshotTakenFrame > 1)
@@ -204,18 +237,18 @@ class ScreenshotPlugin extends FlxBasic
         shotPreviewBitmap.width  = outlineBitmap.width  - 10;
         shotPreviewBitmap.height = outlineBitmap.height - 10;
 
-        FlxG.stage.removeChild(previewSprite);
+        if (previewSprite.parent != null)
+            FlxG.stage.removeChild(previewSprite);
         _positionPreview();
 
         var targetAlpha:Float  = 1.0;
         var changingAlpha:Bool = false;
 
-        // Interactividad: hover dimming + clic para abrir carpeta
         previewSprite.buttonMode = true;
 
-        var onDown  = function(e:MouseEvent) { _onPreviewClick(e); };
-        var onOver  = function(e:MouseEvent) { if (!changingAlpha) previewSprite.alpha = 0.6; targetAlpha = 0.6; };
-        var onOut   = function(e:MouseEvent) { if (!changingAlpha) previewSprite.alpha = 1.0; targetAlpha = 1.0; };
+        var onDown = function(e:MouseEvent) { _onPreviewClick(e); };
+        var onOver = function(e:MouseEvent) { if (!changingAlpha) previewSprite.alpha = 0.6; targetAlpha = 0.6; };
+        var onOut  = function(e:MouseEvent) { if (!changingAlpha) previewSprite.alpha = 1.0; targetAlpha = 1.0; };
 
         previewSprite.addEventListener(MouseEvent.MOUSE_DOWN, onDown);
         previewSprite.addEventListener(MouseEvent.MOUSE_OVER, onOver);
@@ -252,7 +285,8 @@ class ScreenshotPlugin extends FlxBasic
                                 previewSprite.removeEventListener(MouseEvent.MOUSE_DOWN, onDown);
                                 previewSprite.removeEventListener(MouseEvent.MOUSE_OVER, onOver);
                                 previewSprite.removeEventListener(MouseEvent.MOUSE_OUT,  onOut);
-                                FlxG.stage.removeChild(previewSprite);
+                                if (previewSprite.parent != null)
+                                    FlxG.stage.removeChild(previewSprite);
                             }
                         });
                     });
@@ -314,7 +348,7 @@ class ScreenshotPlugin extends FlxBasic
     /** Devuelve un string con formato YYYY-MM-DD_HH-MM-SS. */
     function _timestamp():String
     {
-        var d  = Date.now();
+        var d = Date.now();
         return '${d.getFullYear()}-${_p(d.getMonth()+1)}-${_p(d.getDate())}'
              + '_${_p(d.getHours())}-${_p(d.getMinutes())}-${_p(d.getSeconds())}';
     }
@@ -355,6 +389,8 @@ class ScreenshotPlugin extends FlxBasic
     function _onPreStateSwitch():Void
     {
         stateChanging = true;
+        screenshotTakenFrame = 0;
+
         FlxTween.cancelTweensOf(flashSprite);
         FlxTween.cancelTweensOf(previewSprite);
         flashSprite.alpha   = 0;
@@ -365,6 +401,12 @@ class ScreenshotPlugin extends FlxBasic
     function _onPostStateSwitch():Void
     {
         stateChanging = false;
+
+        // FIX: recargar cooldown tras el cambio de estado.
+        // Evita que el botón BACK / SELECT, que puede seguir reportando
+        // "justPressed" durante los primeros frames del nuevo state,
+        // dispare una captura accidental.
+        _inputCooldown = COOLDOWN_ON_STATE_SWITCH;
     }
 
     // ── Destroy ───────────────────────────────────────────────────────────────

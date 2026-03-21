@@ -144,8 +144,9 @@ class FunkinCamera extends FlxCamera
 	override function drawPixels(?frame:FlxFrame, ?pixels:BitmapData, matrix:FlxMatrix, ?transform:ColorTransform, ?blend:BlendMode, ?smoothing:Bool = false,
 		?shader:FlxShader):Void
 	{
-		var shouldUseShader:Bool = (!hasKhronosExtension && KHR_BLEND_MODES.contains(blend))
-			|| SHADER_REQUIRED_BLEND_MODES.contains(blend);
+		var shouldUseShader:Bool = blend != null
+			&& ((!hasKhronosExtension && KHR_BLEND_MODES.contains(blend))
+				|| SHADER_REQUIRED_BLEND_MODES.contains(blend));
 
 		if (shouldUseShader)
 		{
@@ -193,7 +194,7 @@ class FunkinCamera extends FlxCamera
 			_blendShader.sourceSwag     = _blendRenderTexture.graphic.bitmap;
 			_blendShader.backgroundSwag = _cameraTexture;
 			_blendShader.blendSwag      = blendModeToInt(blend);
-			_blendShader.updateViewInfo(width, height, this);
+			if (_blendShader != null) _blendShader.updateViewInfo(width, height, this);
 
 			_backgroundFrame.parent.bitmap = _blendRenderTexture.graphic.bitmap;
 

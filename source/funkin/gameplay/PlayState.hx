@@ -28,7 +28,6 @@ import funkin.optimization.OptimizationManager;
 import funkin.system.MemoryUtil;
 import funkin.gameplay.objects.character.CharacterSlot;
 import funkin.gameplay.objects.StrumsGroup;
-import funkin.debug.StageEditor;
 import funkin.data.Song.CharacterSlotData;
 import funkin.data.Song.StrumsGroupData;
 // NUEVO: Import de batching
@@ -48,14 +47,13 @@ import funkin.data.CoolUtil;
 import funkin.gameplay.objects.hud.Highscore;
 import funkin.states.LoadingState;
 import funkin.states.GameOverSubstate;
-import funkin.menus.RatingState;
+import funkin.menus.ResultScreen;
 import funkin.gameplay.objects.hud.ScoreManager;
 import funkin.transitions.StickerTransition;
 // Menu Pause
 import funkin.menus.GitarooPause;
 import funkin.menus.PauseSubState;
 import funkin.debug.charting.ChartingState;
-import funkin.debug.DialogueEditor;
 #if desktop
 import data.Discord.DiscordClient;
 #end
@@ -98,6 +96,8 @@ class PlayState extends funkin.states.MusicBeatState
 	public static var goods:Int = 0;
 	public static var sicks:Int = 0;
 	public static var songScore:Int = 0;
+	/** True if the score achieved this run beat the previous best. Set in endSong() before saving. */
+	public static var isNewHighscore:Bool = false;
 	public static var accuracy:Float = 0.00;
 	public static var campaignScore:Int = 0;
 	public static var maxCombo:Int = 0;
@@ -350,7 +350,7 @@ class PlayState extends funkin.states.MusicBeatState
 		instance = this;
 		isPlaying = true;
 
-		FlxG.mouse.visible = false;
+		funkin.system.CursorManager.hide();
 		#if android
 		// En Android, el botón "atrás" del sistema se mapea a ESCAPE en OpenFL.
 		// Lo capturamos en el update() y lo tratamos como pausa.
@@ -415,10 +415,13 @@ class PlayState extends funkin.states.MusicBeatState
 		// releer el archivo de disco en cada canción.
 		funkin.data.GlobalConfig.applyToSkinSystem();
 
-		// Crear UI
-		setupUI();
-
 		// ── Aplicar skin de notas con jerarquía de prioridad ─────────────────
+		// IMPORTANTE: esto debe ocurrir ANTES de setupUI() para que UIScriptedManager
+		// lea el valor correcto de isPixel al construirse. Si se aplica después,
+		// el script UI recibe isPixel=false incluso en stages pixel (school, etc.)
+		// lo que provoca que los ratings y números de combo usen assets normales
+		// en lugar de los pixelados.
+		//
 		// Prioridad: meta.noteSkin > meta.stageSkins[stage] > stage-default > global player
 		//
 		// 1. Si el meta.json tiene "noteSkin" → override total para toda la canción.
@@ -455,6 +458,10 @@ class PlayState extends funkin.states.MusicBeatState
 			NoteSkinSystem.setTemporarySplash(metaData.noteSplash);
 		else
 			NoteSkinSystem.applySplashForStage(curStage);
+
+		// Crear UI — ahora la skin ya está activa, así que UIScriptedManager
+		// lee isPixel correcto desde getCurrentSkinData().
+		setupUI();
 
 		StickerTransition.clearStickers();
 
@@ -829,6 +836,8 @@ class PlayState extends funkin.states.MusicBeatState
 		sustainNotes = new FlxTypedGroup<Note>();
 		sustainNotes.cameras = [camHUD];
 		add(sustainNotes);
+
+		// La referencia pública se conecta después de crear noteManager (ver abajo)
 
 		notes = new FlxTypedGroup<Note>();
 		notes.cameras = [camHUD];
@@ -1341,43 +1350,94 @@ class PlayState extends funkin.states.MusicBeatState
 			return;
 		}
 
-		// ── Intro video (meta.json: "introVideo": "my-video") ─────────────────
-		// ── Intro sprite cutscene (meta.json: "introCutscene": "my-cutscene") ────
-		if (metaData != null && metaData.introCutscene != null && isStoryMode)
+		// ── Hook onIntroCutscene para scripts ────────────────────────────────
+		// Si un script define onIntroCutscene(startCountdown) y devuelve true,
+		// PlayState asume que el script se encarga de la cutscene completa
+		// y llama a startCountdown() cuando quiera continuar.
+		// Funciona igual en StoryMode y en FreePlay.
+		//
+		// Ejemplo en el script:
+		//   function onIntroCutscene(startCountdown) {
+		//       game.inCutscene = true;
+		//       game.canPause   = false;
+		//       bf.playAnim('intro1', true);
+		//       new FlxTimer().start(3.0, function(_) {
+		//           game.inCutscene = false;
+		//           game.canPause   = true;
+		//           startCountdown();   // ← continúa el juego
+		//       });
+		//       return true;  // ← imprescindible para que PlayState no arranque el countdown él solo
+		//   }
+		if (scriptsEnabled)
 		{
-			final cutKey  = metaData.introCutscene;
-			metaData.introCutscene = null; // evitar loop
-			if (SpriteCutscene.exists(cutKey, SONG?.song?.toLowerCase()))
+			var _startCb:Dynamic = function() {
+				inCutscene = false;
+				fixInstandVocals();
+				// Llamar startCountdown() de nuevo — ahora el hook no volverá a dispararse
+				// porque startedCountdown ya es true o el script no devolverá true de nuevo.
+				startCountdown();
+			};
+			var scriptHandled = ScriptHandler.callOnScriptsReturn(
+				'onIntroCutscene', [_startCb], false);
+			if (scriptHandled == true)
 			{
 				inCutscene = true;
-				SpriteCutscene.create(this, cutKey, SONG?.song?.toLowerCase(), function()
-				{
-					inCutscene = false;
-					startCountdown();
-				});
 				return;
 			}
 		}
 
-		// If there is a defined introduction video, it plays BEFORE the dialogue/countdown.
-		if (metaData != null && metaData.introVideo != null && isStoryMode)
+		// ── Intro cutscene sequence ─────────────────────────────────────────────
+		// Orden: introVideo → introCutscene (sprite) → countdown
+		// Ambos son opcionales — si solo hay uno de los dos funciona igual.
+		// Si hay los dos, el video se reproduce primero y cuando termina
+		// arranca la sprite cutscene, y cuando esa termina arranca el countdown.
+		if (isStoryMode && metaData != null
+			&& (metaData.introVideo != null || metaData.introCutscene != null))
 		{
+			// Capturar y limpiar las keys ANTES de entrar para evitar loops
 			final vidKey = metaData.introVideo;
-			metaData.introVideo = null; // avoid loop if called again
+			final cutKey = metaData.introCutscene;
+			metaData.introVideo    = null;
+			metaData.introCutscene = null;
 
-			if (VideoManager._resolvePath(vidKey) != null)
+			// Paso 2: sprite cutscene (o ir directo al countdown si no hay)
+			var runSpriteCutscene:Void->Void = null;
+			runSpriteCutscene = function()
+			{
+				if (cutKey != null && SpriteCutscene.exists(cutKey, SONG?.song?.toLowerCase()))
+				{
+					inCutscene = true;
+					SpriteCutscene.create(this, cutKey, SONG?.song?.toLowerCase(), function()
+					{
+						inCutscene = false;
+						fixInstandVocals();
+						startCountdown();
+					});
+				}
+				else
+				{
+					// Sin sprite cutscene → ir al countdown directamente
+					fixInstandVocals();
+					startCountdown();
+				}
+			};
+
+			// Paso 1: video (si existe) → después llamar runSpriteCutscene
+			if (vidKey != null && VideoManager._resolvePath(vidKey) != null)
 			{
 				inCutscene = true;
 				VideoManager.playCutscene(vidKey, function()
 				{
 					inCutscene = false;
-
-					fixInstandVocals();
-
-					startCountdown(); // continuar flujo normal
+					runSpriteCutscene();
 				});
-				return;
 			}
+			else
+			{
+				// Sin video → ir directo a la sprite cutscene
+				runSpriteCutscene();
+			}
+			return;
 		}
 
 		if (checkForDialogue('intro') && isStoryMode)
@@ -1719,7 +1779,7 @@ class PlayState extends funkin.states.MusicBeatState
 
 		if (FlxG.keys.justPressed.SEVEN)
 		{
-			FlxG.mouse.visible = true;
+			funkin.system.CursorManager.show();
 			StateTransition.switchState(new ChartingState());
 		}
 
@@ -1732,23 +1792,9 @@ class PlayState extends funkin.states.MusicBeatState
 			// Nullear para que PlayState.destroy() no destruya el manager que el editor necesita
 			modChartManager = null;
 
-			FlxG.mouse.visible = true;
+			funkin.system.CursorManager.show();
 			StateTransition.switchState(new ModChartEditorState());
 		}
-
-		/*
-			if (FlxG.keys.justPressed.EIGHT)
-			{
-				StateTransition.switchState(new StageEditor());
-			}
-
-			if (FlxG.keys.justPressed.NINE)
-			{
-				persistentUpdate = false;
-				persistentDraw = true;
-				paused = true;
-				StateTransition.switchState(new DialogueEditor());
-		}*/
 
 		// Song time - SINCRONIZACIÓN MEJORADA
 		if (startingSong && startedCountdown && !inCutscene)
@@ -1981,7 +2027,9 @@ class PlayState extends funkin.states.MusicBeatState
 	private function _onAndroidKeyDown(keyCode:Int, modifier:Int):Void
 	{
 		// KeyCode 27 = ESCAPE (mapeado al botón atrás en Android por OpenFL/Lime)
-		if (keyCode == 27 && !paused)
+		// FIX: no abrir pausa durante SpriteCutscene (inCutscene=true) igual que
+		// en la ruta principal de PAUSE — evita que el inst arranque al cerrar.
+		if (keyCode == 27 && !paused && !inCutscene)
 			openSubState(new PauseSubState(false));
 	}
 	#end
@@ -2437,7 +2485,10 @@ class PlayState extends funkin.states.MusicBeatState
 	{
 		if (paused)
 		{
-			var shouldResync = isPlaying && !isRewinding && FlxG.sound.music != null && !startingSong && !VideoManager.isPlaying;
+			// FIX: !inCutscene — si la pausa se abrió durante una SpriteCutscene
+		// (que no usa FlxG.sound.music para su audio) no intentar resync del
+		// inst porque lo arrancaría mientras la cutscene todavía corre.
+		var shouldResync = isPlaying && !isRewinding && FlxG.sound.music != null && !startingSong && !VideoManager.isPlaying && !inCutscene;
 			if (shouldResync)
 			{
 				// BUGFIX: Si el audio ya está reproduciéndose (PauseSubState llamó
@@ -2613,52 +2664,114 @@ class PlayState extends funkin.states.MusicBeatState
 		if (SONG.validScore)
 		{
 			final diffSuffix = funkin.data.CoolUtil.difficultySuffix();
+			// Check BEFORE saving so we can detect if this is a new personal best
+			final _prevScore = funkin.gameplay.objects.hud.Highscore.getScore(SONG.song, diffSuffix);
+			isNewHighscore = (songScore > _prevScore);
 			Highscore.saveScore(SONG.song, songScore, diffSuffix);
 			Highscore.saveRating(SONG.song, gameState.accuracy, diffSuffix);
 		}
 
-		// ── Outro sprite cutscene (meta.json: "outroCutscene": "my-cutscene") ──
-		if (metaData != null && metaData.outroCutscene != null)
+		// ── Hook onOutroCutscene para scripts ────────────────────────────────
+		// Si un script define onOutroCutscene(continueAfterSong) y devuelve true,
+		// el script se encarga de la cutscene y llama a continueAfterSong() al terminar.
+		//
+		// Ejemplo:
+		//   function onOutroCutscene(next) {
+		//       game.inCutscene = true;
+		//       dad.playAnim('win', true);
+		//       new FlxTimer().start(3.0, function(_) {
+		//           game.inCutscene = false;
+		//           next();
+		//       });
+		//       return true;
+		//   }
+		if (scriptsEnabled)
 		{
-			final cutKey  = metaData.outroCutscene;
-			metaData.outroCutscene = null;
-			if (SpriteCutscene.exists(cutKey, SONG?.song?.toLowerCase()))
+			var _continueCb:Dynamic = function() {
+				inCutscene = false;
+				continueAfterSong();
+			};
+			var scriptHandledOutro = ScriptHandler.callOnScriptsReturn(
+				'onOutroCutscene', [_continueCb], false);
+			if (scriptHandledOutro == true)
 			{
-				isCutscene = true;
-				SpriteCutscene.create(this, cutKey, SONG?.song?.toLowerCase(), function()
-				{
-					isCutscene = false;
-					if (showOutroDialogue() && isStoryMode) return;
-					continueAfterSong();
-				});
+				inCutscene = true;
 				return;
 			}
 		}
 
-		// ── Outro video (meta.json: "outroVideo": "mi-video") ─────────────────
-		if (metaData != null && metaData.outroVideo != null)
+		// ── Outro cutscene sequence ─────────────────────────────────────────────
+		// Orden: outroVideo → outroCutscene (sprite) → diálogo → continueAfterSong
+		if (metaData != null
+			&& (metaData.outroVideo != null || metaData.outroCutscene != null))
 		{
 			final vidKey = metaData.outroVideo;
-			metaData.outroVideo = null; // evitar doble reproducción
+			final cutKey = metaData.outroCutscene;
+			metaData.outroVideo    = null;
+			metaData.outroCutscene = null;
 
-			if (VideoManager._resolvePath(vidKey) != null)
+			// Orden OUTRO (inverso al intro): diálogo → sprite cutscene → video → continueAfterSong
+
+			// Paso 3: video → continueAfterSong
+			var runOutroVideo:Void->Void = null;
+			runOutroVideo = function()
 			{
-				isCutscene = true;
-				VideoManager.playCutscene(vidKey, function()
+				if (vidKey != null && VideoManager._resolvePath(vidKey) != null)
+				{
+					isCutscene = true;
+					VideoManager.playCutscene(vidKey, function()
+					{
+						isCutscene = false;
+						continueAfterSong();
+					});
+				}
+				else
 				{
 					isCutscene = false;
-					if (showOutroDialogue() && isStoryMode)
-						return;
 					continueAfterSong();
-				});
-				return;
+				}
+			};
+
+			// Paso 2: sprite cutscene → video
+			var runSpriteCutscene:Void->Void = null;
+			runSpriteCutscene = function()
+			{
+				if (cutKey != null && SpriteCutscene.exists(cutKey, SONG?.song?.toLowerCase()))
+				{
+					isCutscene = true;
+					SpriteCutscene.create(this, cutKey, SONG?.song?.toLowerCase(), function()
+					{
+						runOutroVideo();
+					});
+				}
+				else
+					runOutroVideo();
+			};
+
+			// Paso 1: diálogo → sprite cutscene
+			if (showOutroDialogue() && isStoryMode)
+			{
+				// showOutroDialogue llama a showDialogue internamente;
+				// necesitamos engancharnos al callback → llamarlo manualmente
+				if (checkForDialogue('outro'))
+				{
+					isCutscene = true;
+					showDialogue('outro', function()
+					{
+						runSpriteCutscene();
+					});
+				}
+				else
+					runSpriteCutscene();
 			}
+			else
+				runSpriteCutscene();
+			return;
 		}
 
+		// Sin video/cutscene: el diálogo se maneja aquí directamente
 		if (showOutroDialogue() && isStoryMode)
-		{
-			return; // El diálogo manejará el resto
-		}
+			return;
 
 		if (!isCutscene)
 			continueAfterSong();
@@ -3058,6 +3171,11 @@ class PlayState extends funkin.states.MusicBeatState
 				else
 				{
 					s.visible = shouldBeVisible;
+					// BUGFIX: reloadAllStrumSkins() recarga el frameset pero no toca alpha.
+					// Si el grupo es invisible (GF strums: visible:false), el alpha puede
+					// haberse quedado en 1.0 tras la recarga → el sprite se renderiza
+					// aunque visible=false. Resetear alpha aquí garantiza consistencia.
+					s.alpha = shouldBeVisible ? 1.0 : 0.0;
 				}
 			});
 		}
@@ -3139,6 +3257,9 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler.clearStageScripts(); // BUGFIX: sin esto los scripts del stage anterior
 			ScriptHandler.clearCharScripts(); // quedan vivos al regresar al state → crash
 			EventManager.clear();
+			// Descargar los handlers de eventos del contexto gameplay
+			funkin.scripting.EventHandlerLoader.clearContext('chart');
+			funkin.scripting.EventHandlerLoader.clearContext('global');
 		}
 
 		// ── 5. OMITIR currentStage.destroy() manual ─────────────────────────────
@@ -3387,7 +3508,7 @@ class PlayState extends funkin.states.MusicBeatState
 					Highscore.saveWeekScore(storyWeek, campaignScore, funkin.data.CoolUtil.difficultySuffix());
 
 				FlxG.save.flush();
-				LoadingState.loadAndSwitchState(new RatingState());
+				LoadingState.loadAndSwitchState(new ResultScreen());
 			}
 			else
 			{
@@ -3409,7 +3530,7 @@ class PlayState extends funkin.states.MusicBeatState
 			}
 			else if (vocals != null)
 				vocals.stop();
-			LoadingState.loadAndSwitchState(new RatingState());
+			LoadingState.loadAndSwitchState(new ResultScreen());
 		}
 	}
 

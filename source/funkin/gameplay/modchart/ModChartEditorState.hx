@@ -315,7 +315,7 @@ class ModChartEditorState extends FlxState
 	override function create():Void
 	{
 		super.create();
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 
 		editorCam         = FlxG.camera;
 		editorCam.bgColor = FlxColor.fromInt(C_BG);
@@ -2568,7 +2568,7 @@ class ModChartEditorState extends FlxState
 		for (edGrp in editorGroups) edGrp.destroy();
 		editorGroups = [];
 
-		FlxG.mouse.visible = false;
+		funkin.system.CursorManager.hide();
 
 		trace('[MCEditor] Cerrado. Eventos: ${manager.data.events.length}');
 		StateTransition.switchState(new PlayState());

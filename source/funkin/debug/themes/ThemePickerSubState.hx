@@ -397,31 +397,31 @@ class ThemePickerSubState extends FlxSubState
 		close();
 		// Restart the current editor state so all colors refresh
 		var curState = flixel.FlxG.state;
-		if (Std.isOfType(curState, StageEditor))
+		if (Std.isOfType(curState, funkin.debug.editors.StageEditor))
 		{
-			flixel.FlxG.mouse.visible = false;
-			funkin.transitions.StateTransition.switchState(new StageEditor());
+			funkin.system.CursorManager.hide();
+			funkin.transitions.StateTransition.switchState(new funkin.debug.editors.StageEditor());
 		}
 		else if (Std.isOfType(curState, funkin.menus.CharacterSelectorState))
 		{
 			funkin.transitions.StateTransition.switchState(new funkin.menus.CharacterSelectorState());
 		}
-		else if (Std.isOfType(curState, funkin.debug.AnimationDebug))
+		else if (Std.isOfType(curState, funkin.debug.editors.AnimationDebug))
 		{
-			var ad:funkin.debug.AnimationDebug = cast curState;
-			funkin.transitions.StateTransition.switchState(new funkin.debug.AnimationDebug(ad.daAnim));
+			var ad:funkin.debug.editors.AnimationDebug = cast curState;
+			funkin.transitions.StateTransition.switchState(new funkin.debug.editors.AnimationDebug(ad.daAnim));
 		}
 		else if (Std.isOfType(curState, funkin.debug.charting.ChartingState))
 		{
 			funkin.transitions.StateTransition.switchState(new funkin.debug.charting.ChartingState());
 		}
-		else if (Std.isOfType(curState, funkin.debug.DialogueEditor))
+		else if (Std.isOfType(curState, funkin.debug.editors.DialogueEditor))
 		{
-			funkin.transitions.StateTransition.switchState(new funkin.debug.DialogueEditor());
+			funkin.transitions.StateTransition.switchState(new funkin.debug.editors.DialogueEditor());
 		}
-		else if (Std.isOfType(curState, funkin.menus.FreeplayEditorState))
+		else if (Std.isOfType(curState, funkin.debug.editors.FreeplayEditorState))
 		{
-			funkin.transitions.StateTransition.switchState(new funkin.menus.FreeplayEditorState());
+			funkin.transitions.StateTransition.switchState(new funkin.debug.editors.FreeplayEditorState());
 		}
 		else
 		{

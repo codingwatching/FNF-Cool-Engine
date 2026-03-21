@@ -1,32 +1,37 @@
 package;
 
 /**
- * CrashHandler — Gestor de crashes para Cool Engine.
+ * CrashHandler — Cool Engine (v2)
  *
- * ── Por qué el handler anterior no servía ────────────────────────────────────
+ * ── Por qué el handler anterior no mostraba nada ─────────────────────────────
  *
- *  El stack trace que llegó es de tipo "Called from FlxDrawQuadsItem::render"
- *  — eso es una NULL OBJECT REFERENCE en C++. OpenFL's UncaughtErrorEvent
- *  NO captura ese tipo de error; solo captura excepciones lanzadas con `throw`.
- *  Los crashes de null ptr en C++ (hxcpp) requieren un hook diferente:
+ *  PROBLEMA 1 — GC en estado corrupto:
+ *    _onCriticalError() creaba StringBuf, llamaba Date.now(), accedía a FlxG…
+ *    todo requiere el heap de Haxe sano. Con un NULL OBJECT REF en C++ el heap
+ *    puede estar corrupto → el handler crasheaba de nuevo, sin mostrar nada.
  *
- *    untyped __global__.__hxcpp_set_critical_error_handler(fn)
+ *  PROBLEMA 2 — Deadlock en el render thread:
+ *    FlxDrawQuadsItem::render corre en el render thread. window.alert() postea
+ *    al event loop principal, que espera al render thread → deadlock.
+ *    La ventana se congelaba y desaparecía sin mostrar nada.
  *
- *  Sin ese hook, el juego se cierra silenciosamente sin mostrar nada.
+ *  PROBLEMA 3 — Sin fallback nativo:
+ *    Si Lime fallaba, el catch solo hacía Sys.println() — invisible en release.
  *
- * ── Qué hace este handler ────────────────────────────────────────────────────
+ * ── Solución ─────────────────────────────────────────────────────────────────
  *
- *  1. UncaughtErrorEvent   → errores Haxe/OpenFL normales (throw, etc.)
- *  2. hxcpp critical hook  → null object reference, stack overflow, etc. (CPP only)
- *  3. Guarda un log en ./crash/CoolEngine_<timestamp>.txt
- *  4. Muestra un diálogo nativo con el error + ruta del log
- *  5. Cierra el juego limpiamente
+ *  Hook 1 → UncaughtErrorEvent  : errores Haxe/OpenFL normales
+ *  Hook 2 → hxcpp critical hook : null ptr, stack overflow (CPP only)
+ *
+ *  Para Hook 2:
+ *   - Timestamp via Sys.time() (Float, tipo valor, sin GC)
+ *   - Log via sys.io.File (try/catch independiente)
+ *   - Diálogo via proceso separado (PowerShell/osascript/zenity) → sin deadlock
+ *   - Info del sistema pre-construida en init() cuando el runtime estaba sano
  *
  * ── Uso ──────────────────────────────────────────────────────────────────────
  *
  *  CrashHandler.init();   // UNA sola vez en Main, ANTES de createGame()
- *
- * @author Cool Engine Team (basado en V-Slice CrashHandler)
  */
 
 import openfl.Lib;
@@ -48,77 +53,51 @@ using StringTools;
 
 class CrashHandler
 {
-	// ── Config ────────────────────────────────────────────────────────────────
+	// ── Configuración ──────────────────────────────────────────────────────────
 
-	// FIX: On Android "./crash/" is relative to the APK root which is read-only.
-	// We compute a writable path at init-time depending on the platform.
-	// lime.system.System.documentsDirectory returns the external-storage Documents
-	// folder on Android, which the app has permission to write.
-	private static var CRASH_DIR : String = _resolveCrashDir();
-	private static function _resolveCrashDir():String
-	{
-		#if mobileC
-		try
-		{
-			var base = lime.system.System.documentsDirectory;
-			if (base == null || base == "") base = "./";
-			if (!base.endsWith("/")) base += "/";
-			return base + "CoolEngine/crash/";
-		}
-		catch (_:Dynamic) { return "./crash/"; }
-		#else
-		return "./crash/";
-		#end
-	}
-	private static inline final LOG_PREFIX : String = "CoolEngine_";
-	private static inline final REPORT_URL : String = "https://github.com/Manux123/FNF-Cool-Engine/issues";
-
-	private static inline final ENGINE_VERSION : String = "0.4.1B";
+	private static var   CRASH_DIR         : String = _resolveCrashDir();
+	private static inline final LOG_PREFIX  : String = "CoolEngine_";
+	private static inline final REPORT_URL  : String = "https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/issues";
+	private static inline final ENGINE_VERSION : String = "0.6.0B";
 
 	// ── Estado interno ────────────────────────────────────────────────────────
 
-	/** Evita loops de crash (crash dentro del crash handler). */
-	private static var _handling : Bool = false;
-
-	/** Inicializado una sola vez. */
+	private static var _handling    : Bool = false;
 	private static var _initialized : Bool = false;
+
+	/**
+	 * Info del sistema pre-construida en init() cuando el runtime está sano.
+	 * Se usa en _onCriticalError sin necesidad de crear ningún objeto Haxe.
+	 */
+	private static var _staticInfo : String = "";
 
 	// =========================================================================
 	//  API PÚBLICA
 	// =========================================================================
 
-	/**
-	 * Inicializa los dos hooks de error.
-	 * Llamar UNA sola vez desde Main.hx, ANTES de createGame().
-	 */
 	public static function init() : Void
 	{
 		if (_initialized) return;
 		_initialized = true;
 
-		// ── Hook 1: UncaughtErrorEvent (Haxe throws, OpenFL errors) ──────────
+		_staticInfo = _buildStaticInfo();
+
+		// Hook 1: errores Haxe/OpenFL (throw, etc.)
 		Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(
 			UncaughtErrorEvent.UNCAUGHT_ERROR,
 			_onUncaughtError
 		);
 
-		// ── Hook 2: C++ critical errors (null object reference, etc.) ─────────
-		// ESTE es el que faltaba. Sin él, los crashes de C++ (como
-		// FlxDrawQuadsItem::render null bitmap) no son capturados.
+		// Hook 2: C++ null ptr, stack overflow, assert
 		#if cpp
 		untyped __global__.__hxcpp_set_critical_error_handler(_onCriticalError);
 		#end
 
-		trace("[CrashHandler] Inicializado (UncaughtError + C++ critical hook).");
+		trace('[CrashHandler] v2 listo. Crash dir → $CRASH_DIR');
 	}
 
 	/**
-	 * Reporta un error manualmente (sin cerrar el juego por defecto).
-	 * Útil en bloques try/catch donde se quiere loguear pero continuar.
-	 *
-	 * @param error    El error capturado.
-	 * @param context  Descripción de dónde ocurrió.
-	 * @param fatal    Si true, cierra el juego después de mostrar el diálogo.
+	 * Reporta un error manualmente (útil en try/catch para loguear y continuar).
 	 */
 	public static function report(error:Dynamic, ?context:String, fatal:Bool = false) : Void
 	{
@@ -135,7 +114,7 @@ class CrashHandler
 			_showAndExit(message);
 		#if debug
 		else
-			_showDialog('[NON-FATAL]\n\n' + message, "Cool Engine — Error (no fatal)");
+			_nativeDialog('[NON-FATAL]\n\n' + message, "Cool Engine — Error no fatal");
 		#end
 	}
 
@@ -143,7 +122,6 @@ class CrashHandler
 	//  HOOKS INTERNOS
 	// =========================================================================
 
-	/** Callback de OpenFL para errores lanzados con `throw`. */
 	private static function _onUncaughtError(e:UncaughtErrorEvent) : Void
 	{
 		if (_handling) return;
@@ -161,43 +139,159 @@ class CrashHandler
 	}
 
 	/**
-	 * Callback de hxcpp para NULL OBJECT REFERENCE, stack overflow, etc.
+	 * Llamado desde hxcpp cuando hay un error C++ crítico (null ptr, etc.).
 	 *
-	 * IMPORTANTE: esta función es llamada desde C++ en un contexto muy bajo.
-	 * NO puede lanzar excepciones ni acceder a estructuras OpenFL/Flixel que
-	 * puedan estar corrompidas. Solo puede:
-	 *   - Escribir a disco (sys.io.File)
-	 *   - Mostrar un diálogo nativo (lime.app.Application.current.window.alert)
-	 *   - Llamar a Sys.exit()
+	 * Reglas:
+	 *  - Sys.time() para el timestamp (Float, tipo valor, sin GC)
+	 *  - sys.io.File para escribir el log (try/catch independiente)
+	 *  - Sys.command() para el diálogo (proceso separado → sin deadlock)
+	 *  - _staticInfo ya está pre-construido, es un String existente
 	 */
 	#if cpp
-	private static function _onCriticalError(message:String) : Void
+	private static function _onCriticalError(cppMessage:String) : Void
 	{
 		if (_handling) return;
 		_handling = true;
 
-		// El call stack de hxcpp ya viene en `message` (formato texto).
-		// Añadimos contexto adicional sin tocar estructuras Flixel/OpenFL.
-		var report = _buildCriticalReport(message);
+		// ── 1. Reporte ────────────────────────────────────────────────────────
+		var report =
+			"===========================================\n" +
+			"       COOL ENGINE — CRASH REPORT\n" +
+			"===========================================\n\n" +
+			"Tipo     : C++ Critical Error\n" +
+			"           (null object reference / stack overflow / assert)\n\n" +
+			_staticInfo +
+			"\n--- Mensaje de C++ ---\n" +
+			cppMessage +
+			"\n\n===========================================\n" +
+			"Reporta este error en:\n" +
+			REPORT_URL + "\n" +
+			"===========================================\n";
 
+		// ── 2. Guardar log ────────────────────────────────────────────────────
+		// Sys.time() = epoch como Float, tipo valor → sin GC.
+		var logPath : String = "";
 		#if sys
-		try { Sys.println(report); } catch (_) {}
-		_saveLog(report);
-		#end
-
-		// Mostrar diálogo. lime.app.Application es más robusto que FlxG aquí.
 		try
 		{
-			lime.app.Application.current.window.alert(
-				_truncate(report, 3000),
-				"Cool Engine — Fatal Error"
-			);
+			if (!FileSystem.exists(CRASH_DIR))
+				FileSystem.createDirectory(CRASH_DIR);
+			var ts = Std.string(Std.int(Sys.time()));
+			logPath = CRASH_DIR + LOG_PREFIX + ts + ".txt";
+			File.saveContent(logPath, report + "\n");
 		}
 		catch (_) {}
+		#end
+
+		// ── 3. Diálogo nativo ─────────────────────────────────────────────────
+		var dialogMessage = _truncate(report, 2000);
+		if (logPath != "") dialogMessage += '\n\nLog guardado en:\n$logPath';
+		_nativeDialog(dialogMessage, "Cool Engine — Error Fatal");
+
+		// ── 4. Abrir carpeta ──────────────────────────────────────────────────
+		if (logPath != "") _openCrashFolder(CRASH_DIR);
 
 		Sys.exit(1);
 	}
 	#end
+
+	// =========================================================================
+	//  DIÁLOGOS NATIVOS (proceso separado → sin deadlock)
+	// =========================================================================
+
+	/**
+	 * Muestra un diálogo modal usando el SO, sin pasar por Lime/OpenFL.
+	 * Cada plataforma lanza un proceso separado → no hay deadlock posible
+	 * aunque el render thread esté bloqueado.
+	 *
+	 * Windows → PowerShell + Windows.Forms.MessageBox
+	 * macOS   → osascript
+	 * Linux   → zenity → kdialog → xmessage
+	 * Fallback → lime.app.Application (si lo anterior falla)
+	 * Último recurso → stderr
+	 */
+	private static function _nativeDialog(message:String, title:String) : Void
+	{
+		var shown = false;
+
+		#if (sys && windows)
+		if (!shown)
+		{
+			try
+			{
+				// Escapar comillas simples para PowerShell
+				var msg   = message.replace("'", "`'");
+				var ttl   = title.replace("'", "`'");
+				var ps    = "Add-Type -AssemblyName System.Windows.Forms;" +
+				            "[System.Windows.Forms.MessageBox]::Show('" + msg + "','" + ttl + "',0,16)|Out-Null";
+				var ret   = Sys.command("powershell", ["-NonInteractive", "-Command", ps]);
+				if (ret != 9009) shown = true; // 9009 = powershell.exe not found
+			}
+			catch (_) {}
+		}
+		#end
+
+		#if (sys && mac)
+		if (!shown)
+		{
+			try
+			{
+				var escaped      = message.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
+				var escapedTitle = title.replace("\"", "\\\"");
+				Sys.command("osascript", ["-e", 'display alert "$escapedTitle" message "$escaped" as critical']);
+				shown = true;
+			}
+			catch (_) {}
+		}
+		#end
+
+		#if (sys && linux)
+		if (!shown)
+		{
+			try
+			{
+				var ret = Sys.command("zenity", ["--error", '--title=$title', '--text=$message', "--width=600"]);
+				if (ret != 127) shown = true;
+			}
+			catch (_) {}
+		}
+		if (!shown)
+		{
+			try
+			{
+				var ret = Sys.command("kdialog", ["--error", message, "--title", title]);
+				if (ret != 127) shown = true;
+			}
+			catch (_) {}
+		}
+		if (!shown)
+		{
+			try
+			{
+				var ret = Sys.command("xmessage", ["-center", message]);
+				if (ret != 127) shown = true;
+			}
+			catch (_) {}
+		}
+		#end
+
+		// Fallback: intentar con Lime si el runtime lo permite
+		if (!shown)
+		{
+			try
+			{
+				lime.app.Application.current.window.alert(_truncate(message, 3000), title);
+				shown = true;
+			}
+			catch (_) {}
+		}
+
+		// Último recurso: stderr
+		if (!shown)
+		{
+			try { Sys.stderr().writeString("=== FATAL CRASH ===\n" + message + "\n"); } catch (_) {}
+		}
+	}
 
 	// =========================================================================
 	//  CONSTRUCCIÓN DEL REPORTE
@@ -209,67 +303,58 @@ class CrashHandler
 		_header(sb);
 
 		if (context != null && context.length > 0)
-		{
 			sb.add('Contexto : $context\n\n');
-		}
 
 		sb.add('Error    : $error\n\n');
-
 		_appendStack(sb, stack);
 		_footer(sb);
-
 		return sb.toString();
 	}
 
-	#if cpp
-	private static function _buildCriticalReport(cppMessage:String) : String
+	/** Pre-construye la info del sistema en init(), cuando el runtime está sano. */
+	private static function _buildStaticInfo() : String
 	{
 		var sb = new StringBuf();
-		_header(sb);
-		sb.add('Tipo     : C++ Critical Error (null object reference / stack overflow)\n\n');
-		sb.add('Mensaje  : $cppMessage\n\n');
 
-		// Intentar añadir el state actual (puede fallar si Flixel está corrupto)
-		try
-		{
-			if (flixel.FlxG.game != null && flixel.FlxG.state != null)
-			{
-				var cls = Type.getClass(flixel.FlxG.state);
-				if (cls != null)
-					sb.add('State    : ${Type.getClassName(cls)}\n\n');
-			}
-		}
-		catch (_) {}
-
-		sb.add('NOTA: El stack trace de C++ está incluido en el mensaje de arriba.\n\n');
-		_footer(sb);
-		return sb.toString();
-	}
-	#end
-
-	private static function _header(sb:StringBuf) : Void
-	{
-		sb.add("===========================================\n");
-		sb.add("       COOL ENGINE — CRASH REPORT\n");
-		sb.add("===========================================\n\n");
-		sb.add('Fecha    : ${Date.now().toString()}\n');
 		sb.add('Versión  : $ENGINE_VERSION\n');
+		sb.add('Fecha    : ${Date.now().toString()}\n');
 		sb.add('Sistema  : ${_systemName()}\n');
+
 		#if sys
 		sb.add('Memoria  : ${_memMB()} MB usados\n');
 		#end
+
+		try
+		{
+			var app = lime.app.Application.current;
+			if (app != null && app.window != null)
+				sb.add('Ventana  : ${app.window.width}x${app.window.height}\n');
+		}
+		catch (_) {}
+
 		sb.add('\n--- Estado Flixel ---\n');
 		try
 		{
 			if (flixel.FlxG.game != null && flixel.FlxG.state != null)
 			{
 				var cls = Type.getClass(flixel.FlxG.state);
-				sb.add('State : ${cls != null ? Type.getClassName(cls) : "??"}\n');
+				sb.add('State    : ${cls != null ? Type.getClassName(cls) : "???"}\n');
+				sb.add('FPS      : ${Math.round(openfl.Lib.current.stage.frameRate)}\n');
 			}
-			else sb.add('State : (FlxG no disponible)\n');
+			else sb.add('State    : (FlxG no disponible)\n');
 		}
-		catch (_) { sb.add('State : (error al leer)\n'); }
-		sb.add('\n===========================================\n\n');
+		catch (_) { sb.add('State    : (error al leer)\n'); }
+
+		return sb.toString();
+	}
+
+	private static function _header(sb:StringBuf) : Void
+	{
+		sb.add("===========================================\n");
+		sb.add("       COOL ENGINE — CRASH REPORT\n");
+		sb.add("===========================================\n\n");
+		sb.add(_staticInfo);
+		sb.add("\n===========================================\n\n");
 	}
 
 	private static function _footer(sb:StringBuf) : Void
@@ -293,9 +378,13 @@ class CrashHandler
 		{
 			switch (item)
 			{
-				case FilePos(_, file, line, column):
-					var col = (column != null) ? ':$column' : '';
-					sb.add('  $file : $line$col\n');
+				case FilePos(s, file, line, column):
+					var col    = (column != null) ? ':$column' : '';
+					var method = (s != null) ? switch (s) {
+						case Method(cls, m): ' [$cls.$m()]';
+						default: '';
+					} : '';
+					sb.add('  $file:$line$col$method\n');
 				case CFunction:
 					sb.add("  [C Function]\n");
 				case Module(m):
@@ -314,6 +403,22 @@ class CrashHandler
 	//  HELPERS
 	// =========================================================================
 
+	private static function _resolveCrashDir() : String
+	{
+		#if mobileC
+		try
+		{
+			var base = lime.system.System.documentsDirectory;
+			if (base == null || base == "") base = "./";
+			if (!base.endsWith("/")) base += "/";
+			return base + "CoolEngine/crash/";
+		}
+		catch (_:Dynamic) { return "./crash/"; }
+		#else
+		return "./crash/";
+		#end
+	}
+
 	private static function _saveLog(content:String) : Null<String>
 	{
 		#if sys
@@ -321,7 +426,6 @@ class CrashHandler
 		{
 			if (!FileSystem.exists(CRASH_DIR))
 				FileSystem.createDirectory(CRASH_DIR);
-
 			var ts   = Date.now().toString().replace(" ", "_").replace(":", "-");
 			var path = CRASH_DIR + LOG_PREFIX + ts + ".txt";
 			File.saveContent(path, content + "\n");
@@ -337,40 +441,43 @@ class CrashHandler
 
 	private static function _showAndExit(message:String) : Void
 	{
-		// Apagar Discord antes de cerrar
 		#if (desktop && DISCORD_ALLOWED)
 		try { DiscordClient.shutdown(); } catch (_) {}
 		#end
 
-		_showDialog(_truncate(message, 3000), "Cool Engine — Error Fatal");
+		var logPath   = _saveLog(message);
+		var dialogMsg = _truncate(message, 2800);
+		if (logPath != null)
+			dialogMsg += '\n\n─────────────────────\nLog guardado en:\n${Path.normalize(logPath)}';
+
+		_nativeDialog(dialogMsg, "Cool Engine — Error Fatal");
+
+		if (logPath != null) _openCrashFolder(CRASH_DIR);
 
 		#if sys
 		Sys.exit(1);
 		#end
 	}
 
-	private static function _showDialog(message:String, title:String) : Void
+	private static function _openCrashFolder(dir:String) : Void
 	{
 		try
 		{
-			lime.app.Application.current.window.alert(message, title);
-		}
-		catch (e:Dynamic)
-		{
-			// Si lime falla (puede pasar en un crash de render), intentar con SDL nativo
-			try { Sys.println("[CrashHandler] Dialog failed: " + e); } catch (_) {}
-			#if sys
-			// Último recurso: imprimir en consola
-			try { Sys.println("=== FATAL ===\n" + message); } catch (_) {}
+			#if windows
+			Sys.command("explorer", [Path.normalize(dir).replace("/", "\\")]);
+			#elseif mac
+			Sys.command("open", [dir]);
+			#elseif linux
+			Sys.command("xdg-open", [dir]);
 			#end
 		}
+		catch (_) {}
 	}
 
-	/** Trunca strings muy largos para que quepan en el diálogo. */
 	private static function _truncate(s:String, max:Int) : String
 	{
 		if (s.length <= max) return s;
-		return s.substr(0, max) + "\n\n[... truncado. Ver archivo en ./crash/]";
+		return s.substr(0, max) + "\n\n[... truncado. Ver archivo de log completo]";
 	}
 
 	private static function _systemName() : String

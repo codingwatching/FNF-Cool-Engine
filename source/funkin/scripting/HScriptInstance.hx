@@ -225,7 +225,9 @@ class HScriptInstance
 				#end
 				ScriptAPI.expose(interp);
 			}
-			program = ScriptHandler.parser.parseString(_source, name);
+			// Pre-procesar imports antes de parsear
+			final _processedSource = ScriptHandler.processImports(_source, interp);
+			program = ScriptHandler.parser.parseString(_processedSource, name);
 			interp.execute(program);
 			return true;
 		}

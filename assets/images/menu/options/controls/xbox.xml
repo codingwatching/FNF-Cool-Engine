@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TextureAtlas imagePath="xbox.png">
+	<!-- Created with Adobe Animate version 21.0.5.40714 -->
+	<!-- http://www.adobe.com/products/animate.html -->
+	<SubTexture name="A.png" x="39" y="0" width="39" height="39"/>
+	<SubTexture name="B.png" x="39" y="39" width="39" height="39"/>
+	<SubTexture name="X.png" x="0" y="39" width="39" height="39"/>
+	<SubTexture name="Y.png" x="0" y="0" width="39" height="39"/>
+	<SubTexture name="down.png" x="117" y="39" width="39" height="39"/>
+	<SubTexture name="left.png" x="117" y="0" width="39" height="39"/>
+	<SubTexture name="options.png" x="78" y="0" width="39" height="39"/>
+	<SubTexture name="right.png" x="156" y="39" width="39" height="39"/>
+	<SubTexture name="share.png" x="78" y="39" width="39" height="39"/>
+	<SubTexture name="up.png" x="156" y="0" width="39" height="39"/>
+</TextureAtlas>

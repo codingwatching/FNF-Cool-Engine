@@ -13,7 +13,7 @@ import funkin.gameplay.objects.character.Character.CharacterData;
 import funkin.gameplay.objects.character.Character.AnimData;
 import funkin.gameplay.objects.character.CharacterList;
 import funkin.gameplay.objects.character.HealthIcon;
-import funkin.debug.AnimationDebug;
+import funkin.debug.editors.AnimationDebug;
 import funkin.debug.themes.EditorTheme;
 import funkin.states.MusicBeatState;
 import funkin.transitions.StateTransition;
@@ -106,7 +106,7 @@ class CharacterSelectorState extends MusicBeatState
 	override function create():Void
 	{
 		EditorTheme.load();
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 		// MusicManager solo cambia si 'configurator' no está sonando ya.
 		// Resetear la flag solo cuando realmente se cambia la pista.
 		if (!MusicManager.isPlaying('configurator'))

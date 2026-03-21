@@ -1,11 +1,30 @@
-# [Cool Engine REBORN (65%)](https://github.com/Manux123/FNF-Cool-Engine)
+# [Cool Engine REBORN (70%)](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine)
+> **Note**  
+> This engine is currently a work in progress. If you find any bugs or unexpected behavior, please open an issue in the repository.
 
 **FNF': Cool Engine is a modification of the original FNF' source code the mod includes new Options and better Graphics!!**
 ----------------------------------------------
+<p align="center">
+  <img src="/art/posterCool-min.png" width="455">
+  <img src="/art/cool-logo-animated.gif" width="345">
+  <img width="400" alt="Captura de pantalla 2026-03-14 203029" src="https://github.com/user-attachments/assets/af9c7d84-f749-4cf6-9d51-79d0dfcb894a" />
+  <img width="400" alt="Captura de pantalla 2026-03-11 221232" src="https://github.com/user-attachments/assets/80ab40aa-9f88-414a-8cfe-d2eddcd3e51b" />
+  <img width="400" alt="Captura de pantalla 2026-03-11 213628" src="https://github.com/user-attachments/assets/5294054f-44c3-4186-9004-e808eecae4d9" />
+  <img width="400" alt="Captura de pantalla 2026-03-04 011947" src="https://github.com/user-attachments/assets/7016a562-e777-4034-9d64-279704331cbf" />
+</p>
 
-![](/art/cool-logo-animated.gif)
+**MODS SUPPORT AND COMPATIBILITY WITH PSYCH MODS!**
+----------------------------------------------
+<p align="center">
+  <img width="400" alt="Captura de pantalla 2026-02-25 163406" src="https://github.com/user-attachments/assets/349bf923-6781-4e37-a7d8-c07df237364e" />
+  <img width="400" alt="Captura de pantalla 2026-03-04 162713" src="https://github.com/user-attachments/assets/4692dfb2-8450-426b-ab07-aea5c86db9d8" />
+</p>
+
 ----------------------------------------------
 
+## Cool Engine Build for Beta Testers
+- https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine-Build-Beta-Tester - Link
+  
 ## The Cool Engine Team Credits
 - [Manux (me)](https://x.com/ManuxAc) - Programmer Friday Night Funkin: Cool Engine
 - [Jloor](https://twitter.com/GamerJloor) - Programmer Friday Night Funkin: Cool Engine
@@ -25,7 +44,7 @@
 
 # Building
 THESE INSTRUCTIONS ARE FOR COMPILING THE GAME'S SOURCE CODE!!!
-IF YOU JUST WANT TO PLAY AND NOT EDIT THE CODE CLICK [HERE](https://gamebanana.com/mods/326036)!!!
+IF YOU JUST WANT TO PLAY AND NOT EDIT THE CODE CLICK [HERE](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/releases)!!!
 
 ### Installing the Required Programs
 
@@ -35,7 +54,7 @@ First, you need to install Haxe and HaxeFlixel. I'm too lazy to write and keep u
 
 You'll also need to install a couple things that involve Gits. To do this, you need to do a few things first.
 1. Download [git-scm](https://git-scm.com/downloads). Works for Windows, and Mac, just select your build. (Linux users can install the git package via their respective package manager.)
-2. Run [this](https://github.com/Manux123/FNF-Cool-Engine/blob/master/Installation_of_the_Haxe_and_APIStuff_libraries.bat), and everything should be installed automatically
+2. Run [this](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/blob/master/INSTALLER_LIBS_WINDOWS_LINUX.bat), and everything should be installed automatically
 if it doesnt use the errors to download the left libraries
 
 You should have everything ready for compiling the game! Follow the guide below to continue!
@@ -69,4 +88,4 @@ ADDITIONS IN 0.4.1
 - Better Options
 
 ----------------------------------------------
-Thanks for checking out our Engine! Do you have any question? Go to the [discussions](https://github.com/Manux123/FNF-Cool-Engine/discussions) tab!
+Thanks for checking out our Engine! Do you have any question? Go to the [discussions](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/discussion) tab!

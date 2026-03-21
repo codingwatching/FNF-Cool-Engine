@@ -52,31 +52,31 @@ using StringTools;
 class ChartingState extends funkin.states.MusicBeatState
 {
 	// COLORES — actualizados desde EditorTheme en _applyTheme()
-	static var BG_DARK:Int         = 0xFF1E1E1E;
-	static var BG_PANEL:Int        = 0xFF2D2D2D;
-	static var ACCENT_CYAN:Int     = 0xFF00D9FF;
-	static var ACCENT_PINK:Int     = 0xFFFF00E5;
-	static var ACCENT_GREEN:Int    = 0xFF00FF88;
-	static var ACCENT_SUCCESS:Int  = 0xFF00FF88;
-	static var ACCENT_WARNING:Int  = 0xFFFFAA00;
-	static var ACCENT_ERROR:Int    = 0xFFFF3366;
-	static var TEXT_WHITE:Int      = 0xFFFFFFFF;
-	static var TEXT_GRAY:Int       = 0xFFAAAAAA;
+	static var BG_DARK:Int = 0xFF1E1E1E;
+	static var BG_PANEL:Int = 0xFF2D2D2D;
+	static var ACCENT_CYAN:Int = 0xFF00D9FF;
+	static var ACCENT_PINK:Int = 0xFFFF00E5;
+	static var ACCENT_GREEN:Int = 0xFF00FF88;
+	static var ACCENT_SUCCESS:Int = 0xFF00FF88;
+	static var ACCENT_WARNING:Int = 0xFFFFAA00;
+	static var ACCENT_ERROR:Int = 0xFFFF3366;
+	static var TEXT_WHITE:Int = 0xFFFFFFFF;
+	static var TEXT_GRAY:Int = 0xFFAAAAAA;
 
 	/** Sincroniza las vars de color con el tema activo. */
 	static function _applyTheme():Void
 	{
-		var T   = funkin.debug.themes.EditorTheme.current;
-		BG_DARK        = T.bgDark;
-		BG_PANEL       = T.bgPanel;
-		ACCENT_CYAN    = T.accent;
-		ACCENT_PINK    = T.accentAlt;
-		ACCENT_GREEN   = T.success;
+		var T = funkin.debug.themes.EditorTheme.current;
+		BG_DARK = T.bgDark;
+		BG_PANEL = T.bgPanel;
+		ACCENT_CYAN = T.accent;
+		ACCENT_PINK = T.accentAlt;
+		ACCENT_GREEN = T.success;
 		ACCENT_SUCCESS = T.success;
 		ACCENT_WARNING = T.warning;
-		ACCENT_ERROR   = T.error;
-		TEXT_WHITE     = T.textPrimary;
-		TEXT_GRAY      = T.textSecondary;
+		ACCENT_ERROR = T.error;
+		TEXT_WHITE = T.textPrimary;
+		TEXT_GRAY = T.textSecondary;
 	}
 
 	// NOTAS COLORES
@@ -90,8 +90,8 @@ class ChartingState extends funkin.states.MusicBeatState
 	var totalGridHeight:Float = 0;
 	var gridScrollY:Float = 0;
 	var maxScroll:Float = 0;
-	var _gridWindowOffset:Int = 0;  // fila absoluta donde empieza la textura
-	var _gridWindowRows:Int   = 0;  // filas que caben en la textura
+	var _gridWindowOffset:Int = 0; // fila absoluta donde empieza la textura
+	var _gridWindowRows:Int = 0; // filas que caben en la textura
 
 	/**
 	 * Flag que los sub-componentes del editor (CharacterIconRow, etc.) ponen a `true`
@@ -100,6 +100,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	 * scroll del grid — evita que el scroll "se filtre" al grid de fondo.
 	 */
 	public var wheelConsumed:Bool = false;
+
 	/** Set to true by CharacterPreviewWindow when the mouse is over it.
 	 *  handleMouseInput() skips grid interaction while this is true. */
 	public var clickConsumed:Bool = false;
@@ -119,28 +120,45 @@ class ChartingState extends funkin.states.MusicBeatState
 	var curSelectedNote:Array<Dynamic>;
 	var tempBpm:Float = 0;
 	var vocals:FlxSound;
+
 	/**
 	 * Mapa dinámico de vocals por personaje para el editor.
 	 * Clave = nombre del personaje. Soporta N personajes.
 	 */
 	var vocalsPerChar:Map<String, FlxSound> = new Map();
+
 	/** Alias de compatibilidad — primer track Player */
 	var vocalsBf(get, never):FlxSound;
+
 	inline function get_vocalsBf():FlxSound
 	{
-		for (k in _chartPlayerKeys) { var v = vocalsPerChar.get(k); if (v != null) return v; }
+		for (k in _chartPlayerKeys)
+		{
+			var v = vocalsPerChar.get(k);
+			if (v != null)
+				return v;
+		}
 		return null;
 	}
+
 	/** Alias de compatibilidad — primer track Opponent */
 	var vocalsDad(get, never):FlxSound;
+
 	inline function get_vocalsDad():FlxSound
 	{
-		for (k in _chartOpponentKeys) { var v = vocalsPerChar.get(k); if (v != null) return v; }
+		for (k in _chartOpponentKeys)
+		{
+			var v = vocalsPerChar.get(k);
+			if (v != null)
+				return v;
+		}
 		return null;
 	}
+
 	/** true cuando se cargaron vocals por personaje */
 	var _chartPerCharVocals:Bool = false;
-	var _chartPlayerKeys:Array<String>   = [];
+
+	var _chartPlayerKeys:Array<String> = [];
 	var _chartOpponentKeys:Array<String> = [];
 
 	/**
@@ -177,7 +195,17 @@ class ChartingState extends funkin.states.MusicBeatState
 	var infoValues:Array<FlxText> = [];
 
 	// BOTONES
-	var _themeBtnRect:{x:Float, y:Float, w:Int, h:Int} = {x:0, y:0, w:0, h:0};
+	var _themeBtnRect:{
+		x:Float,
+		y:Float,
+		w:Int,
+		h:Int
+	} = {
+		x: 0,
+		y: 0,
+		w: 0,
+		h: 0
+	};
 	var playBtn:FlxSprite;
 	var pauseBtn:FlxSprite;
 	var stopBtn:FlxSprite;
@@ -191,13 +219,125 @@ class ChartingState extends funkin.states.MusicBeatState
 	// NOTAS
 	var curRenderedNotes:FlxTypedGroup<Note>;
 	var curRenderedSustains:FlxTypedGroup<FlxSprite>;
+
+	/** End caps de los sustains (uno por nota con daSus > 0). */
+	var _curSusTails:FlxTypedGroup<FlxSprite>;
+
 	var curRenderedTypeLabels:FlxTypedGroup<FlxText>;
+
+	/** Receptores de strum en la línea de hit del editor. */
+	var _editorStrums:FlxTypedGroup<funkin.gameplay.notes.StrumNote>;
+
+	/**
+	 * Mapa col -> timestamp (ms) hasta el que la columna debe mostrar confirm.
+	 * noteTime + daSus cuando una sustain pasa por el playhead.
+	 * Cada frame: si currentTime < valor se mantiene/reinicia confirm; si no, vuelve a idle.
+	 */
+	var _strumConfirmUntil:Map<Int, Float> = new Map();
+
 	var noteTypeDropdown:FlxUIDropDownMenu;
 	var _noteTypesList:Array<String> = ['normal'];
 	var dummyArrow:FlxSprite;
 
+	// ── DRAG-AND-DROP DE NOTAS (single) ─────────────────────────────────────
+	var _dragNote:Array<Dynamic> = null;
+	var _dragNoteSection:Int = -1;
+	var _dragGhost:FlxSprite = null;
+	var _dragGhostArrow:FlxSprite = null;
+	var _dragGhostCol:Int = -1;
+	var _dragActive:Bool = false;
+	var _dragStartX:Float = 0;
+	var _dragStartY:Float = 0;
+	var _dragPending:Array<Dynamic> = null;
+	var _dragPendingSection:Int = -1;
+	/** true cuando el drag-pending empezó sobre una nota que ya estaba seleccionada (click para deseleccionar). */
+	var _dragPendingWasSelected:Bool = false;
+
+	static inline var NOTE_DRAG_THRESHOLD:Float = 6.0;
+
+	// ── MULTI-SELECCIÓN ───────────────────────────────────────────────────────
+
+	/** Notas actualmente seleccionadas. */
+	var _selectedNotes:Array<{note:Array<Dynamic>, section:Int}> = [];
+
+	/** Rectángulos amarillos detrás de las notas seleccionadas (más visibles que tinte de color). */
+	var _selHighlights:FlxTypedGroup<FlxSprite>;
+
+	/** Sprite del rectángulo de selección (box select). */
+	var _selBox:FlxSprite;
+
+	var _selBoxBorder:FlxSprite;
+
+	/** true mientras se dibuja el rectángulo de selección. */
+	var _selBoxActive:Bool = false;
+
+	/** Coordenadas de inicio del box select (en espacio de step absoluto y col visual). */
+	var _selBoxStartStep:Float = 0;
+
+	var _selBoxStartCol:Float = 0;
+
+	// ── MULTI-DRAG ────────────────────────────────────────────────────────────
+
+	/** true cuando se arrastra la selección múltiple. */
+	var _multiDragActive:Bool = false;
+
+	var _multiDragPending:Bool = false;
+
+	/** Grupo de ghosts: uno por cada nota seleccionada. */
+	var _multiDragGhosts:FlxTypedGroup<FlxSprite>;
+
+	/** Datos originales de cada nota en el multi-drag: posición absoluta y col visual. */
+	var _multiDragOriginals:Array<{
+		note:Array<Dynamic>,
+		section:Int,
+		absStep:Float,
+		visCol:Int
+	}> = [];
+
+	/** Posición del cursor al inicio del multi-drag (para calcular delta). */
+	var _multiDragAnchorStep:Float = 0;
+
+	var _multiDragAnchorCol:Int = 0;
+
 	// INDICADORES DE SECCIÓN
 	var sectionIndicators:FlxTypedGroup<FlxSprite>;
+
+	// ── CHART OVERVIEW PREVIEW (like V-Slice) ────────────────────────────────
+
+	/** Background del panel de preview. */
+	var _prvBg:FlxSprite;
+
+	/** Sprite que contiene todos los píxeles de notas del chart completo. */
+	var _prvSprite:FlxSprite;
+
+	/** Overlay semitransparente que indica el área visible del grid. */
+	var _prvViewport:FlxSprite;
+
+	/** Línea que indica la posición del playhead. */
+	var _prvPlayhead:FlxSprite;
+
+	/** Marcas de sección (líneas horizontales). */
+	var _prvSections:FlxSprite;
+
+	/** true cuando hay que redibujar los píxeles de notas. */
+	var _prvDirty:Bool = true;
+
+	/** Longitud total del song en ms (cacheado). */
+	var _prvSongMs:Float = 0;
+
+	/** true mientras se arrastra el playhead del preview. */
+	var _prvDragging:Bool = false;
+
+	// ── Constantes del preview ────────────────────────────────────────────────
+	static inline var PRV_X:Int = 5; // posición X (izquierda de la pantalla)
+	static inline var PRV_NOTE_W:Int = 4; // ancho de cada columna de nota en px
+	static inline var PRV_NOTE_H:Int = 2; // alto de cada nota en px
+	// Ancho total: 4 cols * 2 grupos * PRV_NOTE_W + 2px separador + 4px events = 36px aprox
+	static inline var PRV_C_BG:Int = 0xFF181820;
+	static inline var PRV_C_BORDER:Int = 0xFF00CCFF;
+	static inline var PRV_C_SECT:Int = 0xFF334455;
+	static inline var PRV_C_VP:Int = 0x3300CCFF;
+	static inline var PRV_C_PH:Int = 0xFFFF2244;
 
 	// DROPDOWNS (characters dropdowns moved to CharacterIconRow extension)
 	// bfDropDown, dadDropDown, gfDropDown, stageDropDown -> removed
@@ -231,11 +371,16 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	var openSectionNav:Bool = false;
 
+	/** Sprites/texts del section navigator — guardados para poder cerrarlos desde fuera. */
+	var _sectionNavElements:Array<flixel.FlxBasic> = [];
+
 	// HERRAMIENTAS
 	var clipboard:Array<Dynamic> = [];
+
 	public var currentSnap:Int = 16;
 	public var hitsoundsEnabled:Bool = false;
 	public var metronomeEnabled:Bool = false;
+
 	var lastMetronomeBeat:Int = -1;
 	var autosaveTimer:Float = 0;
 
@@ -245,6 +390,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	// WAVEFORM
 	public var waveformEnabled:Bool = false;
+
 	var waveformSprite:FlxSprite;
 	var _waveformData:Array<Float> = [];
 	var _waveformBuilt:Bool = false;
@@ -281,7 +427,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	{
 		funkin.debug.themes.EditorTheme.load();
 		_applyTheme();
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 
 		#if desktop
 		DiscordClient.changePresence("Chart Editor", null, null, true);
@@ -381,21 +527,23 @@ class ChartingState extends funkin.states.MusicBeatState
 	function setupTips():Void
 	{
 		tips = [
-			"💡 Press 1-8 to place notes",
-			"💡 Ctrl+C/V to copy/paste",
+			"💡 Left-click grid to place a note",
+			"💡 Right-click to erase a note",
+			"💡 1-8 keys: place note at current playhead position",
+			"💡 F5 to test from current section",
+			"💡 Ctrl+Z / Ctrl+Y — undo / redo",
+			"💡 Ctrl+C/V/X to copy/paste/cut section",
 			"💡 N to mirror section",
 			"💡 Q/E to change snap",
-			"💡 T for hitsounds (plays per note!)",
-			"💡 M for metronome",
+			"💡 T for hitsounds  |  M for metronome",
+			"💡 Settings tab → change difficulty to reload chart + audio",
 			"💡 Click 🌊 Wave button to toggle waveform",
 			"💡 Go to Settings → Auto-Detect BPM",
 			"💡 Ctrl+Scroll over icons to scroll characters",
-			"💡 PageUp/Down to navigate",
+			"💡 PageUp/Down to navigate sections",
 			"💡 Mouse wheel to scroll grid",
 			"💡 Shift+Wheel for pixel scroll",
-			"💡 Space to play/pause",
-			"💡 F5 to test from current section",
-			"💡 Ctrl+Enter to test from start",
+			"💡 Space to play/pause  |  Enter to restart section",
 			"💡 W/S or Up/Down to seek audio",
 			"💡 ESC to go back to PlayState"
 		];
@@ -415,7 +563,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		titleText.cameras = [camHUD];
 		add(titleText);
 
-		songNameText = new FlxText(180, 8, 0, '• ${_song.song}', 16);
+		songNameText = new FlxText(180, 8, 0, '• ${_song.song}' + (curDiffSuffix != '' ? ' [${curDiffSuffix.substr(1).toUpperCase()}]' : ' [NORMAL]'), 16);
 		songNameText.setFormat(Paths.font("vcr.ttf"), 16, TEXT_GRAY, LEFT);
 		songNameText.scrollFactor.set();
 		songNameText.cameras = [camHUD];
@@ -431,10 +579,10 @@ class ChartingState extends funkin.states.MusicBeatState
 		add(toolbar);
 
 		// Botones de playback — primero añadir el FONDO, luego el TEXTO encima
-		playBtn  = createToolButton(10,  40);
-		pauseBtn = createToolButton(55,  40);
-		stopBtn  = createToolButton(100, 40);
-		testBtn  = createToolButton(145, 40);
+		playBtn = createToolButton(10, 40);
+		pauseBtn = createToolButton(55, 40);
+		stopBtn = createToolButton(100, 40);
+		testBtn = createToolButton(145, 40);
 
 		add(playBtn);
 		add(pauseBtn);
@@ -443,10 +591,10 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// Labels DESPUES de los sprites para que queden encima (z-order correcto)
 		// VCR.ttf soporta ASCII; evitamos emojis/unicode que pueden no renderizar
-		addToolButtonLabel(playBtn,  ">");
+		addToolButtonLabel(playBtn, ">");
 		addToolButtonLabel(pauseBtn, "||");
-		addToolButtonLabel(stopBtn,  "[]");
-		addToolButtonLabel(testBtn,  "F5");
+		addToolButtonLabel(stopBtn, "[]");
+		addToolButtonLabel(testBtn, "F5");
 
 		// Time (solo display)
 		timeText = new FlxText(200, 45, 0, "00:00.000", 12);
@@ -539,7 +687,12 @@ class ChartingState extends funkin.states.MusicBeatState
 		themeBtnBg.scrollFactor.set();
 		themeBtnBg.cameras = [camHUD];
 		add(themeBtnBg);
-		_themeBtnRect = {x: FlxG.width - 38.0, y: 40.0, w: 32, h: 32};
+		_themeBtnRect = {
+			x: FlxG.width - 38.0,
+			y: 40.0,
+			w: 32,
+			h: 32
+		};
 		var themeBtnTxt = new FlxText(FlxG.width - 38, 46, 32, "\u2728", 13);
 		themeBtnTxt.setFormat(Paths.font("vcr.ttf"), 13, ACCENT_CYAN, CENTER);
 		themeBtnTxt.scrollFactor.set();
@@ -649,7 +802,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			centerX = (FlxG.width - gridWidth) / 2;
 
 		// Ventana deslizante: solo renderizar lo que cabe en pantalla
-		_gridWindowRows   = Std.int((FlxG.height + 200) / GRID_SIZE) + 4;
+		_gridWindowRows = Std.int((FlxG.height + 200) / GRID_SIZE) + 4;
 		_gridWindowOffset = 0;
 		var windowH = _gridWindowRows * GRID_SIZE;
 
@@ -675,11 +828,42 @@ class ChartingState extends funkin.states.MusicBeatState
 		add(gridBlackWhite);
 
 		// Strum line
+		// Inicializar/reconstruir el panel de preview del chart
+		initChartPreview();
+
 		strumLine = new FlxSprite(gridBG.x, gridBG.y);
 		strumLine.makeGraphic(Std.int(gridBG.width), 4, ACCENT_CYAN);
 		strumLine.scrollFactor.set();
 		strumLine.cameras = [camGame];
 		add(strumLine);
+
+		// ── Receptores de strum (StrumNote) en la línea de hit ─────────────────
+		// Uno por columna, posicionados sobre la strumLine (y=100 - GRID_SIZE).
+		// Se animan al pasar una nota durante la reproducción.
+		// FIX posición: strums en camHUD a y=100 (sobre la strumLine).
+		// Antes estaban en camGame a y=60 → el HUD (camHUD) los tapaba completamente.
+		if (_editorStrums != null)
+		{
+			for (s in _editorStrums.members)
+				if (s != null)
+					remove(s, true);
+			_editorStrums.clear();
+		}
+		else
+		{
+			_editorStrums = new FlxTypedGroup<funkin.gameplay.notes.StrumNote>();
+		}
+		for (col in 0...numCols)
+		{
+			var strum = new funkin.gameplay.notes.StrumNote(gridBG.x + col * GRID_SIZE -95, 5, // FIX: en la strumLine, no 40px encima donde el HUD lo tapaba
+				col % 4);
+			strum.setGraphicSize(GRID_SIZE + 1, GRID_SIZE + 1);
+			strum.updateHitbox();
+			strum.scrollFactor.set();
+			strum.cameras = [camHUD]; // FIX: camHUD para que quede encima de todo
+			_editorStrums.add(strum);
+			add(strum);
+		}
 
 		// Highlight
 		highlight = new FlxSprite(gridBG.x, gridBG.y);
@@ -700,6 +884,38 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Dummy arrow
 		dummyArrow = new FlxSprite().makeGraphic(GRID_SIZE, GRID_SIZE);
 		add(dummyArrow);
+
+		// Ghost de drag (invisible hasta que se arrastre una nota)
+		_dragGhost = new FlxSprite().makeGraphic(GRID_SIZE, GRID_SIZE, 0xFFFFFFFF);
+		_dragGhost.scrollFactor.set();
+		_dragGhost.cameras = [camGame];
+		_dragGhost.alpha = 0;
+		_dragGhost.visible = false;
+		add(_dragGhost);
+		_dragGhostArrow = new FlxSprite().makeGraphic(GRID_SIZE - 8, GRID_SIZE - 8, 0x88000000);
+		_dragGhostArrow.scrollFactor.set();
+		_dragGhostArrow.cameras = [camGame];
+		_dragGhostArrow.visible = false;
+		add(_dragGhostArrow);
+
+		// Box de selección (fill + border)
+		_selBox = new FlxSprite().makeGraphic(1, 1, 0xFF00CCFF);
+		_selBox.scrollFactor.set();
+		_selBox.cameras = [camGame];
+		_selBox.alpha = 0.18;
+		_selBox.visible = false;
+		add(_selBox);
+		_selBoxBorder = new FlxSprite().makeGraphic(1, 1, 0xFF00CCFF);
+		_selBoxBorder.scrollFactor.set();
+		_selBoxBorder.cameras = [camGame];
+		_selBoxBorder.alpha = 0.70;
+		_selBoxBorder.visible = false;
+		add(_selBoxBorder);
+
+		// Grupo de ghosts para multi-drag
+		_multiDragGhosts = new FlxTypedGroup<FlxSprite>();
+		_multiDragGhosts.cameras = [camGame];
+		add(_multiDragGhosts);
 	}
 
 	// Etiquetas de nombre del grupo encima de cada bloque de 4 columnas
@@ -780,6 +996,10 @@ class ChartingState extends funkin.states.MusicBeatState
 		// ← NUEVO: sacar los grupos de notas de la lista para re-insertarlos encima del grid
 		if (curRenderedSustains != null)
 			remove(curRenderedSustains);
+		if (_curSusTails != null)
+			remove(_curSusTails);
+		if (_selHighlights != null)
+			remove(_selHighlights);
 		if (curRenderedNotes != null)
 			remove(curRenderedNotes);
 
@@ -789,6 +1009,10 @@ class ChartingState extends funkin.states.MusicBeatState
 		// ← NUEVO: volver a añadir notas y sustains ENCIMA del grid
 		if (curRenderedSustains != null)
 			add(curRenderedSustains);
+		if (_curSusTails != null)
+			add(_curSusTails);
+		if (_selHighlights != null)
+			add(_selHighlights);
 		if (curRenderedNotes != null)
 			add(curRenderedNotes);
 
@@ -812,8 +1036,12 @@ class ChartingState extends funkin.states.MusicBeatState
 	{
 		curRenderedNotes = new FlxTypedGroup<Note>();
 		curRenderedSustains = new FlxTypedGroup<FlxSprite>();
+		_curSusTails = new FlxTypedGroup<FlxSprite>();
+		_selHighlights = new FlxTypedGroup<FlxSprite>();
 
 		add(curRenderedSustains);
+		add(_curSusTails);
+		add(_selHighlights); // encima de sustains, debajo de note heads
 		add(curRenderedNotes);
 	}
 
@@ -836,7 +1064,8 @@ class ChartingState extends funkin.states.MusicBeatState
 		addSectionUI();
 		// Build noteTypes list for dropdown
 		_noteTypesList = ['normal'];
-		for (t in NoteTypeManager.getTypes()) _noteTypesList.push(t);
+		for (t in NoteTypeManager.getTypes())
+			_noteTypesList.push(t);
 
 		addNoteUI();
 		curRenderedTypeLabels = new FlxTypedGroup<FlxText>();
@@ -972,10 +1201,12 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		noteTypeDropdown = new FlxUIDropDownMenu(10, 68, FlxUIDropDownMenu.makeStrIdLabelArray(ddItems, true), function(chosen:String)
 		{
-			if (curSelectedNote == null) return;
+			if (curSelectedNote == null)
+				return;
 			var colonIdx = chosen.indexOf(':');
 			var idx = colonIdx > 0 ? Std.parseInt(chosen.substr(0, colonIdx).trim()) : 0;
-			if (idx == null || idx < 0 || idx >= _noteTypesList.length) idx = 0;
+			if (idx == null || idx < 0 || idx >= _noteTypesList.length)
+				idx = 0;
 			var typeName:String = _noteTypesList[idx];
 			curSelectedNote[3] = (typeName == 'normal' || typeName == '') ? null : typeName;
 			updateGrid();
@@ -1032,9 +1263,10 @@ class ChartingState extends funkin.states.MusicBeatState
 			for (i in 0...fDiffs.length)
 			{
 				final pair:Array<Dynamic> = cast fDiffs[i];
-				final diffName:String  = pair != null && pair.length > 0 ? Std.string(pair[0]) : '';
-				final suffix:String    = pair != null && pair.length > 1 ? Std.string(pair[1]) : '';
-				if (suffix == '' || diffName == '') continue; // 'normal' ya está
+				final diffName:String = pair != null && pair.length > 0 ? Std.string(pair[0]) : '';
+				final suffix:String = pair != null && pair.length > 1 ? Std.string(pair[1]) : '';
+				if (suffix == '' || diffName == '')
+					continue; // 'normal' ya está
 				diffOptions.push(diffName.toLowerCase());
 				diffSuffixes.push(suffix);
 			}
@@ -1048,24 +1280,57 @@ class ChartingState extends funkin.states.MusicBeatState
 				diffSuffixes.push(curDiffSuffix);
 			}
 		}
-		final diffDropdown = new FlxUIDropDownMenu(10, 107, FlxUIDropDownMenu.makeStrIdLabelArray(diffOptions, true),
-			function(selected:String)
+		final diffDropdown = new FlxUIDropDownMenu(10, 107, FlxUIDropDownMenu.makeStrIdLabelArray(diffOptions, true), function(selected:String)
+		{
+			final idx = Std.parseInt(selected);
+			if (idx != null && idx >= 0 && idx < diffSuffixes.length)
 			{
-				final idx = Std.parseInt(selected);
-				if (idx != null && idx >= 0 && idx < diffSuffixes.length)
+				curDiffSuffix = diffSuffixes[idx];
+
+				// ── Recargar chart para la nueva dificultad ──────────────────
+				// Intentar cargar el diff correspondiente del .level
+				#if sys
+				final _reloaded = funkin.data.LevelFile.loadDiff(_song.song.toLowerCase(), curDiffSuffix);
+				if (_reloaded != null)
 				{
-					curDiffSuffix = diffSuffixes[idx];
-					// Recargar vocals con la nueva dificultad
-					loadSong(_song.song);
-					showMessage('Difficulty: ${diffOptions[idx]} reloading audio...', ACCENT_CYAN);
+					_song = _reloaded;
+					// Garantizar secciones mínimas
+					if (_song.notes == null || _song.notes.length == 0)
+						_song.notes = [
+							{
+								lengthInSteps: 16,
+								bpm: _song.bpm,
+								changeBPM: false,
+								mustHitSection: true,
+								sectionNotes: [],
+								typeOfSection: 0,
+								altAnim: false
+							}
+						];
+					Conductor.changeBPM(_song.bpm);
+					Conductor.mapBPMChanges(_song);
+					curSection = 0;
+					rebuildGrid();
+					changeSection(0);
 				}
-			});
+				#end
+
+				// Recargar audio (inst + vocals) con la nueva dificultad
+				loadSong(_song.song);
+				showMessage('🎵 Difficulty: ${diffOptions[idx]} — audio + chart reloaded', ACCENT_CYAN);
+
+				// Actualizar el título de la ventana para reflejar el sufijo actual
+				if (songNameText != null)
+					songNameText.text = '• ${_song.song}' + (curDiffSuffix != '' ? ' [${curDiffSuffix.substr(1).toUpperCase()}]' : ' [NORMAL]');
+			}
+		});
 		diffDropdown.selectedLabel = diffOptions[0];
 		// Preseleccionar la dificultad actual
 		if (diffSuffixes.contains(curDiffSuffix))
 		{
 			final curIdx = diffSuffixes.indexOf(curDiffSuffix);
-			if (curIdx >= 0) diffDropdown.selectedLabel = diffOptions[curIdx];
+			if (curIdx >= 0)
+				diffDropdown.selectedLabel = diffOptions[curIdx];
 		}
 		tab_group_settings.add(diffDropdown);
 
@@ -1080,10 +1345,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		var migrateBtn = new FlxButton(10, 200, "Migrate to .level", function()
 		{
 			final ok = funkin.data.LevelFile.migrateFromJson(_song.song);
-			showMessage(ok
-				? 'Migrated to ${_song.song.toLowerCase()}.level'
-				: 'Migration failed (check console)',
-				ok ? ACCENT_SUCCESS : ACCENT_WARNING);
+			showMessage(ok ? 'Migrated to ${_song.song.toLowerCase()}.level' : 'Migration failed (check console)', ok ? ACCENT_SUCCESS : ACCENT_WARNING);
 		});
 		tab_group_settings.add(migrateBtn);
 
@@ -1243,7 +1505,6 @@ class ChartingState extends funkin.states.MusicBeatState
 		return new FlxSprite();
 	}
 
-
 	function buildWaveform():Void
 	{
 		if (FlxG.sound.music == null)
@@ -1257,8 +1518,13 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// Obtener referencia al Sound subyacente
 		var sound:openfl.media.Sound = null;
-		try { sound = @:privateAccess FlxG.sound.music._sound; }
-		catch (e:Dynamic) { }
+		try
+		{
+			sound = @:privateAccess FlxG.sound.music._sound;
+		}
+		catch (e:Dynamic)
+		{
+		}
 
 		if (sound == null)
 		{
@@ -1266,8 +1532,8 @@ class ChartingState extends funkin.states.MusicBeatState
 			return;
 		}
 
-		var waveW:Int  = 40;
-		var waveH:Int  = Std.int(totalGridHeight);
+		var waveW:Int = 40;
+		var waveH:Int = Std.int(totalGridHeight);
 
 		if (waveH <= 0 || waveH > 32000)
 			waveH = Std.int(Math.min(totalGridHeight, 16000));
@@ -1294,8 +1560,9 @@ class ChartingState extends funkin.states.MusicBeatState
 		for (row in 0...waveH)
 		{
 			var amp:Float = (row < _waveformData.length) ? _waveformData[row] : 0.0;
-			var barW:Int  = Std.int(amp * (waveW - 2));
-			if (barW < 1) barW = 1;
+			var barW:Int = Std.int(amp * (waveW - 2));
+			if (barW < 1)
+				barW = 1;
 
 			// Color: degradado de cyan a magenta según amplitud
 			var r:Int = Std.int(amp * 0xFF);
@@ -1303,12 +1570,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			var b:Int = 0xFF;
 			var col:Int = (0xFF << 24) | (r << 16) | (g << 8) | b;
 
-			flixel.util.FlxSpriteUtil.drawRect(
-				waveformSprite,
-				midX - Std.int(barW / 2), row,
-				barW, 1,
-				col
-			);
+			flixel.util.FlxSpriteUtil.drawRect(waveformSprite, midX - Std.int(barW / 2), row, barW, 1, col);
 		}
 
 		_waveformBuilt = true;
@@ -1334,8 +1596,13 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 
 		var sound:openfl.media.Sound = null;
-		try { sound = @:privateAccess FlxG.sound.music._sound; }
-		catch (e:Dynamic) { }
+		try
+		{
+			sound = @:privateAccess FlxG.sound.music._sound;
+		}
+		catch (e:Dynamic)
+		{
+		}
 
 		if (sound == null)
 		{
@@ -1363,7 +1630,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// Aplicar BPM
 		_song.bpm = detected;
-		tempBpm    = detected;
+		tempBpm = detected;
 		Conductor.changeBPM(detected);
 		Conductor.mapBPMChanges(_song);
 
@@ -1477,7 +1744,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// ── Animación: flash rápido y slide-up desde abajo ────────────────
 		FlxTween.cancelTweensOf(statusText);
-		statusText.text  = msg;
+		statusText.text = msg;
 		statusText.color = (color != null) ? color : cast TEXT_GRAY;
 		statusText.alpha = 0;
 
@@ -1509,15 +1776,32 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// Invalidar waveform al cambiar canción
 		_waveformBuilt = false;
-		_waveformData  = [];
+		_waveformData = [];
 		_hitsoundFiredNotes = new Map();
-		_lastHitsoundTime   = -999;
+		_lastHitsoundTime = -999;
 		if (waveformSprite != null)
 			waveformSprite.visible = false;
 
+		// ── Sufijo de audio efectivo (igual que PlayState) ────────────────────
+		// Prioridad: _song.instSuffix (campo del chart, ej "erect") > curDiffSuffix.
+		// Esto cubre canciones con audio separado por "variante" (no por dificultad),
+		// como los tracks "Erect" de la base que tienen Inst-erect.ogg pero la
+		// dificultad puede llamarse "Nightmare" con sufijo "-nightmare".
+		// Resuelve también Voices-bf-erect.ogg, Voices-dad-erect.ogg, etc.
+		final _audioSuffix:String = (_song != null && _song.instSuffix != null && _song.instSuffix != '') ? '-' + _song.instSuffix : curDiffSuffix;
+
+		trace('[ChartingState] loadSong "$daSong" audioSuffix="$_audioSuffix" (instSuffix=${_song?.instSuffix}, curDiff=$curDiffSuffix)');
+
 		try
 		{
-			FlxG.sound.music = Paths.loadInst(daSong);
+			// Intentar cargar el inst con el sufijo de audio efectivo.
+			// Paths.loadInst hace fallback a Inst.ogg si no existe la variante.
+			// Orden de búsqueda en Paths.inst():
+			//   1. songs/{song}/song/Inst-{suffix}.ogg
+			//   2. songs/{song}/Inst-{suffix}.ogg
+			//   3. songs/{song}/song/Inst.ogg
+			//   4. songs/{song}/Inst.ogg
+			FlxG.sound.music = Paths.loadInst(daSong, _audioSuffix);
 			FlxG.sound.music.pause();
 			FlxG.sound.music.onComplete = function()
 			{
@@ -1542,10 +1826,17 @@ class ChartingState extends funkin.states.MusicBeatState
 				for (c in _song.characters)
 				{
 					var t = c.type != null ? c.type : 'Opponent';
-					if (t == 'Girlfriend' || t == 'Other') continue;
+					if (t == 'Girlfriend' || t == 'Other')
+						continue;
 					var dup = false;
-					for (prev in candidates) if (prev.name == c.name) { dup = true; break; }
-					if (!dup) candidates.push({name: c.name, type: t});
+					for (prev in candidates)
+						if (prev.name == c.name)
+						{
+							dup = true;
+							break;
+						}
+					if (!dup)
+						candidates.push({name: c.name, type: t});
 				}
 			}
 			// Fallback legacy player1/player2
@@ -1554,16 +1845,23 @@ class ChartingState extends funkin.states.MusicBeatState
 				var p1 = (_song.player1 != null && _song.player1 != '') ? _song.player1 : 'bf';
 				var p2 = (_song.player2 != null && _song.player2 != '') ? _song.player2 : 'dad';
 				candidates.push({name: p1, type: 'Player'});
-				if (p2 != p1) candidates.push({name: p2, type: 'Opponent'});
+				if (p2 != p1)
+					candidates.push({name: p2, type: 'Opponent'});
 			}
 
-			_chartPlayerKeys   = [];
+			_chartPlayerKeys = [];
 			_chartOpponentKeys = [];
 			var loaded = 0;
 			for (cand in candidates)
 			{
-				var snd = Paths.loadVoicesForChar(daSong, cand.name, curDiffSuffix);
-				if (snd == null) continue;
+				// Usar _audioSuffix para la búsqueda de per-char vocals.
+				// Paths.loadVoicesForChar resuelve en orden:
+				//   1. Voices-{char}-{suffix}.ogg  (ej: Voices-bf-erect.ogg)
+				//   2. Voices-{char}.ogg            (ej: Voices-bf.ogg)
+				//   3. null si no existe ninguno
+				var snd = Paths.loadVoicesForChar(daSong, cand.name, _audioSuffix);
+				if (snd == null)
+					continue;
 				snd.volume = 0.6;
 				snd.looped = false;
 				snd.pause();
@@ -1579,15 +1877,18 @@ class ChartingState extends funkin.states.MusicBeatState
 			if (loaded > 0)
 			{
 				_chartPerCharVocals = true;
-				trace('[ChartingState] Per-char vocals cargadas: $loaded / ${candidates.length} personajes');
+				trace('[ChartingState] Per-char vocals cargadas: $loaded / ${candidates.length} personajes (suffix="$_audioSuffix")');
 			}
 			else
 			{
-				// Fallback al Voices.ogg genérico
+				// Fallback al Voices.ogg genérico (o Voices-{suffix}.ogg si existe)
+				// Paths.voices() resuelve:
+				//   1. Voices-{suffix}.ogg  (ej: Voices-erect.ogg)
+				//   2. Voices.ogg
 				_chartPerCharVocals = false;
 				try
 				{
-					vocals = Paths.loadVoices(daSong, curDiffSuffix);
+					vocals = Paths.loadVoices(daSong, _audioSuffix);
 					vocals.volume = 0.6;
 					vocals.looped = false;
 					vocals.pause();
@@ -1611,18 +1912,28 @@ class ChartingState extends funkin.states.MusicBeatState
 	// Sincronizar vocales con la música
 	function syncVocals():Void
 	{
-		if (FlxG.sound.music == null) return;
+		if (FlxG.sound.music == null)
+			return;
 
 		if (_chartPerCharVocals)
 		{
 			for (v in vocalsPerChar)
 			{
-				if (v == null) continue;
+				if (v == null)
+					continue;
 				if (Math.abs(v.time - FlxG.sound.music.time) > 50)
 					v.time = FlxG.sound.music.time;
 				v.volume = FlxG.sound.music.volume;
-				if (FlxG.sound.music.playing) { if (!v.playing) v.play(); }
-				else { if (v.playing) v.pause(); }
+				if (FlxG.sound.music.playing)
+				{
+					if (!v.playing)
+						v.play();
+				}
+				else
+				{
+					if (v.playing)
+						v.pause();
+				}
 			}
 		}
 		else if (vocals != null)
@@ -1631,8 +1942,16 @@ class ChartingState extends funkin.states.MusicBeatState
 			if (timeDiff > 50)
 				vocals.time = FlxG.sound.music.time;
 			vocals.volume = FlxG.sound.music.volume;
-			if (FlxG.sound.music.playing) { if (!vocals.playing) vocals.play(); }
-			else { if (vocals.playing) vocals.pause(); }
+			if (FlxG.sound.music.playing)
+			{
+				if (!vocals.playing)
+					vocals.play();
+			}
+			else
+			{
+				if (vocals.playing)
+					vocals.pause();
+			}
 		}
 	}
 
@@ -1673,6 +1992,10 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (hitsoundsEnabled && FlxG.sound.music != null && FlxG.sound.music.playing)
 			checkNotesForHitsound();
 
+		updateChartPreview();
+		_updateEditorStrums();
+		updateNoteDrag();
+		updateMultiDragAndSelBox();
 		handleMouseInput();
 		handleKeyboardInput();
 		handlePlaybackButtons();
@@ -1749,7 +2072,6 @@ class ChartingState extends funkin.states.MusicBeatState
 		var currentTime = FlxG.sound.music.time;
 		var tolerance = Conductor.stepCrochet * 0.6;
 
-		// Reset del mapa cuando la música salta/reinicia
 		if (Math.abs(currentTime - _lastMusicTime) > 500)
 			_firedNotes = new Map();
 		_lastMusicTime = currentTime;
@@ -1765,7 +2087,6 @@ class ChartingState extends funkin.states.MusicBeatState
 				if (Math.abs(noteTime - currentTime) > tolerance)
 					continue;
 
-				// Clave única por nota para no dispararla dos veces
 				var key = '${Std.int(noteTime)}_${rawData}';
 				if (_firedNotes.exists(key))
 					continue;
@@ -1776,6 +2097,110 @@ class ChartingState extends funkin.states.MusicBeatState
 
 				previewPanel.onNotePass(direction, groupIndex);
 			}
+		}
+	}
+
+	/**
+	 * Actualiza los strums del editor cada frame:
+	 *  - Detecta notas que cruzan el playhead y registra en _strumConfirmUntil
+	 *    el timestamp hasta el que debe mostrarse confirm (noteTime + daSus para holds).
+	 *  - Cada frame aplica confirm/static según el tiempo, reiniciando confirm si
+	 *    la animación terminó pero el hold sigue activo.
+	 *  - Fuerza setGraphicSize(GRID_SIZE, GRID_SIZE) cada frame para compensar que
+	 *    los frames de 'confirm' tienen dimensiones distintas a 'static', lo que
+	 *    hace que el strum aparezca más grande/desplazado tras la animación.
+	 */
+	function _updateEditorStrums():Void
+	{
+		if (_editorStrums == null)
+			return;
+
+		var isPlaying = (FlxG.sound.music != null && FlxG.sound.music.playing);
+		var currentTime = isPlaying ? FlxG.sound.music.time : -9999.0;
+		var tolerance   = Conductor.stepCrochet * 0.6;
+
+		// ── Detectar notas que entran al playhead ─────────────────────────────
+		if (isPlaying)
+		{
+			// Reset cuando la música salta (seek / reinicio)
+			if (Math.abs(currentTime - _lastMusicTime) > 500)
+			{
+				_firedNotes        = new Map();
+				_strumConfirmUntil = new Map();
+			}
+			if (previewPanel == null)
+				_lastMusicTime = currentTime;
+
+			for (secNum in 0..._song.notes.length)
+			{
+				var section = _song.notes[secNum];
+				for (noteData in section.sectionNotes)
+				{
+					var noteTime:Float = noteData[0];
+					var rawData:Int    = Std.int(noteData[1]);
+					var daSus:Float    = (noteData[2] != null) ? noteData[2] : 0.0;
+
+					if (Math.abs(noteTime - currentTime) > tolerance)
+						continue;
+
+					// Clave con prefijo distinta a la de checkNotesForPreview
+					var key = 's${Std.int(noteTime)}_${rawData}';
+					if (_firedNotes.exists(key))
+						continue;
+					_firedNotes.set(key, true);
+
+					var visCol = _noteVisColFromRaw(rawData, secNum);
+					if (visCol < 0 || visCol >= _editorStrums.length)
+						continue;
+
+					// Nota normal: confirm dura ~1 frame (20 ms mínimo)
+					// Sustain:     confirm dura todo el hold (daSus ms)
+					var holdEnd = noteTime + (daSus > 0 ? daSus : 20.0);
+					var prev = _strumConfirmUntil.exists(visCol) ? _strumConfirmUntil.get(visCol) : 0.0;
+					if (holdEnd > prev)
+						_strumConfirmUntil.set(visCol, holdEnd);
+				}
+			}
+		}
+		else
+		{
+			// Música parada → todos los strums a static
+			_strumConfirmUntil = new Map();
+		}
+
+		// ── Actualizar animación y tamaño de cada strum ───────────────────────
+		for (i in 0..._editorStrums.length)
+		{
+			var strum = _editorStrums.members[i];
+			if (strum == null)
+				continue;
+
+			var confirmUntil  = _strumConfirmUntil.exists(i) ? _strumConfirmUntil.get(i) : 0.0;
+			var shouldConfirm = isPlaying && (currentTime < confirmUntil);
+			var curAnim       = (strum.animation.curAnim != null) ? strum.animation.curAnim.name : '';
+
+			if (shouldConfirm)
+			{
+				if (curAnim != 'confirm')
+				{
+					strum.playAnim('confirm');
+				}
+				else if (strum.animation.curAnim.finished)
+				{
+					// El hold sigue pero la animación completó su ciclo → reiniciarla
+					strum.playAnim('confirm');
+				}
+			}
+			else
+			{
+				if (curAnim != 'static' && curAnim != 'idle')
+				{
+					strum.playAnim('static');
+				}
+			}
+			strum.setGraphicSize(GRID_SIZE + 1, GRID_SIZE + 1);
+			strum.updateHitbox();
+			strum.offset.set(0, 0);
 		}
 	}
 
@@ -1790,7 +2215,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	function checkNotesForHitsound():Void
 	{
 		var currentTime:Float = FlxG.sound.music.time;
-		var tolerance:Float   = Conductor.stepCrochet * 0.55;
+		var tolerance:Float = Conductor.stepCrochet * 0.55;
 
 		// Reset si el audio saltó (seek / reinicio)
 		if (Math.abs(currentTime - _lastHitsoundTime) > 500)
@@ -1833,8 +2258,13 @@ class ChartingState extends funkin.states.MusicBeatState
 				catch (e:Dynamic)
 				{
 					// Fallback si el sonido específico no existe
-					try { FlxG.sound.play(Paths.sound(hitFallback), 0.5); }
-					catch (_) { }
+					try
+					{
+						FlxG.sound.play(Paths.sound(hitFallback), 0.5);
+					}
+					catch (_)
+					{
+					}
 				}
 			}
 		}
@@ -1979,36 +2409,128 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function handleMouseInput():Void
 	{
-		// ── Bounds check manual — más fiable que FlxG.mouse.overlaps con múltiples cámaras ──
-		// FlxG.mouse.x/y son coordenadas de pantalla (camGame sin scroll = screen space).
-		// gridBG.y ya incluye el offset del windowing, por eso NO sumamos nada extra aquí.
+		// Drag activo (single o multi) o box select: sus propias funciones se encargan
+		if (_dragActive || _multiDragActive || _selBoxActive)
+			return;
+
 		var mx = FlxG.mouse.x;
 		var my = FlxG.mouse.y;
-		var mouseOverGrid = (mx >= gridBG.x && mx < gridBG.x + gridBG.width
-		                  && my >= gridBG.y && my < gridBG.y + gridBG.height);
 
-		// El grid SOLO se bloquea con popups reales — clickConsumed es para panels de UI,
-		// no debe impedir añadir/quitar notas en el grid.
+		// ── Bounds check corregido ────────────────────────────────────────────
+		// gridBG.y cambia con el scroll (puede ser negativo), así que NO sirve
+		// como cota superior fija. El grid visualmente siempre empieza en y=100.
+		var mouseOverGrid = (mx >= gridBG.x && mx < gridBG.x + gridBG.width && my >= 100.0 && my < FlxG.height);
+
 		var popupBlocking = isAnyPopupOpen();
 
-		// ── Left click: seleccionar o crear nota ─────────────────────────────
-		if (FlxG.mouse.justPressed && mouseOverGrid && !popupBlocking)
+		// ── Left click: selección, drag, box select ─────────────────────────────
+		if (FlxG.mouse.justPressed && mouseOverGrid && !popupBlocking && !clickConsumed && !_dragActive && !_multiDragActive)
 		{
-			// Limpiar foco de TextField para que los shortcuts de teclado funcionen de inmediato
 			if (openfl.Lib.current.stage.focus != null)
 				openfl.Lib.current.stage.focus = null;
 
 			var mouseGridX = mx - gridBG.x;
 			var mouseGridY = my - gridBG.y;
+			var col = Math.floor(mouseGridX / GRID_SIZE);
 
-			var noteData = Math.floor(mouseGridX / GRID_SIZE);
+			if (col >= 0)
+			{
+				var foundNote = _findNoteAtGrid(mouseGridY, col);
 
-			// Primero intentar seleccionar nota existente
-			var noteSelected = selectNoteAtPosition(mouseGridY, noteData);
+				if (foundNote != null)
+				{
+					if (FlxG.keys.pressed.SHIFT)
+					{
+						// Shift+click → añadir/quitar de selección sin drag
+						_toggleSelectNote(foundNote.note, foundNote.section);
+					}
+					else if (_isSelected(foundNote.note) && _selectedNotes.length > 1)
+					{
+						// Nota seleccionada en multi-selección → multi-drag pending
+						_multiDragPending = true;
+						_dragStartX = mx;
+						_dragStartY = my;
+					}
+					else
+					{
+						// Nota normal → limpiar selección, drag single pending
+						// Guardar si ya estaba seleccionada (para deseleccionar al soltar sin arrastrar)
+						_dragPendingWasSelected = _isSelected(foundNote.note);
+						_clearSelection();
+						_dragPending = foundNote.note;
+						_dragPendingSection = foundNote.section;
+						_dragStartX = mx;
+						_dragStartY = my;
+					}
+				}
+				else
+				{
+					// Espacio vacío
+					if (!FlxG.keys.pressed.SHIFT)
+						_clearSelection();
+					// Iniciar box select
+					_selBoxActive = true;
+					var rawStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+					_selBoxStartStep = rawStep;
+					_selBoxStartCol = mx - gridBG.x;
+					_dragStartX = mx;
+					_dragStartY = my;
+				}
+			}
+		}
 
-			// Si no había nota, crear una nueva
-			if (!noteSelected && noteData >= 0)
-				addNoteAtWorldPosition(mouseGridY, noteData);
+		// ── Multi-drag pending: activar si supera threshold ───────────────────
+		if (_multiDragPending && !_multiDragActive && FlxG.mouse.pressed)
+		{
+			var dx = mx - _dragStartX;
+			var dy = my - _dragStartY;
+			if (Math.sqrt(dx * dx + dy * dy) > NOTE_DRAG_THRESHOLD)
+			{
+				_multiDragPending = false;
+				_startMultiDrag(mx, my);
+			}
+		}
+		// Multi-drag pending soltado sin moverse → limpiar selección
+		// (el usuario hizo click sobre las notas seleccionadas pero no las arrastró)
+		if (_multiDragPending && !_multiDragActive && FlxG.mouse.justReleased)
+		{
+			_multiDragPending = false;
+			_clearSelection();
+			_notePositionsDirty = true;
+		}
+
+		// ── Single drag pending: activar si supera threshold ─────────────────
+		if (_dragPending != null && !_dragActive && FlxG.mouse.pressed)
+		{
+			var dx = mx - _dragStartX;
+			var dy = my - _dragStartY;
+			if (Math.sqrt(dx * dx + dy * dy) > NOTE_DRAG_THRESHOLD)
+				_startNoteDrag(_dragPending, _dragPendingSection, mx, my);
+		}
+		// Single drag pending soltado sin moverse → click normal
+		if (_dragPending != null && !_dragActive && FlxG.mouse.justReleased)
+		{
+			if (_dragPendingWasSelected)
+			{
+				// La nota ya estaba seleccionada y no se arrastró → deseleccionar
+				_clearSelection();
+				updateNoteUI();
+			}
+			else
+			{
+				var mouseGridX = mx - gridBG.x;
+				var mouseGridY = my - gridBG.y;
+				var col = Math.floor(mouseGridX / GRID_SIZE);
+				if (col >= 0)
+				{
+					var noteFound = selectNoteAtPosition(mouseGridY, col);
+					if (!noteFound)
+						addNoteAtWorldPosition(mouseGridY, col);
+				}
+			}
+			_dragPending = null;
+			_dragPendingSection = -1;
+			_dragPendingWasSelected = false;
 		}
 
 		// ── Highlight del cursor ─────────────────────────────────────────────
@@ -2017,12 +2539,12 @@ class ChartingState extends funkin.states.MusicBeatState
 			var mouseGridX = mx - gridBG.x;
 			var mouseGridY = my - gridBG.y;
 
-			var gridX     = Math.floor(mouseGridX / GRID_SIZE) * GRID_SIZE;
+			var gridX = Math.floor(mouseGridX / GRID_SIZE) * GRID_SIZE;
 			var stepHeight = GRID_SIZE / (currentSnap / 16);
-			var gridY     = Math.floor(mouseGridY / stepHeight) * stepHeight;
+			var gridY = Math.floor(mouseGridY / stepHeight) * stepHeight;
 
-			highlight.x       = gridBG.x + gridX;
-			highlight.y       = gridBG.y + gridY;
+			highlight.x = gridBG.x + gridX;
+			highlight.y = gridBG.y + gridY;
 			highlight.visible = true;
 		}
 		else
@@ -2031,14 +2553,849 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 
 		// ── Right click: borrar nota ─────────────────────────────────────────
-		if (FlxG.mouse.justPressedRight && mouseOverGrid && !popupBlocking)
+		if (FlxG.mouse.justPressedRight && mouseOverGrid && !popupBlocking && !clickConsumed)
 		{
 			var mouseGridX = mx - gridBG.x;
 			var mouseGridY = my - gridBG.y;
-			var noteData   = Math.floor(mouseGridX / GRID_SIZE);
+			var noteData = Math.floor(mouseGridX / GRID_SIZE);
 
 			if (noteData >= 0)
 				deleteNoteAtPosition(mouseGridY, noteData);
+		}
+	}
+
+	// =========================================================================
+	//  DRAG-AND-DROP DE NOTAS
+	// =========================================================================
+
+	/**
+	 * Busca la nota que está exactamente en la celda (worldY, visualCol).
+	 * Devuelve { note, section } o null si no hay ninguna.
+	 */
+	function _findNoteAtGrid(worldY:Float, visualCol:Int):Null<{note:Array<Dynamic>, section:Int}>
+	{
+		var clickedStep = (worldY / GRID_SIZE) + _gridWindowOffset;
+		var snapSteps = (currentSnap / 16);
+		clickedStep = Math.floor(clickedStep / snapSteps) * snapSteps;
+
+		var accumulatedSteps:Float = 0;
+		for (i in 0..._song.notes.length)
+		{
+			var sectionSteps = _song.notes[i].lengthInSteps;
+			if (clickedStep < accumulatedSteps + sectionSteps)
+			{
+				var noteTimeInSection = (clickedStep - accumulatedSteps) * Conductor.stepCrochet;
+				var noteStrumTime = getSectionStartTime(i) + noteTimeInSection;
+				var reordered = visualColToDataCol(visualCol);
+				var actualData = reordered;
+				if (reordered < 8 && _song.notes[i].mustHitSection)
+					actualData = (reordered < 4) ? reordered + 4 : reordered - 4;
+				for (nd in _song.notes[i].sectionNotes)
+					if (Math.abs(nd[0] - noteStrumTime) < 5 && Std.int(nd[1]) == actualData)
+						return {note: nd, section: i};
+				return null;
+			}
+			accumulatedSteps += sectionSteps;
+		}
+		return null;
+	}
+
+	/** Activa el drag: quita la nota del chart y muestra el ghost. */
+	function _startNoteDrag(note:Array<Dynamic>, section:Int, mx:Float, my:Float):Void
+	{
+		_dragNote = note;
+		_dragNoteSection = section;
+		_dragActive = true;
+		_dragPending = null;
+		_dragPendingSection = -1;
+
+		// Quitar nota del chart (se reinserta en _stopNoteDrag)
+		saveUndoState("delete", {section: section, note: [note[0], note[1], note[2]]});
+		_song.notes[section].sectionNotes.remove(note);
+		updateGrid();
+
+		// Columna visual inicial
+		var daNoteData:Int = Std.int(note[1]);
+		var swapped = daNoteData;
+		if (daNoteData < 8 && _song.notes[section].mustHitSection)
+			swapped = (daNoteData < 4) ? daNoteData + 4 : daNoteData - 4;
+		var initCol = dataColToVisualCol(swapped);
+		_dragGhostCol = initCol;
+
+		// Configurar ghost
+		var ghostColor = NOTE_COLORS[initCol % 8];
+		_dragGhost.makeGraphic(GRID_SIZE, GRID_SIZE, ghostColor);
+		_dragGhost.alpha = 0.80;
+		_dragGhost.visible = true;
+		_dragGhostArrow.makeGraphic(GRID_SIZE - 8, GRID_SIZE - 8, 0x88000000);
+		_dragGhostArrow.visible = true;
+
+		_updateGhostPosition(mx, my);
+		curSelectedNote = null;
+	}
+
+	/** Llamado cada frame mientras _dragActive. Mueve el ghost y anima el color. */
+	function updateNoteDrag():Void
+	{
+		if (!_dragActive || _dragNote == null)
+			return;
+
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+
+		// Mover ghost a la posición snapeada
+		_updateGhostPosition(mx, my);
+
+		// Columna visual actual bajo el cursor
+		var mouseGridX = mx - gridBG.x;
+		var curCol = Math.floor(mouseGridX / GRID_SIZE);
+		var numCols = getGridColumns();
+		curCol = Std.int(Math.max(0, Math.min(numCols - 1, curCol)));
+
+		// Animar color si la columna cambió
+		if (curCol != _dragGhostCol)
+		{
+			_dragGhostCol = curCol;
+			var targetColor = NOTE_COLORS[curCol % 8];
+			FlxTween.cancelTweensOf(_dragGhost);
+			FlxTween.color(_dragGhost, 0.12, _dragGhost.color, targetColor, {ease: FlxEase.quadOut});
+		}
+
+		// Soltar → finalizar drag
+		if (FlxG.mouse.justReleased)
+			_stopNoteDrag(mx, my);
+
+		// ESC → cancelar drag (devolver nota a su posición original)
+		if (FlxG.keys.justPressed.ESCAPE)
+			_cancelNoteDrag();
+	}
+
+	/** Actualiza posición X/Y del ghost snapeado a la celda más cercana. */
+	function _updateGhostPosition(mx:Float, my:Float):Void
+	{
+		var mouseGridX = mx - gridBG.x;
+		var mouseGridY = my - gridBG.y;
+		var numCols = getGridColumns();
+		var snapSteps = (currentSnap / 16);
+
+		var rawStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+		var snapStep = Math.max(0, Math.floor(rawStep / snapSteps) * snapSteps);
+		var snapCol = Std.int(Math.max(0, Math.min(numCols - 1, Math.floor(mouseGridX / GRID_SIZE))));
+
+		_dragGhost.x = gridBG.x + snapCol * GRID_SIZE;
+		_dragGhost.y = (100 - gridScrollY) + snapStep * GRID_SIZE;
+		_dragGhostArrow.x = _dragGhost.x + 4;
+		_dragGhostArrow.y = _dragGhost.y + 4;
+	}
+
+	/** Suelta la nota: la inserta en la nueva posición. */
+	function _stopNoteDrag(mx:Float, my:Float):Void
+	{
+		_dragGhost.visible = false;
+		_dragGhostArrow.visible = false;
+
+		var mouseGridX = mx - gridBG.x;
+		var mouseGridY = my - gridBG.y;
+		var numCols = getGridColumns();
+		var snapSteps = (currentSnap / 16);
+
+		// Calcular step absoluto snapeado
+		var rawStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+		var snapStep = Math.max(0, Math.floor(rawStep / snapSteps) * snapSteps);
+		var snapCol = Std.int(Math.max(0, Math.min(numCols - 1, Math.floor(mouseGridX / GRID_SIZE))));
+
+		// Encontrar sección destino
+		var accumulatedSteps:Float = 0;
+		var targetSection:Int = 0;
+		var noteTimeInSection:Float = 0;
+		for (i in 0..._song.notes.length)
+		{
+			if (snapStep < accumulatedSteps + _song.notes[i].lengthInSteps)
+			{
+				targetSection = i;
+				noteTimeInSection = (snapStep - accumulatedSteps) * Conductor.stepCrochet;
+				break;
+			}
+			accumulatedSteps += _song.notes[i].lengthInSteps;
+		}
+
+		// Columna destino en espacio de datos
+		var reorderedData = visualColToDataCol(snapCol);
+		var actualData = reorderedData;
+		if (reorderedData < 8 && _song.notes[targetSection].mustHitSection)
+			actualData = (reorderedData < 4) ? reorderedData + 4 : reorderedData - 4;
+
+		var newStrumTime = getSectionStartTime(targetSection) + noteTimeInSection;
+		var newNote:Array<Dynamic> = [newStrumTime, actualData, _dragNote[2]];
+		if (_dragNote.length > 3 && _dragNote[3] != null)
+			newNote.push(_dragNote[3]);
+
+		saveUndoState("add", {section: targetSection, note: newNote});
+		_song.notes[targetSection].sectionNotes.push(newNote);
+		curSelectedNote = newNote;
+
+		_dragNote = null;
+		_dragNoteSection = -1;
+		_dragActive = false;
+		_dragGhostCol = -1;
+
+		updateGrid();
+		updateNoteUI();
+		showMessage('✔ Nota movida', ACCENT_GREEN);
+	}
+
+	/** Cancela el drag con ESC: devuelve la nota a su sección original. */
+	function _cancelNoteDrag():Void
+	{
+		_dragGhost.visible = false;
+		_dragGhostArrow.visible = false;
+
+		if (_dragNote != null && _dragNoteSection >= 0)
+		{
+			_song.notes[_dragNoteSection].sectionNotes.push(_dragNote);
+			undo(); // deshacer el saveUndoState del _startNoteDrag
+		}
+
+		_dragNote = null;
+		_dragNoteSection = -1;
+		_dragActive = false;
+		_dragPending = null;
+		_dragPendingSection = -1;
+		_dragGhostCol = -1;
+
+		updateGrid();
+		showMessage('✖ Drag cancelado', ACCENT_WARNING);
+	}
+
+	// =========================================================================
+	//  MULTI-SELECCIÓN — helpers
+	// =========================================================================
+
+	function _isSelected(note:Array<Dynamic>):Bool
+	{
+		for (s in _selectedNotes)
+			if (s.note == note)
+				return true;
+		return false;
+	}
+
+	function _addToSelection(note:Array<Dynamic>, section:Int):Void
+	{
+		if (!_isSelected(note))
+		{
+			_selectedNotes.push({note: note, section: section});
+			curSelectedNote = note; // sincronizar panel de nota con la última seleccionada
+		}
+	}
+
+	function _toggleSelectNote(note:Array<Dynamic>, section:Int):Void
+	{
+		if (_isSelected(note))
+		{
+			_selectedNotes = _selectedNotes.filter(function(s) return s.note != note);
+			curSelectedNote = _selectedNotes.length > 0 ? _selectedNotes[_selectedNotes.length - 1].note : null;
+		}
+		else
+			_addToSelection(note, section);
+		updateNoteUI();
+		_notePositionsDirty = true;
+	}
+
+	function _clearSelection():Void
+	{
+		_selectedNotes = [];
+		curSelectedNote = null; // deseleccionar también del panel de nota
+		_notePositionsDirty = true;
+	}
+
+	/** Devuelve el step absoluto de una nota dado su índice de sección. */
+	function _noteAbsStep(note:Array<Dynamic>, section:Int):Float
+	{
+		var sectionStartStep:Float = 0;
+		for (i in 0...section)
+			sectionStartStep += _song.notes[i].lengthInSteps;
+		var noteStep = (note[0] - getSectionStartTime(section)) / Conductor.stepCrochet;
+		return sectionStartStep + noteStep;
+	}
+
+	/** Devuelve la columna visual de una nota. */
+	function _noteVisCol(note:Array<Dynamic>, section:Int):Int
+	{
+		var daNoteData:Int = Std.int(note[1]);
+		var swapped = daNoteData;
+		if (daNoteData < 8 && _song.notes[section].mustHitSection)
+			swapped = (daNoteData < 4) ? daNoteData + 4 : daNoteData - 4;
+		return dataColToVisualCol(swapped);
+	}
+
+	// =========================================================================
+	//  BOX SELECT + MULTI-DRAG
+	// =========================================================================
+
+	/**
+	 * Llamado cada frame desde update(). Gestiona:
+	 *  - Box select (dibuja el rectángulo y finaliza al soltar)
+	 *  - Multi-drag (mueve los ghosts y finaliza al soltar)
+	 */
+	function updateMultiDragAndSelBox():Void
+	{
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+
+		// ── Box select ─────────────────────────────────────────────────────────
+		if (_selBoxActive)
+		{
+			_updateSelBox(mx, my);
+
+			if (FlxG.mouse.justReleased)
+			{
+				_finalizeBoxSelect(mx, my);
+				_selBox.visible = false;
+				_selBoxBorder.visible = false;
+				_selBoxActive = false;
+			}
+			if (FlxG.keys.justPressed.ESCAPE)
+			{
+				_selBox.visible = false;
+				_selBoxBorder.visible = false;
+				_selBoxActive = false;
+			}
+			return;
+		}
+
+		// ── Multi-drag activo ──────────────────────────────────────────────────
+		if (_multiDragActive)
+		{
+			_updateMultiDragGhosts(mx, my);
+
+			if (FlxG.mouse.justReleased)
+				_stopMultiDrag(mx, my);
+
+			if (FlxG.keys.justPressed.ESCAPE)
+				_cancelMultiDrag();
+		}
+	}
+
+	/** Actualiza la posición y tamaño del rectángulo de selección. */
+	function _updateSelBox(mx:Float, my:Float):Void
+	{
+		var mouseGridX = mx - gridBG.x;
+		var mouseGridY = my - gridBG.y;
+		var curStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+		var curColF = mx - gridBG.x;
+
+		var minStep = Math.min(_selBoxStartStep, curStep);
+		var maxStep = Math.max(_selBoxStartStep, curStep);
+		var minColF = Math.min(_selBoxStartCol, curColF);
+		var maxColF = Math.max(_selBoxStartCol, curColF);
+
+		var x1 = gridBG.x + minColF;
+		var y1 = (100 - gridScrollY) + minStep * GRID_SIZE;
+		var w = Math.max(2, maxColF - minColF);
+		var h = Math.max(2, (maxStep - minStep) * GRID_SIZE);
+
+		_selBox.x = x1;
+		_selBox.y = y1;
+		_selBox.setGraphicSize(Std.int(w), Std.int(h));
+		_selBox.updateHitbox();
+		_selBox.visible = true;
+
+		// Borde: 4 píxeles de grosor simulado con un sprite ligeramente más grande y alpha
+		_selBoxBorder.x = x1 - 1;
+		_selBoxBorder.y = y1 - 1;
+		_selBoxBorder.setGraphicSize(Std.int(w + 2), Std.int(h + 2));
+		_selBoxBorder.updateHitbox();
+		_selBoxBorder.visible = true;
+	}
+
+	/** Al soltar el box select: selecciona todas las notas dentro del rectángulo. */
+	function _finalizeBoxSelect(mx:Float, my:Float):Void
+	{
+		var mouseGridY = my - gridBG.y;
+		var curStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+		var curColF = mx - gridBG.x;
+
+		var minStep = Math.min(_selBoxStartStep, curStep);
+		var maxStep = Math.max(_selBoxStartStep, curStep);
+		var minCol = Math.min(_selBoxStartCol, curColF) / GRID_SIZE;
+		var maxCol = Math.max(_selBoxStartCol, curColF) / GRID_SIZE;
+
+		// Si el box es demasiado pequeño (solo click) → colocar nota en esa posición
+		if (Math.abs(maxStep - minStep) < 0.1 && Math.abs(maxCol - minCol) < 0.1)
+		{
+			var mouseGridX = mx - gridBG.x;
+			var mouseGridY = my - gridBG.y;
+			var col = Std.int(Math.floor(mouseGridX / GRID_SIZE));
+			if (col >= 0)
+				addNoteAtWorldPosition(mouseGridY, col);
+			return;
+		}
+
+		var accStep:Float = 0;
+		for (i in 0..._song.notes.length)
+		{
+			for (nd in _song.notes[i].sectionNotes)
+			{
+				var absStep = accStep + (nd[0] - getSectionStartTime(i)) / Conductor.stepCrochet;
+				var visCol = _noteVisCol(nd, i);
+				if (absStep >= minStep && absStep <= maxStep && visCol >= minCol && visCol <= maxCol)
+					_addToSelection(nd, i);
+			}
+			accStep += _song.notes[i].lengthInSteps;
+		}
+
+		_notePositionsDirty = true;
+		if (_selectedNotes.length > 0)
+			showMessage('${_selectedNotes.length} nota${_selectedNotes.length == 1 ? "" : "s"} seleccionada${_selectedNotes.length == 1 ? "" : "s"}',
+				ACCENT_CYAN);
+	}
+
+	/** Inicia el multi-drag: elimina todas las notas seleccionadas y crea ghosts. */
+	function _startMultiDrag(mx:Float, my:Float):Void
+	{
+		_multiDragActive = true;
+		_multiDragOriginals = [];
+
+		// Anchor: step y col bajo el cursor al iniciar
+		var mouseGridX = mx - gridBG.x;
+		var mouseGridY = my - gridBG.y;
+		var snapSteps = (currentSnap / 16);
+		var rawStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+		_multiDragAnchorStep = Math.floor(rawStep / snapSteps) * snapSteps;
+		_multiDragAnchorCol = Std.int(Math.floor(mouseGridX / GRID_SIZE));
+
+		// Borrar todas las notas seleccionadas del chart y guardar info original
+		saveUndoState("clear", null); // snapshot antes de empezar
+		for (sel in _selectedNotes)
+		{
+			var absStep = _noteAbsStep(sel.note, sel.section);
+			var visCol = _noteVisCol(sel.note, sel.section);
+			_multiDragOriginals.push({
+				note: sel.note,
+				section: sel.section,
+				absStep: absStep,
+				visCol: visCol
+			});
+			_song.notes[sel.section].sectionNotes.remove(sel.note);
+		}
+		updateGrid();
+
+		// Crear un ghost por cada nota
+		_multiDragGhosts.clear();
+		for (orig in _multiDragOriginals)
+		{
+			var g = new FlxSprite();
+			g.makeGraphic(GRID_SIZE - 2, GRID_SIZE - 2, NOTE_COLORS[orig.visCol % 8]);
+			g.alpha = 0.75;
+			g.scrollFactor.set();
+			g.cameras = [camGame];
+			_multiDragGhosts.add(g);
+		}
+		_updateMultiDragGhosts(mx, my);
+	}
+
+	/** Actualiza posiciones de todos los ghosts del multi-drag. */
+	function _updateMultiDragGhosts(mx:Float, my:Float):Void
+	{
+		var mouseGridX = mx - gridBG.x;
+		var mouseGridY = my - gridBG.y;
+		var snapSteps = (currentSnap / 16);
+		var numCols = getGridColumns();
+
+		var rawStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+		var curStep = Math.floor(rawStep / snapSteps) * snapSteps;
+		var curCol = Std.int(Math.floor(mouseGridX / GRID_SIZE));
+
+		var deltaStep = curStep - _multiDragAnchorStep;
+		var deltaCol = curCol - _multiDragAnchorCol;
+
+		for (i in 0..._multiDragOriginals.length)
+		{
+			var orig = _multiDragOriginals[i];
+			var ghost = _multiDragGhosts.members[i];
+			if (ghost == null)
+				continue;
+
+			var newStep = Math.max(0, orig.absStep + deltaStep);
+			var newCol = Std.int(Math.max(0, Math.min(numCols - 1, orig.visCol + deltaCol)));
+
+			ghost.x = gridBG.x + newCol * GRID_SIZE + 1;
+			ghost.y = (100 - gridScrollY) + newStep * GRID_SIZE + 1;
+
+			// Animar color si la columna cambió
+			var targetColor = NOTE_COLORS[newCol % 8];
+			if (ghost.color != targetColor)
+			{
+				FlxTween.cancelTweensOf(ghost);
+				FlxTween.color(ghost, 0.10, ghost.color, targetColor, {ease: FlxEase.quadOut});
+			}
+		}
+	}
+
+	/** Finaliza el multi-drag: reinserta todas las notas en sus nuevas posiciones. */
+	function _stopMultiDrag(mx:Float, my:Float):Void
+	{
+		var mouseGridX = mx - gridBG.x;
+		var mouseGridY = my - gridBG.y;
+		var snapSteps = (currentSnap / 16);
+		var numCols = getGridColumns();
+
+		var rawStep = (mouseGridY / GRID_SIZE) + _gridWindowOffset;
+		var curStep = Math.floor(rawStep / snapSteps) * snapSteps;
+		var curCol = Std.int(Math.floor(mouseGridX / GRID_SIZE));
+
+		var deltaStep = curStep - _multiDragAnchorStep;
+		var deltaCol = curCol - _multiDragAnchorCol;
+
+		var newSelection:Array<{note:Array<Dynamic>, section:Int}> = [];
+
+		for (orig in _multiDragOriginals)
+		{
+			var newAbsStep = Math.max(0, orig.absStep + deltaStep);
+			var newVisCol = Std.int(Math.max(0, Math.min(numCols - 1, orig.visCol + deltaCol)));
+
+			// Encontrar sección destino para el step absoluto
+			var accStep:Float = 0;
+			var tgtSection:Int = 0;
+			var stepInSection:Float = 0;
+			for (i in 0..._song.notes.length)
+			{
+				if (newAbsStep < accStep + _song.notes[i].lengthInSteps)
+				{
+					tgtSection = i;
+					stepInSection = newAbsStep - accStep;
+					break;
+				}
+				accStep += _song.notes[i].lengthInSteps;
+			}
+
+			var newStrumTime = getSectionStartTime(tgtSection) + stepInSection * Conductor.stepCrochet;
+			var reordered = visualColToDataCol(newVisCol);
+			var actualData = reordered;
+			if (reordered < 8 && _song.notes[tgtSection].mustHitSection)
+				actualData = (reordered < 4) ? reordered + 4 : reordered - 4;
+
+			var newNote:Array<Dynamic> = [newStrumTime, actualData, orig.note[2]];
+			if (orig.note.length > 3 && orig.note[3] != null)
+				newNote.push(orig.note[3]);
+
+			_song.notes[tgtSection].sectionNotes.push(newNote);
+			newSelection.push({note: newNote, section: tgtSection});
+		}
+
+		// Limpiar ghosts
+		for (g in _multiDragGhosts.members)
+			if (g != null)
+			{
+				FlxTween.cancelTweensOf(g);
+			}
+		_multiDragGhosts.clear();
+
+		_multiDragActive = false;
+		_multiDragOriginals = [];
+		// BUGFIX: limpiar selección al soltar el drag para que los highlights
+		// amarillos desaparezcan. La selección ya no es válida tras el reinsert
+		// porque las notas son objetos nuevos con nuevas posiciones.
+		_selectedNotes = [];
+		curSelectedNote = newSelection.length > 0 ? newSelection[newSelection.length - 1].note : null;
+
+		updateGrid();
+		updateNoteUI();
+		showMessage('${newSelection.length} nota${newSelection.length == 1 ? "" : "s"} movida${newSelection.length == 1 ? "" : "s"}', ACCENT_GREEN);
+	}
+
+	/** Cancela el multi-drag: devuelve todas las notas a su posición original. */
+	function _cancelMultiDrag():Void
+	{
+		for (g in _multiDragGhosts.members)
+			if (g != null)
+			{
+				FlxTween.cancelTweensOf(g);
+			}
+		_multiDragGhosts.clear();
+
+		// Reinsertar notas originales
+		for (orig in _multiDragOriginals)
+			_song.notes[orig.section].sectionNotes.push(orig.note);
+
+		_multiDragActive = false;
+		_multiDragOriginals = [];
+		_multiDragPending = false;
+
+		updateGrid();
+		showMessage('Drag cancelado', ACCENT_WARNING);
+	}
+
+	function _selectAllInSection():Void
+	{
+		_clearSelection();
+		for (nd in _song.notes[curSection].sectionNotes)
+			_addToSelection(nd, curSection);
+		_notePositionsDirty = true;
+		showMessage('${_selectedNotes.length} notas seleccionadas', ACCENT_CYAN);
+	}
+
+	function _deleteSelection():Void
+	{
+		if (_selectedNotes.length == 0)
+			return;
+		for (sel in _selectedNotes)
+		{
+			saveUndoState("delete", {section: sel.section, note: [sel.note[0], sel.note[1], sel.note[2]]});
+			_song.notes[sel.section].sectionNotes.remove(sel.note);
+		}
+		_clearSelection();
+		curSelectedNote = null;
+		updateGrid();
+		showMessage('Notas borradas', ACCENT_WARNING);
+	}
+
+	/** Devuelve la columna visual de una nota a partir de su rawData y sección. */
+	function _noteVisColFromRaw(rawData:Int, sectionIndex:Int):Int
+	{
+		var swapped = rawData;
+		if (rawData < 8 && sectionIndex < _song.notes.length && _song.notes[sectionIndex].mustHitSection)
+			swapped = (rawData < 4) ? rawData + 4 : rawData - 4;
+		return dataColToVisualCol(swapped);
+	}
+
+	// =========================================================================
+	//  CHART OVERVIEW PREVIEW
+	// =========================================================================
+
+	/**
+	 * Calcula el ancho del preview según el número de grupos de strums.
+	 * 4 columnas por grupo × PRV_NOTE_W px + 4px para eventos = dinámico.
+	 */
+	function _prvWidth():Int
+	{
+		var numGroups = Std.int(Math.max(2, Math.ceil(getGridColumns() / 4)));
+		return numGroups * 4 * PRV_NOTE_W + PRV_NOTE_W; // cols + events col
+	}
+
+	/**
+	 * Calcula la altura disponible para el preview
+	 * (desde y=100 hasta el borde inferior menos margen).
+	 */
+	function _prvHeight():Int
+		return Std.int(FlxG.height - 100 - 20);
+
+	/**
+	 * Inicializa o reconstruye los sprites del panel de preview.
+	 * Llamar después de buildGrid() cuando cambia el número de columnas.
+	 */
+	function initChartPreview():Void
+	{
+		var pw = _prvWidth();
+		var ph = _prvHeight();
+
+		// Limpiar sprites previos si existían
+		for (s in [_prvBg, _prvSprite, _prvSections, _prvViewport, _prvPlayhead])
+			if (s != null)
+				remove(s, true);
+
+		// Fondo
+		_prvBg = new FlxSprite(PRV_X, 100);
+		_prvBg.makeGraphic(pw + 4, ph, PRV_C_BG);
+		_prvBg.scrollFactor.set();
+		_prvBg.cameras = [camHUD];
+		add(_prvBg);
+
+		// Borde izquierdo de color
+		var border = new FlxSprite(PRV_X, 100).makeGraphic(2, ph, PRV_C_BORDER);
+		border.scrollFactor.set();
+		border.cameras = [camHUD];
+		add(border);
+
+		// Notas (bitmap que se redibuja cuando hay cambios)
+		_prvSprite = new FlxSprite(PRV_X + 2, 100);
+		_prvSprite.makeGraphic(pw, ph, PRV_C_BG, true);
+		_prvSprite.scrollFactor.set();
+		_prvSprite.cameras = [camHUD];
+		add(_prvSprite);
+
+		// Líneas de sección
+		_prvSections = new FlxSprite(PRV_X + 2, 100);
+		_prvSections.makeGraphic(pw, ph, 0x00000000, true);
+		_prvSections.scrollFactor.set();
+		_prvSections.cameras = [camHUD];
+		add(_prvSections);
+
+		// Viewport (área visible)
+		_prvViewport = new FlxSprite(PRV_X + 2, 100);
+		_prvViewport.makeGraphic(pw, 10, PRV_C_VP, true);
+		_prvViewport.scrollFactor.set();
+		_prvViewport.cameras = [camHUD];
+		add(_prvViewport);
+
+		// Playhead
+		_prvPlayhead = new FlxSprite(PRV_X + 2, 100);
+		_prvPlayhead.makeGraphic(pw, 2, PRV_C_PH);
+		_prvPlayhead.scrollFactor.set();
+		_prvPlayhead.cameras = [camHUD];
+		add(_prvPlayhead);
+
+		_prvDirty = true;
+	}
+
+	/**
+	 * Calcula la longitud total del song en ms.
+	 */
+	function _prvGetSongMs():Float
+	{
+		var total:Float = 0;
+		for (i in 0..._song.notes.length)
+			total += getSectionDuration(i);
+		return Math.max(1, total);
+	}
+
+	/**
+	 * Redibuja el bitmap de notas del preview.
+	 * Solo se llama cuando _prvDirty es true.
+	 */
+	function _prvRedraw():Void
+	{
+		if (_prvSprite == null || _prvSections == null)
+			return;
+
+		_prvSongMs = _prvGetSongMs();
+		var pw = _prvWidth();
+		var ph = _prvHeight();
+
+		// Limpiar
+		flixel.util.FlxSpriteUtil.drawRect(_prvSprite, 0, 0, pw, ph, PRV_C_BG);
+		flixel.util.FlxSpriteUtil.drawRect(_prvSections, 0, 0, pw, ph, 0x00000000);
+
+		// Dibujar líneas de sección
+		var accMs:Float = 0;
+		for (i in 0..._song.notes.length)
+		{
+			var sy = Std.int((accMs / _prvSongMs) * ph);
+			flixel.util.FlxSpriteUtil.drawRect(_prvSections, 0, sy, pw, 1, PRV_C_SECT);
+			accMs += getSectionDuration(i);
+		}
+
+		// Dibujar notas
+		var accMs2:Float = 0;
+		var numGroups = Std.int(Math.max(2, Math.ceil(getGridColumns() / 4)));
+		for (secNum in 0..._song.notes.length)
+		{
+			for (nd in _song.notes[secNum].sectionNotes)
+			{
+				var noteTime:Float = nd[0];
+				var rawData:Int = Std.int(nd[1]);
+				var daSus:Float = nd[2];
+				var dir = rawData % 4;
+				var group = Std.int(rawData / 4);
+
+				// Columna X en el preview
+				var noteX = Std.int(Math.min(group, numGroups - 1) * 4 * PRV_NOTE_W + dir * PRV_NOTE_W);
+
+				// Y basada en el strumTime absoluto
+				var noteY = Std.int((noteTime / _prvSongMs) * ph);
+
+				// Color por dirección (igual que NOTE_COLORS)
+				var col:Int = switch (dir)
+				{
+					case 0: 0xFFC24B99; // izquierda – morado
+					case 1: 0xFF00FFFF; // abajo – cian
+					case 2: 0xFF12FA05; // arriba – verde
+					case 3: 0xFFF9393F; // derecha – rojo
+					default: 0xFFAAAAAA;
+				};
+
+				// Nota cabeza
+				flixel.util.FlxSpriteUtil.drawRect(_prvSprite, noteX, noteY, PRV_NOTE_W - 1, PRV_NOTE_H, col);
+
+				// Sustain: línea más delgada y oscurecida
+				if (daSus > 0)
+				{
+					var susH = Std.int((daSus / _prvSongMs) * ph);
+					if (susH < 1)
+						susH = 1;
+					var susCol:Int = (col & 0xFFFFFF) | 0x88000000; // misma tinta pero 50% alpha
+					flixel.util.FlxSpriteUtil.drawRect(_prvSprite, noteX + 1, noteY + PRV_NOTE_H, PRV_NOTE_W - 3, susH, col & 0x88FFFFFF);
+				}
+			}
+			accMs2 += getSectionDuration(secNum);
+		}
+
+		// Columna de eventos (última columna)
+		if (_song.events != null)
+		{
+			for (evt in _song.events)
+			{
+				var evtY = Std.int((evt.stepTime * Conductor.stepCrochet / _prvSongMs) * ph);
+				flixel.util.FlxSpriteUtil.drawRect(_prvSprite, pw - PRV_NOTE_W, evtY, PRV_NOTE_W - 1, PRV_NOTE_H, 0xFFFFAA00);
+			}
+		}
+
+		_prvDirty = false;
+	}
+
+	/**
+	 * Actualiza la posición del viewport overlay y del playhead.
+	 * Llamado cada frame.
+	 */
+	function updateChartPreview():Void
+	{
+		if (_prvSprite == null)
+			return;
+
+		var mx = FlxG.mouse.x;
+		var my = FlxG.mouse.y;
+		var ph = _prvHeight();
+		var pw = _prvWidth();
+
+		// ── Redibujar notas si hay cambios ───────────────────────────────────
+		if (_prvDirty)
+			_prvRedraw();
+
+		// ── Viewport ─────────────────────────────────────────────────────────
+		if (_prvViewport != null && _prvSongMs > 0)
+		{
+			var visibleMs = (FlxG.height / GRID_SIZE) * Conductor.stepCrochet;
+			var vpH = Std.int(Math.max(4, (visibleMs / _prvSongMs) * ph));
+			var vpY = Std.int((gridScrollY / (totalGridHeight / GRID_SIZE * Conductor.stepCrochet)) * ph);
+			vpY = Std.int(Math.max(0, Math.min(ph - vpH, vpY)));
+
+			_prvViewport.y = 100 + vpY;
+			_prvViewport.setGraphicSize(pw, vpH);
+			_prvViewport.updateHitbox();
+		}
+
+		// ── Playhead ─────────────────────────────────────────────────────────
+		if (_prvPlayhead != null && _prvSongMs > 0 && FlxG.sound.music != null)
+		{
+			var songMs = FlxG.sound.music.time;
+			var phY = Std.int((songMs / _prvSongMs) * ph);
+			_prvPlayhead.y = 100 + Math.max(0, Math.min(ph - 2, phY));
+		}
+
+		// ── Click / drag en el preview → seek ────────────────────────────────
+		var onPreview = mx >= PRV_X && mx <= PRV_X + pw + 4 && my >= 100 && my <= 100 + ph;
+
+		if (onPreview && FlxG.mouse.justPressed)
+			_prvDragging = true;
+		if (FlxG.mouse.justReleased)
+			_prvDragging = false;
+
+		if (_prvDragging && _prvSongMs > 0)
+		{
+			var relY = Math.max(0, Math.min(ph - 1, my - 100));
+			var seekMs = (relY / ph) * _prvSongMs;
+
+			// Convertir ms a scroll pixels
+			var seekStep = seekMs / Conductor.stepCrochet;
+			var newScroll = seekStep * GRID_SIZE;
+			newScroll = Math.max(0, Math.min(maxScroll, newScroll));
+			gridScrollY = newScroll;
+			_applyGridScroll(gridScrollY);
+			_notePositionsDirty = true;
+
+			// También sincronizar la música si está pausada
+			if (FlxG.sound.music != null && !FlxG.sound.music.playing)
+				FlxG.sound.music.time = seekMs;
 		}
 	}
 
@@ -2256,10 +3613,12 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			if (Math.abs(i[0] - noteStrumTime) < 5 && i[1] == actualNoteData)
 			{
-				// ✨ Nota encontrada! Seleccionarla
+				// FIX: click izquierdo NUNCA borra — solo selecciona.
+				// El borrado es EXCLUSIVO del click derecho (deleteNoteAtPosition).
 				curSelectedNote = i;
+				_addToSelection(i, targetSection);
 				updateNoteUI();
-				showMessage('📝 Note selected (Sustain: ${i[2]}ms)', ACCENT_CYAN);
+				showMessage('Note selected (Sus: ${i[2]}ms)', ACCENT_CYAN);
 				FlxG.sound.play(Paths.sound('menus/chartingSounds/ClickUp'), 0.6);
 				return true;
 			}
@@ -2272,7 +3631,20 @@ class ChartingState extends funkin.states.MusicBeatState
 	{
 		// ── Space / ESC / Enter SIEMPRE funcionan — van ANTES del guard de popups ──
 		if (FlxG.keys.justPressed.ESCAPE)
-			testChart();
+		{
+			if (_dragActive)
+			{
+				_cancelNoteDrag();
+			}
+			else if (openSectionNav)
+			{
+				_closeSectionNavigator();
+			}
+			else
+			{
+				testChart();
+			}
+		}
 
 		if (FlxG.keys.justPressed.SPACE)
 		{
@@ -2309,34 +3681,32 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (stageFocus != null && (stageFocus is openfl.text.TextField))
 			return;
 
-		// F5 - Ir al PlayState para probar el chart desde la sección actual
-		if (FlxG.keys.justPressed.ONE)
-		{
+		// F5 - Test chart from current section (was bound to key 1, now correct)
+		if (FlxG.keys.justPressed.F5)
 			testChartFromSection();
-		}
 
 		// NAVEGACIÓN
 		if (FlxG.sound.music != null)
 		{
-		if (FlxG.keys.pressed.W || FlxG.keys.pressed.UP)
-		{
-			FlxG.sound.music.time -= 100 * FlxG.elapsed;
-		}
+			if (FlxG.keys.pressed.W || FlxG.keys.pressed.UP)
+			{
+				FlxG.sound.music.time -= 100 * FlxG.elapsed;
+			}
 
-		if (FlxG.keys.pressed.S || FlxG.keys.pressed.DOWN)
-		{
-			FlxG.sound.music.time += 100 * FlxG.elapsed;
-		}
+			if (FlxG.keys.pressed.S || FlxG.keys.pressed.DOWN)
+			{
+				FlxG.sound.music.time += 100 * FlxG.elapsed;
+			}
 
-		if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT)
-		{
-			FlxG.sound.music.time -= Conductor.stepCrochet;
-		}
+			if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT)
+			{
+				FlxG.sound.music.time -= Conductor.stepCrochet;
+			}
 
-		if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT)
-		{
-			FlxG.sound.music.time += Conductor.stepCrochet;
-		}
+			if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT)
+			{
+				FlxG.sound.music.time += Conductor.stepCrochet;
+			}
 		} // end music != null
 
 		// SECCIONES
@@ -2350,23 +3720,27 @@ class ChartingState extends funkin.states.MusicBeatState
 			changeSection(1);
 		}
 		/*
-			// QUICK NOTE PLACEMENT (1-8)
-			if (FlxG.keys.justPressed.ONE)
-				placeQuickNote(0);
-			if (FlxG.keys.justPressed.TWO)
-				placeQuickNote(1);
-			if (FlxG.keys.justPressed.THREE)
-				placeQuickNote(2);
-			if (FlxG.keys.justPressed.FOUR)
-				placeQuickNote(3);
-			if (FlxG.keys.justPressed.FIVE)
-				placeQuickNote(4);
-			if (FlxG.keys.justPressed.SIX)
-				placeQuickNote(5);
-			if (FlxG.keys.justPressed.SEVEN)
-				placeQuickNote(6);
-			if (FlxG.keys.justPressed.EIGHT)
-				placeQuickNote(7); */
+			// QUICK NOTE PLACEMENT (1-8) — deshabilitado: se hace con mouse
+		 */
+
+		// QUICK NOTE PLACEMENT via teclado (1-8)
+		// Solo funciona cuando NO hay foco en un TextField (chequeado arriba)
+		if (FlxG.keys.justPressed.ONE)
+			placeQuickNote(0);
+		if (FlxG.keys.justPressed.TWO)
+			placeQuickNote(1);
+		if (FlxG.keys.justPressed.THREE)
+			placeQuickNote(2);
+		if (FlxG.keys.justPressed.FOUR)
+			placeQuickNote(3);
+		if (FlxG.keys.justPressed.FIVE)
+			placeQuickNote(4);
+		if (FlxG.keys.justPressed.SIX)
+			placeQuickNote(5);
+		if (FlxG.keys.justPressed.SEVEN)
+			placeQuickNote(6);
+		if (FlxG.keys.justPressed.EIGHT)
+			placeQuickNote(7);
 
 		// COPY/PASTE/MIRROR
 		if (FlxG.keys.pressed.CONTROL)
@@ -2383,7 +3757,17 @@ class ChartingState extends funkin.states.MusicBeatState
 				undo();
 			if (FlxG.keys.justPressed.Y)
 				redo();
+			// Ctrl+A → seleccionar todas las notas visibles en la sección actual
+			if (FlxG.keys.justPressed.A)
+				_selectAllInSection();
+			// Ctrl+D → deseleccionar todo
+			if (FlxG.keys.justPressed.D)
+				_clearSelection();
 		}
+
+		// Delete → borrar todas las notas seleccionadas
+		if (FlxG.keys.justPressed.DELETE && _selectedNotes.length > 1)
+			_deleteSelection();
 
 		if (FlxG.keys.justPressed.N)
 			mirrorSection();
@@ -2512,28 +3896,38 @@ class ChartingState extends funkin.states.MusicBeatState
 	// Abre un diálogo rápido para saltar a una sección específica
 	function openSectionNavigator():Void
 	{
+		if (openSectionNav)
+			return; // evitar doble apertura
 		openSectionNav = true;
-		// Crear overlay temporal de navegación
+		_sectionNavElements = [];
+
+		// Overlay oscuro — click fuera del panel lo cierra
 		var overlay = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, 0x88000000);
 		overlay.scrollFactor.set();
 		overlay.cameras = [camHUD];
 
-		var panel = new FlxSprite(FlxG.width / 2 - 120, FlxG.height / 2 - 60).makeGraphic(240, 120, 0xFF1A1A33);
+		var panelW = 260;
+		var panelH = 130;
+		var cx = FlxG.width / 2 - panelW / 2;
+		var cy = FlxG.height / 2 - panelH / 2;
+
+		var panel = new FlxSprite(cx, cy).makeGraphic(panelW, panelH, 0xFF1A1A33);
 		panel.scrollFactor.set();
 		panel.cameras = [camHUD];
 
-		var label = new FlxText(FlxG.width / 2 - 115, FlxG.height / 2 - 50, 230, 'Go to section (1-${_song.notes.length}):', 11);
+		var label = new FlxText(cx + 10, cy + 12, panelW - 20, 'Go to section (1-${_song.notes.length}):', 11);
 		label.setFormat(Paths.font("vcr.ttf"), 11, 0xFFAAAAAA, CENTER);
 		label.scrollFactor.set();
 		label.cameras = [camHUD];
 
-		var input = new FlxUIInputText(FlxG.width / 2 - 50, FlxG.height / 2 - 25, 100, '${curSection + 1}', 14);
+		var input = new FlxUIInputText(cx + panelW / 2 - 50, cy + 38, 100, '${curSection + 1}', 14);
 		input.scrollFactor.set();
 		input.cameras = [camHUD];
 
 		var confirmBtn:FlxButton = null;
+		var cancelBtn:FlxButton = null;
 
-		confirmBtn = new FlxButton(FlxG.width / 2 - 40, FlxG.height / 2 + 15, "Go", function()
+		confirmBtn = new FlxButton(cx + panelW / 2 - 55, cy + panelH - 38, "Go", function()
 		{
 			var target = Std.parseInt(input.text);
 			if (target != null && target >= 1 && target <= _song.notes.length)
@@ -2541,21 +3935,35 @@ class ChartingState extends funkin.states.MusicBeatState
 				changeSection(target - 1 - curSection);
 				showMessage('📍 Navigating to section ${target}', ACCENT_CYAN);
 			}
-			remove(overlay);
-			remove(panel);
-			remove(label);
-			remove(input);
-			remove(confirmBtn);
-			openSectionNav = false;
+			_closeSectionNavigator();
 		});
 		confirmBtn.scrollFactor.set();
 		confirmBtn.cameras = [camHUD];
 
-		add(overlay);
-		add(panel);
-		add(label);
-		add(input);
-		add(confirmBtn);
+		cancelBtn = new FlxButton(cx + panelW / 2 + 5, cy + panelH - 38, "Cancel", function()
+		{
+			_closeSectionNavigator();
+		});
+		cancelBtn.scrollFactor.set();
+		cancelBtn.cameras = [camHUD];
+
+		for (el in [overlay, panel, label, input, confirmBtn, cancelBtn])
+		{
+			_sectionNavElements.push(el);
+			add(el);
+		}
+	}
+
+	/** Cierra el section navigator y limpia todos sus sprites. */
+	function _closeSectionNavigator():Void
+	{
+		for (el in _sectionNavElements)
+			remove(el, true);
+		_sectionNavElements = [];
+		openSectionNav = false;
+		// Quitar foco del text input para que los atajos de teclado vuelvan a funcionar
+		if (openfl.Lib.current.stage.focus != null)
+			openfl.Lib.current.stage.focus = null;
 	}
 
 	function placeQuickNote(noteData:Int):Void
@@ -2581,7 +3989,13 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		curRenderedNotes.clear();
 		curRenderedSustains.clear();
-		if (curRenderedTypeLabels != null) curRenderedTypeLabels.clear();
+		if (_curSusTails != null)
+			_curSusTails.clear();
+		if (_selHighlights != null)
+			_selHighlights.clear();
+		if (curRenderedTypeLabels != null)
+			curRenderedTypeLabels.clear();
+		_prvDirty = true; // chart ha cambiado → redibujar preview
 
 		var currentStep:Float = 0;
 
@@ -2633,8 +4047,8 @@ class ChartingState extends funkin.states.MusicBeatState
 				{
 					var pulseAmount = 0.4 + (Math.sin(selectedNotePulse) * 0.5 + 0.5) * 0.6;
 					var r = Std.int((baseColor >> 16 & 0xFF) * pulseAmount);
-					var g = Std.int((baseColor >> 8  & 0xFF) * pulseAmount);
-					var b = Std.int((baseColor        & 0xFF) * pulseAmount);
+					var g = Std.int((baseColor >> 8 & 0xFF) * pulseAmount);
+					var b = Std.int((baseColor & 0xFF) * pulseAmount);
 					note.color = (0xFF << 24) | (r << 16) | (g << 8) | b;
 				}
 				else
@@ -2665,15 +4079,51 @@ class ChartingState extends funkin.states.MusicBeatState
 				{
 					var susHeight = (daSus / Conductor.stepCrochet) * GRID_SIZE;
 
-					// ✨ ASEGURAR QUE EL SUSTAIN SEA VISIBLE (mínimo 2 pixels)
 					if (susHeight < 2)
 						susHeight = 2;
 
-					var sustainVis = new FlxSprite(note.x + (GRID_SIZE / 2) - 4, note.y + GRID_SIZE);
-					sustainVis.makeGraphic(8, Std.int(susHeight), NOTE_COLORS[visualColumn % 8]);
-					sustainVis.alpha = 0.6;
-					sustainVis.scrollFactor.set(); // ✅ AGREGAR
-					curRenderedSustains.add(sustainVis);
+					// Mismo enfoque que NoteManager: cadena prevNote para que las animaciones
+					// (hold / holdend) se asignen igual que en gameplay.
+					//   body (prevNote=null→self): setupSustainNote juega hold en sí mismo
+					//   tail (prevNote=body):      setupSustainNote: body→hold, tail→holdend
+					var _prevSong = PlayState.SONG;
+					if (PlayState.SONG == null)
+						PlayState.SONG = _song;
+
+					var _susBody = new Note(daStrumTime, visualColumn % 4, null, true);
+					var _susTail = new Note(daStrumTime, visualColumn % 4, _susBody, true);
+
+					PlayState.SONG = _prevSong;
+
+					// Escalar body al alto del grid (override del scale de gameplay)
+					if (_susBody.frameHeight > 0)
+					{
+						_susBody.scale.y = susHeight / _susBody.frameHeight;
+						if (_susBody.frameWidth > 0)
+							_susBody.scale.x = (GRID_SIZE * 0.55) / _susBody.frameWidth;
+						_susBody.updateHitbox();
+						_susBody.offset.x += _susBody.noteOffsetX;
+						_susBody.offset.y += _susBody.noteOffsetY;
+					}
+					_susBody.x = note.x + (GRID_SIZE - _susBody.width) / 2 + 27;
+					_susBody.y = note.y + GRID_SIZE;
+					_susBody.scrollFactor.set();
+					_susBody.cameras = [camGame];
+					curRenderedSustains.add(_susBody);
+
+					// Escalar tail (holdend) en ancho para que quepa en la columna
+					if (_susTail.frameWidth > 0)
+					{
+						_susTail.scale.x = (GRID_SIZE * 0.55) / _susTail.frameWidth;
+						_susTail.updateHitbox();
+						_susTail.offset.x += _susTail.noteOffsetX;
+						_susTail.offset.y += _susTail.noteOffsetY;
+					}
+					_susTail.x = note.x + (GRID_SIZE - _susTail.width) / 2 + 27;
+					_susTail.y = note.y + GRID_SIZE + susHeight;
+					_susTail.scrollFactor.set();
+					_susTail.cameras = [camGame];
+					_curSusTails.add(_susTail);
 				}
 			}
 
@@ -2719,6 +4169,14 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		_notePositionsDirty = false;
 		_lastGridY = gridBG.y;
+
+		// BUGFIX: limpiar highlights ANTES de reconstruirlos.
+		// Sin este clear, cada llamada a updateNotePositions() (que ocurre cada frame)
+		// acumula nuevos FlxSprite en _selHighlights sin eliminar los anteriores,
+		// dejando los amarillos permanentemente aunque la selección ya no exista.
+		if (_selHighlights != null)
+			_selHighlights.clear();
+
 		var currentStep:Float = 0;
 		var noteIndex = 0;
 		var susIndex = 0;
@@ -2760,14 +4218,15 @@ class ChartingState extends funkin.states.MusicBeatState
 				note.x = gridBG.x + (GRID_SIZE * visualColumn);
 				note.y = (100 - gridScrollY) + sectionY + (noteStep * GRID_SIZE);
 
-				// ✨ Aplicar efecto pulsante si es la nota seleccionada
+				// Efecto visual: color normal siempre. El highlight se hace con _selHighlights.
 				var baseColor = NOTE_COLORS[visualColumn % 8];
 				if (curSelectedNote != null && noteData == curSelectedNote)
 				{
+					// Nota primaria seleccionada: pulso de brillo
 					var pulseAmount = 0.4 + (Math.sin(selectedNotePulse) * 0.5 + 0.5) * 0.6;
 					var r = Std.int((baseColor >> 16 & 0xFF) * pulseAmount);
-					var g = Std.int((baseColor >> 8  & 0xFF) * pulseAmount);
-					var b = Std.int((baseColor        & 0xFF) * pulseAmount);
+					var g = Std.int((baseColor >> 8 & 0xFF) * pulseAmount);
+					var b = Std.int((baseColor & 0xFF) * pulseAmount);
 					note.color = (0xFF << 24) | (r << 16) | (g << 8) | b;
 				}
 				else
@@ -2775,25 +4234,49 @@ class ChartingState extends funkin.states.MusicBeatState
 					note.color = baseColor;
 				}
 
-				// Actualizar sustain — solo cambiar posición; recrear gráfico SOLO si la altura cambió
+				// Rectángulo amarillo detrás de notas seleccionadas (visible independientemente del skin)
+				if (_selHighlights != null && (_isSelected(noteData) || (curSelectedNote != null && noteData == curSelectedNote)))
+				{
+					var hl = new FlxSprite(note.x, note.y);
+					hl.makeGraphic(GRID_SIZE, GRID_SIZE, noteData == curSelectedNote ? 0xCCFFFFFF : 0x99FFEE00);
+					hl.scrollFactor.set();
+					hl.cameras = [camGame];
+					_selHighlights.add(hl);
+				}
+
+				// Actualizar sustain body + tail — setGraphicSize en vez de makeGraphic
 				if (daSus > 0 && susIndex < curRenderedSustains.length)
 				{
 					var sus = curRenderedSustains.members[susIndex];
+					var tail = (_curSusTails != null && susIndex < _curSusTails.length) ? _curSusTails.members[susIndex] : null;
+					var susHeight:Int = Std.int(Math.max(5, (daSus / Conductor.stepCrochet) * GRID_SIZE));
+
+					// updateGrid ya establece scale.y y offsets correctamente vía prevNote chain.
+					// Aquí solo actualizamos x/y (scroll) y rescalamos body si la duración cambió.
+					var susNote = Std.isOfType(sus, Note) ? cast(sus, Note) : null;
+
 					if (sus != null)
 					{
-						var susHeight:Int = Std.int(Math.max(5, (daSus / Conductor.stepCrochet) * GRID_SIZE));
-
-						sus.x = note.x + (GRID_SIZE / 2) - 4;
-						sus.y = note.y + GRID_SIZE;
-
-						// Recrear bitmap SOLO si la altura cambió (evita makeGraphic cada frame)
 						var cachedH:Null<Int> = _susHeightCache.get(susIndex);
 						if (cachedH == null || cachedH != susHeight)
 						{
-							sus.makeGraphic(8, susHeight, NOTE_COLORS[visualColumn % 8]);
-							sus.alpha = 0.6;
+							if (susNote != null && susNote.frameHeight > 0)
+							{
+								susNote.scale.y = susHeight / susNote.frameHeight;
+								susNote.updateHitbox();
+								susNote.offset.x += susNote.noteOffsetX;
+								susNote.offset.y += susNote.noteOffsetY;
+							}
 							_susHeightCache.set(susIndex, susHeight);
 						}
+						// Actualizar posición (cambia con el scroll)
+						sus.x = note.x + (GRID_SIZE - sus.width) / 2 + 27;
+						sus.y = note.y + GRID_SIZE;
+					}
+					if (tail != null)
+					{
+						tail.x = note.x + (GRID_SIZE - tail.width) / 2 + 27;
+						tail.y = note.y + GRID_SIZE + susHeight;
 					}
 					susIndex++;
 				}
@@ -2862,7 +4345,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			FlxG.sound.music.time = getSectionStartTime(curSection);
 			// Reset hitsound map al hacer seek
 			_hitsoundFiredNotes = new Map();
-			_lastHitsoundTime   = -999;
+			_lastHitsoundTime = -999;
 		}
 
 		updateSectionUI();
@@ -2921,10 +4404,10 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Sync noteType dropdown
 		if (noteTypeDropdown != null)
 		{
-			var typeName:String = (curSelectedNote != null && curSelectedNote.length > 3 && curSelectedNote[3] != null)
-				? Std.string(curSelectedNote[3]) : 'normal';
+			var typeName:String = (curSelectedNote != null && curSelectedNote.length > 3 && curSelectedNote[3] != null) ? Std.string(curSelectedNote[3]) : 'normal';
 			var idx = _noteTypesList.indexOf(typeName);
-			if (idx < 0) idx = 0;
+			if (idx < 0)
+				idx = 0;
 			noteTypeDropdown.selectedLabel = '$idx: ${_noteTypesList[idx]}';
 		}
 	}
@@ -3165,7 +4648,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		#if sys
 		final diff = (curDiffSuffix != null && curDiffSuffix != '') ? curDiffSuffix : '';
-		final ok   = LevelFile.saveDiff(_song.song, diff, _song);
+		final ok = LevelFile.saveDiff(_song.song, diff, _song);
 		if (ok)
 			showMessage('💾 Autosaved (${_song.song}$diff.level)', ACCENT_SUCCESS);
 		else
@@ -3196,15 +4679,15 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 		#else
 		// Web / non-sys: exportar JSON legacy mediante FileReference (igual que antes)
-		final json = { "song": _song };
-		final data : String = Json.stringify(json, "\t");
+		final json = {"song": _song};
+		final data:String = Json.stringify(json, "\t");
 		if (data.length > 0)
 		{
 			final fileName = _song.song.toLowerCase() + diff + ".json";
 			_file = new FileReference();
-			_file.addEventListener(Event.COMPLETE,          onSaveComplete);
-			_file.addEventListener(Event.CANCEL,            onSaveCancel);
-			_file.addEventListener(IOErrorEvent.IO_ERROR,   onSaveError);
+			_file.addEventListener(Event.COMPLETE, onSaveComplete);
+			_file.addEventListener(Event.CANCEL, onSaveCancel);
+			_file.addEventListener(IOErrorEvent.IO_ERROR, onSaveError);
 			_file.save(data, fileName);
 		}
 		showMessage('💾 Saving chart...', ACCENT_CYAN);
@@ -3344,7 +4827,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Pequeño delay para que el usuario vea el mensaje
 		new FlxTimer().start(0.3, function(tmr:FlxTimer)
 		{
-			FlxG.mouse.visible = false;
+			funkin.system.CursorManager.hide();
 			LoadingState.loadAndSwitchState(new PlayState());
 		});
 	}
@@ -3378,7 +4861,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Pequeño delay para que el usuario vea el mensaje
 		new FlxTimer().start(0.3, function(tmr:FlxTimer)
 		{
-			FlxG.mouse.visible = false;
+			funkin.system.CursorManager.hide();
 			LoadingState.loadAndSwitchState(new PlayState());
 		});
 	}
@@ -3386,13 +4869,11 @@ class ChartingState extends funkin.states.MusicBeatState
 	function loadChart():Void
 	{
 		_file = new FileReference();
-		_file.addEventListener(Event.SELECT,             onLoadSelect);
-		_file.addEventListener(Event.CANCEL,             onLoadCancel);
-		_file.addEventListener(IOErrorEvent.IO_ERROR,    onLoadError);
+		_file.addEventListener(Event.SELECT, onLoadSelect);
+		_file.addEventListener(Event.CANCEL, onLoadCancel);
+		_file.addEventListener(IOErrorEvent.IO_ERROR, onLoadError);
 		// Acepta tanto .level (nuevo) como .json (legacy)
-		_file.browse([
-			new openfl.net.FileFilter('Level files (*.level, *.json)', '*.level;*.json')
-		]);
+		_file.browse([new openfl.net.FileFilter('Level files (*.level, *.json)', '*.level;*.json')]);
 		showMessage('📂 Select chart to load...', ACCENT_CYAN);
 	}
 
@@ -3404,17 +4885,17 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function onLoadComplete(_):Void
 	{
-		final fullText : String = _file.data.toString();
-		final fileName : String = _file.name?.toLowerCase() ?? '';
+		final fullText:String = _file.data.toString();
+		final fileName:String = _file.name?.toLowerCase() ?? '';
 
 		try
 		{
-			var loadedSong : SwagSong = null;
+			var loadedSong:SwagSong = null;
 
 			if (fileName.endsWith('.level'))
 			{
 				// ── Formato .level ────────────────────────────────────────
-				final level : funkin.data.LevelFile.LevelData = cast haxe.Json.parse(fullText);
+				final level:funkin.data.LevelFile.LevelData = cast haxe.Json.parse(fullText);
 				// Intentar cargar la dificultad actual; si no existe, usar normal
 				final dk = (curDiffSuffix != null && curDiffSuffix != '') ? curDiffSuffix : '';
 				loadedSong = cast Reflect.field(level.difficulties, dk);
@@ -3427,7 +4908,8 @@ class ChartingState extends funkin.states.MusicBeatState
 					if (fields.length > 0)
 						loadedSong = cast Reflect.field(level.difficulties, fields[0]);
 				}
-				if (loadedSong == null) throw 'No difficulties found in .level file';
+				if (loadedSong == null)
+					throw 'No difficulties found in .level file';
 			}
 			else
 			{
@@ -3595,8 +5077,11 @@ class ChartingState extends funkin.states.MusicBeatState
 	/** Para (pausa) todos los tracks de vocales activos. */
 	function _stopChartVocals():Void
 	{
-		if (vocals != null) vocals.stop();
-		for (snd in vocalsPerChar) if (snd != null) snd.stop();
+		if (vocals != null)
+			vocals.stop();
+		for (snd in vocalsPerChar)
+			if (snd != null)
+				snd.stop();
 	}
 
 	/** Destruye y libera todos los tracks de vocales del editor. */
@@ -3611,13 +5096,14 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 		for (snd in vocalsPerChar)
 		{
-			if (snd == null) continue;
+			if (snd == null)
+				continue;
 			FlxG.sound.list.remove(snd, true);
 			snd.stop();
 			snd.destroy();
 		}
 		vocalsPerChar.clear();
-		_chartPlayerKeys   = [];
+		_chartPlayerKeys = [];
 		_chartOpponentKeys = [];
 		_chartPerCharVocals = false;
 	}
@@ -3633,18 +5119,18 @@ class ChartingState extends funkin.states.MusicBeatState
 			waveformSprite.destroy();
 			waveformSprite = null;
 		}
-		_waveformData  = null;
+		_waveformData = null;
 		_waveformBuilt = false;
 
 		// ── Maps / caches ─────────────────────────────────────────────────
-		_firedNotes          = null;
-		_hitsoundFiredNotes  = null;
-		_susHeightCache      = null;
+		_firedNotes = null;
+		_hitsoundFiredNotes = null;
+		_susHeightCache = null;
 		_sectionStartTimeCache = [];
 
 		// ── Object pools ──────────────────────────────────────────────────
 		_notePool = [];
-		_susPool  = [];
+		_susPool = [];
 
 		// ── Notes groups ──────────────────────────────────────────────────
 		if (curRenderedNotes != null)
@@ -3656,6 +5142,11 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			curRenderedSustains.clear();
 			curRenderedSustains = null;
+		}
+		if (_curSusTails != null)
+		{
+			_curSusTails.clear();
+			_curSusTails = null;
 		}
 		if (curRenderedTypeLabels != null)
 		{
@@ -3679,7 +5170,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (_file != null)
 		{
 			_file.removeEventListener(openfl.events.Event.COMPLETE, onSaveComplete);
-			_file.removeEventListener(openfl.events.Event.CANCEL,   onSaveCancel);
+			_file.removeEventListener(openfl.events.Event.CANCEL, onSaveCancel);
 			_file.removeEventListener(openfl.events.IOErrorEvent.IO_ERROR, onSaveError);
 			_file = null;
 		}
@@ -3694,16 +5185,52 @@ class ChartingState extends funkin.states.MusicBeatState
 		// se liberen antes de que PlayState empiece a cargar sus assets.
 		// Sin esto, al volver a PlayState la memoria pico puede ser muy alta
 		// porque ambos estados tienen assets en memoria simultáneamente.
-		try { Paths.clearStoredMemory(); } catch (_:Dynamic) {}
-		try { Paths.clearUnusedMemory(); } catch (_:Dynamic) {}
-		try { openfl.system.System.gc(); } catch (_:Dynamic) {}
+		try
+		{
+			Paths.clearStoredMemory();
+		}
+		catch (_:Dynamic)
+		{
+		}
+		try
+		{
+			Paths.clearUnusedMemory();
+		}
+		catch (_:Dynamic)
+		{
+		}
+		try
+		{
+			openfl.system.System.gc();
+		}
+		catch (_:Dynamic)
+		{
+		}
 		#if cpp
-		try { cpp.vm.Gc.compact(); } catch (_:Dynamic) {}
+		try
+		{
+			cpp.vm.Gc.compact();
+		}
+		catch (_:Dynamic)
+		{
+		}
 		#end
 		// Prune atlas cache DESPUÉS del GC (bitmap==null ya es detectable).
 		// PlayState.create() llamará beginSession()+clearStoredMemory() para carga limpia.
-		try { Paths.pruneAtlasCache(); } catch (_:Dynamic) {}
-		try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
+		try
+		{
+			Paths.pruneAtlasCache();
+		}
+		catch (_:Dynamic)
+		{
+		}
+		try
+		{
+			FlxG.bitmap.clearUnused();
+		}
+		catch (_:Dynamic)
+		{
+		}
 	}
 
 	// ==================== HELPER FUNCTIONS ====================
@@ -3718,6 +5245,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	}
 
 	// ── Ventana deslizante del grid ────────────────────────────────────────
+
 	/** Redibuja gridBG para la ventana actual de filas */
 	function _redrawGridBG(gridWidth:Int, numCols:Int):Void
 	{
@@ -3733,7 +5261,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				var yPos = row * GRID_SIZE;
 				var groupIndex = Math.floor(col / 4);
 				var baseLight = (groupIndex % 2 == 0) ? 0x40 : 0x35;
-				var baseDark  = (groupIndex % 2 == 0) ? 0x2A : 0x22;
+				var baseDark = (groupIndex % 2 == 0) ? 0x2A : 0x22;
 				var isEven = (absRow + col) % 2 == 0;
 				var r = isEven ? baseLight : baseDark;
 				var cellColor = (0xFF << 24) | (r << 16) | (r << 8) | r;
@@ -3767,7 +5295,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		gridBlackWhite.pixels.fillRect(new openfl.geom.Rectangle(0, 0, gridWidth, windowH), 0x00000000);
 
 		var absStartY = _gridWindowOffset * GRID_SIZE;
-		var absEndY   = absStartY + windowH;
+		var absEndY = absStartY + windowH;
 		var currentAbsY:Float = 0;
 
 		for (i in 0..._song.notes.length)
@@ -3779,11 +5307,12 @@ class ChartingState extends funkin.states.MusicBeatState
 			if (lineAbsY >= absStartY && lineAbsY < absEndY)
 			{
 				var lineLocalY = Std.int(lineAbsY - absStartY);
-				var lineColor  = (i % 2 == 0) ? 0x80FFFFFF : 0x4000D9FF;
+				var lineColor = (i % 2 == 0) ? 0x80FFFFFF : 0x4000D9FF;
 				FlxSpriteUtil.drawRect(gridBlackWhite, 0, lineLocalY, gridWidth, 2, lineColor);
 			}
 			currentAbsY += sectionHeight;
-			if (currentAbsY > absEndY + sectionHeight) break;
+			if (currentAbsY > absEndY + sectionHeight)
+				break;
 		}
 		gridBlackWhite.dirty = true;
 	}
@@ -3795,8 +5324,8 @@ class ChartingState extends funkin.states.MusicBeatState
 		var gridWidth = GRID_SIZE * numCols;
 
 		var currentRow = Std.int(scrollY / GRID_SIZE);
-		var windowEnd  = _gridWindowOffset + _gridWindowRows;
-		var buffer     = 3; // filas de margen antes de redibujar
+		var windowEnd = _gridWindowOffset + _gridWindowRows;
+		var buffer = 3; // filas de margen antes de redibujar
 
 		if (currentRow < _gridWindowOffset + buffer || currentRow + Std.int(FlxG.height / GRID_SIZE) > windowEnd - buffer)
 		{
@@ -3805,9 +5334,10 @@ class ChartingState extends funkin.states.MusicBeatState
 			_redrawGridBW(gridWidth);
 		}
 
-		gridBG.y         = 100 - scrollY + _gridWindowOffset * GRID_SIZE;
+		gridBG.y = 100 - scrollY + _gridWindowOffset * GRID_SIZE;
 		gridBlackWhite.y = gridBG.y;
-		strumLine.y      = 100; // fija en el borde superior visible — el grid scrollea debajo (NO usar gridBG.y, tiene windowing offset)
+		strumLine.y = 100;
+		// Strums fijos en y=100 (camHUD — no necesitan reposicionarse con el scroll)
 	}
 
 	function clamp(value:Float, min:Float, max:Float):Float

@@ -33,9 +33,9 @@ class OptionsMenuState extends MusicBeatSubstate
 {
 	// Categorías principales (se pueden agregar más desde scripts)
 	#if mobileC
-	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Note Skin', 'Offset', 'Mobile'];
+	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Subtitles', 'Note Skin', 'Offset', 'Mobile'];
 	#else
-	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Controls', 'Note Skin', 'Offset'];
+	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Subtitles', 'Controls', 'Note Skin', 'Offset'];
 	#end
 
 	// ── FPS Cap — rango 30–240 en pasos de 5, luego Unlimited (0) ──────────────
@@ -126,6 +126,20 @@ class OptionsMenuState extends MusicBeatSubstate
 	public static var pendingRewind:Bool = false;
 
 	public static var isOpenOptions:Bool = false;
+
+	// ── Controller icon atlas ─────────────────────────────────────────────────
+	/** Currently detected gamepad style: "ps" | "xbox" | "switch" | null (keyboard) */
+	var _gamepadStyle:Null<String> = null;
+	/** Frames atlas for the detected gamepad. Loaded once, reused. */
+	var _gamepadAtlas:Null<flixel.graphics.frames.FlxAtlasFrames> = null;
+	/** Sprite pool for controller button icons (reused across rebuilds). */
+	var _buttonIcons:FlxTypedGroup<FlxSprite> = null;
+
+	// ── Checkbox atlas ────────────────────────────────────────────────────────
+	/** Sprite pool for boolean checkboxes (reused across rebuilds). */
+	var _checkboxSprites:FlxTypedGroup<FlxSprite> = null;
+	/** Frames for the checks atlas. */
+	var _checksAtlas:Null<String> = null;
 
 	override function create()
 	{
@@ -227,6 +241,24 @@ class OptionsMenuState extends MusicBeatSubstate
 		optionValues = new FlxTypedGroup<FlxText>();
 		add(optionValues);
 
+		// Button-icon and checkbox sprite pools (drawn on top of value texts)
+		_buttonIcons     = new FlxTypedGroup<FlxSprite>();
+		_checkboxSprites = new FlxTypedGroup<FlxSprite>();
+		add(_buttonIcons);
+		add(_checkboxSprites);
+
+		// Detect connected gamepad style once
+		_gamepadStyle = _detectGamepadStyle();
+		_gamepadAtlas = _loadGamepadAtlas(_gamepadStyle);
+
+		// Load checks atlas
+		try {
+			#if sys
+			if (sys.FileSystem.exists('assets/images/menu/options/checks.png'))
+			#end
+				_checksAtlas = (Paths.image('menu/options/checks'));
+		} catch (_) { _checksAtlas = null; }
+
 		// Warning text para keybinds
 		warningText = new FlxText(0, 140, FlxG.width, "", 20);
 		warningText.setFormat(Paths.font("Funkin.otf"), 20, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
@@ -255,7 +287,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		add(footerBorder);
 
 		var helpText = new FlxText(footerBG.x + 20, footerBG.y + 12, footerBG.width - 40,
-			"← → : Tab  |  ↑ ↓ : Navigate  |  ENTER : Toggle/Edit  |  A/D : Adjust  |  ESC : Back", 18);
+			"LEFT/RIGHT : Tab  |  UP/DOWN : Navigate  |  ENTER : Toggle/Edit  |  A/D : Adjust  |  ESC : Back", 18);
 		helpText.setFormat(Paths.font("Funkin.otf"), 18, 0xFFAAAAAA, CENTER, OUTLINE, FlxColor.BLACK);
 		helpText.borderSize = 1.5;
 		helpText.antialiasing = FlxG.save.data.antialiasing;
@@ -395,6 +427,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				loadGraphicsOptions();
 			case 'Gameplay':
 				loadGameplayOptions();
+			case 'Subtitles':
+				loadSubtitlesOptions();
 			case 'Controls':
 				loadControlsOptions();
 			case 'Note Skin':
@@ -926,6 +960,320 @@ class OptionsMenuState extends MusicBeatSubstate
 	}
 	#end
 
+	// ── Tamaños de fuente disponibles para subtítulos ─────────────────────────
+	static final SUBTITLE_SIZES:Array<Int> = [16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40, 48];
+
+	// ── Fuentes disponibles para subtítulos ───────────────────────────────────
+	// Nombre visible | nombre real del archivo en assets/fonts/
+	static final SUBTITLE_FONT_NAMES:Array<String>  = ['VCR OSD',  'Funkin',      'Arial',    'Pixel',       'Bold'];
+	static final SUBTITLE_FONT_FILES:Array<String>  = ['vcr.ttf',  'Funkin.otf',  'arial.ttf','pixel.ttf',   'bold.ttf'];
+
+
+	// ── Colores de texto predefinidos ─────────────────────────────────────────
+	static final SUBTITLE_COLOR_NAMES:Array<String> = ['White', 'Yellow', 'Cyan', 'Lime', 'Pink', 'Orange'];
+	static final SUBTITLE_COLOR_VALUES:Array<Int>   = [0xFFFFFFFF, 0xFFFFFF00, 0xFF00FFFF, 0xFF00FF00, 0xFFFF69B4, 0xFFFF8C00];
+
+	// ── Idiomas de traducción ─────────────────────────────────────────────────
+	static final SUBTITLE_LANG_NAMES:Array<String> = [
+		'None', 'Spanish', 'English', 'French', 'German', 'Italian',
+		'Portuguese', 'Japanese', 'Korean', 'Chinese', 'Russian', 'Arabic'
+	];
+	static final SUBTITLE_LANG_CODES:Array<String> = [
+		'',   'es', 'en', 'fr', 'de', 'it',
+		'pt', 'ja', 'ko', 'zh', 'ru', 'ar'
+	];
+
+	function loadSubtitlesOptions()
+	{
+		currentOptions = [
+			// ── Activar / desactivar subtítulos ───────────────────────────────
+			{
+				name: "Subtitles",
+				get: function()
+				{
+					return (FlxG.save.data.subtitlesEnabled != false) ? "ON" : "OFF";
+				},
+				toggle: function()
+				{
+					FlxG.save.data.subtitlesEnabled = !(FlxG.save.data.subtitlesEnabled != false);
+					FlxG.save.flush();
+				}
+			},
+			// ── Fuente del texto ──────────────────────────────────────────────
+			{
+				name: "Font",
+				get: function()
+				{
+					var f:String = FlxG.save.data.subtitleFont != null ? FlxG.save.data.subtitleFont : 'vcr.ttf';
+					var idx = SUBTITLE_FONT_FILES.indexOf(f);
+					return idx >= 0 ? SUBTITLE_FONT_NAMES[idx] : f;
+				},
+				left: function()
+				{
+					var f:String = FlxG.save.data.subtitleFont != null ? FlxG.save.data.subtitleFont : 'vcr.ttf';
+					var idx = _resolveSubtitleFontIndex(f);
+					idx = (idx - 1 + _availableSubtitleFonts().length) % _availableSubtitleFonts().length;
+					FlxG.save.data.subtitleFont = _availableSubtitleFonts()[idx];
+					_applySubtitleSettings();
+				},
+				right: function()
+				{
+					var f:String = FlxG.save.data.subtitleFont != null ? FlxG.save.data.subtitleFont : 'vcr.ttf';
+					var idx = _resolveSubtitleFontIndex(f);
+					idx = (idx + 1) % _availableSubtitleFonts().length;
+					FlxG.save.data.subtitleFont = _availableSubtitleFonts()[idx];
+					_applySubtitleSettings();
+				}
+			},
+			// ── Tamaño de fuente ──────────────────────────────────────────────
+			{
+				name: "Font Size",
+				get: function()
+				{
+					var sz:Int = FlxG.save.data.subtitleSize != null ? FlxG.save.data.subtitleSize : 26;
+					return sz + " px";
+				},
+				left: function()
+				{
+					var sz:Int = FlxG.save.data.subtitleSize != null ? FlxG.save.data.subtitleSize : 26;
+					var idx = SUBTITLE_SIZES.indexOf(sz);
+					if (idx < 0) idx = SUBTITLE_SIZES.indexOf(26);
+					idx = (idx - 1 + SUBTITLE_SIZES.length) % SUBTITLE_SIZES.length;
+					FlxG.save.data.subtitleSize = SUBTITLE_SIZES[idx];
+					_applySubtitleSettings();
+				},
+				right: function()
+				{
+					var sz:Int = FlxG.save.data.subtitleSize != null ? FlxG.save.data.subtitleSize : 26;
+					var idx = SUBTITLE_SIZES.indexOf(sz);
+					if (idx < 0) idx = SUBTITLE_SIZES.indexOf(26);
+					idx = (idx + 1) % SUBTITLE_SIZES.length;
+					FlxG.save.data.subtitleSize = SUBTITLE_SIZES[idx];
+					_applySubtitleSettings();
+				}
+			},
+			// ── Color del texto ───────────────────────────────────────────────
+			{
+				name: "Text Color",
+				get: function()
+				{
+					var c:Int = FlxG.save.data.subtitleColor != null ? FlxG.save.data.subtitleColor : 0xFFFFFFFF;
+					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
+					return idx >= 0 ? SUBTITLE_COLOR_NAMES[idx] : "Custom";
+				},
+				left: function()
+				{
+					var c:Int = FlxG.save.data.subtitleColor != null ? FlxG.save.data.subtitleColor : 0xFFFFFFFF;
+					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
+					if (idx < 0) idx = 0;
+					idx = (idx - 1 + SUBTITLE_COLOR_VALUES.length) % SUBTITLE_COLOR_VALUES.length;
+					FlxG.save.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
+					_applySubtitleSettings();
+				},
+				right: function()
+				{
+					var c:Int = FlxG.save.data.subtitleColor != null ? FlxG.save.data.subtitleColor : 0xFFFFFFFF;
+					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
+					if (idx < 0) idx = 0;
+					idx = (idx + 1) % SUBTITLE_COLOR_VALUES.length;
+					FlxG.save.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
+					_applySubtitleSettings();
+				}
+			},
+			// ── Opacidad del fondo ────────────────────────────────────────────
+			{
+				name: "Background Opacity",
+				get: function()
+				{
+					var a:Float = FlxG.save.data.subtitleBgAlpha != null ? FlxG.save.data.subtitleBgAlpha : 0.6;
+					return Std.int(a * 100) + "%";
+				},
+				left: function()
+				{
+					var a:Float = FlxG.save.data.subtitleBgAlpha != null ? FlxG.save.data.subtitleBgAlpha : 0.6;
+					a = Math.max(0.0, Math.round((a - 0.1) * 10) / 10);
+					FlxG.save.data.subtitleBgAlpha = a;
+					_applySubtitleSettings();
+				},
+				right: function()
+				{
+					var a:Float = FlxG.save.data.subtitleBgAlpha != null ? FlxG.save.data.subtitleBgAlpha : 0.6;
+					a = Math.min(1.0, Math.round((a + 0.1) * 10) / 10);
+					FlxG.save.data.subtitleBgAlpha = a;
+					_applySubtitleSettings();
+				}
+			},
+			// ── Posición vertical ─────────────────────────────────────────────
+			{
+				name: "Position",
+				get: function()
+				{
+					var p:String = FlxG.save.data.subtitlePosition != null ? FlxG.save.data.subtitlePosition : 'bottom';
+					return switch (p) { case 'top': "Top"; case 'center': "Center"; default: "Bottom"; };
+				},
+				toggle: function()
+				{
+					var p:String = FlxG.save.data.subtitlePosition != null ? FlxG.save.data.subtitlePosition : 'bottom';
+					FlxG.save.data.subtitlePosition = switch (p) {
+						case 'bottom': 'top';
+						case 'top':    'center';
+						default:       'bottom';
+					};
+					_applySubtitleSettings();
+				}
+			},
+			// ── Negrita ───────────────────────────────────────────────────────
+			{
+				name: "Bold Text",
+				get: function()
+				{
+					return (FlxG.save.data.subtitleBold != false) ? "ON" : "OFF";
+				},
+				toggle: function()
+				{
+					FlxG.save.data.subtitleBold = !(FlxG.save.data.subtitleBold != false);
+					_applySubtitleSettings();
+				}
+			},
+			// ── Velocidad de fade ─────────────────────────────────────────────
+			{
+				name: "Fade Speed",
+				get: function()
+				{
+					var f:Float = FlxG.save.data.subtitleFadeIn != null ? FlxG.save.data.subtitleFadeIn : 0.2;
+					return f == 0 ? "Instant" : (Std.int(f * 10) / 10) + "s";
+				},
+				left: function()
+				{
+					var steps:Array<Float> = [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0];
+					var f:Float = FlxG.save.data.subtitleFadeIn != null ? FlxG.save.data.subtitleFadeIn : 0.2;
+					var idx = 0;
+					var best = 999.0;
+					for (i in 0...steps.length) { var d = Math.abs(steps[i] - f); if (d < best) { best = d; idx = i; } }
+					idx = (idx - 1 + steps.length) % steps.length;
+					FlxG.save.data.subtitleFadeIn = steps[idx];
+					_applySubtitleSettings();
+				},
+				right: function()
+				{
+					var steps:Array<Float> = [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0];
+					var f:Float = FlxG.save.data.subtitleFadeIn != null ? FlxG.save.data.subtitleFadeIn : 0.2;
+					var idx = 0;
+					var best = 999.0;
+					for (i in 0...steps.length) { var d = Math.abs(steps[i] - f); if (d < best) { best = d; idx = i; } }
+					idx = (idx + 1) % steps.length;
+					FlxG.save.data.subtitleFadeIn = steps[idx];
+					_applySubtitleSettings();
+				}
+			},
+			// ── Idioma de traducción ──────────────────────────────────────────
+			{
+				name: "Translate To",
+				get: function()
+				{
+					var code:String = FlxG.save.data.subtitleTranslateLang != null ? FlxG.save.data.subtitleTranslateLang : '';
+					var idx = SUBTITLE_LANG_CODES.indexOf(code);
+					return idx >= 0 ? SUBTITLE_LANG_NAMES[idx] : "None";
+				},
+				left: function()
+				{
+					var code:String = FlxG.save.data.subtitleTranslateLang != null ? FlxG.save.data.subtitleTranslateLang : '';
+					var idx = SUBTITLE_LANG_CODES.indexOf(code);
+					if (idx < 0) idx = 0;
+					idx = (idx - 1 + SUBTITLE_LANG_CODES.length) % SUBTITLE_LANG_CODES.length;
+					FlxG.save.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
+					FlxG.save.flush();
+				},
+				right: function()
+				{
+					var code:String = FlxG.save.data.subtitleTranslateLang != null ? FlxG.save.data.subtitleTranslateLang : '';
+					var idx = SUBTITLE_LANG_CODES.indexOf(code);
+					if (idx < 0) idx = 0;
+					idx = (idx + 1) % SUBTITLE_LANG_CODES.length;
+					FlxG.save.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
+					FlxG.save.flush();
+				}
+			}
+		];
+
+		createOptionTexts();
+	}
+
+	/**
+	 * Devuelve solo las fuentes que existen en assets/fonts/ en el sistema.
+	 * Siempre incluye vcr.ttf y Funkin.otf como fallback garantizado.
+	 */
+	function _availableSubtitleFonts():Array<String>
+	{
+		var available:Array<String> = [];
+		for (i in 0...SUBTITLE_FONT_FILES.length)
+		{
+			var file = SUBTITLE_FONT_FILES[i];
+			var path = 'assets/fonts/$file';
+			var exists = false;
+			#if sys
+			exists = sys.FileSystem.exists(path);
+			#else
+			exists = openfl.utils.Assets.exists(path);
+			#end
+			// vcr.ttf y Funkin.otf siempre incluidos (vienen con el engine)
+			if (exists || file == 'vcr.ttf' || file == 'Funkin.otf')
+				available.push(file);
+		}
+		if (available.length == 0) available.push('vcr.ttf');
+		return available;
+	}
+
+	/** Devuelve el índice de la fuente en _availableSubtitleFonts(), o 0 si no se encuentra. */
+	function _resolveSubtitleFontIndex(fontFile:String):Int
+	{
+		var avail = _availableSubtitleFonts();
+		var idx = avail.indexOf(fontFile);
+		return idx >= 0 ? idx : 0;
+	}
+
+	/** Aplica la configuración de subtítulos guardada al SubtitleManager singleton. */
+	function _applySubtitleSettings():Void
+	{
+		FlxG.save.flush();
+		var sm = funkin.ui.SubtitleManager.instance;
+
+		// Fuente
+		if (FlxG.save.data.subtitleFont != null)
+			sm.defaultFont = FlxG.save.data.subtitleFont;
+
+		// Tamaño
+		if (FlxG.save.data.subtitleSize != null)
+			sm.defaultSize = FlxG.save.data.subtitleSize;
+
+		// Color
+		if (FlxG.save.data.subtitleColor != null)
+			sm.defaultColor = FlxG.save.data.subtitleColor;
+
+		// Opacidad de fondo
+		if (FlxG.save.data.subtitleBgAlpha != null)
+			sm.defaultBgAlpha = FlxG.save.data.subtitleBgAlpha;
+
+		// Negrita
+		if (FlxG.save.data.subtitleBold != null)
+			sm.defaultBold = (FlxG.save.data.subtitleBold != false);
+
+		// Fade in/out
+		if (FlxG.save.data.subtitleFadeIn != null)
+		{
+			sm.defaultFadeIn  = FlxG.save.data.subtitleFadeIn;
+			sm.defaultFadeOut = FlxG.save.data.subtitleFadeIn;
+		}
+
+		// Posición Y
+		var pos:String = FlxG.save.data.subtitlePosition != null ? FlxG.save.data.subtitlePosition : 'bottom';
+		sm.defaultY = switch (pos) {
+			case 'top':    60.0;
+			case 'center': -2.0; // valor especial: centrado vertical
+			default:       -1.0; // -1 = automático (cerca del fondo)
+		};
+	}
+
 	function loadOffsetOptions()
 	{
 		currentOptions = [
@@ -944,9 +1292,17 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	function createOptionTexts()
 	{
+		// Clear icon pools
+		if (_buttonIcons     != null) _buttonIcons.clear();
+		if (_checkboxSprites != null) _checkboxSprites.clear();
+
+		var isControlsTab = (categories[curCategory] == 'Controls');
+
 		for (i in 0...currentOptions.length)
 		{
-			var nameText:FlxText = new FlxText(90, OPT_START_Y + (i * OPT_SPACING), 600, currentOptions[i].name, 26);
+			var opt = currentOptions[i];
+
+			var nameText:FlxText = new FlxText(90, OPT_START_Y + (i * OPT_SPACING), 600, opt.name, 26);
 			nameText.setFormat(Paths.font("Funkin.otf"), 26, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 			nameText.borderSize = 2;
 			nameText.ID = i;
@@ -954,13 +1310,76 @@ class OptionsMenuState extends MusicBeatSubstate
 			nameText.antialiasing = FlxG.save.data.antialiasing;
 			optionNames.add(nameText);
 
-			var valueText:FlxText = new FlxText(FlxG.width - 400, OPT_START_Y + (i * OPT_SPACING), 320, currentOptions[i].get(), 26);
-			valueText.setFormat(Paths.font("Funkin.otf"), 26, FlxColor.CYAN, RIGHT, OUTLINE, FlxColor.BLACK);
-			valueText.antialiasing = FlxG.save.data.antialiasing;
-			valueText.borderSize = 2;
-			valueText.ID = i;
-			valueText.scrollFactor.set();
-			optionValues.add(valueText);
+			var rawVal:String = opt.get();
+			var isBool = (rawVal == 'ON' || rawVal == 'OFF');
+
+			// ── Controls tab: try to show a controller button icon ────────────
+			if (isControlsTab && opt.isKeybind == true)
+			{
+				var iconPlaced = false;
+				if (_gamepadAtlas != null)
+				{
+					var frameName = _buttonNameToFrame(rawVal, _gamepadStyle);
+					if (frameName != null)
+					{
+						var icon = new FlxSprite(FlxG.width - 120, OPT_START_Y + (i * OPT_SPACING) - 4);
+						icon.frames = _gamepadAtlas;
+						icon.animation.addByPrefix('idle', frameName, 1, false);
+						icon.animation.play('idle');
+						icon.setGraphicSize(40, 40);
+						icon.updateHitbox();
+						icon.scrollFactor.set();
+						icon.antialiasing = FlxG.save.data.antialiasing;
+						icon.ID = i;
+						_buttonIcons.add(icon);
+						iconPlaced = true;
+					}
+				}
+				// Fallback to text if no icon available
+				var valueText:FlxText = new FlxText(FlxG.width - 400, OPT_START_Y + (i * OPT_SPACING), iconPlaced ? 260 : 320, iconPlaced ? '' : rawVal, 26);
+				valueText.setFormat(Paths.font("Funkin.otf"), 26, FlxColor.CYAN, RIGHT, OUTLINE, FlxColor.BLACK);
+				valueText.antialiasing = FlxG.save.data.antialiasing;
+				valueText.borderSize = 2;
+				valueText.ID = i;
+				valueText.scrollFactor.set();
+				optionValues.add(valueText);
+			}
+			// ── Boolean option: show checkbox sprite ─────────────────────────
+			else if (isBool && _checksAtlas != null)
+			{
+				// Hide the text value
+				var valueText:FlxText = new FlxText(0, 0, 0, '', 1);
+				valueText.ID = i;
+				valueText.visible = false;
+				valueText.scrollFactor.set();
+				optionValues.add(valueText);
+
+				// Show checkbox sprite
+				var cb = new FlxSprite(FlxG.width - 120, OPT_START_Y + (i * OPT_SPACING) - 8);
+				cb.loadGraphic(_checksAtlas,true, 36, 47);
+				var frameName = (rawVal == 'ON') ? 'check' : 'empty';
+				// Hard fallback by frame index if prefix matching fails
+				cb.animation.add('check', [1]);
+				cb.animation.add('empty', [0]);
+				cb.animation.play(frameName);
+				cb.scale.set(0.95,0.95);
+				cb.updateHitbox();
+				cb.scrollFactor.set();
+				cb.antialiasing = FlxG.save.data.antialiasing;
+				cb.ID = i;
+				_checkboxSprites.add(cb);
+			}
+			// ── Normal text value ─────────────────────────────────────────────
+			else
+			{
+				var valueText:FlxText = new FlxText(FlxG.width - 400, OPT_START_Y + (i * OPT_SPACING), 320, rawVal, 26);
+				valueText.setFormat(Paths.font("Funkin.otf"), 26, FlxColor.CYAN, RIGHT, OUTLINE, FlxColor.BLACK);
+				valueText.antialiasing = FlxG.save.data.antialiasing;
+				valueText.borderSize = 2;
+				valueText.ID = i;
+				valueText.scrollFactor.set();
+				optionValues.add(valueText);
+			}
 		}
 	}
 
@@ -1020,6 +1439,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				_scrollbarThumb.y = thumbY;
 			}
 		}
+		// Sync icon/checkbox sprite positions with scroll
+		_syncIconScroll();
 	}
 
 	function updateCategoryDisplay()
@@ -1120,8 +1541,30 @@ class OptionsMenuState extends MusicBeatSubstate
 				FlxTween.tween(txt.scale, {x: 1, y: 1}, 0.15, {ease: FlxEase.quadOut});
 			}
 
-			txt.text = currentOptions[txt.ID].get();
+			// Only update text for non-checkbox, non-hidden value texts
+			var rawVal = currentOptions[txt.ID].get();
+			if (txt.visible) txt.text = rawVal;
 		});
+
+		// Sync checkbox sprites state and selection highlight
+		syncCheckboxes();
+
+		// Sync controller button icons (no-op if no gamepad atlas loaded)
+		syncButtonIcons();
+
+		// Sync button icon selection highlight
+		if (_buttonIcons != null)
+		{
+			_buttonIcons.forEach(function(spr:FlxSprite)
+			{
+				spr.alpha = (spr.ID == curSelected) ? 1.0 : 0.7;
+				FlxTween.cancelTweensOf(spr.scale);
+				if (spr.ID == curSelected)
+					FlxTween.tween(spr.scale, {x: 1.15, y: 1.15}, 0.15, {ease: FlxEase.quadOut});
+				else
+					FlxTween.tween(spr.scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
+			});
+		}
 	}
 
 	override function update(elapsed:Float)
@@ -1356,6 +1799,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				saveKeyBinds();
 				bindingState = "select";
 				bindingIndicator.visible = false;
+				// Rebuild full icon list so new key shows correct icon (or text fallback)
+				_rebuildControlsIconAt(curSelected, pressedKey);
 				updateOptionDisplay();
 				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 
@@ -1510,6 +1955,250 @@ class OptionsMenuState extends MusicBeatSubstate
 		}
 	}
 
+	// ─────────────────────────────────────────────────────────────────────────
+	//  HELPERS: Checkbox sync, controller detection, scroll of icons
+	// ─────────────────────────────────────────────────────────────────────────
+
+	/**
+	 * Syncs checkbox sprites and button icons after a value changes.
+	 * Call this instead of (or after) updateOptionDisplay() when a bool flips.
+	 */
+	function syncCheckboxes():Void
+	{
+		if (_checkboxSprites == null) return;
+		_checkboxSprites.forEach(function(cb:FlxSprite)
+		{
+			if (cb.ID >= currentOptions.length) return;
+			var val:String = currentOptions[cb.ID].get();
+			var frameName = (val == 'ON') ? 'check' : 'empty';
+			if (cb.animation.getByName(frameName) != null)
+				cb.animation.play(frameName);
+			cb.alpha  = (cb.ID == curSelected) ? 1.0 : 0.7;
+		});
+	}
+
+	/**
+	 * Syncs button icons (controller tab) after a keybind changes.
+	 */
+	function syncButtonIcons():Void
+	{
+		if (_buttonIcons == null || _gamepadAtlas == null) return;
+		_buttonIcons.forEach(function(icon:FlxSprite)
+		{
+			if (icon.ID >= currentOptions.length) return;
+			var rawVal:String = currentOptions[icon.ID].get();
+			var frameName = _buttonNameToFrame(rawVal, _gamepadStyle);
+			if (frameName != null && icon.animation.getByName(frameName) == null)
+			{
+				icon.animation.addByPrefix(frameName, frameName, 1, false);
+				icon.animation.play(frameName);
+			}
+			else if (frameName != null)
+			{
+				icon.animation.play(frameName);
+			}
+			icon.alpha = (icon.ID == curSelected) ? 1.0 : 0.7;
+		});
+	}
+
+	/**
+	 * Applies scroll offset to icon/checkbox sprite pools, mirroring _updateScroll.
+	 * Call after _updateScroll().
+	 */
+	function _syncIconScroll():Void
+	{
+		if (_buttonIcons != null)
+		{
+			_buttonIcons.forEach(function(spr:FlxSprite)
+			{
+				spr.y      = OPT_START_Y + (spr.ID * OPT_SPACING) - _optScrollY - 4;
+				spr.visible = (spr.y >= OPT_START_Y - OPT_SPACING) && (spr.y < OPT_START_Y + OPT_VISIBLE_H);
+			});
+		}
+		if (_checkboxSprites != null)
+		{
+			_checkboxSprites.forEach(function(spr:FlxSprite)
+			{
+				spr.y      = OPT_START_Y + (spr.ID * OPT_SPACING) - _optScrollY - 4;
+				spr.visible = (spr.y >= OPT_START_Y - OPT_SPACING) && (spr.y < OPT_START_Y + OPT_VISIBLE_H);
+			});
+		}
+	}
+
+	/**
+	 * Rebuilds the button icon for a single slot after a keybind changes.
+	 * Much cheaper than rebuilding the entire list — just swaps the animation
+	 * on the existing FlxSprite, or shows/hides it if the key type changes.
+	 *
+	 * Call this right after keys[idx] is updated, before updateOptionDisplay().
+	 */
+	function _rebuildControlsIconAt(idx:Int, newKey:String):Void
+	{
+		if (_buttonIcons == null) return;
+
+		var frameName:Null<String> = (_gamepadAtlas != null) ? _buttonNameToFrame(newKey, _gamepadStyle) : null;
+
+		// Find existing icon sprite for this slot
+		var existingIcon:FlxSprite = null;
+		_buttonIcons.forEach(function(spr:FlxSprite)
+		{
+			if (spr.ID == idx) existingIcon = spr;
+		});
+
+		if (frameName != null)
+		{
+			if (existingIcon != null)
+			{
+				// Reuse existing sprite — just play the new animation
+				if (existingIcon.animation.getByName(frameName) == null)
+					existingIcon.animation.addByPrefix(frameName, frameName, 1, false);
+				existingIcon.animation.play(frameName);
+				existingIcon.visible = true;
+			}
+			else
+			{
+				// No icon existed for this slot yet — create one
+				var icon = new FlxSprite(FlxG.width - 120, OPT_START_Y + (idx * OPT_SPACING) - 4);
+				icon.frames = _gamepadAtlas;
+				icon.animation.addByPrefix(frameName, frameName, 1, false);
+				icon.animation.play(frameName);
+				icon.setGraphicSize(40, 40);
+				icon.updateHitbox();
+				icon.scrollFactor.set();
+				icon.antialiasing = FlxG.save.data.antialiasing;
+				icon.ID = idx;
+				_buttonIcons.add(icon);
+				// Hide the text value for this slot
+				optionValues.forEach(function(txt:FlxText)
+				{
+					if (txt.ID == idx) { txt.text = ''; txt.visible = false; }
+				});
+			}
+		}
+		else
+		{
+			// No icon for this key — hide icon sprite, show text fallback
+			if (existingIcon != null) existingIcon.visible = false;
+			optionValues.forEach(function(txt:FlxText)
+			{
+				if (txt.ID == idx)
+				{
+					txt.text    = newKey;
+					txt.visible = true;
+				}
+			});
+		}
+	}
+
+	// ── Gamepad detection ─────────────────────────────────────────────────────
+
+	/**
+	 * Returns "ps" | "xbox" | "switch" | null based on connected gamepads.
+	 * Priority: first detected gamepad wins.
+	 */
+	static function _detectGamepadStyle():Null<String>
+	{
+		#if FLX_GAMEPADS
+		var pads = FlxG.gamepads.getActiveGamepads();
+		if (pads != null && pads.length > 0)
+		{
+			var name = (pads[0].name ?? '').toLowerCase();
+			if (name.contains('xbox') || name.contains('xinput') || name.contains('microsoft'))
+				return 'xbox';
+			if (name.contains('dualshock') || name.contains('dualsense') || name.contains('playstation') || name.contains('ps4') || name.contains('ps5'))
+				return 'ps';
+			if (name.contains('nintendo') || name.contains('joy-con') || name.contains('pro controller') || name.contains('switch'))
+				return 'switch';
+			// Generic/unknown gamepad → default to xbox layout
+			return 'xbox';
+		}
+		#end
+		return null;
+	}
+
+	/**
+	 * Loads the Sparrow atlas for the given gamepad style from
+	 * assets/images/menu/options/controls/<style>.png+xml.
+	 * Returns null if the files don't exist or no style given.
+	 */
+	static function _loadGamepadAtlas(style:Null<String>):Null<flixel.graphics.frames.FlxAtlasFrames>
+	{
+		if (style == null) return null;
+		#if sys
+		var pngPath = 'assets/images/menu/options/controls/$style.png';
+		var xmlPath = 'assets/images/menu/options/controls/$style.xml';
+		if (!sys.FileSystem.exists(pngPath) || !sys.FileSystem.exists(xmlPath))
+		{
+			trace('[OptionsMenu] No gamepad atlas for style "$style" at $pngPath');
+			return null;
+		}
+		#end
+		try { return Paths.getSparrowAtlas('menu/options/controls/$style'); }
+		catch (_) { return null; }
+	}
+
+	/**
+	 * Maps a key/button name string to the frame prefix in the gamepad atlas.
+	 * Returns null if there is no matching frame (caller falls back to text).
+	 *
+	 * Frame names in the atlases (from the XMLs):
+	 *   PS:     X, circle, square, triangle, up, down, left, right, options, share, play
+	 *   Xbox:   A, B, X, Y, up, down, left, right, options, share
+	 *   Switch: A, B, X, Y, up, down, left, right, home, minus, plus, screen
+	 */
+	static function _buttonNameToFrame(keyName:String, style:Null<String>):Null<String>
+	{
+		if (style == null || keyName == null) return null;
+		var k = keyName.toUpperCase();
+
+		// D-pad directions — same across all controllers
+		if (k == 'UP')    return 'up';
+		if (k == 'DOWN')  return 'down';
+		if (k == 'LEFT')  return 'left';
+		if (k == 'RIGHT') return 'right';
+
+		switch (style)
+		{
+			case 'ps':
+				return switch (k)
+				{
+					case 'CROSS'  | 'X':            'X';
+					case 'CIRCLE' | 'B':            'circle';
+					case 'SQUARE' | 'Q':            'square';
+					case 'TRIANGLE' | 'T':          'triangle';
+					case 'OPTIONS' | 'START':       'options';
+					case 'SHARE' | 'SELECT' | 'BACK': 'share';
+					case 'PLAY' | 'TOUCHPAD':       'play';
+					default: null;
+				};
+			case 'xbox':
+				return switch (k)
+				{
+					case 'A' | 'CROSS':             'A';
+					case 'B' | 'CIRCLE':            'B';
+					case 'X' | 'SQUARE':            'X';
+					case 'Y' | 'TRIANGLE':          'Y';
+					case 'START' | 'OPTIONS' | 'MENU': 'options';
+					case 'SELECT' | 'BACK' | 'SHARE': 'share';
+					default: null;
+				};
+			case 'switch':
+				return switch (k)
+				{
+					case 'A' | 'CROSS':             'A';
+					case 'B' | 'CIRCLE':            'B';
+					case 'X' | 'SQUARE':            'X';
+					case 'Y' | 'TRIANGLE':          'Y';
+					case 'HOME':                    'home';
+					case 'MINUS' | 'SELECT' | 'BACK': 'minus';
+					case 'PLUS'  | 'START'  | 'OPTIONS': 'plus';
+					case 'SCREEN' | 'CAPTURE':      'screen';
+					default: null;
+				};
+			default: return null;
+		}
+	}
+
 	// === CLASE DE COMPATIBILIDAD PARA Main.hx ===
 
 	/**
@@ -1583,6 +2272,21 @@ class OptionsData
 
 		if (FlxG.save.data.antialiasing == null)
 			FlxG.save.data.antialiasing = true;
+
+		// ── Keybinds ──────────────────────────────────────────────────────────
+		// Inicializar defaults aquí para que loadKeyBinds() nunca lea null
+		// (FlxKey.fromString(null) devuelve NONE=0, lo que puede disparar
+		// capturas accidentales si el ScreenshotPlugin se inicializa antes).
+		if (FlxG.save.data.leftBind   == null) FlxG.save.data.leftBind   = "A";
+		if (FlxG.save.data.downBind   == null) FlxG.save.data.downBind   = "S";
+		if (FlxG.save.data.upBind     == null) FlxG.save.data.upBind     = "W";
+		if (FlxG.save.data.rightBind  == null) FlxG.save.data.rightBind  = "D";
+		if (FlxG.save.data.killBind   == null) FlxG.save.data.killBind   = "R";
+		if (FlxG.save.data.acceptBind == null) FlxG.save.data.acceptBind = "ENTER";
+		if (FlxG.save.data.backBind   == null) FlxG.save.data.backBind   = "ESCAPE";
+		if (FlxG.save.data.pauseBind  == null) FlxG.save.data.pauseBind  = "ENTER";
+		if (FlxG.save.data.screenshotBind == null) FlxG.save.data.screenshotBind = "F12";
+		if (FlxG.save.data.cheatBind  == null) FlxG.save.data.cheatBind  = "SEVEN";
 
 		// ── PathsCache: GPU texture caching ──────────────────────────────────
 		// Por defecto activo en desktop (false en web/mobile sin context3D fiable).
@@ -1852,6 +2556,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 			funkin.audio.SoundTray.blockInput = false;
 			FlxG.save.flush();
 			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
+			funkin.system.CursorManager.hide();
 			MusicManager.playWithFade('freakyMenu', 0.7, 4.0);
 			close();
 		}
@@ -1959,6 +2664,7 @@ class RatingPositionSubState extends FlxSubState
 
 	// Sprites de la preview
 	var _ratingPreview:FlxSprite;
+	var _previewBorder:FlxSprite; // BUGFIX: guardado como member para actualizarlo en _applyPosition
 	var _sickLabel:FlxText;
 	var _comboPreview:Array<FlxSprite> = [];
 
@@ -1989,6 +2695,14 @@ class RatingPositionSubState extends FlxSubState
 	var _dragStartOffX:Int = 0;
 	var _dragStartOffY:Int = 0;
 
+	// BUGFIX: cámara que se usará para TODOS los sprites de este substate.
+	// Cuando el editor se abre desde gameplay (fromPause), OptionsMenuState
+	// ya se renderiza en la última cámara (camHUD/pausa). Si RatingPositionSubState
+	// añade sus sprites a la cámara por defecto (camGame), quedan por detrás del
+	// menú de opciones. Asignando la misma cámara a todos los sprites se garantiza
+	// que el editor aparezca en la capa correcta (encima de todo lo demás).
+	var _cam:flixel.FlxCamera;
+
 	var posX:Float = 0;
 	var posY:Float = 0;
 
@@ -2003,12 +2717,24 @@ class RatingPositionSubState extends FlxSubState
 	{
 		super.create();
 
+		// BUGFIX: determinar la cámara correcta.
+		// • Desde gameplay (fromPause=true): OptionsMenuState usa la última cámara
+		//   de la lista (normalmente camHUD o una cámara dedicada al pause).
+		//   Todos los sprites de este substate deben ir a esa misma cámara para
+		//   aparecer encima y no quedar enterrados bajo el menú de opciones.
+		// • Fuera de gameplay: basta con la cámara por defecto.
+		_cam = OptionsMenuState.fromPause
+			? FlxG.cameras.list[FlxG.cameras.list.length - 1]
+			: FlxG.camera;
+
 		_offsetX = FlxG.save.data.ratingOffsetX != null ? FlxG.save.data.ratingOffsetX : 0;
 		_offsetY = FlxG.save.data.ratingOffsetY != null ? FlxG.save.data.ratingOffsetY : 0;
 
 		// ── Fondo oscuro ──────────────────────────────────────────────────────
 		var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		bg.alpha = 0.82;
+		bg.scrollFactor.set();
+		bg.cameras = [_cam];
 		add(bg);
 
 		// ── HUD simulado ──────────────────────────────────────────────────────
@@ -2021,41 +2747,57 @@ class RatingPositionSubState extends FlxSubState
 		// Línea de referencia Y base
 		var refLine = new FlxSprite(0, _baseY).makeGraphic(FlxG.width, 1, 0xFF5555FF);
 		refLine.alpha = 0.30;
+		refLine.scrollFactor.set();
+		refLine.cameras = [_cam];
 		add(refLine);
 
 		var baseRef = new FlxText(_baseX, _baseY - 14, 0, "▼ BASE", 11);
 		baseRef.setFormat(Paths.font("vcr.ttf"), 11, 0xFF5555FF, LEFT);
+		baseRef.scrollFactor.set();
+		baseRef.cameras = [_cam];
 		add(baseRef);
 
 		// ── Crosshairs ────────────────────────────────────────────────────────
 		_crosshairH = new FlxSprite(0, 0).makeGraphic(FlxG.width, 1, 0xFFFFFF00);
 		_crosshairH.alpha = 0.30;
+		_crosshairH.scrollFactor.set();
+		_crosshairH.cameras = [_cam];
 		add(_crosshairH);
 
 		_crosshairV = new FlxSprite(0, 0).makeGraphic(1, FlxG.height, 0xFFFFFF00);
 		_crosshairV.alpha = 0.30;
+		_crosshairV.scrollFactor.set();
+		_crosshairV.cameras = [_cam];
 		add(_crosshairV);
 
 		onInit();
 
+		// BUGFIX: el borde se añade ANTES del rating preview para que quede detrás.
+		// Antes se añadía después (encima) y sin posición (quedaba en x=0, y=0).
+		// Ahora es un member var para poder actualizarlo en _applyPosition().
+		_previewBorder = new FlxSprite();
+		_previewBorder.makeGraphic(204, 94, 0xFF5555FF);
+		_previewBorder.alpha = 0.6;
+		_previewBorder.scrollFactor.set();
+		_previewBorder.cameras = [_cam];
+		add(_previewBorder);
+
 		// ── Rating preview ────────────────────────────────────────────────────
-		_ratingPreview = new FlxSprite(FlxG.width * 0.55 - 40 + posX,FlxG.height * 0.5 - 90 + posY);
+		_ratingPreview = new FlxSprite(FlxG.width * 0.55 - 40 + posX, FlxG.height * 0.5 - 90 + posY);
 		_ratingPreview.loadGraphic(Paths.image('UI/normal/score/sick'));
 		_ratingPreview.setGraphicSize(Std.int(_ratingPreview.width * 0.7));
 		_ratingPreview.antialiasing = FlxG.save.data.antialiasing;
 		_ratingPreview.updateHitbox();
+		_ratingPreview.scrollFactor.set();
+		_ratingPreview.cameras = [_cam];
 		add(_ratingPreview);
-
-		// Borde del preview
-		var previewBorder = new FlxSprite();
-		previewBorder.makeGraphic(204, 94, 0xFF5555FF);
-		previewBorder.alpha = 0.6;
-		add(previewBorder);
 
 		_sickLabel = new FlxText(0, 0, 200, "SICK!", 32);
 		_sickLabel.setFormat(Paths.font("vcr.ttf"), 32, 0xFFCCCCFF, CENTER, OUTLINE, FlxColor.BLACK);
 		_sickLabel.borderSize = 2;
 		_sickLabel.visible = false;
+		_sickLabel.scrollFactor.set();
+		_sickLabel.cameras = [_cam];
 		add(_sickLabel);
 
 		// Números del combo de demo
@@ -2063,6 +2805,8 @@ class RatingPositionSubState extends FlxSubState
 		{
 			var num = new FlxSprite();
 			num.makeGraphic(40, 40, 0xFF1A2244);
+			num.scrollFactor.set();
+			num.cameras = [_cam];
 			add(num);
 			_comboPreview.push(num);
 		}
@@ -2070,31 +2814,44 @@ class RatingPositionSubState extends FlxSubState
 		// Etiqueta "drag me"
 		var dragLabel = new FlxText(0, 0, 200, "drag me ↕↔", 11);
 		dragLabel.setFormat(Paths.font("vcr.ttf"), 11, 0xFF888888, CENTER);
+		dragLabel.scrollFactor.set();
+		dragLabel.cameras = [_cam];
 		add(dragLabel);
 
 		// ── Panel inferior ────────────────────────────────────────────────────
 		var infoBg = new FlxSprite(0, FlxG.height - 64).makeGraphic(FlxG.width, 64, 0xFF0A0A1A);
 		infoBg.alpha = 0.95;
+		infoBg.scrollFactor.set();
+		infoBg.cameras = [_cam];
 		add(infoBg);
 
 		_positionTxt = new FlxText(0, FlxG.height - 58, FlxG.width, "", 18);
 		_positionTxt.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
+		_positionTxt.scrollFactor.set();
+		_positionTxt.cameras = [_cam];
 		add(_positionTxt);
 
 		var hint = new FlxText(0, FlxG.height - 36, FlxG.width,
 			"WASD/Arrows: Move  |  SHIFT: Fast  |  Mouse Drag  |  R: Reset  |  ENTER/ESC: Save", 14);
 		hint.setFormat(Paths.font("vcr.ttf"), 14, 0xFF888888, CENTER);
+		hint.scrollFactor.set();
+		hint.cameras = [_cam];
 		add(hint);
 
 		// ── Título superior ───────────────────────────────────────────────────
 		var titleBg = new FlxSprite(0, 0).makeGraphic(FlxG.width, 36, 0xFF0A0A1A);
 		titleBg.alpha = 0.92;
+		titleBg.scrollFactor.set();
+		titleBg.cameras = [_cam];
 		add(titleBg);
+
 		var title = new FlxText(0, 6, FlxG.width, "RATING POSITION EDITOR", 20);
 		title.setFormat(Paths.font("vcr.ttf"), 20, 0xFF8888FF, CENTER);
+		title.scrollFactor.set();
+		title.cameras = [_cam];
 		add(title);
 
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 		_applyPosition();
 		_updateUI();
 	}
@@ -2188,20 +2945,30 @@ class RatingPositionSubState extends FlxSubState
 
 		var hbBg = new FlxSprite(0, hbY).makeGraphic(600, 22, 0xFF333333);
 		hbBg.screenCenter(X);
+		hbBg.scrollFactor.set();
+		hbBg.cameras = [_cam];
 		add(hbBg);
 
 		_healthBarFill = new FlxSprite(hbBg.x + 2, hbY + 2).makeGraphic(296, 18, 0xFF66FF33);
+		_healthBarFill.scrollFactor.set();
+		_healthBarFill.cameras = [_cam];
 		add(_healthBarFill);
 
 		// Iconos de salud simulados
 		var iconP1 = new FlxSprite(hbBg.x + 296 - 20, hbY - 10).makeGraphic(30, 30, 0xFF44AAFF);
+		iconP1.scrollFactor.set();
+		iconP1.cameras = [_cam];
 		add(iconP1);
 		var iconP2 = new FlxSprite(hbBg.x + 296 - 48, hbY - 10).makeGraphic(30, 30, 0xFFFF4444);
+		iconP2.scrollFactor.set();
+		iconP2.cameras = [_cam];
 		add(iconP2);
 
 		_scoreTxt = new FlxText(0, hbY - 28, FlxG.width, "Score: 123,456   Misses: 0   Acc: 100.00%", 18);
 		_scoreTxt.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		_scoreTxt.borderSize = 1;
+		_scoreTxt.scrollFactor.set();
+		_scoreTxt.cameras = [_cam];
 		add(_scoreTxt);
 	}
 
@@ -2212,6 +2979,13 @@ class RatingPositionSubState extends FlxSubState
 
 		_ratingPreview.x = rx;
 		_ratingPreview.y = ry;
+
+		// BUGFIX: actualizar el borde para que siga al rating preview
+		if (_previewBorder != null)
+		{
+			_previewBorder.x = rx - 2;
+			_previewBorder.y = ry - 2;
+		}
 
 		_crosshairH.y = ry + _ratingPreview.height / 2;
 		_crosshairV.x = rx + _ratingPreview.width  / 2;

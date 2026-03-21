@@ -196,7 +196,35 @@ class VSliceConverter
 					break;
 				}
 			}
-			// Si no hay coincidencia, usar la primera dificultad disponible
+			// ── Fallback progresivo para sufijos compuestos (ej: "easy-bf") ──────
+			// Si la dificultad normalizada tiene la forma "{diff}-{variation}" y no
+			// matchea ninguna clave del objeto notes, quitamos el último segmento
+			// iterativamente hasta encontrar una clave válida.
+			// Ejemplo: "easy-bf" → intenta "easy" → MATCH en notes.easy ✓
+			// Esto cubre los charts de variación V-Slice (lit_up-bf.json) donde las
+			// claves del objeto notes son las dificultades reales (easy/normal/hard),
+			// no el nombre de la variación.
+			if (diffNotes.length == 0)
+			{
+				var stripped = difficulty;
+				while (diffNotes.length == 0)
+				{
+					final lastDash = stripped.lastIndexOf('-');
+					if (lastDash <= 0) break;
+					stripped = stripped.substr(0, lastDash);
+					for (d in _diffVariants(stripped))
+					{
+						final n = Reflect.field(allNotes, d);
+						if (n != null && Std.isOfType(n, Array))
+						{
+							diffNotes = cast n;
+							trace('[VSliceConverter] Notas encontradas por fallback progresivo: "$d" (de "$difficulty")');
+							break;
+						}
+					}
+				}
+			}
+			// Último recurso: usar la primera dificultad disponible
 			if (diffNotes.length == 0)
 			{
 				for (k in Reflect.fields(allNotes))
@@ -205,6 +233,7 @@ class VSliceConverter
 					if (n != null && Std.isOfType(n, Array))
 					{
 						diffNotes = cast n;
+						trace('[VSliceConverter] Notas: usando primera disponible ("$k") como último recurso');
 						break;
 					}
 				}
@@ -587,6 +616,29 @@ class VSliceConverter
 			final specificCandidates:Array<String> = [];
 			for (_dv in _diffVarsFile)
 				specificCandidates.push('$dir/${folderName}-metadata-${_dv}.json');
+
+			// ── Fallback progresivo para sufijos compuestos (ej: cleanDiff = "easy-bf") ──
+			// Si cleanDiff tiene forma "{diff}-{variation}", también buscamos el metadata
+			// usando solo la variación como clave ("bf" → lit_up-metadata-bf.json).
+			// Esto cubre charts de variación V-Slice donde el metadata de variación NO lleva
+			// el nombre de la dificultad en el nombre del archivo.
+			{
+				var _stripped = cleanDiff;
+				while (true)
+				{
+					final _ld = _stripped.lastIndexOf('-');
+					if (_ld <= 0) break;
+					_stripped = _stripped.substr(_ld + 1); // queda solo "bf"
+					final _strippedVars = _diffVariants(_stripped);
+					for (_sv in _strippedVars)
+					{
+						final _cand = '$dir/${folderName}-metadata-${_sv}.json';
+						if (!specificCandidates.contains(_cand))
+							specificCandidates.push(_cand);
+					}
+					break; // solo un nivel de stripping es suficiente
+				}
+			}
 
 			// Paso 1 — base
 			for (path in genericCandidates)

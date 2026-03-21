@@ -1,0 +1,17 @@
+{
+	"id": "week1",
+	"weekName": "DADDY DEAREST",
+	"weekSongs": [
+		"Bopeebo",
+		"Fresh",
+		"Dadbattle"
+	],
+	"weekCharacters": [
+		"dad",
+		"bf",
+		"gf"
+	],
+	"color": "0xFFAF66CE",
+	"locked": false,
+	"order": 2
+}

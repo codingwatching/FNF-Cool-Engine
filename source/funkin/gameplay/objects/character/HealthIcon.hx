@@ -99,6 +99,10 @@ class HealthIcon extends FlxSprite
 	var _isAnimated:Bool = false;    // true → atlas sparrow
 	var _script:Null<HScriptInstance> = null;
 	var _iconConfig:Null<Dynamic>     = null;
+	/** Script Lua opcional (assets/characters/scripts/{char}/healthicon/). */
+	#if (LUA_ALLOWED && linc_luajit)
+	var _luaScript:Null<funkin.scripting.LuaScriptInstance> = null;
+	#end
 
 	// ── constructor ──────────────────────────────────────────────────────────
 
@@ -154,15 +158,20 @@ class HealthIcon extends FlxSprite
 		var oldState = currentState;
 		currentState = state;
 
-		// Notificar script del icono ANTES de cambiar la animación
+		// Notificar script HScript del icono
 		if (_script != null)
 		{
 			var cancelled = _script.callBool('onStateChange', [state, oldState]);
 			if (cancelled) return;
 		}
 
+		// Notificar script Lua del icono
+		#if (LUA_ALLOWED && linc_luajit)
+		if (_luaScript != null)
+			_luaScript.call('onStateChange', [state, oldState]);
+		#end
+
 		// Notificar char scripts del personaje en gameplay
-		// (cargados en PlayState via ScriptHandler.loadCharacterScripts)
 		ScriptHandler.callOnCharacterScripts(characterName, 'onHealthIconStateChange', [state, oldState]);
 
 		_playAnim(state);
@@ -179,12 +188,15 @@ class HealthIcon extends FlxSprite
 		}
 	}
 
-	/** Llamado por el gameplay en cada beat para que scripts puedan reaccionar. */
+	/** Llamado por el gameplay en cada beat. */
 	public function beatHit(beat:Int):Void
 	{
 		if (_script != null)
 			_script.call('onBeatHit', [beat]);
-		// Char scripts del personaje en gameplay
+		#if (LUA_ALLOWED && linc_luajit)
+		if (_luaScript != null)
+			_luaScript.call('onBeatHit', [beat]);
+		#end
 		ScriptHandler.callOnCharacterScripts(characterName, 'onHealthIconBeatHit', [beat]);
 	}
 
@@ -200,6 +212,10 @@ class HealthIcon extends FlxSprite
 
 		if (_script != null)
 			_script.call('onUpdate', [elapsed]);
+		#if (LUA_ALLOWED && linc_luajit)
+		if (_luaScript != null)
+			_luaScript.call('onUpdate', [elapsed]);
+		#end
 	}
 
 	// ── destroy ───────────────────────────────────────────────────────────────
@@ -451,53 +467,108 @@ class HealthIcon extends FlxSprite
 
 	function _loadScript(char:String):Void
 	{
-		#if (HSCRIPT_ALLOWED && sys)
-		var scriptPath = _findScriptPath(char);
-		if (scriptPath == null) return;
-
-		_script = ScriptHandler.loadScriptNoInit(scriptPath, 'healthicon', [
-			'icon'     => this,
-			'char'     => char,
-			'isPlayer' => _isPlayer,
-		]);
-
-		if (_script != null)
+		#if sys
+		// ── HScript ──────────────────────────────────────────────────────────────
+		#if HSCRIPT_ALLOWED
+		var hxPath = _findHxPath(char);
+		if (hxPath != null)
 		{
-			_script.call('onCreate');
-			_script.call('postCreate');
-			trace('[HealthIcon] Script cargado para "$char": $scriptPath');
+			_script = ScriptHandler.loadScriptNoInit(hxPath, 'healthicon', [
+				'icon'     => this,
+				'char'     => char,
+				'isPlayer' => _isPlayer,
+			]);
+			if (_script != null)
+			{
+				_script.call('onCreate');
+				_script.call('postCreate');
+				trace('[HealthIcon] HScript cargado para "$char": $hxPath');
+			}
 		}
+		#end
+
+		// ── Lua ───────────────────────────────────────────────────────────────────
+		#if (LUA_ALLOWED && linc_luajit)
+		var luaPath = _findLuaPath(char);
+		if (luaPath != null)
+		{
+			_luaScript = new funkin.scripting.LuaScriptInstance('healthicon_$char', luaPath);
+			_luaScript.set('char',     char);
+			_luaScript.set('isPlayer', _isPlayer);
+			_luaScript.call('onCreate', []);
+			trace('[HealthIcon] Lua cargado para "$char": $luaPath');
+		}
+		#end
 		#end
 	}
 
-	function _findScriptPath(char:String):Null<String>
+	function _findHxPath(char:String):Null<String>
 	{
 		#if sys
-		var candidates:Array<String> = [];
+		final candidates:Array<String> = [];
+		final modRoot = ModManager.modRoot();
 
-		// Mod override primero
-		var modRoot = ModManager.modRoot();
+		// Mod override — varias ubicaciones de mayor a menor prioridad
 		if (modRoot != null)
 		{
+			candidates.push('$modRoot/characters/scripts/$char/healthicon/$char.hx');
+			candidates.push('$modRoot/characters/scripts/$char/healthicon/healthicon.hx');
 			candidates.push('$modRoot/scripts/healthicons/$char.hx');
 			candidates.push('$modRoot/characters/$char/healthicon.hx');
 		}
 
 		// Base game
+		candidates.push('assets/characters/scripts/$char/healthicon/$char.hx');
+		candidates.push('assets/characters/scripts/$char/healthicon/healthicon.hx');
 		candidates.push('assets/scripts/healthicons/$char.hx');
 		candidates.push('assets/characters/$char/healthicon.hx');
 
 		for (p in candidates)
-			if (FileSystem.exists(p)) return p;
+			if (sys.FileSystem.exists(p)) return p;
+		#end
+		return null;
+	}
+
+	function _findLuaPath(char:String):Null<String>
+	{
+		#if sys
+		final candidates:Array<String> = [];
+		final modRoot = ModManager.modRoot();
+
+		if (modRoot != null)
+		{
+			candidates.push('$modRoot/characters/scripts/$char/healthicon/$char.lua');
+			candidates.push('$modRoot/characters/scripts/$char/healthicon/healthicon.lua');
+			candidates.push('$modRoot/scripts/healthicons/$char.lua');
+			candidates.push('$modRoot/characters/$char/healthicon.lua');
+		}
+
+		candidates.push('assets/characters/scripts/$char/healthicon/$char.lua');
+		candidates.push('assets/characters/scripts/$char/healthicon/healthicon.lua');
+		candidates.push('assets/scripts/healthicons/$char.lua');
+		candidates.push('assets/characters/$char/healthicon.lua');
+
+		for (p in candidates)
+			if (sys.FileSystem.exists(p)) return p;
 		#end
 		return null;
 	}
 
 	function _destroyScript():Void
 	{
-		if (_script == null) return;
-		_script.call('onDestroy');
-		_script.dispose();
-		_script = null;
+		if (_script != null)
+		{
+			_script.call('onDestroy');
+			_script.dispose();
+			_script = null;
+		}
+		#if (LUA_ALLOWED && linc_luajit)
+		if (_luaScript != null)
+		{
+			_luaScript.call('onDestroy', []);
+			_luaScript.destroy();
+			_luaScript = null;
+		}
+		#end
 	}
 }

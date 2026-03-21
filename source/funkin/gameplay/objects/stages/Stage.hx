@@ -9,12 +9,19 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxPoint;
 import flixel.sound.FlxSound;
 import flixel.util.FlxColor;
+import flixel.util.FlxAxes;
+import flixel.addons.display.FlxBackdrop;
 import haxe.Json;
 import lime.utils.Assets;
 // FunkinSprite — reemplaza FlxSprite para sprites animados del stage
 import animationdata.FunkinSprite;
 // Scripting
 import funkin.scripting.ScriptHandler;
+// 3D
+import funkin.graphics.scene3d.Flx3DSprite;
+import funkin.graphics.scene3d.Flx3DObject;
+import funkin.graphics.scene3d.Flx3DScene;
+import funkin.graphics.scene3d.Model3DLoader;
 
 using StringTools;
 
@@ -62,6 +69,7 @@ typedef StageElement =
 	@:optional var alpha:Float;
 	@:optional var flipX:Bool;
 	@:optional var flipY:Bool;
+	@:optional var angle:Float;
 	@:optional var color:String;
 	@:optional var blend:String;
 	@:optional var visible:Bool;
@@ -111,6 +119,82 @@ typedef StageElement =
 	 * Has no effect at runtime — purely an editor hint.
 	 */
 	@:optional var locked:Bool;
+
+	// ── Modelo 3D (type: "model3d") ───────────────────────────────────────────
+	//
+	// Ejemplo en el JSON del stage:
+	// {
+	//   "type": "model3d",
+	//   "name": "spinning_cube",
+	//   "asset": "cube",
+	//   "position": [640, 360],
+	//   "modelScale": 100,
+	//   "modelRotX": 0, "modelRotY": 0, "modelRotZ": 0,
+	//   "modelCamX": 0, "modelCamY": 1, "modelCamZ": 5,
+	//   "sceneWidth": 300, "sceneHeight": 300,
+	//   "renderEveryFrame": true
+	// }
+	//
+	// El campo "asset" es el nombre del .obj (sin extensión).
+	// Se busca en stages/{stage}/models/{asset}.obj y stages/models/{asset}.obj.
+	// El elemento se registra en stage.elements con su nombre para que scripts
+	// puedan acceder a él como Flx3DSprite y animar sus objetos 3D.
+	//
+	/** Escala del modelo 3D (unidades del mundo 3D). Default: 1.0. */
+	@:optional var modelScale:Float;
+	/** Rotación inicial en X (radianes). Default: 0. */
+	@:optional var modelRotX:Float;
+	/** Rotación inicial en Y (radianes). Default: 0. */
+	@:optional var modelRotY:Float;
+	/** Rotación inicial en Z (radianes). Default: 0. */
+	@:optional var modelRotZ:Float;
+	/** Posición X de la cámara 3D interna. Default: 0. */
+	@:optional var modelCamX:Float;
+	/** Posición Y de la cámara 3D interna. Default: 1. */
+	@:optional var modelCamY:Float;
+	/** Posición Z de la cámara 3D interna (alejamiento). Default: 5. */
+	@:optional var modelCamZ:Float;
+	/** Ancho del render 3D en píxeles. Default: 256. */
+	@:optional var sceneWidth:Int;
+	/** Alto del render 3D en píxeles. Default: 256. */
+	@:optional var sceneHeight:Int;
+	/** Si false, el modelo NO se re-renderiza cada frame (ahorra GPU). Default: true. */
+	@:optional var renderEveryFrame:Bool;
+	/** Dirección de la luz X,Y,Z (normalizado). Default: [0.5, 1.0, 0.8]. */
+	@:optional var lightDir:Array<Float>;
+	/** Color de fondo de la escena 3D (hex string, ej "0x000000"). Default: transparente. */
+	@:optional var sceneBgColor:String;
+
+	// ── FlxBackdrop (type: "backdrop") ───────────────────────────────────────
+	//
+	// Fondo infinito que se repite y puede desplazarse. Usa FlxBackdrop de flixel-addons.
+	//
+	// Ejemplo en el JSON del stage:
+	// {
+	//   "type": "backdrop",
+	//   "name": "clouds",
+	//   "asset": "backgrounds/clouds",
+	//   "position": [0, 0],
+	//   "repeatX": true,
+	//   "repeatY": false,
+	//   "velocityX": -60,
+	//   "velocityY": 0,
+	//   "scrollFactor": [0.4, 0.4],
+	//   "alpha": 0.8
+	// }
+	//
+	// El campo "asset" es la clave de imagen (igual que en sprites estáticos).
+	// velocityX/Y define la velocidad de desplazamiento automático en px/s.
+	// repeatX/Y controla si se repite en cada eje (default: true en ambos).
+
+	/** Si true, el backdrop se repite en el eje X. Default: true. */
+	@:optional var repeatX:Bool;
+	/** Si true, el backdrop se repite en el eje Y. Default: true. */
+	@:optional var repeatY:Bool;
+	/** Velocidad de desplazamiento automático en X (px/s). Default: 0. */
+	@:optional var velocityX:Float;
+	/** Velocidad de desplazamiento automático en Y (px/s). Default: 0. */
+	@:optional var velocityY:Float;
 }
 
 typedef CustomClassInstance =
@@ -512,6 +596,13 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				createCustomClass(element);
 			case "custom_class_group":
 				createCustomClassGroup(element);
+			// ── Modelo 3D (OBJ) ─────────────────────────────────────────────────
+			case "model3d", "model_3d", "3d", "obj":
+				createModel3D(element);
+			// ── FlxBackdrop — fondo infinito desplazable ──────────────────────────
+			// Requiere flixel-addons (flixel.addons.display.FlxBackdrop).
+			case "backdrop", "flxbackdrop", "infinite", "scrolling":
+				createBackdrop(element);
 			default:
 				trace("Unknown element type: " + element.type);
 		}
@@ -535,14 +626,76 @@ class Stage extends FlxTypedGroup<FlxBasic>
 
 	function createSprite(element:StageElement):Void
 	{
-		var sprite:FlxSprite = new FlxSprite(element.position[0], element.position[1]);
-		final res = _resolveAssetLib(element);
-		final bmp = Paths.imageStage(res.key, res.lib);
-		if (bmp != null)
+		// FIX: usar FunkinSprite en vez de FlxSprite puro.
+		// FunkinSprite.loadAsset() detecta automáticamente:
+		//   • .xml  → Sparrow atlas   (animaciones por prefix)
+		//   • .txt  → Packer atlas    (animaciones por índice)
+		//   • Animation.json → Texture Atlas de Adobe Animate / FlxAnimate
+		//   • .png solo → imagen estática (comportamiento anterior)
+		// Así, elementos de tipo "sprite" en el JSON también soportan atlases
+		// sin necesitar cambiarse a "animated" manualmente.
+		final res     = _resolveAssetLib(element);
+		final assetKey = res.key.endsWith('.txt') ? res.key.replace('.txt', '') : res.key;
+
+		var sprite:FunkinSprite = new FunkinSprite(element.position[0], element.position[1]);
+
+		// Intentar carga con auto-detección de atlas
+		var loaded = false;
+
+		// 1. Sparrow (PNG + XML)
+		var stageFrames = Paths.stageSprite(assetKey, res.lib);
+		if (stageFrames != null)
 		{
-			sprite.loadGraphic(bmp);
+			sprite.frames = stageFrames;
+			loaded = true;
 		}
-		else
+
+		// 2. Packer (PNG + TXT)
+		if (!loaded)
+		{
+			var packFrames = Paths.stageSpriteTxt(assetKey, res.lib);
+			if (packFrames != null)
+			{
+				sprite.frames = packFrames;
+				loaded = true;
+			}
+		}
+
+		// 3. Animate atlas (carpeta con Animation.json / spritemap)
+		if (!loaded)
+		{
+			// Buscar carpeta de atlas: stages/<lib>/images/<key>/
+			var candidates = [];
+			if (res.lib != null)
+				candidates.push(mods.ModManager.resolveInMod('stages/${res.lib}/images/$assetKey') ?? '');
+			candidates.push('assets/stages/${res.lib ?? Paths.currentStage}/images/$assetKey');
+			for (folder in candidates)
+			{
+				#if sys
+				if (folder != '' && sys.FileSystem.exists(folder)
+					&& (sys.FileSystem.exists('$folder/Animation.json')
+					||  sys.FileSystem.exists('$folder/spritemap1.json')))
+				{
+					sprite.loadAnimateAtlas(folder);
+					loaded = true;
+					break;
+				}
+				#end
+			}
+		}
+
+		// 4. Imagen estática pura (PNG sin atlas)
+		if (!loaded)
+		{
+			final bmp = Paths.imageStage(assetKey, res.lib);
+			if (bmp != null)
+			{
+				sprite.loadGraphic(bmp);
+				loaded = true;
+			}
+		}
+
+		if (!loaded)
 		{
 			if (isEditorPreview)
 			{
@@ -829,6 +982,241 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		trace("Created custom class group: " + element.className + " with " + group.length + " instances");
 	}
 
+	// ── Modelo 3D ─────────────────────────────────────────────────────────────
+
+	/**
+	 * createModel3D — Crea un Flx3DSprite con un modelo OBJ cargado.
+	 *
+	 * El sprite 3D se coloca en la posición del elemento y se registra en
+	 * `stage.elements` para que los scripts puedan animarlo en runtime.
+	 *
+	 * Ejemplo en JSON:
+	 * {
+	 *   "type": "model3d",
+	 *   "name": "my_rock",
+	 *   "asset": "rock_formation",
+	 *   "position": [800, 400],
+	 *   "modelScale": 80,
+	 *   "sceneWidth": 256, "sceneHeight": 256,
+	 *   "modelCamZ": 4
+	 * }
+	 *
+	 * Desde HScript puedes entonces acceder a él:
+	 *   var spr3d = stage.getElement("my_rock");      // Flx3DSprite
+	 *   spr3d.scene.objects[0].rotY += elapsed * 1.5; // animar
+	 */
+	function createModel3D(element:StageElement):Void
+	{
+		final modelName  = element.asset ?? '';
+		if (modelName == '')
+		{
+			trace('[Stage] createModel3D: campo "asset" vacío.');
+			return;
+		}
+
+		// Dimensiones de la escena 3D (en píxeles del render off-screen)
+		final sw = element.sceneWidth  != null ? element.sceneWidth  : 256;
+		final sh = element.sceneHeight != null ? element.sceneHeight : 256;
+
+		// Posición 2D en el stage
+		final px = element.position != null && element.position.length > 0 ? element.position[0] : 0.0;
+		final py = element.position != null && element.position.length > 1 ? element.position[1] : 0.0;
+
+		// Crear el Flx3DSprite centrado en la posición
+		final spr3d = new Flx3DSprite(px - sw * 0.5, py - sh * 0.5, sw, sh);
+
+		// Scroll factor
+		if (element.scrollFactor != null)
+			spr3d.scrollFactor.set(element.scrollFactor[0], element.scrollFactor[1]);
+		else
+			spr3d.scrollFactor.set(1, 1);
+
+		// Alpha y visibilidad
+		if (element.alpha   != null) spr3d.alpha   = element.alpha;
+		if (element.visible != null) spr3d.visible = element.visible;
+
+		// Re-render cada frame (puede desactivarse para modelos estáticos)
+		spr3d.renderEveryFrame = element.renderEveryFrame != false;
+
+		// Cámara 3D interna
+		spr3d.scene.camera.position.set(
+			element.modelCamX != null ? element.modelCamX : 0.0,
+			element.modelCamY != null ? element.modelCamY : 1.0,
+			element.modelCamZ != null ? element.modelCamZ : 5.0);
+		spr3d.scene.camera.target.set(0, 0, 0);
+
+		// Dirección de luz
+		if (element.lightDir != null && element.lightDir.length >= 3)
+			spr3d.scene.lightDir.set(element.lightDir[0], element.lightDir[1], element.lightDir[2]).normalizeSelf();
+
+		// Fondo transparente por defecto
+		spr3d.scene.clearA = 0.0;
+		if (element.sceneBgColor != null)
+		{
+			final c = flixel.util.FlxColor.fromString(element.sceneBgColor);
+			spr3d.scene.clearR = c.redFloat;
+			spr3d.scene.clearG = c.greenFloat;
+			spr3d.scene.clearB = c.blueFloat;
+			spr3d.scene.clearA = c.alphaFloat;
+		}
+
+		// Escala del modelo y rotación inicial
+		final mscale = element.modelScale != null ? element.modelScale : 1.0;
+
+		// Cargar el mesh OBJ cuando el contexto 3D esté listo
+		final _stageName = stageData != null ? stageData.name : '';
+		final _elemName  = element.name ?? modelName;
+
+		spr3d.onReady = function()
+		{
+			final mesh = Model3DLoader.loadForStage(modelName, _stageName);
+			if (mesh == null)
+			{
+				// Placeholder: cubo de debug si no se encuentra el modelo
+				trace('[Stage] createModel3D: modelo "$modelName" no encontrado — usando cubo placeholder.');
+				final obj = new Flx3DObject();
+				obj.mesh = funkin.graphics.scene3d.Flx3DPrimitives.cube(0.5, 0.5, 0.5, 1, 0, 1, 1); // magenta
+				obj.scaleX = mscale; obj.scaleY = mscale; obj.scaleZ = mscale;
+				if (element.modelRotX != null) obj.rotX = element.modelRotX;
+				if (element.modelRotY != null) obj.rotY = element.modelRotY;
+				if (element.modelRotZ != null) obj.rotZ = element.modelRotZ;
+				spr3d.scene.add(obj);
+			}
+			else
+			{
+				final obj = new Flx3DObject();
+				obj.mesh = mesh;
+				obj.scaleX = mscale; obj.scaleY = mscale; obj.scaleZ = mscale;
+				if (element.modelRotX != null) obj.rotX = element.modelRotX;
+				if (element.modelRotY != null) obj.rotY = element.modelRotY;
+				if (element.modelRotZ != null) obj.rotZ = element.modelRotZ;
+				spr3d.scene.add(obj);
+				trace('[Stage] createModel3D: "$_elemName" listo — ${mesh.triangleCount} triángulos.');
+			}
+		};
+
+		_addToGroup(element, spr3d);
+
+		if (element.name != null)
+			elements.set(element.name, spr3d);
+
+		trace('[Stage] createModel3D: "$_elemName" creado (${sw}×${sh}px, escala=$mscale).');
+	}
+
+	// ── FlxBackdrop ───────────────────────────────────────────────────────────
+
+	/**
+	 * createBackdrop — Crea un FlxBackdrop (fondo infinito desplazable).
+	 *
+	 * Requiere flixel-addons (flixel.addons.display.FlxBackdrop).
+	 * Si no está disponible, hace fallback a un sprite estático normal.
+	 *
+	 * Ejemplo en JSON:
+	 * {
+	 *   "type": "backdrop",
+	 *   "name": "cloud_layer",
+	 *   "asset": "backgrounds/clouds",
+	 *   "position": [0, 0],
+	 *   "scrollFactor": [0.3, 0.3],
+	 *   "repeatX": true,
+	 *   "repeatY": false,
+	 *   "velocityX": -80,
+	 *   "velocityY": 0,
+	 *   "alpha": 0.9
+	 * }
+	 *
+	 * Desde HScript puedes controlarlo en runtime:
+	 *   var bd = stage.getElement("cloud_layer"); // FlxBackdrop
+	 *   bd.velocity.x = -120;  // acelerar
+	 *   bd.alpha = 0.5;
+	 */
+	function createBackdrop(element:StageElement):Void
+	{
+		final res      = _resolveAssetLib(element);
+		final assetKey = res.key;
+
+		// ── Intentar cargar la textura ────────────────────────────────────────
+		var bitmapData:openfl.display.BitmapData = null;
+
+		// Imagen del stage
+		final stageImg = Paths.imageStage(assetKey, res.lib);
+		if (stageImg != null) bitmapData = stageImg;
+
+		// Imagen genérica si no está en el stage
+		if (bitmapData == null)
+		{
+			try { bitmapData = Paths.getGraphic(assetKey)?.bitmap; } catch(_) {}
+		}
+
+		if (bitmapData == null)
+		{
+			trace('[Stage] createBackdrop: asset no encontrado para "${element.asset}" — backdrop omitido.');
+			if (!isEditorPreview) return;
+			// Placeholder en el editor
+			bitmapData = new openfl.display.BitmapData(64, 64, false, 0xFF884488);
+		}
+
+		final px = element.position != null && element.position.length > 0 ? element.position[0] : 0.0;
+		final py = element.position != null && element.position.length > 1 ? element.position[1] : 0.0;
+
+		final repX = element.repeatX != false;  // default: true
+		final repY = element.repeatY != false;  // default: true
+		final velX = element.velocityX != null ? element.velocityX : 0.0;
+		final velY = element.velocityY != null ? element.velocityY : 0.0;
+
+		// ── Crear FlxBackdrop (de flixel-addons) ───────────────────────────────
+		var backdrop:FlxSprite = null;
+		try
+		{
+			var axes:FlxAxes = (repX && repY) ? FlxAxes.XY : repX ? FlxAxes.X : repY ? FlxAxes.Y : FlxAxes.XY;
+			final bd = new FlxBackdrop(bitmapData, axes, 0, 0);
+			bd.x = px;
+			bd.y = py;
+			if (velX != 0 || velY != 0)
+			{
+				bd.velocity.x = velX;
+				bd.velocity.y = velY;
+			}
+			backdrop = bd;
+			trace('[Stage] createBackdrop: FlxBackdrop "${ element.name ?? assetKey }" creado (axes=$axes, vel=$velX/$velY).');
+		}
+		catch (e:Dynamic)
+		{
+			trace('[Stage] createBackdrop: error creando FlxBackdrop: $e — usando sprite estático.');
+			backdrop = null;
+		}
+
+		// ── Fallback: FlxSprite estático (si flixel-addons no disponible) ─────
+		if (backdrop == null)
+		{
+			final spr = new FunkinSprite(px, py);
+			spr.loadGraphic(bitmapData);
+			if (repX || repY)
+			{
+				// Tile manual con makeGraphic (simple pero funcional)
+				final sw = Std.int(FlxG.width  / bitmapData.width  + 2) * bitmapData.width;
+				final sh = Std.int(FlxG.height / bitmapData.height + 2) * bitmapData.height;
+				final tiled = new openfl.display.BitmapData(sw, sh, true, 0);
+				var tx = 0; while (tx < sw) { var ty = 0; while (ty < sh) {
+					tiled.copyPixels(bitmapData,
+						new openfl.geom.Rectangle(0, 0, bitmapData.width, bitmapData.height),
+						new openfl.geom.Point(tx, ty));
+					ty += bitmapData.height;
+				} tx += bitmapData.width; }
+				spr.loadGraphic(tiled);
+			}
+			backdrop = spr;
+			trace('[Stage] createBackdrop: FlxBackdrop no disponible — sprite estático para "${element.name ?? assetKey}".');
+		}
+
+		// ── Propiedades comunes ───────────────────────────────────────────────
+		applyElementProperties(backdrop, element);
+		_addToGroup(element, backdrop);
+
+		if (element.name != null)
+			elements.set(element.name, backdrop);
+	}
+
 	private function loadStageScripts():Void
 	{
 		if (scriptsLoaded)
@@ -955,6 +1343,9 @@ class Stage extends FlxTypedGroup<FlxBasic>
 
 		if (element.flipY != null)
 			sprite.flipY = element.flipY;
+
+		if (element.angle != null)
+			sprite.angle = element.angle;
 
 		if (element.color != null)
 			sprite.color = FlxColor.fromString(element.color);

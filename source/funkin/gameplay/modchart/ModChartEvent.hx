@@ -5,30 +5,41 @@ package funkin.gameplay.modchart;
  *  ModChartEvent.hx  –  Tipos de datos del sistema ModChart
  * ============================================================
  *
- *  v2 — Añade modificadores PER-NOTA y control de cámara.
+ *  v3 — Nuevos modificadores inspirados en FNF-Modcharting-Tools:
+ *       TIPSY, INVERT, ZIGZAG, WAVE, BEAT_SCALE, STEALTH, NOTE_ALPHA
+ *       + fix de DRUNK_Y / NOTE_OFFSET_Y / BUMPY en NoteManager
  *
- *  MODIFICADORES DE STRUM (ya existían):
+ *  MODIFICADORES DE STRUM:
  *    MOVE_X / MOVE_Y / SET_ABS_X / SET_ABS_Y   posición
  *    ANGLE / SPIN                               rotación del strum
  *    ALPHA / SCALE / SCALE_X / SCALE_Y          apariencia
  *    VISIBLE / RESET
  *
- *  MODIFICADORES PER-NOTA (NUEVOS):
- *    DRUNK_X / DRUNK_Y  — ondulación senoidal en X/Y según strumTime de cada nota
- *    DRUNK_FREQ         — frecuencia de la onda drunk (default 1.0)
- *    TORNADO            — rotación de cada nota según su strumTime (carrusel)
- *    CONFUSION          — rotación extra plana añadida a cada nota
- *    SCROLL_MULT        — multiplicador de scroll speed por strum (1.0 = normal)
+ *  MODIFICADORES PER-NOTA (EXISTENTES):
+ *    DRUNK_X / DRUNK_Y  — onda senoidal en X/Y según strumTime de cada nota
+ *    DRUNK_FREQ         — frecuencia de las ondas drunk (default 1.0)
+ *    TORNADO            — rotación en onda según strumTime (carrusel)
+ *    CONFUSION          — rotación plana extra en cada nota
+ *    SCROLL_MULT        — multiplicador de scroll speed (1.0 = normal, -1 = invertido)
  *    FLIP_X             — invierte posición X de notas (0=normal, 1=espejo)
- *    NOTE_OFFSET_X/Y    — offset plano para todas las notas del strum
- *    BUMPY              — todas las notas oscilan en Y según songPosition
- *    BUMPY_SPEED        — velocidad de la ola bumpy (default 2.0)
+ *    NOTE_OFFSET_X/Y    — offset plano para todas las notas
+ *    BUMPY              — ola Y global por songPosition
+ *    BUMPY_SPEED        — velocidad de bumpy (default 2.0)
  *
- *  CONTROL DE CÁMARA (NUEVOS):
- *    CAM_ZOOM   — zoom adicional (se suma al base)
- *    CAM_MOVE_X — offset horizontal de cámara
- *    CAM_MOVE_Y — offset vertical de cámara
- *    CAM_ANGLE  — rotación extra de cámara
+ *  MODIFICADORES PER-NOTA (NUEVOS v3):
+ *    TIPSY              — ola X global por songPosition (vaivén horizontal)
+ *    TIPSY_SPEED        — velocidad de tipsy (default 1.0)
+ *    INVERT             — scroll invertido local por strum (sin afectar downscroll global)
+ *    ZIGZAG             — patrón X escalonado A/-A/A/-A basado en strumTime
+ *    ZIGZAG_FREQ        — frecuencia del zigzag (default 1.0)
+ *    WAVE               — ola Y viajante (desfase por strumTime, velocidad por songPos)
+ *    WAVE_SPEED         — velocidad de wave (default 1.5)
+ *    BEAT_SCALE         — pulso de escala en cada beat
+ *    STEALTH            — notas invisibles pero hiteables (1=stealth, 0=visible)
+ *    NOTE_ALPHA         — alpha multiplicador per-nota independiente del strum
+ *
+ *  CONTROL DE CÁMARA:
+ *    CAM_ZOOM / CAM_MOVE_X / CAM_MOVE_Y / CAM_ANGLE
  */
 
 enum abstract ModEventType(String) from String to String
@@ -49,47 +60,70 @@ enum abstract ModEventType(String) from String to String
     var VISIBLE       = "visible";
     var RESET         = "reset";
 
-    // ── Per-nota – Drunk (onda por strumTime) ─────────────────────────────
-    /** Amplitud X de la onda senoidal (píxeles).
-     *  offsetX += drunkX * sin(strumTime * 0.001 * drunkFreq + songPos * 0.0008) */
+    // ── Per-nota – Drunk (onda senoidal por strumTime) ────────────────────
     var DRUNK_X       = "drunkX";
-    /** Amplitud Y de la onda senoidal (píxeles). */
     var DRUNK_Y       = "drunkY";
-    /** Frecuencia de las ondas drunk (default 1.0). >1 = más frecuentes. */
     var DRUNK_FREQ    = "drunkFreq";
 
     // ── Per-nota – Rotación ───────────────────────────────────────────────
-    /** Rotación en onda según strumTime de cada nota (carrusel).
-     *  noteAngle += tornado * sin(strumTime * 0.001 * drunkFreq) */
     var TORNADO       = "tornado";
-    /** Rotación plana extra en cada nota (grados directos). */
     var CONFUSION     = "confusion";
 
     // ── Per-nota – Scroll / Posición ──────────────────────────────────────
-    /** Multiplicador de scroll speed (default 1.0). -1 = al revés. */
     var SCROLL_MULT   = "scrollMult";
-    /** Invierte posición X de notas respecto al centro del strum (0/1). */
     var FLIP_X        = "flipX";
-    /** Offset X plano en todas las notas del strum. */
     var NOTE_OFFSET_X = "noteOffsetX";
-    /** Offset Y plano en todas las notas del strum. */
     var NOTE_OFFSET_Y = "noteOffsetY";
 
-    // ── Per-nota – Bumpy (ola global sincronizada) ────────────────────────
-    /** Amplitud de ola Y global (todas las notas juntas).
-     *  offsetY += bumpy * sin(songPos * 0.001 * bumpySpeed) */
+    // ── Per-nota – Bumpy (ola Y global por songPosition) ──────────────────
     var BUMPY         = "bumpy";
-    /** Velocidad de la ola bumpy (default 2.0). */
     var BUMPY_SPEED   = "bumpySpeed";
 
+    // ── Per-nota – Tipsy (ola X global por songPosition) — NUEVO ─────────
+    /** Ondulación X sincronizada por songPosition (todas las notas del strum
+     *  oscilan juntas en X). Complementario a bumpy.
+     *  offsetX += tipsy * sin(songPos * 0.001 * tipsySpeed) */
+    var TIPSY         = "tipsy";
+    /** Velocidad de la ola tipsy (default 1.0). */
+    var TIPSY_SPEED   = "tipsySpeed";
+
+    // ── Per-nota – Invert (scroll invertido local) — NUEVO ────────────────
+    /** Invierte el eje de scroll solo para este strum (1=invertido, 0=normal).
+     *  Permite tener notas "al revés" sin cambiar el downscroll global. */
+    var INVERT        = "invert";
+
+    // ── Per-nota – Zigzag (patrón escalonado en X) — NUEVO ───────────────
+    /** Desplaza notas en X alternando +amp/-amp/+amp/-amp según strumTime.
+     *  Produce un patrón escalonado tipo "zigzag".
+     *  offsetX += zigzag * sign(sin(strumTime * 0.001 * zigzagFreq * PI)) */
+    var ZIGZAG        = "zigzag";
+    /** Frecuencia del patrón zigzag (default 1.0). */
+    var ZIGZAG_FREQ   = "zigzagFreq";
+
+    // ── Per-nota – Wave (ola Y viajante por strumTime) — NUEVO ───────────
+    /** Ola Y con desfase por strumTime: ondas "viajan" por la columna de notas.
+     *  offsetY += wave * sin(songPos * 0.001 * waveSpeed - strumTime * 0.001) */
+    var WAVE          = "wave";
+    /** Velocidad de la ola viajante (default 1.5). */
+    var WAVE_SPEED    = "waveSpeed";
+
+    // ── Per-nota – Beat Scale (escala pulsante en beat) — NUEVO ──────────
+    /** Amplitud del pulso de escala por beat (0 = sin pulso).
+     *  Requiere que onBeatHit() se llame en ModChartManager cada beat.
+     *  La escala pulsa desde (1+beatScale) hasta 1 con decay suave. */
+    var BEAT_SCALE    = "beatScale";
+
+    // ── Per-nota – Stealth / Note Alpha — NUEVO ───────────────────────────
+    /** 1 = notas invisibles pero hiteables; 0 = visible normal. */
+    var STEALTH       = "stealth";
+    /** Multiplicador de alpha per-nota (0-1), independiente del alpha del strum.
+     *  Alpha final de la nota = noteAlpha * strum.alpha */
+    var NOTE_ALPHA    = "noteAlpha";
+
     // ── Cámara ────────────────────────────────────────────────────────────
-    /** Zoom adicional (se suma al zoom base; 0 = sin cambio). */
     var CAM_ZOOM      = "camZoom";
-    /** Offset horizontal de cámara (píxeles). */
     var CAM_MOVE_X    = "camMoveX";
-    /** Offset vertical de cámara (píxeles). */
     var CAM_MOVE_Y    = "camMoveY";
-    /** Rotación extra de cámara (grados). */
     var CAM_ANGLE     = "camAngle";
 }
 
@@ -178,18 +212,18 @@ class ModChartHelpers
     {
         return switch (type)
         {
-            case MOVE_X | SET_ABS_X | NOTE_OFFSET_X | FLIP_X  : 0xFF4FC3F7;
-            case MOVE_Y | SET_ABS_Y | NOTE_OFFSET_Y | BUMPY    : 0xFF81C784;
-            case ANGLE  | SPIN | TORNADO | CONFUSION            : 0xFFFFB74D;
-            case ALPHA                                          : 0xFFBA68C8;
-            case SCALE  | SCALE_X | SCALE_Y                     : 0xFFFF8A65;
-            case DRUNK_X | DRUNK_Y | DRUNK_FREQ                 : 0xFF26C6DA;
-            case SCROLL_MULT                                     : 0xFFFFD54F;
-            case BUMPY_SPEED                                     : 0xFF66BB6A;
-            case CAM_ZOOM | CAM_MOVE_X | CAM_MOVE_Y | CAM_ANGLE : 0xFFEF9A9A;
-            case VISIBLE                                         : 0xFFE0E0E0;
-            case RESET                                           : 0xFFEF5350;
-            default                                              : 0xFF90CAF9;
+            case MOVE_X | SET_ABS_X | NOTE_OFFSET_X | FLIP_X | TIPSY | ZIGZAG : 0xFF4FC3F7;
+            case MOVE_Y | SET_ABS_Y | NOTE_OFFSET_Y | BUMPY | WAVE             : 0xFF81C784;
+            case ANGLE  | SPIN | TORNADO | CONFUSION                            : 0xFFFFB74D;
+            case ALPHA  | NOTE_ALPHA | STEALTH                                  : 0xFFBA68C8;
+            case SCALE  | SCALE_X | SCALE_Y | BEAT_SCALE                        : 0xFFFF8A65;
+            case DRUNK_X | DRUNK_Y | DRUNK_FREQ                                 : 0xFF26C6DA;
+            case SCROLL_MULT | INVERT                                            : 0xFFFFD54F;
+            case BUMPY_SPEED | TIPSY_SPEED | ZIGZAG_FREQ | WAVE_SPEED           : 0xFF66BB6A;
+            case CAM_ZOOM | CAM_MOVE_X | CAM_MOVE_Y | CAM_ANGLE                 : 0xFFEF9A9A;
+            case VISIBLE                                                          : 0xFFE0E0E0;
+            case RESET                                                            : 0xFFEF5350;
+            default                                                               : 0xFF90CAF9;
         };
     }
 
@@ -246,6 +280,12 @@ class ModChartHelpers
         SCROLL_MULT, FLIP_X,
         NOTE_OFFSET_X, NOTE_OFFSET_Y,
         BUMPY, BUMPY_SPEED,
+        TIPSY, TIPSY_SPEED,
+        INVERT,
+        ZIGZAG, ZIGZAG_FREQ,
+        WAVE, WAVE_SPEED,
+        BEAT_SCALE,
+        STEALTH, NOTE_ALPHA,
         CAM_ZOOM, CAM_MOVE_X, CAM_MOVE_Y, CAM_ANGLE
     ];
 
@@ -289,8 +329,18 @@ class ModChartHelpers
             case FLIP_X        : "Flip X (0=normal, 1=mirror)";
             case NOTE_OFFSET_X : "Note Offset X (px)";
             case NOTE_OFFSET_Y : "Note Offset Y (px)";
-            case BUMPY         : "Bumpy (px amplitude)";
+            case BUMPY         : "Bumpy Y (px amplitude, global)";
             case BUMPY_SPEED   : "Bumpy Speed (default 2.0)";
+            case TIPSY         : "Tipsy X (px amplitude, global)";
+            case TIPSY_SPEED   : "Tipsy Speed (default 1.0)";
+            case INVERT        : "Invert Scroll (1=inverted, 0=normal)";
+            case ZIGZAG        : "Zigzag X (px amplitude)";
+            case ZIGZAG_FREQ   : "Zigzag Frequency (default 1.0)";
+            case WAVE          : "Wave Y (px amplitude, traveling)";
+            case WAVE_SPEED    : "Wave Speed (default 1.5)";
+            case BEAT_SCALE    : "Beat Scale (amplitude 0-1)";
+            case STEALTH       : "Stealth (1=invisible hiteable, 0=normal)";
+            case NOTE_ALPHA    : "Note Alpha override (0-1)";
             case CAM_ZOOM      : "Camera Zoom (+offset)";
             case CAM_MOVE_X    : "Camera Move X (px)";
             case CAM_MOVE_Y    : "Camera Move Y (px)";

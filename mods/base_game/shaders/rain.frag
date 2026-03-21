@@ -10,11 +10,12 @@
 //    compilación silencioso en compiladores GLSL ES estrictos (algunos GPUs
 //    Android/iOS), dejando el shader negro o transparente.
 //
-// 2. OUTPUT DE ALPHA PREMULTIPLICADO: OpenFL usa blending ONE / ONE_MINUS_SRC_A
-//    (premultiplicado). Si se emite vec4(color, alpha) straight, el color se
-//    suma de forma aditiva en lugar de mezclarse. La salida correcta es:
-//    gl_FragColor = vec4(color * alpha, alpha)
-//    Así el blending produce: dst = color*alpha + (1-alpha)*dst  ✓
+// 2. OUTPUT DE ALPHA RECTO (STRAIGHT): FlxSprite usa BlendMode.NORMAL de OpenFL,
+//    que configura el blending como SRC_ALPHA / ONE_MINUS_SRC_ALPHA.
+//    La salida correcta es: gl_FragColor = vec4(color, alpha)
+//    El blending hace: dst = color*alpha + (1-alpha)*dst  ✓
+//    Con premultiplied (color*alpha, alpha) se aplica alpha dos veces → alpha²
+//    → shader casi invisible a intensidades bajas.
 //
 // ── MODO OVERLAY ─────────────────────────────────────────────────────────────
 // El shader NO muestrea bitmap (textura del sprite blanco).
@@ -130,9 +131,17 @@ void main() {
     float alpha = darkAlpha + dropFactor * 0.50 + puddle * 0.25;
     alpha = clamp(alpha, 0.0, 0.88);
 
-    // ── PREMULTIPLIED ALPHA ───────────────────────────────────────────────────
-    // OpenFL usa blending ONE / ONE_MINUS_SRC_ALPHA (premultiplicado).
-    // Sin premultiplicar: dst = color + (1-alpha)*dst  → aditivo incorrecto.
-    // Con premultiplicar: dst = color*alpha + (1-alpha)*dst  ✓
-    gl_FragColor = vec4(color * alpha, alpha);
+    // ── OUTPUT DE COLOR ──────────────────────────────────────────────────────
+    // El sprite overlay usa BlendMode.NORMAL de OpenFL (FlxSprite por defecto),
+    // que configura el blending como SRC_ALPHA / ONE_MINUS_SRC_ALPHA (straight).
+    // Ecuación: dst_final = src_color * src_alpha + dst_color * (1 - src_alpha)
+    //
+    // Con straight alpha:      gl_FragColor = vec4(color, alpha)         ✓
+    // Con premultiplied alpha: gl_FragColor = vec4(color * alpha, alpha)  ✗
+    //   → el fragment se renderiza con alpha ya aplicado al color,
+    //     luego OpenFL vuelve a multiplicar por src_alpha → alpha²
+    //     A alpha=0.65: efectivo = 0.65² ≈ 0.42 → overlay casi invisible.
+    //
+    // FIX: emitir straight alpha. El blending de Flixel hace el resto.
+    gl_FragColor = vec4(color, alpha);
 }

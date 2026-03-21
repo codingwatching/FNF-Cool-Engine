@@ -1,0 +1,247 @@
+{
+	"songs": [
+		{
+			"name": "Test",
+			"icon": "bf-pixel",
+			"color": "0xFFA5004D",
+			"bpm": 150,
+			"group": 0,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Tutorial",
+			"icon": "gf",
+			"color": "0xFFA5004D",
+			"bpm": 100,
+			"group": 1,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Bopeebo",
+			"icon": "dad",
+			"color": "0xFFAF66CE",
+			"bpm": 100,
+			"group": 2,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Fresh",
+			"icon": "dad",
+			"color": "0xFFAF66CE",
+			"bpm": 120,
+			"group": 2,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Dadbattle",
+			"icon": "dad",
+			"color": "0xFFAF66CE",
+			"bpm": 180,
+			"group": 2,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Spookeez",
+			"icon": "spooky",
+			"color": "0xFF2A2A2A",
+			"bpm": 150,
+			"group": 3,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "South",
+			"icon": "spooky",
+			"color": "0xFF2A2A2A",
+			"bpm": 165,
+			"group": 3,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Monster",
+			"icon": "monster",
+			"color": "0xFF2A2A2A",
+			"bpm": 95,
+			"group": 3,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Pico",
+			"icon": "pico",
+			"color": "0xFF6BAA4C",
+			"bpm": 150,
+			"group": 4,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Philly Nice",
+			"icon": "pico",
+			"color": "0xFF6BAA4C",
+			"bpm": 175,
+			"group": 4,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Blammed",
+			"icon": "pico",
+			"color": "0xFF6BAA4C",
+			"bpm": 165,
+			"group": 4,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Satin-Panties",
+			"icon": "mom",
+			"color": "0xFFD85889",
+			"bpm": 95,
+			"group": 5,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "High",
+			"icon": "mom",
+			"color": "0xFFD85889",
+			"bpm": 95,
+			"group": 5,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Milf",
+			"icon": "mom",
+			"color": "0xFFD85889",
+			"bpm": 180,
+			"group": 5,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Cocoa",
+			"icon": "parents-christmas",
+			"color": "0xFF9A68A4",
+			"bpm": 95,
+			"group": 6,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Eggnog",
+			"icon": "parents-christmas",
+			"color": "0xFF9A68A4",
+			"bpm": 95,
+			"group": 6,
+			"album": "volume1",
+			"albumText": "volume1-text"
+		},
+		{
+			"name": "Winter-Horrorland",
+			"icon": "monster",
+			"color": "0xFF9A68A4",
+			"bpm": 95,
+			"group": 6,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Senpai",
+			"icon": "senpai",
+			"color": "0xFFFFAA6F",
+			"bpm": 150,
+			"group": 7,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Roses",
+			"icon": "senpai-angry",
+			"color": "0xFFFFAA6F",
+			"bpm": 150,
+			"group": 7,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Thorns",
+			"icon": "spirit",
+			"color": "0xFFFF78BF",
+			"bpm": 190,
+			"group": 7,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Ugh",
+			"icon": "tankman",
+			"color": "0xFFAF66CE",
+			"bpm": 160,
+			"group": 8,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Guns",
+			"icon": "tankman",
+			"color": "0xFFAF66CE",
+			"bpm": 185,
+			"group": 8,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Stress",
+			"icon": "tankman",
+			"color": "0xFFAF66CE",
+			"bpm": 178,
+			"group": 8,
+			"album": "volume2",
+			"albumText": "volume2-text"
+		},
+		{
+			"name": "Darnell",
+			"icon": "darnell",
+			"color": "0xFF3681F5",
+			"bpm": 155,
+			"group": 9,
+			"album": "volume3",
+			"albumText": "volume3-text"
+		},
+		{
+			"name": "Lit Up",
+			"icon": "darnell",
+			"color": "0xFF3681F5",
+			"bpm": 176,
+			"group": 9,
+			"album": "volume3",
+			"albumText": "volume3-text"
+		},
+		{
+			"name": "2Hot",
+			"icon": "darnell",
+			"color": "0xFF3681F5",
+			"bpm": 182,
+			"group": 9,
+			"album": "volume3",
+			"albumText": "volume3-text"
+		},
+		{
+			"name": "Blazin",
+			"icon": "darnell",
+			"color": "0xFF3681F5",
+			"bpm": 180,
+			"group": 9,
+			"album": "volume3",
+			"albumText": "volume3-text"
+		}
+	]
+}

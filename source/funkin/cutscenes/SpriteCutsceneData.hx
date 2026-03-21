@@ -66,11 +66,36 @@ package funkin.cutscenes;
  *   playAnim    → reproducir animación
  *   playSound   → reproducir sonido (id opcional para waitSound)
  *   waitSound   → esperar a que termine un sonido con id
- *   cameraFade  → camera.fade() (fadeIn=true para "from black")
- *   cameraFlash → camera.flash()
- *   cameraShake → camera.shake()
- *   script      → llamar función en el script del mod (si existe)
- *   end         → terminar la cutscene y llamar al callback
+ *   cameraFade   → camera.fade() (fadeIn=true para "from black")
+ *   cameraFlash  → camera.flash()
+ *   cameraShake  → camera.shake(intensity, duration)
+ *   cameraZoom   → tween del zoom de la cámara del gameplay
+ *                  { "action":"cameraZoom", "zoom":1.3, "duration":0.5, "ease":"quadOut", "async":true }
+ *   cameraMove   → salta la cámara a (camX, camY) instantáneamente
+ *                  { "action":"cameraMove", "camX":760, "camY":450 }
+ *   cameraPan    → tween de la cámara hacia (camX, camY)
+ *                  { "action":"cameraPan",  "camX":760, "camY":450, "duration":1.0, "ease":"sineInOut", "async":true }
+ *   cameraTween  → tween libre sobre la cámara (zoom, x, y en camProps)
+ *                  { "action":"cameraTween", "camProps":{"zoom":1.2,"x":400}, "duration":0.8, "ease":"quadOut" }
+ *   cameraReset  → restaura zoom a 1.0 y posición al centro de pantalla (tweeneable)
+ *                  { "action":"cameraReset", "duration":0.5, "ease":"quadOut", "async":true }
+ *   cameraTarget → centra la cámara en un sprite de la cutscene o del stage
+ *                  { "action":"cameraTarget", "camTarget":"senpaiEvil" }
+ *                  { "action":"cameraTarget", "camTarget":null }   ← dejar de seguir
+ *   setCamVisible → muestra u oculta una cámara del PlayState
+ *                  { "action":"setCamVisible", "cam":"hud", "visible":false }
+ *                  "cam" acepta: "hud" | "game" | "countdown"
+ *                  Se restaura automáticamente al terminar/saltar la cutscene.
+ *   call          → ejecuta un callback registrado vía registerCallback() sin bloquear
+ *                  { "action":"call", "id":"myFn" }
+ *   callAsync     → ejecuta un callback que recibe done:Void->Void y bloquea hasta que lo llame
+ *                  { "action":"callAsync", "id":"myFn" }
+ *   waitBeat      → espera hasta que Conductor llega al beat indicado
+ *                  { "action":"waitBeat", "beat":8 }
+ *   waitStep      → espera hasta que Conductor llega al step indicado (1 beat = 4 steps)
+ *                  { "action":"waitStep", "step":32 }
+ *   script       → llamar función en el script del mod (si existe)
+ *   end          → terminar la cutscene y llamar al callback
  */
 
 // ── Definición de sprite ──────────────────────────────────────────────────────
@@ -163,6 +188,7 @@ typedef CutsceneStep = {
 
 	// ── fadeTimer ──
 	@:optional var target:Float;         // alpha objetivo
+	/** Step de Conductor al que esperar (waitStep). */
 	@:optional var step:Float;           // cuánto cambia por tick (ej. 0.15)
 	@:optional var interval:Float;       // segundos entre ticks (ej. 0.3)
 
@@ -177,9 +203,25 @@ typedef CutsceneStep = {
 	@:optional var force:Bool;
 
 	// ── playSound ──
-	@:optional var key:String;           // clave de Paths.sound / Paths.music
+	@:optional var key:String;           // clave del sonido
 	@:optional var volume:Float;
+	// ── call / callAsync ──
+	/** ID del callback registrado con registerCallback(). */
 	@:optional var id:String;            // ID para waitSound
+	/**
+	 * Si true, usa Paths.music() en vez de Paths.sound().
+	 * Útil para música de cutscene sin moverla a la carpeta global music/.
+	 */
+	@:optional var music:Bool;
+	/**
+	 * Si true, usa Paths.soundStage() — busca en stages/<curStage>/sounds/ o music/.
+	 * Combinar con music:true para música de stage:
+	 *   { "key":"darnellCanCutscene", "stage":true, "music":true }
+	 *     → stages/phillyStreets/music/darnellCanCutscene.ogg
+	 *   { "key":"Darnell_Lighter", "stage":true }
+	 *     → stages/phillyStreets/sounds/Darnell_Lighter.ogg
+	 */
+	@:optional var stage:Bool;
 
 	// ── waitSound ──
 	// (usa `id` de arriba)
@@ -191,6 +233,33 @@ typedef CutsceneStep = {
 	// ── cameraShake ──
 	@:optional var intensity:Float;
 
+	// ── cameraZoom ──
+	/** Zoom objetivo de la cámara. */
+	@:optional var zoom:Float;
+
+	// ── cameraMove / cameraPan ──
+	/** Posición X absoluta a la que mover la cámara (cameraMove). */
+	@:optional var camX:Float;
+	/** Posición Y absoluta a la que mover la cámara (cameraMove). */
+	@:optional var camY:Float;
+
+	// ── cameraTween (zoom + posición via FlxTween) ──
+	/** Propiedades de cámara a tweenear: { zoom, x, y }. */
+	@:optional var camProps:Dynamic;
+
+	// ── cameraTarget ──
+	/** Sprite (por ID) al que seguir con la cámara. null = dejar de seguir. */
+	@:optional var camTarget:String;
+
+	// ── setCamVisible ──
+	/** Nombre de la cámara del PlayState a mostrar/ocultar: "hud" | "game" | "countdown". */
+	@:optional var cam:String;
+	// (usa también `visible` definido arriba)
+
+	// ── waitBeat / waitStep ──
+	/** Beat de Conductor al que esperar (waitBeat). */
+	@:optional var beat:Float;
+
 	// ── script ──
 	@:optional var func:String;          // nombre de función a llamar en el script
 	@:optional var args:Array<Dynamic>;
@@ -198,6 +267,55 @@ typedef CutsceneStep = {
 	// ── stageAnim ──
 	/** Si true, la cutscene espera a que la animación termine antes de continuar. */
 	@:optional var wait:Bool;
+
+	// ── subtitle / subtitleHide / subtitleClear / subtitleStyle ──────────────
+	//
+	//  subtitle:
+	//    { "action": "subtitle", "text": "Hello World", "duration": 3.0 }
+	//    { "action": "subtitle", "text": "Hello", "duration": 2.0,
+	//      "size": 28, "color": "0xFFFF00", "bgColor": "0x000000", "bgAlpha": 0.7,
+	//      "align": "center", "bold": true, "font": "vcr.ttf",
+	//      "y": 620, "padX": 16, "padY": 10,
+	//      "fadeIn": 0.2, "fadeOut": 0.3 }
+	//
+	//  subtitleHide:
+	//    { "action": "subtitleHide" }                  -- fade suave
+	//    { "action": "subtitleHide", "instant": true } -- sin animación
+	//
+	//  subtitleClear:
+	//    { "action": "subtitleClear" }
+	//
+	//  subtitleStyle:  (aplica estilo global para futuros subtitles)
+	//    { "action": "subtitleStyle", "size": 28, "color": "0xFFFFFF",
+	//      "bgAlpha": 0.6, "align": "center" }
+	//
+	//  subtitleResetStyle:
+	//    { "action": "subtitleResetStyle" }
+
+	/** Texto del subtítulo (action: subtitle). */
+	@:optional var text:String;
+	/** Tamaño de fuente del subtítulo. */
+	@:optional var size:Int;
+	/** Color del texto como string hex "0xFFFFFF" o nombre "WHITE". */
+	@:optional var bgAlpha:Float;
+	/** Si true, la acción subtitleHide no usa fade. */
+	@:optional var instant:Bool;
+	// color, duration, align, bold, font, y, padX, padY, fadeIn, fadeOut
+	// se reutilizan de los campos ya definidos arriba:
+	//   @:optional var color:String   (ya declarado para cameraFade/setColor)
+	//   @:optional var duration:Float (ya declarado para tween/cameraFade)
+	//   @:optional var ease:String    (ya declarado — no se usa en subtítulos)
+	//   @:optional var align:String   → usar campo axis (ya existe) o añadir:
+	/** Alineación del texto: "center" | "left" | "right" (action: subtitle). */
+	@:optional var align:String;
+	/** Negrita (action: subtitle). */
+	@:optional var bold:Bool;
+	/** Nombre del font en assets/fonts/ (action: subtitle). */
+	@:optional var font:String;
+	/** Posición Y del subtítulo en px; -1 = automático (action: subtitle). */
+	@:optional var padX:Float;
+	/** Padding vertical del fondo (action: subtitle). */
+	@:optional var padY:Float;
 }
 
 // ── Documento completo ────────────────────────────────────────────────────────

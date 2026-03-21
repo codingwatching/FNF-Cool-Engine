@@ -1,238 +1,238 @@
 {
-	"dadPosition": [
-		660.40452423845,
-		703.304087346025
-	],
-	"scripts": [],
 	"gfPosition": [
 		1218.85339405243,
 		348.644091882594
 	],
+	"scripts": [],
+	"dadPosition": [
+		660.40452423845,
+		703.304087346025
+	],
 	"gfVersion": "nene",
+	"isPixelStage": false,
 	"cameraDad": [
 		100,
 		-150
 	],
-	"isPixelStage": false,
-	"name": "phillyStreets",
 	"boyfriendPosition": [
-		1871.50051360844,
-		755.165321778564
+		1941.68510685185,
+		768.507817334536
 	],
-	"defaultZoom": 0.77,
+	"name": "phillyStreets",
+	"hideGirlfriend": false,
 	"customProperties": {
 		"charOrder": {
 			"bf": 100,
-			"dad": 0,
-			"gf": 1
+			"gf": 1,
+			"dad": 0
 		}
 	},
-	"hideGirlfriend": false,
+	"defaultZoom": 0.77,
 	"cameraBoyfriend": [
 		-330,
 		-50
 	],
 	"elements": [
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillySkyline",
+			"zIndex": 0,
+			"aboveChars": false,
 			"position": [
 				-545,
 				-275
 			],
-			"visible": true,
-			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "sprite",
+			"visible": true,
 			"name": "phillySkyline",
-			"flipY": false,
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.2,
 				0.2
 			],
-			"antialiasing": true,
+			"flipY": false,
 			"alpha": 1
 		},
 		{
-			"aboveChars": false,
-			"asset": "phillyForegroundCity",
 			"zIndex": 0,
+			"asset": "phillyForegroundCity",
+			"aboveChars": false,
 			"position": [
 				1866.43916715772,
 				220
 			],
+			"visible": true,
+			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"type": "sprite",
-			"visible": true,
-			"color": null,
-			"flipX": false,
 			"name": "phillyForeground",
-			"flipY": false,
+			"flipX": false,
+			"color": null,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.3,
 				0.3
 			],
-			"antialiasing": true,
+			"flipY": false,
 			"alpha": 1
 		},
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillyConstruction",
+			"zIndex": 0,
+			"aboveChars": false,
 			"position": [
 				1807.96687570016,
 				366.0061959122
 			],
-			"visible": true,
-			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "sprite",
+			"visible": true,
 			"name": "phillyConstruction",
-			"flipY": false,
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.7,
 				1
 			],
-			"antialiasing": true,
+			"flipY": false,
 			"alpha": 1
 		},
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillyHighwayLights",
+			"zIndex": 0,
+			"aboveChars": false,
 			"position": [
 				122,
 				205
 			],
-			"visible": true,
-			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "sprite",
+			"visible": true,
 			"name": "phillyHighwayLights",
-			"flipY": false,
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.8,
 				0.8
 			],
-			"antialiasing": true,
+			"flipY": false,
 			"alpha": 1
 		},
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillyHighwayLights_lightmap",
+			"zIndex": 0,
+			"aboveChars": false,
+			"blend": "add",
 			"position": [
 				124.905111252527,
 				205
 			],
-			"visible": true,
-			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "sprite",
+			"visible": true,
 			"name": "phillyHighwayLights_lightmap",
-			"flipY": false,
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.8,
 				0.8
 			],
-			"antialiasing": true,
-			"blend": "add",
+			"flipY": false,
 			"alpha": 0.6
 		},
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillyHighway",
+			"zIndex": 0,
+			"aboveChars": false,
 			"position": [
 				-25,
 				105
 			],
-			"visible": true,
-			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "sprite",
+			"visible": true,
 			"name": "phillyHighway",
-			"flipY": false,
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.8,
 				0.8
 			],
-			"antialiasing": true,
+			"flipY": false,
 			"alpha": 1
 		},
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillySmog",
+			"zIndex": 0,
+			"aboveChars": false,
 			"position": [
 				-4.99999999999994,
 				305
 			],
-			"visible": true,
-			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "sprite",
+			"visible": true,
 			"name": "phillySmog",
-			"flipY": false,
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.8,
 				1
 			],
-			"antialiasing": true,
+			"flipY": false,
 			"alpha": 1
 		},
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillyCars",
+			"zIndex": 0,
+			"aboveChars": false,
 			"position": [
 				1202.50000038643,
 				812.499998001234
 			],
-			"visible": true,
-			"type": "animated",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "animated",
+			"visible": true,
 			"name": "phillyCars_copy",
-			"flipY": false,
-			"firstAnimation": "car4",
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.9,
 				1
 			],
-			"antialiasing": true,
+			"firstAnimation": "car4",
+			"flipY": false,
 			"alpha": 1,
 			"animations": [
 				{
@@ -266,29 +266,29 @@
 			]
 		},
 		{
-			"aboveChars": false,
-			"zIndex": 0,
 			"asset": "phillyCars",
+			"zIndex": 0,
+			"aboveChars": false,
 			"position": [
 				1200,
 				815
 			],
-			"visible": true,
-			"type": "animated",
 			"scale": [
 				1,
 				1
 			],
-			"flipX": false,
-			"color": null,
+			"type": "animated",
+			"visible": true,
 			"name": "phillyCars",
-			"flipY": false,
-			"firstAnimation": "car4",
+			"color": null,
+			"flipX": false,
+			"antialiasing": true,
 			"scrollFactor": [
 				0.9,
 				1
 			],
-			"antialiasing": true,
+			"firstAnimation": "car4",
+			"flipY": false,
 			"alpha": 1,
 			"animations": [
 				{
@@ -322,29 +322,29 @@
 			]
 		},
 		{
-			"asset": "phillyTraffic",
-			"zIndex": 0,
 			"aboveChars": false,
+			"zIndex": 0,
+			"asset": "phillyTraffic",
 			"position": [
 				1840.05471797393,
 				608.047983454065
 			],
+			"visible": true,
+			"type": "animated",
 			"scale": [
 				1,
 				1
 			],
-			"type": "animated",
-			"visible": true,
-			"name": "phillyTraffic",
-			"color": null,
 			"flipX": false,
-			"antialiasing": true,
+			"color": null,
+			"name": "phillyTraffic",
+			"flipY": false,
+			"firstAnimation": "tored",
 			"scrollFactor": [
 				0.9,
 				1
 			],
-			"firstAnimation": "tored",
-			"flipY": false,
+			"antialiasing": true,
 			"alpha": 1,
 			"animations": [
 				{
@@ -364,79 +364,79 @@
 			]
 		},
 		{
-			"asset": "phillyTraffic_lightmap",
-			"zIndex": 0,
 			"aboveChars": false,
+			"zIndex": 0,
+			"asset": "phillyTraffic_lightmap",
+			"blend": "add",
 			"position": [
 				1840.08595373113,
 				608.028497146406
 			],
+			"visible": true,
+			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"type": "sprite",
-			"visible": true,
-			"name": "phillyTraffic_lightmap",
-			"color": null,
 			"flipX": false,
-			"antialiasing": true,
+			"color": null,
+			"name": "phillyTraffic_lightmap",
+			"flipY": false,
 			"scrollFactor": [
 				0.9,
 				1
 			],
-			"flipY": false,
-			"blend": "add",
+			"antialiasing": true,
 			"alpha": 0.6
 		},
 		{
-			"asset": "phillyForeground",
-			"zIndex": 0,
 			"aboveChars": false,
+			"zIndex": 0,
+			"asset": "phillyForeground",
 			"position": [
 				88.2026879641505,
 				317.143748394447
 			],
+			"visible": true,
+			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"type": "sprite",
-			"visible": true,
-			"name": "phillyForeground",
-			"color": null,
 			"flipX": false,
-			"antialiasing": true,
+			"color": null,
+			"name": "phillyForeground",
+			"flipY": false,
 			"scrollFactor": [
 				1,
 				1
 			],
-			"flipY": false,
+			"antialiasing": true,
 			"alpha": 1
 		},
 		{
-			"asset": "SpraycanPile",
-			"zIndex": 0,
 			"aboveChars": true,
+			"zIndex": 0,
+			"asset": "SpraycanPile",
 			"position": [
 				919.685591758321,
 				1044.63853477367
 			],
+			"visible": true,
+			"type": "sprite",
 			"scale": [
 				1,
 				1
 			],
-			"type": "sprite",
-			"visible": true,
-			"name": "SpraycanPile",
-			"color": null,
 			"flipX": false,
-			"antialiasing": true,
+			"color": null,
+			"name": "SpraycanPile",
+			"flipY": false,
 			"scrollFactor": [
 				1,
 				1
 			],
-			"flipY": false,
+			"antialiasing": true,
 			"alpha": 1
 		}
 	]

@@ -28,6 +28,8 @@ import funkin.scripting.StateScriptHandler;
 import funkin.gameplay.PlayState;
 import funkin.states.LoadingState;
 import funkin.data.Song;
+import funkin.data.WeekFile;
+import funkin.data.WeekFile.WeekData;
 import funkin.cutscenes.VideoState;
 
 using StringTools;
@@ -40,32 +42,17 @@ import funkin.audio.MusicManager;
 import sys.FileSystem;
 #end
 
-typedef Songs =
-{
-	var songsWeeks:Array<SongsInfo>;
-}
 
-typedef SongsInfo =
-{
-	var weekSongs:Array<String>;
-	var songIcons:Array<String>;
-	var color:Array<String>;
-	var bpm:Array<Float>;
-
-	// Campos adicionales para Story Mode (opcionales)
-	@:optional var weekName:String;
-	@:optional var weekPath:String;
-	@:optional var weekCharacters:Array<String>;
-	@:optional var locked:Bool;
-	@:optional var showInStoryMode:Array<Bool>; // NUEVO: Flag para mostrar en Story Mode
-}
 
 class StoryMenuState extends funkin.states.MusicBeatState
 {
 	var scoreText:FlxText;
 
 	// Usar el mismo sistema que FreeplayState
-	public static var songInfo:Songs;
+	// songInfo removed — use WeekFile.loadAll() instead
+
+	/** Semanas cargadas desde data/storymenu/weeks/*.json */
+	var _loadedWeeks:Array<WeekData> = [];
 
 	var weekData:Array<Dynamic> = [];
 	var weekCharacters:Array<Dynamic> = [];
@@ -126,15 +113,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		// === CARGAR DATOS DESDE EL MISMO JSON QUE FREEPLAY ===
 		loadSongsData();
 
-		if (songInfo != null)
-		{
-			buildWeeksFromJSON();
-		}
-		else
-		{
-			trace("Error loading songs data, using default weeks");
-			loadDefaultWeeks();
-		}
+		buildWeeksFromJSON();
 
 		scoreText = new FlxText(10, 10, 0, "LEVEL SCORE: 49324858", 36);
 		scoreText.setFormat("VCR OSD Mono", 32);
@@ -368,71 +347,41 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		StickerTransition.clearStickers();
 	}
 
-	// === FUNCIÓN PARA CARGAR DATOS DESDE EL MISMO JSON QUE FREEPLAY ===
+	// === CARGAR SEMANAS DESDE data/storymenu/weeks/*.json ===
 	function loadSongsData():Void
 	{
-		// ── Leer el songList: del mod activo primero, luego el base ──────────
-		var songListPath:String = Paths.jsonSong('songList');
-		var file:String = null;
-		#if sys
-		if (sys.FileSystem.exists(songListPath))
-			file = sys.io.File.getContent(songListPath);
-		#end
-		if (file == null)
-		{
-			try
-			{
-				file = lime.utils.Assets.getText(songListPath);
-			}
-			catch (_:Dynamic)
-			{
-			}
-		}
+		_loadedWeeks = WeekFile.loadAll();
 
-		try
-		{
-			if (file != null && file.trim() != '')
-			{
-				songInfo = cast haxe.Json.parse(file);
-				trace("Songs data loaded successfully from songList.json");
-			}
-		}
-		catch (e:Dynamic)
-		{
-			trace("Error loading songs data: " + e);
-			songInfo = null;
-		}
-
-		// ── Semanas de mod activo según formato ───────────────────────────
+		// Compat: Psych Engine mods inyectan sus propias semanas
 		#if sys
 		if (mods.ModManager.isActive())
 		{
 			final fmt = mods.compat.ModCompatLayer.getActiveModFormat();
-
 			if (fmt == mods.compat.ModFormat.PSYCH_ENGINE)
 			{
-				if (songInfo == null)
-					songInfo = {songsWeeks: []};
 				for (modWeek in mods.compat.ModCompatLayer.getModSongsInfo())
 				{
-					var hasStory:Bool = false;
-					var showArr:Dynamic = Reflect.field(modWeek, 'showInStoryMode');
-					if (showArr != null && Std.isOfType(showArr, Array))
-					{
-						for (v in (cast showArr : Array<Dynamic>))
-							if (v == true)
-							{
-								hasStory = true;
-								break;
-							}
+					var ws:Array<String> = cast (Reflect.field(modWeek, 'weekSongs') ?? []);
+					if (ws.length == 0) continue;
+					var sim:Array<Dynamic> = cast (Reflect.field(modWeek, 'showInStoryMode') ?? []);
+					var storySongs:Array<String> = [];
+					for (j in 0...ws.length) {
+						var show = sim.length == 0 || (j < sim.length && sim[j] == true);
+						if (show) storySongs.push(ws[j]);
 					}
-					else
-						hasStory = true;
-
-					if (hasStory)
-						songInfo.songsWeeks.push(cast modWeek);
+					if (storySongs.length == 0) continue;
+					var cl:Array<String> = cast (Reflect.field(modWeek, 'color') ?? []);
+					_loadedWeeks.push({
+						id:             'psych_mod_${_loadedWeeks.length}',
+						weekName:       Reflect.field(modWeek, 'weekName') ?? 'Week',
+						weekPath:       Reflect.field(modWeek, 'weekPath') ?? '',
+						weekCharacters: cast (Reflect.field(modWeek, 'weekCharacters') ?? ['', 'bf', 'gf']),
+						weekSongs:      storySongs,
+						color:          (cl != null && cl.length > 0) ? cl[0] : '0xFFFFD900',
+						locked:         Reflect.field(modWeek, 'locked') == true
+					});
 				}
-				trace('[StoryMenuState] Mod Psych activo "${mods.ModManager.activeMod}" — semanas inyectadas: ${songInfo.songsWeeks.length}');
+				trace('[StoryMenuState] Psych mod: ${_loadedWeeks.length} weeks total.');
 			}
 		}
 		#end
@@ -441,131 +390,44 @@ class StoryMenuState extends funkin.states.MusicBeatState
 	// === CONSTRUIR SEMANAS DESDE JSON ===
 	function buildWeeksFromJSON():Void
 	{
-		if (songInfo == null || songInfo.songsWeeks == null)
+		if (_loadedWeeks == null || _loadedWeeks.length == 0)
 		{
 			loadDefaultWeeks();
 			return;
 		}
 
-		weekData = [];
+		weekData       = [];
 		weekCharacters = [];
-		weekNames = [];
-		weekUnlocked = [];
-		weekColors = [];
-		weekPaths = [];
+		weekNames      = [];
+		weekUnlocked   = [];
+		weekColors     = [];
+		weekPaths      = [];
 
-		for (i in 0...songInfo.songsWeeks.length)
+		for (week in _loadedWeeks)
 		{
-			var week = songInfo.songsWeeks[i];
+			if (week.weekSongs == null || week.weekSongs.length == 0)
+				continue;
 
-			// NUEVO: Filtrar canciones según showInStoryMode
-			var filteredSongs:Array<String> = [];
-			for (j in 0...week.weekSongs.length)
-			{
-				var showInStory:Bool = true; // Por defecto mostrar
+			weekData.push(week.weekSongs.copy());
+			weekNames.push(week.weekName ?? 'Week');
+			weekPaths.push(week.weekPath ?? '');
+			weekUnlocked.push(!(week.locked == true));
+			weekCharacters.push(
+				(week.weekCharacters != null && week.weekCharacters.length >= 3)
+				? week.weekCharacters : ['', 'bf', 'gf']
+			);
 
-				// Verificar si existe el flag showInStoryMode
-				if (week.showInStoryMode != null && j < week.showInStoryMode.length)
-				{
-					showInStory = week.showInStoryMode[j];
-				}
-
-				// Solo agregar si debe mostrarse en Story Mode
-				if (showInStory)
-				{
-					filteredSongs.push(week.weekSongs[j]);
-				}
-			}
-
-			// Solo agregar la semana si tiene canciones para mostrar
-			if (filteredSongs.length > 0)
-			{
-				// Agregar canciones filtradas de la semana
-				weekData.push(filteredSongs);
-
-				// Nombre de la semana (usar el proporcionado o generar uno por defecto)
-				var weekName:String = week.weekName != null ? week.weekName : 'Week ${i + 1}';
-				weekNames.push(weekName);
-
-				// Personajes de la semana (usar los proporcionados o usar defaults)
-				var chars:Array<String> = ['', 'bf', 'gf']; // Default
-				if (week.weekCharacters != null && week.weekCharacters.length >= 3)
-				{
-					chars = week.weekCharacters;
-				}
-				else if (week.songIcons != null && week.songIcons.length > 0)
-				{
-					// Fallback: usar el primer icono como personaje de la izquierda
-					chars = [week.songIcons[0], 'bf', 'gf'];
-				}
-				weekCharacters.push(chars);
-
-				// weekPath: imagen del panel de esta semana (ej: "menu/storymenu/titles/miWeek")
-				weekPaths.push(week.weekPath != null ? week.weekPath : '');
-
-				// Estado de bloqueo (usar el proporcionado o desbloquear por defecto)
-				var isLocked:Bool = week.locked != null ? week.locked : false;
-				weekUnlocked.push(!isLocked);
-
-				// Color de la semana (usar el primer color de la lista)
-				// BUGFIX: Std.parseInt de colores 0xFF... devuelve entero negativo en C++
-				// (overflow Int32 signed) pero los bits son correctos, así que FlxColor
-				// funciona igualmente. Solo necesitamos verificar null y cero.
-				var colorStr:String = week.color != null && week.color.length > 0 ? week.color[0] : '0xFFFFD900';
-				var colorParsed:Null<Int> = Std.parseInt(colorStr);
-				var color:FlxColor = (colorParsed != null && colorParsed != 0) ? (colorParsed : FlxColor) : (0xFFFFD900 : FlxColor);
-				color.alpha = 255;
-				weekColors.push(color);
-
-				trace('Loaded week ${i}: ${weekName} with ${filteredSongs.length} songs (filtered from ${week.weekSongs.length})');
-			}
-			else
-			{
-				trace('Week ${i} has no songs to show in Story Mode, skipping...');
-			}
+			final colorStr = week.color ?? '0xFFFFD900';
+			final colorInt:Null<Int> = Std.parseInt(colorStr);
+			var color:FlxColor = (colorInt != null && colorInt != 0)
+				? (colorInt : FlxColor) : (0xFFFFD900 : FlxColor);
+			color.alpha = 255;
+			weekColors.push(color);
 		}
 
-		// Actualizar color de fondo con la primera semana
-		if (weekColors.length > 0)
-			bgcol = weekColors[0];
-		else
-			bgcol = 0xFF0A0A0A; // Color por defecto si no hay semanas
-
-		// VALIDACIÓN CRÍTICA: Verificar que todos los arrays estén sincronizados
-		var expectedLength:Int = weekData.length;
-		var syncIssues:Bool = false;
-
-		if (weekNames.length != expectedLength)
-		{
-			trace("WARNING: weekNames.length (" + weekNames.length + ") != weekData.length (" + expectedLength + ")");
-			syncIssues = true;
-		}
-		if (weekCharacters.length != expectedLength)
-		{
-			trace("WARNING: weekCharacters.length (" + weekCharacters.length + ") != weekData.length (" + expectedLength + ")");
-			syncIssues = true;
-		}
-		if (weekUnlocked.length != expectedLength)
-		{
-			trace("WARNING: weekUnlocked.length (" + weekUnlocked.length + ") != weekData.length (" + expectedLength + ")");
-			syncIssues = true;
-		}
-		if (weekColors.length != expectedLength)
-		{
-			trace("WARNING: weekColors.length (" + weekColors.length + ") != weekData.length (" + expectedLength + ")");
-			syncIssues = true;
-		}
-
-		if (syncIssues)
-		{
-			trace("ERROR: Array synchronization issues detected! This may cause crashes.");
-		}
-		else
-		{
-			trace("SUCCESS: All arrays synchronized (" + expectedLength + " weeks loaded)");
-		}
+		bgcol = weekColors.length > 0 ? weekColors[0] : 0xFF0A0A0A;
+		trace('[StoryMenuState] ${weekData.length} weeks built.');
 	}
-
 	// === FUNCIÓN DE FALLBACK PARA CARGAR SEMANAS POR DEFECTO ===
 	function loadDefaultWeeks():Void
 	{

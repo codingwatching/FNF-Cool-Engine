@@ -95,6 +95,14 @@ class PathsCache
 
 	public static var streamedMusic:Bool = false;
 
+	/**
+	 * Resolvedor opcional de paths cortos → paths completos de asset.
+	 * Ejemplo: `PathsCache.pathResolver = function(k) return Paths.image(k);`
+	 * Registrar desde Main o create() del primer estado.
+	 * Cuando `fromAssetKey(key)` falla, se intenta con el path resuelto.
+	 */
+	public static var pathResolver:(String)->String = null;
+
 	// ── Límites de caché ──────────────────────────────────────────────────────
 	// Desktop: 80 texturas / 64 sonidos.
 	// Mobile (Android/iOS): 40 / 32 — RAM más limitada y sin swap.
@@ -612,9 +620,46 @@ class PathsCache
 				}
 				catch (e2:Dynamic) { trace('[PathsCache] Error en carga directa de "$key": $e2'); }
 			}
-			else
 			#end
-			{ trace('[PathsCache] Error cargando "$key": $e'); }
+
+			// Intento 3: resolver el path completo vía pathResolver (ej: Paths.image)
+			// Evita los falsos "no se pudo cargar" cuando el key corto no está en el
+			// manifiesto de OpenFL pero el asset existe bajo assets/images/<key>.png.
+			if (g == null && pathResolver != null)
+			{
+				try
+				{
+					final resolved = pathResolver(key);
+					if (resolved != null && resolved != key)
+					{
+						g = FlxGraphic.fromAssetKey(resolved, false, key, true);
+						// g.key es (default, null) en Flixel — no se puede asignar.
+						// Lo guardamos en _currentGraphics bajo el key corto más abajo.
+					}
+				}
+				catch (e3:Dynamic) {}
+
+				#if sys
+				// Si fromAssetKey con path resuelto también falló, intentar disco directamente
+				if (g == null && pathResolver != null)
+				{
+					try
+					{
+						final resolved2 = pathResolver(key);
+						if (resolved2 != null && FileSystem.exists(resolved2))
+						{
+							final bitmap2 = BitmapData.fromFile(resolved2);
+							if (bitmap2 != null)
+								g = FlxGraphic.fromBitmapData(bitmap2, false, key, true);
+						}
+					}
+					catch (_:Dynamic) {}
+				}
+				#end
+			}
+
+			if (g == null)
+				trace('[PathsCache] Error cargando "$key": $e');
 		}
 
 		if (g == null)

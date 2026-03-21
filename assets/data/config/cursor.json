@@ -1,0 +1,58 @@
+{
+	"skin":   "default",
+	"scale":  1.0,
+	"alpha":  1.0,
+	"tint":   "0xFFFFFFFF",
+	"trail":  false,
+	"ripple": true,
+	"states": {
+		"default": {
+			"atlas":    "menu/cursor/cursor-default",
+			"anim":     "idle",
+			"fps":      12,
+			"loop":     true,
+			"hotspotX": 0,
+			"hotspotY": 0
+		},
+		"hover": {
+			"atlas":    "menu/cursor/cursor-pointer",
+			"anim":     "idle",
+			"fps":      12,
+			"loop":     true,
+			"hotspotX": 0,
+			"hotspotY": 0
+		},
+		"click": {
+			"atlas":    "menu/cursor/cursor-grabbing",
+			"anim":     "press",
+			"fps":      24,
+			"loop":     false,
+			"hotspotX": 0,
+			"hotspotY": 0
+		},
+		"text": {
+			"atlas":    "menu/cursor/cursor-text",
+			"anim":     "idle",
+			"fps":      12,
+			"loop":     true,
+			"hotspotX": 4,
+			"hotspotY": 8
+		},
+		"wait": {
+			"atlas":    "menu/cursor/cursor-hourglass",
+			"anim":     "spin",
+			"fps":      18,
+			"loop":     true,
+			"hotspotX": 8,
+			"hotspotY": 8
+		},
+		"crosshair": {
+			"atlas":    "menu/cursor/cursor-crosshair",
+			"anim":     "idle",
+			"fps":      12,
+			"loop":     true,
+			"hotspotX": 8,
+			"hotspotY": 8
+		}
+	}
+}

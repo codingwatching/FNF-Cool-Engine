@@ -1,0 +1,17 @@
+{
+	"id": "week3",
+	"weekName": "PICO",
+	"weekSongs": [
+		"Pico",
+		"Philly Nice",
+		"Blammed"
+	],
+	"weekCharacters": [
+		"pico",
+		"bf",
+		"gf"
+	],
+	"color": "0xFF6BAA4C",
+	"locked": false,
+	"order": 4
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Spiral Notes",
+  "description": "Hace que las notas giren en espiral durante N beats.",
+  "color": "#FF88FF",
+  "context": ["chart", "modchart"],
+  "aliases": ["spiral", "Spiral"],
+  "params": [
+    {
+      "name": "Beats",
+      "type": "Float(0,64)",
+      "defaultValue": "4",
+      "description": "Duración del efecto en beats"
+    },
+    {
+      "name": "Intensity",
+      "type": "Float(0,10)",
+      "defaultValue": "1.0",
+      "description": "Intensidad de la espiral"
+    }
+  ]
+}

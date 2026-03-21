@@ -69,6 +69,15 @@ class ScriptHandler
 	public static var menuScripts   : Map<String, HScriptInstance> = [];
 	public static var charScripts   : Map<String, HScriptInstance> = [];
 
+	#if (LUA_ALLOWED && linc_luajit)
+	public static var globalLuaScripts : Array<LuaScriptInstance> = [];
+	public static var stageLuaScripts  : Array<LuaScriptInstance> = [];
+	public static var songLuaScripts   : Array<LuaScriptInstance> = [];
+	public static var uiLuaScripts     : Array<LuaScriptInstance> = [];
+	public static var menuLuaScripts   : Array<LuaScriptInstance> = [];
+	public static var charLuaScripts   : Array<LuaScriptInstance> = [];
+	#end
+
 	/**
 	 * Índice de scripts de personaje agrupados por nombre.
 	 * Permite callOnCharacterScripts en O(1) en vez de iterar todo charScripts.
@@ -366,6 +375,18 @@ class ScriptHandler
 			if (isLua && stage != null)
 				mods.compat.PsychLuaStageAPI.expose(script.interp, stage);
 
+			// ── HScript: pre-procesar imports antes de ejecutar ─────────────────
+			// Permite escribir `import flixel.util.FlxColor;` en scripts .hx/.hscript.
+			// Los imports se resuelven y comentan; la clase queda en interp.variables.
+			#if HSCRIPT_ALLOWED
+			if (!isLua)
+			{
+				final processedContent = processImports(content, script.interp);
+				if (processedContent != content)
+					script.program = parser.parseString(processedContent, scriptPath);
+			}
+			#end
+
 			script.interp.execute(script.program);
 
 			// Set up Psych callback aliases AFTER the script has defined its
@@ -439,6 +460,16 @@ class ScriptHandler
 			if (isLuaNoInit)
 				mods.compat.PsychLuaGameplayAPI.expose(script.interp);
 
+			// ── HScript: pre-procesar imports antes de ejecutar ─────────────────
+			#if HSCRIPT_ALLOWED
+			if (!isLuaNoInit)
+			{
+				final processedRaw = processImports(rawContent, script.interp);
+				if (processedRaw != rawContent)
+					script.program = parser.parseString(processedRaw, scriptPath);
+			}
+			#end
+
 			// Ejecutar el programa define funciones en interp.variables — sin llamar onCreate aún.
 			script.interp.execute(script.program);
 
@@ -495,6 +526,15 @@ class ScriptHandler
 		_callLayer(uiScripts,     funcName, args);
 		_callLayer(menuScripts,   funcName, args);
 		_callLayer(charScripts,   funcName, args);
+	
+		#if (LUA_ALLOWED && linc_luajit)
+		_callLuaLayer(globalLuaScripts, funcName, args);
+		_callLuaLayer(stageLuaScripts,  funcName, args);
+		_callLuaLayer(songLuaScripts,   funcName, args);
+		_callLuaLayer(uiLuaScripts,     funcName, args);
+		_callLuaLayer(menuLuaScripts,   funcName, args);
+		_callLuaLayer(charLuaScripts,   funcName, args);
+		#end
 	}
 
 	/**
@@ -538,6 +578,13 @@ class ScriptHandler
 		_setLayer(uiScripts);
 		_setLayer(menuScripts);
 		_setLayer(charScripts);
+	
+		#if (LUA_ALLOWED && linc_luajit)
+		inline function _setLua(layer:Array<LuaScriptInstance>):Void
+			for (lua in layer) if (lua.active) lua.set(varName, value);
+		_setLua(globalLuaScripts); _setLua(stageLuaScripts); _setLua(songLuaScripts);
+		_setLua(uiLuaScripts);     _setLua(menuLuaScripts);  _setLua(charLuaScripts);
+		#end
 	}
 
 	/** Inyecta una variable solo en los scripts de stage. */
@@ -590,12 +637,21 @@ class ScriptHandler
 		_destroyLayer(uiScripts);
 		songScripts.clear();
 		uiScripts.clear();
+	
+		#if (LUA_ALLOWED && linc_luajit)
+		_destroyLuaLayer(songLuaScripts);
+		_destroyLuaLayer(uiLuaScripts);
+		#end
 	}
 
 	public static function clearStageScripts():Void
 	{
 		_destroyLayer(stageScripts);
 		stageScripts.clear();
+	
+		#if (LUA_ALLOWED && linc_luajit)
+		_destroyLuaLayer(stageLuaScripts);
+		#end
 	}
 
 	public static function clearCharScripts():Void
@@ -646,6 +702,16 @@ class ScriptHandler
 		final layers = [globalScripts, stageScripts, songScripts, uiScripts, menuScripts, charScripts];
 		for (layer in layers) for (s in layer) s.hotReload();
 		trace('[ScriptHandler] Hot-reload completo.');
+	
+		#if (LUA_ALLOWED && linc_luajit)
+		for (lua in globalLuaScripts) lua.hotReload();
+		for (lua in stageLuaScripts)  lua.hotReload();
+		for (lua in songLuaScripts)   lua.hotReload();
+		for (lua in uiLuaScripts)     lua.hotReload();
+		for (lua in menuLuaScripts)   lua.hotReload();
+		for (lua in charLuaScripts)   lua.hotReload();
+		funkin.scripting.StateScriptHandler.hotReloadAll();
+		#end
 	}
 
 	// ── Internals ─────────────────────────────────────────────────────────────
@@ -658,7 +724,14 @@ class ScriptHandler
 			return out;
 		for (file in FileSystem.readDirectory(folderPath))
 		{
-			if (!file.endsWith('.hx') && !file.endsWith('.hscript') && !file.endsWith('.lua'))
+			#if (LUA_ALLOWED && linc_luajit)
+			if (file.endsWith('.lua'))
+			{
+				_loadLuaFile('$folderPath/$file', scriptType);
+				continue;
+			}
+			#end
+			if (!file.endsWith('.hx') && !file.endsWith('.hscript'))
 				continue;
 			final s = loadScript('$folderPath/$file', scriptType);
 			if (s != null) out.push(s);
@@ -712,6 +785,80 @@ class ScriptHandler
 			script.dispose();
 	}
 
+	#if (LUA_ALLOWED && linc_luajit)
+	static function _callLuaLayer(layer:Array<LuaScriptInstance>, func:String, args:Array<Dynamic>):Void
+	{
+		for (lua in layer) if (lua.active) lua.call(func, args);
+	}
+
+	static function _destroyLuaLayer(layer:Array<LuaScriptInstance>):Void
+	{
+		for (lua in layer) try lua.destroy() catch (_) {};
+		layer.resize(0);
+	}
+
+	/**
+	 * Loads a .lua file as a native LuaScriptInstance into the correct gameplay layer.
+	 * Exposes the full ScriptAPI so it has access to PlayState, FlxG, Conductor, etc.
+	 * Called automatically by _loadFolder when a .lua file is found.
+	 */
+	static function _loadLuaFile(path:String, scriptType:String):Null<LuaScriptInstance>
+	{
+		if (!FileSystem.exists(path)) return null;
+		final name   = _extractName(path);
+		final script = new LuaScriptInstance(name, path);
+
+		// Per-script helpers
+		script.set('log',       function(msg:Dynamic) trace('[Lua:$name] $msg'));
+		script.set('hotReload', function():Bool return script.hotReload());
+
+		// import('com.foo.Bar') → devuelve la clase/enum resuelta como Dynamic.
+		// Uso en Lua:
+		//   local FlxColor = import('flixel.util.FlxColor')
+		//   local col = FlxColor.RED
+		// import('com.foo.Bar') → registra como global con nombre corto Y retorna la clase.
+		// Uso: import('flixel.util.FlxAxes')  →  FlxAxes disponible globalmente.
+		script.set('import', function(className:String):Dynamic {
+			var resolved:Dynamic = Type.resolveClass(className);
+			if (resolved == null) resolved = Type.resolveEnum(className);
+			if (resolved == null) {
+				trace('[Lua:$name] import: clase no encontrada: $className');
+				return null;
+			}
+			// Registrar como global con el nombre corto para uso directo
+			final shortName = className.split('.').pop();
+			script.set(shortName, resolved);
+			trace('[Lua:$name] import $className → global $shortName');
+			return resolved;
+		});
+
+		script.loadFile(path);
+
+		if (!script.active)
+		{
+			trace('[ScriptHandler] Lua error: $path');
+			script.destroy();
+			return null;
+		}
+
+		var target:Array<LuaScriptInstance> = switch (scriptType.toLowerCase())
+		{
+			case 'global': globalLuaScripts;
+			case 'stage':  stageLuaScripts;
+			case 'ui':     uiLuaScripts;
+			case 'menu':   menuLuaScripts;
+			case 'char':   charLuaScripts;
+			default:       songLuaScripts;
+		};
+		target.push(script);
+
+		script.call('onCreate');
+		script.call('postCreate');
+		trace('[ScriptHandler] Lua cargado [$scriptType]: $name');
+		return script;
+	}
+	#end
+
 	/** Alias público de _extractName para compatibilidad. */
 	public static inline function extractName(path:String):String
 		return _extractName(path);
@@ -723,4 +870,52 @@ class ScriptHandler
 		if (StringTools.contains(name, '.')) name = name.substring(0, name.lastIndexOf('.'));
 		return name;
 	}
+
+	// ── Import pre-processor ──────────────────────────────────────────────────
+
+	/**
+	 * Pre-procesa las líneas `import a.b.C;` y `import a.b.C as Alias;`
+	 * del código fuente de un HScript.
+	 *
+	 * Cada import se resuelve con Type.resolveClass / Type.resolveEnum
+	 * y se inyecta en `interp.variables` bajo el nombre corto (o alias).
+	 * Las líneas de import se sustituyen por comentarios para que el parser
+	 * hscript no las rechace (hscript no soporta la sintaxis `import`).
+	 *
+	 * Uso desde un script .hx:
+	 *   import flixel.util.FlxColor;
+	 *   import flixel.math.FlxMath as Math;
+	 *
+	 * @param source   Código fuente original del script.
+	 * @param interp   Intérprete en el que se inyectarán las clases.
+	 * @return         Código fuente con las líneas de import comentadas.
+	 */
+	#if HSCRIPT_ALLOWED
+	public static function processImports(source:String, interp:Interp):String
+	{
+		// Regex: import com.foo.Bar; o import com.foo.Bar as B;
+		final importReg = ~/^[ \t]*import\s+([\w.]+)(?:\s+as\s+(\w+))?\s*;/gm;
+		return importReg.map(source, function(r:EReg):String
+		{
+			final fullName  = r.matched(1);
+			final alias     = r.matched(2);
+			final shortName = (alias != null && alias != '') ? alias : fullName.split('.').pop();
+
+			var resolved:Dynamic = Type.resolveClass(fullName);
+			if (resolved == null) resolved = Type.resolveEnum(fullName);
+
+			if (resolved != null)
+			{
+				interp.variables.set(shortName, resolved);
+				trace('[ScriptHandler] import $fullName → $shortName');
+			}
+			else
+			{
+				trace('[ScriptHandler] import no resuelta: $fullName (¿falta en el build?)');
+			}
+			// Comentar la línea para que hscript no la vea
+			return '// [import] $fullName';
+		});
+	}
+	#end
 }

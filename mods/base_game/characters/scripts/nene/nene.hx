@@ -104,14 +104,14 @@ function onUpdate(elapsed:Float)
     if (viz != null) viz.setVisible(character.visible);
 
     // BUGFIX: actualizar posición del A-Bot cada frame para seguir al personaje.
-    // Sin esto el A-Bot se quedaba en la posición inicial de postCreate y
-    // "desaparecía" cuando el personaje se movía con el scroll del stage.
+    // Sin esto el A-Bot se quedaba en la posición inicial de postCreate.
     if (hasSetupAbot)
     {
         var offX:Float = 0.0;
         var offY:Float = 0.0;
-        // BUGFIX: character.animation.curAnim es null para personajes Animate Atlas.
-        // El engine unifica el acceso al nombre de animación actual en getCurAnimName().
+        // BUGFIX: getCurAnimName() es el método unificado que funciona tanto
+        // para Sparrow (donde animation.curAnim puede ser null en Atlas)
+        // como para Animate Atlas. Nunca usar animation.curAnim.name directamente.
         var animName = character.getCurAnimName();
         if (character.animOffsets.exists(animName))
         {
@@ -130,9 +130,6 @@ function onUpdate(elapsed:Float)
 
         if (viz != null)
         {
-            // Actualizar base del viz — viz.update() leerá estas coordenadas
-            // para calcular bar.y correctamente con el offset de escala.
-            // El x por barra lo sigue gestionando viz.update via _baseX.
             var vizBaseX:Float = bx + 207;
             var vizBaseY:Float = by + 84;
             viz.setBase(vizBaseX, vizBaseY);
@@ -159,12 +156,9 @@ function onUpdate(elapsed:Float)
     }
 
     // Frame 13 de danceLeft → marcar animationFinished para que
-    // transitionState() (al final) dispare la transición a RAISE.
+    // transitionState() dispare la transición a RAISE.
     if (currentState == STATE_PRE_RAISE)
     {
-        // BUGFIX: character.animation.curAnim es null para Animate Atlas.
-        // Usar getCurAnimName() para el nombre y character.anim.curFrame para el frame.
-        // character.anim es el FlxAnimateController, siempre accesible.
         var curAnimName = character.getCurAnimName();
         var curFrame    = (character.anim != null) ? character.anim.curFrame : -1;
         if (curAnimName == 'danceLeft' && curFrame == 13)
@@ -176,11 +170,11 @@ function onUpdate(elapsed:Float)
 
 function onDestroy()
 {
-    if (viz != null) { viz.destroy(); viz = null; }
-    if (abot      != null) { abot.destroy();      abot      = null; }
-    if (pupil     != null) { pupil.destroy();     pupil     = null; }
-    if (eyeWhites != null) { eyeWhites.destroy(); eyeWhites = null; }
-    if (stereoBG  != null) { stereoBG.destroy();  stereoBG  = null; }
+    if (viz != null)      { viz.destroy();       viz       = null; }
+    if (abot != null)     { abot.destroy();      abot      = null; }
+    if (pupil != null)    { pupil.destroy();     pupil     = null; }
+    if (eyeWhites != null){ eyeWhites.destroy(); eyeWhites = null; }
+    if (stereoBG != null) { stereoBG.destroy();  stereoBG  = null; }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -218,6 +212,9 @@ function overrideDance():Bool
 
 function onAnimEnd(animName:String)
 {
+    // FIX: case con múltiples valores — el preprocesador los expande a casos
+    // separados. Este patrón (case 2, 4, ...:) es válido en Haxe pero no en
+    // HScript directamente; el preprocesador de HScriptInstance lo convierte.
     switch (currentState)
     {
         case 2, 4, 5, 6, 7, 8:
@@ -246,43 +243,29 @@ function onSongEnd()
 
 function onBeatHit(beat:Int)
 {
-    // Disparar el peak de las barras en cada beat
     if (viz != null) viz.onBeatHit(beat);
 }
 
 /**
  * onEvent: intercepta los eventos de cámara ANTES de que el engine los procese.
  *
- * Por qué esto funciona y onSectionHit no:
- *   • EventManager.triggerEvent() llama callOnScriptsReturn('onEvent', ...) ANTES
- *     de ejecutar el handler built-in → los scripts SÍ reciben el evento.
- *   • onSectionHit + getMustHitSection solo funcionaba para charts viejos con
- *     mustHitSection. Para charts V-Slice (que usan eventos Camera Follow),
- *     mustHitSection puede ser null → getMustHitSection devuelve true siempre.
- *   • EventManager auto-genera Camera Follow desde mustHitSection en charts viejos,
- *     así que onEvent cubre AMBOS formatos de chart sin necesidad de onSectionHit.
- *
- * Retornar false = no cancelar el evento (el engine sigue moviéndola cámara).
+ * Retornar false = no cancelar el evento (el engine sigue moviendo la cámara).
  */
 function onEvent(name:String, v1:String, v2:String, time:Float):Bool
 {
     var lname:String = (name != null) ? name.toLowerCase() : '';
 
-    // Nombres soportados por este engine (ver EventManager._handleBuiltin):
-    //   'camera follow' | 'camera'          → seguimiento normal
-    //   'camera focus'  | 'focus camera' | 'focus' → foco entre personajes
     if (lname == 'camera follow' || lname == 'camera'
      || lname == 'camera focus'  || lname == 'focus camera' || lname == 'focus')
     {
         var target:String = (v1 != null) ? v1.toLowerCase() : '';
         if (target == 'bf')
-            movePupilsRight();  // cámara en bf (derecha del stage)
+            movePupilsRight();
         else if (target == 'dad' || target == 'opponent')
-            movePupilsLeft();   // cámara en dad (izquierda del stage)
-        // 'gf' / 'both' / '' → mantener posición actual de las pupilas
+            movePupilsLeft();
     }
 
-    return false; // nunca cancelar — el engine debe seguir procesando el evento
+    return false;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -304,8 +287,14 @@ function moveByNoteKind(kind:String):Void
 
 function setTrainPassing(value:Bool):Void { trainPassing = value; }
 
-function checkTrainPassing(raised:Bool = false):Void
+function checkTrainPassing(raised:Bool):Void
 {
+    // FIX Bug 4: el preprocesador elimina el valor por defecto "= false" del
+    // parámetro porque HScript no soporta default args. Cuando se llama como
+    // checkTrainPassing() sin argumento, raised llega como null en HScript.
+    // Esta línea restaura el comportamiento correcto del valor por defecto.
+    if (raised == null) raised = false;
+
     if (!trainPassing) return;
     currentState = raised ? STATE_HAIR_BLOWING_RAISE : STATE_HAIR_BLOWING;
     character.playAnim(raised ? 'hairBlowKnife' : 'hairBlowNormal', true);
@@ -324,7 +313,7 @@ function transitionState():Void
     {
         case 0: // DEFAULT
             if (game.health <= VULTURE_THRESHOLD) currentState = STATE_PRE_RAISE;
-            checkTrainPassing();
+            checkTrainPassing(false);
 
         case 1: // PRE_RAISE
             if (game.health > VULTURE_THRESHOLD)
@@ -335,7 +324,7 @@ function transitionState():Void
                 character.playAnim('raiseKnife', true);
                 animationFinished = false;
             }
-            checkTrainPassing();
+            checkTrainPassing(false);
 
         case 2: // RAISE
             if (animationFinished) { currentState = STATE_READY; animationFinished = false; }
@@ -347,7 +336,7 @@ function transitionState():Void
 
         case 4: // LOWER
             if (animationFinished) { currentState = STATE_DEFAULT; animationFinished = false; }
-            checkTrainPassing();
+            checkTrainPassing(false);
 
         case 5: // HAIR_BLOWING
             if (!trainPassing) { currentState = STATE_HAIR_FALLING; character.playAnim('hairFallNormal', true); animationFinished = false; }
@@ -380,7 +369,6 @@ function setupAbot():Void
 
     var offX:Float = 0.0;
     var offY:Float = 0.0;
-    // BUGFIX: mismo que onUpdate — character.animation.curAnim es null para Atlas.
     var animName = character.getCurAnimName();
     if (character.animOffsets.exists(animName))
     {
@@ -395,10 +383,12 @@ function setupAbot():Void
     eyeWhites.x = abot.x + 40;   eyeWhites.y = abot.y + 250;
     pupil.x     = abot.x + 50;   pupil.y     = abot.y + 238;
 
-    // Cargar ABotVis como script separado y crear la instancia del visualizador
     var vizBaseX:Float = abot.x + 207;
     var vizBaseY:Float = abot.y + 124;
 
+    // FIX Bug 1+2: require() ahora aplica el preprocesador al módulo Y lo
+    // recibe correctamente como objeto {create, padNum} gracias al return
+    // explícito al final de ABotVis.hx.
     var vizModule:Dynamic = require('ABotVis.hx');
     if (vizModule != null)
         viz = vizModule.create(vizBaseX, vizBaseY);
@@ -406,12 +396,12 @@ function setupAbot():Void
         log('WARN: no se pudo cargar ABotVis.hx');
 
     // ── Orden de profundidad (de atrás hacia adelante) ────────────────────
-    // 1. stereoBG   — fondo negro de la pantalla (lo más atrás de todo)
-    // 2. barras viz — sobre el fondo de pantalla, pero bajo el marco del aBot
-    // 3. eyeWhites  — blanco de ojos del robot
-    // 4. pupil      — pupilas del robot
-    // 5. abot       — marco/cuerpo del A-Bot (tapa los bordes de las barras)
-    // 6. character  — Nene encima de todo lo anterior
+    // 1. stereoBG   — fondo negro de la pantalla
+    // 2. barras viz — sobre el fondo, bajo el marco del aBot
+    // 3. eyeWhites  — blanco de ojos
+    // 4. pupil      — pupilas
+    // 5. abot       — marco/cuerpo del A-Bot (tapa bordes de las barras)
+    // 6. character  — Nene encima de todo
     addBehindChar(stereoBG, character);
 
     if (viz != null)

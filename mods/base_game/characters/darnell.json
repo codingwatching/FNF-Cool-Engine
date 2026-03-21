@@ -46,7 +46,7 @@
 			"framerate": 24,
 			"prefix": "darnell laugh",
 			"offsetY": 0,
-			"name": "laugh",
+			"name": "laughCutscene",
 			"looped": false
 		},
 		{
@@ -54,7 +54,7 @@
 			"framerate": 24,
 			"prefix": "Darnell lighting can",
 			"offsetY": -5,
-			"name": "Darnell lighting can",
+			"name": "lightCan",
 			"looped": false
 		},
 		{
@@ -62,7 +62,7 @@
 			"framerate": 24,
 			"prefix": "Darnell can kick up",
 			"offsetY": 30,
-			"name": "Darnell can kick up",
+			"name": "kickCan",
 			"looped": false
 		},
 		{
@@ -70,7 +70,7 @@
 			"framerate": 24,
 			"prefix": "Darnell knee action",
 			"offsetY": -20,
-			"name": "Darnell knee action",
+			"name": "kneeCan",
 			"looped": false
 		},
 		{

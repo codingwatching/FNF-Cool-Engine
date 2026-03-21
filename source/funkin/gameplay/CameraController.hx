@@ -55,6 +55,7 @@ class CameraController
 	public var defaultZoom:Float = 1.05;
 	public var zoomEnabled:Bool  = false;
 	private var zoomTween:FlxTween;
+	private var _panTween:FlxTween;
 
 	// === NOTE MOVEMENT OFFSETS ===
 	public var dadOffsetX:Int = 0;
@@ -71,6 +72,15 @@ class CameraController
 	public var stageOffsetGf:FlxPoint  = new FlxPoint(0, 0);
 
 	// === CONFIG ===
+	/**
+	 * Cuando `true`, el follow de la cámara está bloqueado: `updateFollowPosition`
+	 * es un no-op y camFollow se queda donde está (o en _lockedPos si se usó lock()).
+	 * Cambiar con lock() / unlock().
+	 */
+	public var locked:Bool = false;
+
+	/** Posición de mundo a la que se bloqueó la cámara (solo válida cuando locked=true). */
+	private var _lockedPos:FlxPoint = new FlxPoint(0, 0);
 	/**
 	 * Velocidad del lerp de cámara. Equivalente a camera_speed en Psych.
 	 * Se inicializa a 2.4 (default de Cool Engine). PlayState lo sobreescribe
@@ -141,6 +151,107 @@ class CameraController
 		camGame.followLerp = lerp;
 	}
 
+	// ─────────────────────────────────────────────────────────────
+	//  LOCK / UNLOCK
+	// ─────────────────────────────────────────────────────────────
+
+	/**
+	 * Bloquea el follow de la cámara en su posición actual (o en x/y si se pasan).
+	 * Mientras está bloqueada, los eventos de "Camera Follow" y el lerp normal
+	 * no mueven camFollow — la cámara se queda quieta en ese punto.
+	 *
+	 * @param x  Posición X de mundo opcional. Si null usa la posición actual de camFollow.
+	 * @param y  Posición Y de mundo opcional. Si null usa la posición actual de camFollow.
+	 */
+	public function lock(?x:Float, ?y:Float):Void
+	{
+		locked = true;
+		_lockedPos.x = x ?? camFollow.x;
+		_lockedPos.y = y ?? camFollow.y;
+		camFollow.setPosition(_lockedPos.x, _lockedPos.y);
+	}
+
+	/**
+	 * Desbloquea el follow. La cámara vuelve a lerpar hacia el personaje
+	 * definido por currentTarget desde la siguiente llamada a update().
+	 */
+	public function unlock():Void
+	{
+		locked = false;
+	}
+
+	/**
+	 * Mueve camFollow instantáneamente a una posición de mundo (sin tween).
+	 * No deshabilita el follow — si quieres que se quede ahí usa lock() después.
+	 *
+	 * @param x  Posición X de mundo.
+	 * @param y  Posición Y de mundo.
+	 */
+	public function moveTo(x:Float, y:Float):Void
+	{
+		camFollow.setPosition(x, y);
+	}
+
+	/**
+	 * Tweenea camFollow suavemente hacia (x, y) durante `duration` segundos.
+	 * Bloquea el follow automáticamente mientras dura el tween para que el
+	 * lerp hacia el personaje no lo cancele; lo desbloquea al terminar salvo
+	 * que se pase keepLocked=true.
+	 *
+	 * @param x           Posición X de mundo destino.
+	 * @param y           Posición Y de mundo destino.
+	 * @param duration    Duración del tween en segundos (default 0.6).
+	 * @param ease        Función de ease (default FlxEase.sineInOut).
+	 * @param keepLocked  Si true, la cámara queda locked al terminar (default false).
+	 * @param onComplete  Callback opcional al terminar el tween.
+	 */
+	public function panTo(x:Float, y:Float, ?duration:Float, ?ease:Float->Float,
+		?keepLocked:Bool, ?onComplete:Void->Void):Void
+	{
+		var dur:Float = duration ?? 0.6;
+		var easeFunc = ease ?? FlxEase.sineInOut;
+		var stayLocked:Bool = keepLocked ?? false;
+
+		// Bloquar mientras dura el tween para que updateFollowPosition no lo cancele
+		locked = true;
+
+		if (_panTween != null) { _panTween.cancel(); _panTween = null; }
+
+		_panTween = FlxTween.tween(camFollow, { x: x, y: y }, dur,
+		{
+			ease: easeFunc,
+			onComplete: function(t)
+			{
+				_panTween = null;
+				if (!stayLocked) locked = false;
+				if (onComplete != null) onComplete();
+			}
+		});
+	}
+
+	/**
+	 * Centra la cámara en el punto medio entre bf y dad.
+	 * Equivalente a setTarget('both') pero instantáneo o con snap.
+	 *
+	 * @param snap  Si true (default) mueve camFollow instantáneamente.
+	 *              Si false aplica un panTo suave de 0.6s.
+	 */
+	public function centerBetweenChars(?snap:Bool):Void
+	{
+		if (boyfriend == null || dad == null) return;
+		var bfMid  = boyfriend.getMidpoint();
+		var dadMid = dad.getMidpoint();
+		var cx = (bfMid.x + dadMid.x) * 0.5;
+		var cy = (bfMid.y + dadMid.y) * 0.5 - 100;
+		bfMid.put();
+		dadMid.put();
+
+		if (snap ?? true)
+			moveTo(cx, cy);
+		else
+			panTo(cx, cy);
+	}
+
 	/**
 	 * Restaura el estado inicial de la cámara (target, zoom, lerp).
 	 * Llamar desde PlayState._finishRestart() y PlayStateEditorState._onRestart()
@@ -151,6 +262,9 @@ class CameraController
 	{
 		// Cancel any active zoom tween first
 		if (zoomTween != null) { zoomTween.cancel(); zoomTween = null; }
+		if (_panTween  != null) { _panTween.cancel();  _panTween  = null; }
+
+		locked        = false;
 
 		currentTarget = _initialTarget;
 		defaultZoom   = _initialZoom;
@@ -202,6 +316,8 @@ class CameraController
 
 	private function updateFollowPosition(elapsed:Float):Void
 	{
+		// Si la cámara está bloqueada, no mover camFollow en absoluto.
+		if (locked) return;
 		// ── Target 'both': centrar entre bf y dad ─────────────────────────
 		if (currentTarget == 'both')
 		{
@@ -416,10 +532,12 @@ class CameraController
 	public function destroy():Void
 	{
 		if (zoomTween != null) { zoomTween.cancel(); zoomTween = null; }
+		if (_panTween  != null) { _panTween.cancel();  _panTween  = null; }
 		camPos.put();
 		stageOffsetBf.put();
 		stageOffsetDad.put();
 		stageOffsetGf.put();
+		_lockedPos.put();
 		camFollow = null;
 	}
 }

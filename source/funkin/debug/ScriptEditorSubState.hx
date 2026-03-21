@@ -148,7 +148,7 @@ class ScriptEditorSubState extends FlxSubState
 	override function create() : Void
 	{
 		super.create();
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 
 		// Bloquear SoundTray para que +/-/0 no cambien el volumen
 		SoundTray.blockInput = true;

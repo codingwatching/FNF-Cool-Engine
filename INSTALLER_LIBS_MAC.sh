@@ -1,49 +1,36 @@
 #!/bin/bash
 # ===============================================
-#   FNF / HaxeFlixel Environment Setup — macOS
+#   FNF Cool Engine — Environment Setup — macOS
 # ===============================================
 # Prerequisites:
 #   - Git          (xcode-select --install)
 #   - Homebrew     (https://brew.sh)
-#   - Neko + Haxe  (installed automatically below)
-#   - libvlc       (installed automatically below)
 # ===============================================
 
-set -e  # Stop the script if any command fails
+set -e
 
 HAXE_VERSION="4.3.6"
+LIME_VERSION="8.3.1"
+OPENFL_VERSION="9.3.0"
 
 echo "==============================================="
-echo "   FNF / HaxeFlixel Environment Setup — macOS"
+echo "   FNF Cool Engine — Environment Setup — macOS"
 echo "==============================================="
 echo ""
-echo "This script will install a STABLE and COMPATIBLE"
-echo "HaxeFlixel environment for FNF-based projects."
-echo ""
-echo "Make sure the following are already installed:"
-echo "  - Git"
-echo "  - Homebrew"
+echo "Requirements: Git + Homebrew"
 echo ""
 read -rp "Press ENTER to continue..."
 
 # ── Neko ─────────────────────────────────────────
-# haxelib is a Neko binary — it MUST be installed first
-# or haxelib will crash with "libneko.2.dylib not found".
 echo ""
-echo "==============================================="
 echo "Installing Neko via Homebrew..."
-echo "==============================================="
 brew install neko
-# On Apple Silicon, Homebrew installs to /opt/homebrew instead of /usr/local.
-# haxelib has @rpath hardcoded to /usr/local/lib, so we symlink it there.
 sudo mkdir -p /usr/local/lib
 sudo ln -sf "$(brew --prefix neko)/lib/libneko.2.dylib" /usr/local/lib/libneko.2.dylib
 
 # ── Haxe ─────────────────────────────────────────
 echo ""
-echo "==============================================="
 echo "Installing Haxe $HAXE_VERSION..."
-echo "==============================================="
 curl -fsSL "https://github.com/HaxeFoundation/haxe/releases/download/${HAXE_VERSION}/haxe-${HAXE_VERSION}-osx.tar.gz" -o haxe.tar.gz
 tar -xzf haxe.tar.gz
 HAXE_DIR="$(pwd)/$(tar -tzf haxe.tar.gz | head -1 | cut -d/ -f1)"
@@ -56,103 +43,80 @@ echo "Haxe installed at: $HAXE_DIR"
 
 # ── libvlc ──────────────────────────────────────
 echo ""
-echo "==============================================="
-echo "Installing VLC (libvlc) via Homebrew cask..."
-echo "==============================================="
+echo "Installing VLC (libvlc) via Homebrew..."
 brew install --cask vlc
-echo "VLC installed at: /Applications/VLC.app"
-ls /Applications/VLC.app/Contents/MacOS/lib/ | grep vlc || true
 
 # ── Clean conflicting libraries ──────────────────
 echo ""
-echo "==============================================="
 echo "Cleaning conflicting libraries..."
-echo "==============================================="
-haxelib remove flixel-ui    2>/dev/null || true
-haxelib remove flixel       2>/dev/null || true
-haxelib remove openfl       2>/dev/null || true
-haxelib remove lime         2>/dev/null || true
+haxelib remove flixel-ui     2>/dev/null || true
+haxelib remove flixel        2>/dev/null || true
+haxelib remove openfl        2>/dev/null || true
+haxelib remove lime          2>/dev/null || true
+haxelib remove flixel-addons 2>/dev/null || true
 
-# ── Core dependencies ────────────────────────────
+# ── Core ─────────────────────────────────────────
 echo ""
-echo "==============================================="
 echo "Installing core dependencies..."
-echo "==============================================="
-haxelib install hxcpp
-haxelib install lime 8.1.0
-haxelib install openfl 9.3.0
+haxelib install hxcpp  --quiet --never
+haxelib install lime   $LIME_VERSION   --never
+haxelib install openfl $OPENFL_VERSION --never
+haxelib set    lime    $LIME_VERSION
+haxelib set    openfl  $OPENFL_VERSION
 
 # ── HaxeFlixel ───────────────────────────────────
 echo ""
-echo "==============================================="
-echo "Installing HaxeFlixel..."
-echo "==============================================="
-haxelib git flixel https://github.com/FunkinCrew/flixel
+echo "Installing HaxeFlixel (FunkinCrew fork)..."
+haxelib git flixel         https://github.com/FunkinCrew/flixel         --never
+haxelib git flixel-addons  https://github.com/FunkinCrew/flixel-addons  funkin-4.0.6 --never
+haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
+haxelib install flixel-ui    --quiet --never
+haxelib install flixel-tools 1.5.1  --quiet --never
 
-haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
-
-haxelib install flixel-ui
-haxelib install flixel-tools 1.5.1
-
-# ── Additional libraries ─────────────────────────
+# ── Additional ───────────────────────────────────
 echo ""
-echo "==============================================="
 echo "Installing additional libraries..."
-echo "==============================================="
-haxelib install actuate
-haxelib install hscript
-haxelib install hxcpp-debug-server
-haxelib install format
-haxelib install hxp
+haxelib install actuate           --quiet --never
+haxelib install hscript           --quiet --never
+haxelib install linc_luajit          --quiet --never
+haxelib install hxcpp-debug-server --quiet --never
+haxelib install format            --quiet --never
+haxelib install hxp               --quiet --never
 
-# ── Setup Lime and Flixel ────────────────────────
+# ── Discord RPC, flxanimate, hxvlc ───────────────
 echo ""
-echo "==============================================="
-echo "Setting up Lime and Flixel..."
-echo "==============================================="
+echo "Installing Discord RPC, flxanimate, hxvlc..."
+haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
+haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  --never
+haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
+
+# ── Lime setup + rebuild for arm64 ───────────────
+echo ""
+echo "Setting up Lime..."
 haxelib run lime setup -y
-haxelib run lime setup flixel
-haxelib run flixel-tools setup
 
-# ── Discord RPC and flxanimate ───────────────────
 echo ""
-echo "==============================================="
-echo "Installing Discord RPC and flxanimate..."
-echo "==============================================="
-haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
-haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
-haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6
-
-# ── Re-lock library versions ─────────────────────
-echo ""
-echo "==============================================="
-echo "Re-locking library versions..."
-echo "==============================================="
-
-haxelib set lime 8.1.0
-haxelib set openfl 9.3.0
-
-# ── Rebuild Lime for arm64 ───────────────────────
-echo ""
-echo "==============================================="
 echo "Rebuilding Lime native libs for arm64..."
-echo "==============================================="
-# The prebuilt .ndll inside the haxelib package is x86_64.
-# This recompiles it for the current architecture (arm64).
 haxelib run lime rebuild mac
 
 # ── Done ─────────────────────────────────────────
 echo ""
 echo "==============================================="
-echo "Setup completed successfully!"
+echo "Setup completed!"
 echo "==============================================="
 echo ""
-echo "Installed versions:"
-echo "  - Lime:           8.1.0"
-echo "  - OpenFL:         9.3.0"
-echo "  - Flixel:         git"
+echo "Versions installed:"
+echo "  Lime:           $LIME_VERSION"
+echo "  OpenFL:         $OPENFL_VERSION"
+echo "  Flixel:         FunkinCrew/flixel (git)"
+echo "  flixel-addons:  FunkinCrew/flixel-addons funkin-4.0.6 (git)"
+echo "  flixel-animate: MaybeMaru/flixel-animate (git)"
+echo "  funkin.vis:     FunkinCrew/funkVis (git)"
+echo "  hxvlc:          MAJigsaw77/hxvlc (git)"
+echo "  discord_rpc:    Aidan63/linc_discord-rpc (git)"
 echo ""
-echo "You are now ready to compile your project with:"
-echo "  haxelib run lime build mac -final"
+echo "To compile:"
+echo "  haxelib run lime build mac"
+echo "  haxelib run lime build mac -debug"
 echo ""
 read -rp "Press ENTER to exit."

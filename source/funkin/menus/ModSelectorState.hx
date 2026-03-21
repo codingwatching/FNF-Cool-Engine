@@ -139,7 +139,7 @@ class ModSelectorState extends MusicBeatState
 		ModManager.init();
 		_mods = ModManager.installedMods.copy();
 
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 		_setupCameras();
 		_buildBG();
 		_buildTabBar();
@@ -216,7 +216,7 @@ class ModSelectorState extends MusicBeatState
 		{
 			final tx = startX + i * tabW;
 			final lbl = new FlxText(tx, 4, tabW, TAB_NAMES[i]);
-			lbl.setFormat(null, 14, T.textSecondary, CENTER, OUTLINE, T.bgDark);
+			lbl.setFormat(Paths.font('vcr.ttf'), 14, T.textSecondary, CENTER, OUTLINE, T.bgDark);
 			lbl.scrollFactor.set();
 			lbl.cameras = [_camUI];
 			add(lbl);
@@ -246,14 +246,14 @@ class ModSelectorState extends MusicBeatState
 		// Izquierda: controles del panel de mods
 		_infoKey = new FlxText(8, FlxG.height - 44, LIST_W - 16,
 			'[1][2][3] Tabs   [↑↓] Browse   [Enter] Active\n[X] Enable   [E] Edit   [N] New   [I] Import   [F] Startup');
-		_infoKey.setFormat(null, 11, T.textDim, LEFT);
+		_infoKey.setFormat(Paths.font('vcr.ttf'), 11, T.textDim, LEFT);
 		_infoKey.scrollFactor.set();
 		_infoKey.cameras = [_camUI];
 		add(_infoKey);
 
 		// Título arriba del panel izquierdo
 		final title = new FlxText(0, 4, LIST_W, 'MODS');
-		title.setFormat(null, 20, T.accent, CENTER, OUTLINE, T.bgDark);
+		title.setFormat(Paths.font('vcr.ttf'), 20, T.accent, CENTER, OUTLINE, T.bgDark);
 		title.scrollFactor.set();
 		title.cameras = [_camUI];
 		add(title);
@@ -262,7 +262,7 @@ class ModSelectorState extends MusicBeatState
 	function _buildStatusMsg():Void
 	{
 		_statusMsg = new FlxText(PREVIEW_X + 8, FlxG.height - 62, PREVIEW_W, '');
-		_statusMsg.setFormat(null, 13, EditorTheme.current.success, LEFT);
+		_statusMsg.setFormat(Paths.font('vcr.ttf'), 13, EditorTheme.current.success, LEFT);
 		_statusMsg.scrollFactor.set();
 		_statusMsg.cameras = [_camUI];
 		_statusMsg.alpha = 0;
@@ -272,7 +272,7 @@ class ModSelectorState extends MusicBeatState
 	function _showEmptyMessage():Void
 	{
 		final msg = new FlxText(16, 80, LIST_W - 32, 'No mods installed.\n\nInstall your mods in\nthe folder mods/\n\n[N] to create a new one.');
-		msg.setFormat(null, 14, EditorTheme.current.textDim, CENTER);
+		msg.setFormat(Paths.font('vcr.ttf'), 14, EditorTheme.current.textDim, CENTER);
 		msg.scrollFactor.set();
 		msg.cameras = [_camUI];
 		add(msg);
@@ -320,44 +320,44 @@ class ModSelectorState extends MusicBeatState
 		final ix = PREVIEW_X;
 
 		_infoActive = new FlxText(ix, iy, PREVIEW_W, '');
-		_infoActive.setFormat(null, 13, T.success, LEFT);
+		_infoActive.setFormat(Paths.font('vcr.ttf'), 13, T.success, LEFT);
 		_infoActive.scrollFactor.set();
 		_infoActive.cameras = [_camUI];
 		add(_infoActive);
 
 		_infoStartup = new FlxText(ix + 200, iy, PREVIEW_W - 200, '');
-		_infoStartup.setFormat(null, 13, T.warning, RIGHT);
+		_infoStartup.setFormat(Paths.font('vcr.ttf'), 13, T.warning, RIGHT);
 		_infoStartup.scrollFactor.set();
 		_infoStartup.cameras = [_camUI];
 		add(_infoStartup);
 
 		_infoName = new FlxText(ix, iy + 20, PREVIEW_W, '');
-		_infoName.setFormat(null, 26, T.textPrimary, LEFT, OUTLINE, T.bgDark);
+		_infoName.setFormat(Paths.font('vcr.ttf'), 26, T.textPrimary, LEFT, OUTLINE, T.bgDark);
 		_infoName.scrollFactor.set();
 		_infoName.cameras = [_camUI];
 		add(_infoName);
 
 		_infoAuthor = new FlxText(ix, iy + 52, PREVIEW_W - 120, '');
-		_infoAuthor.setFormat(null, 14, T.textSecondary, LEFT);
+		_infoAuthor.setFormat(Paths.font('vcr.ttf'), 14, T.textSecondary, LEFT);
 		_infoAuthor.scrollFactor.set();
 		_infoAuthor.cameras = [_camUI];
 		add(_infoAuthor);
 
 		_infoVersion = new FlxText(ix + PREVIEW_W - 120, iy + 52, 120, '');
-		_infoVersion.setFormat(null, 13, T.textDim, RIGHT);
+		_infoVersion.setFormat(Paths.font('vcr.ttf'), 13, T.textDim, RIGHT);
 		_infoVersion.scrollFactor.set();
 		_infoVersion.cameras = [_camUI];
 		add(_infoVersion);
 
 		_infoDesc = new FlxText(ix, iy + 74, PREVIEW_W, '');
-		_infoDesc.setFormat(null, 12, T.textSecondary, LEFT);
+		_infoDesc.setFormat(Paths.font('vcr.ttf'), 12, T.textSecondary, LEFT);
 		_infoDesc.scrollFactor.set();
 		_infoDesc.wordWrap = true;
 		_infoDesc.cameras = [_camUI];
 		add(_infoDesc);
 
 		_infoWebsite = new FlxText(ix, iy + 118, PREVIEW_W, '');
-		_infoWebsite.setFormat(null, 12, T.accent, LEFT);
+		_infoWebsite.setFormat(Paths.font('vcr.ttf'), 12, T.accent, LEFT);
 		_infoWebsite.scrollFactor.set();
 		_infoWebsite.cameras = [_camUI];
 		add(_infoWebsite);
@@ -369,7 +369,7 @@ class ModSelectorState extends MusicBeatState
 		_importBtn.cameras = [_camUI];
 		add(_importBtn);
 		_importBtnTxt = new FlxText(8, importBtnY + 6, LIST_W - 16, '⬆ IMPORT MOD');
-		_importBtnTxt.setFormat(null, 13, T.bgDark, CENTER, OUTLINE, T.bgDark);
+		_importBtnTxt.setFormat(Paths.font('vcr.ttf'), 13, T.bgDark, CENTER, OUTLINE, T.bgDark);
 		_importBtnTxt.bold = true;
 		_importBtnTxt.scrollFactor.set();
 		_importBtnTxt.cameras = [_camUI];
@@ -382,7 +382,7 @@ class ModSelectorState extends MusicBeatState
 		_newBtn.cameras = [_camUI];
 		add(_newBtn);
 		_newBtnTxt = new FlxText(8, btnY + 7, LIST_W - 16, '+ NEW MOD');
-		_newBtnTxt.setFormat(null, 13, T.bgDark, CENTER, OUTLINE, T.bgDark);
+		_newBtnTxt.setFormat(Paths.font('vcr.ttf'), 13, T.bgDark, CENTER, OUTLINE, T.bgDark);
 		_newBtnTxt.bold = true;
 		_newBtnTxt.scrollFactor.set();
 		_newBtnTxt.cameras = [_camUI];
@@ -417,13 +417,13 @@ class ModSelectorState extends MusicBeatState
 			final fy = iy + i * 44;
 
 			final lbl = new FlxText(ix, fy + 8, 185, d.label);
-			lbl.setFormat(null, 13, T.textDim, RIGHT);
+			lbl.setFormat(Paths.font('vcr.ttf'), 13, T.textDim, RIGHT);
 			lbl.scrollFactor.set();
 			lbl.cameras = [_camUI];
 			add(lbl);
 
 			final val = new FlxText(ix + 200, fy + 4, PREVIEW_W - 220, d.value);
-			val.setFormat(null, 16, T.textPrimary, LEFT);
+			val.setFormat(Paths.font('vcr.ttf'), 16, T.textPrimary, LEFT);
 			val.scrollFactor.set();
 			val.cameras = [_camUI];
 			add(val);
@@ -432,7 +432,7 @@ class ModSelectorState extends MusicBeatState
 		}
 
 		_cfgHint = new FlxText(ix, iy + defs.length * 44 + 10, PREVIEW_W - 24, '[↑↓] Select field   [Enter] Edit value   [F5] Save to disk');
-		_cfgHint.setFormat(null, 12, T.textDim, LEFT);
+		_cfgHint.setFormat(Paths.font('vcr.ttf'), 12, T.textDim, LEFT);
 		_cfgHint.scrollFactor.set();
 		_cfgHint.cameras = [_camUI];
 		add(_cfgHint);
@@ -464,13 +464,13 @@ class ModSelectorState extends MusicBeatState
 			final fy = iy + i * 44;
 
 			final lbl = new FlxText(ix, fy + 8, 210, d.label);
-			lbl.setFormat(null, 13, T.textDim, RIGHT);
+			lbl.setFormat(Paths.font('vcr.ttf'), 13, T.textDim, RIGHT);
 			lbl.scrollFactor.set();
 			lbl.cameras = [_camUI];
 			add(lbl);
 
 			final val = new FlxText(ix + 224, fy + 4, PREVIEW_W - 244, d.value);
-			val.setFormat(null, 16, T.textPrimary, LEFT);
+			val.setFormat(Paths.font('vcr.ttf'), 16, T.textPrimary, LEFT);
 			val.scrollFactor.set();
 			val.cameras = [_camUI];
 			add(val);
@@ -480,14 +480,14 @@ class ModSelectorState extends MusicBeatState
 
 		// Descripción dinámica
 		_sysDescText = new FlxText(ix, iy + defs.length * 44 + 8, PREVIEW_W - 24, '');
-		_sysDescText.setFormat(null, 12, T.textDim, LEFT);
+		_sysDescText.setFormat(Paths.font('vcr.ttf'), 12, T.textDim, LEFT);
 		_sysDescText.scrollFactor.set();
 		_sysDescText.wordWrap = true;
 		_sysDescText.cameras = [_camUI];
 		add(_sysDescText);
 
 		_sysHint = new FlxText(ix, iy + defs.length * 44 + 52, PREVIEW_W - 24, '[↑↓] Browse   [Enter] Change / Open   [F5] Save');
-		_sysHint.setFormat(null, 12, T.textDim, LEFT);
+		_sysHint.setFormat(Paths.font('vcr.ttf'), 12, T.textDim, LEFT);
 		_sysHint.scrollFactor.set();
 		_sysHint.cameras = [_camUI];
 		add(_sysHint);
@@ -939,7 +939,7 @@ class ModSelectorState extends MusicBeatState
 					item.value.text = EditorTheme.current.name.toUpperCase();
 					_showStatus('✓ Theme "${EditorTheme.current.name}" applied.', true);
 				});
-				FlxG.mouse.visible = true;
+				funkin.system.CursorManager.show();
 				openSubState(sub);
 		}
 	}
@@ -1151,7 +1151,7 @@ class ModSelectorState extends MusicBeatState
 
 	function _openImportMod():Void
 	{
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 		openSubState(new ModImportSubState(function()
 		{
 			// Refresh mod list after successful import
@@ -1174,7 +1174,7 @@ class ModSelectorState extends MusicBeatState
 
 	function _openCreateMod():Void
 	{
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 		final empty:ModInfo = {
 			id: '',
 			name: 'New Mod',
@@ -1299,11 +1299,11 @@ class ModListItem extends FlxSprite
 		final offX:Int = _icon != null ? 52 : 10;
 
 		_nameTxt = new FlxText(offX, 10, W - offX - 30, mod.name);
-		_nameTxt.setFormat(null, 16, T.textPrimary, LEFT, OUTLINE, T.bgDark);
+		_nameTxt.setFormat(Paths.font('vcr.ttf'), 16, T.textPrimary, LEFT, OUTLINE, T.bgDark);
 		_nameTxt.scrollFactor.set();
 
 		_authorTxt = new FlxText(offX, 32, W - offX - 30, mod.author.length > 0 ? 'By ' + mod.author : '');
-		_authorTxt.setFormat(null, 11, T.textSecondary, LEFT);
+		_authorTxt.setFormat(Paths.font('vcr.ttf'), 11, T.textSecondary, LEFT);
 		_authorTxt.scrollFactor.set();
 
 		_enableDot = new FlxSprite(W - 26, H * 0.5 - 6).makeGraphic(12, 12, FlxColor.TRANSPARENT);
@@ -1413,7 +1413,7 @@ class SimpleTextInputSubState extends FlxSubState
 		add(bord);
 
 		final lbl = new FlxText(px, py + 8, pw, _title);
-		lbl.setFormat(null, 14, T.textSecondary, CENTER);
+		lbl.setFormat(Paths.font('vcr.ttf'), 14, T.textSecondary, CENTER);
 		lbl.scrollFactor.set();
 		add(lbl);
 
@@ -1422,12 +1422,12 @@ class SimpleTextInputSubState extends FlxSubState
 		add(iBg);
 
 		_inputTxt = new FlxText(px + 28, py + 50, pw - 56, _text + '|');
-		_inputTxt.setFormat(null, 18, T.textPrimary, LEFT);
+		_inputTxt.setFormat(Paths.font('vcr.ttf'), 18, T.textPrimary, LEFT);
 		_inputTxt.scrollFactor.set();
 		add(_inputTxt);
 
 		final hint = new FlxText(px, py + ph - 28, pw, '[Enter] Confirm   [Esc] Cancel');
-		hint.setFormat(null, 12, T.textDim, CENTER);
+		hint.setFormat(Paths.font('vcr.ttf'), 12, T.textDim, CENTER);
 		hint.scrollFactor.set();
 		add(hint);
 
@@ -1578,7 +1578,7 @@ class ModEditSubState extends FlxSubState
 		add(bord);
 
 		final title = new FlxText(_panelX, _panelY + 14, _panelW, _isCreate ? '✦  CREATE NEW MOD' : '✎  EDIT MOD  —  ' + _mod.name.toUpperCase());
-		title.setFormat(null, 18, T.textPrimary, CENTER, OUTLINE, T.bgDark);
+		title.setFormat(Paths.font('vcr.ttf'), 18, T.textPrimary, CENTER, OUTLINE, T.bgDark);
 		title.scrollFactor.set();
 		add(title);
 
@@ -1615,11 +1615,11 @@ class ModEditSubState extends FlxSubState
 		{
 			final fy = _panelY + 58 + i * 48;
 			final lbl = new FlxText(_panelX + 24, fy + 6, 180, _fields[i].label);
-			lbl.setFormat(null, 13, T.textDim, RIGHT);
+			lbl.setFormat(Paths.font('vcr.ttf'), 13, T.textDim, RIGHT);
 			lbl.scrollFactor.set();
 			add(lbl);
 			final val = new FlxText(_panelX + 220, fy + 2, _panelW - 240, _fields[i].value);
-			val.setFormat(null, 15, T.textPrimary, LEFT);
+			val.setFormat(Paths.font('vcr.ttf'), 15, T.textPrimary, LEFT);
 			val.scrollFactor.set();
 			_fieldValues.push(val);
 			add(val);
@@ -1631,7 +1631,7 @@ class ModEditSubState extends FlxSubState
 		add(_editBg);
 
 		_editText = new FlxText(_panelX + 28, _panelY + _panelH - 74, _panelW - 56, '');
-		_editText.setFormat(null, 16, T.textPrimary, LEFT);
+		_editText.setFormat(Paths.font('vcr.ttf'), 16, T.textPrimary, LEFT);
 		_editText.scrollFactor.set();
 		_editText.visible = false;
 		add(_editText);
@@ -1645,7 +1645,7 @@ class ModEditSubState extends FlxSubState
 		_saveBtn.scrollFactor.set();
 		add(_saveBtn);
 		final saveTxt = new FlxText(_saveBtn.x, btnY + 7, btnW, '[F5] SAVE');
-		saveTxt.setFormat(null, 13, T.bgDark, CENTER);
+		saveTxt.setFormat(Paths.font('vcr.ttf'), 13, T.bgDark, CENTER);
 		saveTxt.bold = true;
 		saveTxt.scrollFactor.set();
 		add(saveTxt);
@@ -1654,13 +1654,13 @@ class ModEditSubState extends FlxSubState
 		_closeBtn.scrollFactor.set();
 		add(_closeBtn);
 		final closeTxt = new FlxText(_closeBtn.x, btnY + 7, btnW, '[Esc] CLOSE');
-		closeTxt.setFormat(null, 13, T.bgDark, CENTER);
+		closeTxt.setFormat(Paths.font('vcr.ttf'), 13, T.bgDark, CENTER);
 		closeTxt.bold = true;
 		closeTxt.scrollFactor.set();
 		add(closeTxt);
 
 		_hint = new FlxText(_panelX + 10, btnY + 6, _panelW - btnW * 2 - 40, '[↑↓ / Click] Field   [Enter / Click] Edit');
-		_hint.setFormat(null, 11, T.textDim, LEFT);
+		_hint.setFormat(Paths.font('vcr.ttf'), 11, T.textDim, LEFT);
 		_hint.scrollFactor.set();
 		add(_hint);
 
@@ -1669,7 +1669,7 @@ class ModEditSubState extends FlxSubState
 		// Captura nativa de texto via Lime — independiente de foco
 		LimeApp.current.window.onTextInput.add(_onLimeTextInput);
 		FlxG.stage.addEventListener(OflKeyboardEvent.KEY_DOWN, _onKeyDown);
-		FlxG.mouse.visible = true;
+		funkin.system.CursorManager.show();
 
 		super.create();
 	}
@@ -1695,7 +1695,7 @@ class ModEditSubState extends FlxSubState
 			// Botón CLOSE
 			else if (_closeBtn != null && FlxG.mouse.overlaps(_closeBtn, cameras[0]))
 			{
-				FlxG.mouse.visible = true;
+				funkin.system.CursorManager.show();
 				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 				close();
 			}
@@ -1745,7 +1745,7 @@ class ModEditSubState extends FlxSubState
 		}
 		if (FlxG.keys.justPressed.ESCAPE)
 		{
-			FlxG.mouse.visible = true;
+			funkin.system.CursorManager.show();
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 			close();
 		}

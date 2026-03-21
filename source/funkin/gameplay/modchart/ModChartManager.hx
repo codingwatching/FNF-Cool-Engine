@@ -9,6 +9,12 @@ import haxe.Json;
 
 using StringTools;
 
+#if (LUA_ALLOWED && linc_luajit)
+import llua.Lua;
+import llua.LuaL;
+import llua.State;
+#end
+
 // ─── Estado interno por strum ─────────────────────────────────────────────────
 
 typedef StrumState =
@@ -28,6 +34,10 @@ typedef StrumState =
     var scaleX   : Float;
     var scaleY   : Float;
     var visible  : Bool;
+    /** Visibilidad original del grupo — capturada al crear el strum y nunca modificada
+     *  por eventos de modchart. Usada en resetToStart()/seekToBeat() para restaurar
+     *  la visibilidad correcta (false para grupos GF) sin perder el valor base. */
+    var baseVisible : Bool;
 
     // ── Modificadores per-nota (NUEVOS) ──────────────────────────────────────
     /** Amplitud de onda senoidal en X para cada nota (px). 0 = desactivado. */
@@ -52,6 +62,30 @@ typedef StrumState =
     var bumpy       : Float;
     /** Velocidad de la ola bumpy (default 2.0). */
     var bumpySpeed  : Float;
+
+    // ── Nuevos modificadores v3 ───────────────────────────────────────────
+    /** Amplitud de ola X global por songPosition (tipsy). */
+    var tipsy       : Float;
+    /** Velocidad de la ola tipsy (default 1.0). */
+    var tipsySpeed  : Float;
+    /** Scroll invertido local para este strum (1=invertido, 0=normal). */
+    var invert      : Float;
+    /** Amplitud del zigzag en X. */
+    var zigzag      : Float;
+    /** Frecuencia del zigzag (default 1.0). */
+    var zigzagFreq  : Float;
+    /** Amplitud de la ola Y viajante (wave). */
+    var wave        : Float;
+    /** Velocidad de la ola wave (default 1.5). */
+    var waveSpeed   : Float;
+    /** Amplitud del pulso de escala en beat (0=sin pulso). */
+    var beatScale   : Float;
+    /** Pulso de escala actual (decae entre beats). Solo uso interno. */
+    var _beatPulse  : Float;
+    /** 1 = notas invisibles pero hiteables; 0 = visible. */
+    var stealth     : Float;
+    /** Multiplicador de alpha per-nota (0-1). */
+    var noteAlpha   : Float;
 }
 
 // ─── Estado de cámara controlado por modchart ─────────────────────────────────
@@ -205,7 +239,9 @@ class ModChartManager
                     alpha       : 1,
                     scaleX      : spr.scale.x,
                     scaleY      : spr.scale.y,
+                    // Visibilidad — capturar la original para que reset la restaure correctamente
                     visible     : spr.visible,
+                    baseVisible : spr.visible, // BUGFIX: GF strums (visible:false) no deben volverse visibles en reset
                     // per-nota modifiers
                     drunkX      : 0,
                     drunkY      : 0,
@@ -217,7 +253,19 @@ class ModChartManager
                     noteOffsetX : 0,
                     noteOffsetY : 0,
                     bumpy       : 0,
-                    bumpySpeed  : 2.0
+                    bumpySpeed  : 2.0,
+                    // v3 nuevos
+                    tipsy       : 0,
+                    tipsySpeed  : 1.0,
+                    invert      : 0,
+                    zigzag      : 0,
+                    zigzagFreq  : 1.0,
+                    wave        : 0,
+                    waveSpeed   : 1.5,
+                    beatScale   : 0,
+                    _beatPulse  : 0,
+                    stealth     : 0,
+                    noteAlpha   : 1.0
                 };
 
                 arr.push(st);
@@ -244,6 +292,7 @@ class ModChartManager
             scaleX     : 0.7,
             scaleY     : 0.7,
             visible    : true,
+            baseVisible: true,
             // per-nota
             drunkX     : 0,
             drunkY     : 0,
@@ -255,7 +304,19 @@ class ModChartManager
             noteOffsetX: 0,
             noteOffsetY: 0,
             bumpy      : 0,
-            bumpySpeed : 2.0
+            bumpySpeed : 2.0,
+            // v3
+            tipsy      : 0,
+            tipsySpeed : 1.0,
+            invert     : 0,
+            zigzag     : 0,
+            zigzagFreq : 1.0,
+            wave       : 0,
+            waveSpeed  : 1.5,
+            beatScale  : 0,
+            _beatPulse : 0,
+            stealth    : 0,
+            noteAlpha  : 1.0
         };
     }
 
@@ -275,6 +336,7 @@ class ModChartManager
         var activeMod = mods.ModManager.activeMod;
         if (activeMod != null)
         {
+            searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.lua');
             searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.hx');
             searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.json');
         }
@@ -284,13 +346,16 @@ class ModChartManager
         {
             if (!mod.enabled) continue;
             if (mod.id == activeMod) continue; // ya añadido arriba
+            searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.lua');
             searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.hx');
             searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.json');
         }
         #end
 
         // 3. Assets base
+        searchPaths.push('assets/songs/${song}/modchart.lua');
         searchPaths.push('assets/songs/${song}/modchart.hx');
+        searchPaths.push('assets/data/modcharts/${song}.lua');
         searchPaths.push('assets/data/modcharts/${song}.hx');
         searchPaths.push('assets/songs/${song}/modchart.json');
         searchPaths.push('assets/data/modcharts/${song}.json');
@@ -306,7 +371,12 @@ class ModChartManager
 
             if (!exists) continue;
 
-            if (p.endsWith('.hx'))
+            if (p.endsWith('.lua'))
+            {
+                var result = loadFromLua(p, songName);
+                if (result) return true;
+            }
+            else if (p.endsWith('.hx'))
             {
                 var result = loadFromHScript(p, songName);
                 if (result) return true;
@@ -404,6 +474,17 @@ class ModChartManager
             interp.variables.set('NOTE_OFFSET_Y', ModEventType.NOTE_OFFSET_Y);
             interp.variables.set('BUMPY',         ModEventType.BUMPY);
             interp.variables.set('BUMPY_SPEED',   ModEventType.BUMPY_SPEED);
+            // v3 nuevos
+            interp.variables.set('TIPSY',         ModEventType.TIPSY);
+            interp.variables.set('TIPSY_SPEED',   ModEventType.TIPSY_SPEED);
+            interp.variables.set('INVERT',        ModEventType.INVERT);
+            interp.variables.set('ZIGZAG',        ModEventType.ZIGZAG);
+            interp.variables.set('ZIGZAG_FREQ',   ModEventType.ZIGZAG_FREQ);
+            interp.variables.set('WAVE',          ModEventType.WAVE);
+            interp.variables.set('WAVE_SPEED',    ModEventType.WAVE_SPEED);
+            interp.variables.set('BEAT_SCALE',    ModEventType.BEAT_SCALE);
+            interp.variables.set('STEALTH',       ModEventType.STEALTH);
+            interp.variables.set('NOTE_ALPHA',    ModEventType.NOTE_ALPHA);
             // cámara
             interp.variables.set('CAM_ZOOM',      ModEventType.CAM_ZOOM);
             interp.variables.set('CAM_MOVE_X',    ModEventType.CAM_MOVE_X);
@@ -477,6 +558,11 @@ class ModChartManager
     /** Intérprete HScript para el modchart (null si no hay script activo) */
     private var _hscriptInterp:Null<hscript.Interp> = null;
 
+    #if (LUA_ALLOWED && linc_luajit)
+    /** Script Lua activo para el modchart (null si no hay script Lua). */
+    private var _luaScript:Null<funkin.scripting.LuaScriptInstance> = null;
+    #end
+
     /** Llama una función del modchart HScript si existe. */
     private inline function _callHScript(func:String, args:Array<Dynamic>):Void
     {
@@ -484,6 +570,229 @@ class ModChartManager
         if (!_hscriptInterp.variables.exists(func)) return;
         try { Reflect.callMethod(null, _hscriptInterp.variables.get(func), args); }
         catch (e:Dynamic) { trace('[ModChartManager] Error en $func(): $e'); }
+    }
+    #end
+
+    // ── Lua modchart support ─────────────────────────────────────────────────
+
+    /**
+     * Carga un modchart desde un archivo Lua.
+     *
+     * El script tiene acceso a las mismas APIs que HScript:
+     *
+     *   -- Tipos de evento (constantes globales)
+     *   MOVE_X, MOVE_Y, SET_ABS_X, SET_ABS_Y
+     *   ANGLE, SPIN, ALPHA, SCALE, SCALE_X, SCALE_Y, VISIBLE, RESET
+     *   DRUNK_X, DRUNK_Y, DRUNK_FREQ, TORNADO, CONFUSION
+     *   SCROLL_MULT, FLIP_X, NOTE_OFFSET_X, NOTE_OFFSET_Y
+     *   BUMPY, BUMPY_SPEED
+     *   CAM_ZOOM, CAM_MOVE_X, CAM_MOVE_Y, CAM_ANGLE
+     *
+     *   -- Easings
+     *   LINEAR, QUAD_IN, QUAD_OUT, QUAD_IN_OUT, CUBE_IN, CUBE_OUT,
+     *   CUBE_IN_OUT, SINE_IN, SINE_OUT, SINE_IN_OUT,
+     *   ELASTIC_IN, ELASTIC_OUT, BOUNCE_OUT, BACK_IN, BACK_OUT, INSTANT
+     *
+     *   -- Función de modchart
+     *   addEvent(beat, target, strumIdx, type, value, duration, ease)
+     *   clearEvents()
+     *   getState(groupId, strumIdx)   -- devuelve tabla con campos del StrumState
+     *
+     *   -- Propiedades de solo lectura
+     *   songPosition    -- ms actual de la canción
+     *   currentBeat     -- beat actual (float)
+     *
+     * Hooks del script (definir como funciones globales Lua):
+     *   function onCreate()             end
+     *   function onUpdate(songPos)      end
+     *   function onBeatHit(beat)        end
+     *   function onStepHit(step)        end
+     *   function onNoteHit(note)        end
+     *   function onDestroy()            end
+     *
+     * Ejemplo completo:
+     *
+     *   function onCreate()
+     *     -- Rotar todos los strums del jugador en un loop de 4 beats
+     *     addEvent(8,  "player", -1, ANGLE,  360, 4, SINE_IN_OUT)
+     *     addEvent(12, "player", -1, ANGLE,    0, 4, SINE_IN_OUT)
+     *     -- Efectos drunk en el CPU desde el beat 16
+     *     addEvent(16, "cpu", -1, DRUNK_X, 80, 2, QUAD_IN_OUT)
+     *     addEvent(16, "cpu", -1, DRUNK_Y, 40, 2, QUAD_IN_OUT)
+     *   end
+     *
+     *   function onBeatHit(beat)
+     *     if beat % 4 == 0 then
+     *       addEvent(beat, "all", -1, SCALE, 1.3, 0.3, ELASTIC_OUT)
+     *       addEvent(beat + 0.3, "all", -1, SCALE, 1.0, 0.2, QUAD_OUT)
+     *     end
+     *   end
+     *
+     *   function onUpdate(pos)
+     *     -- Zoom de cámara ondulante
+     *     addEvent(currentBeat, "all", -1, CAM_ZOOM, math.sin(pos * 0.003) * 0.1, 0, INSTANT)
+     *   end
+     */
+    public function loadFromLua(path:String, songName:String = ''):Bool
+    {
+        #if (LUA_ALLOWED && linc_luajit)
+        try
+        {
+            #if sys
+            if (!sys.FileSystem.exists(path))
+            {
+                trace('[ModChartManager] Lua no encontrado: $path');
+                return false;
+            }
+            #end
+
+            var lua = new funkin.scripting.LuaScriptInstance(
+                'modchart_${songName}', path);
+
+            // ── Exponer constantes ModEventType ───────────────────────────────
+            inline function setStr(k:String, v:String) lua.set(k, v);
+            // Strum - posición
+            setStr('MOVE_X',        ModEventType.MOVE_X);
+            setStr('MOVE_Y',        ModEventType.MOVE_Y);
+            setStr('SET_ABS_X',     ModEventType.SET_ABS_X);
+            setStr('SET_ABS_Y',     ModEventType.SET_ABS_Y);
+            // Strum - apariencia/rotación
+            setStr('ANGLE',         ModEventType.ANGLE);
+            setStr('SPIN',          ModEventType.SPIN);
+            setStr('ALPHA',         ModEventType.ALPHA);
+            setStr('SCALE',         ModEventType.SCALE);
+            setStr('SCALE_X',       ModEventType.SCALE_X);
+            setStr('SCALE_Y',       ModEventType.SCALE_Y);
+            setStr('VISIBLE',       ModEventType.VISIBLE);
+            setStr('RESET',         ModEventType.RESET);
+            // Per-nota
+            setStr('DRUNK_X',       ModEventType.DRUNK_X);
+            setStr('DRUNK_Y',       ModEventType.DRUNK_Y);
+            setStr('DRUNK_FREQ',    ModEventType.DRUNK_FREQ);
+            setStr('TORNADO',       ModEventType.TORNADO);
+            setStr('CONFUSION',     ModEventType.CONFUSION);
+            setStr('SCROLL_MULT',   ModEventType.SCROLL_MULT);
+            setStr('FLIP_X',        ModEventType.FLIP_X);
+            setStr('NOTE_OFFSET_X', ModEventType.NOTE_OFFSET_X);
+            setStr('NOTE_OFFSET_Y', ModEventType.NOTE_OFFSET_Y);
+            setStr('BUMPY',         ModEventType.BUMPY);
+            setStr('BUMPY_SPEED',   ModEventType.BUMPY_SPEED);
+            // v3 nuevos
+            setStr('TIPSY',         ModEventType.TIPSY);
+            setStr('TIPSY_SPEED',   ModEventType.TIPSY_SPEED);
+            setStr('INVERT',        ModEventType.INVERT);
+            setStr('ZIGZAG',        ModEventType.ZIGZAG);
+            setStr('ZIGZAG_FREQ',   ModEventType.ZIGZAG_FREQ);
+            setStr('WAVE',          ModEventType.WAVE);
+            setStr('WAVE_SPEED',    ModEventType.WAVE_SPEED);
+            setStr('BEAT_SCALE',    ModEventType.BEAT_SCALE);
+            setStr('STEALTH',       ModEventType.STEALTH);
+            setStr('NOTE_ALPHA',    ModEventType.NOTE_ALPHA);
+            // Cámara
+            setStr('CAM_ZOOM',      ModEventType.CAM_ZOOM);
+            setStr('CAM_MOVE_X',    ModEventType.CAM_MOVE_X);
+            setStr('CAM_MOVE_Y',    ModEventType.CAM_MOVE_Y);
+            setStr('CAM_ANGLE',     ModEventType.CAM_ANGLE);
+
+            // ── Exponer constantes ModEase ────────────────────────────────────
+            setStr('LINEAR',      ModEase.LINEAR);
+            setStr('QUAD_IN',     ModEase.QUAD_IN);
+            setStr('QUAD_OUT',    ModEase.QUAD_OUT);
+            setStr('QUAD_IN_OUT', ModEase.QUAD_IN_OUT);
+            setStr('CUBE_IN',     ModEase.CUBE_IN);
+            setStr('CUBE_OUT',    ModEase.CUBE_OUT);
+            setStr('CUBE_IN_OUT', ModEase.CUBE_IN_OUT);
+            setStr('SINE_IN',     ModEase.SINE_IN);
+            setStr('SINE_OUT',    ModEase.SINE_OUT);
+            setStr('SINE_IN_OUT', ModEase.SINE_IN_OUT);
+            setStr('ELASTIC_IN',  ModEase.ELASTIC_IN);
+            setStr('ELASTIC_OUT', ModEase.ELASTIC_OUT);
+            setStr('BOUNCE_OUT',  ModEase.BOUNCE_OUT);
+            setStr('BACK_IN',     ModEase.BACK_IN);
+            setStr('BACK_OUT',    ModEase.BACK_OUT);
+            setStr('INSTANT',     ModEase.INSTANT);
+
+            // ── Exponer API del manager como funciones Lua ────────────────────
+            var self = this;
+
+            lua.set('song', songName);
+            lua.set('songPosition', 0.0);
+            lua.set('currentBeat', 0.0);
+
+            // addEvent(beat, target, strumIdx, type, value, duration, ease)
+            lua.set('addEvent', function(beat:Float, target:String, strumIdx:Int,
+                type:String, value:Float, ?duration:Float, ?ease:String):Void
+            {
+                self.addEventSimple(beat, target, strumIdx, type, value,
+                    duration ?? 0.0, ease ?? ModEase.LINEAR);
+            });
+
+            // clearEvents()
+            lua.set('clearEvents', function():Void
+                self.clearEvents());
+
+            // getState(groupId, strumIdx) — devuelve tabla con campos del StrumState
+            lua.set('getState', function(groupId:String, strumIdx:Int):Dynamic
+            {
+                var st = self.getState(groupId, strumIdx);
+                if (st == null) return null;
+                return {
+                    x: st.baseX + st.offsetX, y: st.baseY + st.offsetY,
+                    angle: st.angle, alpha: st.alpha,
+                    scaleX: st.scaleX, scaleY: st.scaleY,
+                    visible: st.visible, scrollMult: st.scrollMult
+                };
+            });
+
+            // Acceso a camState
+            lua.set('camState', camState);
+
+            // Acceso a Conductor / FlxG por comodidad
+            lua.set('Conductor', funkin.data.Conductor);
+            lua.set('FlxG',      flixel.FlxG);
+            lua.set('Math',      Math);
+
+            // ── Cargar y ejecutar el script ───────────────────────────────────
+            #if sys
+            var src = sys.io.File.getContent(path);
+            #else
+            var src = openfl.Assets.getText(path);
+            #end
+            lua.loadString(src);
+
+            if (!lua.active)
+            {
+                trace('[ModChartManager] Error al activar script Lua: $path');
+                lua.destroy();
+                return false;
+            }
+
+            _luaScript = lua;
+
+            // Sortear y preparar eventos que el onCreate() pudo haber añadido
+            data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
+            pending = data.events.copy();
+
+            trace('[ModChartManager] Modchart Lua cargado: "$path" (${data.events.length} eventos pre-generados)');
+            return true;
+        }
+        catch (e:Dynamic)
+        {
+            trace('[ModChartManager] ERROR al cargar modchart Lua: $e');
+            return false;
+        }
+        #else
+        trace('[ModChartManager] LUA_ALLOWED no definido — modchart Lua desactivado.');
+        return false;
+        #end
+    }
+
+    #if (LUA_ALLOWED && linc_luajit)
+    /** Llama una función del script Lua del modchart si existe. */
+    private inline function _callLua(func:String, args:Array<Dynamic>):Void
+    {
+        if (_luaScript == null || !_luaScript.active) return;
+        _luaScript.call(func, args);
     }
     #end
 
@@ -544,7 +853,7 @@ class ModChartManager
                 st.alpha       = 1;
                 st.scaleX      = (spr != null) ? spr.scale.x : 0.7;
                 st.scaleY      = (spr != null) ? spr.scale.y : 0.7;
-                st.visible     = true;
+                st.visible     = st.baseVisible; // FIX: restaurar visibilidad original (GF strums deben quedar ocultos)
                 // per-nota
                 st.drunkX      = 0;
                 st.drunkY      = 0;
@@ -557,6 +866,18 @@ class ModChartManager
                 st.noteOffsetY = 0;
                 st.bumpy       = 0;
                 st.bumpySpeed  = 2.0;
+                // v3
+                st.tipsy       = 0;
+                st.tipsySpeed  = 1.0;
+                st.invert      = 0;
+                st.zigzag      = 0;
+                st.zigzagFreq  = 1.0;
+                st.wave        = 0;
+                st.waveSpeed   = 1.5;
+                st.beatScale   = 0;
+                st._beatPulse  = 0;
+                st.stealth     = 0;
+                st.noteAlpha   = 1.0;
             }
         }
 
@@ -593,17 +914,23 @@ class ModChartManager
                 st.alpha       = 1;
                 st.scaleX      = (spr != null) ? spr.scale.x : 0.7;
                 st.scaleY      = (spr != null) ? spr.scale.y : 0.7;
-                st.visible     = true;
+                st.visible     = st.baseVisible; // FIX: restaurar visibilidad original (GF strums deben quedar ocultos)
                 st.drunkX      = 0; st.drunkY = 0; st.drunkFreq = 1.0;
                 st.tornado     = 0; st.confusion = 0;
                 st.scrollMult  = 1.0; st.flipX = 0;
                 st.noteOffsetX = 0; st.noteOffsetY = 0;
                 st.bumpy       = 0; st.bumpySpeed = 2.0;
+                // v3
+                st.tipsy       = 0; st.tipsySpeed = 1.0;
+                st.invert      = 0;
+                st.zigzag      = 0; st.zigzagFreq = 1.0;
+                st.wave        = 0; st.waveSpeed = 1.5;
+                st.beatScale   = 0; st._beatPulse = 0;
+                st.stealth     = 0; st.noteAlpha = 1.0;
             }
         }
 
         // Reproducir todos los eventos hasta el beat objetivo
-        var simBeat:Float = 0;
         for (ev in data.events)
         {
             if (ev.beat > beat) break;
@@ -661,6 +988,16 @@ class ModChartManager
         // 5. HScript onUpdate hook (para modcharts que quieran lógica por frame)
         #if HSCRIPT_ALLOWED
         _callHScript('onUpdate', [songPos]);
+        #end
+
+        // 6. Lua onUpdate hook
+        #if (LUA_ALLOWED && linc_luajit)
+        if (_luaScript != null)
+        {
+            _luaScript.set('songPosition', songPos);
+            _luaScript.set('currentBeat', currentBeat);
+            _callLua('onUpdate', [songPos]);
+        }
         #end
     }
 
@@ -761,6 +1098,14 @@ class ModChartManager
             {
                 if (st.spinRate != 0)
                     st.angle += st.spinRate * elapsed * bps;
+
+                // BEAT_SCALE: decaer el pulso suavemente entre beats
+                // El pulso arranca en beatScale cuando onBeatHit dispara y decae a 0.
+                if (st._beatPulse > 0)
+                {
+                    st._beatPulse -= elapsed * 8.0; // ~0.12s para decaer completamente
+                    if (st._beatPulse < 0) st._beatPulse = 0;
+                }
             }
         }
     }
@@ -801,7 +1146,9 @@ class ModChartManager
                 // Escala
                 spr.scale.set(st.scaleX, st.scaleY);
 
-                // Visibilidad
+                // Visibilidad — usa st.visible que resetToStart() ya restaura al valor
+                // original del grupo (st.baseVisible). Esto permite que modcharts puedan
+                // mostrar intencionalmente strums de GF via VISIBLE sin romperlos.
                 spr.visible = st.visible;
             }
         }
@@ -892,6 +1239,17 @@ class ModChartManager
             case NOTE_OFFSET_Y : st.noteOffsetY;
             case BUMPY         : st.bumpy;
             case BUMPY_SPEED   : st.bumpySpeed;
+            // v3
+            case TIPSY         : st.tipsy;
+            case TIPSY_SPEED   : st.tipsySpeed;
+            case INVERT        : st.invert;
+            case ZIGZAG        : st.zigzag;
+            case ZIGZAG_FREQ   : st.zigzagFreq;
+            case WAVE          : st.wave;
+            case WAVE_SPEED    : st.waveSpeed;
+            case BEAT_SCALE    : st.beatScale;
+            case STEALTH       : st.stealth;
+            case NOTE_ALPHA    : st.noteAlpha;
             // camera types are already handled above via isCameraType() guard
             case CAM_ZOOM | CAM_MOVE_X | CAM_MOVE_Y | CAM_ANGLE: 0;
             default            : 0;
@@ -942,6 +1300,17 @@ class ModChartManager
             case NOTE_OFFSET_Y : st.noteOffsetY = value;
             case BUMPY         : st.bumpy       = value;
             case BUMPY_SPEED   : st.bumpySpeed  = value;
+            // v3
+            case TIPSY         : st.tipsy       = value;
+            case TIPSY_SPEED   : st.tipsySpeed  = value;
+            case INVERT        : st.invert      = value;
+            case ZIGZAG        : st.zigzag      = value;
+            case ZIGZAG_FREQ   : st.zigzagFreq  = value;
+            case WAVE          : st.wave        = value;
+            case WAVE_SPEED    : st.waveSpeed   = value;
+            case BEAT_SCALE    : st.beatScale   = value;
+            case STEALTH       : st.stealth     = value;
+            case NOTE_ALPHA    : st.noteAlpha   = value;
             case RESET         : /* handled separately */
             // camera types are already handled above via isCameraType() guard
             case CAM_ZOOM | CAM_MOVE_X | CAM_MOVE_Y | CAM_ANGLE:
@@ -982,13 +1351,20 @@ class ModChartManager
             st.alpha       = 1;
             st.scaleX      = (spr != null) ? spr.scale.x : 0.7;
             st.scaleY      = (spr != null) ? spr.scale.y : 0.7;
-            st.visible     = true;
+            st.visible     = st.baseVisible; // FIX: restaurar visibilidad original (GF strums deben quedar ocultos)
             // per-nota
             st.drunkX      = 0; st.drunkY = 0; st.drunkFreq = 1.0;
             st.tornado     = 0; st.confusion = 0;
             st.scrollMult  = 1.0; st.flipX = 0;
             st.noteOffsetX = 0; st.noteOffsetY = 0;
             st.bumpy       = 0; st.bumpySpeed = 2.0;
+            // v3
+            st.tipsy       = 0; st.tipsySpeed = 1.0;
+            st.invert      = 0;
+            st.zigzag      = 0; st.zigzagFreq = 1.0;
+            st.wave        = 0; st.waveSpeed = 1.5;
+            st.beatScale   = 0; st._beatPulse = 0;
+            st.stealth     = 0; st.noteAlpha = 1.0;
         }
     }
 
@@ -1049,10 +1425,35 @@ class ModChartManager
     /** Llamar desde overrideBeatHit() de PlayState */
     public function onBeatHit(beat:Int):Void
     {
-        // El update() ya maneja el timing con curBeat float.
-        // Este hook es para efectos instantáneos ligados al beat exacto si se necesitan.
+        // Disparar pulso de beatScale en todos los strums que lo tengan activo
+        for (group in strumsGroups)
+        {
+            var arr = states.get(group.id);
+            if (arr == null) continue;
+            for (st in arr)
+                if (st.beatScale > 0)
+                    st._beatPulse = st.beatScale;
+        }
+
         #if HSCRIPT_ALLOWED
         _callHScript('onBeatHit', [beat]);
+        #end
+        #if (LUA_ALLOWED && linc_luajit)
+        _callLua('onBeatHit', [beat]);
+        #end
+    }
+
+    /**
+     * Llamar desde PlayState cuando el jugador golpea una nota.
+     * El objeto note debe tener al menos: strumTime, noteData, noteType.
+     */
+    public function onNoteHit(note:Dynamic):Void
+    {
+        #if HSCRIPT_ALLOWED
+        _callHScript('onNoteHit', [note]);
+        #end
+        #if (LUA_ALLOWED && linc_luajit)
+        _callLua('onNoteHit', [note]);
         #end
     }
 
@@ -1060,6 +1461,9 @@ class ModChartManager
     public function onStepHit(step:Int):Void {
         #if HSCRIPT_ALLOWED
         _callHScript('onStepHit', [step]);
+        #end
+        #if (LUA_ALLOWED && linc_luajit)
+        _callLua('onStepHit', [step]);
         #end
     }
 
@@ -1073,6 +1477,14 @@ class ModChartManager
         strumsGroups = null;
         #if HSCRIPT_ALLOWED
         _hscriptInterp = null;
+        #end
+        #if (LUA_ALLOWED && linc_luajit)
+        if (_luaScript != null)
+        {
+            _callLua('onDestroy', []);
+            _luaScript.destroy();
+            _luaScript = null;
+        }
         #end
         instance = null;
     }

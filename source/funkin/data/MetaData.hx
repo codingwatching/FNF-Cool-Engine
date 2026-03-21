@@ -89,6 +89,20 @@ typedef SongMetaData =
 	@:optional var midSongVideo:Null<Bool>;
 	@:optional var disableCameraZoom:Null<Bool>;
 	@:optional var artist:Null<String>;
+
+	/**
+	 * Lista de sufijos de dificultad que esta canción expone al jugador.
+	 * Si null o vacío → se muestran todas las dificultades detectadas (comportamiento legacy).
+	 * Si se especifica → solo se muestran las diffs cuyos sufijos estén en esta lista.
+	 *
+	 * Ejemplo:
+	 *   "difficulties": ["-easy", "-hard"]
+	 *   → Solo aparecen Easy y Hard aunque exista un chart "-nightmare".
+	 *
+	 *   "difficulties": ["", "-hard"]
+	 *   → Normal (sufijo vacío) y Hard.
+	 */
+	@:optional var difficulties:Null<Array<String>>;
 }
 
 class MetaData
@@ -122,6 +136,13 @@ class MetaData
 	public var midSongVideo:Bool = false;
 	public var disableCameraZoom:Bool = false;
 	public var artist:Null<String> = null;
+
+	/**
+	 * Sufijos de dificultad que se muestran para esta canción.
+	 * null = sin restricción (mostrar todas las detectadas).
+	 * Array vacío = igual que null (sin restricción).
+	 */
+	public var allowedDifficulties:Null<Array<String>> = null;
 
 	public var raw:SongMetaData;
 
@@ -225,6 +246,16 @@ class MetaData
 		meta.midSongVideo      = resolveBool(rawData?.midSongVideo,      false);
 		meta.disableCameraZoom = resolveBool(rawData?.disableCameraZoom, false);
 		meta.artist = (rawData?.artist != null && rawData.artist != '') ? rawData.artist : null;
+
+		// ── Dificultades permitidas ──────────────────────────────────────────
+		// Si el meta.json tiene "difficulties": ["-easy", "-hard"], solo esas
+		// dificultades se exponen al jugador (el resto se ocultan aunque existan).
+		if (rawData?.difficulties != null && Std.isOfType(rawData.difficulties, Array))
+		{
+			final arr:Array<Dynamic> = cast rawData.difficulties;
+			if (arr.length > 0)
+				meta.allowedDifficulties = [for (d in arr) Std.string(d)];
+		}
 
 		// ── Difficulty overrides ─────────────────────────────────────────────
 		// Normalizar dificultad: quitar guión inicial si viene con él ("-erect" → "erect").

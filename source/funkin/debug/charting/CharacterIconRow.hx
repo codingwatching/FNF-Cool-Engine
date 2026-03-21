@@ -625,20 +625,23 @@ class CharacterPickerMenu extends FlxGroup
 
 	public function close():Void
 	{
-		isOpen = visible = active = false;
+		// FIX: NO poner active=false aquí.
+		// Si active=false, Flixel no llama update() → _justClosed nunca se resetea
+		// → isAnyModalOpen() devuelve true para siempre → grid bloqueado permanentemente.
+		// Dejamos active=true 1 frame más para que update() pueda limpiar _justClosed.
+		isOpen   = false;
+		visible  = false;
+		// active queda true deliberadamente
 		editingIndex = -1;
-		_justClosed  = true; // ← consumir el click de cierre durante 1 frame extra
+		_justClosed  = true;
 	}
 
 	// ── Update ────────────────────────────────────────────────────────────────
 
 	override public function update(elapsed:Float):Void
 	{
-		// Resetear _justClosed al inicio del frame siguiente al cierre.
-		// Esto garantiza que handleMouseInput() en ChartingState vea el flag
-		// en el mismo frame que el click, y lo limpia en el frame siguiente.
-		if (_justClosed) { _justClosed = false; return; }
-		if (!isOpen) return;
+		if (_justClosed) { _justClosed = false; active = false; return; }
+		if (!isOpen) { active = false; return; }
 		super.update(elapsed);
 
 		var mx = FlxG.mouse.x;
@@ -962,15 +965,18 @@ class CharacterPropertiesPanel extends FlxGroup
 
 	public function close():Void
 	{
-		isOpen = visible = active = false;
+		// FIX: mismo que CharPickerMenu — no poner active=false hasta que
+		// update() haya reseteado _justClosed.
+		isOpen   = false;
+		visible  = false;
 		editingIndex = -1;
-		_justClosed  = true; // ← consumir el click de cierre durante 1 frame extra
+		_justClosed  = true;
 	}
 
 	override public function update(elapsed:Float):Void
 	{
-		if (_justClosed) { _justClosed = false; return; }
-		if (!isOpen) return;
+		if (_justClosed) { _justClosed = false; active = false; return; }
+		if (!isOpen) { active = false; return; }
 		super.update(elapsed);
 		if (FlxG.keys.justPressed.ESCAPE) { _applyChanges(); close(); }
 	}

@@ -33,7 +33,7 @@
 -D HSCRIPT_ALLOWED
 -D PRELOAD_ALL
 -D FLX_NO_FOCUS_LOST_SCREEN
--D game_version=0.4.1B
+-D game_version=0.6.0B
 
 # Modo debug por defecto para el IDE
 -D debug

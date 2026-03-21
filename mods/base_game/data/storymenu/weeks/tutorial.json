@@ -1,0 +1,16 @@
+{
+	"id": "tutorial",
+	"weekName": "TEACHING TIME",
+	"weekSongs": [
+		"Tutorial"
+	],
+	"weekCharacters": [
+		"",
+		"bf",
+		"gf"
+	],
+	"color": "0xFFA5004D",
+	"locked": false,
+	"order": 1,
+	"weekPath": "tutorial"
+}

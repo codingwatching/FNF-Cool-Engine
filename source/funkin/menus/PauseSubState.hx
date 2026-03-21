@@ -94,20 +94,33 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		isCutsceneMode = cutsceneMode;
 
 		// ── Cámara ────────────────────────────────────────────────────────────
-		// Cutscene mode: create a NEW camera so its flashSprite is added to
-		// FlxG.game AFTER the video bitmap → renders on top of the video.
-		// Normal mode: reuse the last existing camera (original behaviour).
+		// FIX: Siempre creamos una cámara propia para el pause menu.
+		//
+		// Antes se reutilizaba la última cámara del stack, lo que causaba dos bugs:
+		//  1. Durante una SpriteCutscene, la última cámara es _camCutscene con
+		//     zoom variable (ej. 0.66) → el menú aparecía deformado/pequeño.
+		//  2. El makeGraphic(1,1) del bg se escala con setGraphicSize(FlxG.width,
+		//     FlxG.height), pero si la cámara tiene zoom != 1 el rect se encoge.
+		//
+		// Con una cámara propia forzada a zoom=1 ambos bugs desaparecen.
+		// En cutscene-de-video aún necesitamos insertarla DESPUÉS del bitmap
+		// del video (que está fuera de Flixel), de ahí el if especial.
 		if (isCutsceneMode && VideoManager.isPlaying)
 		{
 			_pauseCam  = new flixel.FlxCamera();
 			_pauseCam.bgColor = flixel.util.FlxColor.TRANSPARENT;
-			FlxG.cameras.add(_pauseCam, false); // false = don't set as default camera
+			_pauseCam.zoom    = 1.0;
+			FlxG.cameras.add(_pauseCam, false);
 			_ownedCam  = true;
 		}
 		else
 		{
-			_pauseCam = FlxG.cameras.list[FlxG.cameras.list.length - 1];
-			_ownedCam = false;
+			// Normal mode: cámara propia para garantizar zoom=1 siempre.
+			_pauseCam  = new flixel.FlxCamera();
+			_pauseCam.bgColor = flixel.util.FlxColor.TRANSPARENT;
+			_pauseCam.zoom    = 1.0;
+			FlxG.cameras.add(_pauseCam, false);
+			_ownedCam  = true;
 		}
 		cameras = [_pauseCam];
 

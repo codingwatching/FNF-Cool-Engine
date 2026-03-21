@@ -1,0 +1,8 @@
+{
+  "name": "Subtitle Hide",
+  "description": "Oculta el subtítulo actual con fade-out.",
+  "color": "#8899BB",
+  "context": ["chart"],
+  "aliases": ["Hide Subtitle", "hideSubtitle"],
+  "params": []
+}

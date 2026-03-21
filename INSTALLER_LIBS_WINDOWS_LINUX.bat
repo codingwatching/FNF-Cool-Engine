@@ -1,102 +1,104 @@
 @echo off
-title FNF Environment Setup
+title FNF Cool Engine — Environment Setup
 color 0A
 
 echo ===============================================
-echo        FNF / HaxeFlixel Environment Setup
+echo      FNF Cool Engine — Environment Setup
 echo ===============================================
 echo.
-echo This script will install a STABLE and COMPATIBLE
-echo HaxeFlixel environment for FNF-based projects.
+echo This script installs a COMPATIBLE HaxeFlixel
+echo environment for FNF Cool Engine.
 echo.
-echo Make sure the following are already installed:
-echo  - Haxe 4.3.6
-echo  - Git
-echo  - Visual Studio Build Tools (for Windows)
+echo Requirements:
+echo  - Haxe 4.3.6  (haxe.org/download)
+echo  - Git          (git-scm.com)
+echo  - Visual Studio Build Tools (windows)
 echo.
 pause
+
+:: ── Versions ──────────────────────────────────────
+set LIME_VERSION=8.3.1
+set OPENFL_VERSION=9.3.0
 
 cls
 echo ===============================================
 echo Cleaning conflicting libraries...
 echo ===============================================
 
-haxelib remove flixel-ui >nul 2>&1
-haxelib remove flixel >nul 2>&1
-haxelib remove openfl >nul 2>&1
-haxelib remove lime >nul 2>&1
+haxelib remove flixel-ui     >nul 2>&1
+haxelib remove flixel        >nul 2>&1
+haxelib remove openfl        >nul 2>&1
+haxelib remove lime          >nul 2>&1
+haxelib remove flixel-addons >nul 2>&1
 
 cls
 echo ===============================================
 echo Installing core dependencies...
 echo ===============================================
 
-haxelib install hxcpp >nul
-haxelib install lime 8.1.0
-haxelib install openfl 9.3.0
+haxelib install hxcpp    --quiet --never
+haxelib install lime     %LIME_VERSION%   --never
+haxelib install openfl   %OPENFL_VERSION% --never
+haxelib set    lime      %LIME_VERSION%
+haxelib set    openfl    %OPENFL_VERSION%
 
 cls
 echo ===============================================
-echo Installing HaxeFlixel...
+echo Installing HaxeFlixel (FunkinCrew fork)...
 echo ===============================================
 
-haxelib git flixel https://github.com/FunkinCrew/flixel
-haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
-
-haxelib install flixel-ui
-haxelib install flixel-tools 1.5.1
+haxelib git flixel         https://github.com/FunkinCrew/flixel          --never
+haxelib git flixel-addons  https://github.com/FunkinCrew/flixel-addons   funkin-4.0.6 --never
+haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis         --never
+haxelib install flixel-ui    --quiet --never
+haxelib install flixel-tools 1.5.1  --quiet --never
 
 cls
 echo ===============================================
 echo Installing additional libraries...
 echo ===============================================
 
-haxelib install actuate
-haxelib install hscript
-haxelib install hxcpp-debug-server
-haxelib install format
-haxelib install hxp
+haxelib install actuate          --quiet --never
+haxelib install hscript          --quiet --never
+haxelib install hxcpp-debug-server --quiet --never
+haxelib install format           --quiet --never
+haxelib install linc_luajit        --quiet --never
+haxelib install hxp              --quiet --never
 
 cls
 echo ===============================================
-echo Setting up Lime and Flixel...
+echo Installing Discord RPC, flxanimate, hxvlc...
 echo ===============================================
 
-haxelib run lime setup windows
-haxelib run lime setup flixel
-haxelib run flixel-tools setup
+haxelib git discord_rpc   https://github.com/Aidan63/linc_discord-rpc   --never
+haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  --never
+haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
 
 cls
 echo ===============================================
-echo Installing Discord RPC...
+echo Setting up Lime...
 echo ===============================================
 
-haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
-
-haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
-
-haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
-
-haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6
-
-echo ===============================================
-echo Re-locking Lime and OpenFL versions...
-echo ===============================================
-
-haxelib set lime 8.1.0
-haxelib install openfl 9.3.0
+haxelib run lime setup -y
 
 cls
 echo ===============================================
-echo Setup completed successfully!
+echo Setup completed!
 echo ===============================================
 echo.
-echo Installed versions:
-echo  - Lime:        8.1.0
-echo  - OpenFL:      9.3.0
-echo  - Flixel:      FunkinCrew/flixel git
+echo Versions installed:
+echo   Lime:           %LIME_VERSION%
+echo   OpenFL:         %OPENFL_VERSION%
+echo   Flixel:         FunkinCrew/flixel (git)
+echo   flixel-addons:  FunkinCrew/flixel-addons funkin-4.0.6 (git)
+echo   flixel-animate: MaybeMaru/flixel-animate (git)
+echo   funkin.vis:     FunkinCrew/funkVis (git)
+echo   hxvlc:          MAJigsaw77/hxvlc (git)
+echo   discord_rpc:    Aidan63/linc_discord-rpc (git)
 echo.
-echo You are now ready to compile your project.
+echo To compile:
+echo   haxelib run lime build windows
+echo   haxelib run lime build windows -debug
 echo.
 pause
 exit

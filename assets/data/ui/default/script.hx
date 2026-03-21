@@ -1,8 +1,3 @@
-// ══════════════════════════════════════════════════════════════════════════
-//  assets/ui/default/script.hx
-//  Port 1:1 de UIManager.hx
-// ══════════════════════════════════════════════════════════════════════════
-// ── Variables de estado ──────────────────────────────────────────────────
 var healthBarBG;
 var healthBar;
 var iconP1;
@@ -16,19 +11,32 @@ var lastScore = -1;
 var lastMisses = -1;
 var lastAccuracy = -1.0;
 var lastHealth = -1.0;
-// Target X al que los iconos van haciendo lerp cada frame.
-// Se actualiza solo cuando cambia la salud, para que el lerp no
-// persiga un targetX que se mueve con el scale del beat bounce.
+
+// Target X that the icons are tracking each frame.
+// It updates only when health changes, so the tracking doesn't
+// track a target X that moves with the beat bounce scale.
+
 var iconTargetX = -1.0;
 
-// ── Pools (mismos 3 del original + miss) ──────────────────────────────────
+// Beat bounce — separate scale multiplier that decays each frame.
+// Keeps icon lerp-X target stable (uses fixed 150px base, not current width).
+var iconP1Bounce = 1.0;
+var iconP2Bounce = 1.0;
+
+// How fast the bounce decays back to 1.0 (higher = snappier return).
+var BOUNCE_DECAY = 14.0;
+
+// Peak scale on beat hit.
+var BOUNCE_PEAK = 1.2;
+
+// ── Pools (same 3 as the original + miss) ──────────────────────────────────
 var ratingPool = [];
 var numberPool = [];
 var comboPool = [];
 var missPool = [];
 
 // ══════════════════════════════════════════════════════════════════════════
-//  onCreate  ─ replica new UIManager() + createHealthBar() + createScoreText()
+//  onCreate ─ replicate new UIManager() + createHealthBar() + createScoreText()
 // ══════════════════════════════════════════════════════════════════════════
 function onCreate()
 {
@@ -47,12 +55,12 @@ function _createHealthBar()
 	screenCenterX(healthBarBG);
 	uiAdd(healthBarBG);
 
-	// makeBar ya configura RIGHT_TO_LEFT, scrollFactor y camHUD
+	// makeBar already sets RIGHT_TO_LEFT, scrollFactor and camHUD
 	healthBar = makeBar(healthBarBG.x + 4, healthBarBG.y + 4, Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), gameState, 'health', 0, 2);
 	healthBar.createFilledBar(0xFFFF0000, 0xFF66FF33);
 	uiAdd(healthBar);
 
-	// HealthIcon está expuesto desde UIScriptedManager
+	// HealthIcon is exposed from UIScriptedManager
 	iconP1 = new HealthIcon(iconP1Name, true);
 	iconP1.y = healthBar.y - (iconP1.height / 2);
 	uiAdd(iconP1);
@@ -77,7 +85,7 @@ function _createScoreText()
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  onUpdate  ─ replica UIManager.update()
+//  onUpdate
 // ══════════════════════════════════════════════════════════════════════════
 function onUpdate(elapsed)
 {
@@ -111,7 +119,8 @@ function _formatScore(n)
 
 function _updateScoreText()
 {
-	if (scoreTxt == null) return;
+	if (scoreTxt == null)
+		return;
 
 	var rawScore = Std.string(Std.int(gameState.score));
 	var formattedScore = _formatScore(gameState.score);
@@ -124,36 +133,51 @@ function _updateScoreText()
 
 function _updateIcons()
 {
-	if (iconP1 == null || iconP2 == null || healthBar == null) return;
+	if (iconP1 == null || iconP2 == null || healthBar == null)
+		return;
 
 	var healthPercent = FlxMath.remapToRange(gameState.health, 0, 2, 0, 100);
 
-	iconP1.setGraphicSize(Std.int(FlxMath.lerp(iconP1.width, 150, 0.50 * FlxG.elapsed * 60)));
-	iconP2.setGraphicSize(Std.int(FlxMath.lerp(iconP2.width, 150, 0.50 * FlxG.elapsed * 60)));
+	// ── Beat bounce decay ───────────────────────────────────────────────────
+	// Decay the bounce multiplier towards 1.0 exponentially each frame.
+	// This is independent of setGraphicSize so it never moves iconTargetX.
+	var decayFactor = Math.exp(-BOUNCE_DECAY * FlxG.elapsed);
+	iconP1Bounce = 1.0 + (iconP1Bounce - 1.0) * decayFactor;
+	iconP2Bounce = 1.0 + (iconP2Bounce - 1.0) * decayFactor;
+
+	// Clamp bounce to avoid negative scale on edge cases
+	if (iconP1Bounce < 1.0)
+		iconP1Bounce = 1.0;
+	if (iconP2Bounce < 1.0)
+		iconP2Bounce = 1.0;
+
+	// Apply bounce scale — base size is always 150px, bounce on top of that.
+	var p1Size = Std.int(150 * iconP1Bounce);
+	var p2Size = Std.int(150 * iconP2Bounce);
+	iconP1.setGraphicSize(p1Size);
+	iconP2.setGraphicSize(p2Size);
 	iconP1.updateHitbox();
 	iconP2.updateHitbox();
 
-	// ── Lerp de posición X ────────────────────────────────────────────────────
-	// iconTargetX se actualiza solo cuando la salud cambia, así el lerp no
-	// persigue un targetX que oscila con el scale del beat bounce.
-	// El lerp se aplica CADA frame hacia ese target fijo, por lo que la
-	// animación de deslizamiento se ve completa aunque la salud cambie poco.
+	// ── Lerp of position X ────────────────────────────────────────────────────
+	// iconTargetX is computed from the health bar position only.
+	// The anchor offsets use a FIXED base width (150) so the target never
+	// oscillates when the bounce scale changes — the lerp stays stable.
 	var rawTargetX = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthPercent, 0, 100, 100, 0) * 0.01));
 	if (gameState.health != lastHealth)
 	{
-		// Salud cambió: actualizar el target y registrar el nuevo valor
-		iconTargetX  = rawTargetX;
-		lastHealth   = gameState.health;
+		iconTargetX = rawTargetX;
+		lastHealth = gameState.health;
 	}
 	else if (iconTargetX < 0)
 	{
-		// Primera vez (iconTargetX no inicializado): establecer sin lerp
 		iconTargetX = rawTargetX;
 	}
 
-	// Lerp continuo hacia iconTargetX — corre todos los frames hasta llegar
-	iconP1.x = FlxMath.lerp(iconP1.x, iconTargetX - 26,                  0.15 * FlxG.elapsed * 60);
-	iconP2.x = FlxMath.lerp(iconP2.x, iconTargetX - (iconP2.width - 26), 0.15 * FlxG.elapsed * 60);
+	// FIX: use fixed 150px for the width offset — not iconP2.width (which
+	// oscillates with bounce) — so the lerp target is rock-stable every frame.
+	iconP1.x = FlxMath.lerp(iconP1.x, iconTargetX - 26, 0.15 * FlxG.elapsed * 60);
+	iconP2.x = FlxMath.lerp(iconP2.x, iconTargetX - (150 - 26), 0.15 * FlxG.elapsed * 60);
 
 	var p1Anim = 'normal';
 	if (healthPercent < 20)
@@ -178,49 +202,47 @@ function _changeIconAnim(icon, anim)
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  onBeatHit  ─ replica bumpIcons()
+//  onBeatHit
 // ══════════════════════════════════════════════════════════════════════════
 function onBeatHit(beat)
 {
+	// FIX: instead of abruptly setting scale (which snaps width and breaks
+	// the lerp-X target), we set the bounce multiplier to the peak value.
+	// The decay in _updateIcons() eases it back to 1.0 smoothly each frame,
+	// producing a natural "pulse" without ever touching iconP*.width directly.
 	if (iconP1 != null)
-	{
-		iconP1.scale.set(1.2, 1.2);
-		iconP1.updateHitbox();
-	}
+		iconP1Bounce = BOUNCE_PEAK;
 	if (iconP2 != null)
-	{
-		iconP2.scale.set(1.2, 1.2);
-		iconP2.updateHitbox();
-	}
+		iconP2Bounce = BOUNCE_PEAK;
 }
 
-// Offset de posición del rating — configurable desde Opciones > Gameplay > Rating Position
-// Se guarda en FlxG.save.data.ratingOffsetX / ratingOffsetY.
-var posX:Float = 0;
-var posY:Float = 0;
+// Rating Position Offset — configurable from Options > Gameplay > Rating Position
+// Saved in FlxG.save.data.ratingOffsetX / ratingOffsetY.
+var posX = 0;
+var posY = 0;
 
 function onInit()
 {
-	// Leer los offsets guardados (default: posición base original = -50, 0)
+	// Read the saved offsets (default: original base position = -50, 0)
 	posX = (FlxG.save.data.ratingOffsetX != null) ? FlxG.save.data.ratingOffsetX : -100;
 	posY = (FlxG.save.data.ratingOffsetY != null) ? FlxG.save.data.ratingOffsetY : 0;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  onRatingPopup  ─ replica showRatingPopup()
+//  onRatingPopup
 // ══════════════════════════════════════════════════════════════════════════
 function onRatingPopup(ratingName, combo)
 {
 	var pixelPart1 = 'normal/score/';
 	var pixelPart2 = '';
 
-	if (StringTools.startsWith(curStage, 'school'))
+	if (isPixel)
 	{
 		pixelPart1 = 'pixelUI/score/';
 		pixelPart2 = '-pixel';
 	}
 
-	// Matar el rating anterior y los números del combo antes de mostrar el nuevo
+	// Kill the previous rating and combo numbers before showing the new one
 	_killPoolInstant(ratingPool);
 	_killPoolInstant(numberPool);
 
@@ -233,7 +255,7 @@ function onRatingPopup(ratingName, combo)
 	ratingSprite.x = FlxG.width * 0.55 - 40 + posX;
 	ratingSprite.y = FlxG.height * 0.5 - 90 + posY;
 
-	if (!StringTools.startsWith(curStage, 'school'))
+	if (!isPixel)
 	{
 		ratingSprite.setGraphicSize(Std.int(ratingSprite.width * 0.7));
 		ratingSprite.antialiasing = FlxG.save.data.antialiasing;
@@ -245,15 +267,16 @@ function onRatingPopup(ratingName, combo)
 	}
 	ratingSprite.updateHitbox();
 
-	FlxTween.tween(ratingSprite, {"scale.x": ratingSprite.scale.x * 1.15, "scale.y": ratingSprite.scale.y * 1.15}, 0.07, {
+	var sx = ratingSprite.scale.x * 1.15;
+	var sy = ratingSprite.scale.y * 1.15;
+	FlxTween.tween(ratingSprite.scale, {x: sx, y: sy}, 0.07, {
 		ease: FlxEase.quadOut,
 		onComplete: function(_)
 		{
-			FlxTween.tween(ratingSprite, {"scale.x": ratingSprite.scale.x / 1.15, "scale.y": ratingSprite.scale.y / 1.15}, 0.10, {
-				ease: FlxEase.quadIn
-			});
+			FlxTween.tween(ratingSprite.scale, {x: ratingSprite.scale.x / 1.15, y: ratingSprite.scale.y / 1.15}, 0.10, {ease: FlxEase.quadIn});
 		}
 	});
+
 	FlxTween.tween(ratingSprite, {alpha: 0}, 0.20, {
 		startDelay: 0.45,
 		ease: FlxEase.quadIn,
@@ -268,7 +291,7 @@ function onRatingPopup(ratingName, combo)
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  _showComboNumbers  ─ replica showComboNumbers()
+//  _showComboNumbers
 // ══════════════════════════════════════════════════════════════════════════
 function _showComboNumbers(combo, pixelPart1, pixelPart2)
 {
@@ -289,7 +312,7 @@ function _showComboNumbers(combo, pixelPart1, pixelPart2)
 		numScore.x = FlxG.width * 0.55 + (43 * daLoop) - 90 + 140 + posX;
 		numScore.y = FlxG.height * 0.5 + 20 + posY;
 
-		if (!StringTools.startsWith(curStage, 'school'))
+		if (!isPixel)
 		{
 			numScore.antialiasing = FlxG.save.data.antialiasing;
 			numScore.setGraphicSize(Std.int(numScore.width * 0.35));
@@ -323,10 +346,10 @@ function _showComboNumbers(combo, pixelPart1, pixelPart2)
 
 // ══════════════════════════════════════════════════════════════════════════
 //  onMissPopup  ─ replica showMissPopup()
-//  El original crea un sprite fresco y lo destruye al terminar (sin pool).
-//  Replicamos ese comportamiento exacto con uiAdd / uiRemove / destroy.
-// ══════════════════════════════════════════════════════════════════════════
-//  onMissPopup  ─ usa pool para evitar alloc/destroy en cada miss
+// The original creates a fresh sprite and destroys it upon completion (without a pool).
+// We replicate that exact behavior with uiAdd / uiRemove / destroy.
+// ═════════════════════════════════════ ═════════════════════════════════════
+// onMissPopup ─ use pool to avoid alloc/destroy on every miss
 // ══════════════════════════════════════════════════════════════════════════
 function onMissPopup()
 {
@@ -336,19 +359,27 @@ function onMissPopup()
 	rating.alpha = 1;
 	rating.visible = true;
 
-	rating.loadGraphic(Paths.image('UI/normal/score/miss'));
+	if (isPixel)
+		rating.loadGraphic(Paths.image('UI/pixelUI/score/miss-pixel'));
+	else
+		rating.loadGraphic(Paths.image('UI/normal/score/miss'));
 
 	rating.x = FlxG.width * 0.55 - 40 + posX;
 	rating.y = FlxG.height * 0.5 - 90 + posY;
 
-	if (!StringTools.startsWith(curStage, 'school'))
+	if (!isPixel)
 	{
 		rating.setGraphicSize(Std.int(rating.width * 0.7));
 		rating.antialiasing = FlxG.save.data.antialiasing;
 	}
+	else
+	{
+		rating.setGraphicSize(Std.int(rating.width * PIXEL_ZOOM * 0.7));
+		rating.antialiasing = false;
+	}
 	rating.updateHitbox();
 
-	// Bump al aparecer
+	// Bump appears
 	FlxTween.tween(rating, {"scale.x": rating.scale.x * 1.15, "scale.y": rating.scale.y * 1.15}, 0.07, {
 		ease: FlxEase.quadOut,
 		onComplete: function(_)
@@ -369,28 +400,20 @@ function onMissPopup()
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  onIconsSet  ─ replica setIcons()
+//  onIconsSet
 // ══════════════════════════════════════════════════════════════════════════
 function onIconsSet(p1, p2)
 {
 	iconP1Name = p1;
 	iconP2Name = p2;
 	if (iconP1 != null)
-		iconP1.updateIcon(p1,true);
+		iconP1.updateIcon(p1, true);
 	if (iconP2 != null)
-		iconP2.updateIcon(p2,false);
+		iconP2.updateIcon(p2, false);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  onStageSet  ─ replica setStage()
-// ══════════════════════════════════════════════════════════════════════════
-function onStageSet(stage)
-{
-	curStage = stage;
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-//  onDestroy  ─ replica UIManager.destroy()
+//  onDestroy
 // ══════════════════════════════════════════════════════════════════════════
 function onDestroy()
 {
@@ -400,10 +423,6 @@ function onDestroy()
 	missPool = [];
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-//  _killPoolInstant  ─ mata y pone alpha=0 a todos los sprites vivos del pool
-//  Se llama antes de mostrar un nuevo rating/número para evitar el overlap visual.
-// ══════════════════════════════════════════════════════════════════════════
 function _killPoolInstant(pool)
 {
 	for (sprite in pool)
@@ -418,11 +437,6 @@ function _killPoolInstant(pool)
 	}
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-//  _getFromPool  ─ replica exacta de UIManager.getFromPool()
-//  Diferencia: usa makeSprite() + uiAdd() en lugar de new FlxSprite() + add()
-//  El resultado es idéntico — el sprite queda en el grupo desde la primera vez.
-// ══════════════════════════════════════════════════════════════════════════
 function _getFromPool(pool)
 {
 	for (sprite in pool)

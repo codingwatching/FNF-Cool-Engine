@@ -179,8 +179,9 @@ class GameDevConsole
 		_overlay.visible = true;
 		_dirty = true;
 		_render();
-		if (!FlxG.mouse.visible){
-			FlxG.mouse.visible = true;
+		@:privateAccess
+		if (!funkin.system.CursorManager._visible){
+			funkin.system.CursorManager.show();
 			mousetrue = true;
 		}
 	}
@@ -191,9 +192,10 @@ class GameDevConsole
 		if (!initialized) return;
 		visible = false;
 		_overlay.visible = false;
-		if (FlxG.mouse.visible && mousetrue)
+		@:privateAccess
+		if (funkin.system.CursorManager._visible && mousetrue)
 		{
-			FlxG.mouse.visible = false;
+			funkin.system.CursorManager.hide();
 			mousetrue = false;
 		}
 	}

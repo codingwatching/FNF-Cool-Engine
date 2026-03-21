@@ -6,6 +6,8 @@ import funkin.gameplay.objects.character.Character;
 import funkin.data.Song.SwagSong;
 import funkin.data.Section.SwagSection;
 import Paths;
+import funkin.scripting.EventRegistry;
+import funkin.scripting.EventHandlerLoader;
 
 using StringTools;
 
@@ -63,12 +65,6 @@ class EventManager
 
 		// Compatibilidad hacia atrás: generar Camera Follow desde mustHitSection
 		// si el chart (old .json o nuevo .level) no contiene ningún evento de cámara.
-		//
-		// BUG FIX: la condición anterior era `!hasNewEvents && notes != null`, lo que
-		// saltaba la generación en cuanto el .level tenía CUALQUIER evento (p. ej. un
-		// BPM Change o un efecto de cámara sin Camera Follow). El check correcto es
-		// "¿hay algún Camera Follow en la lista final?" — si no, y hay secciones,
-		// generarlo independientemente de si existen otros tipos de eventos.
 		if (songData.notes != null)
 		{
 			var hasCam = false;
@@ -81,11 +77,14 @@ class EventManager
 		// Refrescar `game` en los scripts ahora que PlayState.instance existe.
 		ScriptHandler.setOnScripts('game', PlayState.instance);
 
+		// ── Cargar handlers de eventos del contexto "chart" ───────────────────
+		// EventRegistry descubre los .hx / .lua de data/events/chart/
+		// EventHandlerLoader los carga y los mantiene listos para dispatch.
+		EventRegistry.reload();
+		EventHandlerLoader.loadContext('chart');
+		EventHandlerLoader.loadContext('global');
+
 		// ── Precacheo proactivo de Change Character ───────────────────────────
-		// Escanear todos los eventos antes de que empiece el gameplay.
-		// Por cada "Change Character" único, cargar el JSON y el spritesheet
-		// del personaje nuevo en los caches estáticos (Character._dataCache y
-		// FunkinSprite._frameCache) para que el cambio en runtime sea instantáneo.
 		_precacheChangeCharacters();
 
 		trace('[EventManager] ${events.length} eventos cargados.');
@@ -194,15 +193,18 @@ class EventManager
 	{
 		trace('[EventManager] -> "${event.name}" | v1="${event.value1}" v2="${event.value2}" t=${event.time}ms');
 
-		// Los scripts pueden cancelar el evento devolviendo true en `onEvent`.
+		final v1 = event.value1 ?? '';
+		final v2 = event.value2 ?? '';
+
+		// 1. Los scripts globales pueden cancelar el evento devolviendo true en `onEvent`.
 		if (ScriptHandler.callOnScriptsReturn('onEvent',
-			[event.name, event.value1, event.value2, event.time], false) == true)
+			([event.name, v1, v2, event.time] : Array<Dynamic>), false) == true)
 		{
-			trace('[EventManager] Cancelado por script.');
+			trace('[EventManager] Cancelado por script global.');
 			return;
 		}
 
-		// Handler custom registrado por script (prioridad sobre built-in)
+		// 2. Handler custom registrado vía registerCustomEvent() / registerEvent()
 		final customHandler = customHandlers.get(event.name);
 		if (customHandler != null)
 		{
@@ -213,10 +215,17 @@ class EventManager
 			}
 		}
 
-		// Built-in handlers del engine
+		// 3. Script handler por-evento (data/events/chart/EventName.hx|.lua)
+		//    Si devuelve true, cancela el built-in pero no el paso 1 ni 2.
+		if (EventHandlerLoader.dispatch(event.name, v1, v2, event.time))
+		{
+			trace('[EventManager] Manejado por EventHandlerLoader (built-in cancelado).');
+			return;
+		}
+
+		// 4. Built-in handlers del engine
 		_handleBuiltin(event);
 	}
-
 	/**
 	 * Handlers built-in para todos los eventos nativos.
 	 * Los scripts pueden cancelarlos con `onEvent` devolviendo true.
@@ -396,6 +405,23 @@ class EventManager
 
 			case 'set var', 'set variable':
 				_setScriptVar(v1, v2);
+
+			// -- Subtítulos ---------------------------------------------------
+			// value1 = texto (soporta formato extendido "texto|size|color|bgAlpha")
+			// value2 = duración en segundos (default: 3.0)
+			case 'subtitle', 'show subtitle':
+				if (v1 != '')
+				{
+					final parsed = funkin.ui.SubtitleManager.parseEventValue(v1, v2);
+					funkin.ui.SubtitleManager.instance.show(
+						parsed.text, parsed.duration, parsed.options);
+				}
+
+			case 'subtitle hide', 'hide subtitle':
+				funkin.ui.SubtitleManager.instance.hide();
+
+			case 'subtitle clear', 'clear subtitles', 'clear subtitle':
+				funkin.ui.SubtitleManager.instance.clear();
 
 			default:
 				trace('[EventManager] Sin handler para "${e.name}" -- registra uno con registerCustomEvent() o en scripts.');

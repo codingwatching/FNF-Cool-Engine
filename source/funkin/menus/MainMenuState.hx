@@ -44,7 +44,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 
 	override function create()
 	{
-		FlxG.mouse.visible = false;
+		funkin.system.CursorManager.hide();
 		// LOAD CUZ THIS SHIT DONT DO IT SOME IN THE CACHESTATE.HX FUCK
 		PlayerSettings.player1.controls.loadKeyBinds();
 
@@ -227,9 +227,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		if (developerMode)
 		{
 			if (FlxG.keys.justPressed.ONE)
-				StateTransition.switchState(new funkin.menus.CharacterSelectorState());
-			if (FlxG.keys.justPressed.TWO)
-				StateTransition.switchState(new funkin.debug.MenuEditor());
+				StateTransition.switchState(new funkin.debug.EditorHubState());
 		}
 
 		// ── Mod Selector ────────────────────────────────────────────────────────

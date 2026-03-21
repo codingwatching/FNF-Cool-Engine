@@ -60,7 +60,7 @@ using StringTools;
  * 11. SystemInfo.init() (necesita context3D → después del primer frame)
  *
  * @author Cool Engine Team
- * @version 0.5.1
+ * @version 0.6.0
  */
 class Main extends Sprite
 {
@@ -82,7 +82,7 @@ class Main extends Sprite
 	public final data:DataInfoUI = new DataInfoUI(10, 3);
 
 	// ── Versiones ─────────────────────────────────────────────────────────────
-	public static inline var ENGINE_VERSION:String = "0.6.0";
+	public static inline var ENGINE_VERSION:String = "0.6.0B";
 
 	/** Factor de escala para compensar resoluciones mayores a 720p.
 	 *  En 720p  → 1.0   (sin cambio)
@@ -189,6 +189,10 @@ class Main extends Sprite
 		// ── Sistemas que dependen de FlxG ─────────────────────────────────────
 		initializeSaveSystem();
 		initializeGameSystems();
+		// Capturas de pantalla — DEBE ir después de initializeGameSystems() para
+		// que el save y los keybinds ya estén cargados antes de que el plugin
+		// empiece a leer controles (evita capturas en el frame 0 por null key).
+		funkin.util.plugins.ScreenshotPlugin.initialize();
 		initializeFramerate();
 		Main.applyVSync();
 		initializeCameras();
@@ -202,9 +206,6 @@ class Main extends Sprite
 		disableDefaultSoundTray();
 		// V-Slice style: plugin de volumen rebindable.
 		funkin.audio.VolumePlugin.initialize();
-
-		// Capturas de pantalla al estilo V-Slice (F12 → PNG + preview en esquina).
-		funkin.util.plugins.ScreenshotPlugin.initialize();
 
 		// ── BUGFIX (Flixel git): forzar curva de volumen lineal ───────────────
 		// CoreAudio gestiona su propio volumen directamente sobre FlxSound.volume,
@@ -273,8 +274,6 @@ class Main extends Sprite
 		#else
 		SystemInfo.initSafe();
 		#end
-
-
 	}
 
 	// ── ENTER_FRAME deferred ──────────────────────────────────────────────────
@@ -388,8 +387,9 @@ class Main extends Sprite
 		PlayerSettings.init();
 		PlayerSettings.player1.controls.loadKeyBinds();
 
-		FlxG.mouse.useSystemCursor = false;
-		FlxG.mouse.load(Paths.image('menu/cursor/cursor-default'));
+		// ── CursorManager: sistema de cursor personalizable ──────────────────
+		funkin.system.CursorManager.init();
+		funkin.system.CursorManager.loadSkinPreference();
 
 		// ── Touch pointer visual (mobile) ──────────────────────────────────────
 		#if mobileC
@@ -496,7 +496,6 @@ class Main extends Sprite
 		VSyncAPI.setVSync(FlxG.save.data.vsync == true);
 		#end
 	}
-
 
 	#if android
 	/** Solicita READ/WRITE_EXTERNAL_STORAGE en Android 6+ y llama onGranted() cuando esté listo. */

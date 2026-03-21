@@ -185,6 +185,81 @@ class WindowManager
 	/** true si el icono actual fue cargado desde un mod (para restaurarlo). */
 	static var _usingModIcon:Bool = false;
 
+	/** Evitar aplicar el ícono por defecto más de una vez al inicio. */
+	static var _defaultIconApplied:Bool = false;
+
+	/**
+	 * Rutas candidatas del PNG de ícono por defecto (en orden de preferencia).
+	 * Ajusta a donde tengas tu iconOG.png.
+	 */
+	static final DEFAULT_ICON_PATHS:Array<String> = [
+		'art/iconOG.png',
+		'art/icon64.png',
+		'art/icon32.png',
+		'assets/images/icon.png',
+		'icon.png',
+	];
+
+	/**
+	 * Carga el PNG de ícono por defecto desde disco y llama a win.setIcon().
+	 *
+	 * FIX: openfl.Assets.getBitmapData('icon.png') crasheaba porque Lime
+	 * incrusta el ícono en el .exe con <icon> pero NO lo registra en el
+	 * manifiesto de OpenFL → getBitmapData lanza "asset not found".
+	 * Cargarlo directamente desde disco con lime.graphics.Image.fromFile()
+	 * funciona siempre que el PNG exista en la carpeta del ejecutable.
+	 */
+	static function _restoreDefaultIcon(win:lime.ui.Window):Void
+	{
+		// Opción 1 — haxe.Resource (GARANTIZADO dentro del exe)
+		// Project.xml: <haxeresource path="art/iconOG.png" name="AppIcon" />
+		// Lime compila el PNG como recurso Haxe. haxe.Resource.getBytes() siempre
+		// funciona sin importar desde dónde se ejecute el binario.
+		try
+		{
+			final bytes = haxe.Resource.getBytes('AppIcon');
+			if (bytes != null)
+			{
+				final img = lime.graphics.Image.fromBytes(bytes);
+				if (img != null)
+				{
+					win.setIcon(img);
+					trace('[WindowManager] Icono cargado desde haxe.Resource.');
+					return;
+				}
+			}
+		}
+		catch (_:Dynamic) {}
+
+		// Opción 2 — openfl.Assets (por si hay otra forma de embed activa)
+		try
+		{
+			final limeImg = lime.utils.Assets.getImage('AppIcon');
+			if (limeImg != null) { win.setIcon(limeImg); trace('[WindowManager] Icono desde lime.Assets.'); return; }
+		}
+		catch (_:Dynamic) {}
+
+		// Opción 3 — fallback en disco (desarrollo local)
+		#if sys
+		final exeDir = haxe.io.Path.directory(Sys.programPath()).replace('\\', '/');
+		for (rel in DEFAULT_ICON_PATHS)
+		{
+			for (base in [exeDir, Sys.getCwd().replace('\\', '/')])
+			{
+				final path = '$base/$rel';
+				if (!sys.FileSystem.exists(path)) continue;
+				try
+				{
+					final img = lime.graphics.Image.fromFile(path);
+					if (img != null) { win.setIcon(img); trace('[WindowManager] Icono desde disco: $path'); return; }
+				}
+				catch (_:Dynamic) {}
+			}
+		}
+		trace('[WindowManager] No se encontró PNG de ícono en ninguna ruta.');
+		#end
+	}
+
 	/**
 	 * Aplica el branding (título e icono) de un ModInfo al arrancar o al cambiar de mod.
 	 * Si info es null, restaura los valores por defecto del engine.
@@ -216,6 +291,14 @@ class WindowManager
 
 		// ── Icono ────────────────────────────────────────────────────────────
 		#if sys
+		// FIX: al arrancar siempre aplicar el ícono por defecto via setIcon().
+		// Lime incrusta el PNG en el .exe pero Windows solo lo muestra en el
+		// explorador — la ventana en runtime necesita setIcon() explícito.
+		if (!_defaultIconApplied)
+		{
+			_defaultIconApplied = true;
+			_restoreDefaultIcon(win);
+		}
 		if (info != null && info.appIcon != null && info.appIcon.trim() != '')
 		{
 			// Buscar el PNG: primero con el nombre tal cual, luego añadiendo .png
@@ -249,19 +332,8 @@ class WindowManager
 		}
 		else if (_usingModIcon)
 		{
-			// No hay icono en este mod/base → restaurar icono del ejecutable (reimportar asset)
-			// Lime no tiene API para "restaurar icono default", pero cargando el asset
-			// embebido del proyecto lo conseguimos.
-			try
-			{
-				final defaultIcon = openfl.Assets.getBitmapData('icon.png');
-				if (defaultIcon != null)
-				{
-					final img = lime.graphics.Image.fromBitmapData(defaultIcon);
-					if (img != null) win.setIcon(img);
-				}
-			}
-			catch (_) {} // Si no hay icon.png embebido, simplemente no restaurar
+			// Sin ícono de mod → restaurar el ícono por defecto desde disco.
+			_restoreDefaultIcon(win);
 			_usingModIcon = false;
 		}
 		#end

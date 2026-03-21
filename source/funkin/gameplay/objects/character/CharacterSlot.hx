@@ -121,6 +121,16 @@ class CharacterSlot
 			character.visible = charData.visible;
 
 		trace('[CharacterSlot] Slot $index: "$charName" (type=$charType, strumsGroup=$strumsGroupId)');
+
+		// ── Companion 3D ──────────────────────────────────────────────────────────
+		// Si el personaje tiene renderType=model3d, añadir su Flx3DSprite al state.
+		if (character.model3D != null)
+		{
+			final ps = funkin.gameplay.PlayState.instance;
+			if (ps != null)
+				ps.add(character.model3D);
+			trace('[CharacterSlot] Companion model3D añadido al state para "$charName".');
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

@@ -33,6 +33,25 @@ class MP4Handler
 	public var bitmap:Dynamic         = null; // compatibilidad legacy
 	public var sprite:Null<FlxSprite> = null;
 
+	/**
+	 * Tiempo actual de reproducción del video en milisegundos.
+	 * Devuelve -1 si no hay video activo.
+	 */
+	public var currentTimeMs(get, never):Int;
+	function get_currentTimeMs():Int
+	{
+		if (_video == null || _killed) return -1;
+		try return haxe.Int64.toInt(_video.time) catch (_:Dynamic) return -1;
+	}
+
+	/**
+	 * Callback llamado cada ENTER_FRAME con el tiempo actual en ms.
+	 * Úsalo para sincronizar subtítulos SRT sin necesitar subclasificar.
+	 *
+	 *   handler.onTick = function(ms:Int) { trace(ms); };
+	 */
+	public var onTick:Null<Int->Void> = null;
+
 	var _video:Null<FlxVideo>;
 	var _cover:Null<Shape>;
 	var _killed:Bool = false;
@@ -230,6 +249,10 @@ class MP4Handler
 		// Copiar frame al sprite si se usa como outputTo
 		if (sprite != null && _video != null && _video.bitmapData != null)
 			try sprite.loadGraphic(_video.bitmapData) catch (_:Dynamic) {}
+
+		// Notificar tiempo actual a listeners externos (p.ej. SRT player)
+		if (onTick != null && _video != null)
+			try onTick(haxe.Int64.toInt(_video.time)) catch (_:Dynamic) {}
 	}
 
 	function _syncVolume():Void
@@ -309,6 +332,10 @@ class MP4Handler
 	public var stateCallback:Null<FlxState>;
 	public var bitmap:Dynamic = null;
 	public var sprite:Dynamic = null;
+
+	public var currentTimeMs(get, never):Int;
+	function get_currentTimeMs():Int return -1;
+	public var onTick:Null<Int->Void> = null;
 
 	public function new() {}
 

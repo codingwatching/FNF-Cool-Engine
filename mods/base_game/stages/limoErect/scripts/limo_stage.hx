@@ -68,90 +68,10 @@ function onStageCreate()
 		shootingStar.animation.stop(); // para la animación que auto-arrancó
 	}
 
-	// ── Mists ──────────────────────────────────────────────────────────────────
-	_buildMistLayers();
-
 	ShaderManager.loadShader('adjustColor');
 	trace('[Limo Stage] Init OK');
 }
 
-// ============================================================================
-//  CAPAS DE NIEBLA — doble buffer leapfrog
-// ============================================================================
-
-/**
- * Para cada mist del stage crea un sprite gemelo (mist1b…mist5b) cargado
- * desde el mismo gráfico, posicionado justo a la derecha del original.
- * En _loopMist() los dos sprites se persiguen sin dejar huecos, igual que
- * FlxBackdrop pero sin necesitar flixel-addons.
- *
- * Posiciones originX sacadas directamente del stage JSON:
- *   mist1: -650   mist2: -653   mist3: -653   mist4: -623   mist5: -650
- */
-function _buildMistLayers()
-{
-	// mist1 — mistBack, scrollFactor 0.6, escala 1.5, alpha 1
-	mist1 = stage.getElement('mist1');
-	if (mist1 != null)
-	{
-		mist1.color = 0xFF9c77c7;
-		mist1.alpha = 1.0;
-		mist1.blend = BlendMode.ADD;
-		mist1.active = true;
-		setVelocityX(mist1, 700);
-		mist1b = _makeCompanion(mist1);
-	}
-
-	// mist2 — mistBack, scrollFactor 0.8, escala 1.5, alpha 0.5
-	mist2 = stage.getElement('mist2');
-	if (mist2 != null)
-	{
-		mist2.color = 0xFFa7d9be;
-		mist2.alpha = 0.5;
-		mist2.blend = BlendMode.ADD;
-		mist2.active = true;
-		setVelocityX(mist2, 900);
-		mist2b = _makeCompanion(mist2);
-	}
-
-	// mist3 — mistMid, scrollFactor 1.1, escala 1.3, alpha 0.4, aboveChars
-	mist3 = stage.getElement('mist3');
-	if (mist3 != null)
-	{
-		mist3.color = 0xFFc6bfde;
-		mist3.alpha = 0.4;
-		mist3.blend = BlendMode.ADD;
-		mist3.active = true;
-		setVelocityX(mist3, 1700);
-		mist3b = _makeCompanion(mist3);
-	}
-
-	// mist4 — mistBack, scrollFactor 0.8, escala 1.5, alpha 0.5
-	mist4 = stage.getElement('mist4');
-	if (mist4 != null)
-	{
-		mist4.color = 0xFF6a4da1;
-		mist4.alpha = 0.5;
-		mist4.blend = BlendMode.ADD;
-		mist4.active = true;
-		setVelocityX(mist4, 2100);
-		mist4b = _makeCompanion(mist4);
-	}
-
-	// mist5 — mistMid, scrollFactor 0.2, escala 1.5, alpha 1
-	mist5 = stage.getElement('mist5');
-	if (mist5 != null)
-	{
-		mist5.color = 0xFFE7A480;
-		mist5.alpha = 1.0;
-		mist5.blend = BlendMode.ADD;
-		mist5.active = true;
-		setVelocityX(mist5, 100);
-		mist5b = _makeCompanion(mist5);
-	}
-
-	trace('[Limo Stage] Mists con doble buffer creados');
-}
 
 /**
  * Crea un sprite gemelo copiando el gráfico, escala, alpha, blend,

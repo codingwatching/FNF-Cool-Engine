@@ -50,7 +50,7 @@ using StringTools;
  *   Paths.clearUnusedMemory();   // destruir gráficos marcados + GC
  *
  * @author Cool Engine Team
- * @version 0.5.0
+ * @version 0.6.0
  */
 class Paths
 {
@@ -270,8 +270,26 @@ class Paths
 	public static function stageJSON(key:String):String
 		return resolveAny([ModManager.resolveInMod('stages/$key.json') ?? '', 'stages/$key.json']);
 
-	public static inline function image(key:String):String
-		return resolve('images/$key.png', IMAGE);
+	public static function image(key:String):String
+	{
+		final path = resolve('images/$key.png', IMAGE);
+		#if sys
+		// Si el archivo existe en disco pero NO en el manifest de OpenFL
+		// (ocurre con mods no recompilados), lo registramos en el cache de
+		// OpenFL para que loadGraphic() / getSparrowAtlas() lo encuentren.
+		if (FileSystem.exists(path) && !OpenFlAssets.exists(path, IMAGE))
+		{
+			try
+			{
+				final bmp = _loadBitmapFromDisk(path);
+				if (bmp != null)
+					openfl.utils.Assets.cache.setBitmapData(path, bmp);
+			}
+			catch (e:Dynamic) { trace('[Paths] image() cache register failed for "$path": $e'); }
+		}
+		#end
+		return path;
+	}
 
 	public static inline function imageCutscene(key:String):String
 		return resolve('$key.png', IMAGE);
@@ -286,9 +304,20 @@ class Paths
 	{
 		final path = resolve('sounds/$key.$SOUND_EXT', SOUND);
 		#if sys
-		// Devolver el path si existe en disco aunque no esté en el manifest de OpenFL
 		if (FileSystem.exists(path))
+		{
+			// Registrar en el cache de OpenFL si no está ya (mods sin recompilar)
+			if (!OpenFlAssets.exists(path, SOUND) && !OpenFlAssets.exists(path, MUSIC))
+			{
+				try
+				{
+					final snd = openfl.media.Sound.fromFile(path);
+					if (snd != null) openfl.utils.Assets.cache.setSound(path, snd);
+				}
+				catch (e:Dynamic) {}
+			}
 			return path;
+		}
 		// Fallback: buscar directamente en assets/ para builds sin recompilar
 		final direct = 'assets/sounds/$key.$SOUND_EXT';
 		if (FileSystem.exists(direct))
@@ -318,9 +347,20 @@ class Paths
 	{
 		final path = resolve('music/$key.$SOUND_EXT', MUSIC);
 		#if sys
-		// Devolver el path del disco directamente para builds no recompiladas
 		if (FileSystem.exists(path))
+		{
+			// Registrar en el cache de OpenFL si no está ya (mods sin recompilar)
+			if (!OpenFlAssets.exists(path, SOUND) && !OpenFlAssets.exists(path, MUSIC))
+			{
+				try
+				{
+					final snd = openfl.media.Sound.fromFile(path);
+					if (snd != null) openfl.utils.Assets.cache.setSound(path, snd);
+				}
+				catch (e:Dynamic) {}
+			}
 			return path;
+		}
 		// Fallback: assets/ base
 		final direct = 'assets/music/$key.$SOUND_EXT';
 		if (FileSystem.exists(direct))
@@ -508,6 +548,16 @@ class Paths
 	 *   3 min × 44.1 kHz × 16-bit × 2 canales = ~32 MB por pista.
 	 *   Inst + Voices = 64–120 MB. Con streaming → sólo un buffer de segundos.
 	 */
+	/**
+	 * Carga un FlxSound en modo streaming.
+	 *
+	 * IMPORTANTE: loadStream() registra un SampleDataEvent listener en el
+	 * openfl.media.Sound subyacente, lo que DEBE ocurrir en el main thread.
+	 * Si se llama desde un thread secundario OpenFL lanza:
+	 *   "SampleDataEvent listener has to provide between 2048 and 8192 samples"
+	 * Por eso esta función siempre es síncrona en el main thread.
+	 * El threading de la precarga lo gestiona el llamador (FreeplayState).
+	 */
 	static function _loadStreamingSound(path:String):flixel.sound.FlxSound
 	{
 		final snd = new flixel.sound.FlxSound();
@@ -517,11 +567,6 @@ class Paths
 			if (FileSystem.exists(path))
 			{
 				snd.loadStream(path);
-				// BUGFIX (Flixel git): FlxSounds creados con `new FlxSound()` + loadStream()
-				// no están en FlxG.sound.list → FlxG.sound.volume no los afecta,
-				// FlxG.sound.pause/resume no los toca, y .length puede quedar 0.
-				// Añadir a list hace que el SoundFrontEnd los gestione igual que
-				// los sonidos creados con FlxG.sound.load().
 				FlxG.sound.list.add(snd);
 				return snd;
 			}

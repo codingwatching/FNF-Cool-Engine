@@ -56,6 +56,11 @@ class StateScriptHandler
 	public static var scripts   : Map<String, HScriptInstance> = [];
 	public static var overrides : Map<String, FunctionOverride> = [];
 
+	#if (LUA_ALLOWED && linc_luajit)
+	/** Native Lua scripts for this state. */
+	public static var luaScripts : Array<LuaScriptInstance> = [];
+	#end
+
 	/** Datos compartidos entre scripts del mismo state. */
 	public static var sharedData : Map<String, Dynamic> = [];
 
@@ -71,7 +76,7 @@ class StateScriptHandler
 	{
 		sharedData.clear();
 		_hooks.clear();
-		trace('[StateScriptHandler] Listo.');
+		trace('[StateScriptHandler] Done.');
 	}
 
 	// ─── Carga ────────────────────────────────────────────────────────────────
@@ -97,7 +102,7 @@ class StateScriptHandler
 		for (s in _loadFolder('assets/states/${stateName.toLowerCase()}', state, extraVars))
 			loaded.push(s);
 
-		trace('[StateScriptHandler] ${loaded.length} scripts para $stateName.');
+		trace('[StateScriptHandler] ${loaded.length} scripts for $stateName.');
 		return loaded;
 	}
 
@@ -138,12 +143,12 @@ class StateScriptHandler
 			scripts.set(name, script);
 			_cacheDirty = true;
 
-			trace('[StateScriptHandler] Cargado: $name (prio $priority)');
+			trace('[StateScriptHandler] Loaded: $name (prio $priority)');
 			return script;
 		}
 		catch (e:Exception)
 		{
-			trace('[StateScriptHandler] Error en "$name": ${e.message}');
+			trace('[StateScriptHandler] Error "$name": ${e.message}');
 			return null;
 		}
 		#else
@@ -161,6 +166,13 @@ class StateScriptHandler
 
 		for (file in FileSystem.readDirectory(folderPath))
 		{
+			#if (LUA_ALLOWED && linc_luajit)
+			if (file.endsWith('.lua'))
+			{
+				loadLuaScript('$folderPath/$file', state, extraVars);
+				continue;
+			}
+			#end
 			if (!file.endsWith('.hx') && !file.endsWith('.hscript')) continue;
 			final s = loadScript('$folderPath/$file', state, 0, extraVars);
 			if (s != null) loaded.push(s);
@@ -205,7 +217,7 @@ class StateScriptHandler
 		if (!_hooks.exists(hookName))
 			_hooks.set(hookName, []);
 		_hooks.get(hookName).push(callback);
-		trace('[StateScriptHandler] Hook "$hookName" registrado.');
+		trace('[StateScriptHandler] Hook "$hookName" registred.');
 	}
 
 	/** Elimina todos los hooks nativos para `hookName`. */
@@ -277,6 +289,11 @@ class StateScriptHandler
 	{
 		for (s in scripts)
 			s.hotReload();
+	
+		#if (LUA_ALLOWED && linc_luajit)
+		for (lua in luaScripts)
+			lua.hotReload();
+		#end
 	}
 
 	/** Recarga un script concreto por nombre. */
@@ -319,16 +336,29 @@ class StateScriptHandler
 		if (ovr != null && ovr.enabled)
 		{
 			ovr.call(args);
+			// Lua scripts still receive the call even when overridden
+			#if (LUA_ALLOWED && linc_luajit)
+			for (lua in luaScripts)
+				if (lua.active) lua.call(funcName, args);
+			#end
 			return true;
 		}
 
 		for (script in getSorted())
 			if (script.callBool(funcName, args))
 			{
-				trace('[StateScriptHandler] "$funcName" cancelado por ${script.name}');
+				trace('[StateScriptHandler] "$funcName" canceled por ${script.name}');
+				#if (LUA_ALLOWED && linc_luajit)
+				for (lua in luaScripts)
+					if (lua.active) lua.call(funcName, args);
+				#end
 				return true;
 			}
 
+		#if (LUA_ALLOWED && linc_luajit)
+		for (lua in luaScripts)
+			if (lua.active) lua.call(funcName, args);
+		#end
 		return false;
 	}
 
@@ -360,7 +390,13 @@ class StateScriptHandler
 	// ─── Variables ────────────────────────────────────────────────────────────
 
 	public static function setOnScripts(varName:String, value:Dynamic):Void
+	{
 		for (s in scripts) s.set(varName, value);
+		#if (LUA_ALLOWED && linc_luajit)
+		for (lua in luaScripts)
+			if (lua.active) lua.set(varName, value);
+		#end
+	}
 
 	public static function getFromScripts(varName:String):Dynamic
 	{
@@ -384,7 +420,7 @@ class StateScriptHandler
 	public static function registerOverride(funcName:String, script:HScriptInstance, func:Dynamic):Void
 	{
 		overrides.set(funcName, new FunctionOverride(funcName, script, func));
-		trace('[StateScriptHandler] Override "$funcName" por ${script.name}');
+		trace('[StateScriptHandler] Override "$funcName" by ${script.name}');
 	}
 
 	public static function unregisterOverride(funcName:String):Void
@@ -445,7 +481,87 @@ class StateScriptHandler
 		_hooks.clear();
 		_sortedCache = [];
 		_cacheDirty  = false;
+		#if (LUA_ALLOWED && linc_luajit)
+		for (lua in luaScripts)
+		{
+			try lua.call('onDestroy') catch(_) {};
+			try lua.destroy()        catch(_) {};
+		}
+		luaScripts = [];
+		#end
 	}
+
+	// ─── Lua scripts para states ──────────────────────────────────────────────
+
+	/**
+	 * Loads a .lua file as a native LuaScriptInstance for a state/menu.
+	 * Supports the same hooks and ui API as HScript state scripts.
+	 *
+	 * Hooks:  onCreate, postCreate, onUpdate, onUpdatePost,
+	 *         onBeatHit, onStepHit, onDestroy, onKeyJustPressed
+	 * API:    ui.add/remove/text/solidSprite/tween/center/zoom/playSound/switchState
+	 */
+	#if (LUA_ALLOWED && linc_luajit)
+	public static function loadLuaScript(scriptPath:String, state:Dynamic,
+		?extraVars:Map<String, Dynamic>):Null<LuaScriptInstance>
+	{
+		if (!FileSystem.exists(scriptPath)) return null;
+
+		final name   = ScriptHandler.extractName(scriptPath);
+		final script = new LuaScriptInstance(name, scriptPath);
+
+		// Inject the state ui-helper API
+		_exposeLuaStateAPI(script, state);
+
+		// Extra caller-provided vars
+		if (extraVars != null)
+			for (k => v in extraVars) script.set(k, v);
+
+		// Hot-reload self-reference
+		script.set('hotReload', function():Bool return script.hotReload());
+		script.set('log', function(msg:Dynamic):Void trace('[Lua:$name] $msg'));
+
+		script.loadFile(scriptPath);
+
+		if (!script.active)
+		{
+			trace('[StateScriptHandler] Lua error in: $scriptPath');
+			script.destroy();
+			return null;
+		}
+
+		luaScripts.push(script);
+		script.call('onCreate');
+		script.call('postCreate');
+		trace('[StateScriptHandler] Lua loaded: $name');
+		return script;
+	}
+
+	/**
+	 * Exposes the standard state ui API to a Lua script.
+	 * Mirrors _exposeStateAPI (HScript version) but uses lua.set().
+	 */
+	static function _exposeLuaStateAPI(script:LuaScriptInstance, state:Dynamic):Void
+	{
+		script.set('FlxG',  flixel.FlxG);
+		script.set('Math',  Math);
+		script.set('Std',   Std);
+		script.set('self',  state);
+
+		// Build ui helper object matching ScriptBridge.buildUIHelper output
+		final uiHelper:Dynamic =
+			(state != null && Std.isOfType(state, flixel.FlxState))
+			? funkin.scripting.ScriptBridge.buildUIHelper(cast state)
+			: funkin.scripting.ScriptBridge.buildUIHelper(flixel.FlxG.state);
+
+		script.set('ui', uiHelper);
+
+		// PlayState reference if available
+		var ps = funkin.gameplay.PlayState.instance;
+		if (ps != null) script.set('game', ps);
+	}
+	#end
+
 
 	// ─── Helpers internos ─────────────────────────────────────────────────────
 
@@ -494,11 +610,11 @@ class StateScriptHandler
 		//    Bool/Int/Float/String la asignación directa no escribe de vuelta.
 		interp.variables.set('getField', (name:String) -> {
 			try   { return Reflect.getProperty(state, name); }
-			catch (e:Dynamic) { trace('[StateScript] getField("$name") falló: $e'); return null; }
+			catch (e:Dynamic) { trace('[StateScript] getField("$name") failed: $e'); return null; }
 		});
 		interp.variables.set('setField', (name:String, value:Dynamic) -> {
 			try   { Reflect.setProperty(state, name, value); }
-			catch (e:Dynamic) { trace('[StateScript] setField("$name") falló: $e'); }
+			catch (e:Dynamic) { trace('[StateScript] setField("$name") failed: $e'); }
 		});
 
 		// ── 4. Llamar métodos del state por nombre ────────────────────────────
@@ -510,7 +626,7 @@ class StateScriptHandler
 				if (fn != null && Reflect.isFunction(fn))
 					return Reflect.callMethod(state, fn, args ?? []);
 			}
-			catch (e:Dynamic) { trace('[StateScript] callMethod("$name") falló: $e'); }
+			catch (e:Dynamic) { trace('[StateScript] callMethod("$name") failed: $e'); }
 			return null;
 		});
 
@@ -672,7 +788,7 @@ class FunctionOverride
 		}
 		catch (e:Exception)
 		{
-			trace('[FunctionOverride] Error en "$funcName": ${e.message}');
+			trace('[FunctionOverride] Error "$funcName": ${e.message}');
 		}
 
 		return null;

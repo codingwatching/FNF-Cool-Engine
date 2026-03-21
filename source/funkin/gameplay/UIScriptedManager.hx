@@ -174,6 +174,10 @@ class UIScriptedManager extends FlxGroup
 		uiScript.set('metaData', metaData);
 		uiScript.set('SONG', PlayState.SONG);
 
+		var skinData = funkin.gameplay.notes.NoteSkinSystem.getCurrentSkinData();
+
+		uiScript.set('isPixel', skinData.isPixel);
+
 		// ── Duración total de la canción en ms ─────────────────────────────
 		// IMPORTANTE: UIScriptedManager se construye ANTES de que PlayState llame
 		// a Conductor.mapBPMChanges(), así que Conductor.bpmChangeMap está vacío

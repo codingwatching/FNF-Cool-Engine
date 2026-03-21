@@ -1,13 +1,6 @@
 # ────────────────────────────────────────────────────────────────────────────
 # Cool Engine — CI/CD Build Pipeline
-# Builds release binaries for Windows, macOS (x86_64 + arm64) and Linux.
-#
-# Triggers:
-#   • Every push to main / master
-#   • Every pull request targeting main / master
-#   • Manual run from the GitHub Actions UI
 # ────────────────────────────────────────────────────────────────────────────
-
 name: Build Cool Engine
 
 on:
@@ -17,75 +10,73 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
-# ── Shared constants ─────────────────────────────────────────────────────────
 env:
-  HAXE_VERSION: "4.3.6"
+  HAXE_VERSION:  "4.3.6"
+  LIME_VERSION:  "8.3.1"
+  OPENFL_VERSION: "9.3.0"
 
-# ── Jobs ─────────────────────────────────────────────────────────────────────
+# ── Shared install step (reused in all jobs via a composite) ─────────────────
+# Each job still installs inline to keep things readable and avoid
+# composite action boilerplate.
+
 jobs:
 
-  # ══════════════════════════════════════════════════════════════════════════
+  # ════════════════════════════════════════════════════════════════════════════
   # WINDOWS
-  # ══════════════════════════════════════════════════════════════════════════
+  # ════════════════════════════════════════════════════════════════════════════
   build-windows:
     name: "Build — Windows"
     runs-on: windows-latest
 
     steps:
-      # 1 ── Checkout ─────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # 2 ── Haxe ─────────────────────────────────────────────────────────────
       - name: Install Haxe ${{ env.HAXE_VERSION }}
         uses: krdlab/setup-haxe@v1
         with:
           haxe-version: ${{ env.HAXE_VERSION }}
 
-      # 3 ── Visual C++ build tools (needed by hxcpp) ─────────────────────────
       - name: Install MSVC build tools
         uses: microsoft/setup-msbuild@v2
 
-      # 4 ── Haxe libraries ───────────────────────────────────────────────────
       - name: Install haxelibs
         shell: bash
         run: |
           haxelib setup C:/haxelib
           echo "HAXELIB_PATH=C:/haxelib" >> $GITHUB_ENV
-          haxelib install hxcpp --quiet --never
-          haxelib install lime 8.1.0 --never
-          haxelib install openfl 9.3.0 --never
-          haxelib git flixel https://github.com/HaxeFlixel/flixel.git --never
-          haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons.git funkin-4.0.6 --never
-          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui.git --never
+          haxelib install hxcpp              --quiet --never
+          haxelib install lime   ${{ env.LIME_VERSION }}   --never
+          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
+          haxelib git flixel         https://github.com/FunkinCrew/flixel         --never
+          haxelib git flixel-addons  https://github.com/FunkinCrew/flixel-addons  funkin-4.0.6 --never
+          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      --never
           haxelib install flixel-tools 1.5.1 --quiet --never
-          haxelib install actuate --quiet --never
-          haxelib install hscript --quiet --never
-          haxelib install format --quiet --never
-          haxelib install hxp --quiet --never
-          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc.git --never
-          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate.git --never
-          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis.git --never
-          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git --never
-          haxelib list
-          
+          haxelib install actuate            --quiet --never
+          haxelib install hscript            --quiet --never
+          haxelib install format             --quiet --never
+          haxelib install hxp                --quiet --never
+          haxelib install linc_luajit           --quiet --never
+          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  --never
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
+
       - name: Lock library versions
         shell: cmd
         run: |
-          haxelib set lime 8.1.0
-          haxelib set openfl 9.3.0
+          haxelib set lime   ${{ env.LIME_VERSION }}
+          haxelib set openfl ${{ env.OPENFL_VERSION }}
 
       - name: Setup Lime
         shell: cmd
         run: haxelib run lime setup -y
 
-      # 5 ── Build ────────────────────────────────────────────────────────────
       - name: Build (Windows release)
         shell: cmd
         run: haxelib run lime build windows -final
 
-      # 6 ── Upload artifact ──────────────────────────────────────────────────
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
@@ -93,94 +84,77 @@ jobs:
           path: export/release/windows/bin/
           if-no-files-found: error
 
-  # ══════════════════════════════════════════════════════════════════════════
-  # macOS  (universal: x86_64 + arm64)
-  # ══════════════════════════════════════════════════════════════════════════
+  # ════════════════════════════════════════════════════════════════════════════
+  # macOS (arm64)
+  # ════════════════════════════════════════════════════════════════════════════
   build-macos:
     name: "Build — macOS"
-    runs-on: macos-14          # arm64 — only supported modern macOS runner
+    runs-on: macos-14
 
     steps:
-      # 1 ── Checkout ─────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # 2 ── Purge pre-installed x86_64 Haxe from the runner ──────────────────
       - name: Remove pre-installed Haxe
         run: |
-          # Kill every trace of the x86_64 Haxe that ships in the runner image
           sudo rm -rf /Users/runner/hostedtoolcache/haxe || true
           sudo rm -f  /usr/local/bin/haxe /usr/local/bin/haxelib || true
-          # Confirm nothing is left
           which haxe || echo "haxe not found — good"
 
-      # 3 ── Neko (haxelib is a Neko binary) ──────────────────────────────────
       - name: Install Neko
         run: |
           brew install neko
           sudo mkdir -p /usr/local/lib
           sudo ln -sf "$(brew --prefix neko)/lib/libneko.2.dylib" /usr/local/lib/libneko.2.dylib
 
-      # 4 ── Haxe (manual — krdlab/setup-haxe does not support arm64) ─────────
       - name: Install Haxe ${{ env.HAXE_VERSION }}
         run: |
           curl -fsSL "https://github.com/HaxeFoundation/haxe/releases/download/${{ env.HAXE_VERSION }}/haxe-${{ env.HAXE_VERSION }}-osx.tar.gz" -o haxe.tar.gz
           tar -xzf haxe.tar.gz
           HAXE_DIR="$(pwd)/$(tar -tzf haxe.tar.gz | head -1 | cut -d/ -f1)"
-          # Prepend so our Haxe wins over any remnant in PATH
           echo "$HAXE_DIR" >> "$GITHUB_PATH"
           echo "HAXE_STD_PATH=$HAXE_DIR/std" >> "$GITHUB_ENV"
-          echo "HAXE_DIR=$HAXE_DIR" >> "$GITHUB_ENV"
           mkdir -p ~/haxelib
           "$HAXE_DIR/haxelib" setup ~/haxelib
           rm haxe.tar.gz
 
-      # 5 ── libVLC ────────────────────────────────────────────────────────────
       - name: Install libvlc
         run: brew install --cask vlc
 
-      # 6 ── Haxe libraries ───────────────────────────────────────────────────
       - name: Install haxelibs
         run: |
-          mkdir C:\haxelib
-          haxelib setup C:\haxelib
-          haxelib install hxcpp --quiet
-          haxelib install lime 8.1.0 --never
-          haxelib install openfl 9.3.0 --never
-          haxelib git flixel https://github.com/HaxeFlixel/flixel --never
-          haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6 --never
-          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui --never
+          haxelib install hxcpp              --quiet --never
+          haxelib install lime   ${{ env.LIME_VERSION }}   --never
+          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
+          haxelib git flixel         https://github.com/FunkinCrew/flixel         --never
+          haxelib git flixel-addons  https://github.com/FunkinCrew/flixel-addons  funkin-4.0.6 --never
+          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      --never
           haxelib install flixel-tools 1.5.1 --quiet --never
-          haxelib install actuate --quiet --never
-          haxelib install hscript --quiet --never
-          haxelib install format --quiet --never
-          haxelib install hxp --quiet --never
-          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc --never
-          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --never
-          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis --never
-          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git --never
-          haxelib list
-      
+          haxelib install actuate            --quiet --never
+          haxelib install hscript            --quiet --never
+          haxelib install format             --quiet --never
+          haxelib install linc_luajit           --quiet --never
+          haxelib install hxp                --quiet --never
+          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  --never
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
+
       - name: Lock library versions
         run: |
-          haxelib set lime 8.1.0
-          haxelib set openfl 9.3.0
+          haxelib set lime   ${{ env.LIME_VERSION }}
+          haxelib set openfl ${{ env.OPENFL_VERSION }}
 
       - name: Setup Lime
         run: haxelib run lime setup -y
 
-      # 7 ── Rebuild Lime ndlls for arm64 ─────────────────────────────────────
-      #      arch -arm64 ensures hxcpp compiles native code for arm64,
-      #      not x86_64. Without this the prebuilt x86_64 ndll stays in place.
       - name: Rebuild Lime for arm64
         run: arch -arm64 haxelib run lime rebuild mac
 
-      # 8 ── Build ────────────────────────────────────────────────────────────
       - name: Build (macOS release)
         run: arch -arm64 haxelib run lime build mac -final
 
-      # 9 ── Upload artifact ──────────────────────────────────────────────────
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
         with:
@@ -188,86 +162,66 @@ jobs:
           path: export/release/mac/bin/
           if-no-files-found: error
 
-  # ══════════════════════════════════════════════════════════════════════════
-  # LINUX  (Ubuntu)
-  # ══════════════════════════════════════════════════════════════════════════
+  # ════════════════════════════════════════════════════════════════════════════
+  # LINUX
+  # ════════════════════════════════════════════════════════════════════════════
   build-linux:
     name: "Build — Linux"
     runs-on: ubuntu-22.04
 
     steps:
-      # 1 ── Checkout ─────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # 2 ── System dependencies ──────────────────────────────────────────────
       - name: Install system dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y \
-            libvlc-dev \
-            libvlccore-dev \
-            vlc-bin \
-            libasound2-dev \
-            libpulse-dev \
-            libgl1-mesa-dev \
-            libglu1-mesa-dev \
-            libx11-dev \
-            libxext-dev \
-            libxi-dev \
-            libxrandr-dev \
-            libxinerama-dev \
-            libxcursor-dev \
-            libdbus-1-dev \
-            g++ \
-            gcc \
-            make
+            libvlc-dev libvlccore-dev vlc-bin \
+            libasound2-dev libpulse-dev \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libx11-dev libxext-dev libxi-dev \
+            libxrandr-dev libxinerama-dev libxcursor-dev \
+            libdbus-1-dev g++ gcc make
           sudo ldconfig
-          ls /usr/lib/x86_64-linux-gnu/libvlc*.so* || true
-          cp /usr/lib/x86_64-linux-gnu/libvlc.so source/vlc/cpp/lib/linux/libvlc.so || true
-          cp /usr/lib/x86_64-linux-gnu/libvlccore.so source/vlc/cpp/lib/linux/libvlccore.so || true
 
-      # 3 ── Haxe ─────────────────────────────────────────────────────────────
       - name: Install Haxe ${{ env.HAXE_VERSION }}
         uses: krdlab/setup-haxe@v1
         with:
           haxe-version: ${{ env.HAXE_VERSION }}
 
-      # 4 ── Haxe libraries ───────────────────────────────────────────────────
       - name: Install haxelibs
         run: |
           haxelib setup ~/haxelib
-          haxelib install hxcpp --quiet
-          haxelib install lime 8.1.0 --never
-          haxelib install openfl 9.3.0 --never
-          haxelib git flixel https://github.com/HaxeFlixel/flixel --quiet --never
-          haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6 --never
-          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui --never
+          haxelib install hxcpp              --quiet --never
+          haxelib install lime   ${{ env.LIME_VERSION }}   --never
+          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
+          haxelib git flixel         https://github.com/FunkinCrew/flixel         --never
+          haxelib git flixel-addons  https://github.com/FunkinCrew/flixel-addons  funkin-4.0.6 --never
+          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      --never
           haxelib install flixel-tools 1.5.1 --quiet --never
-          haxelib install actuate --quiet --never
-          haxelib install hscript --quiet --never
-          haxelib install format --quiet --never
-          haxelib install hxp --quiet --never
-          haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc --never
-          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate --never
-          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis --never
-          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git --never
-          haxelib list #
+          haxelib install actuate            --quiet --never
+          haxelib install hscript            --quiet --never
+          haxelib install format             --quiet --never
+          haxelib install hxp                --quiet --never
+          haxelib install linc_luajit           --quiet --never
+          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  --never
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
 
       - name: Lock library versions
         run: |
-          haxelib set lime 8.1.0
-          haxelib set openfl 9.3.0
+          haxelib set lime   ${{ env.LIME_VERSION }}
+          haxelib set openfl ${{ env.OPENFL_VERSION }}
 
       - name: Setup Lime
         run: haxelib run lime setup -y
 
-      # 5 ── Build ────────────────────────────────────────────────────────────
       - name: Build (Linux release)
         run: haxelib run lime build linux -final
 
-      # 6 ── Upload artifact ──────────────────────────────────────────────────
       - name: Upload Linux build
         uses: actions/upload-artifact@v4
         with:
@@ -275,27 +229,24 @@ jobs:
           path: export/release/linux/bin/
           if-no-files-found: error
 
-  # ══════════════════════════════════════════════════════════════════════════
+  # ════════════════════════════════════════════════════════════════════════════
   # ANDROID
-  # ══════════════════════════════════════════════════════════════════════════
+  # ════════════════════════════════════════════════════════════════════════════
   build-android:
     name: "Build — Android"
     runs-on: ubuntu-22.04
 
     steps:
-      # 1 ── Checkout ─────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # 2 ── Java 17 para sdkmanager, luego se baja a Java 11 para el build ───
-      - name: Set up Java 17 (sdkmanager lo requiere)
+      - name: Set up Java 17 (sdkmanager)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      # 3 ── Android SDK ──────────────────────────────────────────────────────
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
@@ -308,55 +259,51 @@ jobs:
             "cmake;3.22.1"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.2.9519653" >> $GITHUB_ENV
 
-      # 4 ── Haxe ─────────────────────────────────────────────────────────────
       - name: Install Haxe ${{ env.HAXE_VERSION }}
         uses: krdlab/setup-haxe@v1
         with:
           haxe-version: ${{ env.HAXE_VERSION }}
 
-      # 5 ── Haxe libraries ───────────────────────────────────────────────────
       - name: Install haxelibs
         run: |
-          haxelib install hxcpp --quiet
-          haxelib install lime 8.1.0
-          haxelib install openfl 9.3.0
-          haxelib git flixel https://github.com/HaxeFlixel/flixel --quiet
-          haxelib git flixel-addons https://github.com/FunkinCrew/flixel-addons funkin-4.0.6 --never
-          haxelib git funkin.vis https://github.com/FunkinCrew/funkVis
-          haxelib git flixel-ui https://github.com/HaxeFlixel/flixel-ui
-          haxelib install flixel-tools 1.5.1 --quiet
-          haxelib install actuate --quiet
-          haxelib install hscript --quiet
-          haxelib install format --quiet
-          haxelib install hxp --quiet
-          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate
-          haxelib git hxvlc https://github.com/MAJigsaw77/hxvlc.git
-          # discord_rpc se omite intencionalmente: no existe en Android
+          haxelib install hxcpp              --quiet --never
+          haxelib install lime   ${{ env.LIME_VERSION }}   --never
+          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
+          haxelib git flixel         https://github.com/FunkinCrew/flixel         --never
+          haxelib git flixel-addons  https://github.com/FunkinCrew/flixel-addons  funkin-4.0.6 --never
+          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      --never
+          haxelib install flixel-tools 1.5.1 --quiet --never
+          haxelib install actuate            --quiet --never
+          haxelib install hscript            --quiet --never
+          haxelib install format             --quiet --never
+          haxelib install hxp                --quiet --never
+          haxelib install linc_luajit           --quiet --never
+          haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  --never
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
+          # discord_rpc omitido: no disponible en Android
 
       - name: Lock library versions
         run: |
-          haxelib set lime 8.1.0
-          haxelib set openfl 9.3.0
+          haxelib set lime   ${{ env.LIME_VERSION }}
+          haxelib set openfl ${{ env.OPENFL_VERSION }}
 
       - name: Setup Lime
         run: haxelib run lime setup -y
 
-      # 6 ── Configurar rutas de Android en ~/.lime/config.xml ────────────────
       - name: Configure Lime Android paths
         run: |
           mkdir -p ~/.lime
-          cat > ~/.lime/config.xml << LIMEEOF
+          cat > ~/.lime/config.xml << EOF
           <config>
-            <set name="ANDROID_SDK" value="$ANDROID_SDK_ROOT" />
+            <set name="ANDROID_SDK"      value="$ANDROID_SDK_ROOT" />
             <set name="ANDROID_NDK_ROOT" value="$ANDROID_NDK_HOME" />
-            <set name="JAVA_HOME" value="$JAVA_HOME" />
-            <set name="ANDROID_SETUP" value="true" />
+            <set name="JAVA_HOME"        value="$JAVA_HOME" />
+            <set name="ANDROID_SETUP"    value="true" />
           </config>
-          LIMEEOF
-          cat ~/.lime/config.xml
+          EOF
 
-      # 7 ── Cambiar a Java 11 antes del build (Gradle/Groovy no soporta 17+) ──
-      - name: Set up Java 11 (para Gradle)
+      - name: Set up Java 11 (Gradle)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -365,20 +312,18 @@ jobs:
       - name: Update Lime config with Java 11 path
         run: |
           mkdir -p ~/.lime
-          cat > ~/.lime/config.xml << LIMEEOF
+          cat > ~/.lime/config.xml << EOF
           <config>
-            <set name="ANDROID_SDK" value="$ANDROID_SDK_ROOT" />
+            <set name="ANDROID_SDK"      value="$ANDROID_SDK_ROOT" />
             <set name="ANDROID_NDK_ROOT" value="$ANDROID_NDK_HOME" />
-            <set name="JAVA_HOME" value="$JAVA_HOME" />
-            <set name="ANDROID_SETUP" value="true" />
+            <set name="JAVA_HOME"        value="$JAVA_HOME" />
+            <set name="ANDROID_SETUP"    value="true" />
           </config>
-          LIMEEOF
+          EOF
 
-      # 8 ── Build ────────────────────────────────────────────────────────────
       - name: Build (Android release)
         run: haxelib run lime build android -final
 
-      # 9 ── Upload artifact ──────────────────────────────────────────────────
       - name: Upload Android build
         uses: actions/upload-artifact@v4
         with:

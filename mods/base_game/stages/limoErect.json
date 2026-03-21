@@ -58,11 +58,16 @@
 			],
 			"antialiasing": true,
 			"name": "mist1",
-			"type": "sprite",
+			"blend": "add",
+			"type": "backdrop",
 			"scale": [
 				1.5,
 				1.5
-			]
+			],
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 700,
+			"velocityY": 0
 		},
 		{
 			"zIndex": 0,
@@ -73,7 +78,8 @@
 				-19.999998957815
 			],
 			"visible": true,
-			"type": "sprite",
+			"blend": "add",
+			"type": "backdrop",
 			"scale": [
 				1.5,
 				1.5
@@ -87,7 +93,11 @@
 				0.8
 			],
 			"flipY": false,
-			"alpha": 0.5
+			"alpha": 0.5,
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 700,
+			"velocityY": 0
 		},
 		{
 			"asset": "shooting star",
@@ -129,7 +139,8 @@
 				100.000001042185
 			],
 			"visible": true,
-			"type": "sprite",
+			"type": "backdrop",
+			"blend": "add",
 			"scale": [
 				1.3,
 				1.3
@@ -143,7 +154,11 @@
 				1.1
 			],
 			"flipY": false,
-			"alpha": 0.4
+			"alpha": 0.4,
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 1700,
+			"velocityY": 0
 		},
 		{
 			"zIndex": 0,
@@ -154,7 +169,8 @@
 				10.000001042185
 			],
 			"visible": true,
-			"type": "sprite",
+			"type": "backdrop",
+			"blend": "add",
 			"scale": [
 				1.5,
 				1.5
@@ -168,7 +184,11 @@
 				0.8
 			],
 			"flipY": false,
-			"alpha": 0.5
+			"alpha": 0.5,
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 2100,
+			"velocityY": 0
 		},
 		{
 			"aboveChars": false,
@@ -189,11 +209,16 @@
 			],
 			"antialiasing": true,
 			"name": "mist5",
-			"type": "sprite",
+			"type": "backdrop",
+			"blend": "add",
 			"scale": [
 				1.5,
 				1.5
-			]
+			],
+			"repeatX": true,
+			"repeatY": false,
+			"velocityX": 100,
+			"velocityY": 0
 		},
 		{
 			"asset": "bgLimo",

@@ -1,0 +1,17 @@
+{
+	"id": "week5",
+	"weekName": "RED SNOW",
+	"weekSongs": [
+		"Cocoa",
+		"Eggnog",
+		"Winter-Horrorland"
+	],
+	"weekCharacters": [
+		"parents-xmas",
+		"bf",
+		"gf"
+	],
+	"color": "0xFF9A68A4",
+	"locked": false,
+	"order": 6
+}
