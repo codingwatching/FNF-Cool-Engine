@@ -87,8 +87,6 @@ class Note extends FlxSprite
 	/** Distancia (ms) en la que el glow alcanza su máximo antes del hit. */
 	static inline final GLOW_PEAK_MS:Float   = 60.0;
 
-
-
 	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false)
 	{
 		super();
