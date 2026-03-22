@@ -310,24 +310,6 @@ jobs:
           </config>
           EOF
 
-      - name: Set up Java 11 (Gradle)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "11"
-
-      - name: Update Lime config with Java 11 path
-        run: |
-          mkdir -p ~/.lime
-          cat > ~/.lime/config.xml << EOF
-          <config>
-            <set name="ANDROID_SDK"      value="$ANDROID_SDK_ROOT" />
-            <set name="ANDROID_NDK_ROOT" value="$ANDROID_NDK_HOME" />
-            <set name="JAVA_HOME"        value="$JAVA_HOME" />
-            <set name="ANDROID_SETUP"    value="true" />
-          </config>
-          EOF
-
       - name: Build (Android release)
         run: haxelib run lime build android -final
 

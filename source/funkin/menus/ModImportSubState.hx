@@ -110,7 +110,7 @@ class ModImportSubState extends FlxSubState
 
 		// ── Título ────────────────────────────────────────────────────────────
 		final title = new FlxText(px, py + 12, PW, '⬆  IMPORT MOD');
-		title.setFormat(null, 20, T.textPrimary, CENTER, OUTLINE, T.bgDark);
+		title.setFormat(Paths.font('vcr.ttf'), 20, T.textPrimary, CENTER, OUTLINE, T.bgDark);
 		title.scrollFactor.set(); add(title);
 
 		final sep = new FlxSprite(px + 16, py + 44).makeGraphic(PW - 32, 1, T.borderColor);
@@ -120,7 +120,8 @@ class ModImportSubState extends FlxSubState
 		final desc = new FlxText(px + 20, py + 52, PW - 40,
 			'Type a path, click [Browse], or drag a mod folder / .zip onto this window.\n' +
 			'Supported: Psych Engine, Codename Engine, Base FNF.');
-		desc.setFormat(null, 12, T.textSecondary, LEFT);
+		desc.setFormat(Paths.font('vcr.ttf'), 12, T.textSecondary, LEFT);
+		desc.wordWrap = true;
 		desc.scrollFactor.set(); add(desc);
 
 		// ── Path input ────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ class ModImportSubState extends FlxSubState
 		iBg.scrollFactor.set(); add(iBg);
 
 		_pathInput = new FlxText(px + 24, py + 94, INP_W - 16, '|');
-		_pathInput.setFormat(null, 14, T.textPrimary, LEFT);
+		_pathInput.setFormat(Paths.font('vcr.ttf'), 14, T.textPrimary, LEFT);
 		_pathInput.scrollFactor.set(); add(_pathInput);
 
 		// ── Browse button ─────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ class ModImportSubState extends FlxSubState
 		_browseBtnBg.scrollFactor.set(); add(_browseBtnBg);
 
 		_browseBtnTxt = new FlxText(bx, py + 96, BTN_W, 'Browse');
-		_browseBtnTxt.setFormat(null, 13, T.bgDark, CENTER, OUTLINE, 0x00000000);
+		_browseBtnTxt.setFormat(Paths.font('vcr.ttf'), 13, T.bgDark, CENTER, OUTLINE, 0x00000000);
 		_browseBtnTxt.scrollFactor.set(); add(_browseBtnTxt);
 
 		// ── Drop zone ─────────────────────────────────────────────────────────
@@ -153,26 +154,30 @@ class ModImportSubState extends FlxSubState
 
 		_dropZoneTxt = new FlxText(px + 16, py + 164, PW - 32,
 			'📁  Drop mod folder or .zip here');
-		_dropZoneTxt.setFormat(null, 16, T.textDim, CENTER);
+		_dropZoneTxt.setFormat(Paths.font('vcr.ttf'), 16, T.textDim, CENTER);
 		_dropZoneTxt.scrollFactor.set(); add(_dropZoneTxt);
 
 		// ── Step / log ────────────────────────────────────────────────────────
-		_stepTxt = new FlxText(px + 20, py + 238, PW - 40, 'Step: Enter folder path or Browse');
-		_stepTxt.setFormat(null, 13, T.accent, LEFT);
+		final logSep = new FlxSprite(px + 16, py + 238).makeGraphic(PW - 32, 1, T.borderColor);
+		logSep.scrollFactor.set(); add(logSep);
+
+		_stepTxt = new FlxText(px + 20, py + 248, PW - 40, 'Step: Enter folder path or Browse');
+		_stepTxt.setFormat(Paths.font('vcr.ttf'), 13, T.accent, LEFT);
 		_stepTxt.scrollFactor.set(); add(_stepTxt);
 
-		_progressTxt = new FlxText(px + 20, py + 260, PW - 40, '');
-		_progressTxt.setFormat(null, 11, T.textSecondary, LEFT);
+		_progressTxt = new FlxText(px + 20, py + 274, PW - 40, '');
+		_progressTxt.setFormat(Paths.font('vcr.ttf'), 11, T.textSecondary, LEFT);
+		_progressTxt.wordWrap = true;
 		_progressTxt.scrollFactor.set(); add(_progressTxt);
 
 		// ── Status + hint ─────────────────────────────────────────────────────
-		_statusTxt = new FlxText(px + 20, py + PH - 68, PW - 40, '');
-		_statusTxt.setFormat(null, 14, T.success, CENTER);
+		_statusTxt = new FlxText(px + 20, py + PH - 72, PW - 40, '');
+		_statusTxt.setFormat(Paths.font('vcr.ttf'), 14, T.success, CENTER);
 		_statusTxt.scrollFactor.set(); add(_statusTxt);
 
-		_hintTxt = new FlxText(px + 20, py + PH - 38, PW - 40,
+		_hintTxt = new FlxText(px + 20, py + PH - 42, PW - 40,
 			'[Enter] Import   [B] Browse   [Esc] Cancel');
-		_hintTxt.setFormat(null, 12, T.textDim, CENTER);
+		_hintTxt.setFormat(Paths.font('vcr.ttf'), 12, T.textDim, CENTER);
 		_hintTxt.scrollFactor.set(); add(_hintTxt);
 
 		// ── Native input hooks ────────────────────────────────────────────────
