@@ -69,6 +69,7 @@ jobs:
           haxelib set lime   ${{ env.LIME_VERSION }}
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         shell: cmd
@@ -148,6 +149,7 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
@@ -220,6 +222,7 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
@@ -258,11 +261,11 @@ jobs:
       - name: Install Android NDK & build tools
         run: |
           sdkmanager --install \
-            "ndk;25.2.9519653" \
+            "ndk;21.4.7075529" \
             "build-tools;33.0.2" \
             "platforms;android-33" \
             "cmake;3.22.1"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.2.9519653" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/21.4.7075529" >> $GITHUB_ENV
 
       - name: Install Haxe ${{ env.HAXE_VERSION }}
         uses: krdlab/setup-haxe@v1
@@ -294,6 +297,7 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
