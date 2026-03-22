@@ -68,7 +68,7 @@ haxelib set    openfl  $OPENFL_VERSION
 echo ""
 echo "Installing HaxeFlixel (FunkinCrew fork)..."
 haxelib install flixel 6.1.2         --never
-haxelib git flixel-addons  4.0.1 --never
+haxelib install flixel-addons  4.0.1 --never
 haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
 haxelib install flixel-ui    --quiet --never
 haxelib install flixel-tools 1.5.1  --quiet --never
