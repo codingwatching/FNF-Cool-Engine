@@ -16,7 +16,7 @@ import funkin.gameplay.objects.stages.Stage;
  *   "defaultZoom":  0.9,
  *   "isPixelStage": false,
  *   "stageUI":      "normal",    ← "normal" | "pixel" | custom
- *   "boyfriend":    [770, 100],  ← posición X/Y (array de 2 floats)
+ *   "boyfriend":    [770, 100],  ← position X/and (array of 2 floats)
  *   "girlfriend":   [400, 130],
  *   "opponent":     [100, 100],
  *   "hide_girlfriend": false,
@@ -52,8 +52,8 @@ import funkin.gameplay.objects.stages.Stage;
  *
  * ── Notas ────────────────────────────────────────────────────────────────────
  * - Psych 0.7.x Stage Editor guarda los sprites en "stageObjects"; Psych 0.6.x
- *   y la mayoría de mods los guardan en "objects". Este convertor soporta AMBOS.
- * - "directory" es el nombre de la biblioteca de assets de Psych (librería compartida).
+ *   and the majority of mods the guardan in "objects". This convertor soporta AMBOS.
+ * - "directory" is the name of the biblioteca of assets of Psych (library compartida).
  *   Se mapea a stageData.directory para que el cargador de stages pueda precargarlo.
  * - "libraryName" en cada objeto sobreescribe el directorio global por sprite.
  * - Lua scripts (.lua) asociados al stage son ignorados (no soportados).
@@ -73,9 +73,9 @@ class PsychStageConverter
 		final ps:Dynamic   = (Reflect.hasField(root, 'stageJson')) ? root.stageJson : root;
 
 		// ── BUG FIX #8: "directory" — biblioteca de assets de Psych ──────────
-		// Los mods de Psych usan esto para precargar una librería de assets
+		// The mods of Psych usan this for preload a library of assets
 		// compartida (equivalente al swf/pack que usa FlxAtlasFrames).
-		// Sin esto, los sprites del escenario no encuentran sus imágenes.
+		// Without this, the sprites of the stage no encuentran its images.
 		final directory:String = _str(ps.directory, '');
 
 		// ── Character positions ───────────────────────────────────────────────
@@ -85,20 +85,20 @@ class PsychStageConverter
 		final camBF  = _arr2(ps.camera_boyfriend, [0.0, 0.0]);
 		final camDad = _arr2(ps.camera_opponent,  [0.0, 0.0]);
 
-		// BUG FIX #6: Psych tiene camera_girlfriend además de camera_boyfriend/opponent.
-		// La versión anterior lo ignoraba completamente, rompiendo stages con GF activa.
+		// BUG FIX #6: Psych tiene camera_girlfriend furthermore of camera_boyfriend/opponent.
+		// The version previous it ignoraba completamente, rompiendo stages with GF active.
 		final camGF  = _arr2(ps.camera_girlfriend, [0.0, 0.0]);
 
-		// BUG FIX #7: camera_speed controla la velocidad del lerp de cámara.
-		// Sin este campo los cambios de cámara son instantáneos en lugar de suaves.
+		// BUG FIX #7: camera_speed controla the velocidad of the lerp of camera.
+		// Without this field the cambios of camera are instants in lugar of suaves.
 		final camSpeed:Float = _float(ps.camera_speed, 1.0);
 
 		// ── Elements ──────────────────────────────────────────────────────────
 		final elements:Array<Dynamic> = [];
 
 		// BUG FIX #5: Psych 0.7.x Stage Editor usa "stageObjects", pero Psych 0.6.x
-		// y la MAYORÍA de mods reales usan "objects". Hay que probar ambos.
-		// Si ninguno existe, usar array vacío (stage sin sprites estáticos).
+		// and the majority of mods reales usan "objects". There is that probar ambos.
+		// If none exists, usar array empty (stage without sprites static).
 		var rawObjects:Dynamic = ps.stageObjects;
 		if (rawObjects == null || !Std.isOfType(rawObjects, Array))
 			rawObjects = ps.objects;
@@ -112,7 +112,7 @@ class PsychStageConverter
 
 			// ── Image path ────────────────────────────────────────────────────
 			// "libraryName" del objeto sobreescribe el "directory" global.
-			// Si ambos están vacíos, la imagen es simplemente el filename.
+			// If ambos are empty, the image is simply the filename.
 			final lib   = _str(obj.libraryName != null ? obj.libraryName : directory, '');
 			final img   = _str(obj.image, '');
 			final asset = (lib != '') ? '$lib/$img' : img;
@@ -258,8 +258,8 @@ class PsychStageConverter
 	}
 
 	// BUG FIX: algunos charts/stages de Psych serializan booleanos como enteros (0/1).
-	// La versión anterior usaba `(v == true)` que devuelve false para el entero 1.
-	// Eso rompía hide_girlfriend=1, isPixelStage=1, etc.
+	// The version previous usaba `(v == true)` that returns false for the entero 1.
+	// That broke hide_girlfriend=1, isPixelStage=1, etc.
 	static inline function _bool(v:Dynamic, def:Bool):Bool
 	{
 		if (v == null)  return def;

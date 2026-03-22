@@ -132,16 +132,16 @@ class UIScriptedManager extends FlxGroup
 			}
 			else
 			{
-				trace('[UIScriptedManager] ERROR: UI script "default" no existe. HUD vacío.');
+				trace('[UIScriptedManager] error: UI script "default" no exists. HUD empty.');
 			}
 			return;
 		}
 
 		trace('[UIScriptedManager] Cargando UI script desde: $path');
-		// BUGFIX: ScriptHandler.loadScript() llama onCreate() automáticamente ANTES de que
+		// BUGFIX: ScriptHandler.loadScript() call onCreate() automatically before of that
 		// exposeUIAPI() haya inyectado makeSprite/makeBar/uiAdd/etc.
 		// Eso hace que la primera onCreate() falle silenciosamente (makeSprite = null).
-		// Solución: cargar el script SIN auto-onCreate usando loadScriptNoInit(), luego
+		// Solution: load the script without auto-onCreate usando loadScriptNoInit(), luego
 		// exponer la API y llamar onCreate() una sola vez nosotros.
 		uiScript = ScriptHandler.loadScriptNoInit(path, 'ui');
 
@@ -178,13 +178,13 @@ class UIScriptedManager extends FlxGroup
 
 		uiScript.set('isPixel', skinData.isPixel);
 
-		// ── Duración total de la canción en ms ─────────────────────────────
+		// ── Duration total of the song in ms ─────────────────────────────
 		// IMPORTANTE: UIScriptedManager se construye ANTES de que PlayState llame
-		// a Conductor.mapBPMChanges(), así que Conductor.bpmChangeMap está vacío
-		// aquí → Conductor.getTimeAtStep() usa solo el BPM base y da un resultado
+		// to Conductor.mapBPMChanges(), so that Conductor.bpmChangeMap is empty
+		// here → Conductor.getTimeAtStep() use only the BPM base and da a resultado
 		// incorrecto para canciones con cambios de BPM.
-		// Solución: replicar la misma suma que hace mapBPMChanges internamente,
-		// iterando sección a sección con el BPM vigente en cada momento.
+		// Solution: replicar the misma suma that hace mapBPMChanges internamente,
+		// iterando section to section with the BPM vigente in each momento.
 		var _songLenMs:Float = 0.0;
 		final _song = PlayState.SONG;
 		if (_song != null && _song.notes != null && _song.bpm > 0)
@@ -219,7 +219,7 @@ class UIScriptedManager extends FlxGroup
 
 		// setBorderStyle wrapper — HScript no puede pasar enums nativos de Haxe directamente.
 		// En vez de exponer las constantes (que llegan como Int y crashean en applyBorderStyle),
-		// exponemos una función que llama a setBorderStyle con el enum correcto desde Haxe.
+		// exponemos a function that call to setBorderStyle with the enum correct from Haxe.
 		uiScript.set('setTextBorder', function(txt:flixel.text.FlxText, style:String, color:flixel.util.FlxColor, ?size:Float = 1, ?quality:Float = 1):Void
 		{
 			var s = switch (style.toLowerCase())
@@ -232,7 +232,7 @@ class UIScriptedManager extends FlxGroup
 			txt.setBorderStyle(s, color, size, quality);
 		});
 
-		// ── Helpers de creación (scrollFactor=0 y camHUD ya asignados) ─────
+		// ── Helpers of creation (scrollFactor=0 and camHUD already asignados) ─────
 
 		uiScript.set('makeSprite', function(?x:Float = 0, ?y:Float = 0):flixel.FlxSprite
 		{
@@ -250,7 +250,7 @@ class UIScriptedManager extends FlxGroup
 			return t;
 		});
 
-		// makeBar siempre RIGHT_TO_LEFT (único caso de uso = health bar)
+		// makeBar always RIGHT_TO_LEFT (unique caso of uso = health bar)
 		uiScript.set('makeBar', function(x:Float, y:Float, w:Int, h:Int, obj:Dynamic, varName:String, min:Float, max:Float):flixel.ui.FlxBar
 		{
 			var bar = new flixel.ui.FlxBar(x, y, flixel.ui.FlxBar.FlxBarFillDirection.RIGHT_TO_LEFT, w, h, obj, varName, min, max);
@@ -261,7 +261,7 @@ class UIScriptedManager extends FlxGroup
 
 		// ── uiAdd / uiRemove ───────────────────────────────────────────────
 
-		// uiAdd: añade el objeto al grupo Y le asigna camHUD si es FlxObject
+		// uiAdd: adds the object to the grupo and le asigna camHUD if is FlxObject
 		uiScript.set('uiAdd', function(obj:flixel.FlxBasic):flixel.FlxBasic
 		{
 			if (Std.isOfType(obj, flixel.FlxObject))
@@ -343,7 +343,7 @@ class UIScriptedManager extends FlxGroup
 	function get_iconP2():funkin.gameplay.objects.character.HealthIcon
 		return uiScript?.get('iconP2');
 
-	// ─── Destrucción ─────────────────────────────────────────────────────────
+	// ─── Destruction ─────────────────────────────────────────────────────────
 
 	override function destroy():Void
 	{

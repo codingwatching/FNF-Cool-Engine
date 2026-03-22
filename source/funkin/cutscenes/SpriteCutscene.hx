@@ -23,7 +23,7 @@ using StringTools;
 /**
  * SpriteCutscene v2 — sistema de cutscenes con sprites basado en JSON.
  *
- * ─── Uso desde PlayState (automático vía meta.json) ──────────────────────────
+ * ─── Usage from PlayState (automatic via meta.json) ──────────────────────────
  *
  *   meta.json:
  *   {
@@ -36,7 +36,7 @@ using StringTools;
  *   var cut = new SpriteCutscene(game, 'thorns-intro');
  *   cut.play(function() { log("cutscene terminada"); });
  *
- * ─── Resolución de archivos JSON ─────────────────────────────────────────────
+ * ─── Resolution of files JSON ─────────────────────────────────────────────
  *
  *   mods/{mod}/data/cutscenes/{key}.json    ← mod override
  *   assets/data/cutscenes/{key}.json        ← base game
@@ -44,7 +44,7 @@ using StringTools;
  *   assets/data/cutscenes/{song}/{key}.json
  *
  * ─── Referencia del formato JSON ─────────────────────────────────────────────
- *   Ver SpriteCutsceneData.hx para la documentación completa del formato.
+ *   Ver SpriteCutsceneData.hx for the documentación complete of the format.
  */
 class SpriteCutscene
 {
@@ -66,31 +66,31 @@ class SpriteCutscene
 	var _skipped:Bool  = false;
 
 	// Seguimiento propio de timers y tweens para cancelarlos sin tocar
-	// el globalManager (que mataría timers de audio y otros sistemas).
+	// the globalManager (that mataría timers of audio and otros systems).
 	var _timers:Array<FlxTimer>  = [];
 	var _tweens:Array<FlxTween>  = [];
 
-	// Seguimiento de cámara: sprite al que la cámara sigue opcionalmente.
+	// Seguimiento of camera: sprite to the that the camera sigue opcionalmente.
 	var _camTarget:Null<FlxSprite> = null;
 	/** Zoom original de FlxG.camera antes de la cutscene, para restaurarlo en reset. */
 	var _origCamZoom:Float = 1.0;
-	/** Posición X original de FlxG.camera antes de la cutscene. */
+	/** Position X original of FlxG.camera before of the cutscene. */
 	var _origCamX:Float    = 0.0;
-	/** Posición Y original de FlxG.camera antes de la cutscene. */
+	/** Position and original of FlxG.camera before of the cutscene. */
 	var _origCamY:Float    = 0.0;
 
-	// Cámara dedicada para los sprites de cutscene — se sitúa ENCIMA
+	// Camera dedicada for the sprites of cutscene — is sitúa above
 	// de camHUD para que los sprites tapen el gameplay completamente.
 	var _camCutscene:FlxCamera;
 
 	// Bandera que indica si deshabilitamos el follow de FlxG.camera al
-	// empezar la cutscene (para que los tweens de scroll no luchen con él).
+	// empezar the cutscene (for that the tweens of scroll no luchen with it).
 	var _camFollowDisabled:Bool = false;
 
-	// Registro de cámaras que esta cutscene ocultó, para restaurarlas al terminar.
+	// Log of cameras that this cutscene ocultó, for restaurarlas to the terminar.
 	// Map<"hud"|"game"|"countdown", Bool> — guarda la visibilidad ORIGINAL.
 	var _hiddenCams:Map<String, Bool>  = [];
-	// Guarda el alpha original de cada cámara tocada por setCamVisible.
+	// Save the alpha original of each camera tocada by setCamVisible.
 	var _hiddenCamsAlpha:Map<String, Float> = [];
 
 	// Mapa de callbacks registrados por CutsceneBuilder para los pasos 'call' y
@@ -99,15 +99,15 @@ class SpriteCutscene
 	var _callbackMap:Map<String, Dynamic> = [];
 
 	// Lista de funciones a llamar cuando la cutscene termine o se salte.
-	// Se registran vía el paso interno '_registerCleanup'.
+	// Is registran via the paso internal '_registerCleanup'.
 	var _cleanupCallbacks:Array<Dynamic> = [];
 
 	// ── constructor ───────────────────────────────────────────────────────────
 
 	/**
 	 * @param state  Estado padre (normalmente PlayState.instance)
-	 * @param key    Clave del JSON (sin extensión ni ruta)
-	 * @param song   Canción actual (para resolver rutas de subcarpeta)
+	 * @param key    Key of the JSON (without extension ni path)
+	 * @param song   Song current (for resolve rutas of subcarpeta)
 	 */
 	public function new(state:flixel.FlxState, key:String, ?song:String)
 	{
@@ -137,28 +137,28 @@ class SpriteCutscene
 
 	function _initCamera():Void
 	{
-		// Crear cámara dedicada que se añade AL FINAL de la lista de cámaras
+		// Create camera dedicada that is adds to the end of the list of cameras
 		// → se renderiza encima de camGame y camHUD, tapando el gameplay.
 		_camCutscene = new FlxCamera();
 		_camCutscene.bgColor = 0x00000000; // transparente
 
 		// FIX flash blanco: el canvas de OpenFL que subyace a cada FlxCamera
 		// se inicializa como un bitmap blanco. Flixel lo limpia con bgColor
-		// durante su primer draw(), pero solo si la cámara ya era visible en
+		// durante its primer draw(), but only if the camera already era visible in
 		// ese momento — si la hacemos visible en preUpdate (antes del draw)
 		// vemos un destello blanco exactamente 1 frame.
 		//
-		// Solución: conectarse a postDraw UNA SOLA VEZ para activar la cámara
-		// DESPUÉS de que el frame actual haya terminado de renderizarse.
+		// Solution: conectarse to postDraw a SOLA VEZ for activar the camera
+		// after of that the frame current haya terminado of renderizarse.
 		// En el siguiente frame Flixel la limpia con bgColor antes de dibujar,
-		// así nunca se ve el bitmap blanco inicial.
+		// so never is ve the bitmap blanco inicial.
 		_camCutscene.visible = false;
 		FlxG.cameras.add(_camCutscene, false);
 
 		FlxG.signals.postDraw.addOnce(_onFirstPostDraw);
 	}
 
-	/** Activa _camCutscene después del primer frame completo para evitar el flash blanco. */
+	/** Active _camCutscene after of the first frame complete for avoid the flash blanco. */
 	function _onFirstPostDraw():Void
 	{
 		if (_camCutscene != null)
@@ -177,15 +177,15 @@ class SpriteCutscene
 		playing     = true;
 		finished    = false;
 		_stepIdx    = 0;
-		// Guardar el estado actual de la cámara para que cameraReset sepa
-		// a qué valores volver.
+		// Save the state current of the camera for that cameraReset sepa
+		// to what values return.
 		_origCamZoom = FlxG.camera.zoom;
 		_origCamX    = FlxG.camera.scroll.x;
 		_origCamY    = FlxG.camera.scroll.y;
-		// FIX cámara se bloquea al terminar: FlxCamera.follow() sigue activo
+		// FIX camera is bloquea to the terminar: FlxCamera.follow() sigue active
 		// durante la cutscene y cada frame lerpa scroll hacia camFollow,
 		// peleando con los tweens de cameraPan/cameraZoom. Lo deshabilitamos
-		// aquí y lo restauramos en _cleanup() para que el CameraController
+		// here and it restauramos in _cleanup() for that the CameraController
 		// retome el control limpiamente al volver al gameplay.
 		_camFollowDisabled = false;
 		var _ps = funkin.gameplay.PlayState.instance;
@@ -195,9 +195,9 @@ class SpriteCutscene
 			_camFollowDisabled = true;
 		}
 		// FIX animaciones: congelar los personajes del PlayState mientras
-		// dura la cutscene para que no sigan bailando/animándose por su cuenta.
+		// dura the cutscene for that no sigan bailando/animándose by its cuenta.
 		_setCharactersFrozen(true);
-		// Conectar el update de seguimiento de cámara
+		// Conectar the update of seguimiento of camera
 		FlxG.signals.preUpdate.add(_onPreUpdate);
 		_nextStep();
 	}
@@ -213,11 +213,11 @@ class SpriteCutscene
 	}
 
 	/**
-	 * Registra una función de callback para los pasos 'call' o 'callAsync'.
-	 * Llamar antes de play(). CutsceneBuilder lo hace automáticamente.
+	 * Registra a function of callback for the pasos 'call' or 'callAsync'.
+	 * Callr before of play(). CutsceneBuilder it hace automatically.
 	 * param id  ID del paso (generado por CutsceneBuilder o puesto a mano en el JSON)
-	 * param fn  Función a ejecutar.
-	 *            Para 'call':      fn()  — sin parámetros
+	 * param fn  Function to ejecutar.
+	 *            For 'call':      fn()  — without parameters
 	 *            Para 'callAsync': fn(done:Void->Void)  — debe llamar done() para continuar
 	 */
 	public function registerCallback(id:String, fn:Dynamic):Void
@@ -226,7 +226,7 @@ class SpriteCutscene
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	//  Ejecución de pasos
+	//  Execution of pasos
 	// ═════════════════════════════════════════════════════════════════════════
 
 	function _nextStep():Void
@@ -305,9 +305,9 @@ class SpriteCutscene
 
 			// ── stageAnim ─────────────────────────────────────────────────────
 			// Controla personajes YA EXISTENTES en el PlayState (bf, dad, gf, o
-			// cualquier nombre del stage) sin necesidad de añadir sprites nuevos.
+			// cualquier nombre of the stage) without necesidad of add sprites nuevos.
 			// JSON: { "action": "stageAnim", "sprite": "bf", "anim": "hey", "force": true }
-			// Nombres válidos para "sprite":
+			// Names valid for "sprite":
 			//   "bf" / "boyfriend"  → PlayState.boyfriend
 			//   "dad" / "opponent"  → PlayState.dad
 			//   "gf" / "girlfriend" → PlayState.gf
@@ -342,22 +342,22 @@ class SpriteCutscene
 				_nextStep();
 
 			// ── cameraZoom ────────────────────────────────────────────────────────
-			// Tweenea el zoom de la cámara del gameplay (FlxG.camera).
+			// Tweenea the zoom of the camera of the gameplay (FlxG.camera).
 			// JSON: { "action":"cameraZoom", "zoom":1.3, "duration":0.5, "ease":"quadOut", "async":true }
 			case 'cameraZoom':
 				_doCameraZoom(step);
 
 			// ── cameraMove ────────────────────────────────────────────────────────
-			// Salta la cámara a (camX, camY) instantáneamente (sin tween).
+			// Salta the camera to (camX, camY) instantly (without tween).
 			// JSON: { "action":"cameraMove", "camX":760, "camY":450 }
 			case 'cameraMove':
-				// FIX: mover el scroll, no la posición de pantalla
+				// FIX: move the scroll, no the position of screen
 				if (step.camX != null) FlxG.camera.scroll.x = step.camX;
 				if (step.camY != null) FlxG.camera.scroll.y = step.camY;
 				_nextStep();
 
 			// ── cameraPan ─────────────────────────────────────────────────────────
-			// Tween de posición de la cámara hacia (camX, camY).
+			// Tween of position of the camera towards (camX, camY).
 			// JSON: { "action":"cameraPan", "camX":760, "camY":450, "duration":1.0, "ease":"sineInOut", "async":true }
 			case 'cameraPan':
 				_doCameraPan(step);
@@ -369,14 +369,14 @@ class SpriteCutscene
 				_doCameraTween(step);
 
 			// ── cameraReset ───────────────────────────────────────────────────────
-			// Restaura el zoom y la posición que tenía la cámara antes de la cutscene.
+			// Restaura the zoom and the position that tenía the camera before of the cutscene.
 			// JSON: { "action":"cameraReset", "duration":0.5, "ease":"quadOut", "async":true }
 			case 'cameraReset':
 				_doCameraReset(step);
 
 			// ── cameraTarget ──────────────────────────────────────────────────────
-			// Centra la cámara en un sprite (de la cutscene o del stage) hasta que se
-			// cancele. La cámara sigue al sprite en cada frame desde _camTarget.
+			// Centra the camera in a sprite (of the cutscene or of the stage) until that is
+			// cancele. The camera sigue to the sprite in each frame from _camTarget.
 			// JSON: { "action":"cameraTarget", "camTarget":"senpaiEvil" }
 			// JSON: { "action":"cameraTarget", "camTarget":null }   ← dejar de seguir
 			case 'cameraTarget':
@@ -399,19 +399,19 @@ class SpriteCutscene
 				_nextStep();
 
 			// ── setCamVisible ──────────────────────────────────────────────────────
-			// Muestra u oculta una cámara del PlayState con fade suave de alpha.
+			// Muestra u oculta a camera of the PlayState with fade suave of alpha.
 			// JSON: { "action": "setCamVisible", "cam": "hud", "visible": false }
 			//       { "action": "setCamVisible", "cam": "hud", "visible": false, "duration": 0.4, "async": true }
 			// Valores para "cam": "hud" | "game" | "countdown"
 			// duration (default 0.3s), ease, async igual que otros tweens.
-			// Al terminar/saltar la cutscene se restauran alpha y visible automáticamente.
+			// To the terminar/saltar the cutscene is restauran alpha and visible automatically.
 			case 'setCamVisible':
 				_doSetCamVisible(step);
 
 			// ── call ───────────────────────────────────────────────────────────────
-			// Ejecuta una función registrada con registerCallback() sin bloquear.
+			// Ejecuta a function registrada with registerCallback() without bloquear.
 			// JSON / builder: { action:'call', id:'myFn' }
-			// La función se llama sin parámetros: fn()
+			// The function is call without parameters: fn()
 			case 'call':
 				var cbId:String = step.id ?? '';
 				var cb = _callbackMap.get(cbId);
@@ -419,10 +419,10 @@ class SpriteCutscene
 				_nextStep();
 
 			// ── callAsync ──────────────────────────────────────────────────────────
-			// Ejecuta una función que recibe un callback `done:Void->Void`.
+			// Ejecuta a function that receives a callback `done:Void->Void`.
 			// La cutscene se bloquea hasta que el script llame a done().
 			// JSON / builder: { action:'callAsync', id:'myFn' }
-			// La función recibe done: fn(done) { ...; done(); }
+			// The function receives done: fn(done) { ...; done(); }
 			case 'callAsync':
 				var asyncId:String = step.id ?? '';
 				var asyncCb = _callbackMap.get(asyncId);
@@ -445,11 +445,11 @@ class SpriteCutscene
 
 			// ── waitBeat ───────────────────────────────────────────────────────────
 			// Bloquea la cutscene hasta que Conductor llega al beat indicado.
-			// Si el beat ya pasó, continúa inmediatamente.
+			// If the beat already passed, continúa inmediatamente.
 			// JSON / builder: { action:'waitBeat', beat:8 }
 			case 'waitBeat':
 				var targetBeat:Int = Std.int((step : Dynamic).beat ?? 0);
-				// Leer curBeat vía Conductor para no necesitar @:privateAccess en MusicBeatState.
+				// Read curBeat via Conductor to avoid needing @:privateAccess in MusicBeatState.
 				var getCurrentBeat = function():Int
 					return Std.int(funkin.data.Conductor.getBeatAtTime(funkin.data.Conductor.songPosition));
 				if (getCurrentBeat() >= targetBeat) { _nextStep(); return; }
@@ -490,7 +490,7 @@ class SpriteCutscene
 				});
 
 			// ── _registerCleanup (interno, generado por CutsceneBuilder.onCleanup) ──
-			// Registra una función para llamarla cuando la cutscene termine o se salte.
+			// Registra a function for callrla when the cutscene termine or is salte.
 			case '_registerCleanup':
 				var cleanId:String = step.id ?? '';
 				var cleanFn = _callbackMap.get(cleanId);
@@ -498,7 +498,7 @@ class SpriteCutscene
 				_nextStep();
 
 			// ── subtitle ──────────────────────────────────────────────────────────
-			// Muestra un subtítulo. NO bloquea la cutscene (async).
+			// Muestra a subtitle. no bloquea the cutscene (async).
 			// JSON: { "action": "subtitle", "text": "Hello", "duration": 3.0,
 			//         "size": 28, "color": "0xFFFF00", "bgAlpha": 0.7,
 			//         "align": "center", "bold": true, "font": "vcr.ttf",
@@ -539,7 +539,7 @@ class SpriteCutscene
 				_nextStep();
 
 			// ── subtitleHide ──────────────────────────────────────────────────────
-			// Oculta el subtítulo actual.
+			// Hides the subtitle current.
 			// JSON: { "action": "subtitleHide" }
 			//       { "action": "subtitleHide", "instant": true }
 			case 'subtitleHide', 'subtitle hide':
@@ -548,14 +548,14 @@ class SpriteCutscene
 				_nextStep();
 
 			// ── subtitleClear ─────────────────────────────────────────────────────
-			// Oculta el subtítulo y vacía la cola.
+			// Hides the subtitle and empty the cola.
 			// JSON: { "action": "subtitleClear" }
 			case 'subtitleClear', 'subtitle clear':
 				funkin.ui.SubtitleManager.instance.clear();
 				_nextStep();
 
 			// ── subtitleStyle ─────────────────────────────────────────────────────
-			// Cambia el estilo global para futuros subtítulos.
+			// Changes the estilo global for futuros subtitles.
 			// JSON: { "action": "subtitleStyle", "size": 28, "color": "0xFFFFFF",
 			//         "bgAlpha": 0.6, "align": "center", "bold": true }
 			case 'subtitleStyle', 'subtitle style':
@@ -583,7 +583,7 @@ class SpriteCutscene
 				_finish();
 
 			default:
-				trace('[SpriteCutscene] Acción desconocida: "${step.action}"');
+				trace('[SpriteCutscene] Action desconocida: "${step.action}"');
 				_nextStep();
 		}
 	}
@@ -595,7 +595,7 @@ class SpriteCutscene
 		var id = step.sprite ?? '';
 		var spr = _sprites.get(id);
 
-		// Crear el sprite si no existe aún
+		// Create the sprite if no exists still
 		if (spr == null)
 		{
 			spr = _createSprite(id);
@@ -604,7 +604,7 @@ class SpriteCutscene
 		}
 
 		if (step.alpha != null) spr.alpha = step.alpha;
-		// Asignar la cámara de cutscene para que el sprite se renderice
+		// Asignar the camera of cutscene for that the sprite is renderice
 		// por encima del HUD y el gameplay.
 		spr.cameras = [_camCutscene];
 		_state.add(spr);
@@ -626,7 +626,7 @@ class SpriteCutscene
 
 		switch (data.type ?? 'rect')
 		{
-			// ── Rectángulo sólido ─────────────────────────────────────────────
+			// ── Rectangle solid ─────────────────────────────────────────────
 			case 'rect':
 				spr = new FlxSprite();
 				var w = Std.int((data.width  ?? 1.0) * FlxG.width);
@@ -634,7 +634,7 @@ class SpriteCutscene
 				spr.makeGraphic(w, h, _parseColor(data.color ?? 'BLACK'));
 				spr.scrollFactor.set(sf, sf);
 
-			// ── Imagen estática (images/) ──────────────────────────────────────
+			// ── Image static (images/) ──────────────────────────────────────
 			case 'image':
 				var imgSpr = new FunkinSprite();
 				var key = data.image ?? id;
@@ -645,7 +645,7 @@ class SpriteCutscene
 				spr = imgSpr;
 
 			// ── Personaje (characters/images/) ────────────────────────────────
-			//    FunkinSprite.loadCharacterSparrow detecta automáticamente:
+			//    FunkinSprite.loadCharacterSparrow detecta automatically:
 			//    Multi-Animate (.sheets) → Animate folder → Sparrow → Packer
 			case 'character':
 				var charSpr = new FunkinSprite();
@@ -662,15 +662,15 @@ class SpriteCutscene
 				_addAnims(stageSpr, data);
 				spr = stageSpr;
 
-			// ── Atlas genérico (images/) — auto-detecta Sparrow/Packer/Animate ─
-			//    FunkinSprite.loadAsset detecta por extensión XML/TXT/Animation.json
+			// ── Atlas generic (images/) — auto-detecta Sparrow/Packer/Animate ─
+			//    FunkinSprite.loadAsset detecta by extension XML/TXT/Animation.json
 			case 'atlas', 'sparrow', 'packer', 'animate', 'flxanimate', 'auto':
 				var atlasSpr = new FunkinSprite();
 				atlasSpr.scrollFactor.set(sf, sf);
 
 				var pathList:Array<String> = data.paths;
 				if (pathList != null && pathList.length > 1)
-					// Multi-atlas explícito (varios PNG+XML o carpetas Animate)
+					// Explicit multi-atlas (multiple PNG+XML or Animate folders)
 					atlasSpr.loadMultiAnimateAtlas(pathList);
 				else if (pathList != null && pathList.length == 1)
 					atlasSpr.loadAsset(pathList[0]);
@@ -714,7 +714,7 @@ class SpriteCutscene
 	}
 
 	// ── _addAnims: registra animaciones en un FunkinSprite ───────────────────
-	// FunkinSprite.addAnim() detecta automáticamente si el sprite es Animate
+	// FunkinSprite.addAnim() detecta automatically if the sprite is Animate
 	// (frame labels) o Sparrow (addByPrefix/addByIndices).
 
 	function _addAnims(spr:FunkinSprite, data:SpriteCutsceneData.CutsceneSpriteData):Void
@@ -793,15 +793,15 @@ class SpriteCutscene
 
 	/**
 	 * Busca un personaje existente en el PlayState por nombre y le lanza la
-	 * animación indicada. Esto permite hacer cutscenes usando directamente
-	 * los personajes del stage sin añadir sprites extra.
+	 * animation indicada. This allows do cutscenes usando directamente
+	 * the characters of the stage without add sprites extra.
 	 *
 	 * Nombres reconocidos para el campo "sprite":
 	 *   "bf" | "boyfriend"  → PlayState.boyfriend
 	 *   "dad" | "opponent"  → PlayState.dad
 	 *   "gf" | "girlfriend" → PlayState.gf
 	 *
-	 * Si "wait" es true, la cutscene se bloquea hasta que la animación termine.
+	 * If "wait" is true, the cutscene is bloquea until that the animation termine.
 	 * JSON: { "action": "stageAnim", "sprite": "bf", "anim": "hey",
 	 *         "force": true, "wait": false }
 	 */
@@ -818,13 +818,13 @@ class SpriteCutscene
 		var animName = step.anim ?? '';
 		var force    = step.force ?? true;
 
-		// Usar playAnim si es un Character (FNF), animation.play si es genérico
+		// Usar playAnim if is a Character (FNF), animation.play if is generic
 		if (Std.isOfType(char, funkin.gameplay.objects.character.Character))
 			cast(char, funkin.gameplay.objects.character.Character).playAnim(animName, force);
 		else if (char.animation != null)
 			char.animation.play(animName, force);
 
-		// Si wait=true esperar a que la animación termine antes de continuar
+		// If wait=true wait to that the animation termine before of continuar
 		if ((step : Dynamic).wait == true && char.animation != null)
 		{
 			_blocked = true;
@@ -835,7 +835,7 @@ class SpriteCutscene
 			{
 				if (_skipped) return;
 				var anim = char.animation;
-				// La animación acabó si finished=true o ya no está la misma
+				// The animation acabó if finished=true or already no is the same
 				if (anim == null || anim.curAnim == null || anim.curAnim.finished)
 				{
 					_timers.remove(t);
@@ -869,7 +869,7 @@ class SpriteCutscene
 			case 'bf', 'boyfriend':           ps.boyfriend;
 			case 'dad', 'opponent', 'enemy':  ps.dad;
 			case 'gf', 'girlfriend':          ps.gf;
-			// Fallback: buscar en sprites de cutscene por si alguien reutilizó el nombre
+			// Fallback: search in sprites of cutscene by if alguien reutilizó the name
 			default:
 				var found = _sprites.get(name);
 				if (found != null) found else null;
@@ -885,7 +885,7 @@ class SpriteCutscene
 		var id      = step.id;
 		var stepDyn = (step : Dynamic);
 
-		// ── Resolución de ruta ────────────────────────────────────────────────
+		// ── Resolution of ruta ────────────────────────────────────────────────
 		// Por defecto usa Paths.sound().
 		// "music": true  → Paths.music()       (carpeta music/ del mod)
 		// "stage": true  → Paths.soundStage()  (carpeta stages/<curStage>/... del mod)
@@ -904,7 +904,7 @@ class SpriteCutscene
 		if (isStage)
 		{
 			// soundStage espera "stageName/subpath/key" — anteponemos el stage actual
-			// y la subcarpeta según si es música o sonido.
+			// and the subcarpeta according to if is music or sound.
 			var curStage = funkin.gameplay.PlayState.curStage ?? Paths.currentStage;
 			var sub      = isMusic ? 'music' : 'sounds';
 			path = Paths.soundStage('$curStage/$sub/$key');
@@ -923,7 +923,7 @@ class SpriteCutscene
 		if (id != null && snd != null)
 			_sounds.set(id, snd);
 
-		_nextStep(); // playSound nunca bloquea por sí solo — usar waitSound
+		_nextStep(); // playSound never bloquea by itself only — usar waitSound
 	}
 
 	// ── waitSound ─────────────────────────────────────────────────────────────
@@ -1059,8 +1059,8 @@ class SpriteCutscene
 		var dur  = step.duration ?? 0.6;
 		var ease = _parseEase(step.ease);
 
-		// FIX: cameraPan mueve el SCROLL (qué parte del mundo se ve),
-		// NO camera.x/y (que son posición en pantalla — siempre 0,0 en FNF).
+		// FIX: cameraPan moves the SCROLL (what parte of the mundo is ve),
+		// no camera.x/and (that are position in screen — always 0,0 in FNF).
 		// FlxG.camera.scroll es un FlxPoint con x/y tweeneable directamente.
 		var props:Dynamic = {};
 		if (step.camX != null) Reflect.setField(props, 'x', step.camX);
@@ -1147,17 +1147,17 @@ class SpriteCutscene
 	// ── setCamVisible ─────────────────────────────────────────────────────────
 
 	/**
-	 * Muestra u oculta una cámara del PlayState con un fade suave de alpha.
+	 * Muestra u oculta a camera of the PlayState with a fade suave of alpha.
 	 *
 	 * JSON:
 	 *   { "action": "setCamVisible", "cam": "hud", "visible": false }
 	 *   { "action": "setCamVisible", "cam": "hud", "visible": false, "duration": 0.4, "ease": "quadOut" }
 	 *   { "action": "setCamVisible", "cam": "hud", "visible": false, "duration": 0.4, "async": true }
 	 *
-	 * - "duration" controla cuánto dura el fade (default: 0.3s).
-	 *   Con duration=0 el cambio es instantáneo (sin tween).
+	 * - "duration" controla how much dura the fade (default: 0.3s).
+	 *   With duration=0 the cambio is instant (without tween).
 	 * - "async": true → no bloquea la cadena de pasos (el fade corre en paralelo).
-	 * - La visibilidad y alpha originales se restauran automáticamente en cleanup.
+	 * - The visibilidad and alpha originales is restauran automatically in cleanup.
 	 *
 	 * @param step  Paso completo (se leen cam, visible, duration, ease, async)
 	 */
@@ -1179,7 +1179,7 @@ class SpriteCutscene
 
 		if (cam == null) { _nextStep(); return; }
 
-		// Guardar alpha y visible originales la primera vez que tocamos esta cámara.
+		// Save alpha and visible originales the first vez that tocamos this camera.
 		if (!_hiddenCamsAlpha.exists(key))
 			_hiddenCamsAlpha.set(key, cam.alpha);
 		if (!_hiddenCams.exists(key))
@@ -1191,13 +1191,13 @@ class SpriteCutscene
 		var isAsync:Bool     = step.async ?? false;
 		var targetAlpha:Float = makeVisible ? 1.0 : 0.0;
 
-		// Si vamos a mostrar la cámara, activar visible ANTES del fade
+		// If vamos to mostrar the camera, activar visible before of the fade
 		// para que el tween sea visible desde el primer frame.
 		if (makeVisible) cam.visible = true;
 
 		if (dur <= 0)
 		{
-			// Instantáneo: sin tween
+			// Instant: without tween
 			cam.alpha   = targetAlpha;
 			if (!makeVisible) cam.visible = false;
 			_nextStep();
@@ -1210,7 +1210,7 @@ class SpriteCutscene
 				onComplete: function(_)
 				{
 					// Al terminar el fade-out, ocultar visible para
-					// que la cámara no consuma fill-rect cada frame.
+					// so the camera doesn't consume fill-rect every frame.
 					if (!makeVisible) cam.visible = false;
 				}
 			});
@@ -1237,7 +1237,7 @@ class SpriteCutscene
 
 	// ── cleanup / finish ──────────────────────────────────────────────────────
 
-	/** Tick de seguimiento de cámara — se conecta a FlxG.signals.preUpdate. */
+	/** Tick of seguimiento of camera — is conecta to FlxG.signals.preUpdate. */
 	function _onPreUpdate():Void
 	{
 		// Sincronizar _camCutscene con FlxG.camera en cada frame para que
@@ -1270,7 +1270,7 @@ class SpriteCutscene
 			if (c == null) continue;
 			try
 			{
-				// FunkinSprite / FlxAnimate: pausar/reanudar la animación
+				// FunkinSprite / FlxAnimate: pause/reanudar the animation
 				if (freeze)
 				{
 					if (c.animation != null && c.animation.curAnim != null)
@@ -1292,17 +1292,17 @@ class SpriteCutscene
 	}
 
 	/**
-	 * Fuerza a bf, dad y gf a volver a su animación idle/dance después de
+	 * Forces to bf, dad and gf to volver to its animation idle/dance after of
 	 * que la cutscene termine.
 	 *
 	 * ESTRATEGIA para evitar el "snap" brusco al idle:
-	 *  • Animaciones NO looping (intro2, laughCutscene…):  avanzar al último
-	 *    frame. Character.update() verá animFinished=true en el siguiente tick
-	 *    y llamará a dance() por sí solo — la transición queda a cargo del
-	 *    sistema de animación del personaje, exactamente igual a cuando la
-	 *    animación termina durante el gameplay.
+	 *  • Animations no looping (intro2, laughCutscene…):  avanzar to the last
+	 *    frame. Character.update() verá animFinished=true in the next tick
+	 *    and callrá to dance() by itself only — the transition queda to cargo of the
+	 *    system of animation of the character, exactamente igual to when the
+	 *    animation termina durante the gameplay.
 	 *  • Animaciones looping: forzar returnToIdle() directamente porque nunca
-	 *    terminarían solas y el personaje se quedaría congelado en esa pose.
+	 *    terminarían solas and the character is quedaría frozen in that pose.
 	 */
 	function _returnCharactersToIdle():Void
 	{
@@ -1319,19 +1319,19 @@ class SpriteCutscene
 
 				if (anim.curAnim.looped)
 				{
-					// Looping → nunca terminaría: forzar idle ahora
+					// Looping → would never end: force idle now
 					if (Std.isOfType(c, funkin.gameplay.objects.character.Character))
 						cast(c, funkin.gameplay.objects.character.Character).returnToIdle();
 				}
 				else
 				{
-					// No-looping → avanzar al último frame para que el update
+					// No-looping → avanzar to the last frame for that the update
 					// loop del Character detecte animFinished y llame a dance().
-					// Esto preserva la transición natural definida en el personaje.
+					// This preserves the natural transition defined in the character.
 					final last = anim.curAnim.numFrames - 1;
 					if (anim.curAnim.curFrame < last)
 						anim.curAnim.curFrame = last;
-					// Despausar (por si _setCharactersFrozen la dejó pausada)
+					// Unpause (in case _setCharactersFrozen left it paused)
 					anim.curAnim.paused = false;
 				}
 			}
@@ -1344,20 +1344,20 @@ class SpriteCutscene
 		// FIX animaciones: reanudar los personajes al terminar la cutscene
 		_setCharactersFrozen(false);
 		// FIX animaciones persisten: forzar a cada personaje a su idle/dance
-		// después de la cutscene. _setCharactersFrozen(false) solo despausa la
-		// animación que quedó activa (ej. intro2, laughCutscene); con esto la
+		// after of the cutscene. _setCharactersFrozen(false) only despausa the
+		// animation that quedó active (ej. intro2, laughCutscene); with this the
 		// reseteamos limpiamente a la pose de espera sin esperar al update loop.
 		_returnCharactersToIdle();
-		// Desconectar el tick de seguimiento de cámara
+		// Desconectar the tick of seguimiento of camera
 		FlxG.signals.preUpdate.remove(_onPreUpdate);
-		// Por si la cutscene terminó antes de que se disparara el postDraw inicial
+		// By if the cutscene ended before of that is disparara the postDraw inicial
 		FlxG.signals.postDraw.remove(_onFirstPostDraw);
 		_camTarget = null;
 
-		// FIX cámara se bloquea al personaje: restaurar el follow que
-		// desconectamos en play(). También hacemos snap inmediato a la
-		// posición correcta del target para que la cámara no "vuele" desde
-		// donde quedó la cutscene hasta el personaje con un lerp largo.
+		// FIX camera is bloquea to the character: restaurar the follow that
+		// desconectamos in play(). Also hacemos snap inmediato to the
+		// position correct of the target for that the camera no "vuele" from
+		// where quedó the cutscene until the character with a lerp largo.
 		if (_camFollowDisabled)
 		{
 			var ps = funkin.gameplay.PlayState.instance;
@@ -1365,7 +1365,7 @@ class SpriteCutscene
 			{
 				var cc = ps.cameraController;
 				// Snap del camFollow al target actual ANTES de re-activar follow,
-				// así el primer frame post-cutscene la cámara ya está en el sitio correcto.
+				// so the first frame post-cutscene the camera already is in the sitio correct.
 				cc.snapshotInitialState(); // refresca los valores internos tras cambios de zoom
 				FlxG.camera.follow(cc.camFollow, flixel.FlxCamera.FlxCameraFollowStyle.LOCKON, cc.followLerp);
 			}
@@ -1373,7 +1373,7 @@ class SpriteCutscene
 		}
 
 		// FIX setCamVisible: restaurar visibilidad y alpha originales de cada
-		// cámara que la cutscene modificó con setCamVisible.
+		// camera that the cutscene modificó with setCamVisible.
 		var ps2 = funkin.gameplay.PlayState.instance;
 		if (ps2 != null)
 		{
@@ -1388,7 +1388,7 @@ class SpriteCutscene
 				};
 				if (cam != null)
 				{
-					// Cancelar cualquier tween de alpha pendiente sobre esta cámara
+					// Cancel any pending alpha tween on this camera
 					FlxTween.cancelTweensOf(cam);
 					cam.alpha   = _hiddenCamsAlpha.exists(key) ? _hiddenCamsAlpha.get(key) : 1.0;
 					cam.visible = wasVisible;
@@ -1410,13 +1410,13 @@ class SpriteCutscene
 		_cleanupCallbacks = [];
 
 		// Cancelar solo los timers y tweens de ESTA cutscene,
-		// sin tocar el globalManager (que mataría timers de audio/música).
+		// without tocar the globalManager (that mataría timers of audio/music).
 		for (t in _timers)  { try t.cancel() catch (_) {}; }
 		for (tw in _tweens) { try tw.cancel() catch (_) {}; }
 		_timers  = [];
 		_tweens  = [];
 
-		// Eliminar la cámara dedicada de la lista de Flixel.
+		// Remove the camera dedicada of the list of Flixel.
 		if (_camCutscene != null)
 		{
 			FlxG.cameras.remove(_camCutscene, true);
@@ -1467,7 +1467,7 @@ class SpriteCutscene
 		var candidates:Array<String> = [];
 		var modRoot = ModManager.modRoot();
 
-		// Con subcarpeta de canción
+		// With subcarpeta of song
 		if (song != null)
 		{
 			if (modRoot != null)
@@ -1491,7 +1491,7 @@ class SpriteCutscene
 		return null;
 	}
 
-	// ── API estática de conveniencia ──────────────────────────────────────────
+	// ── API static of conveniencia ──────────────────────────────────────────
 
 	/**
 	 * Crea y ejecuta una cutscene directamente.

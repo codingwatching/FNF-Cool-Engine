@@ -10,19 +10,19 @@ import openfl.system.System;
 /**
  * MemoryUtil — control del GC y consultas de memoria.
  *
- * ─── Diseño ──────────────────────────────────────────────────────────────────
- * Inspirado en Codename Engine pero integrado con el sistema de módulos de
- * Cool Engine.  Usa un contador de "solicitudes de desactivación" (disableCount)
- * en vez de un bool simple, para que múltiples sistemas puedan pedir que el GC
- * esté inactivo de forma independiente y se reactive sólo cuando todos lo hayan
+ * ─── Design ──────────────────────────────────────────────────────────────────
+ * Inspirado in Codename Engine but integrado with the system of modules of
+ * Cool Engine.  Use a contador of "solicitudes of desactivación" (disableCount)
+ * in vez of a bool simple, for that multiple systems puedan pedir that the GC
+ * is inactive independently and reactivates only when all of them have
  * liberado.
  *
- * ─── Uso típico ──────────────────────────────────────────────────────────────
+ * ─── Typical usage ──────────────────────────────────────────────────────────────
  *   // Antes de cargar assets pesados (bloquea GC durante la carga):
  *   MemoryUtil.pauseGC();
  *   loadHeavyStuff();
  *   MemoryUtil.resumeGC();
- *   MemoryUtil.collectMajor();   // forzar ciclo después de la carga
+ *   MemoryUtil.collectMajor();   // force ciclo after of the load
  *
  * @author  Cool Engine Team
  * @since   0.5.1
@@ -31,14 +31,14 @@ class MemoryUtil
 {
 	// ── Estado del GC ─────────────────────────────────────────────────────────
 
-	/** Número de llamadas a pauseGC() sin su correspondiente resumeGC(). */
+	/** Number of calldas to pauseGC() without its correspondiente resumeGC(). */
 	public static var disableCount(default, null):Int = 0;
 
 	// ── GC control ───────────────────────────────────────────────────────────
 
 	/**
-	 * Solicita pausar el GC.  El GC se desactiva sólo cuando disableCount > 0.
-	 * Siempre acompañar con `resumeGC()` en un bloque try/finally.
+	 * Solicita pause the GC.  The GC is desactiva only when disableCount > 0.
+	 * Always acompañar with `resumeGC()` in a bloque try/finally.
 	 */
 	public static function pauseGC():Void
 	{
@@ -57,7 +57,7 @@ class MemoryUtil
 	}
 
 	/**
-	 * Fuerza un ciclo menor del GC (rápido, solo generación joven).
+	 * Forces a ciclo menor of the GC (fast, only generación joven).
 	 * Llamar entre canciones o al cambiar de estado.
 	 */
 	public static function collectMinor():Void
@@ -68,8 +68,8 @@ class MemoryUtil
 	}
 
 	/**
-	 * Fuerza un ciclo completo del GC + compactación del heap.
-	 * Llamar al volver al menú principal o después de una carga pesada.
+	 * Forces a ciclo complete of the GC + compactación of the heap.
+	 * Callr to the volver to the menu main or after of a load heavy.
 	 * Evitar durante gameplay — provoca un stutter visible.
 	 */
 	public static function collectMajor():Void
@@ -112,7 +112,7 @@ class MemoryUtil
 	static function _enableGC():Void
 	{
 		#if cpp Gc.enable(true);  #end
-		// HashLink: enable no-op — Gc.major() lo reactiva implícitamente
+		// HashLink: enable no-op — Gc.major() it reactiva implicitly
 	}
 
 	static function _disableGC():Void

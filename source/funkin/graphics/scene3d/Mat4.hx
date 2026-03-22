@@ -4,7 +4,7 @@ package funkin.graphics.scene3d;
  * Mat4 — Matriz 4×4 column-major para transformaciones 3D.
  *
  * Almacena 16 floats en un Array<Float> plano indexado [col*4 + row].
- * Las operaciones críticas (multiply, transformVec3) son inline para
+ * Critical operations (multiply, transformVec3) are inline for
  * que el compilador C++ las expanda sin overhead de llamada.
  *
  * Compatible con openfl.display3D.Context3D.setProgramConstantsFromMatrix()
@@ -50,7 +50,7 @@ class Mat4
 		return r;
 	}
 
-	// ── Multiplicación (this × b, resultado en out — evita new) ───────────
+	// ── Multiplication (this × b, result in out — avoids new) ───────────
 
 	public static inline function multiply(a:Mat4, b:Mat4, out:Mat4):Mat4
 	{
@@ -89,7 +89,7 @@ class Mat4
 		return out;
 	}
 
-	// ── Traslación / Escala / Rotación ─────────────────────────────────────
+	// ── Translation / Scales / Rotation ─────────────────────────────────────
 
 	public inline function setTranslation(x:Float, y:Float, z:Float):Mat4
 	{
@@ -132,14 +132,14 @@ class Mat4
 		return this;
 	}
 
-	// ── Composición TRS desde Euler ────────────────────────────────────────
+	// ── TRS composition from Euler ────────────────────────────────────────
 
 	static var _tmp1:Mat4 = new Mat4();
 	static var _tmp2:Mat4 = new Mat4();
 
 	/**
 	 * Construye la matriz TRS: Translation × Rotation(XYZ euler) × Scale.
-	 * Reutiliza buffers estáticos para evitar allocations en el loop de render.
+	 * Reutiliza buffers static for avoid allocations in the loop of render.
 	 */
 	public function setTRS(tx:Float, ty:Float, tz:Float,
 	                       rx:Float, ry:Float, rz:Float,
@@ -175,8 +175,8 @@ class Mat4
 	// ── Perspective projection ──────────────────────────────────────────────
 
 	/**
-	 * Proyección perspectiva estándar (column-major, clip space OpenGL [-1,1]).
-	 * @param fovY   campo de visión vertical en radianes
+	 * Projection perspectiva standard (column-major, clip space OpenGL [-1,1]).
+	 * @param fovY   vertical field of view in radians
 	 * @param aspect ancho/alto
 	 * @param near   plano cercano (> 0)
 	 * @param far    plano lejano
@@ -227,7 +227,7 @@ class Mat4
 		return this;
 	}
 
-	// ── Inversión (para normales) ───────────────────────────────────────────
+	// ── Inversion (for normals) ───────────────────────────────────────────
 
 	/**
 	 * Invierte la matriz y la pone en `out`. Devuelve false si es singular.

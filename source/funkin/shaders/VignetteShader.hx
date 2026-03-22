@@ -3,8 +3,8 @@ package funkin.shaders;
 import flixel.system.FlxAssets.FlxShader;
 
 /**
- * VignetteShader — oscurece los bordes de la pantalla.
- * Extiende FlxShader para ser compatible con FlxCamera.filters y FlxSprite.shader.
+ * VignetteShader — darkens the edges of the screen.
+ * Extends FlxShader to be compatible with FlxCamera.filters and FlxSprite.shader.
  */
 class VignetteShader extends FlxShader
 {

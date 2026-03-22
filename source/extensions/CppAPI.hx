@@ -9,8 +9,8 @@ import flixel.system.scaleModes.BaseScaleMode;
 /**
  * CppAPI — fachada de alto nivel sobre InitAPI y otras funciones nativas.
  *
- * Agrupa las llamadas nativas con una API más limpia y platform-safe.
- * Añade: dark mode, DPI awareness, y helpers de ventana.
+ * Agrupa the calldas nativas with a API more clears and platform-safe.
+ * Adds: dark mode, DPI awareness, and helpers of window.
  */
 class CppAPI
 {
@@ -24,7 +24,7 @@ class CppAPI
 		InitAPI.setWindowBorderColor(r, g, b);
 
 	/**
-	 * Cambia el color del título de la ventana.
+	 * Changes the color of the title of the window.
 	 * No-op en macOS/Linux.
 	 */
 	public static inline function changeCaptionColor(r:Int, g:Int, b:Int):Void
@@ -55,7 +55,7 @@ class CppAPI
 
 	// ── Helpers de ventana ────────────────────────────────────────────────────
 
-	/** Devuelve el título actual de la ventana de lima. */
+	/** Returns the title current of the window of lima. */
 	public static var windowTitle(get, never):String;
 	static inline function get_windowTitle():String
 	{
@@ -66,7 +66,7 @@ class CppAPI
 		#end
 	}
 
-	/** Cambia el título de la ventana en runtime. */
+	/** Changes the title of the window in runtime. */
 	public static function setWindowTitle(title:String):Void
 	{
 		#if !html5
@@ -81,8 +81,8 @@ class CppAPI
 	 * Cambia la opacidad de la ventana del OS.
 	 *
 	 * En Windows usa SetLayeredWindowAttributes (User32.dll).
-	 * La ventana debe tener el estilo WS_EX_LAYERED; lime lo añade automáticamente
-	 * si se llama antes de crear la ventana, o se puede añadir en runtime con
+	 * The window debe have the estilo WS_EX_LAYERED; lime it adds automatically
+	 * if is call before of create the window, or is puede add in runtime with
 	 * SetWindowLongPtr — InitAPI debe implementar setLayeredWindowAttributes.
 	 *
 	 * En otras plataformas, se usa el alpha del contenedor de OpenFL como fallback.

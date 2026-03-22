@@ -17,15 +17,15 @@ import funkin.audio.SoundTray;
 using StringTools;
 
 /**
- * ScriptEditorSubState v2 — Ventana de edición de scripts en HScript/Haxe.
+ * ScriptEditorSubState v2 — Window of edition of scripts in HScript/Haxe.
  *
  * ARREGLOS:
  *  • Escritura de texto completamente funcional (OpenFL TextEvent.TEXT_INPUT)
- *  • Cursor | parpadeante en la posición exacta del caret
- *  • Resaltado de línea activa
- *  • Navegación con flechas, Home/End, Backspace, Delete, Enter (con auto-indent), Tab
- *  • SoundTray.blockInput = true mientras el editor está abierto
- *    → 0 / + / - NO cambian el volumen al escribir código
+ *  • Cursor | parpadeante in the position exacta of the caret
+ *  • Resaltado of line active
+ *  • Navigation with arrows, Home/End, Backspace, Delete, Enter (with auto-indent), Tab
+ *  • SoundTray.blockInput = true while the editor is abierto
+ *    → 0 / + / - no cambian the volumen to the escribir code
  *  • Ctrl+Z undo, Ctrl+W cerrar, Ctrl+S guardar, Ctrl+N nuevo
  *  • Arrastre de ventana funcional (todos los sprites se reposicionan)
  */
@@ -40,7 +40,7 @@ class ScriptEditorSubState extends FlxSubState
 	static inline var C_RED         : Int = 0xFFFF3355;
 	static inline var C_WHITE       : Int = 0xFFFFFFFF;
 	static inline var C_GRAY        : Int = 0xFFAAAAAA;
-	static inline var C_CURLINE     : Int = 0xFF1A1A35;  // Highlight línea activa
+	static inline var C_CURLINE     : Int = 0xFF1A1A35;  // Highlight line active
 
 	// ── Layout ────────────────────────────────────────────────────────────────
 	static inline var WIN_W         : Int = 820;
@@ -52,7 +52,7 @@ class ScriptEditorSubState extends FlxSubState
 	static inline var STATUS_H      : Int = 22;
 	static inline var FONT_SIZE     : Int = 12;
 	static inline var LINE_H        : Int = 15;
-	static inline var CHAR_W        : Float = 7.2;  // Ancho aprox. de carácter monospace
+	static inline var CHAR_W        : Float = 7.2;  // Width aprox. of character monospace
 	static inline var BLINK_RATE    : Float = 0.53;
 
 	// ── State ─────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ class ScriptEditorSubState extends FlxSubState
 	var _isDirty       : Bool   = false;
 	var _scripts       : Map<String, String> = new Map();
 
-	// ── Caret (posición absoluta en _currentCode) ─────────────────────────────
+	// ── Caret (position absoluta in _currentCode) ─────────────────────────────
 	var _caretPos      : Int    = 0;
 	var _cursorLine    : Int    = 0;
 	var _cursorCol     : Int    = 0;
@@ -242,21 +242,21 @@ class ScriptEditorSubState extends FlxSubState
 		_listLabels.cameras = [_camSub];
 		add(_listItems); add(_listLabels);
 
-		// ── Editor área ───────────────────────────────────────────────────────
+		// ── Editor area ───────────────────────────────────────────────────────
 		var edX = LIST_W + 2;
 		var edW = WIN_W - LIST_W - 2;
 
-		// Highlight línea activa (posicionado en _renderCode)
+		// Highlight line active (posicionado in _renderCode)
 		_cursorLineBg = _ws(new FlxSprite().makeGraphic(edW - LINENUM_W, LINE_H, C_CURLINE),
 			edX + LINENUM_W, edY);
 		_cursorLineBg.alpha = 0.85;
 
-		// Gutter números de línea
+		// Gutter numbers of line
 		_ws(new FlxSprite().makeGraphic(LINENUM_W, edH, 0xFF080810),  edX, edY);
 		_ws(new FlxSprite().makeGraphic(1, edH, 0xFF222233), edX + LINENUM_W - 1, edY);
 		_lineNumText = _wt("", edX + 4, edY + 4, LINENUM_W - 8, FONT_SIZE, 0xFF555577, RIGHT);
 
-		// Área de código
+		// Area of code
 		_ws(new FlxSprite().makeGraphic(edW - LINENUM_W, edH, C_EDITOR), edX + LINENUM_W, edY);
 		_codeText = _wt("", edX + LINENUM_W + 6, edY + 4, edW - LINENUM_W - 12, FONT_SIZE, C_WHITE, LEFT);
 
@@ -268,7 +268,7 @@ class ScriptEditorSubState extends FlxSubState
 	}
 
 	// ─── _ws: window sprite helper ────────────────────────────────────────────
-	/** Añade un sprite con posición RELATIVA a (_winX, _winY) y lo registra para reposicionamiento. */
+	/** Adds a sprite with position RELATIVA to (_winX, _winY) and it registra for reposicionamiento. */
 	function _ws(spr:FlxSprite, ox:Float, oy:Float) : FlxSprite
 	{
 		spr.x = _winX + ox; spr.y = _winY + oy;
@@ -342,12 +342,12 @@ class ScriptEditorSubState extends FlxSubState
 		var startL = Std.int(_scrollY / LINE_H);
 		var endL   = Std.int(Math.min(startL + visLines, totalL));
 
-		// Números de línea
+		// Numbers of line
 		var nums = "";
 		for (i in startL...endL) nums += '${i + 1}\n';
 		_lineNumText.text = nums;
 
-		// Código con cursor | parpadeante inline
+		// Code with cursor | parpadeante inline
 		var code = "";
 		for (i in startL...endL) {
 			var line = lines[i];
@@ -359,7 +359,7 @@ class ScriptEditorSubState extends FlxSubState
 		}
 		_codeText.text = code;
 
-		// Posición del highlight de línea activa
+		// Position of the highlight of line active
 		if (_cursorLineBg != null) {
 			var editorTopY = _winY + TITLEBAR_H + TOOLBAR_H + 4;
 			var lineY      = editorTopY + (_cursorLine - startL) * LINE_H;
@@ -371,7 +371,7 @@ class ScriptEditorSubState extends FlxSubState
 			}
 		}
 
-		// Indicador de posición
+		// Indicador of position
 		if (_lineColText != null)
 			_lineColText.text = 'Ln ${_cursorLine + 1}, Col ${_cursorCol + 1}  •  $totalL lines';
 	}
@@ -461,7 +461,7 @@ class ScriptEditorSubState extends FlxSubState
 			}
 		}
 
-		// Click en código → posicionar caret
+		// Click in code → posicionar caret
 		var codeAreaX = _winX + LIST_W + 2 + LINENUM_W + 6;
 		var codeAreaY = _winY + TITLEBAR_H + TOOLBAR_H + 4;
 		if (mx >= codeAreaX && mx <= _winX + WIN_W
@@ -474,7 +474,7 @@ class ScriptEditorSubState extends FlxSubState
 		}
 	}
 
-	// ─── Mover caret a línea/col ──────────────────────────────────────────────
+	// ─── Move caret to line/col ──────────────────────────────────────────────
 	function _moveCaretToLineCol(line:Int, col:Int) : Void
 	{
 		var lines = _currentCode.split("\n");
@@ -636,7 +636,7 @@ class ScriptEditorSubState extends FlxSubState
 		_showStatus("↩ Undo");
 	}
 
-	// ─── ¿El mouse está sobre la ventana? ────────────────────────────────────
+	// ─── The mouse is over the window? ────────────────────────────────────
 	function _isOverWindow() : Bool
 	{
 		var mx = FlxG.mouse.x; var my = FlxG.mouse.y;

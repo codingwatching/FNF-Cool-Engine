@@ -35,7 +35,7 @@ using StringTools;
  * Lista de personajes al estilo FreeplayEditor.
  * "+ NEW CHARACTER" arriba abre un wizard de 2 pasos:
  *   Paso 1 – Nombre del personaje
- *   Paso 2 – Importar assets (sprite, FlxAnimate, ícono)
+ *   Paso 2 – Importar assets (sprite, FlxAnimate, icon)
  * Al terminar → AnimationDebug con el nuevo personaje.
  *
  * ENTER en personaje existente → AnimationDebug directo.
@@ -88,7 +88,7 @@ class CharacterSelectorState extends MusicBeatState
 	private var importedIsTxt:Bool        = false;
 	private var importedSpritemapName:String = "spritemap1";
 	private var importedAnimData:Array<AnimData> = [];
-	private var statusLine:FlxText;           // línea de estado en paso 2
+	private var statusLine:FlxText;           // line of state in paso 2
 
 	// ── Confirm delete ────────────────────────────────────────────────────────
 	private var delPanel:FlxSprite;
@@ -107,7 +107,7 @@ class CharacterSelectorState extends MusicBeatState
 	{
 		EditorTheme.load();
 		funkin.system.CursorManager.show();
-		// MusicManager solo cambia si 'configurator' no está sonando ya.
+		// MusicManager only changes if 'configurator' no is sonando already.
 		// Resetear la flag solo cuando realmente se cambia la pista.
 		if (!MusicManager.isPlaying('configurator'))
 			MusicManager.play('configurator', 0.7);
@@ -183,7 +183,7 @@ class CharacterSelectorState extends MusicBeatState
 		label.setFormat("VCR OSD Mono", 14, EditorTheme.current.accent, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(label);
 
-		// ── Botón tema ────────────────────────────────────────────────────────
+		// ── Button tema ────────────────────────────────────────────────────────
 		var themeBtn = new flixel.ui.FlxButton(FlxG.width - 88, 4, "✨ Theme", function()
 		{
 			openSubState(new funkin.debug.themes.ThemePickerSubState());
@@ -286,7 +286,7 @@ class CharacterSelectorState extends MusicBeatState
 			"Import your sprite files. You can skip any section and add them later in the editor.", 10, 0xFFBBBBBB);
 		step2Texts.push(sub); add(sub);
 
-		// --- Sección Sprite normal
+		// --- Section Sprite normal
 		var secA = makeWizTxt(px + 14, py + 60, 0, "▸ STANDARD SPRITE", 11, FlxColor.CYAN);
 		step2Texts.push(secA); add(secA);
 
@@ -296,7 +296,7 @@ class CharacterSelectorState extends MusicBeatState
 		});
 		step2Btns.push(btnSprite); add(btnSprite);
 
-		// --- Sección FlxAnimate
+		// --- Section FlxAnimate
 		var secB = makeWizTxt(px + 14, py + 114, 0, "▸ FLXANIMATE (Adobe Animate)", 11, FlxColor.ORANGE);
 		step2Texts.push(secB); add(secB);
 
@@ -306,7 +306,7 @@ class CharacterSelectorState extends MusicBeatState
 		});
 		step2Btns.push(btnFA); add(btnFA);
 
-		// --- Sección Ícono
+		// --- Section Icon
 		var secC = makeWizTxt(px + 14, py + 168, 0, "▸ HEALTH ICON  (300×150px, 2 frames)", 11, FlxColor.LIME);
 		step2Texts.push(secC); add(secC);
 
@@ -316,7 +316,7 @@ class CharacterSelectorState extends MusicBeatState
 		});
 		step2Btns.push(btnIcon); add(btnIcon);
 
-		// --- Línea de estado
+		// --- Line of state
 		statusLine = makeWizTxt(px + 14, py + 218, PW - 28, "No assets imported yet  (you can import later in the editor)", 10, 0xFF888888);
 		step2Texts.push(statusLine); add(statusLine);
 
@@ -328,7 +328,7 @@ class CharacterSelectorState extends MusicBeatState
 		setWizVisible(false);
 	}
 
-	// ── Helpers de construcción ───────────────────────────────────────────────
+	// ── Helpers of build ───────────────────────────────────────────────
 
 	function makeWizTxt(x:Float, y:Float, w:Float, s:String, size:Int, col:FlxColor):FlxText
 	{
@@ -406,7 +406,7 @@ class CharacterSelectorState extends MusicBeatState
 		helpText.text = "ENTER: Edit  |  N: New Character  |  DELETE: Remove  |  ESC: Back";
 	}
 
-	// ── Lógica paso 1 ─────────────────────────────────────────────────────────
+	// ── Logic paso 1 ─────────────────────────────────────────────────────────
 
 	function confirmName():Void
 	{
@@ -442,7 +442,7 @@ class CharacterSelectorState extends MusicBeatState
 		goToStep2();
 	}
 
-	// ── Lógica paso 2 – importar ──────────────────────────────────────────────
+	// ── Logic paso 2 – importar ──────────────────────────────────────────────
 
 	function importStandardSprite():Void
 	{
@@ -794,10 +794,10 @@ class CharacterSelectorState extends MusicBeatState
 				if (FlxG.keys.justPressed.BACKSPACE) { wizardStep = 1; nameInput.hasFocus = true; setWizVisible(true); helpText.text = "ENTER: Continue  |  ESC: Cancel"; }
 				if (FlxG.keys.justPressed.ESCAPE)    closeWizard();
 			}
-			return; // bloquear navegación
+			return; // bloquear navigation
 		}
 
-		// ── Navegación lista ──────────────────────────────────────────────────
+		// ── Navigation list ──────────────────────────────────────────────────
 		if (controls.UP_P)   changeSelection(-1);
 		if (controls.DOWN_P) changeSelection(1);
 

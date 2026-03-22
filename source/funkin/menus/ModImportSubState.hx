@@ -108,7 +108,7 @@ class ModImportSubState extends FlxSubState
 		final accent = new FlxSprite(px, py).makeGraphic(PW, 4, T.accent);
 		accent.scrollFactor.set(); add(accent);
 
-		// ── Título ────────────────────────────────────────────────────────────
+		// ── Title ────────────────────────────────────────────────────────────
 		final title = new FlxText(px, py + 12, PW, '⬆  IMPORT MOD');
 		title.setFormat(null, 20, T.textPrimary, CENTER, OUTLINE, T.bgDark);
 		title.scrollFactor.set(); add(title);
@@ -116,7 +116,7 @@ class ModImportSubState extends FlxSubState
 		final sep = new FlxSprite(px + 16, py + 44).makeGraphic(PW - 32, 1, T.borderColor);
 		sep.scrollFactor.set(); add(sep);
 
-		// ── Descripción ───────────────────────────────────────────────────────
+		// ── Description ───────────────────────────────────────────────────────
 		final desc = new FlxText(px + 20, py + 52, PW - 40,
 			'Type a path, click [Browse], or drag a mod folder / .zip onto this window.\n' +
 			'Supported: Psych Engine, Codename Engine, Base FNF.');

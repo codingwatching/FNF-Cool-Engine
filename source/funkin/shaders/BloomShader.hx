@@ -5,10 +5,10 @@ import flixel.system.FlxAssets.FlxShader;
 /**
  * BloomShader — efecto de brillo/resplandor.
  *
- * GLSL reescrito sin loops for (problemáticos en el parser GLSL ES de OpenFL).
+ * GLSL reescrito without loops for (problemáticos in the parser GLSL is of OpenFL).
  * Usa 9 muestras manuales para el blur del bright-pass.
- * uTexelSize eliminado del constructor; el tamaño de texel se pasa inline
- * via uBlurX / uBlurY en píxeles normalizados (ej: 2.0/1920.0).
+ * uTexelSize eliminado of the constructor; the size of texel is pasa inline
+ * via uBlurX / uBlurY in pixels normalizados (ej: 2.0/1920.0).
  */
 class BloomShader extends FlxShader
 {
@@ -76,7 +76,7 @@ class BloomShader extends FlxShader
 	inline function get_intensity():Float return uIntensity.value[0];
 	inline function set_intensity(v:Float):Float { uIntensity.value = [v]; return v; }
 
-	/** Actualiza el tamaño de blur cuando cambia la resolución. */
+	/** Updates the size of blur when changes the resolution. */
 	public function setResolution(w:Float, h:Float, blurSize:Float = 2.0):Void
 	{
 		uBlurX.value = [blurSize / w];

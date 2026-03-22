@@ -6,14 +6,14 @@ import funkin.menus.credits.CreditsData;
 using StringTools;
 
 /**
- * CreditsDataHandler — carga y fusiona los datos de créditos.
+ * CreditsDataHandler — load and merges the datos of credits.
  *
- * Jerarquía de carga:
- *  1. assets/data/credits.json       → créditos base del juego
- *  2. mods/<mod>/data/credits.json   → créditos del mod activo (se AÑADEN al final)
+ * Jerarquía of load:
+ *  1. assets/data/credits.json       → credits base of the game
+ *  2. mods/<mod>/data/credits.json   → credits of the mod active (is AÑADEN to the end)
  *
  * Si el JSON base no existe, usa fallback hardcodeado.
- * El mod puede añadir entradas nuevas pero NO reemplaza el JSON base.
+ * The mod puede add entradas nuevas but no reemplaza the JSON base.
  */
 class CreditsDataHandler
 {
@@ -24,7 +24,7 @@ class CreditsDataHandler
 	static var _cached:Null<CreditsData> = null;
 
 	/**
-	 * Retorna los créditos fusionados (base + mod si aplica).
+	 * Returns the credits fusionados (base + mod if applies).
 	 * Cacheado: llamar reload() para refrescar.
 	 */
 	public static function get():CreditsData
@@ -33,7 +33,7 @@ class CreditsDataHandler
 		return _cached;
 	}
 
-	/** Fuerza recarga en el próximo get(). */
+	/** Forces recarga in the next get(). */
 	public static function reload():Void
 	{
 		_cached = null;
@@ -53,7 +53,7 @@ class CreditsDataHandler
 			var modData = _loadFromSys(modPath);
 			if (modData != null && modData.entries != null)
 			{
-				// Añadir entradas del mod al final sin tocar las base
+				// Add entradas of the mod to the final without tocar the base
 				for (e in modData.entries)
 					base.entries.push(e);
 			}
@@ -104,13 +104,13 @@ class CreditsDataHandler
 			var data:CreditsData = cast Json.parse(raw);
 			if (data != null && data.entries != null)
 				return data;
-			trace('[CreditsDataHandler] JSON inválido en $id (entries null)');
+			trace('[CreditsDataHandler] JSON invalid in $id (entries null)');
 		}
 		catch (e:Dynamic) { trace('[CreditsDataHandler] JSON parse error en $id: $e'); }
 		return null;
 	}
 
-	/** Créditos de fallback si no hay JSON. */
+	/** Credits of fallback if no there is JSON. */
 	static function _fallback():CreditsData
 	{
 		return {
@@ -118,9 +118,9 @@ class CreditsDataHandler
 				{
 					header: 'Fundadores',
 					body: [
-						{line: 'ninjamuffin99 — Programación'},
-						{line: 'PhantomArcade — Animación'},
-						{line: 'Kawai Sprite — Música & Sonido'},
+						{line: 'ninjamuffin99 — Programming'},
+						{line: 'PhantomArcade — Animation'},
+						{line: 'Kawai Sprite — Music & Sound'},
 						{line: 'evilsk8r — Arte'}
 					],
 					headerColor: 'FF4CA0',

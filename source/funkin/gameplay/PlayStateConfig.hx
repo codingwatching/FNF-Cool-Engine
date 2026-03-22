@@ -2,7 +2,7 @@ package funkin.gameplay;
 
 using StringTools;
 /**
- * PlayStateConfig - Configuración y constantes
+ * PlayStateConfig - Configuration and constantes
  * Centraliza todas las configuraciones del gameplay
  */
 class PlayStateConfig
@@ -72,24 +72,24 @@ class PlayStateConfig
 	 * ELIMINADO: MILF_ZOOM_START_BEAT / MILF_ZOOM_END_BEAT / MILF_ZOOM_AMOUNT
 	 *
 	 * Esas constantes hardcodeaban el comportamiento de zoom mid-song solo para
-	 * la canción "milf" y nunca se usaban en ningún otro lugar.
-	 * El zoom de cámara ya es 100% softcodeable via el evento "Camera Zoom"
-	 * del EventManager → assets/data/events/{canción}.json
-	 * Ninguna canción necesita modificar código Haxe para tener zoom custom.
+	 * the song "milf" and never is usaban in no otro lugar.
+	 * The zoom of camera already is 100% softcodeable via the event "Camera Zoom"
+	 * of the EventManager → assets/data/events/{song}.json
+	 * None song necesita modificar code Haxe for have zoom custom.
 	 */
 
 	/**
 	 * ELIMINADO: isPixelStage(stage) / getUIPath / getUISuffix / getPixelScale
 	 *
-	 * Estas funciones chequeaban stage.startsWith('school'), lo que rompía
+	 * These functions chequeaban stage.startsWith('school'), it that broke
 	 * cualquier stage pixel de mod que no se llamara "school*".
 	 *
-	 * CÓMO HACERLO AHORA — leer el campo del JSON del stage:
+	 * how HACERLO now — leer the field of the JSON of the stage:
 	 *
 	 *   var sd = funkin.gameplay.objects.stages.Stage.getStageData(curStage);
 	 *   var isPixel = (sd != null && sd.isPixelStage == true);
 	 *
-	 * En el JSON del stage añade:  "isPixelStage": true
-	 * Eso es todo — ningún código Haxe necesita saber el nombre del stage.
+	 * In the JSON of the stage adds:  "isPixelStage": true
+	 * That is all — no code Haxe necesita saber the name of the stage.
 	 */
 }

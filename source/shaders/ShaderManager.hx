@@ -25,14 +25,14 @@ using StringTools;
  *
  * ─── DOS RESPONSABILIDADES EN UNA CLASE ──────────────────────────────────────
  *
- *  1. EFECTOS DE CÁMARA (bloom, filmGrain)
+ *  1. effects of camera (bloom, filmGrain)
  *     Llamar init() UNA VEZ desde CacheState.goToTitle().
- *     Se engancha a postStateSwitch y re-aplica automáticamente en cada estado.
+ *     Is engancha to postStateSwitch and re-applies automatically in each state.
  *
  *       ShaderManager.init();
  *       ShaderManager.applyMenuPreset();
  *
- *  2. SHADERS RUNTIME (archivo .frag / inline GLSL) para sprites y cámaras
+ *  2. shaders RUNTIME (file .frag / inline GLSL) for sprites and cameras
  *     Carga shaders desde assets/shaders/ o mods, los aplica a sprites
  *     y permite controlar uniforms en tiempo real.
  *
@@ -49,12 +49,12 @@ using StringTools;
 class ShaderManager
 {
 	// ═══════════════════════════════════════════════════════════════════════════
-	// PARTE 1 — EFECTOS DE CÁMARA
+	// PARTE 1 — effects of camera
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	public static var bloom     (default, null):BloomShader;
 
-	/** Efectos de cámara activos. Se persiste en FlxG.save.data.shadersEnabled */
+	/** Camera effects activos. Se persiste en FlxG.save.data.shadersEnabled */
 	public static var enabled(default, null):Bool = true;
 
 	public static var initialized(default, null):Bool = false;
@@ -66,11 +66,11 @@ class ShaderManager
 
 	/**
 	 * Inicializar UNA VEZ en CacheState.goToTitle().
-	 * Combina la inicialización de efectos de cámara + escaneo de shaders runtime.
+	 * Combina the initialization of effects of camera + escaneo of shaders runtime.
 	 */
 	public static function init():Void
 	{
-		// ── Efectos de cámara ──────────────────────────────────────────────────
+		// ── Camera effects ──────────────────────────────────────────────────
 		if (FlxG.save.data.shadersEnabled != null)
 			enabled = (FlxG.save.data.shadersEnabled == true);
 		else
@@ -102,20 +102,20 @@ class ShaderManager
 
 	// ─── Toggle ───────────────────────────────────────────────────────────────
 
-	/** Activa/desactiva los efectos de cámara y guarda la preferencia. */
+	/** Active/desactiva the effects of camera and save the preferencia. */
 	public static function setEnabled(value:Bool):Void
 	{
 		enabled = value;
 		FlxG.save.data.shadersEnabled = value;
 		FlxG.save.flush();
 		applyToCamera();
-		trace('[ShaderManager] Efectos de cámara ${enabled ? "ON" : "OFF"}');
+		trace('[ShaderManager] Camera effects ${enabled ? "ON" : "OFF"}');
 	}
 
-	// ─── Cámara ───────────────────────────────────────────────────────────────
+	// ─── Camera ───────────────────────────────────────────────────────────────
 
 	/**
-	 * Aplica (o elimina) los efectos de cámara (bloom, filmGrain).
+	 * Applies (or elimina) the effects of camera (bloom, filmGrain).
 	 * @param cam  null = FlxG.camera
 	 */
 	public static function applyToCamera(?cam:FlxCamera):Void
@@ -166,7 +166,7 @@ class ShaderManager
 	// ─── Flechas ──────────────────────────────────────────────────────────────
 
 	/**
-	 * Aplica NoteGlowShader a una flecha. Si los efectos están OFF, pone null.
+	 * Applies NoteGlowShader to a arrow. If the effects are OFF, pone null.
 	 * @param sprite     FlxSprite de la flecha
 	 * @param direction  0=LEFT  1=DOWN  2=UP  3=RIGHT
 	 */
@@ -179,7 +179,7 @@ class ShaderManager
 	public static inline function removeFromNote(sprite:FlxSprite):Void
 		sprite.shader = null;
 
-	// ─── Internos cámara ──────────────────────────────────────────────────────
+	// ─── Internos camera ──────────────────────────────────────────────────────
 
 	static function _createCameraShaders():Void
 	{
@@ -193,7 +193,7 @@ class ShaderManager
 
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// PARTE 2 — SHADERS RUNTIME (sprites / cámaras / mods)
+	// PARTE 2 — shaders RUNTIME (sprites / cameras / mods)
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	public static var shaders:Map<String, CustomShader>    = new Map();
@@ -208,7 +208,7 @@ class ShaderManager
 	static var _lastAppliedParams:Map<String, Map<String, Dynamic>>                           = new Map();
 
 	/**
-	 * Overlays de cámara gestionados internamente por applyShaderToCamera().
+	 * Overlays of camera gestionados internamente by applyShaderToCamera().
 	 * Clave: "$shaderName@camId" → FlxSprite overlay.
 	 * Permite que removeShaderFromCamera() limpie sin que el stage script
 	 * tenga que gestionar el sprite manualmente.
@@ -294,14 +294,14 @@ class ShaderManager
 		return shaders.exists(shaderName) ? shaders.get(shaderName) : loadShader(shaderName);
 
 	/**
-	 * Registra un shader desde código GLSL inline (sin archivo .frag).
+	 * Registra a shader from GLSL code inline (without file .frag).
 	 * Si ya existe un shader con ese nombre, lo sobreescribe.
 	 */
 	public static function registerInline(shaderName:String, fragCode:String):CustomShader
 	{
 		if (fragCode == null || fragCode.trim() == '')
 		{
-			trace('[ShaderManager] registerInline: código vacío para "$shaderName"');
+			trace('[ShaderManager] registerInline: empty code for "$shaderName"');
 			return null;
 		}
 		if (shaders.exists(shaderName)) shaders.remove(shaderName);
@@ -348,28 +348,28 @@ class ShaderManager
 	}
 
 	/**
-	 * Aplica un shader a una cámara mediante un sprite overlay de pantalla completa.
+	 * Applies a shader to a camera mediante a sprite overlay of screen complete.
 	 *
-	 * ── POR QUÉ OVERLAY Y NO ShaderFilter ────────────────────────────────────
+	 * ── WHY OVERLAY and not ShaderFilter ────────────────────────────────────
 	 * `FlxRuntimeShader` como `ShaderFilter` en una `FlxCamera` **no** hace el
-	 * binding automático de `bitmap` a la textura renderizada de esa cámara.
+	 * binding automatic of `bitmap` to the texture renderizada of that camera.
 	 * Ese binding solo ocurre en shaders **compilados** (subclases de `FlxShader`
 	 * con `@:glFragmentSource`, como `BloomShader`), donde la macro de Haxe genera
 	 * el campo `__bitmap : ShaderInput<BitmapData>` en compile-time.
-	 * En `FlxRuntimeShader` el campo se crea dinámicamente y OpenFL no lo localiza
-	 * vía `Reflect.field`, por lo que la textura de la cámara nunca llega al shader
+	 * In `FlxRuntimeShader` the field is creates dynamically and OpenFL no it localiza
+	 * via `Reflect.field`, by it that the texture of the camera never llega to the shader
 	 * → pantalla negra.
 	 *
-	 * SOLUCIÓN FIABLE: sprite overlay 100% blanco, scrollFactor(0,0), mismo tamaño
-	 * que la pantalla. `FlxSprite.shader` sí bindea el bitmap del sprite propio.
+	 * solution FIABLE: sprite overlay 100% white, scrollFactor(0,0), same size
+	 * that the screen. `FlxSprite.shader` itself bindea the bitmap of the sprite own.
 	 * El shader recibe ese bitmap blanco y produce un overlay semi-transparente que
 	 * OpenFL composta sobre la escena con blending NORMAL.
 	 *
 	 * El sprite se gestiona internamente; usa `removeShaderFromCamera()` para quitarlo.
-	 * Para post-proceso real (leer la textura de la cámara), usa `applyPostProcessToCamera()`.
+	 * For post-process actual (leer the texture of the camera), use `applyPostProcessToCamera()`.
 	 *
-	 * @param shaderName  Nombre del shader (sin extensión .frag)
-	 * @param cam         Cámara destino (default: FlxG.camera)
+	 * @param shaderName  Name of the shader (without extension .frag)
+	 * @param cam         Camera destino (default: FlxG.camera)
 	 * @return            Siempre null — el efecto lo gestiona el sprite interno.
 	 */
 	public static function applyShaderToCamera(shaderName:String, ?cam:FlxCamera):ShaderFilter
@@ -383,7 +383,7 @@ class ShaderManager
 			return null;
 		}
 
-		// Quitar overlay anterior del mismo shader en esta cámara (si existe)
+		// Quitar overlay previous of the mismo shader in this camera (if exists)
 		removeShaderFromCamera(shaderName, cam);
 
 		var instance:FunkinRuntimeShader;
@@ -393,7 +393,7 @@ class ShaderManager
 		}
 		catch (e:Dynamic)
 		{
-			trace('[ShaderManager] Error compilando shader "$shaderName" para cámara: $e');
+			trace('[ShaderManager] Error compiling shader "$shaderName" for camera: $e');
 			return null;
 		}
 
@@ -409,23 +409,23 @@ class ShaderManager
 		overlay.cameras = [cam];
 		overlay.shader  = instance;
 
-		// Añadir al estado actual en la capa más alta (insert al final del grupo)
+		// Add to the state current in the layer more alta (insert to the final of the grupo)
 		FlxG.state.add(overlay);
 
 		// Registrar para poder quitarlo con removeShaderFromCamera()
 		final key = '$shaderName@${Std.string(cam)}';
 		_cameraOverlayMap.set(key, overlay);
 
-		trace('[ShaderManager] Shader "$shaderName" aplicado a cámara (overlay)');
+		trace('[ShaderManager] Shader "$shaderName" applied to camera (overlay)');
 		return null; // el overlay gestiona el efecto; no se devuelve ShaderFilter
 	}
 
 	/**
-	 * Quita el shader overlay aplicado a una cámara con `applyShaderToCamera()`.
-	 * Si `cam` es null, quita todos los overlays de ese shader en cualquier cámara.
+	 * Quita the shader overlay appliesdo to a camera with `applyShaderToCamera()`.
+	 * If `cam` is null, quita all the overlays of that shader in cualquier camera.
 	 *
 	 * @param shaderName  Nombre del shader
-	 * @param cam         Cámara de la que quitar el overlay (null = todas)
+	 * @param cam         Camera of the that quitar the overlay (null = all)
 	 */
 	public static function removeShaderFromCamera(shaderName:String, ?cam:FlxCamera):Void
 	{
@@ -435,7 +435,7 @@ class ShaderManager
 		{
 			// La clave es "$shaderName@camRef" — filtramos por nombre de shader
 			if (!StringTools.startsWith(key, shaderName + '@')) continue;
-			// Si se especificó cámara, filtramos también por referencia
+			// If camera was specified, we also filter by reference
 			if (cam != null && key != '$shaderName@${Std.string(cam)}') continue;
 
 			var overlay = _cameraOverlayMap.get(key);
@@ -457,25 +457,25 @@ class ShaderManager
 	}
 
 	/**
-	 * Aplica un shader como `ShaderFilter` real en la cámara (post-proceso verdadero).
+	 * Applies a shader as `ShaderFilter` actual in the camera (post-process verdadero).
 	 *
-	 * ── CUÁNDO USAR ESTO en vez de applyShaderToCamera() ─────────────────────
-	 * Úsalo SOLO cuando el shader necesite leer los píxeles reales de la cámara
-	 * (ej: blur, chromatic aberration que desplaza coordenadas, distorsión de escena).
+	 * ── WHEN TO USE this instead of applyShaderToCamera() ─────────────────────
+	 * Use it only when the shader needs to read the actual pixels of the camera
+	 * (e.g.: blur, chromatic aberration that shifts coordinates, scene distortion).
 	 * En ese caso el shader DEBE tener `#pragma header` y usar
 	 * `flixel_texture2D(bitmap, openfl_TextureCoordv)` para samplear.
 	 *
 	 * ── REQUISITOS ────────────────────────────────────────────────────────────
 	 * • flixel-addons ≥ 2.11.0 con `FlxRuntimeShader` funcional como `ShaderFilter`
-	 * • El .frag DEBE contener `#pragma header` en la primera línea útil
+	 * • The .frag DEBE contain `#pragma header` in the first line useful
 	 * • Usar `flixel_texture2D()` (no `texture2D()` directamente con openfl_TextureCoordv)
 	 *
-	 * El `ShaderFilter` devuelto es necesario para quitarlo después:
+	 * The `ShaderFilter` devuelto is necesario for quitarlo after:
 	 *   `CameraUtil.removeFilter(filter, cam)`
 	 *
-	 * @param shaderName  Nombre del shader (sin extensión .frag)
-	 * @param cam         Cámara destino (default: FlxG.camera)
-	 * @return            El ShaderFilter creado, o null si falló.
+	 * @param shaderName  Name of the shader (without extension .frag)
+	 * @param cam         Camera destino (default: FlxG.camera)
+	 * @return            The ShaderFilter creado, or null if failed.
 	 */
 	public static function applyPostProcessToCamera(shaderName:String, ?cam:FlxCamera):ShaderFilter
 	{
@@ -492,8 +492,8 @@ class ShaderManager
 		try
 		{
 			instance = new FunkinRuntimeShader(cs.fragmentCode, cs.vertexCode);
-			// Fuerza la reinicialización del programa GL para asegurar que
-			// el binding de __bitmap esté listo antes de pasarlo a ShaderFilter.
+			// Forces reinitialization of the GL program for a safer
+			// the binding of __bitmap is listo before of pasarlo to ShaderFilter.
 			instance.setupForPostProcess();
 		}
 		catch (e:Dynamic)
@@ -508,7 +508,7 @@ class ShaderManager
 		_flushPendingForShader(shaderName);
 
 		final filter = CameraUtil.addShader(instance, cam);
-		trace('[ShaderManager] Shader "$shaderName" aplicado como post-process a cámara');
+		trace('[ShaderManager] Shader "$shaderName" applied as post-process to camera');
 		return filter;
 	}
 
@@ -542,7 +542,7 @@ class ShaderManager
 		catch (e:Dynamic) { _spriteToInstance.remove(sprite); }
 	}
 
-	// ─── Parámetros ───────────────────────────────────────────────────────────
+	// ─── Parameters ───────────────────────────────────────────────────────────
 
 	public static function setShaderParam(shaderName:String, paramName:String, value:Dynamic):Bool
 	{
@@ -634,7 +634,7 @@ class ShaderManager
 
 	public static function clearSpriteShaders():Void
 	{
-		// Destruir todos los overlays de cámara gestionados internamente
+		// Destroy all the overlays of camera gestionados internamente
 		for (key in _cameraOverlayMap.keys())
 		{
 			var overlay = _cameraOverlayMap.get(key);
@@ -680,13 +680,13 @@ class ShaderManager
 		trace('[ShaderManager] ${Lambda.count(shaderPaths)} shaders disponibles');
 	}
 
-	/** Limpia TODO: efectos de cámara + shaders runtime. */
+	/** Clears all: effects of camera + shaders runtime. */
 	public static function clear():Void
 	{
 		shaders.clear();
 		shaderPaths.clear();
 		vertPaths.clear();
-		// Limpiar overlays de cámara sin removerlos del estado (puede que el estado ya no exista)
+		// Clear overlays of camera without removerlos of the state (puede that the state already no exista)
 		_cameraOverlayMap.clear();
 		_liveInstances.clear();
 		_spriteToInstance.clear();
@@ -708,7 +708,7 @@ class CustomShader
 	public var name:String;
 	public var fragmentCode:String;
 
-	/** Código GLSL del vertex shader (.vert hermano). null = usar default de Flixel. */
+	/** Code GLSL of the vertex shader (.vert hermano). null = usar default of Flixel. */
 	public var vertexCode:Null<String>;
 
 	var _shader:FunkinRuntimeShader;

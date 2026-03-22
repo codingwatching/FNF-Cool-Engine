@@ -5,7 +5,7 @@ using StringTools;
 /**
  * CoolUtil — utilidades generales de uso frecuente.
  *
- * Todos los métodos de carga de archivos buscan en mods primero (via Paths),
+ * All the methods of load of files buscan in mods first (via Paths),
  * por lo que los mods pueden sobreescribir archivos de datos como listas de canciones.
  */
 class CoolUtil
@@ -18,7 +18,7 @@ class CoolUtil
 
 	// ─── Dificultad ───────────────────────────────────────────────────────────
 
-	/** Nombre de la dificultad actual en mayúsculas. */
+	/** Name of the difficulty current in uppercases. */
 	public static function difficultyString():String
 	{
 		final diff = funkin.gameplay.PlayState.storyDifficulty;
@@ -32,7 +32,7 @@ class CoolUtil
 
 	/**
 	 * Devuelve el sufijo de dificultad actual (ej: "-hard", "-nightmare", "").
-	 * Útil para cargar charts y audio en PlayState.
+	 * Useful for load charts and audio in PlayState.
 	 */
 	public static function difficultySuffix():String
 	{
@@ -48,15 +48,15 @@ class CoolUtil
 	// ─── Lectura de archivos ──────────────────────────────────────────────────
 
 	/**
-	 * Lee un archivo de texto y devuelve sus líneas sin espacios extra.
-	 * Busca en el mod activo primero (vía Paths.getText).
+	 * Lee a file of text and returns its lines without espacios extra.
+	 * Busca in the mod active first (via Paths.getText).
 	 */
 	public static function coolTextFile(path:String):Array<String>
 		return splitTrimmed(Paths.getText(path));
 
 	/**
-	 * Divide un string en líneas y elimina espacios extra de cada una.
-	 * Versión sin I/O — útil cuando ya tienes el contenido en memoria.
+	 * Divide a string in lines and elimina espacios extra of each a.
+	 * Version without I/or — useful when already tienes the contenido in memory.
 	 */
 	public static function coolStringFile(content:String):Array<String>
 		return splitTrimmed(content);
@@ -82,13 +82,13 @@ class CoolUtil
 	public static inline function capitalize(s:String):String
 		return s.length == 0 ? s : s.charAt(0).toUpperCase() + s.substr(1);
 
-	/** Trunca `s` a `maxLen` caracteres, añadiendo '…' si se truncó. */
+	/** Trunca `s` to `maxLen` caracteres, adding '…' if is truncó. */
 	public static inline function truncate(s:String, maxLen:Int):String
 		return s.length <= maxLen ? s : s.substr(0, maxLen - 1) + '…';
 
 	// ─── Helpers internos ─────────────────────────────────────────────────────
 
-	/** Divide por '\n', hace trim de cada línea y elimina líneas vacías. */
+	/** Divide by '\n', hace trim of each line and elimina lines vacías. */
 	static function splitTrimmed(raw:String):Array<String>
 	{
 		final lines = raw.trim().split('\n');

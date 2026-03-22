@@ -17,7 +17,7 @@ import funkin.scripting.LuaScriptInstance;
  * ─── Estructura de carpetas ────────────────────────────────────────────────
  *
  *   assets/notes/custom/{typeName}/
- *     {typeName}.json      ← configuración (opcional)
+ *     {typeName}.json      ← configuration (optional)
  *     {typeName}.hx        ← script HScript (opcional)
  *     {typeName}.lua       ← script Lua (opcional, si LUA_ALLOWED)
  *     {typeName}.png       ← textura de nota cabeza (opcional, con .xml)
@@ -299,7 +299,7 @@ class NoteTypeManager
 	 * Nombre del hold cover (hold splash) para este noteType.
 	 * Prioridad: config.holdSplash → config.splash → null.
 	 * Si el splash elegido no tiene holdCover, NoteSkinSystem.getHoldCoverTexture
-	 * cae automáticamente al Default — no hace falta ninguna lógica extra aquí.
+	 * cae automatically to the Default — no hace falta none logic extra here.
 	 */
 	public static function getHoldSplashName(typeName:String):Null<String>
 	{
@@ -354,7 +354,7 @@ class NoteTypeManager
 			}
 		}
 
-		// 2. Convención de nombre
+		// 2. Convención of name
 		final suffixes = hold
 			? ['${typeName}_hold', '${typeName}Hold', 'hold']
 			: [typeName, 'note'];
@@ -387,7 +387,7 @@ class NoteTypeManager
 	public static inline function isCustomType(t:String):Bool
 		return t != null && t != '' && t != 'normal';
 
-	/** Llama una función en el script HScript y/o Lua del tipo. */
+	/** Call a function in the script HScript and/or Lua of the type. */
 	static function _call(typeName:String, fn:String, args:Array<Dynamic>):Dynamic
 	{
 		var result:Dynamic = null;
@@ -473,7 +473,7 @@ typedef NoteTypeConfig =
 	var ?splash:Null<String>;
 	/**
 	 * Hold cover skin. null = usar splash (o Default si splash no tiene holdCover).
-	 * El fallback a Default ocurre en NoteSkinSystem.getHoldCoverTexture — sin código extra aquí.
+	 * The fallback to Default ocurre in NoteSkinSystem.getHoldCoverTexture — without code extra here.
 	 */
 	var ?holdSplash:Null<String>;
 	/** Path a textura de sustain (sin ext). Relativo a la carpeta del type o absoluto. */

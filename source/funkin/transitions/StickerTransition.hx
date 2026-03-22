@@ -13,24 +13,24 @@ import haxe.Json;
 import sys.FileSystem;
 
 /**
- * Sistema de transición con stickers — animación idéntica al V-Slice (FNF base).
+ * System of transition with stickers — animation idéntica to the V-Slice (FNF base).
  *
  * APARICIÓN (regenStickers):
  *   • Grid que cubre toda la pantalla usando frameWidth * 0.5 de avance horizontal
  *     y 70-120 px de avance vertical (igual que v-slice).
  *   • Se mezcla el orden aleatoriamente.
- *   • Se añade un sticker CENTRAL al final (ángulo 0, escala pop grande).
+ *   • Is adds a sticker CENTRAL to the end (angle 0, scales pop large).
  *   • timing = remapToRange(ind, 0, N, 0, 0.9).
  *   • Al aparecer: visible=true → delay 0-2 frames → snap de escala (0.97-1.02).
- *   • El último sticker siempre usa 2 frames de delay y escala 1.08 → dispara callback.
+ *   • The last sticker always use 2 frames of delay and scales 1.08 → dispara callback.
  *
  * DESAPARICIÓN (degenStickers):
- *   • Cada sticker se oculta con visible=false usando su mismo timing de aparición.
- *   • Sin tweens de posición ni escala (igual que v-slice).
+ *   • Each sticker is hides with visible=false usando its same timing of aparición.
+ *   • Without tweens of position ni scales (igual that v-slice).
  *
  * SKIN POR WEEK / SONG:
  *   Llama StickerTransition.setCurrentContext(weekIdx, songName) antes de start().
- *   El campo stickerMode del config decide cómo elegir el set:
+ *   The field stickerMode of the config decide how elegir the set:
  *     "week"   → weekStickerSets[weekIdx]  (default)
  *     "song"   → songStickerSets[songName]
  *     "random" → set aleatorio
@@ -55,17 +55,17 @@ class StickerTransition
 
 	// ── Contexto para elegir skin ─────────────────────────────────────────────
 
-	/** Índice de la semana actual (StoryMenu o Freeplay). */
+	/** Index of the week current (StoryMenu or Freeplay). */
 	public static var currentWeek:Int = -1;
-	/** Nombre de canción actual en lowercase. */
+	/** Nombre of song current in lowercase. */
 	public static var currentSong:String = "";
 
 	/**
 	 * Establece el contexto de week/song ANTES de llamar start().
-	 * El motor elegirá el set correcto según stickerMode del config.
+	 * The engine elegirá the set correct according to stickerMode of the config.
 	 *
-	 * @param weekIdx  Índice de week. -1 = no especificado.
-	 * @param songName Nombre de la canción (lowercase). Opcional.
+	 * @param weekIdx  Index of week. -1 = no especificado.
+	 * @param songName Nombre of the song (lowercase). Optional.
 	 */
 	public static function setCurrentContext(weekIdx:Int, ?songName:String):Void
 	{
@@ -84,15 +84,15 @@ class StickerTransition
 	private static var cacheLoaded:Bool = false;
 
 	/**
-	 * timing de aparición por sticker — reutilizado en disipación.
-	 * Público para que StickerTransitionContainer pueda leerlo.
+	 * timing of aparición by sticker — reutilizado in disipación.
+	 * Public for that StickerTransitionContainer pueda leerlo.
 	 */
 	public static var stickerTimings:Map<FlxSprite, Float> = new Map();
 
 	private static var activeTimers:Array<FlxTimer> = [];
 
 	// ═════════════════════════════════════════════════════════════════════════
-	//  API PÚBLICA
+	//  API public
 	// ═════════════════════════════════════════════════════════════════════════
 
 	public static function init():Void
@@ -105,10 +105,10 @@ class StickerTransition
 	}
 
 	/**
-	 * Inicia la transición — llena la pantalla de stickers.
-	 * El callback se dispara cuando el último sticker aparece.
+	 * Starts the transition — full the screen of stickers.
+	 * The callback is dispara when the last sticker aparece.
 	 *
-	 * @param callback  Función a llamar cuando los stickers cubren la pantalla.
+	 * @param callback  Function to callr when the stickers cubren the screen.
 	 * @param customSet Override manual del nombre del set.
 	 */
 	public static function start(?callback:Void->Void, ?customSet:String):Void
@@ -140,7 +140,7 @@ class StickerTransition
 	/**
 	 * Oculta los stickers una vez que el nuevo state fue creado.
 	 * Los stickers desaparecen con visible=false en el mismo timing con que
-	 * aparecieron (comportamiento idéntico al v-slice degenStickers).
+	 * aparecieron (comportamiento idéntico to the v-slice degenStickers).
 	 *
 	 * @param onFinished Callback cuando todos los stickers desaparecieron.
 	 */
@@ -201,11 +201,11 @@ class StickerTransition
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	//  INTERNOS — generación y disipación
+	//  INTERNOS — generación and disipación
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Genera el grid de stickers al estilo v-slice y programa su aparición.
+	 * Generates the grid of stickers to the estilo v-slice and program its aparición.
 	 */
 	private static function _regenStickers(stickerSet:StickerSet):Void
 	{
@@ -243,7 +243,7 @@ class StickerTransition
 		// ── Paso 2: mezclar orden ─────────────────────────────────────────────
 		FlxG.random.shuffle(regularStickers);
 
-		// ── Paso 3: sticker central (siempre el último en aparecer) ──────────
+		// ── Paso 3: sticker central (always the last in aparecer) ──────────
 		var centerSticker = _makeSprite(stickerSet);
 		if (centerSticker != null)
 		{
@@ -260,7 +260,7 @@ class StickerTransition
 		var totalN = allStickers.length;
 		trace('[StickerTransition] $totalN stickers generated');
 
-		// ── Paso 4: programar aparición con timing escalonado ─────────────────
+		// ── Paso 4: programar aparición with timing escalonado ─────────────────
 		for (ind in 0...totalN)
 		{
 			var sticker = allStickers[ind];
@@ -310,7 +310,7 @@ class StickerTransition
 	}
 
 	/**
-	 * Crea un FlxSprite para el sticker (sin posición ni ángulo — los asigna _regenStickers).
+	 * Creates a FlxSprite for the sticker (without position ni angle — the asigna _regenStickers).
 	 * Empieza invisible con escala 1×1.
 	 */
 	private static function _makeSprite(set:StickerSet):Null<FlxSprite>
@@ -343,7 +343,7 @@ class StickerTransition
 		return sticker;
 	}
 
-	// ── Selección de set ──────────────────────────────────────────────────────
+	// ── Selection of set ──────────────────────────────────────────────────────
 
 	private static function _pickSet(?customSet:String):StickerSet
 	{
@@ -567,8 +567,8 @@ class StickerTransitionContainer extends openfl.display.Sprite
 	}
 
 	/**
-	 * Disipación v-slice: cada sticker se hace invisible con visible=false
-	 * usando el mismo timing con que apareció (0 → 0.9 s).
+	 * Disipación v-slice: each sticker is hace invisible with visible=false
+	 * usando the same timing with that apareció (0 → 0.9 s).
 	 */
 	public function degenStickers(onComplete:Void->Void):Void
 	{
@@ -638,7 +638,7 @@ typedef StickerConfig =
 	var maxScale:Float;
 	var animationDuration:Float;
 	var stickerLifetime:Float;
-	// Nuevos campos para selección de skin por contexto
+	// New fields for selection of skin by contexto
 	@:optional var stickerMode:String;        // "week" | "song" | "random"
 	@:optional var weekStickerSets:Dynamic;   // { "0": "stickers-set-1", ... }
 	@:optional var songStickerSets:Dynamic;   // { "bopeebo": "stickers-set-2", ... }

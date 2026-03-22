@@ -6,22 +6,22 @@ import flixel.math.FlxRect;
 import flixel.util.FlxColor;
 
 /**
- * MaskEffect — API de alto nivel para aplicar máscaras a sprites y objetos.
+ * MaskEffect — API of height level for appliesr masks to sprites and objects.
  *
  * Inspirado en V-Slice (LeftMaskShader / AngleMask) pero unificado en una sola
- * clase con todos los tipos de máscara disponibles en MaskShader.
+ * class with all mask types available in MaskShader.
  *
- * Uso básico:
+ * Basic usage:
  * ```haxe
  * var mask = new MaskEffect(mySprite);
  * mask.cropLeft(100);              // ocultar los primeros 100px desde la izquierda
  * mask.cropRect(10, 10, 200, 100); // recorte rectangular
- * mask.circle(160, 120, 80);       // máscara circular
- * mask.angle(90, 100);             // máscara angular (como V-Slice AngleMask)
- * mask.remove();                   // quitar máscara
+ * mask.circle(160, 120, 80);       // circular mask
+ * mask.angle(90, 100);             // angular mask (as V-Slice AngleMask)
+ * mask.remove();                   // remove mask
  * ```
  *
- * También se puede usar como ShaderFilter en una cámara:
+ * Also is puede usar as ShaderFilter in a camera:
  * ```haxe
  * var effect = new MaskEffect();
  * effect.cropLeft(400);
@@ -37,7 +37,7 @@ class MaskEffect
 	// ── Constructor ──────────────────────────────────────────────────────────
 
 	/**
-	 * @param target  Sprite al que aplicar la máscara.
+	 * @param target  Sprite to the that appliesr the mask.
 	 *                Si es null, crea solo el shader sin aplicarlo.
 	 */
 	public function new(?target:FlxSprite)
@@ -48,13 +48,13 @@ class MaskEffect
 			target.shader = shader;
 	}
 
-	// ── API pública ──────────────────────────────────────────────────────────
+	// ── API public ──────────────────────────────────────────────────────────
 
 	/**
 	 * Recorte por el lado izquierdo.
-	 * Todo lo que esté a la IZQUIERDA de `x` (en px del sprite) se oculta.
+	 * All it that is to the left of `x` (in px of the sprite) is hides.
 	 * Equivalente a V-Slice LeftMaskShader.
-	 * @param x        Posición horizontal del borde de corte (pixels).
+	 * @param x        Position horizontal of the borde of corte (pixels).
 	 * @param softness Suavizado del borde [0 = duro].
 	 */
 	public function cropLeft(x:Float, softness:Float = 0.0):MaskEffect
@@ -66,7 +66,7 @@ class MaskEffect
 		return this;
 	}
 
-	/** Recorte por el lado derecho — oculta lo que esté a la DERECHA de `x`. */
+	/** Recorte by the lado derecho — hides it that is to the right of `x`. */
 	public function cropRight(x:Float, softness:Float = 0.0):MaskEffect
 	{
 		shader.maskType   = RIGHT;
@@ -76,7 +76,7 @@ class MaskEffect
 		return this;
 	}
 
-	/** Recorte desde arriba — oculta lo que esté ENCIMA de `y`. */
+	/** Recorte from up — hides it that is above of `and`. */
 	public function cropTop(y:Float, softness:Float = 0.0):MaskEffect
 	{
 		shader.maskType   = TOP;
@@ -86,7 +86,7 @@ class MaskEffect
 		return this;
 	}
 
-	/** Recorte desde abajo — oculta lo que esté DEBAJO de `y`. */
+	/** Recorte from down — hides it that is below of `and`. */
 	public function cropBottom(y:Float, softness:Float = 0.0):MaskEffect
 	{
 		shader.maskType   = BOTTOM;
@@ -97,7 +97,7 @@ class MaskEffect
 	}
 
 	/**
-	 * Máscara rectangular — muestra solo el área dentro del rectángulo.
+	 * Mask rectangular — muestra only the area inside of the rectangle.
 	 * @param x, y    Esquina superior-izquierda en pixels.
 	 * @param w, h    Ancho y alto en pixels.
 	 */
@@ -111,9 +111,9 @@ class MaskEffect
 	}
 
 	/**
-	 * Máscara circular / elíptica.
+	 * Circular / elliptical mask.
 	 * @param cx, cy  Centro en pixels.
-	 * @param rx      Radio horizontal. Si ry no se especifica, usa rx (círculo).
+	 * @param rx      Radio horizontal. If ry no is especifica, use rx (circle).
 	 * @param ry      Radio vertical.
 	 */
 	public function circle(cx:Float, cy:Float, rx:Float, ?ry:Float, softness:Float = 0.005):MaskEffect
@@ -127,10 +127,10 @@ class MaskEffect
 	}
 
 	/**
-	 * Máscara angular, port de V-Slice AngleMask.
-	 * Muestra los píxeles dentro del ángulo formado desde la esquina (0,0)
+	 * Mask angular, port of V-Slice AngleMask.
+	 * Muestra the pixels inside of the angle formado from the esquina (0,0)
 	 * hasta el punto (endX, endY) en pixels del sprite.
-	 * @param endX, endY  Punto final del ángulo en pixels.
+	 * @param endX, endY  Punto end of the angle in pixels.
 	 */
 	public function angle(endX:Float, endY:Float):MaskEffect
 	{
@@ -141,7 +141,7 @@ class MaskEffect
 	}
 
 	/**
-	 * Invierte la máscara actual (muestra lo que antes se ocultaba y viceversa).
+	 * Inverts the mask current (muestra it that before is ocultaba and viceversa).
 	 */
 	public function invert(v:Bool = true):MaskEffect
 	{
@@ -150,7 +150,7 @@ class MaskEffect
 	}
 
 	/**
-	 * Quita la máscara del sprite asociado.
+	 * Quita the mask of the sprite asociado.
 	 */
 	public function remove():Void
 	{
@@ -159,7 +159,7 @@ class MaskEffect
 	}
 
 	/**
-	 * Re-aplica la máscara al sprite asociado (útil si se llamó remove() antes).
+	 * Re-applies the mask to the associated sprite (useful if remove() was called before).
 	 */
 	public function apply(?target:FlxSprite):Void
 	{
@@ -168,7 +168,7 @@ class MaskEffect
 	}
 
 	/**
-	 * Devuelve un ShaderFilter para usarlo en cámaras u otros DisplayObjects.
+	 * Returns a ShaderFilter for usarlo in cameras u otros DisplayObjects.
 	 */
 	public function asFilter():openfl.filters.ShaderFilter
 	{

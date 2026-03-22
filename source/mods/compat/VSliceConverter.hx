@@ -92,7 +92,7 @@ class VSliceConverter
 	 *
 	 * @param rawJson       Contenido JSON del archivo de chart.
 	 * @param difficulty    Dificultad a extraer (ej: "erect", "hard").
-	 * @param chartFilePath Path físico al archivo .json (para buscar metadata).
+	 * @param chartFilePath Path physical to the file .json (for search metadata).
 	 */
 	public static function convertChart(rawJson:String, difficulty:String = 'hard', ?chartFilePath:String):SwagSong
 	{
@@ -101,7 +101,7 @@ class VSliceConverter
 		final root:Dynamic = Json.parse(rawJson);
 
 		// Normalizar dificultad: si viene como "ugh-erect" (nombre de archivo completo),
-		// extraer solo la parte de dificultad real ("erect") quitando el prefijo de canción.
+		// extraer only the parte of difficulty actual ("erect") quitando the prefix of song.
 		// Esto ocurre porque Song.loadFromJson pasa el filename como diff ("ugh-erect").
 		if (chartFilePath != null && chartFilePath != '')
 		{
@@ -156,7 +156,7 @@ class VSliceConverter
 		// IMPORTANTE: song.song debe ser el nombre de CARPETA (ej: "senpai", "high")
 		// y NO el display name del metadata (ej: "Senpai Erect", "High Erect").
 		// Se usa en _resolveSongFolder() para buscar Inst.ogg, Voices.ogg, etc.
-		// Si tenemos el path del chart, derivamos el folder name desde ahí.
+		// If we have the chart path, we derive the folder name from it.
 		// Si no, usamos el songName en lowercase como fallback.
 		final songFolder:String = (chartFilePath != null && chartFilePath != '')
 			? _folderName(_parentDir(chartFilePath)).toLowerCase()
@@ -198,12 +198,12 @@ class VSliceConverter
 			}
 			// ── Fallback progresivo para sufijos compuestos (ej: "easy-bf") ──────
 			// Si la dificultad normalizada tiene la forma "{diff}-{variation}" y no
-			// matchea ninguna clave del objeto notes, quitamos el último segmento
-			// iterativamente hasta encontrar una clave válida.
+			// matchea ninguna key of the object notes, quitamos the last segmento
+			// iteratively until finding a valid key.
 			// Ejemplo: "easy-bf" → intenta "easy" → MATCH en notes.easy ✓
-			// Esto cubre los charts de variación V-Slice (lit_up-bf.json) donde las
+			// This covers the charts of variation V-Slice (lit_up-bf.json) where the
 			// claves del objeto notes son las dificultades reales (easy/normal/hard),
-			// no el nombre de la variación.
+			// no the name of the variation.
 			if (diffNotes.length == 0)
 			{
 				var stripped = difficulty;
@@ -224,7 +224,7 @@ class VSliceConverter
 					}
 				}
 			}
-			// Último recurso: usar la primera dificultad disponible
+			// Last recurso: usar the first difficulty available
 			if (diffNotes.length == 0)
 			{
 				for (k in Reflect.fields(allNotes))
@@ -233,7 +233,7 @@ class VSliceConverter
 					if (n != null && Std.isOfType(n, Array))
 					{
 						diffNotes = cast n;
-						trace('[VSliceConverter] Notas: usando primera disponible ("$k") como último recurso');
+						trace('[VSliceConverter] Notes: using first available ("$k") as a last resort');
 						break;
 					}
 				}
@@ -262,7 +262,7 @@ class VSliceConverter
 		}
 
 		// ── 7. Eventos de BPM change desde timeChanges ───────────────────────
-		// Solo añadir los cambios secundarios (el primero es el BPM base)
+		// Only add the cambios secundarios (the first is the BPM base)
 		for (i in 1...timeChanges.length)
 		{
 			final tc = timeChanges[i];
@@ -279,18 +279,18 @@ class VSliceConverter
 	/**
 	 * Agrupa las notas V-Slice en secciones de 16 pasos.
 	 *
-	 * Cada sección tiene una duración determinada por el BPM vigente en ese punto.
-	 * Con múltiples timeChanges se recalcula la duración de sección dinámicamente.
+	 * Each section tiene a duration determinada by the BPM vigente in that punto.
+	 * With multiple timeChanges is recalcula the duration of section dynamically.
 	 *
-	 * mustHitSection se determina por la mayoría de notas en esa sección:
-	 *   - Si la mayoría son del jugador (d < 4), mustHitSection = true
-	 *   - Si la mayoría son del oponente (d >= 4), mustHitSection = false
+	 * mustHitSection is determina by the majority of notes in that section:
+	 *   - If the majority are of the player (d < 4), mustHitSection = true
+	 *   - If the majority are of the oponente (d >= 4), mustHitSection = false
 	 */
 	static function _buildSections(song:SwagSong, notes:Array<Dynamic>, timeChanges:Array<{t:Float, bpm:Float}>):Void
 	{
 		if (notes == null || notes.length == 0)
 		{
-			// Al menos una sección vacía para que el engine no crashee
+			// To the menos a section empty for that the engine no crashee
 			song.notes.push(_emptySection(song.bpm, true));
 			return;
 		}
@@ -298,7 +298,7 @@ class VSliceConverter
 		// Ordenar notas por tiempo
 		notes.sort((a, b) -> (_float(a.t, 0) < _float(b.t, 0)) ? -1 : 1);
 
-		// Duración de una sección = 16 pasos = 4 beats
+		// Duration of a section = 16 pasos = 4 beats
 		// stepDurationMs = (60000 / bpm) / 4
 		// sectionDurationMs = 16 * stepDurationMs = (60000 / bpm) * 4
 
@@ -306,7 +306,7 @@ class VSliceConverter
 		final tcList = timeChanges.copy();
 		tcList.sort((a, b) -> a.t < b.t ? -1 : 1);
 
-		// Calcular dónde cae cada sección (en ms) para asignar notas correctamente
+		// Calculate where each section falls (in ms) to assign notes correctly
 		final lastNoteTime:Float = _float(notes[notes.length - 1].t, 0) + _float(notes[notes.length - 1].l, 0);
 
 		// Generar posiciones de secciones hasta cubrir todas las notas + 1 extra
@@ -317,7 +317,7 @@ class VSliceConverter
 
 		var cursor:Float = 0; // ms desde el inicio
 		var currentBpm:Float = (tcList.length > 0) ? tcList[0].bpm : song.bpm;
-		var tcIdx:Int = 1; // índice al siguiente cambio de BPM pendiente
+		var tcIdx:Int = 1; // index to the next cambio of BPM pendiente
 
 		while (cursor <= lastNoteTime + _sectionDurationMs(currentBpm))
 		{
@@ -335,22 +335,22 @@ class VSliceConverter
 			cursor += _sectionDurationMs(currentBpm);
 		}
 
-		// Asignar cada nota a su sección
-		// altAnim: se activa cuando las notas CPU de una sección tienen un kind que
+		// Asignar each note to its section
+		// altAnim: is active when the notes CPU of a section tienen a kind that
 		// indica un personaje alt (ej: "mom" en Eggnog, "dad-car" en algunas canciones).
 		// En V-Slice el campo "k" (kind) de las notas del oponente (d >= 4) se usa
-		// para distinguir qué personaje canta — si no es el oponente base, es altAnim.
+		// to distinguish which character sings — if not the base opponent, it's altAnim.
 		final sectionAltAnims:Array<Bool> = [for (_ in 0...sectionStarts.length) false];
 
-		// Kinds que indican animación alt del oponente.
-		// "mom" es el más común (Eggnog/Cocoa/Eggnoggin), pero admitimos cualquier
+		// Kinds that indican animation alt of the oponente.
+		// "mom" is the most common (Eggnog/Cocoa/Eggnoggin), but we accept any
 		// kind en notas CPU que NO sea un tipo de nota normal (hurt, mine, etc.).
 		final _normalNoteKinds = ['', 'hurt', 'mine', 'bomb', 'hazard', 'default', 'normal'];
 
 		for (n in notes)
 		{
 			final t:Float = _float(n.t, 0);
-			// Buscar sección por tiempo
+			// Search section by tiempo
 			var secIdx:Int = sectionStarts.length - 1;
 			for (i in 0...sectionStarts.length - 1)
 			{
@@ -366,7 +366,7 @@ class VSliceConverter
 			final kind:String = (n.k != null) ? Std.string(n.k).toLowerCase() : '';
 
 			// Detectar altAnim: nota CPU (lane >= 4) con un kind que no sea tipo
-			// de nota estándar → el oponente usa personaje/animación alternativa
+			// of note standard → the oponente use character/animation alternativa
 			if (lane >= 4 && kind != '' && !_normalNoteKinds.contains(kind))
 				sectionAltAnims[secIdx] = true;
 
@@ -377,26 +377,26 @@ class VSliceConverter
 		}
 
 		// Determinar mustHitSection.
-		// En V-Slice la asignación de notas a strumlines está FIJA:
+		// In V-Slice the assignment of notes to strumlines is FIJA:
 		//   d 0-3 (groupIdx=0) → siempre jugador (BF)
 		//   d 4-7 (groupIdx=1) → siempre oponente (Dad/CPU)
-		// NoteManager deriva quién toca una nota así:
+		// NoteManager derives who plays a note as follows:
 		//   groupIdx 0 → gottaHitNote = mustHitSection
 		//   groupIdx 1 → gottaHitNote = !mustHitSection
 		// Para que esto funcione correctamente con el encoding absoluto de V-Slice,
 		// mustHitSection DEBE ser true en TODAS las secciones.
-		// Si fuera false, las notas d 0-3 irían al CPU y d 4-7 al jugador — incorrecto.
-		// La cámara se controla con eventos FocusCamera, no con mustHitSection.
+		// If outside false, notes 0-3 would go to CPU and 4-7 to the player — incorrect.
+		// The camera is controla with events FocusCamera, no with mustHitSection.
 		for (i in 0...sectionNoteArrays.length)
 			sectionMustHits.push(true);
 
-		// Añadir secciones al song (omitir las completamente vacías al final)
+		// Add sections to the song (skip completely empty ones at the end)
 		var lastNonEmpty:Int = 0;
 		for (i in 0...sectionNoteArrays.length)
 			if (sectionNoteArrays[i].length > 0)
 				lastNonEmpty = i;
 
-		for (i in 0...(lastNonEmpty + 2)) // +2 = incluir última vacía de cierre
+		for (i in 0...(lastNonEmpty + 2)) // +2 = include last empty of cierre
 		{
 			if (i >= sectionStarts.length)
 				break;
@@ -438,14 +438,14 @@ class VSliceConverter
 	{
 		return switch (kind.toLowerCase())
 		{
-			// ── Cámara ────────────────────────────────────────────────────────
+			// ── Camera ────────────────────────────────────────────────────────
 			case 'focuscamera', 'focus camera':
 				/*
 				 * V-Slice char index:
 				 *   0  = player (BF)
 				 *   1  = opponent (Dad)
 				 *   2  = girlfriend (GF)
-				 *  -1  = posición absoluta (x,y)
+				 *  -1  = position absoluta (x,and)
 				 *
 				 * Formato de value en Cool Engine:
 				 *   "target|offsetX|offsetY|duration|ease"
@@ -472,7 +472,7 @@ class VSliceConverter
 				}
 
 				// CLASSIC = snap del follow point sin tween (comportamiento por defecto).
-				// INSTANT = snap instantáneo (duración 0).
+				// INSTANT = instant snap (duration 0).
 				// Ambos se traducen a un Camera Follow simple sin duration/ease.
 				final isSnap = (ease == 'CLASSIC' || ease == 'INSTANT');
 
@@ -575,7 +575,7 @@ class VSliceConverter
 	/**
 	 * Intenta cargar la metadata del song V-Slice.
 	 *
-	 * Orden de búsqueda (usando chartFilePath para determinar la carpeta):
+	 * Orden of search (usando chartFilePath for determinar the folder):
 	 *   1. {folder}/{songName}-metadata.json
 	 *   2. {folder}/metadata.json
 	 *   3. {folder}/{songName}-metadata-{variation}.json  (ej: senpai-metadata-erect.json)
@@ -602,7 +602,7 @@ class VSliceConverter
 		if (chartFilePath != null && chartFilePath != '')
 		{
 			final dir = _parentDir(chartFilePath);
-			// Inferir nombre de canción del nombre de carpeta o del archivo
+			// Inferir nombre of song of the nombre of folder or of the file
 			final folderName = _folderName(dir);
 			result.songName = _capitalize(folderName);
 
@@ -622,18 +622,18 @@ class VSliceConverter
 				_addDV(cleanDiff.toUpperCase());
 				_addDV(cleanDiff.charAt(0).toUpperCase() + cleanDiff.substr(1).toLowerCase());
 				_addDV(cleanDiff);
-				// También añadir la variante original por si acaso
+				// Also add the variante original by if acaso
 				_addDV(difficulty.toLowerCase());
 				_addDV(difficulty);
 			}
 
 			// ── Carga en dos pasos ────────────────────────────────────────────────────
-			// Paso 1: metadata genérica (valores base: stage, BPM, personajes, artist)
-			// Paso 2: metadata específica de dificultad (override, incluyendo artist)
+			// Paso 1: metadata generic (values base: stage, BPM, characters, artist)
+			// Paso 2: metadata specific of difficulty (override, incluyendo artist)
 			//
-			// Así, si senpai-metadata-erect.json tiene un "artist" distinto, tiene
+			// So, if senpai-metadata-erect.json tiene a "artist" distinto, tiene
 			// prioridad. Si no tiene "artist", se conserva el del metadata base.
-			// La carga genérica también busca en carpeta padre para variaciones.
+			// The load generic also busca in folder padre for variaciones.
 			final parentDir = _parentDir(dir);
 			final parentFolder = _folderName(parentDir);
 
@@ -653,9 +653,9 @@ class VSliceConverter
 				specificCandidates.push('$dir/${folderName}-metadata-${_dv}.json');
 
 			// ── Fallback progresivo para sufijos compuestos (ej: cleanDiff = "easy-bf") ──
-			// Si cleanDiff tiene forma "{diff}-{variation}", también buscamos el metadata
-			// usando solo la variación como clave ("bf" → lit_up-metadata-bf.json).
-			// Esto cubre charts de variación V-Slice donde el metadata de variación NO lleva
+			// If cleanDiff tiene forma "{diff}-{variation}", also buscamos the metadata
+			// usando only the variation as key ("bf" → lit_up-metadata-bf.json).
+			// This covers charts of variation V-Slice where the metadata of variation no lleva
 			// el nombre de la dificultad en el nombre del archivo.
 			{
 				var _stripped = cleanDiff;
@@ -689,7 +689,7 @@ class VSliceConverter
 				catch (e:Dynamic) { trace('[VSliceConverter] Error leyendo metadata "$path": $e'); }
 			}
 
-			// Paso 2 — específica de dificultad (override, artist incluido)
+			// Paso 2 — specific of difficulty (override, artist incluido)
 			for (path in specificCandidates)
 			{
 				if (!sys.FileSystem.exists(path)) continue;
@@ -697,13 +697,13 @@ class VSliceConverter
 				{
 					final meta:Dynamic = Json.parse(sys.io.File.getContent(path));
 					_applyMetadata(meta, result);
-					trace('[VSliceConverter] Metadata específica (diff=$cleanDiff) desde: $path');
+					trace('[VSliceConverter] Specific metadata (diff=$cleanDiff) desde: $path');
 					break;
 				}
 				catch (e:Dynamic) { trace('[VSliceConverter] Error leyendo metadata "$path": $e'); }
 			}
 
-			// BUGFIX: Si los charts están en assets/ pero la metadata está en un mod
+			// BUGFIX: If the charts are in assets/ but the metadata is in a mod
 			// (ej: base_game), buscar en todos los mods habilitados con el mismo esquema
 			// de dos pasos para respetar la prioridad del artist por dificultad.
 			if (result.stage == 'stage_week1' && result.player == 'bf' && result.opponent == 'dad')
@@ -738,7 +738,7 @@ class VSliceConverter
 						}
 						catch (e:Dynamic) { trace('[VSliceConverter] Error metadata mod "$mpath": $e'); }
 					}
-					// Paso 2 mod — específica (artist override)
+					// Step 2 mod — specific (artist override)
 					for (mpath in modSpecific)
 					{
 						if (!sys.FileSystem.exists(mpath)) continue;
@@ -746,7 +746,7 @@ class VSliceConverter
 						{
 							final meta:Dynamic = Json.parse(sys.io.File.getContent(mpath));
 							_applyMetadata(meta, result);
-							trace('[VSliceConverter] Metadata específica mod "${mod.id}": $mpath');
+							trace('[VSliceConverter] Specific mod metadata "${mod.id}": $mpath');
 							foundInMod = true;
 							break;
 						}
@@ -852,10 +852,10 @@ class VSliceConverter
 	static function _capitalize(s:String):String
 		return s.length > 0 ? s.charAt(0).toUpperCase() + s.substr(1) : s;
 
-	// ── Helpers de conversión ─────────────────────────────────────────────────
+	// ── Helpers of conversion ─────────────────────────────────────────────────
 
 	/**
-	 * Genera variantes de nombre de dificultad para búsqueda tolerante.
+	 * Generates variantes of nombre of difficulty for search tolerante.
 	 * "Erect" → ["Erect", "erect", "ERECT"]
 	 */
 	static function _diffVariants(diff:String):Array<String>
@@ -888,7 +888,7 @@ class VSliceConverter
 		return Math.isNaN(f) ? def : f;
 	}
 
-	// ── Conversión de personajes V-Slice ──────────────────────────────────────
+	// ── Conversion of characters V-Slice ──────────────────────────────────────
 
 	/**
 	 * Convierte un JSON de personaje en formato V-Slice al formato Cool Engine.
@@ -935,7 +935,7 @@ class VSliceConverter
 
 		// ── Asset path → imagen ───────────────────────────────────────────────
 		// V-Slice usa "shared:characters/BF_Assets" o solo "characters/BF_Assets".
-		// Cool Engine usa solo la parte de path relativa a images/ sin extensión.
+		// Cool Engine use only the parte of path relativa to images/ without extension.
 		var rawAsset:String = _str(src.assetPath, 'characters/' + charName);
 		// Quitar prefijo de biblioteca (e.g. "shared:")
 		final colonIdx = rawAsset.indexOf(':');
@@ -943,7 +943,7 @@ class VSliceConverter
 		// Quitar leading slash
 		if (rawAsset.startsWith('/')) rawAsset = rawAsset.substr(1);
 
-		// ── Posición global ───────────────────────────────────────────────────
+		// ── Position global ───────────────────────────────────────────────────
 		var posX:Float = 0.0;
 		var posY:Float = 0.0;
 		if (src.offsets != null)
@@ -979,7 +979,7 @@ class VSliceConverter
 				final fps:Int           = Std.int(_float(anim.fps, 24.0));
 				final looped:Bool       = (anim.looped == true);
 
-				// Frame indices: [] o vacío = sin restricción
+				// Frame indices: [] or empty = no restriction
 				var indices:Array<Int> = [];
 				if (anim.frameIndices != null && Std.isOfType(anim.frameIndices, Array))
 				{
@@ -987,7 +987,7 @@ class VSliceConverter
 					indices = [for (i in raw) Std.int(_float(i, 0))];
 				}
 
-				// Offsets por animación (sobreescriben el offset global en Cool)
+				// Offsets by animation (sobreescriben the offset global in Cool)
 				var offX:Float = 0.0;
 				var offY:Float = 0.0;
 				if (anim.offsets != null)
@@ -1017,7 +1017,7 @@ class VSliceConverter
 			animations:      coolAnims,
 			position:        [posX, posY],
 			camera_position: [camX, camY],
-			// Animación inicial si se especifica
+			// Animation inicial if is especifica
 			startAnim:       src.startingAnimation != null ? _str(src.startingAnimation, 'idle') : 'idle'
 		};
 	}

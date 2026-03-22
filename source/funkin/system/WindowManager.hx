@@ -14,19 +14,19 @@ import lime.app.Application;
 using StringTools;
 
 /**
- * WindowManager — gestión de ventana, escalado, opacidad y visibilidad de sprites.
+ * WindowManager — management of window, scaling, opacidad and visibilidad of sprites.
  *
- * ─── Características (v2) ────────────────────────────────────────────────────
+ * ─── Features (v2) ────────────────────────────────────────────────────
  *  1. Modos de escala: LETTERBOX, STRETCH, PIXEL_PERFECT.
- *  2. Invalidación de cachés de cámaras en resize (anti-artefactos).
+ *  2. Invalidación of caches of cameras in resize (anti-artefactos).
  *  3. DPI-awareness en Windows.
  *  4. NUEVO: Control de opacidad de ventana (setWindowOpacity).
  *  5. NUEVO: Ocultar/mostrar la ventana (hide / show / setWindowVisible).
- *  6. NUEVO: Modo "spotlight" — sólo ciertos sprites son visibles,
- *            el resto se oculta automáticamente. Ideal para cutscenes donde
- *            un único personaje habla sobre un fondo negro, o para efectos
+ *  6. new: Modo "spotlight" — only ciertos sprites are visibles,
+ *            the resto is oculta automatically. Ideal for cutscenes where
+ *            a unique character habla over a fondo negro, or for effects
  *            de "foco" en un personaje durante el gameplay.
- *  7. NUEVO: setLayerVisible — oculta/muestra grupos de sprites por cámara.
+ *  7. new: setLayerVisible — oculta/muestra grupos of sprites by camera.
  *
  * ─── API de visibilidad de sprites ──────────────────────────────────────────
  *
@@ -37,11 +37,11 @@ using StringTools;
  *   // Opacidad de ventana (0.0 = invisible, 1.0 = normal):
  *   WindowManager.setWindowOpacity(0.5);
  *
- *   // Spotlight: sólo bf visible, todo lo demás se oculta:
+ *   // Spotlight: only bf visible, all it demás is hides:
  *   WindowManager.beginSpotlight([bfCharacter]);
  *   WindowManager.endSpotlight(); // restaura visibilidades
  *
- *   // Spotlight con sprites individuales + cámara negra de fondo:
+ *   // Spotlight with sprites individuales + camera negra of fondo:
  *   WindowManager.beginSpotlight([bfSprite, dialogueBox], blackBackground: true);
  *
  * @author  Cool Engine Team
@@ -49,7 +49,7 @@ using StringTools;
  */
 class WindowManager
 {
-	// ── Configuración ──────────────────────────────────────────────────────────
+	// ── Configuration ──────────────────────────────────────────────────────────
 
 	public static var scaleMode(default, null):ScaleMode = LETTERBOX;
 	public static var minWidth:Int     = 640;
@@ -62,12 +62,12 @@ class WindowManager
 
 	// ── Spotlight state ────────────────────────────────────────────────────────
 
-	/** true mientras el modo spotlight está activo. */
+	/** true while the modo spotlight is active. */
 	public static var spotlightActive(default, null):Bool = false;
 
 	/**
-	 * Sprites que están en el spotlight (sólo ellos son visibles).
-	 * Guarda también el FlxSprite del fondo negro si blackBackground = true.
+	 * Sprites that are in the spotlight (only ellos are visibles).
+	 * Save also the FlxSprite of the fondo negro if blackBackground = true.
 	 */
 	static var _spotlightSprites:Array<FlxSprite> = [];
 
@@ -80,7 +80,7 @@ class WindowManager
 	/** Fondo negro creado por beginSpotlight cuando blackBackground = true. */
 	static var _spotlightBg:FlxSprite = null;
 
-	/** ID único para el Map de snapshot (usamos objeto.ID de Flixel) */
+	/** ID unique for the Map of snapshot (usamos object.ID of Flixel) */
 	static var _snapshotTaken:Bool = false;
 
 	// ── Init ─────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ class WindowManager
 	}
 
 	/**
-	 * Versión string de applyScaleMode — para llamar desde scripts sin
+	 * Version string of applyScaleMode — for callr from scripts without
 	 * necesitar importar el enum ScaleMode.
 	 * Valores: "letterbox" (default), "stretch", "pixel" / "pixel_perfect", "widescreen"
 	 */
@@ -144,8 +144,8 @@ class WindowManager
 	}
 
 	/**
-	 * ¿Es el modo widescreen activo en este momento?
-	 * Útil para que PlayState y el HUD sepan si deben redistribuirse.
+	 * Is the modo widescreen active in this momento?
+	 * Useful for that PlayState and the HUD sepan if deben redistribuirse.
 	 */
 	public static var isWidescreen(get, never):Bool;
 	static inline function get_isWidescreen():Bool return scaleMode == WIDESCREEN;
@@ -175,21 +175,21 @@ class WindowManager
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  BRANDING DE MOD: título e icono en runtime, sin recompilar
+	//  BRANDING of mod: title and icono in runtime, without recompiling
 	// ══════════════════════════════════════════════════════════════════════════
 
-	/** Título que usa el engine si no hay mod activo ni título capturado de la ventana. */
+	/** Title that use the engine if no there is mod active ni title capturado of the window. */
 	static inline var DEFAULT_TITLE:String = "Friday Night Funkin\': Cool Engine";
-	/** Título original de la app, guardado la primera vez que se cambia. */
+	/** Title original of the app, saved the first vez that is changes. */
 	static var _defaultTitle:Null<String> = null;
 	/** true si el icono actual fue cargado desde un mod (para restaurarlo). */
 	static var _usingModIcon:Bool = false;
 
-	/** Evitar aplicar el ícono por defecto más de una vez al inicio. */
+	/** Avoid appliesr the icon by default more of a vez to the start. */
 	static var _defaultIconApplied:Bool = false;
 
 	/**
-	 * Rutas candidatas del PNG de ícono por defecto (en orden de preferencia).
+	 * Paths candidatas of the PNG of icon by default (in orden of preferencia).
 	 * Ajusta a donde tengas tu iconOG.png.
 	 */
 	static final DEFAULT_ICON_PATHS:Array<String> = [
@@ -201,20 +201,20 @@ class WindowManager
 	];
 
 	/**
-	 * Carga el PNG de ícono por defecto desde disco y llama a win.setIcon().
+	 * Load the PNG of icon by default from disco and call to win.setIcon().
 	 *
 	 * FIX: openfl.Assets.getBitmapData('icon.png') crasheaba porque Lime
-	 * incrusta el ícono en el .exe con <icon> pero NO lo registra en el
+	 * incrusta the icon in the .exe with <icon> but no it registra in the
 	 * manifiesto de OpenFL → getBitmapData lanza "asset not found".
 	 * Cargarlo directamente desde disco con lime.graphics.Image.fromFile()
 	 * funciona siempre que el PNG exista en la carpeta del ejecutable.
 	 */
 	static function _restoreDefaultIcon(win:lime.ui.Window):Void
 	{
-		// Opción 1 — haxe.Resource (GARANTIZADO dentro del exe)
+		// Option 1 — haxe.Resource (GARANTIZADO dentro of the exe)
 		// Project.xml: <haxeresource path="art/iconOG.png" name="AppIcon" />
 		// Lime compila el PNG como recurso Haxe. haxe.Resource.getBytes() siempre
-		// funciona sin importar desde dónde se ejecute el binario.
+		// works without importar from where is ejecute the binario.
 		try
 		{
 			final bytes = haxe.Resource.getBytes('AppIcon');
@@ -231,7 +231,7 @@ class WindowManager
 		}
 		catch (_:Dynamic) {}
 
-		// Opción 2 — openfl.Assets (por si hay otra forma de embed activa)
+		// Option 2 — openfl.Assets (by if there is otra forma of embed active)
 		try
 		{
 			final limeImg = lime.utils.Assets.getImage('AppIcon');
@@ -239,7 +239,7 @@ class WindowManager
 		}
 		catch (_:Dynamic) {}
 
-		// Opción 3 — fallback en disco (desarrollo local)
+		// Option 3 — fallback in disco (desarrollo local)
 		#if sys
 		final exeDir = haxe.io.Path.directory(Sys.programPath()).replace('\\', '/');
 		for (rel in DEFAULT_ICON_PATHS)
@@ -256,17 +256,17 @@ class WindowManager
 				catch (_:Dynamic) {}
 			}
 		}
-		trace('[WindowManager] No se encontró PNG de ícono en ninguna ruta.');
+		trace('[WindowManager] No is encontró PNG of icon in none path.');
 		#end
 	}
 
 	/**
-	 * Aplica el branding (título e icono) de un ModInfo al arrancar o al cambiar de mod.
+	 * Applies the branding (title and icono) of a ModInfo to the startup or to the change of mod.
 	 * Si info es null, restaura los valores por defecto del engine.
 	 *
-	 * Campos leídos de mod.json:
-	 *   "appTitle": "Mi Mod — FNF"   ← título de la ventana del OS
-	 *   "appIcon":  "icon"            ← PNG en la raíz del mod, sin extensión
+	 * Fields leídos of mod.json:
+	 *   "appTitle": "Mi Mod — FNF"   ← title of the window of the OS
+	 *   "appIcon":  "icon"            ← PNG in the root of the mod, without extension
 	 *
 	 * Ejemplo de uso en Main.hx:
 	 *   ModManager.onModChanged = function(id) {
@@ -279,11 +279,11 @@ class WindowManager
 		final win = lime.app.Application.current?.window;
 		if (win == null) return;
 
-		// ── Guardar título default la primera vez ─────────────────────────────
+		// ── Save title default the first vez ─────────────────────────────
 		if (_defaultTitle == null)
 			_defaultTitle = win.title;
 
-		// ── Título ───────────────────────────────────────────────────────────
+		// ── Title ───────────────────────────────────────────────────────────
 		if (info != null && info.appTitle != null && info.appTitle.trim() != '')
 			win.title = info.appTitle;
 		else
@@ -291,9 +291,9 @@ class WindowManager
 
 		// ── Icono ────────────────────────────────────────────────────────────
 		#if sys
-		// FIX: al arrancar siempre aplicar el ícono por defecto via setIcon().
+		// FIX: to the startup always appliesr the icon by default via setIcon().
 		// Lime incrusta el PNG en el .exe pero Windows solo lo muestra en el
-		// explorador — la ventana en runtime necesita setIcon() explícito.
+		// explorador — the window in runtime necesita setIcon() explicit.
 		if (!_defaultIconApplied)
 		{
 			_defaultIconApplied = true;
@@ -301,7 +301,7 @@ class WindowManager
 		}
 		if (info != null && info.appIcon != null && info.appIcon.trim() != '')
 		{
-			// Buscar el PNG: primero con el nombre tal cual, luego añadiendo .png
+			// Search the PNG: first with the name tal cual, then adding .png
 			var iconPath = '${info.folder}/${info.appIcon}';
 			if (!sys.FileSystem.exists(iconPath))
 				iconPath = '$iconPath.png';
@@ -311,7 +311,7 @@ class WindowManager
 				try
 				{
 					// lime.graphics.Image.fromFile() carga el PNG directamente en memoria
-					// Application.window.setIcon() lo envía al OS sin recompilar
+					// Application.window.setIcon() sends it to the OS without recompiling
 					final img = lime.graphics.Image.fromFile(iconPath);
 					if (img != null)
 					{
@@ -332,13 +332,13 @@ class WindowManager
 		}
 		else if (_usingModIcon)
 		{
-			// Sin ícono de mod → restaurar el ícono por defecto desde disco.
+			// Without icon of mod → restaurar the icon by default from disco.
 			_restoreDefaultIcon(win);
 			_usingModIcon = false;
 		}
 		#end
 
-		trace('[WindowManager] Branding aplicado → título="${win.title}" modIcon=$_usingModIcon');
+		trace('[WindowManager] Branding appliesdo → title="${win.title}" modIcon=$_usingModIcon');
 		#end
 	}
 
@@ -365,7 +365,7 @@ class WindowManager
 		#end
 	}
 
-	// ── Tamaño ────────────────────────────────────────────────────────────────
+	// ── Size ────────────────────────────────────────────────────────────────
 
 	public static var windowWidth(get, never):Int;
 	static inline function get_windowWidth():Int
@@ -396,7 +396,7 @@ class WindowManager
 
 	/**
 	 * Oculta la ventana del juego (la ventana desaparece del escritorio).
-	 * El proceso sigue corriendo. Útil para fondos de pantalla interactivos,
+	 * The process sigue corriendo. Useful for fondos of screen interactivos,
 	 * ventanas HUD secundarias, o durante transiciones de pantalla completa.
 	 */
 	public static function hide():Void
@@ -424,7 +424,7 @@ class WindowManager
 		if (visible) show() else hide();
 	}
 
-	/** ¿Está la ventana actualmente visible? */
+	/** Is the window currently visible? */
 	public static var isWindowVisible(get, never):Bool;
 	static function get_isWindowVisible():Bool
 	{
@@ -447,7 +447,7 @@ class WindowManager
 	 *
 	 * NOTA: La opacidad de ventana es diferente a FlxSprite.alpha — afecta
 	 * a TODOS los sprites y la interfaz OS de la ventana.
-	 * Para ocultar sólo el contenido del juego, usa setGameAlpha() en su lugar.
+	 * For ocultar only the contenido of the game, use setGameAlpha() in its lugar.
 	 */
 	public static function setWindowOpacity(alpha:Float):Void
 	{
@@ -464,7 +464,7 @@ class WindowManager
 
 	/**
 	 * Cambia el alpha del contenedor principal de Flixel (no de la ventana OS).
-	 * Más portátil que setWindowOpacity: funciona en todas las plataformas.
+	 * More portátil that setWindowOpacity: works in all the plataformas.
 	 * @param alpha 0.0 = invisible, 1.0 = normal
 	 */
 	public static function setGameAlpha(alpha:Float):Void
@@ -475,27 +475,27 @@ class WindowManager
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  NUEVO: SPOTLIGHT — hacer visible sólo determinados sprites
+	//  new: SPOTLIGHT — do visible only determinados sprites
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
 	 * Activa el modo spotlight: oculta TODOS los sprites de la escena actual
 	 * excepto los especificados en `sprites`.
 	 *
-	 * ─── Cómo funciona ────────────────────────────────────────────────────────
+	 * ─── How it works ────────────────────────────────────────────────────────
 	 *  1. Toma un snapshot de la visibilidad de todos los miembros de FlxG.state.
 	 *  2. Oculta todo.
-	 *  3. Hace visibles sólo los sprites en `sprites`.
-	 *  4. Opcionalmente añade un fondo negro sobre las cámaras de fondo.
+	 *  3. Hace visibles only the sprites in `sprites`.
+	 *  4. Opcionalmente adds a fondo black over the cameras of fondo.
 	 *
 	 * ─── Ejemplo ─────────────────────────────────────────────────────────────
-	 *   // Sólo bf y el cuadro de diálogo son visibles
+	 *   // Only bf and the cuadro of dialogue are visibles
 	 *   WindowManager.beginSpotlight([bf, dialogBox], true);
 	 *   // ... cutscene ...
 	 *   WindowManager.endSpotlight();
 	 *
 	 * @param sprites          Sprites que DEBEN seguir visibles.
-	 * @param blackBackground  Si true, añade un overlay negro sobre las cámaras
+	 * @param blackBackground  If true, adds a overlay black over the cameras
 	 *                         de background para aislar los sprites del stage.
 	 * @param bgAlpha          Opacidad del fondo negro (0.0-1.0). Default: 0.85.
 	 */
@@ -516,7 +516,7 @@ class WindowManager
 			_snapshotGroup(FlxG.state.members);
 		}
 
-		// ── Mostrar sólo los sprites del spotlight ────────────────────────────
+		// ── Mostrar only the sprites of the spotlight ────────────────────────────
 		for (spr in _spotlightSprites)
 		{
 			if (spr != null)
@@ -530,10 +530,10 @@ class WindowManager
 			_spotlightBg.makeGraphic(FlxG.width, FlxG.height, 0xFF000000);
 			_spotlightBg.alpha   = Math.max(0.0, Math.min(1.0, bgAlpha));
 			_spotlightBg.scrollFactor.set(0, 0);
-			_spotlightBg.cameras = [FlxG.camera]; // cámara principal
+			_spotlightBg.cameras = [FlxG.camera]; // camera main
 			FlxG.state.add(_spotlightBg);
 
-			// El fondo negro debe estar detrás de los sprites del spotlight
+			// The fondo black debe be behind of the sprites of the spotlight
 			// → moverlo al inicio del array de miembros del state
 			final members = FlxG.state.members;
 			if (members != null && members.length > 1)
@@ -584,7 +584,7 @@ class WindowManager
 	}
 
 	/**
-	 * Cambia el conjunto de sprites visibles mientras el spotlight está activo,
+	 * Changes the conjunto of sprites visibles while the spotlight is active,
 	 * sin necesidad de llamar end/beginSpotlight de nuevo.
 	 *
 	 * @param sprites  Nuevo conjunto de sprites que deben ser visibles.
@@ -611,7 +611,7 @@ class WindowManager
 	}
 
 	/**
-	 * Añade un sprite al spotlight actual sin reconfigurar todo.
+	 * Adds a sprite to the spotlight current without reconfigurar all.
 	 */
 	public static function addToSpotlight(sprite:FlxSprite):Void
 	{
@@ -623,7 +623,7 @@ class WindowManager
 	}
 
 	/**
-	 * Quita un sprite del spotlight (lo oculta si el spotlight está activo).
+	 * Quita a sprite of the spotlight (it hides if the spotlight is active).
 	 */
 	public static function removeFromSpotlight(sprite:FlxSprite):Void
 	{
@@ -647,7 +647,7 @@ class WindowManager
 		}
 	}
 
-	/** Restaura la visibilidad de todos los miembros según el snapshot. */
+	/** Restaura the visibility of all the miembros according to the snapshot. */
 	static function _restoreGroup(members:Array<FlxBasic>):Void
 	{
 		if (members == null) return;
@@ -671,15 +671,15 @@ class WindowManager
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  NUEVO: VISIBILIDAD POR CÁMARA
+	//  new: VISIBILIDAD by camera
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Oculta o muestra TODOS los sprites que están asignados a una cámara
-	 * específica. Útil para ocultar capas enteras (HUD, background, etc.)
-	 * sin afectar a los sprites de otras cámaras.
+	 * Hides or muestra all the sprites that are asignados to a camera
+	 * specific. Useful for hide layers enteras (HUD, background, etc.)
+	 * without afectar to the sprites of otras cameras.
 	 *
-	 * @param camera   La cámara cuya "capa" quieres afectar.
+	 * @param camera   The camera cuya "layer" quieres afectar.
 	 * @param visible  true = mostrar, false = ocultar.
 	 */
 	public static function setCameraLayerVisible(camera:FlxCamera, visible:Bool):Void
@@ -697,10 +697,10 @@ class WindowManager
 	}
 
 	/**
-	 * Oculta o muestra todos los sprites de TODAS las cámaras excepto la
+	 * Oculta or muestra all the sprites of all the cameras excepto the
 	 * especificada. Complementario a setCameraLayerVisible.
 	 *
-	 * @param exceptCamera  Cámara cuyos sprites NO se afectan.
+	 * @param exceptCamera  Camera cuyos sprites no is afectan.
 	 * @param visible       true = mostrar el resto, false = ocultar el resto.
 	 */
 	public static function setOtherCamerasVisible(exceptCamera:FlxCamera, visible:Bool):Void
@@ -732,7 +732,7 @@ class WindowManager
 		if (scaleMode == PIXEL_PERFECT)
 			applyScaleMode(PIXEL_PERFECT);
 
-		// Si el spotlight está activo con fondo negro, redimensionarlo
+		// If the spotlight is active with fondo black, redimensionarlo
 		if (spotlightActive && _spotlightBg != null)
 		{
 			_spotlightBg.makeGraphic(w, h, 0xFF000000);
@@ -785,7 +785,7 @@ class WindowManager
  *  - LETTERBOX     → Viewport stretch + Keep aspect
  *  - STRETCH       → Canvas Items + Ignore aspect
  *  - PIXEL_PERFECT → Viewport stretch + Keep aspect + Integer scale
- *  - WIDESCREEN    → Expande FlxG.width en pantallas >16:9 mostrando más escenario
+ *  - WIDESCREEN    → Expande FlxG.width in screens >16:9 mostrando more stage
  */
 enum ScaleMode
 {
@@ -821,23 +821,23 @@ class PixelPerfectScaleMode extends RatioScaleMode
  *
  * Comportamiento:
  *  • En pantallas 16:9 exactas funciona igual que LETTERBOX.
- *  • En pantallas MÁS ANCHAS (21:9, 32:9…) el juego ocupa todo el ancho.
- *    FlxG.width se expande proporcionalmente, mostrando MÁS ESCENARIO
+ *  • In screens more ANCHAS (21:9, 32:9…) the game ocupa all the width.
+ *    FlxG.width is expande proporcionalmente, mostrando more stage
  *    a los lados sin deformar la imagen.
- *  • En pantallas MÁS ALTAS (4:3, 16:10…) se añaden barras negras arriba/abajo
+ *  • In screens more ALTAS (4:3, 16:10…) is añaden barras negras up/down
  *    igual que LETTERBOX.
  *
  * La altura base (FlxG.height) no cambia.
- * El ancho lógico (FlxG.width) puede crecer hasta maxWidthScale × baseWidth.
+ * The width lógico (FlxG.width) puede crecer until maxWidthScale × baseWidth.
  * Los elementos HUD con scrollFactor (0,0) quedan fijos en pantalla.
- * Los sprites del stage, al usar camGame, se ven más a los lados.
+ * The sprites of the stage, to the usar camGame, is ven more to the lados.
  *
- * Límite máximo de ratio: 21:9 (~2.333). Pantallas más anchas reciben barras.
+ * Limit maximum of ratio: 21:9 (~2.333). Screens more anchas reciben barras.
  */
 @:access(flixel.system.scaleModes.BaseScaleMode)
 class WideRatioScaleMode extends RatioScaleMode
 {
-	/** Ratio máximo soportado (default: 21:9 ≈ 2.333). */
+	/** Ratio maximum soportado (default: 21:9 ≈ 2.333). */
 	public static var maxRatio:Float = 21 / 9;
 
 	var _baseW:Int;
@@ -857,23 +857,23 @@ class WideRatioScaleMode extends RatioScaleMode
 
 		if (screenRatio > baseRatio)
 		{
-			// Pantalla más ancha que 16:9 → expandir ancho lógico
+			// Screen more ancha that 16:9 → expandir width lógico
 			var clampedRatio = Math.min(screenRatio, maxRatio);
 			var newW = Math.ceil(_baseH * clampedRatio);
 
-			// Mantener múltiplos de 2 para evitar artefactos sub-pixel
+			// Mantener múltiplos of 2 for avoid artefactos sub-pixel
 			if (newW % 2 != 0) newW++;
 
 			gameSize.y = Height;
 			gameSize.x = Width;
 
-			// Expandir el ancho lógico de Flixel
+			// Expandir the width lógico of Flixel
 			untyped FlxG.width  = newW;
 			untyped FlxG.height = _baseH;
 		}
 		else
 		{
-			// Pantalla igual o más alta que 16:9 → comportamiento normal
+			// Screen igual or more alta that 16:9 → comportamiento normal
 			gameSize.y = Height;
 			gameSize.x = Math.ceil(Height * baseRatio);
 

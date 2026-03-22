@@ -1,7 +1,7 @@
 package funkin.cutscenes;
 
 /**
- * SRTParser — Parser de archivos de subtítulos en formato SubRip (.srt).
+ * SRTParser — Parser of files of subtitles in format SubRip (.srt).
  *
  * Convierte un archivo .srt en un array de SRTEntry con tiempos en
  * milisegundos, listo para sincronizar con VideoManager.
@@ -10,19 +10,19 @@ package funkin.cutscenes;
  *
  *   1
  *   00:00:01,500 --> 00:00:04,000
- *   Primera línea de texto
- *   Segunda línea
+ *   First line of text
+ *   Segunda line
  *
  *   2
  *   00:00:05,000 --> 00:00:07,500
- *   Otra línea
+ *   Otra line
  *
  * ─── Uso ───────────────────────────────────────────────────────────────────
  *
  *   var entries = SRTParser.parseFile("assets/videos/intro.srt");
  *   var entries = SRTParser.parseString(rawText);
  *
- *   // Obtener subtítulo activo en un instante dado (ms):
+ *   // Get subtitle active in a instante dado (ms):
  *   var current = SRTParser.getEntryAt(entries, videoTimeMs);
  *
  */
@@ -32,7 +32,7 @@ using StringTools;
 class SRTParser
 {
 	// ══════════════════════════════════════════════════════════════════════════
-	//  API pública
+	//  API public
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
@@ -61,17 +61,17 @@ class SRTParser
 
 	/**
 	 * Parsea el contenido de un .srt ya cargado como String.
-	 * Tolerante a saltos de línea Windows (\r\n), Unix (\n) y Mac (\r).
+	 * Tolerante to saltos of line Windows (\r\n), Unix (\n) and Mac (\r).
 	 * Ignora entradas malformadas en silencio.
 	 */
 	public static function parseString(content:String):Array<SRTEntry>
 	{
 		if (content == null || content.length == 0) return [];
 
-		// Normalizar saltos de línea
+		// Normalize saltos of line
 		content = content.split('\r\n').join('\n').split('\r').join('\n');
 
-		// Separar bloques por línea en blanco
+		// Separar bloques by line in blanco
 		final blocks = content.split('\n\n');
 		final result:Array<SRTEntry> = [];
 
@@ -81,14 +81,14 @@ class SRTParser
 			if (entry != null) result.push(entry);
 		}
 
-		// Ordenar por tiempo de inicio (normalmente ya está en orden)
+		// Ordenar by time of start (normally already is in orden)
 		result.sort(function(a, b) return a.startMs - b.startMs);
 		return result;
 	}
 
 	/**
 	 * Devuelve la entrada activa para el instante `timeMs` dado, o null si
-	 * no hay ningún subtítulo activo en ese instante.
+	 * no there is no subtitle active in that instante.
 	 *
 	 * @param entries  Array devuelto por parseFile/parseString.
 	 * @param timeMs   Tiempo actual del video en milisegundos.
@@ -97,7 +97,7 @@ class SRTParser
 	{
 		if (entries == null || entries.length == 0) return null;
 
-		// Búsqueda binaria para eficiencia con archivos grandes
+		// Search binaria for eficiencia with files grandes
 		var lo = 0;
 		var hi = entries.length - 1;
 
@@ -118,7 +118,7 @@ class SRTParser
 
 	/**
 	 * Devuelve la ruta .srt esperada dado el path de un video .mp4.
-	 * Prueba también una sub-carpeta "subs/" junto al video.
+	 * Prueba also a sub-folder "subs/" junto to the video.
 	 *
 	 * Ejemplo: "assets/videos/intro.mp4" → "assets/videos/intro.srt"
 	 */
@@ -126,7 +126,7 @@ class SRTParser
 	{
 		if (videoPath == null) return null;
 
-		// Mismo directorio, misma base, extensión .srt
+		// Same directorio, same base, extension .srt
 		final base = videoPath.endsWith('.mp4')
 			? videoPath.substr(0, videoPath.length - 4)
 			: videoPath;
@@ -136,7 +136,7 @@ class SRTParser
 			base + '.SRT',
 		];
 
-		// También buscar en sub-carpeta subs/
+		// Also search in sub-folder subs/
 		final slash = Std.int(Math.max(base.lastIndexOf('/'), base.lastIndexOf('\\')));
 		if (slash >= 0)
 		{
@@ -157,7 +157,7 @@ class SRTParser
 	}
 
 	/**
-	 * Elimina etiquetas HTML/SRT del texto de un subtítulo.
+	 * Elimina etiquetas HTML/SRT of the text of a subtitle.
 	 * Soporta: <i>, <b>, <u>, <font color="...">, <c.clase>, {\an8}, etc.
 	 *
 	 * Ejemplo: "<i>Hello</i> <font color=\"#ff0\">World</font>" → "Hello World"
@@ -169,7 +169,7 @@ class SRTParser
 		// Eliminar bloques de estilo ASS/SSA entre llaves: {\an8}  {\pos(x,y)}
 		var result = ~/\{[^}]*\}/g.replace(text, '');
 
-		// Eliminar etiquetas HTML estándar: <i>, </i>, <b>, <font color="...">, etc.
+		// Remove etiquetas HTML standard: <i>, </i>, <b>, <font color="...">, etc.
 		result = ~/<[^>]+>/g.replace(result, '');
 
 		// Limpiar espacios dobles y recortar
@@ -191,7 +191,7 @@ class SRTParser
 	/**
 	 * Devuelve todas las rutas SRT candidatas para un video dado, incluyendo
 	 * variantes de idioma (intro.es.srt, intro.en.srt…).
-	 * Útil para construir un selector de pistas en el futuro.
+	 * Useful for construir a selector of pistas in the futuro.
 	 */
 	public static function findAllSrtPaths(videoPath:String):Array<String>
 	{
@@ -236,7 +236,7 @@ class SRTParser
 
 
 	/**
-	 * Parsea un único bloque SRT (número, timestamps, texto).
+	 * Parsea a unique bloque SRT (number, timestamps, text).
 	 * Devuelve null si el bloque no tiene el formato esperado.
 	 */
 	static function _parseBlock(block:String):Null<SRTEntry>
@@ -246,7 +246,7 @@ class SRTParser
 		final lines = block.split('\n');
 		if (lines.length < 2) return null;
 
-		// Buscar la línea de timestamps (puede estar en la línea 0 si falta el número)
+		// Search the line of timestamps (puede be in the line 0 if falta the number)
 		var timeLine = -1;
 		for (i in 0...lines.length)
 		{
@@ -254,7 +254,7 @@ class SRTParser
 		}
 		if (timeLine < 0) return null;
 
-		// Parsear índice (línea anterior al timestamp, si existe)
+		// Parsear index (line previous to the timestamp, if exists)
 		var index = 0;
 		if (timeLine > 0)
 		{
@@ -270,7 +270,7 @@ class SRTParser
 		final endMs   = _parseTimestamp(parts[1].trim());
 		if (startMs < 0 || endMs < 0 || endMs < startMs) return null;
 
-		// El texto son todas las líneas después del timestamp
+		// The text are all the lines after of the timestamp
 		final textLines = lines.slice(timeLine + 1);
 		final text = textLines.join('\n').trim();
 		if (text.length == 0) return null;
@@ -305,16 +305,16 @@ class SRTParser
 	}
 }
 
-// ── Entrada de subtítulo parseada ─────────────────────────────────────────────
+// ── Parsed subtitle entry ─────────────────────────────────────────────
 
 typedef SRTEntry =
 {
-	/** Número de secuencia del bloque SRT (1-based). */
+	/** Number of secuencia of the bloque SRT (1-based). */
 	var index:Int;
 	/** Tiempo de inicio en ms. */
 	var startMs:Int;
 	/** Tiempo de fin en ms. */
 	var endMs:Int;
-	/** Texto del subtítulo (puede contener \n para varias líneas). */
+	/** Text of the subtitle (puede contain \n for various lines). */
 	var text:String;
 }

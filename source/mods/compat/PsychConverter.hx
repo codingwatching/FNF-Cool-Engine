@@ -99,19 +99,19 @@ class PsychConverter
 			events:      []
 		};
 
-		// ── Detección de versión del chart (lane format) ─────────────────────
+		// ── Detection of version of the chart (lane format) ─────────────────────
 		// Psych 0.6+ usa lanes ABSOLUTAS: 0-3 = siempre player, 4-7 = siempre CPU.
 		// Psych pre-0.6 / vanilla FNF usa lanes RELATIVAS: 0-3 = el personaje que
-		// canta en esa sección (según mustHitSection), 4-7 = el otro.
+		// canta in that section (according to mustHitSection), 4-7 = the otro.
 		//
-		// La detección por `sectionBeats` NO es fiable: algunos charts tienen
-		// sectionBeats en secciones vacías pero usan lanes relativas en las demás,
+		// The detection by `sectionBeats` no is fiable: algunos charts tienen
+		// sectionBeats in empty sections but use relative lanes in the rest,
 		// o son charts "mixtos" editados parcialmente en Psych 0.6+.
 		//
-		// Heurística correcta: contar notas en secciones mustHit=FALSE.
+		// Correct heuristic: count notes in mustHit=FALSE sections.
 		//   · Formato relativo → el oponente canta en 0-3 (predominan 0-3)
 		//   · Formato absoluto → el oponente canta en 4-7 (predominan 4-7)
-		// Si hay ≥10 notas de muestra y >60% están en 0-3 → lanes relativas.
+		// If there is ≥10 notes of muestra and >60% are in 0-3 → lanes relativas.
 		// Fallback a sectionBeats si no hay suficientes muestras.
 		final psychSections:Array<Dynamic> = (ps.notes != null && Std.isOfType(ps.notes, Array))
 			? cast ps.notes : [];
@@ -125,7 +125,7 @@ class PsychConverter
 		{
 			// Psych 0.6+ SIEMPRE usa `sectionBeats` (por defecto 4).
 			// Charts viejos usan `lengthInSteps` directamente.
-			// Fallback a 4 beats / 16 steps si ninguno está presente.
+			// Fallback to 4 beats / 16 steps if none is presente.
 			final stepsInSec:Int = (sec.lengthInSteps != null)
 				? Std.int(_float(sec.lengthInSteps, 16))
 				: Std.int(_float(sec.sectionBeats, 4) * 4);
@@ -134,9 +134,9 @@ class PsychConverter
 			final converted:SwagSection = {
 				// LANE CONVERSION:
 				// • Psych 0.6+ → lanes ABSOLUTAS: 0-3=player, 4-7=CPU siempre.
-				//   Cool Engine usa lanes relativas, así que cuando mustHitSection=false
+				//   Cool Engine use lanes relativas, so that when mustHitSection=false
 				//   hay que invertir 0-3↔4-7 para que el flip interno quede correcto.
-				// • Psych pre-0.6 / vanilla FNF → lanes RELATIVAS: ya están en el
+				// • Psych pre-0.6 / vanilla FNF → lanes RELATIVAS: already are in the
 				//   formato que espera Cool Engine. NO invertir.
 				sectionNotes:   _convertNotes(sec.sectionNotes, mustHit, isNewPsychFormat),
 				lengthInSteps:  stepsInSec,
@@ -151,11 +151,11 @@ class PsychConverter
 		}
 
 		// ── Camera Follow desde mustHitSection / gfSection ───────────────────
-		// Psych define el target de cámara por sección (mustHitSection + gfSection).
-		// Cool Engine usa eventos explícitos "Camera Follow" en el array events.
-		// Los generamos aquí para que funcionen correctamente aunque el chart
-		// tenga además otros eventos explícitos (BPM change, etc.), ya que
-		// EventManager.generateCameraFollow() solo corre cuando events está vacío.
+		// Psych defines the target of camera by section (mustHitSection + gfSection).
+		// Cool Engine uses explicit "Camera Follow" events in the events array.
+		// The generamos here for that funcionen correctamente aunque the chart
+		// also has other explicit events (BPM change, etc.), since
+		// EventManager.generateCameraFollow() only corre when events is empty.
 		_convertCameraFromSections(psychSections, song);
 
 		// ── Events ───────────────────────────────────────────────────────────
@@ -296,7 +296,7 @@ class PsychConverter
 		}
 
 		// ── Camera offset desde "camera_position" ────────────────────────────
-		// Psych guarda la posición de cámara en "camera_position" (no en "position").
+		// Psych save the position of camera in "camera_position" (no in "position").
 		// "position" es el offset global del sprite en el mundo.
 		var camOffset:Array<Float> = [0.0, 0.0];
 		if (p.camera_position != null && Std.isOfType(p.camera_position, Array))
@@ -306,8 +306,8 @@ class PsychConverter
 		}
 
 		// BUG FIX #CHARPOS: Psych almacena el offset global del sprite en "position" [x, y].
-		// Este offset se SUMA a la posición del stage (DAD_X/BF_X/GF_X etc.).
-		// La versión anterior ignoraba este campo, dejando los personajes mal posicionados.
+		// This offset is SUMA to the position of the stage (DAD_X/BF_X/GF_X etc.).
+		// The version previous ignoraba this field, dejando the characters bad posicionados.
 		var positionOffset:Array<Float> = [0.0, 0.0];
 		if (p.position != null && Std.isOfType(p.position, Array))
 		{
@@ -341,7 +341,7 @@ class PsychConverter
 			positionOffset: positionOffset   // BUG FIX #CHARPOS
 		};
 
-		// Solo añadir campos opcionales si tienen valor (evita contaminar el objeto)
+		// Only add fields opcionales if tienen value (avoids contaminar the object)
 		if (charDeath     != '') Reflect.setField(coolChar, 'charDeath',     charDeath);
 		if (gameOverSound != '') Reflect.setField(coolChar, 'gameOverSound', gameOverSound);
 		if (gameOverMusic != '') Reflect.setField(coolChar, 'gameOverMusic', gameOverMusic);
@@ -356,8 +356,8 @@ class PsychConverter
 	/**
 	 * Genera eventos "Camera Follow" a partir de mustHitSection / gfSection.
 	 *
-	 * Psych Engine no usa eventos explícitos para los cambios de cámara por sección —
-	 * los define implícitamente con mustHitSection (true=BF, false=Dad) y gfSection (GF).
+	 * Psych Engine doesn't use explicit events for camera changes by section —
+	 * it defines them implicitly with mustHitSection (true=BF, false=Dad) and gfSection (GF).
 	 * Cool Engine los necesita como ChartEvent { type: "Camera Follow", value: target }.
 	 *
 	 * Solo se genera un evento cuando el target CAMBIA respecto al anterior, para no
@@ -368,11 +368,11 @@ class PsychConverter
 	 * En formato ABSOLUTO las secciones del oponente (mustHitSection=false) tienen
 	 * sus notas en lanes 4-7 (CPU siempre en la mitad superior).
 	 * En formato RELATIVO esas mismas secciones tienen las notas del oponente en
-	 * 0-3 (relativo al rol de esa sección).
+	 * 0-3 (relativo to the rol of that section).
 	 *
 	 * Muestra: notas en secciones mustHit=FALSE.
-	 * Devuelve true (absoluto) si la mayoría (>60%) están en lanes 4-7.
-	 * Devuelve false (relativo) si la mayoría están en 0-3.
+	 * Returns true (absoluto) if the majority (>60%) are in lanes 4-7.
+	 * Returns false (relativo) if the majority are in 0-3.
 	 * Si no hay suficiente muestra (<10 notas), cae al fallback de sectionBeats.
 	 */
 	static function _detectAbsoluteLanes(psychSections:Array<Dynamic>):Bool
@@ -397,7 +397,7 @@ class PsychConverter
 		final total = low + high;
 		if (total < 10)
 		{
-			// Muestra insuficiente — fallback: ¿alguna sección tiene sectionBeats?
+			// Insufficient sample — fallback: does any section have sectionBeats?
 			trace('[PsychConverter] Muestra de lanes insuficiente ($total notas), usando fallback sectionBeats.');
 			for (sec in psychSections)
 				if (sec.sectionBeats != null) return true;
@@ -411,30 +411,30 @@ class PsychConverter
 	}
 
 	/**
-	 * explícitos del chart (Hey!, BPM Change, etc.) puedan sobrescribir si hace falta.
+	 * explicit chart events (Hey!, BPM Change, etc.) can override if needed.
 	 *
 	 * @param psychSections  Array de secciones crudas del JSON de Psych.
-	 * @param song           SwagSong en construcción (se modificará su .events).
+	 * @param song           SwagSong being built (its .events will be modified).
 	 */
 	static function _convertCameraFromSections(psychSections:Array<Dynamic>, song:SwagSong):Void
 	{
 		var currentStep:Float = 0;
 		var currentBpm:Float  = song.bpm;
-		var lastTarget:String = ''; // '' = ningún evento emitido aún
+		var lastTarget:String = ''; // '' = no event emitido still
 
 		final cameraEvents:Array<funkin.data.Song.ChartEvent> = [];
 
 		for (sec in psychSections)
 		{
-			// BUG FIX #1 (también aquí): usar sectionBeats para calcular los steps
+			// BUG FIX #1 (also here): usar sectionBeats for calculate the steps
 			final beats:Float        = _float(sec.sectionBeats, 4);
 			final stepsInSec:Float   = beats * 4;
 
-			// Determinar target de cámara según flags de Psych
+			// Determinar target of camera according to flags of Psych
 			final isGfSection  = _bool(sec.gfSection, false);
 			final mustHitSec   = _bool(sec.mustHitSection, true);
 			// BUG FIX #3: usar 'player'/'opponent' consistentemente con EventManager,
-			// NO 'bf'/'dad' como hacía antes el mapeo de eventos explícitos.
+			// not 'bf'/'dad' as it did before the explicit event mapping.
 			final target:String = isGfSection ? 'gf' : (mustHitSec ? 'player' : 'opponent');
 
 			// Solo emitir evento si el target cambia (o es el primer step)
@@ -454,7 +454,7 @@ class PsychConverter
 			currentStep += stepsInSec;
 		}
 
-		// Insertar al frente para que los eventos explícitos (procesados después)
+		// Insert at the front so that explicit events (processed after)
 		// queden al final y prevalezcan en el EventManager cuando comparte step.
 		var insertIdx = 0;
 		for (evt in cameraEvents)
@@ -472,7 +472,7 @@ class PsychConverter
 	 * Psych note: [time:Float, lane:Int, sustainLength:Float, ?noteType:String]
 	 * Cool note : [time:Float, lane:Int, sustainLength:Float, ?noteType:String]
 	 *
-	 * Preserva noteType (índice 3) si es un String válido.
+	 * Preserva noteType (index 3) if is a String valid.
 	 *
 	 * LANE CONVERSION:
 	 *   • Psych 0.6+ (isNewPsychFormat=true) → lanes ABSOLUTAS: 0-3=player, 4-7=CPU.
@@ -504,7 +504,7 @@ class PsychConverter
 			final noteTime:Float    = _float(note[0], 0);
 			final noteSustain:Float = _float(note[2], 0);
 
-			// Preservar noteType (índice 3) si es un String válido
+			// Preservar noteType (index 3) if is a String valid
 			final noteType:String = (note.length > 3 && note[3] != null && Std.isOfType(note[3], String))
 				? Std.string(note[3]) : '';
 
@@ -544,7 +544,7 @@ class PsychConverter
 	{
 		return switch (psychName.toLowerCase())
 		{
-			// ── Cámara ────────────────────────────────────────────────────────
+			// ── Camera ────────────────────────────────────────────────────────
 			case 'camera follow opponent', 'focus camera on opponent',
 			     'camera follow player',   'focus camera on bf',
 			     'camera follow gf',       'focus camera on gf',
@@ -618,17 +618,17 @@ class PsychConverter
 	}
 
 	/**
-	 * Convierte los valores v1/v2 de Psych al formato de valor único de Cool Engine.
+	 * Converts the values v1/v2 of Psych to the formato of value unique of Cool Engine.
 	 * Cool Engine usa un solo campo `value` (con separador `|` para dos valores).
 	 *
-	 * BUG FIX #3: Los eventos explícitos de cámara ahora usan 'player'/'opponent'
+	 * BUG FIX #3: Explicit camera events now use 'player'/'opponent'
 	 * en lugar de 'bf'/'dad', consistente con EventManager y _convertCameraFromSections.
 	 */
 	static function _mapEventValue(psychName:String, v1:String, v2:String):String
 	{
 		return switch (psychName.toLowerCase())
 		{
-			// BUG FIX #3: cámara usa 'opponent'/'player', no 'dad'/'bf'
+			// BUG FIX #3: camera use 'opponent'/'player', no 'dad'/'bf'
 			case 'camera follow opponent', 'focus camera on opponent':
 				v2 != '' ? 'opponent|$v2' : 'opponent';
 
@@ -668,7 +668,7 @@ class PsychConverter
 			case 'show hud', 'set hud visible':
 				v1 != '' ? v1 : 'true';
 
-			// Flash/Shake/Fade: combinar color+duración en v1|v2
+			// Flash/Shake/Fade: combinar color+duration in v1|v2
 			case 'camera flash', 'flash camera', 'flash screen',
 			     'camera shake', 'shake camera', 'screen shake',
 			     'camera fade',  'fade camera',  'fade screen':
@@ -680,16 +680,16 @@ class PsychConverter
 
 			// Play Animation: Psych Engine v1=animName, v2=target(bf/dad/gf/0/1/2)
 			// Cool Engine 'Play Anim' espera: value="target|animName"
-			// BUG FIX: Sin este case caía al default produciendo "animName|target",
-			// lo que hacía que EventManager tratara el nombre de anim como slot y
-			// getCharacterByName("hey") devolvía null → animación nunca se ejecutaba.
+			// BUG FIX: Without this case it fell to the default producing "animName|target",
+			// which caused EventManager to treat the animation name as slot and
+			// getCharacterByName("hey") returned null → animation never executed.
 			case 'play animation', 'character anim':
 				final coolTarget = switch (v2.toLowerCase().trim())
 				{
 					case 'bf' | 'boyfriend': 'bf';
 					case 'gf' | 'girlfriend': 'gf';
-					case '1': 'bf';  // índice numérico Psych
-					case '2': 'gf';  // índice numérico Psych
+					case '1': 'bf';  // numeric Psych index
+					case '2': 'gf';  // numeric Psych index
 					default: (v2 != '') ? v2 : 'dad'; // dad es el default en Psych
 				};
 				v1 != '' ? '$coolTarget|$v1' : coolTarget;

@@ -1,33 +1,33 @@
 package funkin.shaders;
 
 /**
- * OptionsShaderToggle — Fragmento de código listo para pegar en tu OptionsState.
+ * OptionsShaderToggle — Fragment of code done for paste in you OptionsState.
  *
- * ─── INSTRUCCIONES ───────────────────────────────────────────────────────────
+ * ─── INSTRUCTIONS ───────────────────────────────────────────────────────────
  *
  * Este archivo NO es una clase que debas instanciar.
- * Es una guía de integración. Copia los fragmentos indicados en tu OptionsState.
+ * Is a guide of integration. Copy the fragments indicades in you OptionsState.
  *
- * ─── PASO 1: Import ──────────────────────────────────────────────────────────
+ * ─── STEP 1: Import ──────────────────────────────────────────────────────────
  *
  *   import funkin.shaders.ShaderManager;
  *
- * ─── PASO 2: Añadir la opción en tu lista de opciones ─────────────────────────
+ * ─── PASO 2: Add the option in tu list of options ─────────────────────────
  *
- *   // Dentro de donde construyes el array/lista de opciones de tu menú:
+ *   // Inside of where construyes the array/list of options of tu menu:
  *   options.push("Shaders: " + (ShaderManager.enabled ? "ON" : "OFF"));
  *
- * ─── PASO 3: Manejar la selección ────────────────────────────────────────────
+ * ─── STEP 3: Handle the selection ────────────────────────────────────────────
  *
- *   // Dentro del switch/if que procesa qué opción eligió el jugador:
- *   case "shaders":   // o el índice que uses en tu menú
+ *   // Inside of the switch/if that procesa what option eligió the player:
+ *   case "shaders":   // or the index that uses in tu menu
  *       ShaderManager.setEnabled(!ShaderManager.enabled);
  *       // Actualizar el texto del item en pantalla:
  *       updateOptionText(index, "Shaders: " + (ShaderManager.enabled ? "ON" : "OFF"));
  *
- * ─── EJEMPLO COMPLETO (CheckboxOption) ───────────────────────────────────────
+ * ─── EXAMPLE COMPLETE (CheckboxOption) ───────────────────────────────────────
  *
- *   // Si tu engine usa un sistema de CheckboxOption o similar:
+ *   // If your engine uses a CheckboxOption system or similar:
  *
  *   var shadersOption = new CheckboxOption(
  *       "Shaders",
@@ -41,18 +41,18 @@ package funkin.shaders;
  *
  * ─── LEER EL ESTADO ACTUAL ───────────────────────────────────────────────────
  *
- *   // Para saber si los shaders están ON u OFF en cualquier momento:
+ *   // For saber if the shaders are ON u OFF in any momento:
  *   if (ShaderManager.enabled) { ... }
  *
  * ─── PARA LAS FLECHAS (en tu clase de nota/receptor) ─────────────────────────
  *
- *   // Al crear o reciclar una flecha, añadir una línea:
+ *   // To the create or reciclar a flecha, add a line:
  *   ShaderManager.applyToNote(this, noteData % 4);
  *       // noteData % 4 → 0=LEFT 1=DOWN 2=UP 3=RIGHT
  *
- *   // Si los shaders están OFF, applyToNote() pone shader=null automáticamente.
+ *   // If the shaders are OFF, applyToNote() pone shader=null automatically.
  *
- * ─── ANIMACIÓN (en MusicBeatState o PlayState) ───────────────────────────────
+ * ─── animation (in MusicBeatState or PlayState) ───────────────────────────────
  *
  *   // En tu update() de la clase base MusicBeatState:
  *   override function update(elapsed:Float) {

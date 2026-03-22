@@ -122,7 +122,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	var vocals:FlxSound;
 
 	/**
-	 * Mapa dinámico de vocals por personaje para el editor.
+	 * Mapa dynamic of vocals by character for the editor.
 	 * Clave = nombre del personaje. Soporta N personajes.
 	 */
 	var vocalsPerChar:Map<String, FlxSound> = new Map();
@@ -164,7 +164,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	/**
 	 * Sufijo de dificultad actual para guardar el chart con el nombre correcto.
 	 * Ej: '' → song.json, '-nightmare' → song-nightmare.json
-	 * Equivale al CoolUtil.difficultySuffix() del momento en que se abrió el editor.
+	 * Equivale to the CoolUtil.difficultySuffix() of the momento in that is abrió the editor.
 	 */
 	public var curDiffSuffix:String = '';
 
@@ -225,7 +225,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	var curRenderedTypeLabels:FlxTypedGroup<FlxText>;
 
-	/** Receptores de strum en la línea de hit del editor. */
+	/** Receptores of strum in the line of hit of the editor. */
 	var _editorStrums:FlxTypedGroup<funkin.gameplay.notes.StrumNote>;
 
 	/**
@@ -250,25 +250,25 @@ class ChartingState extends funkin.states.MusicBeatState
 	var _dragStartY:Float = 0;
 	var _dragPending:Array<Dynamic> = null;
 	var _dragPendingSection:Int = -1;
-	/** true cuando el drag-pending empezó sobre una nota que ya estaba seleccionada (click para deseleccionar). */
+	/** true when the drag-pending started over a note that already was seleccionada (click for deseleccionar). */
 	var _dragPendingWasSelected:Bool = false;
 
 	static inline var NOTE_DRAG_THRESHOLD:Float = 6.0;
 
-	// ── MULTI-SELECCIÓN ───────────────────────────────────────────────────────
+	// ── MULTI-selection ───────────────────────────────────────────────────────
 
 	/** Notas actualmente seleccionadas. */
 	var _selectedNotes:Array<{note:Array<Dynamic>, section:Int}> = [];
 
-	/** Rectángulos amarillos detrás de las notas seleccionadas (más visibles que tinte de color). */
+	/** Rectangles amarillos behind of the notes seleccionadas (more visibles that tinte of color). */
 	var _selHighlights:FlxTypedGroup<FlxSprite>;
 
-	/** Sprite del rectángulo de selección (box select). */
+	/** Sprite of the rectangle of selection (box select). */
 	var _selBox:FlxSprite;
 
 	var _selBoxBorder:FlxSprite;
 
-	/** true mientras se dibuja el rectángulo de selección. */
+	/** true while is draws the rectangle of selection. */
 	var _selBoxActive:Bool = false;
 
 	/** Coordenadas de inicio del box select (en espacio de step absoluto y col visual). */
@@ -278,7 +278,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	// ── MULTI-DRAG ────────────────────────────────────────────────────────────
 
-	/** true cuando se arrastra la selección múltiple. */
+	/** true when is arrastra the selection múltiple. */
 	var _multiDragActive:Bool = false;
 
 	var _multiDragPending:Bool = false;
@@ -286,7 +286,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	/** Grupo de ghosts: uno por cada nota seleccionada. */
 	var _multiDragGhosts:FlxTypedGroup<FlxSprite>;
 
-	/** Datos originales de cada nota en el multi-drag: posición absoluta y col visual. */
+	/** Datos originales of each note in the multi-drag: position absoluta and col visual. */
 	var _multiDragOriginals:Array<{
 		note:Array<Dynamic>,
 		section:Int,
@@ -294,12 +294,12 @@ class ChartingState extends funkin.states.MusicBeatState
 		visCol:Int
 	}> = [];
 
-	/** Posición del cursor al inicio del multi-drag (para calcular delta). */
+	/** Position of the cursor to the start of the multi-drag (for calculate delta). */
 	var _multiDragAnchorStep:Float = 0;
 
 	var _multiDragAnchorCol:Int = 0;
 
-	// INDICADORES DE SECCIÓN
+	// INDICADORES of section
 	var sectionIndicators:FlxTypedGroup<FlxSprite>;
 
 	// ── CHART OVERVIEW PREVIEW (like V-Slice) ────────────────────────────────
@@ -307,19 +307,19 @@ class ChartingState extends funkin.states.MusicBeatState
 	/** Background del panel de preview. */
 	var _prvBg:FlxSprite;
 
-	/** Sprite que contiene todos los píxeles de notas del chart completo. */
+	/** Sprite that contains all the pixels of notes of the chart complete. */
 	var _prvSprite:FlxSprite;
 
-	/** Overlay semitransparente que indica el área visible del grid. */
+	/** Overlay semitransparente that indicates the area visible of the grid. */
 	var _prvViewport:FlxSprite;
 
-	/** Línea que indica la posición del playhead. */
+	/** Line that indicates the position of the playhead. */
 	var _prvPlayhead:FlxSprite;
 
-	/** Marcas de sección (líneas horizontales). */
+	/** Marcas of section (lines horizontales). */
 	var _prvSections:FlxSprite;
 
-	/** true cuando hay que redibujar los píxeles de notas. */
+	/** true when there is that redibujar the pixels of notes. */
 	var _prvDirty:Bool = true;
 
 	/** Longitud total del song en ms (cacheado). */
@@ -329,7 +329,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	var _prvDragging:Bool = false;
 
 	// ── Constantes del preview ────────────────────────────────────────────────
-	static inline var PRV_X:Int = 5; // posición X (izquierda de la pantalla)
+	static inline var PRV_X:Int = 5; // position X (izquierda of the screen)
 	static inline var PRV_NOTE_W:Int = 4; // ancho de cada columna de nota en px
 	static inline var PRV_NOTE_H:Int = 2; // alto de cada nota en px
 	// Ancho total: 4 cols * 2 grupos * PRV_NOTE_W + 2px separador + 4px events = 36px aprox
@@ -360,12 +360,12 @@ class ChartingState extends funkin.states.MusicBeatState
 	var metaPopup:MetaPopup;
 	var toolsPanel:ToolsPanel;
 
-	// Botón META en toolbar (zona clickeable)
+	// Button META in toolbar (zona clickeable)
 	var metaBtn:FlxSprite;
 	var metaBtnText:FlxText;
 
 	// BPM y Section clickeables - indicadores en toolbar
-	var bpmClickable:Bool = false; // ¿Está en modo edición de BPM?
+	var bpmClickable:Bool = false; // Is in modo edition of BPM?
 	var bpmInputActive:FlxUIInputText;
 	var sectionInputActive:FlxUIInputText;
 
@@ -384,7 +384,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	var lastMetronomeBeat:Int = -1;
 	var autosaveTimer:Float = 0;
 
-	// HITSOUND POR NOTA (durante reproducción)
+	// HITSOUND by note (durante playback)
 	var _hitsoundFiredNotes:Map<String, Bool> = new Map();
 	var _lastHitsoundTime:Float = -999;
 
@@ -395,15 +395,15 @@ class ChartingState extends funkin.states.MusicBeatState
 	var _waveformData:Array<Float> = [];
 	var _waveformBuilt:Bool = false;
 
-	// Botón de waveform en la toolbar
+	// Button of waveform in the toolbar
 	var waveformBtn:FlxSprite;
 	var waveformBtnText:FlxText;
 
-	// CACHE DE TIEMPOS DE SECCIÓN (evita O(n²) en updateNotePositions cada frame)
+	// CACHE of TIEMPOS of section (avoids or(n²) in updateNotePositions each frame)
 	var _sectionStartTimeCache:Array<Float> = [];
 	var _sectionTimeCacheDirty:Bool = true;
 
-	// DIRTY FLAG para updateNotePositions (solo recalcular cuando el grid se movió o se editó)
+	// DIRTY FLAG for updateNotePositions (only recalcular when the grid is movió or is editó)
 	var _notePositionsDirty:Bool = true;
 	var _lastGridY:Float = -99999;
 
@@ -419,9 +419,9 @@ class ChartingState extends funkin.states.MusicBeatState
 	var redoStack:Array<ChartAction> = [];
 	var MAX_UNDO_STEPS:Int = 50;
 
-	// ANIMACIÓN DE NOTA SELECCIONADA
+	// animation of note SELECCIONADA
 	var selectedNotePulse:Float = 0;
-	var selectedNotePulseSpeed:Float = 3.0; // Velocidad de pulsación
+	var selectedNotePulseSpeed:Float = 3.0; // Speed of pulsación
 
 	override function create()
 	{
@@ -438,7 +438,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Inicializar CharacterList
 		CharacterList.init();
 
-		// Cargar canción
+		// Load song
 		if (PlayState.SONG != null)
 			_song = PlayState.SONG;
 		else
@@ -463,7 +463,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Garantizar que strumsGroups y characters existan (incluye grupo de GF)
 		funkin.data.Song.ensureMigrated(_song);
 
-		// CRÍTICO: Crear sección por defecto si el array está vacío
+		// critical: Create section by default if the array is empty
 		if (_song.notes == null || _song.notes.length == 0)
 		{
 			trace('[ChartingState] Notes array is empty, creating default section');
@@ -480,7 +480,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			];
 		}
 
-		// Asegurar que curSection sea válido
+		// Asegurar that curSection sea valid
 		if (curSection < 0)
 			curSection = 0;
 		if (curSection >= _song.notes.length)
@@ -578,7 +578,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		toolbar.cameras = [camHUD];
 		add(toolbar);
 
-		// Botones de playback — primero añadir el FONDO, luego el TEXTO encima
+		// Buttons of playback — first add the FONDO, luego the text encima
 		playBtn = createToolButton(10, 40);
 		pauseBtn = createToolButton(55, 40);
 		stopBtn = createToolButton(100, 40);
@@ -627,7 +627,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		sectionText.cameras = [camHUD];
 		add(sectionText);
 
-		// Botón META
+		// Button META
 		metaBtn = new FlxSprite(502, 10).makeGraphic(55, 22, 0xFF1A1A3A);
 		metaBtn.scrollFactor.set();
 		metaBtn.cameras = [camHUD];
@@ -639,14 +639,14 @@ class ChartingState extends funkin.states.MusicBeatState
 		metaBtnText.cameras = [camHUD];
 		add(metaBtnText);
 
-		// Borde del botón Meta
+		// Borde of the button Meta
 		var metaBorder = new FlxSprite(502, 29).makeGraphic(55, 2, ACCENT_CYAN);
 		metaBorder.alpha = 0.6;
 		metaBorder.scrollFactor.set();
 		metaBorder.cameras = [camHUD];
 		add(metaBorder);
 
-		// 🌊 Botón de Waveform (ya no usa la tecla W)
+		// 🌊 Button of Waveform (already no use the key W)
 		waveformBtn = new FlxSprite(568, 10).makeGraphic(68, 22, 0xFF001A2A);
 		waveformBtn.scrollFactor.set();
 		waveformBtn.cameras = [camHUD];
@@ -682,7 +682,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		toolsBorder.cameras = [camHUD];
 		add(toolsBorder);
 
-		// ✨ Botón de tema (abre ThemePickerSubState)
+		// ✨ Button of tema (abre ThemePickerSubState)
 		var themeBtnBg = new FlxSprite(FlxG.width - 38, 40).makeGraphic(32, 32, BG_PANEL);
 		themeBtnBg.scrollFactor.set();
 		themeBtnBg.cameras = [camHUD];
@@ -731,7 +731,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function getGridColumns():Int
 	{
-		// 4 columnas por cada grupo de strums. Mínimo 8 (2 grupos default)
+		// 4 columnas by each grupo of strums. Minimum 8 (2 grupos default)
 		if (_song.strumsGroups != null && _song.strumsGroups.length > 0)
 			return _song.strumsGroups.length * 4;
 		return 8;
@@ -742,7 +742,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Calcular altura total del grid basado en todas las secciones
 		totalGridHeight = 0;
 
-		// VALIDACIÓN CRÍTICA: Asegurar que hay secciones
+		// validation critical: Asegurar that there is sections
 		if (_song.notes == null || _song.notes.length == 0)
 		{
 			trace('[GRID ERROR] No hay secciones en _song.notes!');
@@ -761,43 +761,43 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		for (sec in _song.notes)
 		{
-			// Validar que lengthInSteps sea válido (mayor que 0)
+			// Validate that lengthInSteps sea valid (mayor that 0)
 			var steps = (sec.lengthInSteps > 0) ? sec.lengthInSteps : 16;
 			totalGridHeight += steps * GRID_SIZE;
 		}
 
-		// VALIDACIÓN: Asegurar altura mínima
+		// validation: Asafer altura minimal
 		if (totalGridHeight <= 0)
 		{
-			trace('[GRID ERROR] totalGridHeight es 0 o negativo! Forzando altura mínima.');
+			trace('[GRID error] totalGridHeight is 0 or negativo! Forzando altura minimal.');
 			totalGridHeight = 16 * GRID_SIZE; // Al menos 16 steps
 		}
 
-		// La altura REAL del grid (para scroll y navegación)
+		// The altura actual of the grid (for scroll and navigation)
 		var realGridHeight = totalGridHeight;
 
-		// Limitar la altura del GRÁFICO al máximo que soporta la GPU (~16k px)
+		// Limitar the altura of the graphic to the maximum that soporta the GPU (~16k px)
 		var MAX_GRID_HEIGHT = 16000;
 		if (totalGridHeight > MAX_GRID_HEIGHT)
 		{
-			trace('[GRID WARNING] totalGridHeight muy grande (${totalGridHeight}), limitando gráfico a $MAX_GRID_HEIGHT');
+			trace('[GRID WARNING] totalGridHeight very large (${totalGridHeight}), limitando graphic to $MAX_GRID_HEIGHT');
 			totalGridHeight = MAX_GRID_HEIGHT;
 		}
 
 		trace('[GRID] Song: ${_song.song}, realGridHeight: $realGridHeight, graphicHeight: $totalGridHeight, secciones: ${_song.notes.length}');
 
-		// maxScroll basado en la altura REAL, no la del gráfico
+		// maxScroll basado in the altura actual, no the of the graphic
 		maxScroll = realGridHeight - (FlxG.height - 100);
 		if (maxScroll < 0)
 			maxScroll = 0;
 
-		// === COLUMNAS DINÁMICAS basadas en strumsGroups ===
+		// === COLUMNAS dynamic basadas in strumsGroups ===
 		var numCols = getGridColumns();
 		var gridWidth = GRID_SIZE * numCols;
 
-		// Centrar el grid según su ancho real
+		// Centrar the grid according to its width actual
 		var centerX = (FlxG.width / 2) - (gridWidth / 2);
-		// Si el grid es muy ancho, colocarlo más a la izquierda
+		// If the grid is very width, colocarlo more to the izquierda
 		if (gridWidth > FlxG.width * 0.6)
 			centerX = (FlxG.width - gridWidth) / 2;
 
@@ -818,7 +818,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		trace('[GRID] Grid creado: ${gridWidth}x${Std.int(totalGridHeight)}, $numCols columnas (${Std.int(numCols / 4)} grupos)');
 
-		// Overlay divisores de sección
+		// Overlay divisores of section
 		gridBlackWhite = new FlxSprite(gridBG.x, gridBG.y);
 		gridBlackWhite.makeGraphic(gridWidth, _gridWindowRows * GRID_SIZE, 0x00000000, true);
 		_redrawGridBW(gridWidth);
@@ -837,10 +837,10 @@ class ChartingState extends funkin.states.MusicBeatState
 		strumLine.cameras = [camGame];
 		add(strumLine);
 
-		// ── Receptores de strum (StrumNote) en la línea de hit ─────────────────
+		// ── Receptores of strum (StrumNote) in the line of hit ─────────────────
 		// Uno por columna, posicionados sobre la strumLine (y=100 - GRID_SIZE).
-		// Se animan al pasar una nota durante la reproducción.
-		// FIX posición: strums en camHUD a y=100 (sobre la strumLine).
+		// Is animan to the pasar a note durante the playback.
+		// FIX position: strums in camHUD to and=100 (over the strumLine).
 		// Antes estaban en camGame a y=60 → el HUD (camHUD) los tapaba completamente.
 		if (_editorStrums != null)
 		{
@@ -876,7 +876,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Etiquetas de grupos de strums encima de cada grupo de 4 columnas
 		drawStrumsGroupLabels();
 
-		// Sección indicators
+		// Section indicators
 		sectionIndicators = new FlxTypedGroup<FlxSprite>();
 		add(sectionIndicators);
 		updateSectionIndicators();
@@ -898,7 +898,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		_dragGhostArrow.visible = false;
 		add(_dragGhostArrow);
 
-		// Box de selección (fill + border)
+		// Box of selection (fill + border)
 		_selBox = new FlxSprite().makeGraphic(1, 1, 0xFF00CCFF);
 		_selBox.scrollFactor.set();
 		_selBox.cameras = [camGame];
@@ -1003,10 +1003,10 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (curRenderedNotes != null)
 			remove(curRenderedNotes);
 
-		// Recrear grid (añade los sprites del fondo)
+		// Recrear grid (adds the sprites of the fondo)
 		setupGrid();
 
-		// ← NUEVO: volver a añadir notas y sustains ENCIMA del grid
+		// ← new: volver to add notes and sustains ENCIMA of the grid
 		if (curRenderedSustains != null)
 			add(curRenderedSustains);
 		if (_curSusTails != null)
@@ -1231,7 +1231,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		sep.color = TEXT_GRAY;
 		tab_group_settings.add(sep);
 
-		// Botón Auto-Detect BPM
+		// Button Auto-Detect BPM
 		var detectBpmBtn = new FlxButton(10, 24, "Auto-Detect BPM", function()
 		{
 			detectBPM();
@@ -1247,7 +1247,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		sep2.color = TEXT_GRAY;
 		tab_group_settings.add(sep2);
 
-		// ── Selector de dificultad dinámica ─────────────────────────────────
+		// ── Selector of difficulty dynamic ─────────────────────────────────
 		var diffLabel = new FlxText(10, 93, 270, 'Difficulty suffix (for saving):', 9);
 		diffLabel.color = TEXT_GRAY;
 		tab_group_settings.add(diffLabel);
@@ -1266,12 +1266,12 @@ class ChartingState extends funkin.states.MusicBeatState
 				final diffName:String = pair != null && pair.length > 0 ? Std.string(pair[0]) : '';
 				final suffix:String = pair != null && pair.length > 1 ? Std.string(pair[1]) : '';
 				if (suffix == '' || diffName == '')
-					continue; // 'normal' ya está
+					continue; // 'normal' already is
 				diffOptions.push(diffName.toLowerCase());
 				diffSuffixes.push(suffix);
 			}
 		}
-		// Asegurar que el sufijo actual esté representado
+		// Asegurar that the suffix current is representado
 		if (!diffSuffixes.contains(curDiffSuffix))
 		{
 			if (curDiffSuffix != '' && curDiffSuffix != null)
@@ -1294,7 +1294,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				if (_reloaded != null)
 				{
 					_song = _reloaded;
-					// Garantizar secciones mínimas
+					// Guarantee minimum sections
 					if (_song.notes == null || _song.notes.length == 0)
 						_song.notes = [
 							{
@@ -1319,7 +1319,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				loadSong(_song.song);
 				showMessage('🎵 Difficulty: ${diffOptions[idx]} — audio + chart reloaded', ACCENT_CYAN);
 
-				// Actualizar el título de la ventana para reflejar el sufijo actual
+				// Update the title of the window for reflejar the suffix current
 				if (songNameText != null)
 					songNameText.text = '• ${_song.song}' + (curDiffSuffix != '' ? ' [${curDiffSuffix.substr(1).toUpperCase()}]' : ' [NORMAL]');
 			}
@@ -1341,7 +1341,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		var loadBtn = new FlxButton(10, 170, "Load Chart", loadChart);
 		tab_group_settings.add(loadBtn);
 
-		// Migrate: convierte los .json viejos de esta canción a un único .level
+		// Migrate: converts the .json viejos of this song to a unique .level
 		var migrateBtn = new FlxButton(10, 200, "Migrate to .level", function()
 		{
 			final ok = funkin.data.LevelFile.migrateFromJson(_song.song);
@@ -1416,7 +1416,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		add(waveformSprite);
 	}
 
-	/** Toggle waveform ON/OFF — usado por el botón en toolbar y ToolsPanel. */
+	/** Toggle waveform ON/OFF — usado by the button in toolbar and ToolsPanel. */
 	public function _toggleWaveform():Void
 	{
 		waveformEnabled = !waveformEnabled;
@@ -1434,7 +1434,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				waveformSprite.visible = false;
 			showMessage('🌊 Waveform OFF', TEXT_GRAY);
 		}
-		// Actualizar estilo del botón
+		// Update estilo of the button
 		if (waveformBtn != null)
 			waveformBtn.color = waveformEnabled ? 0xFF003A55 : 0xFF001A2A;
 		if (waveformBtnText != null)
@@ -1442,7 +1442,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	}
 
 	/**
-	 * Reconstruye el cache de tiempos de inicio de sección.
+	 * Reconstruye the cache of tiempos of start of section.
 	 * Llamar siempre que cambien las secciones o el BPM.
 	 */
 	function rebuildSectionTimeCache():Void
@@ -1461,7 +1461,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	}
 
 	/**
-	 * Versión cacheada de getSectionStartTime.
+	 * Version cacheada of getSectionStartTime.
 	 * O(1) en lugar de O(n) — evita O(n²) en updateNotePositions.
 	 */
 	inline function getSectionStartTimeFast(sectionNum:Int):Float
@@ -1481,7 +1481,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (_notePool.length > 0)
 		{
 			var n = _notePool.pop();
-			// Reinicializar los campos mínimos necesarios
+			// Reinicializar the fields minimum necessary
 			n.strumTime = strumTime;
 			n.visible = true;
 			n.alpha = 1.0;
@@ -1564,7 +1564,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			if (barW < 1)
 				barW = 1;
 
-			// Color: degradado de cyan a magenta según amplitud
+			// Color: degradado of cyan to magenta according to amplitud
 			var r:Int = Std.int(amp * 0xFF);
 			var g:Int = Std.int((1 - amp) * 0x80);
 			var b:Int = 0xFF;
@@ -1579,7 +1579,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	}
 
 	/**
-	 * Detecta el BPM automáticamente desde el audio cargado.
+	 * Detecta the BPM automatically from the audio loaded.
 	 */
 	function detectBPM():Void
 	{
@@ -1614,7 +1614,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		showMessage('🎵 Detecting BPM from audio...', ACCENT_WARNING);
 		trace('[ChartingState] Starting BPM detection...');
 
-		// Detectar de forma inline (síncrono — puede tardar 1-2 segundos)
+		// Detect of forma inline (synchronous — puede tardar 1-2 segundos)
 		var detected:Float = BPMDetector.detect(sound, 60, 240);
 
 		_bpmDetecting = false;
@@ -1665,7 +1665,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		toolsPanel = new ToolsPanel(this, _song, previewPanel, camHUD);
 		add(toolsPanel);
 
-		// Asegurar que los eventos estén inicializados en la canción
+		// Asegurar that the events are inicializados in the song
 		if (_song.events == null)
 			_song.events = [];
 	}
@@ -1714,7 +1714,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Section
 		sectionText.text = 'Section ${curSection + 1}/${_song.notes.length}';
 
-		// Resaltar botón Meta si el popup está abierto
+		// Resaltar button Meta if the popup is abierto
 		if (metaBtn != null && metaPopup != null)
 			metaBtn.color = metaPopup.isOpen ? 0xFF2A2A6A : 0xFF1A1A3A;
 	}
@@ -1742,17 +1742,17 @@ class ChartingState extends funkin.states.MusicBeatState
 	{
 		tipTimer = 0;
 
-		// ── Animación: flash rápido y slide-up desde abajo ────────────────
+		// ── Animation: flash fast and slide-up from down ────────────────
 		FlxTween.cancelTweensOf(statusText);
 		statusText.text = msg;
 		statusText.color = (color != null) ? color : cast TEXT_GRAY;
 		statusText.alpha = 0;
 
-		// Posición base
+		// Position base
 		final baseY:Float = FlxG.height - 20;
 		statusText.y = baseY + 10;
 
-		// Slide up + fade in rápido
+		// Slide up + fade in fast
 		FlxTween.tween(statusText, {alpha: 1, y: baseY}, 0.18, {ease: FlxEase.backOut});
 
 		// Mantener visible 2.5s, luego fade out
@@ -1774,7 +1774,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			FlxG.sound.music = null;
 		}
 
-		// Invalidar waveform al cambiar canción
+		// Invalidar waveform to the change song
 		_waveformBuilt = false;
 		_waveformData = [];
 		_hitsoundFiredNotes = new Map();
@@ -1787,7 +1787,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Esto cubre canciones con audio separado por "variante" (no por dificultad),
 		// como los tracks "Erect" de la base que tienen Inst-erect.ogg pero la
 		// dificultad puede llamarse "Nightmare" con sufijo "-nightmare".
-		// Resuelve también Voices-bf-erect.ogg, Voices-dad-erect.ogg, etc.
+		// Resuelve also Voices-bf-erect.ogg, Voices-dad-erect.ogg, etc.
 		final _audioSuffix:String = (_song != null && _song.instSuffix != null && _song.instSuffix != '') ? '-' + _song.instSuffix : curDiffSuffix;
 
 		trace('[ChartingState] loadSong "$daSong" audioSuffix="$_audioSuffix" (instSuffix=${_song?.instSuffix}, curDiff=$curDiffSuffix)');
@@ -1796,7 +1796,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			// Intentar cargar el inst con el sufijo de audio efectivo.
 			// Paths.loadInst hace fallback a Inst.ogg si no existe la variante.
-			// Orden de búsqueda en Paths.inst():
+			// Orden of search in Paths.inst():
 			//   1. songs/{song}/song/Inst-{suffix}.ogg
 			//   2. songs/{song}/Inst-{suffix}.ogg
 			//   3. songs/{song}/song/Inst.ogg
@@ -1854,7 +1854,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			var loaded = 0;
 			for (cand in candidates)
 			{
-				// Usar _audioSuffix para la búsqueda de per-char vocals.
+				// Usar _audioSuffix for the search of per-char vocals.
 				// Paths.loadVoicesForChar resuelve en orden:
 				//   1. Voices-{char}-{suffix}.ogg  (ej: Voices-bf-erect.ogg)
 				//   2. Voices-{char}.ogg            (ej: Voices-bf.ogg)
@@ -1881,7 +1881,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				// Fallback al Voices.ogg genérico (o Voices-{suffix}.ogg si existe)
+				// Fallback to the Voices.ogg generic (or Voices-{suffix}.ogg if exists)
 				// Paths.voices() resuelve:
 				//   1. Voices-{suffix}.ogg  (ej: Voices-erect.ogg)
 				//   2. Voices.ogg
@@ -1909,7 +1909,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		Conductor.mapBPMChanges(_song);
 	}
 
-	// Sincronizar vocales con la música
+	// Sincronizar vocales with the music
 	function syncVocals():Void
 	{
 		if (FlxG.sound.music == null)
@@ -1970,25 +1970,25 @@ class ChartingState extends funkin.states.MusicBeatState
 		// ✨ SINCRONIZAR VOCALES - llamar en cada frame
 		syncVocals();
 
-		// ✨ Actualizar animación pulsante de nota seleccionada
+		// ✨ Update animation pulsante of note seleccionada
 		selectedNotePulse += elapsed * selectedNotePulseSpeed;
 
-		// Ejemplo de cómo debería calcularse el tiempo según la sección
+		// Ejemplo of how debería calcularse the time according to the section
 
 		Conductor.songPosition = FlxG.sound.music != null ? FlxG.sound.music.time : 0;
 
-		// ✅ SOLO ESTAS DOS LÍNEAS NUEVAS:
+		// ✅ only ESTAS DOS lines NUEVAS:
 		updateGridScroll();
 		updateCurrentSection();
 		updateNotePositions(); // ✨ Actualizar posiciones cuando el grid se mueve
-		// updateSectionIndicators(); // ✨ Actualizar indicadores de sección
+		// updateSectionIndicators(); // ✨ Update indicadores of section
 		cullNotes();
 
 		// Preview character: detectar notas que pasa el playhead
 		if (previewPanel != null && FlxG.sound.music != null && FlxG.sound.music.playing)
 			checkNotesForPreview();
 
-		// Hitsounds durante reproducción
+		// Hitsounds durante playback
 		if (hitsoundsEnabled && FlxG.sound.music != null && FlxG.sound.music.playing)
 			checkNotesForHitsound();
 
@@ -2025,7 +2025,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function updateCurrentSection():Void
 	{
-		// Determinar en qué sección estamos basado en la posición de la música
+		// Determinar in what section are basado in the position of the music
 		if (FlxG.sound.music == null)
 			return;
 
@@ -2060,9 +2060,9 @@ class ChartingState extends funkin.states.MusicBeatState
 	}
 
 	/**
-	 * Detecta qué notas están siendo "tocadas" por el playhead en este momento
+	 * Detecta what notes are siendo "tocadas" by the playhead in this momento
 	 * y dispara onNotePass en el PreviewPanel.
-	 * Se llama cada frame mientras la música esté reproduciendo.
+	 * Is call each frame while the music is reproduciendo.
 	 */
 	function checkNotesForPreview():Void
 	{
@@ -2104,11 +2104,11 @@ class ChartingState extends funkin.states.MusicBeatState
 	 * Actualiza los strums del editor cada frame:
 	 *  - Detecta notas que cruzan el playhead y registra en _strumConfirmUntil
 	 *    el timestamp hasta el que debe mostrarse confirm (noteTime + daSus para holds).
-	 *  - Cada frame aplica confirm/static según el tiempo, reiniciando confirm si
-	 *    la animación terminó pero el hold sigue activo.
+	 *  - Each frame applies confirm/static according to the time, reiniciando confirm if
+	 *    the animation ended but the hold sigue active.
 	 *  - Fuerza setGraphicSize(GRID_SIZE, GRID_SIZE) cada frame para compensar que
 	 *    los frames de 'confirm' tienen dimensiones distintas a 'static', lo que
-	 *    hace que el strum aparezca más grande/desplazado tras la animación.
+	 *    hace that the strum aparezca more large/desplazado tras the animation.
 	 */
 	function _updateEditorStrums():Void
 	{
@@ -2122,7 +2122,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// ── Detectar notas que entran al playhead ─────────────────────────────
 		if (isPlaying)
 		{
-			// Reset cuando la música salta (seek / reinicio)
+			// Reset when the music salta (seek / reinicio)
 			if (Math.abs(currentTime - _lastMusicTime) > 500)
 			{
 				_firedNotes        = new Map();
@@ -2153,7 +2153,7 @@ class ChartingState extends funkin.states.MusicBeatState
 					if (visCol < 0 || visCol >= _editorStrums.length)
 						continue;
 
-					// Nota normal: confirm dura ~1 frame (20 ms mínimo)
+					// Note normal: confirm dura ~1 frame (20 ms minimum)
 					// Sustain:     confirm dura todo el hold (daSus ms)
 					var holdEnd = noteTime + (daSus > 0 ? daSus : 20.0);
 					var prev = _strumConfirmUntil.exists(visCol) ? _strumConfirmUntil.get(visCol) : 0.0;
@@ -2164,11 +2164,11 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 		else
 		{
-			// Música parada → todos los strums a static
+			// Music parada → all the strums to static
 			_strumConfirmUntil = new Map();
 		}
 
-		// ── Actualizar animación y tamaño de cada strum ───────────────────────
+		// ── Update animation and size of each strum ───────────────────────
 		for (i in 0..._editorStrums.length)
 		{
 			var strum = _editorStrums.members[i];
@@ -2187,7 +2187,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				}
 				else if (strum.animation.curAnim.finished)
 				{
-					// El hold sigue pero la animación completó su ciclo → reiniciarla
+					// Hold continues but the animation completed its cycle → restart it
 					strum.playAnim('confirm');
 				}
 			}
@@ -2204,7 +2204,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 	}
 
-	// Timestamp de la última nota enviada al preview (evitar spam)
+	// Timestamp of the last note enviada to the preview (avoid spam)
 	var _firedNotes:Map<String, Bool> = new Map();
 	var _lastMusicTime:Float = -999;
 
@@ -2217,12 +2217,12 @@ class ChartingState extends funkin.states.MusicBeatState
 		var currentTime:Float = FlxG.sound.music.time;
 		var tolerance:Float = Conductor.stepCrochet * 0.55;
 
-		// Reset si el audio saltó (seek / reinicio)
+		// Reset if the audio saltó (seek / restart)
 		if (Math.abs(currentTime - _lastHitsoundTime) > 500)
 			_hitsoundFiredNotes = new Map();
 		_lastHitsoundTime = currentTime;
 
-		// Sonidos disponibles para hitsound por dirección
+		// Sounds available for hitsound by direction
 		var hitSounds:Array<String> = [
 			'menus/chartingSounds/ClickLeft',
 			'menus/chartingSounds/ClickDown',
@@ -2241,13 +2241,13 @@ class ChartingState extends funkin.states.MusicBeatState
 				if (Math.abs(noteTime - currentTime) > tolerance)
 					continue;
 
-				// Clave única por nota
+				// Key single by note
 				var key = '${Std.int(noteTime)}_${Std.int(noteData[1])}';
 				if (_hitsoundFiredNotes.exists(key))
 					continue;
 				_hitsoundFiredNotes.set(key, true);
 
-				// Elegir sonido según dirección (columna % 4)
+				// Choose sound by direction (column % 4)
 				var dir:Int = Std.int(noteData[1]) % 4;
 				var sndPath:String = hitSounds[dir % hitSounds.length];
 
@@ -2257,7 +2257,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				}
 				catch (e:Dynamic)
 				{
-					// Fallback si el sonido específico no existe
+					// Fallback if the specific sound doesn't exist
 					try
 					{
 						FlxG.sound.play(Paths.sound(hitFallback), 0.5);
@@ -2320,14 +2320,14 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			var sectionHeight = _song.notes[i].lengthInSteps * GRID_SIZE;
 
-			// Línea divisora
+			// Line divisora
 			var divider = new FlxSprite(gridBG.x, (100 - gridScrollY) + currentY);
 			divider.makeGraphic(Std.int(gridBG.width), 2, (i == curSection ? ACCENT_CYAN : 0x80FFFFFF));
 			divider.scrollFactor.set();
 			divider.cameras = [camGame];
 			sectionIndicators.add(divider);
 
-			// Número de sección
+			// Number of section
 			var numText = new FlxText(gridBG.x - 30, (100 - gridScrollY) + currentY + 5, 0, '${i + 1}', 12);
 			numText.setFormat(Paths.font("vcr.ttf"), 12, (i == curSection ? ACCENT_CYAN : TEXT_GRAY), LEFT);
 			numText.scrollFactor.set();
@@ -2341,10 +2341,10 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function updateGridScroll():Void
 	{
-		// ✨ AUTO-SCROLL cuando la música está tocando
+		// ✨ AUTO-SCROLL when the music is tocando
 		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 		{
-			// Calcular posición del grid basada en la posición de la música
+			// Calculate position of the grid basada in the position of the music
 			var accumulatedSteps:Float = 0;
 			var targetScrollY:Float = 0;
 
@@ -2355,7 +2355,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 				if (Conductor.songPosition >= sectionStartTime && Conductor.songPosition < sectionEndTime)
 				{
-					// Estamos en esta sección
+					// We are in this section
 					var progressInSection = (Conductor.songPosition - sectionStartTime) / getSectionDuration(i);
 					var sectionHeight = _song.notes[i].lengthInSteps * GRID_SIZE;
 					targetScrollY = accumulatedSteps + (progressInSection * sectionHeight);
@@ -2365,12 +2365,12 @@ class ChartingState extends funkin.states.MusicBeatState
 				accumulatedSteps += _song.notes[i].lengthInSteps * GRID_SIZE;
 			}
 
-			// Suavizar el movimiento de la cámara
+			// Suavizar the movement of the camera
 			gridScrollY = FlxMath.lerp(gridScrollY, targetScrollY, 0.15);
 			gridScrollY = clamp(gridScrollY, 0, maxScroll);
 
 			_applyGridScroll(gridScrollY);
-			_notePositionsDirty = true; // ← grid se movió
+			_notePositionsDirty = true; // ← grid is movió
 
 			// Actualizar waveform con el scroll
 			if (waveformSprite != null && waveformSprite.visible)
@@ -2383,7 +2383,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// Scroll con rueda del mouse
 		// • No scrollear si hay un popup abierto (CharacterPickerMenu, MetaPopup, etc.)
-		// • No scrollear si un sub-componente ya consumió el evento (p.ej. CTRL+wheel en el icon row)
+		// • No scrollear if a sub-componente already consumió the event (p.ej. CTRL+wheel in the icon row)
 		if (FlxG.mouse.wheel != 0 && !isAnyPopupOpen() && !wheelConsumed)
 		{
 			updateSectionIndicators();
@@ -2417,13 +2417,13 @@ class ChartingState extends funkin.states.MusicBeatState
 		var my = FlxG.mouse.y;
 
 		// ── Bounds check corregido ────────────────────────────────────────────
-		// gridBG.y cambia con el scroll (puede ser negativo), así que NO sirve
+		// gridBG.and changes with the scroll (puede be negativo), so that no sirve
 		// como cota superior fija. El grid visualmente siempre empieza en y=100.
 		var mouseOverGrid = (mx >= gridBG.x && mx < gridBG.x + gridBG.width && my >= 100.0 && my < FlxG.height);
 
 		var popupBlocking = isAnyPopupOpen();
 
-		// ── Left click: selección, drag, box select ─────────────────────────────
+		// ── Left click: selection, drag, box select ─────────────────────────────
 		if (FlxG.mouse.justPressed && mouseOverGrid && !popupBlocking && !clickConsumed && !_dragActive && !_multiDragActive)
 		{
 			if (openfl.Lib.current.stage.focus != null)
@@ -2441,19 +2441,19 @@ class ChartingState extends funkin.states.MusicBeatState
 				{
 					if (FlxG.keys.pressed.SHIFT)
 					{
-						// Shift+click → añadir/quitar de selección sin drag
+						// Shift+click → add/remove from selection without drag
 						_toggleSelectNote(foundNote.note, foundNote.section);
 					}
 					else if (_isSelected(foundNote.note) && _selectedNotes.length > 1)
 					{
-						// Nota seleccionada en multi-selección → multi-drag pending
+						// Selected note in multi-selection → multi-drag pending
 						_multiDragPending = true;
 						_dragStartX = mx;
 						_dragStartY = my;
 					}
 					else
 					{
-						// Nota normal → limpiar selección, drag single pending
+						// Normal note → clear selection, single drag pending
 						// Guardar si ya estaba seleccionada (para deseleccionar al soltar sin arrastrar)
 						_dragPendingWasSelected = _isSelected(foundNote.note);
 						_clearSelection();
@@ -2465,7 +2465,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				}
 				else
 				{
-					// Espacio vacío
+					// Empty space
 					if (!FlxG.keys.pressed.SHIFT)
 						_clearSelection();
 					// Iniciar box select
@@ -2490,8 +2490,8 @@ class ChartingState extends funkin.states.MusicBeatState
 				_startMultiDrag(mx, my);
 			}
 		}
-		// Multi-drag pending soltado sin moverse → limpiar selección
-		// (el usuario hizo click sobre las notas seleccionadas pero no las arrastró)
+		// Multi-drag pending soltado without moverse → clear selection
+		// (the usuario hizo click over the notes seleccionadas but no the arrastró)
 		if (_multiDragPending && !_multiDragActive && FlxG.mouse.justReleased)
 		{
 			_multiDragPending = false;
@@ -2512,7 +2512,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			if (_dragPendingWasSelected)
 			{
-				// La nota ya estaba seleccionada y no se arrastró → deseleccionar
+				// The note already was seleccionada and no is arrastró → deseleccionar
 				_clearSelection();
 				updateNoteUI();
 			}
@@ -2569,7 +2569,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	// =========================================================================
 
 	/**
-	 * Busca la nota que está exactamente en la celda (worldY, visualCol).
+	 * Busca the note that is exactly in the celda (worldY, visualCol).
 	 * Devuelve { note, section } o null si no hay ninguna.
 	 */
 	function _findNoteAtGrid(worldY:Float, visualCol:Int):Null<{note:Array<Dynamic>, section:Int}>
@@ -2643,7 +2643,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		var mx = FlxG.mouse.x;
 		var my = FlxG.mouse.y;
 
-		// Mover ghost a la posición snapeada
+		// Move ghost to the position snapeada
 		_updateGhostPosition(mx, my);
 
 		// Columna visual actual bajo el cursor
@@ -2652,7 +2652,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		var numCols = getGridColumns();
 		curCol = Std.int(Math.max(0, Math.min(numCols - 1, curCol)));
 
-		// Animar color si la columna cambió
+		// Animar color if the columna changed
 		if (curCol != _dragGhostCol)
 		{
 			_dragGhostCol = curCol;
@@ -2665,12 +2665,12 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (FlxG.mouse.justReleased)
 			_stopNoteDrag(mx, my);
 
-		// ESC → cancelar drag (devolver nota a su posición original)
+		// ESC → cancelar drag (return note to its position original)
 		if (FlxG.keys.justPressed.ESCAPE)
 			_cancelNoteDrag();
 	}
 
-	/** Actualiza posición X/Y del ghost snapeado a la celda más cercana. */
+	/** Updates position X/and of the ghost snapeado to the celda more cercana. */
 	function _updateGhostPosition(mx:Float, my:Float):Void
 	{
 		var mouseGridX = mx - gridBG.x;
@@ -2688,7 +2688,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		_dragGhostArrow.y = _dragGhost.y + 4;
 	}
 
-	/** Suelta la nota: la inserta en la nueva posición. */
+	/** Suelta the note: the inserta in the new position. */
 	function _stopNoteDrag(mx:Float, my:Float):Void
 	{
 		_dragGhost.visible = false;
@@ -2704,7 +2704,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		var snapStep = Math.max(0, Math.floor(rawStep / snapSteps) * snapSteps);
 		var snapCol = Std.int(Math.max(0, Math.min(numCols - 1, Math.floor(mouseGridX / GRID_SIZE))));
 
-		// Encontrar sección destino
+		// Encontrar section destino
 		var accumulatedSteps:Float = 0;
 		var targetSection:Int = 0;
 		var noteTimeInSection:Float = 0;
@@ -2744,7 +2744,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		showMessage('✔ Nota movida', ACCENT_GREEN);
 	}
 
-	/** Cancela el drag con ESC: devuelve la nota a su sección original. */
+	/** Cancela the drag with ESC: returns the note to its section original. */
 	function _cancelNoteDrag():Void
 	{
 		_dragGhost.visible = false;
@@ -2768,7 +2768,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	}
 
 	// =========================================================================
-	//  MULTI-SELECCIÓN — helpers
+	//  MULTI-selection — helpers
 	// =========================================================================
 
 	function _isSelected(note:Array<Dynamic>):Bool
@@ -2784,7 +2784,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (!_isSelected(note))
 		{
 			_selectedNotes.push({note: note, section: section});
-			curSelectedNote = note; // sincronizar panel de nota con la última seleccionada
+			curSelectedNote = note; // sincronizar panel of note with the last seleccionada
 		}
 	}
 
@@ -2804,11 +2804,11 @@ class ChartingState extends funkin.states.MusicBeatState
 	function _clearSelection():Void
 	{
 		_selectedNotes = [];
-		curSelectedNote = null; // deseleccionar también del panel de nota
+		curSelectedNote = null; // deseleccionar also of the panel of note
 		_notePositionsDirty = true;
 	}
 
-	/** Devuelve el step absoluto de una nota dado su índice de sección. */
+	/** Returns the step absoluto of a note dado its index of section. */
 	function _noteAbsStep(note:Array<Dynamic>, section:Int):Float
 	{
 		var sectionStartStep:Float = 0;
@@ -2834,7 +2834,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	/**
 	 * Llamado cada frame desde update(). Gestiona:
-	 *  - Box select (dibuja el rectángulo y finaliza al soltar)
+	 *  - Box select (draws the rectangle and finaliza to the soltar)
 	 *  - Multi-drag (mueve los ghosts y finaliza al soltar)
 	 */
 	function updateMultiDragAndSelBox():Void
@@ -2876,7 +2876,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 	}
 
-	/** Actualiza la posición y tamaño del rectángulo de selección. */
+	/** Updates the position and size of the rectangle of selection. */
 	function _updateSelBox(mx:Float, my:Float):Void
 	{
 		var mouseGridX = mx - gridBG.x;
@@ -2900,7 +2900,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		_selBox.updateHitbox();
 		_selBox.visible = true;
 
-		// Borde: 4 píxeles de grosor simulado con un sprite ligeramente más grande y alpha
+		// Borde: 4 pixels of grosor simulado with a sprite ligeramente more large and alpha
 		_selBoxBorder.x = x1 - 1;
 		_selBoxBorder.y = y1 - 1;
 		_selBoxBorder.setGraphicSize(Std.int(w + 2), Std.int(h + 2));
@@ -2908,7 +2908,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		_selBoxBorder.visible = true;
 	}
 
-	/** Al soltar el box select: selecciona todas las notas dentro del rectángulo. */
+	/** To the soltar the box select: selecciona all the notes inside of the rectangle. */
 	function _finalizeBoxSelect(mx:Float, my:Float):Void
 	{
 		var mouseGridY = my - gridBG.y;
@@ -2920,7 +2920,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		var minCol = Math.min(_selBoxStartCol, curColF) / GRID_SIZE;
 		var maxCol = Math.max(_selBoxStartCol, curColF) / GRID_SIZE;
 
-		// Si el box es demasiado pequeño (solo click) → colocar nota en esa posición
+		// If the box is demasiado small (only click) → colocar note in that position
 		if (Math.abs(maxStep - minStep) < 0.1 && Math.abs(maxCol - minCol) < 0.1)
 		{
 			var mouseGridX = mx - gridBG.x;
@@ -3022,7 +3022,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			ghost.x = gridBG.x + newCol * GRID_SIZE + 1;
 			ghost.y = (100 - gridScrollY) + newStep * GRID_SIZE + 1;
 
-			// Animar color si la columna cambió
+			// Animar color if the columna changed
 			var targetColor = NOTE_COLORS[newCol % 8];
 			if (ghost.color != targetColor)
 			{
@@ -3054,7 +3054,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			var newAbsStep = Math.max(0, orig.absStep + deltaStep);
 			var newVisCol = Std.int(Math.max(0, Math.min(numCols - 1, orig.visCol + deltaCol)));
 
-			// Encontrar sección destino para el step absoluto
+			// Encontrar section destino for the step absoluto
 			var accStep:Float = 0;
 			var tgtSection:Int = 0;
 			var stepInSection:Float = 0;
@@ -3093,8 +3093,8 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		_multiDragActive = false;
 		_multiDragOriginals = [];
-		// BUGFIX: limpiar selección al soltar el drag para que los highlights
-		// amarillos desaparezcan. La selección ya no es válida tras el reinsert
+		// BUGFIX: clear selection to the soltar the drag for that the highlights
+		// amarillos desaparezcan. The selection already no is valid tras the reinsert
 		// porque las notas son objetos nuevos con nuevas posiciones.
 		_selectedNotes = [];
 		curSelectedNote = newSelection.length > 0 ? newSelection[newSelection.length - 1].note : null;
@@ -3104,7 +3104,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		showMessage('${newSelection.length} nota${newSelection.length == 1 ? "" : "s"} movida${newSelection.length == 1 ? "" : "s"}', ACCENT_GREEN);
 	}
 
-	/** Cancela el multi-drag: devuelve todas las notas a su posición original. */
+	/** Cancela the multi-drag: returns all the notes to its position original. */
 	function _cancelMultiDrag():Void
 	{
 		for (g in _multiDragGhosts.members)
@@ -3150,7 +3150,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		showMessage('Notas borradas', ACCENT_WARNING);
 	}
 
-	/** Devuelve la columna visual de una nota a partir de su rawData y sección. */
+	/** Returns the columna visual of a note to partir of its rawData and section. */
 	function _noteVisColFromRaw(rawData:Int, sectionIndex:Int):Int
 	{
 		var swapped = rawData;
@@ -3164,8 +3164,8 @@ class ChartingState extends funkin.states.MusicBeatState
 	// =========================================================================
 
 	/**
-	 * Calcula el ancho del preview según el número de grupos de strums.
-	 * 4 columnas por grupo × PRV_NOTE_W px + 4px para eventos = dinámico.
+	 * Calcula the width of the preview according to the number of grupos of strums.
+	 * 4 columnas by grupo × PRV_NOTE_W px + 4px for events = dynamic.
 	 */
 	function _prvWidth():Int
 	{
@@ -3182,14 +3182,14 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	/**
 	 * Inicializa o reconstruye los sprites del panel de preview.
-	 * Llamar después de buildGrid() cuando cambia el número de columnas.
+	 * Callr after of buildGrid() when changes the number of columnas.
 	 */
 	function initChartPreview():Void
 	{
 		var pw = _prvWidth();
 		var ph = _prvHeight();
 
-		// Limpiar sprites previos si existían
+		// Clear sprites previos if existían
 		for (s in [_prvBg, _prvSprite, _prvSections, _prvViewport, _prvPlayhead])
 			if (s != null)
 				remove(s, true);
@@ -3214,14 +3214,14 @@ class ChartingState extends funkin.states.MusicBeatState
 		_prvSprite.cameras = [camHUD];
 		add(_prvSprite);
 
-		// Líneas de sección
+		// Lines of section
 		_prvSections = new FlxSprite(PRV_X + 2, 100);
 		_prvSections.makeGraphic(pw, ph, 0x00000000, true);
 		_prvSections.scrollFactor.set();
 		_prvSections.cameras = [camHUD];
 		add(_prvSections);
 
-		// Viewport (área visible)
+		// Viewport (area visible)
 		_prvViewport = new FlxSprite(PRV_X + 2, 100);
 		_prvViewport.makeGraphic(pw, 10, PRV_C_VP, true);
 		_prvViewport.scrollFactor.set();
@@ -3266,7 +3266,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		flixel.util.FlxSpriteUtil.drawRect(_prvSprite, 0, 0, pw, ph, PRV_C_BG);
 		flixel.util.FlxSpriteUtil.drawRect(_prvSections, 0, 0, pw, ph, 0x00000000);
 
-		// Dibujar líneas de sección
+		// Draw lines of section
 		var accMs:Float = 0;
 		for (i in 0..._song.notes.length)
 		{
@@ -3294,7 +3294,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				// Y basada en el strumTime absoluto
 				var noteY = Std.int((noteTime / _prvSongMs) * ph);
 
-				// Color por dirección (igual que NOTE_COLORS)
+				// Color by direction (same as NOTE_COLORS)
 				var col:Int = switch (dir)
 				{
 					case 0: 0xFFC24B99; // izquierda – morado
@@ -3307,7 +3307,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				// Nota cabeza
 				flixel.util.FlxSpriteUtil.drawRect(_prvSprite, noteX, noteY, PRV_NOTE_W - 1, PRV_NOTE_H, col);
 
-				// Sustain: línea más delgada y oscurecida
+				// Sustain: line more delgada and oscurecida
 				if (daSus > 0)
 				{
 					var susH = Std.int((daSus / _prvSongMs) * ph);
@@ -3320,7 +3320,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			accMs2 += getSectionDuration(secNum);
 		}
 
-		// Columna de eventos (última columna)
+		// Columna of events (last columna)
 		if (_song.events != null)
 		{
 			for (evt in _song.events)
@@ -3334,7 +3334,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	}
 
 	/**
-	 * Actualiza la posición del viewport overlay y del playhead.
+	 * Updates the position of the viewport overlay and of the playhead.
 	 * Llamado cada frame.
 	 */
 	function updateChartPreview():Void
@@ -3393,7 +3393,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			_applyGridScroll(gridScrollY);
 			_notePositionsDirty = true;
 
-			// También sincronizar la música si está pausada
+			// Also sincronizar the music if is paused
 			if (FlxG.sound.music != null && !FlxG.sound.music.playing)
 				FlxG.sound.music.time = seekMs;
 		}
@@ -3431,7 +3431,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		var snapSteps = (currentSnap / 16);
 		clickedStep = Math.floor(clickedStep / snapSteps) * snapSteps;
 
-		// Encontrar en qué sección está
+		// Encontrar in what section is
 		var accumulatedSteps:Float = 0;
 		var targetSection:Int = 0;
 		var noteTimeInSection:Float = 0;
@@ -3501,7 +3501,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			});
 			_song.notes[targetSection].sectionNotes.push(newNote);
 
-			// ✨ Seleccionar automáticamente la nota recién creada
+			// ✨ Seleccionar automatically the note recién creada
 			curSelectedNote = newNote;
 			updateNoteUI();
 
@@ -3567,7 +3567,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 	}
 
-	// ✨ NUEVA FUNCIÓN: Seleccionar una nota al hacer clic en ella
+	// ✨ new function: Seleccionar a note to the do clic in ella
 	function selectNoteAtPosition(worldY:Float, noteData:Int):Bool
 	{
 		var clickedStep = (worldY / GRID_SIZE) + _gridWindowOffset;
@@ -3608,7 +3608,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		var noteStrumTime = getSectionStartTime(targetSection) + noteTimeInSection;
 
-		// Buscar la nota en esa posición
+		// Search the note in that position
 		for (i in _song.notes[targetSection].sectionNotes)
 		{
 			if (Math.abs(i[0] - noteStrumTime) < 5 && i[1] == actualNoteData)
@@ -3670,7 +3670,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			showMessage('▶ Playing from Section ${curSection + 1}', ACCENT_CYAN);
 		}
 
-		// El resto de shortcuts sí se bloquean con popups
+		// The resto of shortcuts itself is bloquean with popups
 		if (isAnyPopupOpen() || openSectionNav)
 			return;
 
@@ -3685,7 +3685,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		if (FlxG.keys.justPressed.F5)
 			testChartFromSection();
 
-		// NAVEGACIÓN
+		// navigation
 		if (FlxG.sound.music != null)
 		{
 			if (FlxG.keys.pressed.W || FlxG.keys.pressed.UP)
@@ -3757,7 +3757,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				undo();
 			if (FlxG.keys.justPressed.Y)
 				redo();
-			// Ctrl+A → seleccionar todas las notas visibles en la sección actual
+			// Ctrl+to → seleccionar all the notes visibles in the section current
 			if (FlxG.keys.justPressed.A)
 				_selectAllInSection();
 			// Ctrl+D → deseleccionar todo
@@ -3803,7 +3803,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			showMessage(metronomeEnabled ? '🎵 Metronome ON' : '🔇 Metronome OFF', ACCENT_CYAN);
 		}
 
-		// Nota: el Waveform ahora se activa con el botón 🌊 en la toolbar (no con W)
+		// Note: the Waveform ahora is active with the button 🌊 in the toolbar (no with W)
 	}
 
 	function handlePlaybackButtons():Void
@@ -3813,7 +3813,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			if (FlxG.sound.music != null && !FlxG.sound.music.playing)
 			{
-				// ✨ Reproducir desde la sección actual basado en el scroll del grid
+				// ✨ Play from the section current basado in the scroll of the grid
 				FlxG.sound.music.time = getSectionStartTime(curSection);
 				FlxG.sound.music.play();
 				syncVocals(); // ✨ SINCRONIZAR VOCALES
@@ -3850,7 +3850,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// ===== NUEVOS BOTONES CLICKEABLES EN TOOLBAR =====
 
-		// Click en BPM → abrir diálogo de input en el Song tab
+		// Click in BPM → abrir dialogue of input in the Song tab
 		if (bpmText != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(bpmText, camHUD))
 		{
 			// Cambiar al Song tab para editar el BPM
@@ -3858,13 +3858,13 @@ class ChartingState extends funkin.states.MusicBeatState
 			showMessage('✏️ Edit the BPM in the tab Song', ACCENT_WARNING);
 		}
 
-		// Click en Section → abrir diálogo de navegación
+		// Click in Section → abrir dialogue of navigation
 		if (sectionText != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(sectionText, camHUD))
 		{
 			openSectionNavigator();
 		}
 
-		// Click en botón Meta → toggle del popup
+		// Click in button Meta → toggle of the popup
 		if (metaBtn != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(metaBtn, camHUD))
 		{
 			if (metaPopup != null)
@@ -3876,7 +3876,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			}
 		}
 
-		// 🌊 Click en botón Waveform → toggle
+		// 🌊 Click in button Waveform → toggle
 		if (waveformBtn != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(waveformBtn, camHUD))
 		{
 			_toggleWaveform();
@@ -3885,7 +3885,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Tools button → toggle panel
 		if (toolsPanel != null && FlxG.mouse.justPressed)
 		{
-			// El botón de Tools está en x=648, y=10, w=58, h=22
+			// The button of Tools is in x=648, and=10, w=58, h=22
 			var mx = FlxG.mouse.x;
 			var my = FlxG.mouse.y;
 			if (mx >= 648 && mx <= 706 && my >= 10 && my <= 32)
@@ -3893,7 +3893,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 	}
 
-	// Abre un diálogo rápido para saltar a una sección específica
+	// Abre a dialogue fast for saltar to a section specific
 	function openSectionNavigator():Void
 	{
 		if (openSectionNav)
@@ -4030,16 +4030,16 @@ class ChartingState extends funkin.states.MusicBeatState
 				// Para noteData ≥ 8 (grupos extra): visualColumn = daNoteData sin cambios
 
 				var note:Note = new Note(daStrumTime, visualColumn % 4);
-				// FIX: Forzar un gráfico sólido para la vista del editor.
+				// FIX: Force a solid graphic for the editor view.
 				// Note.loadSkin() puede dejar el sprite transparente (0x00000000) si la
-				// skin no está disponible en el contexto del editor, haciendo la nota invisible.
+				// skin no is available in the contexto of the editor, haciendo the note invisible.
 				// note.color sobre pixels transparentes no tiene efecto — se necesita makeGraphic.
 				note.setGraphicSize(GRID_SIZE, GRID_SIZE);
 				note.updateHitbox();
 				note.x = gridBG.x + (GRID_SIZE * visualColumn);
 				note.y = (100 - gridScrollY) + sectionY + (noteStep * GRID_SIZE);
 
-				// Color base — note.color sobre un gráfico blanco funciona correctamente
+				// Base color — note.color on a white graphic works correctly
 				var baseColor = NOTE_COLORS[visualColumn % 8];
 
 				// ✨ Aplicar efecto pulsante si es la nota seleccionada
@@ -4084,7 +4084,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 					// Mismo enfoque que NoteManager: cadena prevNote para que las animaciones
 					// (hold / holdend) se asignen igual que en gameplay.
-					//   body (prevNote=null→self): setupSustainNote juega hold en sí mismo
+					//   body (prevNote=null→self): setupSustainNote plays hold on itself
 					//   tail (prevNote=body):      setupSustainNote: body→hold, tail→holdend
 					var _prevSong = PlayState.SONG;
 					if (PlayState.SONG == null)
@@ -4163,7 +4163,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	// ✨ Actualizar posiciones de notas cuando el grid se mueve (con dirty flag)
 	function updateNotePositions():Void
 	{
-		// Solo recalcular si el grid se movió o hubo una edición
+		// Only recalcular if the grid is movió or hubo a edition
 		if (!_notePositionsDirty && Math.abs(gridBG.y - _lastGridY) < 0.5)
 			return;
 
@@ -4173,7 +4173,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// BUGFIX: limpiar highlights ANTES de reconstruirlos.
 		// Sin este clear, cada llamada a updateNotePositions() (que ocurre cada frame)
 		// acumula nuevos FlxSprite en _selHighlights sin eliminar los anteriores,
-		// dejando los amarillos permanentemente aunque la selección ya no exista.
+		// dejando the amarillos permanentemente although the selection already no exista.
 		if (_selHighlights != null)
 			_selHighlights.clear();
 
@@ -4203,7 +4203,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				var daSus:Float = noteData[2];
 				var noteStep = (daStrumTime - getSectionStartTimeFast(secNum)) / Conductor.stepCrochet;
 
-				// REMAPEAR POSICIÓN VISUAL (igual que en updateGrid)
+				// REMAPEAR position VISUAL (igual that in updateGrid)
 				var swappedCol = daNoteData;
 				if (daNoteData < 8 && section.mustHitSection)
 				{
@@ -4214,7 +4214,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				}
 				var visualColumn = dataColToVisualCol(swappedCol);
 
-				// ACTUALIZAR posición X e Y
+				// update position X and and
 				note.x = gridBG.x + (GRID_SIZE * visualColumn);
 				note.y = (100 - gridScrollY) + sectionY + (noteStep * GRID_SIZE);
 
@@ -4234,7 +4234,7 @@ class ChartingState extends funkin.states.MusicBeatState
 					note.color = baseColor;
 				}
 
-				// Rectángulo amarillo detrás de notas seleccionadas (visible independientemente del skin)
+				// Yellow rectangle behind selected notes (visible regardless of skin)
 				if (_selHighlights != null && (_isSelected(noteData) || (curSelectedNote != null && noteData == curSelectedNote)))
 				{
 					var hl = new FlxSprite(note.x, note.y);
@@ -4251,8 +4251,8 @@ class ChartingState extends funkin.states.MusicBeatState
 					var tail = (_curSusTails != null && susIndex < _curSusTails.length) ? _curSusTails.members[susIndex] : null;
 					var susHeight:Int = Std.int(Math.max(5, (daSus / Conductor.stepCrochet) * GRID_SIZE));
 
-					// updateGrid ya establece scale.y y offsets correctamente vía prevNote chain.
-					// Aquí solo actualizamos x/y (scroll) y rescalamos body si la duración cambió.
+					// updateGrid already sets scale.y and offsets correctly via prevNote chain.
+					// Here we only update x/y (scroll) and rescale body if duration changed.
 					var susNote = Std.isOfType(sus, Note) ? cast(sus, Note) : null;
 
 					if (sus != null)
@@ -4269,7 +4269,7 @@ class ChartingState extends funkin.states.MusicBeatState
 							}
 							_susHeightCache.set(susIndex, susHeight);
 						}
-						// Actualizar posición (cambia con el scroll)
+						// Update position (changes with scroll)
 						sus.x = note.x + (GRID_SIZE - sus.width) / 2 + 27;
 						sus.y = note.y + GRID_SIZE;
 					}
@@ -4290,7 +4290,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function cullNotes():Void
 	{
-		// Mostrar notas que están cerca de la pantalla visible
+		// Show notes that are cerca of the screen visible
 		var minY = 0;
 		var maxY = FlxG.height;
 
@@ -4298,7 +4298,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			if (note == null)
 				continue;
-			// Mostrar si está en la ventana visible (con margen generoso)
+			// Show if is in the window visible (with margen generoso)
 			note.visible = (note.y >= minY - 200 && note.y <= maxY + 200);
 		}
 
@@ -4339,7 +4339,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		_applyGridScroll(gridScrollY);
 
-		// Mover música al inicio de la sección
+		// Move music to the start of the section
 		if (FlxG.sound.music != null)
 		{
 			FlxG.sound.music.time = getSectionStartTime(curSection);
@@ -4350,7 +4350,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		updateSectionUI();
 
-		// ✨ SINCRONIZAR VOCALES cuando cambias de sección
+		// ✨ SINCRONIZAR VOCALES when cambias of section
 		syncVocals();
 	}
 
@@ -4374,7 +4374,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function updateSectionUI():Void
 	{
-		// Safety check: asegurar que curSection es válido
+		// Safety check: asegurar that curSection is valid
 		if (curSection < 0 || curSection >= _song.notes.length)
 		{
 			trace('[ChartingState] WARNING: Invalid curSection ($curSection), clamping to valid range');
@@ -4448,7 +4448,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				case 'song_bpm':
 					tempBpm = nums.value;
 					_song.bpm = tempBpm;
-					_sectionTimeCacheDirty = true; // ← BPM cambió, invalidar cache
+					_sectionTimeCacheDirty = true; // ← BPM changed, invalidate cache
 					Conductor.mapBPMChanges(_song);
 					Conductor.changeBPM(tempBpm);
 
@@ -4802,7 +4802,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		return visualCol;
 	}
 
-	// ✨ NUEVA FUNCIÓN: Probar el chart en PlayState
+	// ✨ new function: Probar the chart in PlayState
 	function testChart():Void
 	{
 		if (!validateChart())
@@ -4824,7 +4824,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		PlayState.storyDifficulty = 1;
 		PlayState.startFromTime = null; // ✨ Empezar desde el inicio
 
-		// Pequeño delay para que el usuario vea el mensaje
+		// Small delay for that the usuario vea the mensaje
 		new FlxTimer().start(0.3, function(tmr:FlxTimer)
 		{
 			funkin.system.CursorManager.hide();
@@ -4832,7 +4832,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		});
 	}
 
-	// ✨ NUEVA FUNCIÓN: Probar el chart desde la sección actual
+	// ✨ new function: Probar the chart from the section current
 	function testChartFromSection():Void
 	{
 		if (!validateChart())
@@ -4854,11 +4854,11 @@ class ChartingState extends funkin.states.MusicBeatState
 		PlayState.SONG = _song;
 		PlayState.isStoryMode = false;
 		PlayState.storyDifficulty = 1;
-		PlayState.startFromTime = sectionStartTime; // ✨ Empezar desde esta sección
+		PlayState.startFromTime = sectionStartTime; // ✨ Empezar from this section
 
 		trace('[ChartingState] Testing chart from section ${curSection + 1}, time: ${sectionStartTime}ms');
 
-		// Pequeño delay para que el usuario vea el mensaje
+		// Small delay for that the usuario vea the mensaje
 		new FlxTimer().start(0.3, function(tmr:FlxTimer)
 		{
 			funkin.system.CursorManager.hide();
@@ -4903,7 +4903,7 @@ class ChartingState extends funkin.states.MusicBeatState
 					loadedSong = cast Reflect.field(level.difficulties, '');
 				if (loadedSong == null)
 				{
-					// Último recurso: primer campo
+					// Last recurso: primer field
 					final fields = Reflect.fields(level.difficulties);
 					if (fields.length > 0)
 						loadedSong = cast Reflect.field(level.difficulties, fields[0]);
@@ -4933,7 +4933,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			// Migrar formato legacy → nuevo (strumsGroups + characters con GF)
 			funkin.data.Song.ensureMigrated(_song);
 
-			// CRÍTICO: Crear sección por defecto si el array está vacío
+			// critical: Create section by default if the array is empty
 			if (_song.notes == null || _song.notes.length == 0)
 			{
 				trace('[ChartingState] Loaded chart has empty notes array, creating default section');
@@ -5184,7 +5184,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Esto asegura que las texturas del editor (grid, notas del editor, etc.)
 		// se liberen antes de que PlayState empiece a cargar sus assets.
 		// Sin esto, al volver a PlayState la memoria pico puede ser muy alta
-		// porque ambos estados tienen assets en memoria simultáneamente.
+		// porque both states tienen assets in memory simultáneamente.
 		try
 		{
 			Paths.clearStoredMemory();
@@ -5215,8 +5215,8 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 		}
 		#end
-		// Prune atlas cache DESPUÉS del GC (bitmap==null ya es detectable).
-		// PlayState.create() llamará beginSession()+clearStoredMemory() para carga limpia.
+		// Prune atlas cache after of the GC (bitmap==null already is detectable).
+		// PlayState.create() callrá beginSession()+clearStoredMemory() for load clears.
 		try
 		{
 			Paths.pruneAtlasCache();
@@ -5268,7 +5268,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				FlxSpriteUtil.drawRect(gridBG, xPos, yPos, GRID_SIZE, GRID_SIZE, cellColor);
 			}
 		}
-		// Líneas horizontales
+		// Lines horizontales
 		for (row in 0..._gridWindowRows)
 		{
 			var absRow = _gridWindowOffset + row;
@@ -5276,7 +5276,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			var lineColor = (absRow % 4 == 0) ? 0xFF707070 : 0xFF505050;
 			FlxSpriteUtil.drawRect(gridBG, 0, yPos, gridWidth, 1, lineColor);
 		}
-		// Líneas verticales
+		// Lines verticales
 		for (col in 0...(numCols + 1))
 		{
 			var xPos = col * GRID_SIZE;
@@ -5288,7 +5288,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		gridBG.dirty = true;
 	}
 
-	/** Redibuja gridBlackWhite (divisores de sección) para la ventana actual */
+	/** Redibuja gridBlackWhite (divisores of section) for the window current */
 	function _redrawGridBW(gridWidth:Int):Void
 	{
 		var windowH = _gridWindowRows * GRID_SIZE;
@@ -5377,7 +5377,7 @@ typedef ChartAction =
 /*
  * 
  * SHORTCUTS:
- * - 1-8: Colocar notas rápido
+ * - 1-8: Colocar notes fast
  * - Shift+1-8: Colocar holds
  * - Ctrl+C/V/X: Copy/Paste/Cut
  * - M: Mirror section
@@ -5401,10 +5401,10 @@ typedef ChartAction =
  * ✅ Save/Load con metadata
  * ✅ Chart validation
  * ✅ Playtest mode
- * ✅ Sincronización de vocales mejorada
+ * ✅ Improved vocal synchronization
  * 
  * AUTOSAVE:
- * - Cada 5 minutos automáticamente
+ * - Each 5 minutos automatically
  * - Guarda en assets/data/[song]/autosave-[song].json
  * - Backups manuales disponibles
  * 

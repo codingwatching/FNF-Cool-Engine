@@ -39,10 +39,10 @@ typedef SNodeView= { sprs:Array<SNViewIt>, txts:Array<SNViewTx>, nodeH:Int };
  *  Funcionalidades:
  *   · Grafo de nodos arrastrables con cables bezier a color
  *   · 18 tipos de nodo: Texture, Color, Float, Time, UV, Math, FX, etc.
- *   · Generación automática de GLSL desde el grafo
+ *   · Generación automatic of GLSL from the grafo
  *   · Preview en vivo del shader (aplica el shader a un sprite)
  *   · Zoom (rueda) y pan (clic derecho)
- *   · Menú "Add Node" por categoría (tecla A o botón)
+ *   · Menu "Add Node" by category (key to or button)
  *   · Guardar shader en disco  (Ctrl+S)
  *   · Borrar nodo seleccionado (Delete)
  *   · Panel de propiedades del nodo seleccionado

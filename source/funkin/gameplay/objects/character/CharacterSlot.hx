@@ -10,30 +10,30 @@ using StringTools;
  *
  * Cada slot encapsula:
  *   • El Character instanciado
- *   • Sus datos de configuración (CharacterSlotData)
- *   • Su índice en el array del chart
+ *   • Its datos of configuration (CharacterSlotData)
+ *   • Its index in the array of the chart
  *   • Su ROL normalizado (Player / Opponent / Girlfriend / Other)
- *   • El ID del StrumsGroup al que está vinculado
+ *   • The ID of the StrumsGroup to the that is vinculado
  *
- * ── Mejoras respecto a la versión anterior ──────────────────────────────────
+ * ── Mejoras respecto to the version previous ──────────────────────────────────
  *
  *  BUG FIX A  charType / isGFSlot / strumsGroupId expuestos como propiedades
- *             tipadas. Antes había que acceder a `slot.data.type` con string
+ *             tipadas. Before había that acceder to `slot.data.type` with string
  *             sin validar, causando que danceOnBeat, findPlayerIndex, etc.
- *             no funcionaran con chars en índices no estándar.
+ *             no funcionaran with chars in indices no standard.
  *
  *  BUG FIX B  `sing()` ahora respeta `isGFSlot`: si este slot es de GF
- *             (isGF:true o type:"Girlfriend"), ignorará llamadas sing()
+ *             (isGF:true or type:"Girlfriend"), ignorará calldas sing()
  *             a menos que se use `forceSing:true`. GF solo baila a menos
- *             que una sección tenga gfSing=true.
+ *             that a section tenga gfSing=true.
  *
  *  BUG FIX C  `playMiss()` tiene fallback a `character.animation.getByName()`
- *             además de `animOffsets`. La versión anterior fallaba silencio-
+ *             furthermore of `animOffsets`. The version previous fallaba silencio-
  *             samente con personajes que no usan el sistema de offsets.
  *
  *  BUG FIX D  `position by type` en el constructor: si `charData.x == 0 &&
- *             charData.y == 0`, la posición la resuelve `PlayState.loadCharacters`
- *             usando el tipo en vez del índice hardcodeado.
+ *             charData.and == 0`, the position the resuelve `PlayState.loadCharacters`
+ *             usando the type in vez of the index hardcodeado.
  */
 class CharacterSlot
 {
@@ -49,7 +49,7 @@ class CharacterSlot
 	 * Tipo normalizado del personaje en este slot.
 	 * Valores posibles: "Player" | "Opponent" | "Girlfriend" | "Other"
 	 *
-	 * Se deriva de `charData.type` en la construcción. Si `type` no está
+	 * Is deriva of `charData.type` in the build. If `type` no is
 	 * definido en el JSON del chart, se infiere por nombre del personaje
 	 * (bf → Player, gf → Girlfriend, resto → Opponent).
 	 */
@@ -70,14 +70,14 @@ class CharacterSlot
 	inline function get_isPlayerSlot():Bool return charType == 'Player';
 
 	/**
-	 * true si este slot es del oponente (CPU canta automáticamente).
+	 * true if this slot is of the oponente (CPU canta automatically).
 	 */
 	public var isOpponentSlot(get, never):Bool;
 	inline function get_isOpponentSlot():Bool return charType == 'Opponent';
 
 	/**
-	 * ID del StrumsGroup al que está vinculado este personaje.
-	 * Null si no está vinculado a ningún grupo explícito.
+	 * ID of the StrumsGroup to the that is vinculado this character.
+	 * Null if no is vinculado to no grupo explicit.
 	 */
 	public var strumsGroupId(default, null):Null<String>;
 
@@ -85,7 +85,7 @@ class CharacterSlot
 	public var holdTimer:Float   = 0;
 	public var animFinished:Bool = true;
 
-	// ── Tabla de sufijos de animación ─────────────────────────────────────────
+	// ── Tabla of sufijos of animation ─────────────────────────────────────────
 	static final NOTES_ANIM:Array<String> = ['LEFT', 'DOWN', 'UP', 'RIGHT'];
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ class CharacterSlot
 		final charName = charData.name != null ? charData.name : 'bf';
 		character = new Character(charData.x, charData.y, charName, charType == 'Player');
 
-		// Aplicar configuración del slot
+		// Appliesr configuration of the slot
 		if (charData.flip != null && charData.flip)
 			character.flipX = !character.flipX;
 
@@ -123,13 +123,13 @@ class CharacterSlot
 		trace('[CharacterSlot] Slot $index: "$charName" (type=$charType, strumsGroup=$strumsGroupId)');
 
 		// ── Companion 3D ──────────────────────────────────────────────────────────
-		// Si el personaje tiene renderType=model3d, añadir su Flx3DSprite al state.
+		// If the character tiene renderType=model3d, add its Flx3DSprite to the state.
 		if (character.model3D != null)
 		{
 			final ps = funkin.gameplay.PlayState.instance;
 			if (ps != null)
 				ps.add(character.model3D);
-			trace('[CharacterSlot] Companion model3D añadido al state para "$charName".');
+			trace('[CharacterSlot] Companion model3D added to the state for "$charName".');
 		}
 	}
 
@@ -138,24 +138,24 @@ class CharacterSlot
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Hace cantar al personaje en la dirección `noteData`.
+	 * Hace cantar to the character in the direction `noteData`.
 	 *
 	 * @param noteData   0=LEFT 1=DOWN 2=UP 3=RIGHT
-	 * @param altAnim    Sufijo de animación alternativa (ej: "-alt", "")
+	 * @param altAnim    Suffix of animation alternativa (ej: "-alt", "")
 	 * @param forceSing  Si true, ignora el guard de GF. Usar cuando gfSing=true.
 	 */
 	public function sing(noteData:Int, ?altAnim:String = '', ?forceSing:Bool = false):Void
 	{
 		if (!isActive) return;
 
-		// BUG FIX B: GF no canta a menos que sea una sección gfSing
+		// BUG FIX B: GF no canta to menos that sea a section gfSing
 		if (isGFSlot && !forceSing) return;
 
 		if (character.isPlayingSpecialAnim()) return;
 
 		var animName:String = 'sing' + NOTES_ANIM[noteData] + altAnim;
 
-		// Fallback si no existe la animación alterna
+		// Fallback if no exists the animation alterna
 		if (!_animExists(animName))
 			animName = 'sing' + NOTES_ANIM[noteData];
 
@@ -164,17 +164,17 @@ class CharacterSlot
 
 		character.playAnim(animName, true);
 
-		// CRÍTICO: Resetear el holdTimer para que Character.update() no fuerce
-		// el idle en el siguiente frame antes de que se vea la animación.
+		// critical: Resetear the holdTimer for that Character.update() no fuerce
+		// the idle in the next frame before of that is vea the animation.
 		character.holdTimer = 0;
 		animFinished = false;
 	}
 
 	/**
-	 * Reproduce la animación de miss para `noteData`.
+	 * Reproduce the animation of miss for `noteData`.
 	 *
 	 * BUG FIX C: tiene fallback a `animation.getByName()` si `animOffsets`
-	 * no tiene la animación registrada (chars que no usan el sistema de offsets).
+	 * no tiene the animation registrada (chars that no usan the system of offsets).
 	 */
 	public function playMiss(noteData:Int):Void
 	{
@@ -188,12 +188,12 @@ class CharacterSlot
 			character.holdTimer = 0;
 			animFinished = false;
 		}
-		// Si no hay animación de miss, al menos interrumpir el sing actual
-		// para dar feedback visual de que se falló la nota.
+		// If no there is animation of miss, to the menos interrumpir the sing current
+		// for dar feedback visual of that is failed the note.
 	}
 
 	/**
-	 * Dance en beat. No interrumpe si está cantando o en special anim.
+	 * Dance in beat. No interrumpe if is cantando or in special anim.
 	 */
 	public function dance():Void
 	{
@@ -202,7 +202,7 @@ class CharacterSlot
 	}
 
 	/**
-	 * Reproduce una animación especial (hey, cheer, etc.) sin guards.
+	 * Plays an animation especial (hey, cheer, etc.) sin guards.
 	 */
 	public function playSpecialAnim(animName:String):Void
 	{
@@ -218,18 +218,18 @@ class CharacterSlot
 	/**
 	 * Update por frame.
 	 *
-	 * IMPORTANTE: NO duplicar lógica de animación aquí.
-	 * Flixel llama Character.update() automáticamente porque el personaje
-	 * está add()-eado al FlxState. Character.update() ya gestiona holdTimer,
-	 * sing→idle y special→idle. Ejecutar esa lógica aquí causaría flickering.
+	 * IMPORTANTE: no duplicar logic of animation here.
+	 * Flixel call Character.update() automatically porque the character
+	 * is add()-eado to the FlxState. Character.update() already manages holdTimer,
+	 * sing→idle and special→idle. Execute that logic here causaría flickering.
 	 */
 	public function update(elapsed:Float):Void
 	{
-		// Reservado para lógica futura de slot (no de animación de personaje).
+		// Reservado for logic futura of slot (no of animation of character).
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Control de visibilidad / activación
+	// Control of visibility / activación
 	// ─────────────────────────────────────────────────────────────────────────
 
 	public function setActive(active:Bool):Void
@@ -239,7 +239,7 @@ class CharacterSlot
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Destrucción
+	// Destruction
 	// ─────────────────────────────────────────────────────────────────────────
 
 	public function destroy():Void
@@ -257,10 +257,10 @@ class CharacterSlot
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Comprueba si una animación existe, primero en `animOffsets` (sistema
+	 * Checks if a animation exists, first in `animOffsets` (system
 	 * de FunkinSprite/FlxAnimate) y luego en `animation` (sistema legacy FlxSprite).
 	 *
-	 * BUG FIX C: La versión anterior solo comprobaba `animOffsets`, lo que
+	 * BUG FIX C: The version previous only comprobaba `animOffsets`, it that
 	 * causaba que personajes sin offsets nunca cantaran.
 	 */
 	private inline function _animExists(name:String):Bool
@@ -270,16 +270,16 @@ class CharacterSlot
 	}
 
 	/**
-	 * Deduce el tipo canónico del personaje a partir de CharacterSlotData.
+	 * Deduce the type canónico of the character to partir of CharacterSlotData.
 	 *
 	 * Orden de precedencia:
-	 *   1. `charData.type` explícito en el JSON del chart
+	 *   1. `charData.type` explicit in the JSON of the chart
 	 *   2. `charData.isGF == true`
 	 *   3. Inferencia por nombre (bf → Player, gf → Girlfriend, resto → Opponent)
 	 */
 	private static function _resolveCharType(charData:CharacterSlotData):String
 	{
-		// 1. Campo explícito
+		// 1. Field explicit
 		if (charData.type != null)
 		{
 			return switch (charData.type.toLowerCase().trim())

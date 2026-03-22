@@ -30,10 +30,10 @@ using StringTools;
  *    Las animaciones deben llamarse exactamente: "normal", "losing", "winning"
  *    Si faltan "losing" o "winning", se hace fallback a "normal".
  *
- *  JSON DE CONFIGURACIÓN (opcional, máxima flexibilidad):
+ *  JSON of configuration (optional, maximum flexibilidad):
  *    icons/icon-bf.json
  *    {
- *      "image"      : "icons/icon-bf",   // ruta al atlas/imagen (sin extensión)
+ *      "image"      : "icons/icon-bf",   // path to the atlas/image (without extension)
  *      "scale"      : 1.0,               // escala base del icono
  *      "flipX"      : false,             // voltear por defecto (ignorado si isPlayer)
  *      "antialias"  : true,
@@ -72,7 +72,7 @@ using StringTools;
 @:keep
 class HealthIcon extends FlxSprite
 {
-	// ── pública ──────────────────────────────────────────────────────────────
+	// ── public ──────────────────────────────────────────────────────────────
 
 	/** Sprite al que seguir (p.ej. la barra de salud). */
 	public var sprTracker:FlxSprite;
@@ -83,14 +83,14 @@ class HealthIcon extends FlxSprite
 	/** Estado actual: "normal" | "losing" | "winning". */
 	public var currentState(default, null):String = 'normal';
 
-	/** Permite que scripts anulen el flip automático isPlayer. */
+	/** Allows that scripts anulen the flip automatic isPlayer. */
 	public var flipOverride:Null<Bool> = null;
 
-	/** Offset de posición relativo a sprTracker (por defecto 10, -30). */
+	/** Offset of position relativo to sprTracker (by default 10, -30). */
 	public var trackerOffsetX:Float = 10;
 	public var trackerOffsetY:Float = -30;
 
-	/** Offset adicional por animación (leído del JSON si existe). */
+	/** Offset adicional by animation (leído of the JSON if exists). */
 	public var animOffsets:Map<String, Array<Float>> = [];
 
 	// ── privada ───────────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ class HealthIcon extends FlxSprite
 		updateIcon(char, isPlayer);
 	}
 
-	// ── API pública ───────────────────────────────────────────────────────────
+	// ── API public ───────────────────────────────────────────────────────────
 
 	/**
 	 * Carga o recarga el icono para un personaje.
@@ -120,7 +120,7 @@ class HealthIcon extends FlxSprite
 	 */
 	public function updateIcon(char:String, isPlayer:Bool = false):Void
 	{
-		// Evitar reload si no cambió nada
+		// Avoid reload if no changed nothing
 		if (char == characterName && isPlayer == _isPlayer && frames != null)
 		{
 			flipX = flipOverride ?? isPlayer;
@@ -274,7 +274,7 @@ class HealthIcon extends FlxSprite
 		try   { cfg = Json.parse(raw); }
 		catch (e)
 		{
-			FlxG.log.warn('[HealthIcon] JSON inválido ($jsonPath): $e');
+			FlxG.log.warn('[HealthIcon] JSON invalid ($jsonPath): $and');
 			_loadLegacySheet(characterName);
 			return;
 		}
@@ -327,7 +327,7 @@ class HealthIcon extends FlxSprite
 
 		if (animDefs != null)
 		{
-			// JSON con definiciones explícitas
+			// JSON with definiciones explícitas
 			for (state in ['normal', 'losing', 'winning'])
 			{
 				var def:Dynamic = Reflect.field(animDefs, state);
@@ -361,7 +361,7 @@ class HealthIcon extends FlxSprite
 		// Psych: icono sin prefijo "icon-"
 		if (graphic == null) graphic = _getGraphicForKey('icons/$char');
 
-		// Fallback al icono genérico
+		// Fallback to the icono generic
 		if (graphic == null) graphic = _getGraphicForKey('icons/icon-face');
 
 		if (graphic == null)
@@ -431,12 +431,12 @@ class HealthIcon extends FlxSprite
 		#end
 	}
 
-	/** Convierte una ruta de archivo en clave lógica de Paths (sin extensión). */
+	/** Converts a path of file in key logic of Paths (without extension). */
 	function _pathToLogicalKey(path:String):String
 	{
 		// Si empieza por "assets/", quitar ese prefijo
 		if (path.startsWith('assets/')) path = path.substr(7);
-		// Si empieza por "mods/{mod}/", quitar ese prefijo también
+		// If empieza by "mods/{mod}/", quitar that prefix also
 		var modRoot = ModManager.modRoot();
 		if (modRoot != null && path.startsWith(modRoot + '/'))
 			path = path.substr(modRoot.length + 1);

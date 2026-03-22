@@ -10,7 +10,7 @@ import funkin.data.Conductor;
 import funkin.gameplay.PlayStateConfig;
 import funkin.scripting.ScriptHandler;
 
-// ─── Configuración de un skin de countdown ────────────────────────────────────
+// ─── Configuration of a skin of countdown ────────────────────────────────────
 // Todos los valores son soft-coded; se puede cambiar desde scripts/JSON sin
 // recompilar. Instancia la struct con valores por defecto y sobreescribe lo
 // que necesites.
@@ -30,36 +30,36 @@ typedef CountdownSkin = {
 	/** Volumen de los sonidos de countdown (0.0 – 1.0). */
 	var soundVolume:Float;
 
-	// ── Animación de ENTRADA ────────────────────────────────────────────────
+	// ── Animation of entry ────────────────────────────────────────────────
 	/** Escala inicial (punch de entrada). */
 	var enterStartScale:Float;
-	/** Fracción del crochet para el fade-in de alpha. */
+	/** Fracción of the crochet for the fade-in of alpha. */
 	var enterAlphaDur:Float;
-	/** Fracción del crochet para el scale punch. */
+	/** Fracción of the crochet for the scale punch. */
 	var enterScaleDur:Float;
 
 	// ── Micro-pulse ──────────────────────────────────────────────────────────
 	/** Delta de escala del micro-pulse (sube y baja). */
 	var pulseDelta:Float;
-	/** Inicio del pulse (fracción del crochet). */
+	/** Start of the pulse (fracción of the crochet). */
 	var pulseDelay:Float;
-	/** Duración del pulse hacia arriba (fracción). */
+	/** Duration of the pulse towards up (fracción). */
 	var pulseUpDur:Float;
-	/** Duración del pulse hacia abajo (fracción). */
+	/** Duration of the pulse towards down (fracción). */
 	var pulseDownDur:Float;
 
-	// ── Animación de SALIDA ──────────────────────────────────────────────────
-	/** Retraso antes de salir (fracción del crochet). */
+	// ── Animation of output ──────────────────────────────────────────────────
+	/** Retraso before of salir (fracción of the crochet). */
 	var exitDelay:Float;
-	/** Duración del fade-out (fracción del crochet). */
+	/** Duration of the fade-out (fracción of the crochet). */
 	var exitDur:Float;
-	/** Cuántos píxeles sube el sprite al salir. */
+	/** How many pixels sube the sprite to the salir. */
 	var exitRisePixels:Float;
 
-	// ── Rotación aleatoria (solo HD) ─────────────────────────────────────────
-	/** Ángulo mínimo de jitter. */
+	// ── Rotation aleatoria (only HD) ─────────────────────────────────────────
+	/** Angle minimum of jitter. */
 	var rotMin:Float;
-	/** Ángulo máximo de jitter. */
+	/** Angle maximum of jitter. */
 	var rotMax:Float;
 }
 
@@ -74,7 +74,7 @@ typedef CountdownStep = {
 /**
  * Countdown desacoplado de PlayState.
  *
- * Uso básico en PlayState:
+ * Basic usage in PlayState:
  *   countdown = new Countdown(this, camCountdown, isPixelStage);
  *   countdown.preload();
  *   countdown.start(onFinished);
@@ -106,7 +106,7 @@ class Countdown {
 		exitDelay:       0.52,
 		exitDur:         0.48,
 		exitRisePixels:  32,
-		// rotación
+		// rotation
 		rotMin:          -4,
 		rotMax:          4
 	};
@@ -131,7 +131,7 @@ class Countdown {
 		exitDelay:       0.52,
 		exitDur:         0.48,
 		exitRisePixels:  24,
-		// sin rotación en pixel
+		// without rotation in pixel
 		rotMin:          0,
 		rotMax:          0
 	};
@@ -141,16 +141,16 @@ class Countdown {
 	/** Skin activo. Modificable en cualquier momento antes de start(). */
 	public var skin:CountdownSkin;
 
-	/** ¿Estamos en un stage pixel? Determina el skin por defecto. */
+	/** Are in a stage pixel? Determina the skin by default. */
 	public var isPixel(default, set):Bool;
 
-	/** Pasos personalizados. Si null, se usan los 4 pasos estándar del skin. */
+	/** Pasos personalizados. If null, is usan the 4 pasos standard of the skin. */
 	public var customSteps:Null<Array<CountdownStep>> = null;
 
-	/** ¿El countdown ya terminó? */
+	/** The countdown already ended? */
 	public var finished(default, null):Bool = false;
 
-	/** ¿Está corriendo ahora mismo? */
+	/** Is corriendo now same? */
 	public var running(default, null):Bool = false;
 
 	// privadas
@@ -166,7 +166,7 @@ class Countdown {
 
 	/**
 	 * @param state     Referencia al PlayState (para add/scripts).
-	 * @param camera    Cámara dedicada al countdown.
+	 * @param camera    Camera dedicada to the countdown.
 	 * @param pixel     true si el stage es pixel.
 	 */
 	public function new(state:PlayState, camera:flixel.FlxCamera, pixel:Bool = false) {
@@ -175,7 +175,7 @@ class Countdown {
 		isPixel  = pixel;          // setter asigna skin
 	}
 
-	// ─── API pública ──────────────────────────────────────────────────────────
+	// ─── API public ──────────────────────────────────────────────────────────
 
 	/**
 	 * Pre-carga los sprites en memoria para evitar lag en el primer frame.
@@ -311,7 +311,7 @@ class Countdown {
 		if (customSteps != null) return customSteps;
 
 		return [
-			// Paso 0: beat vacío (solo sonido intro3)
+			// Paso 0: beat empty (only sound intro3)
 			{ index: 0, sprPath: null,             sndPath: skin.sndPaths[0] },
 			{ index: 1, sprPath: skin.sprPaths[0], sndPath: skin.sndPaths[1] }, // ready
 			{ index: 2, sprPath: skin.sprPaths[1], sndPath: skin.sndPaths[2] }, // set
@@ -354,7 +354,7 @@ class Countdown {
 		// Buscar sprite pre-cargado
 		final idx = skin.sprPaths.indexOf(path);
 
-		// Si no está en el pool (custom), crear uno on-the-fly
+		// If no is in the pool (custom), create uno on-the-fly
 		if (idx < 0 || idx >= _sprites.length) {
 			_showSpriteFallback(path);
 			return;

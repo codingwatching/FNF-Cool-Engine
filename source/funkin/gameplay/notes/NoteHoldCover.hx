@@ -7,7 +7,7 @@ import funkin.gameplay.notes.NoteSkinSystem;
 
 using StringTools;
 /**
- * NoteHoldCover — Animación visual que se muestra mientras el jugador sostiene una nota larga.
+ * NoteHoldCover — Animation visual that is muestra mientras the jugador sostiene a note larga.
  *
  * ─── CICLO DE VIDA ───────────────────────────────────────────────────────────
  *
@@ -24,13 +24,13 @@ using StringTools;
  *
  *   setup() recibe el CENTRO del strum (strumCenterX, strumCenterY).
  *   NoteManager debe pasar strum.x + strum.width/2 y strum.y + strum.height/2.
- *   El cover se centra sobre ese punto más el offset configurado en splash.json.
+ *   The cover is centra over that punto more the offset configurado in splash.json.
  *
  * ─── COMPATIBILIDAD CON MODS ─────────────────────────────────────────────────
  *
- *   Toda la resolución de assets pasa por NoteSkinSystem.getHoldCoverTexture()
+ *   All the resolution of assets pasa by NoteSkinSystem.getHoldCoverTexture()
  *   y NoteSkinSystem.getHoldCoverData(), que buscan primero en el mod activo
- *   y hacen fallback a los assets base automáticamente.
+ *   and hacen fallback to the assets base automatically.
  */
 class NoteHoldCover extends FlxSprite
 {
@@ -49,7 +49,7 @@ class NoteHoldCover extends FlxSprite
 	var _loadedSplash:String = '';
 	var _loadedColor:String  = '';
 
-	/** Prefijos de animación activos (con sufijo de color si perColorTextures=true). */
+	/** Prefijos of animation activos (with suffix of color if perColorTextures=true). */
 	var _startAnim:String = '';
 	var _loopAnim:String  = '';
 	var _endAnim:String   = '';
@@ -58,10 +58,10 @@ class NoteHoldCover extends FlxSprite
 	var _strumCenterX:Float = 0;
 	var _strumCenterY:Float = 0;
 
-	// ─── Propiedad pública ────────────────────────────────────────────────────
+	// ─── Propiedad public ────────────────────────────────────────────────────
 
 	/**
-	 * true mientras el cover esté en uso (START / LOOP / END / END_PENDING).
+	 * true while the cover is in uso (START / LOOP / END / END_PENDING).
 	 * NoteRenderer lo comprueba para decidir si puede reutilizar este cover del pool.
 	 */
 	public var inUse(get, never):Bool;
@@ -75,16 +75,16 @@ class NoteHoldCover extends FlxSprite
 		alive   = false;
 	}
 
-	// ─── API PÚBLICA ──────────────────────────────────────────────────────────
+	// ─── API public ──────────────────────────────────────────────────────────
 
 	/**
 	 * Prepara el cover para ser usado.
-	 * Carga la skin desde NoteSkinSystem (con caché — no recarga si ya es la misma),
+	 * Load the skin from NoteSkinSystem (with cache — no recarga if already is the misma),
 	 * centra el sprite sobre el strum y lo pone listo para playStart().
 	 *
 	 * @param strumCenterX  Centro-X del strum  (strum.x + strum.width  / 2).
 	 * @param strumCenterY  Centro-Y del strum  (strum.y + strum.height / 2).
-	 * @param noteData      Dirección 0-3 → determina el color (Purple/Blue/Green/Red).
+	 * @param noteData      Direction 0-3 → determina the color (Purple/Blue/Green/Red).
 	 * @param splashName    Override de splash (null = splash activo del sistema).
 	 */
 	public function setup(strumCenterX:Float, strumCenterY:Float, noteData:Int, ?splashName:String):Void
@@ -100,7 +100,7 @@ class NoteHoldCover extends FlxSprite
 			? splashName
 			: NoteSkinSystem.currentSplash;
 
-		// ── Cargar frames solo si cambió splash o color ───────────────────
+		// ── Load frames only if changed splash or color ───────────────────
 		if (resolvedSplash != _loadedSplash || _color != _loadedColor || frames == null)
 		{
 			_hcData = NoteSkinSystem.getHoldCoverData(resolvedSplash);
@@ -161,13 +161,13 @@ class NoteHoldCover extends FlxSprite
 	}
 
 	/**
-	 * Arranca la animación de START.
-	 * Cuando termina pasa automáticamente a LOOP (o END si playEnd() fue llamado antes).
+	 * Arranca the animation of START.
+	 * When termina pasa automatically to LOOP (or END if playEnd() was calldo before).
 	 *
-	 * FIX: si startPrefix == loopPrefix (mismo nombre de animación), saltamos
-	 * directamente a LOOP. De lo contrario la animación se registra solo una vez
+	 * FIX: if startPrefix == loopPrefix (mismo nombre of animation), saltamos
+	 * directamente to LOOP. Of it contrario the animation is registra only a vez
 	 * como looped=true (la segunda addByPrefix sobreescribe la primera) y
-	 * animation.finished nunca sería true → el state machine se atasca en START.
+	 * animation.finished never would be true → the state machine is atasca in START.
 	 */
 	public function playStart():Void
 	{
@@ -184,15 +184,15 @@ class NoteHoldCover extends FlxSprite
 		}
 		else
 		{
-			// Sin animación de inicio propia → ir directo al loop
+			// Without animation of start propia → ir directo to the loop
 			_state = STATE_START;
 			_playLoop();
 		}
 	}
 
 	/**
-	 * Arranca END (o marca END_PENDING si START aún no terminó).
-	 * @return true si END se inició directamente; false si quedó pendiente.
+	 * Arranca END (or marca END_PENDING if START still no ended).
+	 * @return true if END is inició directly; false if quedó pending.
 	 */
 	public function playEnd():Bool
 	{
@@ -207,7 +207,7 @@ class NoteHoldCover extends FlxSprite
 				return false;
 
 			case STATE_END, STATE_END_PENDING:
-				return true; // ya está saliendo
+				return true; // already is saliendo
 
 			default:
 				_killSelf();
@@ -225,14 +225,14 @@ class NoteHoldCover extends FlxSprite
 		switch (_state)
 		{
 			case STATE_START:
-				// START → LOOP cuando la animación termina
+				// START → LOOP when the animation termina
 				if (animation.name == _startAnim && animation.finished)
 					_playLoop();
 
 			case STATE_END_PENDING:
-				// START terminó mientras esperábamos el end → ahora reproducir END
-				// Cuando startAnim == loopAnim no hay animación de start separada;
-				// en ese caso END_PENDING no debería ocurrir (playStart va directo a LOOP).
+				// START ended while we waited for end → now play END
+				// When startAnim == loopAnim no there is animation of start separada;
+				// in that case END_PENDING no debería ocurrir (playStart va directo to LOOP).
 				// Por seguridad: si estamos en loop y animation.finished=false simplemente
 				// esperamos a que playEnd() sea llamado de nuevo desde el exterior.
 				if (_startAnim != _loopAnim && animation.name == _startAnim && animation.finished)
@@ -244,7 +244,7 @@ class NoteHoldCover extends FlxSprite
 					_killSelf();
 
 			case STATE_LOOP:
-				// looped=true se encarga solo — nada que hacer aquí
+				// looped=true is encarga only — nada that do here
 
 			default:
 		}
@@ -315,7 +315,7 @@ class NoteHoldCover extends FlxSprite
 		if (_endAnim != '' && animation.getByName(_endAnim) != null)
 			animation.play(_endAnim, true);
 		else
-			_killSelf(); // sin animación de fin → desaparecer
+			_killSelf(); // without animation of fin → desaparecer
 	}
 
 	function _killSelf():Void

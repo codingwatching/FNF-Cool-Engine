@@ -29,7 +29,7 @@ import funkin.debug.ColorPickerWheel;
 
 using StringTools;
 
-/** Slot dinámico de vocals por personaje en AddSongSubState. */
+/** Slot dynamic of vocals by character in AddSongSubState. */
 typedef VocalSlot =
 {
 	var charName:String;
@@ -40,15 +40,15 @@ typedef VocalSlot =
 	var nameInput:FlxInputText;
 	/** Icono de salud del personaje (visible en edit mode si existe). */
 	@:optional var charIcon:FlxSprite;
-	/** Texto con nombre de archivo y duración (visible en edit mode). */
+	/** Text with name of file and duration (visible in edit mode). */
 	@:optional var infoText:FlxText;
 }
 
 /**
- * Una entrada de dificultad en el paso de dificultades / importación de chart.
+ * A entry of difficulty in the paso of difficulties / importación of chart.
  * label   = nombre visible  ("Easy", "Normal", "Hard", "Nightmare"…)
  * suffix  = sufijo de archivo ("-easy", "", "-hard", "-nightmare"…)
- * enabled = si esta dificultad estará activa en el juego
+ * enabled = whether this difficulty will be active in the game
  * chartPath / chartFormat / chartDiffKey = info del chart importado (si hay)
  */
 typedef DiffEntry =
@@ -72,10 +72,10 @@ typedef DiffEntry =
 }
 
 /**
- * AddSongSubState — ventana multipaso para añadir / editar canciones.
+ * AddSongSubState — window multipaso for add / editar songs.
  *
  * PASO 1 — Archivos & BPM:
- *   • Nombre de canción
+ *   • Nombre of song
  *   • Load Inst.ogg / Vocals.ogg / Icon.png
  *   • BPM
  *   • Toggle "Needs Voices"
@@ -89,7 +89,7 @@ typedef DiffEntry =
  * PASO 3 — Story Menu:
  *   • Week Index
  *   • Toggle "Show in Story Mode"
- *   • Color del menú (paleta)
+ *   • Color of the menu (paleta)
  */
 class AddSongSubState extends FlxSubState
 {
@@ -126,9 +126,9 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Posiciones X originales de cada objeto en cada step group.
-	 * FIX: _slideIn leía obj.x en mitad de un tween → acumulaba el offset
-	 * en cada navegación. Guardando las X al construir cada paso y
-	 * restaurándolas antes de la animación, el drift queda eliminado.
+	 * FIX: _slideIn leía obj.x in mitad of a tween → acumulaba the offset
+	 * in each navigation. Guardando the X to the construir each paso and
+	 * restaurándolas before of the animation, the drift queda removed.
 	 */
 	var _stepOrigX:Array<Map<flixel.FlxObject, Float>> = [];
 
@@ -150,7 +150,7 @@ class AddSongSubState extends FlxSubState
 	var diffEntries:Array<DiffEntry>  = [];
 	var _diffRowContainer:FlxTypedGroup<Dynamic> = null;
 	var _addDiffBtn:FlxButton = null;
-	/** Scroll offset para la lista de diffs (en píxeles) */
+	/** Scroll offset for the list of diffs (in pixels) */
 	var _diffScrollY:Float = 0;
 	var _diffListY:Float   = 0;   // Y absoluta donde empieza la lista
 
@@ -182,10 +182,10 @@ class AddSongSubState extends FlxSubState
 	/** true = vocales separadas por personaje (Voices-<name>.ogg). */
 	var splitVocals:Bool = false;
 
-	/** Slots dinámicos de vocals por personaje. */
+	/** Slots dinámicos of vocals by character. */
 	var vocalSlots:Array<VocalSlot> = [];
 
-	// Botones de control del panel dinámico de slots
+	// Buttons of control of the panel dynamic of slots
 	var _addSlotBtn:FlxButton                 = null;
 	var _slotContainer:FlxTypedGroup<Dynamic> = null;
 
@@ -245,7 +245,7 @@ class AddSongSubState extends FlxSubState
 		add(topBar);
 		FlxTween.tween(topBar, {alpha: 1}, 0.3, {startDelay: 0.1});
 
-		// ── Título ────────────────────────────────────────────────────────────
+		// ── Title ────────────────────────────────────────────────────────────
 		titleText = new FlxText(windowX + 20, windowY + 13, 0,
 			editMode ? "EDIT SONG" : "ADD NEW SONG", 22);
 		titleText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.WHITE, LEFT);
@@ -283,8 +283,8 @@ class AddSongSubState extends FlxSubState
 		for (g in stepGroups) add(g);
 
 		// ── Snapshot de posiciones X originales (anti-drift en transiciones) ─
-		// Debe hacerse DESPUÉS de _buildStep* y ANTES de cualquier animación
-		// de slide, para que las X capturadas sean siempre las de diseño.
+		// Debe hacerse after of _buildStep* and before of cualquier animation
+		// of slide, for that the X capturadas sean always the of diseño.
 		for (_ in 0...TOTAL_STEPS) _stepOrigX.push(new Map<flixel.FlxObject, Float>());
 		for (i in 0...stepGroups.length)
 		{
@@ -301,7 +301,7 @@ class AddSongSubState extends FlxSubState
 		add(themeBtn);
 		FlxTween.tween(themeBtn, {alpha: 0.85}, 0.3, {startDelay: 0.25});
 
-		// ── Cargar datos en modo edición ──────────────────────────────────────
+		// ── Load datos in modo edition ──────────────────────────────────────
 		if (editMode && editingSong != null) loadEditData();
 
 		_showStep(currentStep);
@@ -401,9 +401,9 @@ class AddSongSubState extends FlxSubState
 		FlxTween.tween(hintSplit, {alpha: 0.65}, 0.3, {startDelay: 0.47});
 		cy += 40;
 
-		// ── Área de vocales (cy fijado aquí) ──────────────────────────────────
+		// ── Area of vocales (cy fijado here) ──────────────────────────────────
 		// Guardar la Y base para que _buildVocalSlotUI y _repositionSlotControls
-		// usen siempre la posición correcta, sin hardcodear ni depender de cy local.
+		// usen always the position correct, without hardcodear ni depender of cy local.
 		_vocalAreaY = cy;
 
 		// ── Vocals unificadas (Voices.ogg) — visibles cuando split=false ──────
@@ -435,7 +435,7 @@ class AddSongSubState extends FlxSubState
 		vocalsInfoText.visible = false;
 		g.add(vocalsInfoText);
 
-		// ── Contenedor dinámico de slots (visible cuando split=true) ──────────
+		// ── Contenedor dynamic of slots (visible when split=true) ──────────
 		_slotContainer = new FlxTypedGroup<Dynamic>();
 		g.add(_slotContainer);
 
@@ -444,7 +444,7 @@ class AddSongSubState extends FlxSubState
 		_buildVocalSlotUI({charName: "bf",  filePath: "", loaded: false, btn: null, statusText: null, nameInput: null});
 		_buildVocalSlotUI({charName: "dad", filePath: "", loaded: false, btn: null, statusText: null, nameInput: null});
 
-		// ── Botón + agregar slot (debajo de los slots) ────────────────────────
+		// ── Button + agregar slot (debajo of the slots) ────────────────────────
 		_addSlotBtn = new FlxButton(cx, _vocalAreaY + vocalSlots.length * 54 - 6,
 			"+ Add character", _onAddSlot);
 		_styleBtn(_addSlotBtn, 0xFF388E3C, 180);
@@ -452,8 +452,8 @@ class AddSongSubState extends FlxSubState
 		FlxTween.tween(_addSlotBtn, {alpha: 1}, 0.3, {startDelay: 0.52});
 
 		// ── Icon ──────────────────────────────────────────────────────────────
-		// Se posiciona dinámicamente; _repositionSlotControls lo mueve siempre.
-		final iconY = _vocalAreaY + 50;   // posición inicial (sin split)
+		// Is posiciona dynamically; _repositionSlotControls it moves always.
+		final iconY = _vocalAreaY + 50;   // position inicial (without split)
 		loadIconBtn = _fileBtn(g, cx, iconY, "  [Img]  Load Icon.png",
 			funkin.debug.themes.EditorTheme.current.bgHover, fileW, function()
 		{
@@ -473,7 +473,7 @@ class AddSongSubState extends FlxSubState
 		updateFileStatus();
 		_rebuildVocalSlots();
 
-		// Posicionar icon según el estado inicial (sin split)
+		// Posicionar icon according to the state inicial (without split)
 		_repositionSlotControls();
 	}
 
@@ -488,7 +488,7 @@ class AddSongSubState extends FlxSubState
 		var fileW = windowWidth - 80;
 		var slotIndex = vocalSlots.length;
 
-		// Posición correcta: justo debajo de _vocalAreaY, apilados verticalmente.
+		// Position correct: justo debajo of _vocalAreaY, apilados verticalmente.
 		var slotY = _vocalAreaY + slotIndex * 54;
 
 		// Icono del personaje — reserva 36px a la izquierda del nameInput
@@ -504,7 +504,7 @@ class AddSongSubState extends FlxSubState
 		var nameIn = _inp(g, cx + 38, slotY, 88, slot.charName, 30, 0.47 + slotIndex * 0.02);
 		nameIn.callback = function(t:String, _:String) slot.charName = t;
 
-		// Botón de carga
+		// Button of load
 		var charCapture = slot;
 		var btn = _fileBtn(g, cx + 134, slotY, "  [Voice]  Voices-" + slot.charName + ".ogg",
 			0xFF1565C0, fileW - 174, function()
@@ -530,7 +530,7 @@ class AddSongSubState extends FlxSubState
 			#else updateStatus("Desktop only"); #end
 		}, 0.47 + slotIndex * 0.02);
 
-		// Botón − quitar slot (no en los dos primeros por defecto)
+		// Button − quitar slot (no in the dos primeros by default)
 		if (slotIndex >= 2)
 		{
 			var removeBtn = new FlxButton(cx + fileW - 30, slotY, "✕", function()
@@ -548,7 +548,7 @@ class AddSongSubState extends FlxSubState
 		slot.btn        = btn;
 		slot.statusText = statusTxt;
 
-		// Info de archivo (nombre + duración) — oculto hasta edit mode
+		// Info of file (name + duration) — hidden until edit mode
 		var info = new FlxText(cx + 134, slotY + 40, fileW - 174, "", 10);
 		info.setFormat(Paths.font("vcr.ttf"), 10,
 			funkin.debug.themes.EditorTheme.current.textSecondary, LEFT);
@@ -575,12 +575,12 @@ class AddSongSubState extends FlxSubState
 		FlxG.sound.play(Paths.sound('menus/cancelMenu'), 0.5);
 	}
 
-	/** Reposiciona iconBtn y _addSlotBtn después de añadir/quitar slots. */
+	/** Reposiciona iconBtn and _addSlotBtn after of add/quitar slots. */
 	function _repositionSlotControls():Void
 	{
 		var cx    = windowX + 40;
 		var fileW = windowWidth - 80;
-		// Cuántos slots hay ahora (en split) — en unified siempre 0 slot visible
+		// How many slots there is now (in split) — in unified always 0 slot visible
 		var slotsBottom = _vocalAreaY + (splitVocals ? vocalSlots.length * 54 : 50);
 
 		if (_addSlotBtn   != null) _addSlotBtn.y   = slotsBottom - 6;
@@ -590,7 +590,7 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Muestra/oculta los controles de vocals (unificado vs split)
-	 * y el panel dinámico de slots.
+	 * and the panel dynamic of slots.
 	 */
 	function _rebuildVocalSlots():Void
 	{
@@ -618,14 +618,14 @@ class AddSongSubState extends FlxSubState
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Construye el UI del paso 2: selección de dificultades y opción de importar
+	 * Construye the UI of the paso 2: selection of difficulties and option of importar
 	 * charts en cualquier formato soportado (V-Slice, Psych, osu!mania,
 	 * StepMania, Codename, .level).
 	 *
 	 * Cada fila de dificultad tiene:
 	 *   [ON/OFF] [Label editable] [Sufijo editable] [Import chart…] [estado] [badge formato]
-	 * El botón de importar detecta el formato automáticamente y, en archivos
-	 * multi-dificultad, muestra un selector de clave para elegir qué diff usar.
+	 * The button of importar detecta the formato automatically and, in files
+	 * multi-difficulty, muestra a selector of key for elegir what diff usar.
 	 */
 	function _buildStep2():Void
 	{
@@ -673,7 +673,7 @@ class AddSongSubState extends FlxSubState
 
 		_rebuildDiffRows();
 
-		// ── Botón + Añadir dificultad ─────────────────────────────────────────
+		// ── Button + Add difficulty ─────────────────────────────────────────
 		_addDiffBtn = new FlxButton(cx, _diffListY + diffEntries.length * _diffRowH() + 6,
 			"+ Add difficulty", _onAddDiff);
 		_styleBtn(_addDiffBtn, 0xFF388E3C, 180);
@@ -694,10 +694,10 @@ class AddSongSubState extends FlxSubState
 	/** Referencia al label de nota de formatos (para reposicionarlo al cambiar nº de diffs). */
 	var _fmtNoteLabel:FlxText = null;
 
-	/** Altura de cada fila de dificultad en píxeles. */
+	/** Altura of each fila of difficulty in pixels. */
 	inline function _diffRowH():Int return 52;
 
-	/** Inicializa las 3 dificultades clásicas (easy / normal / hard). */
+	/** Inicializa the 3 classic difficulties (easy / normal / hard). */
 	function _initDefaultDiffs():Void
 	{
 		// En edit mode: intentar auto-detectar desde el chart existente
@@ -736,7 +736,7 @@ class AddSongSubState extends FlxSubState
 					diffEntries.push(entry);
 				}
 
-				// Auto-leer BPM del .level si el campo está en el default (120 o vacío)
+				// Auto-read BPM from .level if the field is at default (120 or empty)
 				if (hasLevel && bpmInput != null)
 					_autoFillBpmFromLevel(levelPath);
 
@@ -754,14 +754,14 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Lee el BPM del primer diff disponible en un .level y rellena bpmInput
-	 * si el campo todavía está en el valor por defecto.
+	 * if the field still is in the value by default.
 	 */
 	function _autoFillBpmFromLevel(levelPath:String):Void
 	{
 		#if sys
 		if (bpmInput == null) return;
 		final _curBpm = Std.parseFloat(bpmInput.text);
-		// Solo sobreescribir si está en default o vacío
+		// Only sobreescribir if is in default or empty
 		if (!Math.isNaN(_curBpm) && _curBpm > 0 && bpmInput.text != '120') return;
 		try
 		{
@@ -779,7 +779,7 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Reconstruye todas las filas de dificultad en _diffRowContainer.
-	 * Se llama al añadir/quitar diffs y al entrar en el paso.
+	 * Is call to the add/quitar diffs and to the entrar in the paso.
 	 */
 	function _rebuildDiffRows():Void
 	{
@@ -793,7 +793,7 @@ class AddSongSubState extends FlxSubState
 			_buildDiffRow(diffEntries[i], i, cx, delay + i * 0.03);
 		}
 
-		// Reposicionar botón añadir y nota
+		// Reposicionar button add and note
 		_repositionDiffFooter();
 	}
 
@@ -809,7 +809,7 @@ class AddSongSubState extends FlxSubState
 			entry.enabled = !entry.enabled;
 			_refreshDiffRowToggle(entry);
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.55);
-			// Actualizar el botón de importar (deshabilitado si la diff está off)
+			// Update the button of importar (disabled if the diff is off)
 			if (entry.importBtn != null)
 				entry.importBtn.alpha = entry.enabled ? 1.0 : 0.35;
 		});
@@ -848,10 +848,10 @@ class AddSongSubState extends FlxSubState
 		sufIn.alpha = 0; g.add(sufIn);
 		FlxTween.tween(sufIn, {alpha: 1}, 0.25, {startDelay: delay});
 
-		// ── Botón Import chart ─────────────────────────────────────────────────
+		// ── Button Import chart ─────────────────────────────────────────────────
 		var entryCapture = entry;
 		var impW = 190;
-		// Texto del botón: si ya hay chart importado mostrar "✓ Replace chart…",
+		// Text of the button: if already there is chart importado mostrar "✓ Replace chart…",
 		// si es .level existente mostrar "✓ In .level  [Re-import]"
 		var impLabel = entry.chartPath != ''
 			? (entry.chartFormat == 'level' ? "  \u2713 In .level \u2014 Replace?" : "  \u2713 Replace chart\u2026")
@@ -891,7 +891,7 @@ class AddSongSubState extends FlxSubState
 		entry.formatBadge = fmtTxt;
 
 		// ── Selector de clave (para multi-diff) ───────────────────────────────
-		// Solo visible cuando hay availableKeys con >1 opción
+		// Only visible when there is availableKeys with >1 option
 		var kBtnW = 160;
 		var kBtn = new FlxButton(cx + 322, rY + 38 + 4, "", function()
 		{
@@ -907,7 +907,7 @@ class AddSongSubState extends FlxSubState
 		entry.keyBtn = kBtn;
 		_refreshKeyBtn(entry);
 
-		// ── Botón − eliminar (no en las 3 primeras si solo hay 3) ─────────────
+		// ── Button − remove (no in the 3 primeras if only there is 3) ─────────────
 		if (idx >= 3 || diffEntries.length > 3)
 		{
 			var delBtn = new FlxButton(cx + windowWidth - 100, rY + 8, "✕", function()
@@ -922,7 +922,7 @@ class AddSongSubState extends FlxSubState
 		}
 	}
 
-	/** Refresca el botón de toggle ON/OFF y su texto. */
+	/** Refresca the button of toggle ON/OFF and its text. */
 	function _refreshDiffRowToggle(entry:DiffEntry):Void
 	{
 		if (entry.enableBtn == null) return;
@@ -934,7 +934,7 @@ class AddSongSubState extends FlxSubState
 		}
 	}
 
-	/** Reposiciona el botón de añadir y el label de formatos. */
+	/** Reposiciona the button of add and the label of formatos. */
 	function _repositionDiffFooter():Void
 	{
 		var footerY = _diffListY + diffEntries.length * _diffRowH() + 6;
@@ -942,7 +942,7 @@ class AddSongSubState extends FlxSubState
 		if (_fmtNoteLabel != null) _fmtNoteLabel.y = footerY + 46;
 	}
 
-	/** Callback: añadir una nueva fila de dificultad. */
+	/** Callback: add a new fila of difficulty. */
 	function _onAddDiff():Void
 	{
 		diffEntries.push({
@@ -957,11 +957,11 @@ class AddSongSubState extends FlxSubState
 		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
 	}
 
-	// ── Importación de charts ─────────────────────────────────────────────────
+	// ── Importación of charts ─────────────────────────────────────────────────
 
 	/**
 	 * Abre el selector de archivo para importar un chart para `entry`.
-	 * Detecta el formato automáticamente y extrae dificultades disponibles
+	 * Detecta the formato automatically and extrae difficulties disponibles
 	 * para formatos multi-diff.
 	 */
 	function _importChartForDiff(entry:DiffEntry):Void
@@ -972,7 +972,7 @@ class AddSongSubState extends FlxSubState
 		{
 			_processImportedChart(entry, path);
 		});
-		// Filtro de extensiones (no todos los FileDialog soportan múltiples)
+		// Filtro of extensiones (no all the FileDialog soportan multiple)
 		fd.browse(OPEN, null, null, "Select chart (JSON / .osu / .sm / .ssc / .level / .hxc)");
 		#else
 		updateStatus("Chart import is desktop-only.");
@@ -1008,7 +1008,7 @@ class AddSongSubState extends FlxSubState
 		}
 		else if (extStr == 'sm' || extStr == 'ssc')
 		{
-			// StepMania — puede tener múltiples diffs dentro
+			// StepMania — puede have multiple diffs dentro
 			entry.chartFormat = 'sm';
 			var keys = _smDiffKeys(path);
 			entry.availableKeys = keys.length > 0 ? keys : ['(default)'];
@@ -1064,7 +1064,7 @@ class AddSongSubState extends FlxSubState
 				}
 				else
 				{
-					// JSON genérico — intentar como Psych
+					// Generic JSON — try as Psych
 					entry.chartFormat   = 'psych';
 					entry.availableKeys = ['(default)'];
 					entry.chartDiffKey  = '';
@@ -1097,7 +1097,7 @@ class AddSongSubState extends FlxSubState
 		_refreshDiffRowStatus(entry);
 
 		// ── Auto-detectar BPM del chart importado ─────────────────────────────
-		// Si el campo BPM está vacío, en 0 o aún en el default "120", intentar
+		// If the field BPM is empty, in 0 or still in the default "120", intentar
 		// extraer el BPM del archivo para evitar que el usuario tenga que buscarlo.
 		final _detectedBpm = _extractBpmFromChart(path, entry.chartFormat, entry.chartDiffKey);
 		if (_detectedBpm > 0 && bpmInput != null)
@@ -1137,7 +1137,7 @@ class AddSongSubState extends FlxSubState
 		{
 			var content = sys.io.File.getContent(path);
 			// En .sm: #NOTES: / dance-single / <description> / <difficulty> / <meter> / <data>
-			// Buscamos líneas que empiecen con la dificultad tras el segundo ":"
+			// Buscamos lines that empiecen with the difficulty tras the segundo ":"
 			var lines = content.split('\n');
 			var ext   = path.toLowerCase();
 			if (ext.endsWith('.ssc'))
@@ -1183,11 +1183,11 @@ class AddSongSubState extends FlxSubState
 	}
 
 	/**
-	 * Extrae el BPM de un archivo de chart importado según su formato.
+	 * Extrae the BPM of a file of chart importado according to its format.
 	 * Soporta: V-Slice JSON, Psych JSON, Codename JSON, osu!mania, StepMania SM/SSC, .level.
 	 * Devuelve 0 si no se puede determinar.
 	 *
-	 * Se llama automáticamente en _processImportedChart() para rellenar bpmInput.
+	 * Is call automatically in _processImportedChart() for rellenar bpmInput.
 	 */
 	function _extractBpmFromChart(path:String, format:String, diffKey:String):Float
 	{
@@ -1224,7 +1224,7 @@ class AddSongSubState extends FlxSubState
 								return Std.parseFloat(Std.string(songObj.bpm));
 
 						case 'codename':
-							// Codename: bpm a nivel raíz o en strumLines
+							// Codename: bpm to nivel root or in strumLines
 							if (raw.bpm != null)
 								return Std.parseFloat(Std.string(raw.bpm));
 							if (raw.meta != null && raw.meta.bpm != null)
@@ -1251,7 +1251,7 @@ class AddSongSubState extends FlxSubState
 							}
 
 						case _:
-							// JSON genérico — intentar campo bpm en varias posiciones
+							// Generic JSON — try bpm field in various positions
 							var songObj:Dynamic = (raw.song != null && !Std.isOfType(raw.song, String))
 								? raw.song : raw;
 							if (songObj.bpm != null) return Std.parseFloat(Std.string(songObj.bpm));
@@ -1327,7 +1327,7 @@ class AddSongSubState extends FlxSubState
 		return keys[0];
 	}
 
-	/** Cicla al siguiente chartDiffKey disponible (botón keyBtn). */
+	/** Cicla to the next chartDiffKey available (button keyBtn). */
 	function _cycleChartDiffKey(entry:DiffEntry):Void
 	{
 		if (entry.availableKeys == null || entry.availableKeys.length <= 1) return;
@@ -1339,7 +1339,7 @@ class AddSongSubState extends FlxSubState
 		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
 	}
 
-	/** Refresca el botón selector de clave con el valor actual. */
+	/** Refresca the button selector of key with the value current. */
 	function _refreshKeyBtn(entry:DiffEntry):Void
 	{
 		if (entry.keyBtn == null) return;
@@ -1371,7 +1371,7 @@ class AddSongSubState extends FlxSubState
 			entry.importBtn.makeGraphic(190, 38,
 				entry.chartPath != '' ? 0xFF1565C0
 				                      : funkin.debug.themes.EditorTheme.current.bgHover);
-			// Refrescar el texto del botón según el estado
+			// Refrescar the text of the button according to the state
 			var impLabel = entry.chartPath != ''
 				? (entry.chartFormat == 'level' ? "  \u2713 In .level \u2014 Replace?" : "  \u2713 Replace chart\u2026")
 				: "  Import chart\u2026";
@@ -1494,7 +1494,7 @@ class AddSongSubState extends FlxSubState
 
 		cy += 16;
 
-		// ── Color del menú — ColorPickerWheel ────────────────────────────────
+		// ── Color of the menu — ColorPickerWheel ────────────────────────────────
 		var lc = new FlxText(cx, cy, 0, "Color in the menu:", 16);
 		lc.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT);
 		lc.alpha = 0; g.add(lc);
@@ -1548,7 +1548,7 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Llamado desde loadEditData().
-	 * Muestra debajo de cada botón el nombre del archivo ya cargado, su duración
+	 * Muestra below of each button the name of the file already loaded, its duration
 	 * y (en slots vocales) el icono del personaje.
 	 */
 	function _populateExistingAudioInfo(songLower:String):Void
@@ -1593,7 +1593,7 @@ class AddSongSubState extends FlxSubState
 				{
 					var dur = _fmtDuration(vp);
 					slot.infoText.text    = haxe.io.Path.withoutDirectory(vp) + (dur != "" ? "  ·  " + dur : "");
-					slot.infoText.visible = splitVocals; // solo visible si el panel split está activo
+					slot.infoText.visible = splitVocals; // only visible if the split panel is active
 				}
 
 				// Icono del personaje
@@ -1610,7 +1610,7 @@ class AddSongSubState extends FlxSubState
 	}
 
 	/**
-	 * Intenta leer la duración de un archivo OGG/MP3 y la devuelve
+	 * Intenta leer the duration of a file OGG/MP3 and the returns
 	 * como "Xm Ys". Devuelve "" si no se puede determinar.
 	 */
 	function _fmtDuration(path:String):String
@@ -1669,7 +1669,7 @@ class AddSongSubState extends FlxSubState
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	//  NAVEGACIÓN
+	//  navigation
 	// ═════════════════════════════════════════════════════════════════════════
 
 	function _buildNavButtons():Void
@@ -1695,7 +1695,7 @@ class AddSongSubState extends FlxSubState
 		nextBtn.alpha = 0; add(nextBtn);
 		FlxTween.tween(nextBtn, {alpha: 1}, 0.3, {startDelay: 0.3});
 
-		// Save (solo en último paso)
+		// Save (only in last paso)
 		saveBtn = new FlxButton(bX - 350, bY, editMode ? "UPDATE" : "SAVE", saveSong);
 		_styleBtn(saveBtn, 0xFF2ecc71, 110);
 		saveBtn.alpha = 0; add(saveBtn);
@@ -1708,7 +1708,7 @@ class AddSongSubState extends FlxSubState
 
 		// FIX: _setGroupVisible usa cast directo a FlxBasic (no Reflect.hasField)
 		// para garantizar que los pasos ocultos realmente queden invisible.
-		// Además resetamos el alpha de los grupos ocultos a 1.0 para que
+		// Furthermore resetamos the alpha of the grupos hidden to 1.0 for that
 		// _slideIn pueda animarlos desde 0 correctamente cuando se activan.
 		for (i in 0...stepGroups.length)
 		{
@@ -1725,7 +1725,7 @@ class AddSongSubState extends FlxSubState
 		// Indicador
 		stepIndicator.text = 'Step $currentStep / $TOTAL_STEPS';
 
-		// Título de paso
+		// Title of paso
 		var stepTitles = ["FILES & BPM", "DIFFS & IMPORT", "METADATA", "STORY MENU"];
 		titleText.text = (editMode ? "EDIT: " : "ADD: ") + stepTitles[currentStep - 1];
 
@@ -1746,7 +1746,7 @@ class AddSongSubState extends FlxSubState
 	{
 		if (step < 1 || step > TOTAL_STEPS) return;
 
-		// Validación al avanzar del paso 1
+		// Validation to the avanzar of the paso 1
 		if (step > currentStep && currentStep == STEP_FILES)
 		{
 			if (songNameInput.text.trim() == "")
@@ -1760,12 +1760,12 @@ class AddSongSubState extends FlxSubState
 				updateStatus("\u26a0 BPM invalided.");
 				return;
 			}
-			// Auto-detectar diffs disponibles al avanzar del paso 1 si aún no
+			// Auto-detect diffs available to the avanzar of the paso 1 if still no
 			// se ha pasado por el paso de diffs (p.ej. primera vez).
 			if (diffEntries.length == 0) _initDefaultDiffs();
 		}
 
-		// Validación al avanzar del paso 2 (diffs)
+		// Validation to the avanzar of the paso 2 (diffs)
 		if (step > currentStep && currentStep == STEP_DIFFS)
 		{
 			var enabledCount = 0;
@@ -1777,7 +1777,7 @@ class AddSongSubState extends FlxSubState
 			}
 		}
 
-		// Animación de transición entre pasos
+		// Animation of transition between pasos
 		var dir:Int = (step > currentStep) ? 1 : -1;
 		var oldGroup  = stepGroups[currentStep - 1];
 		var newGroup  = stepGroups[step - 1];
@@ -1787,8 +1787,8 @@ class AddSongSubState extends FlxSubState
 		_slideOut(oldGroup, oldIndex, dir, function()
 		{
 			_setGroupVisible(oldGroup, false);
-			// Restaurar X originales del grupo saliente para que la próxima
-			// vez que se muestre, los elementos partan desde la posición correcta.
+			// Restaurar X originales of the grupo saliente for that the next
+			// vez that is muestre, the elementos partan from the position correct.
 			_restoreOrigX(oldIndex);
 			_showStep(step);
 			_slideIn(newGroup, newIndex, dir);
@@ -1838,7 +1838,7 @@ class AddSongSubState extends FlxSubState
 			var obj:flixel.FlxObject = cast m;
 			FlxTween.cancelTweensOf(obj);
 
-			// Destino siempre = X original de diseño (no obj.x actual).
+			// Destino always = X original of diseño (no obj.x current).
 			var origX:Float = (origMap != null && origMap.exists(obj)) ? origMap.get(obj) : obj.x;
 
 			obj.x = origX + startOff;
@@ -1848,7 +1848,7 @@ class AddSongSubState extends FlxSubState
 		}
 	}
 
-	/** Restaura todos los elementos de un grupo a sus X originales de diseño. */
+	/** Restaura all the elementos of a grupo to its X originales of diseño. */
 	function _restoreOrigX(groupIdx:Int):Void
 	{
 		if (groupIdx < 0 || groupIdx >= _stepOrigX.length) return;
@@ -1897,23 +1897,23 @@ class AddSongSubState extends FlxSubState
 	function saveSong():Void
 	{
 		var songName = songNameInput.text.trim();
-		if (songName == "") { updateStatus("¡The song title cannot be empty!"); return; }
+		if (songName == "") { updateStatus("The song title cannot be empty!"); return; }
 
 		var weekIndex = Std.parseInt(weekInput.text);
 		var bpmVal    = Std.parseFloat(bpmInput.text);
-		if (Math.isNaN(bpmVal) || bpmVal <= 0) { updateStatus("¡BPM invalided!"); return; }
+		if (Math.isNaN(bpmVal) || bpmVal <= 0) { updateStatus("BPM invalided!"); return; }
 
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 
 		if (editMode)
 		{
 			updateExistingSong(songName, weekIndex, bpmVal);
-			updateStatus("¡Song updated!");
+			updateStatus("Song updated!");
 		}
 		else
 		{
 			addNewSong(songName, weekIndex, bpmVal);
-			updateStatus("¡Song added!");
+			updateStatus("Song added!");
 		}
 
 		saveJSON();
@@ -1989,8 +1989,8 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Escribe los campos songAlbums, songAlbumTexts y songArtists para la
-	 * posición `idx` del objeto de semana. Extiende los arrays si hace falta.
-	 * Llámalo siempre después de añadir/actualizar weekSongs[idx].
+	 * position `idx` of the object of week. Extiende the arrays if hace falta.
+	 * Llámalo always after of add/update weekSongs[idx].
 	 */
 	function _writePerSongFields(week:Dynamic, idx:Int):Void
 	{
@@ -2047,8 +2047,8 @@ class AddSongSubState extends FlxSubState
 			introVideo:   introVideo != '' ? introVideo : null,
 			outroVideo:   outroVideo != '' ? outroVideo : null,
 			artist:       artist     != '' ? artist     : null,
-			// Solo escribir el campo si hay diffs configuradas explícitamente.
-			// Si el array está vacío (nadie pasó por el paso 2), lo dejamos null
+			// Only escribir the field if there is diffs configuradas explicitly.
+			// If the array is empty (nadie passed by the paso 2), it dejamos null
 			// para mantener el comportamiento legacy (mostrar todo).
 			difficulties: enabledSuffixes.length > 0 ? enabledSuffixes : null
 		};
@@ -2090,7 +2090,7 @@ class AddSongSubState extends FlxSubState
 		if (introVideoInput != null) introVideoInput.text = m.introVideo ?? '';
 		if (outroVideoInput != null) outroVideoInput.text = m.outroVideo ?? '';
 
-		// Artista y álbum desde freeplayListData (prioridad) o meta.json
+		// Artista and álbum from freeplayListData (priority) or meta.json
 		for (entry in freeplayListData.songs)
 		{
 			if (entry.name.toLowerCase() != editingSong.songName.toLowerCase()) continue;
@@ -2103,8 +2103,8 @@ class AddSongSubState extends FlxSubState
 		needsVoices = _readNeedsVoicesFromChart(editingSong.songName);
 		_refreshVoicesToggle();
 
-		// Auto-leer BPM desde el chart existente si el campo está en "120" (default)
-		// Nota: _initDefaultDiffs() también puede haber cargado el BPM si fue llamado antes.
+		// Auto-leer BPM from the chart existente if the field is in "120" (default)
+		// Note: _initDefaultDiffs() also puede haber loaded the BPM if was calldo before.
 		#if sys
 		if (bpmInput != null && (bpmInput.text == '120' || bpmInput.text == '' || bpmInput.text == '0'))
 		{
@@ -2145,7 +2145,7 @@ class AddSongSubState extends FlxSubState
 			candidates.push({name: 'dad'});
 		}
 
-		// Ver si algún candidato tiene Voices-<name>.ogg
+		// Ver if some candidato tiene Voices-<name>.ogg
 		var detectedSplit = false;
 		for (cand in candidates)
 			if (Paths.hasVoicesForChar(songLower, cand.name)) { detectedSplit = true; break; }
@@ -2162,7 +2162,7 @@ class AddSongSubState extends FlxSubState
 			_rebuildVocalSlots();
 		}
 
-		// Mostrar info de archivos ya existentes (nombre, duración, icono)
+		// Show info of files already existentes (name, duration, icono)
 		_populateExistingAudioInfo(songLower);
 	}
 
@@ -2218,13 +2218,13 @@ class AddSongSubState extends FlxSubState
 			var tmpl = _makeBlankSong(songName, bpm);
 
 			// Construir mapa de dificultades desde diffEntries
-			// Solo las que están habilitadas.
+			// Only the that are habilitadas.
 			var diffMap:Map<String, SwagSong> = [];
 			var enabledDiffs = [for (e in diffEntries) if (e.enabled) e];
 
 			if (enabledDiffs.length == 0)
 			{
-				// Fallback: 3 dificultades clásicas
+				// Fallback: 3 classic difficulties
 				diffMap = ['' => tmpl, '-easy' => tmpl, '-hard' => tmpl];
 			}
 			else
@@ -2259,7 +2259,7 @@ class AddSongSubState extends FlxSubState
 
 	/**
 	 * Convierte el chart importado de `entry` al formato SwagSong de Cool Engine.
-	 * Devuelve null si la conversión falla (el caller usa el chart en blanco como fallback).
+	 * Returns null if the conversion falla (the caller use the chart in blanco as fallback).
 	 */
 	function _convertImportedChart(entry:DiffEntry, songName:String, bpm:Float):Null<SwagSong>
 	{
@@ -2323,7 +2323,7 @@ class AddSongSubState extends FlxSubState
 					if (levelData.difficulties == null) null;
 					else
 					{
-						// Buscar la dificultad más cercana al sufijo de esta entry
+						// Find the difficulty closest to this entry's suffix
 						var fields = Reflect.fields(levelData.difficulties);
 						var key    = _pickClosestDiff(fields, entry.suffix);
 						var song:SwagSong = cast Reflect.field(levelData.difficulties, key);
@@ -2351,7 +2351,7 @@ class AddSongSubState extends FlxSubState
 		#if sys
 		if (!LevelFile.exists(songLower)) LevelFile.migrateFromJson(songLower);
 
-		// Si el usuario configuró dificultades en el paso 2, usarlas.
+		// If the usuario configuró difficulties in the paso 2, usarlas.
 		var enabledDiffs = [for (e in diffEntries) if (e.enabled) e];
 		if (enabledDiffs.length > 0)
 		{
@@ -2374,7 +2374,7 @@ class AddSongSubState extends FlxSubState
 					}
 				}
 
-				// Sin importación: parchear el existente o crear en blanco
+				// Without importación: patch the existente or create in white
 				if (existing != null)
 				{
 					existing.bpm        = bpmVal;
@@ -2613,7 +2613,7 @@ class AddSongSubState extends FlxSubState
 
 	function _toggleTxt(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, delay:Float):FlxText
 	{
-		var t = new FlxText(x, y, 74, "SÍ", 14);
+		var t = new FlxText(x, and, 74, "itself", 14);
 		t.setFormat(Paths.font("vcr.ttf"), 14, 0xFF4CAF50, CENTER);
 		t.alpha = 0; g.add(t);
 		FlxTween.tween(t, {alpha: 1}, 0.3, {startDelay: delay});
@@ -2650,7 +2650,7 @@ class AddSongSubState extends FlxSubState
 	var _splitToggleBtn:FlxButton  = null;
 	var _splitToggleText:FlxText   = null;
 
-	/** Y absoluta donde empieza el área de vocales (después del toggle split). */
+	/** and absoluta where empieza the area of vocales (after of the toggle split). */
 	var _vocalAreaY:Float = 0;
 
 	function _refreshSplitToggle():Void
@@ -2670,7 +2670,7 @@ class AddSongSubState extends FlxSubState
 	{
 		super.update(elapsed);
 
-		// Teclas de navegación de icono (solo en paso 3 = METADATA)
+		// Keys of navigation of icono (only in paso 3 = METADATA)
 		if (currentStep == STEP_META && iconNameInput != null)
 		{
 			if (FlxG.keys.justPressed.LEFT)

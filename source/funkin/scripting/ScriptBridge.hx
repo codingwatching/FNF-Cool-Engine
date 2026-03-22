@@ -23,7 +23,7 @@ import funkin.transitions.StickerTransition;
  *   • Ejecutar tweens y timers inline
  *   • Acceder al objeto `ui` (builder de elementos para un state)
  *
- * No se instancia directamente — se accede vía el objeto `ui` en scripts.
+ * No is instance directly — is accede via the object `ui` in scripts.
  *
  * ─── En un script de state ───────────────────────────────────────────────────
  *   var spr = ui.sprite('mySprite', 100, 200, 'assets/images/foo.png');
@@ -47,7 +47,7 @@ class ScriptBridge
 	public static function buildUIHelper(state:FlxState):Dynamic
 	{
 		return {
-			// ─── Creación de elementos ─────────────────────────────────────────
+			// ─── Creation of elementos ─────────────────────────────────────────
 
 			/** Crea un FlxSprite con imagen opcional. */
 			sprite: function(?name:String, x:Float = 0, y:Float = 0, ?imagePath:String):FlxSprite
@@ -58,7 +58,7 @@ class ScriptBridge
 				return spr;
 			},
 
-			/** Crea un FlxSprite de color sólido. */
+			/** Creates a FlxSprite of color solid. */
 			solidSprite: function(x:Float, y:Float, w:Int, h:Int, color:Int = 0xFFFFFFFF):FlxSprite
 			{
 				final spr = new FlxSprite(x, y);
@@ -78,18 +78,18 @@ class ScriptBridge
 			/** Crea un FlxSpriteGroup. */
 			group: function():FlxSpriteGroup return new FlxSpriteGroup(),
 
-			/** Crea un FlxGroup genérico. */
+			/** Creates a FlxGroup generic. */
 			baseGroup: function():FlxGroup return new FlxGroup(),
 
-			// ─── Añadir / eliminar del state ──────────────────────────────────
+			// ─── Add / remove of the state ──────────────────────────────────
 
-			/** Añade un objeto al state. */
+			/** Adds a object to the state. */
 			add: function(obj:Dynamic) { state.add(obj); return obj; },
 
 			/** Elimina un objeto del state. */
 			remove: function(obj:Dynamic) { state.remove(obj); return obj; },
 
-			/** Añade y devuelve (chaineable). */
+			/** Adds and returns (chaineable). */
 			insert: function(pos:Int, obj:Dynamic) { state.insert(pos, obj); return obj; },
 
 			// ─── Tweens inline ─────────────────────────────────────────────────
@@ -144,7 +144,7 @@ class ScriptBridge
 				return new FlxTimer().start(delay, callback, loops);
 			},
 
-			// ─── Navegación ────────────────────────────────────────────────────
+			// ─── Navigation ────────────────────────────────────────────────────
 
 			/**
 			 * Navega a un state por nombre de clase.
@@ -166,7 +166,7 @@ class ScriptBridge
 			loadState: function(stateInst:FlxState)
 				LoadingState.loadAndSwitchState(stateInst),
 
-			// ─── Cámara ────────────────────────────────────────────────────────
+			// ─── Camera ────────────────────────────────────────────────────────
 
 			shake: function(intensity:Float = 0.005, duration:Float = 0.25)
 				FlxG.camera.shake(intensity, duration),
@@ -226,7 +226,7 @@ class ScriptBridge
 
 	// ─── Helpers internos ─────────────────────────────────────────────────────
 
-	/** Alias público de _switchStateByName para compatibilidad con ScriptAPI. */
+	/** Alias public of _switchStateByName for compatibility with ScriptAPI. */
 	public static inline function switchStateByName(name:String):Void
 		_switchStateByName(name);
 

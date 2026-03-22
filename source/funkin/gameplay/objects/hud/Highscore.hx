@@ -15,8 +15,8 @@ class Highscore
 	// ─── Guardado ────────────────────────────────────────────────────────────
 
 	/**
-	 * Guarda el score de una canción.
-	 * @param song    Nombre de la canción (sin sufijo de dificultad).
+	 * Save the score of a song.
+	 * @param song    Nombre of the song (without suffix of difficulty).
 	 * @param score   Puntuación obtenida.
 	 * @param suffix  Sufijo de dificultad (ej: "-erect", "-hard", "").
 	 *                Usar CoolUtil.difficultySuffix() desde PlayState.
@@ -29,8 +29,8 @@ class Highscore
 	}
 
 	/**
-	 * Guarda el rating (accuracy) de una canción.
-	 * @param song    Nombre de la canción.
+	 * Save the rating (accuracy) of a song.
+	 * @param song    Nombre of the song.
 	 * @param rating  Accuracy (0.0 - 1.0).
 	 * @param suffix  Sufijo de dificultad.
 	 */
@@ -75,17 +75,17 @@ class Highscore
 
 	/**
 	 * Clave de score estable: song + sufijo de dificultad.
-	 * El sufijo ya viene resuelto (ej: "-erect"), no un índice.
+	 * The suffix already viene resuelto (ej: "-erect"), no a index.
 	 */
 	public static function formatSongBySuffix(song:String, suffix:String):String
 		return song.toLowerCase() + suffix;
 
 	/**
-	 * Compatibilidad con código antiguo que pasa un índice Int.
+	 * Compatibility with code old that pasa a index Int.
 	 * Resuelve el sufijo usando FreeplayState.difficultyStuff.
 	 *
 	 * ADVERTENCIA: puede devolver un sufijo incorrecto si difficultyStuff
-	 * no está actualizado para la canción en cuestión.
+	 * no is updated for the song in cuestión.
 	 * Preferir formatSongBySuffix() siempre que sea posible.
 	 */
 	@:deprecated("Usa formatSongBySuffix(song, CoolUtil.difficultySuffix()) en su lugar")
@@ -122,13 +122,13 @@ class Highscore
 		FlxG.save.flush();
 	}
 
-	/** Resuelve el sufijo de dificultad por índice en difficultyStuff. */
+	/** Resuelve the suffix of difficulty by index in difficultyStuff. */
 	static function _suffixFromIndex(diff:Int):String
 	{
 		final diffs = funkin.menus.FreeplayState.difficultyStuff;
 		if (diff >= 0 && diff < diffs.length)
 			return diffs[diff][1];
-		// Fallback clásico para índices fuera de rango
+		// Fallback classic for indices outside of rango
 		if (diff == 0) return '-easy';
 		if (diff == 2) return '-hard';
 		return '';

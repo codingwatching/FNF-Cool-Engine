@@ -10,13 +10,13 @@ typedef RatingData = {
 	var window:Float;
 	/** Puntos que otorga. */
 	var score:Int;
-	/** Contribución a la accuracy (0.0–1.0). */
+	/** Contribución to the accuracy (0.0–1.0). */
 	var accuracyWeight:Float;
 	/** Modificador de salud. */
 	var health:Float;
 	/** Si true, resetea el combo. */
 	var breakCombo:Bool;
-	/** Si false, no muestra popup de rating (útil para "perfect" silencioso, etc.). */
+	/** If false, no muestra popup of rating (useful for "perfect" silencioso, etc.). */
 	var ?showPopup:Bool;
 
 	// ── Display config por rating ─────────────────────────────────────────────
@@ -31,33 +31,33 @@ typedef RatingData = {
 	 * Ejemplo: "UI/pixel/score/sick" para usar un sprite de pixel art.
 	 */
 	var ?spritePath:Null<String>;
-	/** Si false, no muestra los números de combo con este rating. Null = usar valor global. */
+	/** If false, no muestra the numbers of combo with this rating. Null = usar value global. */
 	var ?showCombo:Null<Bool>;
-	/** Offset X adicional para los números de combo de este rating. */
+	/** Offset X adicional for the numbers of combo of this rating. */
 	var ?comboOffsetX:Float;
-	/** Offset Y adicional para los números de combo de este rating. */
+	/** Offset and adicional for the numbers of combo of this rating. */
 	var ?comboOffsetY:Float;
 }
 
 /**
- * Configuración de display del popup de ratings.
+ * Configuration of display of the popup of ratings.
  * Se carga desde `ratings_display.json` (en paralelo a `ratings.json`).
  *
  * Estructura del JSON:
  * {
  *   "baseX": 0,               // X base de todos los ratings (relativo al centro de pantalla)
  *   "baseY": -60,             // Y base
- *   "comboBaseX": 0,          // X base de los números de combo
- *   "comboBaseY": 80,         // Y base de los números de combo
+ *   "comboBaseX": 0,          // X base of the numbers of combo
+ *   "comboBaseY": 80,         // and base of the numbers of combo
  *   "ratingScale": 0.785,     // Escala global de sprites de rating
- *   "comboScale": 0.6,        // Escala global de números de combo
+ *   "comboScale": 0.6,        // Scales global of numbers of combo
  *   "spritePrefix": "",       // Prefijo para las rutas de sprite (e.g. "pixel/")
  *   "spriteSuffix": "",       // Sufijo (e.g. "-hd")
- *   "numPrefix": "num",       // Prefijo de los números de combo
- *   "numSuffix": "",          // Sufijo de los números de combo
+ *   "numPrefix": "num",       // Prefix of the numbers of combo
+ *   "numSuffix": "",          // Suffix of the numbers of combo
  *   "antialiasing": true,     // Antialiasing global (false para pixel art)
- *   "showCombo": true,        // Mostrar números de combo por defecto
- *   "animDuration": 0.2,      // Duración del fade-out de los sprites
+ *   "showCombo": true,        // Show numbers of combo by default
+ *   "animDuration": 0.2,      // Duration of the fade-out of the sprites
  *   "characters": {           // Overrides por personaje (por nombre de personaje)
  *     "bf-pixel": {
  *       "baseX": 5, "baseY": -55,
@@ -71,27 +71,27 @@ typedef RatingDisplayConfig = {
 	var ?baseX:Float;
 	/** Y base. */
 	var ?baseY:Float;
-	/** X base de los números de combo. */
+	/** X base of the numbers of combo. */
 	var ?comboBaseX:Float;
-	/** Y base de los números de combo. */
+	/** and base of the numbers of combo. */
 	var ?comboBaseY:Float;
 	/** Escala global de sprites de rating. */
 	var ?ratingScale:Float;
-	/** Escala global de números de combo. */
+	/** Scales global of numbers of combo. */
 	var ?comboScale:Float;
 	/** Prefijo global para rutas de sprite. E.g. "pixel/" para usar sprites de pixel art. */
 	var ?spritePrefix:String;
 	/** Sufijo global para rutas de sprite. E.g. "-hd". */
 	var ?spriteSuffix:String;
-	/** Prefijo de los números de combo. Default: "num". */
+	/** Prefix of the numbers of combo. Default: "num". */
 	var ?numPrefix:String;
-	/** Sufijo de los números de combo. Default: "". */
+	/** Suffix of the numbers of combo. Default: "". */
 	var ?numSuffix:String;
 	/** Antialiasing global. false = pixel art. */
 	var ?antialiasing:Bool;
-	/** Mostrar números de combo por defecto. */
+	/** Show numbers of combo by default. */
 	var ?showCombo:Bool;
-	/** Duración del tween de desvanecimiento (segundos). */
+	/** Duration of the tween of desvanecimiento (segundos). */
 	var ?animDuration:Float;
 	/**
 	 * Overrides por nombre de personaje.
@@ -107,7 +107,7 @@ typedef RatingDisplayConfig = {
  * ═══════════════════════════════════════════════════════════════
  *  RATINGS (ventanas de timing, puntos, health)
  * ═══════════════════════════════════════════════════════════════
- * Jerarquía de carga (primera encontrada gana):
+ * Jerarquía of load (first encontrada gana):
  *   1. mods/{mod}/data/songs/{song}/ratings.json
  *   2. mods/{mod}/data/ratings.json
  *   3. assets/data/songs/{song}/ratings.json
@@ -117,14 +117,14 @@ typedef RatingDisplayConfig = {
  * ═══════════════════════════════════════════════════════════════
  *  DISPLAY CONFIG (offsets, escala, sprites, personajes)
  * ═══════════════════════════════════════════════════════════════
- * Jerarquía de carga:
+ * Jerarquía of load:
  *   1. mods/{mod}/data/songs/{song}/ratings_display.json
  *   2. mods/{mod}/data/ratings_display.json
  *   3. assets/data/songs/{song}/ratings_display.json
  *   4. assets/data/ratings_display.json
  *   5. Defaults internos
  *
- * Para un personaje específico: añadir en "characters" del JSON con el nombre exacto
+ * For a character specific: add in "characters" of the JSON with the nombre exacto
  * del personaje (e.g. "bf-pixel", "pico"). Los campos del override se fusionan
  * encima de la config global.
  *
@@ -166,7 +166,7 @@ class RatingManager
 	/** Nombre del rating "top" (menor window). Cacheado para isSickMode(). */
 	public static var topRatingName:String = 'sick';
 
-	/** Ventana máxima válida. Notas con diff > esto son miss. */
+	/** Window maximum valid. Notes with diff > this are miss. */
 	public static var missWindow:Float = 166.0;
 
 	/** Lookup O(1) por nombre. */
@@ -184,8 +184,8 @@ class RatingManager
 		if (!_initialized) { _load(null); _initialized = true; }
 
 	/**
-	 * Recargar ratings para una canción específica.
-	 * Llamar en PlayState.create() pasando el nombre de la canción.
+	 * Recargar ratings for a song specific.
+	 * Callr in PlayState.create() pasando the nombre of the song.
 	 */
 	public static function reload(?songName:String):Void
 	{
@@ -221,7 +221,7 @@ class RatingManager
 	public static inline function getByName(name:String):Null<RatingData>
 		return _byName.get(name);
 
-	/** true si el rating muestra popup (default true si el campo no está definido). */
+	/** true if the rating muestra popup (default true if the field no is definido). */
 	public static inline function showsPopup(r:RatingData):Bool
 		return r.showPopup != false;
 
@@ -239,7 +239,7 @@ class RatingManager
 	}
 
 	/**
-	 * Devuelve la config de display fusionada para un personaje específico.
+	 * Returns the config of display fusionada for a character specific.
 	 * Si el personaje no tiene override, devuelve la config global.
 	 *
 	 * Ejemplo de uso en HUD script:
@@ -263,14 +263,14 @@ class RatingManager
 
 	/**
 	 * Devuelve la ruta de sprite para un rating dado el config activo.
-	 * Respeta `ratingData.spritePath` si está definido, sino construye
+	 * Respeta `ratingData.spritePath` if is definido, sino construye
 	 * con el prefijo/sufijo del displayConfig.
 	 *
 	 * Ejemplo: si spritePrefix="pixel/" y name="sick" → "pixel/sick"
 	 */
 	public static function getSpritePathForRating(r:RatingData, ?charName:String):String
 	{
-		// El rating tiene una ruta custom explícita
+		// The rating tiene a path custom explicit
 		if (r.spritePath != null && r.spritePath.length > 0)
 			return r.spritePath;
 
@@ -281,7 +281,7 @@ class RatingManager
 	}
 
 	/**
-	 * Devuelve la ruta de sprite para un número de combo dado el config activo.
+	 * Returns the path of sprite for a number of combo dado the config active.
 	 * Ejemplo: numPrefix="num", numSuffix="" y digit=5 → "num5"
 	 */
 	public static function getNumSpritePath(digit:Int, ?charName:String):String
@@ -378,12 +378,12 @@ class RatingManager
 			}
 			catch (e:Dynamic)
 			{
-				trace('[RatingManager] JSON inválido: $e — usando defaults');
+				trace('[RatingManager] Invalid JSON: $e — usando defaults');
 				ratings = [];
 			}
 		}
 
-		// Fallback a defaults si no se cargó nada
+		// Fallback to defaults if no is cargó nothing
 		if (ratings.length == 0)
 		{
 			for (r in DEFAULTS) ratings.push(r);
@@ -415,7 +415,7 @@ class RatingManager
 			}
 			catch (e:Dynamic)
 			{
-				trace('[RatingManager] JSON de display inválido: $e — usando defaults');
+				trace('[RatingManager] JSON of display invalid: $and — usando defaults');
 				_displayConfig = DEFAULT_DISPLAY;
 			}
 		}

@@ -17,14 +17,14 @@ using StringTools;
 typedef CharacterSlotData =
 {
 	var name:String; // Nombre del personaje (ej: "bf", "dad", "pico")
-	var x:Float; // Posición X
-	var y:Float; // Posición Y
+	var x:Float; // Position X
+	var and:Float; // Position and
 	var ?flip:Bool; // Voltear sprite
 	var ?scale:Float; // Escala del personaje
 	var ?visible:Bool; // Visibilidad del personaje
 	// === CAMPOS DEL CHART EDITOR ===
 	var ?type:String; // "Opponent", "Player", "Girlfriend", "Other"
-	var ?strumsGroup:String; // ID del StrumsGroup al que está vinculado (para la cámara y las notas)
+	var ?strumsGroup:String; // ID of the StrumsGroup to the that is vinculado (for the camera and the notes)
 	var ?isGF:Bool;  // true si el personaje es la GF (solo baila, no canta notas)
 }
 
@@ -33,9 +33,9 @@ typedef CharacterSlotData =
  */
 typedef StrumsGroupData =
 {
-	var id:String; // ID único del grupo (ej: "bf_strums_1", "dad_strums_1")
-	var x:Float; // Posición X base
-	var y:Float; // Posición Y
+	var id:String; // ID unique of the grupo (ej: "bf_strums_1", "dad_strums_1")
+	var x:Float; // Position X base
+	var and:Float; // Position and
 	var visible:Bool; // Si se muestran o no
 	var cpu:Bool; // Si es CPU o jugador
 	var ?spacing:Float; // Espaciado entre flechas (default 160)
@@ -54,7 +54,7 @@ typedef ChartEvent =
 }
 
 /**
- * SwagSong MEJORADO - Soporte para múltiples personajes
+ * SwagSong MEJORADO - Support for multiple characters
  */
 typedef SwagSong =
 {
@@ -82,13 +82,13 @@ typedef SwagSong =
 	// === V-SLICE AUDIO VARIATION ===
 	/**
 	 * Variante de audio forzada por el metadata V-Slice (playData.characters.instrumental).
-	 * Si está definida, Paths.inst() / Paths.voices() usan este sufijo en lugar del
+	 * If is definida, Paths.inst() / Paths.voices() usan this suffix in lugar of the
 	 * sufijo de dificultad. Ej: "erect" → carga Inst-erect.ogg para TODAS las dificultades.
 	 * Null = comportamiento normal (usar sufijo de dificultad).
 	 */
 	@:optional var instSuffix:Null<String>;
 
-	/** Artista de la canción (leído del campo "artist" del metadata V-Slice). */
+	/** Artista of the song (leído of the field "artist" of the metadata V-Slice). */
 	@:optional var artist:Null<String>;
 }
 
@@ -119,7 +119,7 @@ class Song
 	/**
 	 * Carga un chart desde JSON.
 	 *
-	 * Orden de búsqueda:
+	 * Orden of search:
 	 *   1. mods/{activeMod}/songs/{folder}/{jsonInput}.json
 	 *   2. assets/songs/{folder}/{jsonInput}.json
 	 */
@@ -142,7 +142,7 @@ class Song
 	}
 
 	/**
-	 * Resuelve la ruta real de un chart con normalización de
+	 * Resuelve the path actual of a chart with normalización of
 	 * espacios/guiones y caracteres especiales en folder y diff.
 	 * Busca en el mod activo primero, luego en assets/.
 	 * @return  Ruta al .json, o null si no existe.
@@ -180,10 +180,10 @@ class Song
 						final p = '$base/$fv/$dv.json';
 						if (FileSystem.exists(p)) return p;
 					}
-					// ── Charts de variación V-Slice: sufijo compuesto "easy-bf" ──────
-					// IMPORTANTE: debe comprobarse ANTES que el -chart.json genérico.
+					// ── V-Slice variation charts: compound suffix "easy-bf" ──────
+					// IMPORTANTE: debe comprobarse before that the -chart.json generic.
 					// Si diff="lit up-easy-bf" y existe lit up-chart.json, sin este orden
-					// se cargaría el chart base (Pico) en lugar de la variante (BF).
+					// the base chart (Pico) would be loaded instead of the variant (BF).
 					{
 						final dvLow = dv.toLowerCase();
 						final lastDash = dvLow.lastIndexOf('-');
@@ -228,7 +228,7 @@ class Song
 				if (FileSystem.exists(p)) return p;
 			}
 
-		// Charts de variación en assets/ — ANTES que -chart.json (mismo motivo que en mods)
+		// Charts of variation in assets/ — before that -chart.json (same motivo that in mods)
 		for (fv in folderVars)
 			for (dv in diffVars)
 			{
@@ -264,7 +264,7 @@ class Song
 	}
 
 	/**
-	 * Carga un chart desde JSON con normalización automática de nombres.
+	 * Load a chart from JSON with normalización automatic of names.
 	 * Cubre mods Cool Engine con espacios/guiones mezclados en folder o diff.
 	 */
 	public static function loadFromJson(jsonInput:String, ?folder:String):SwagSong
@@ -295,9 +295,9 @@ class Song
 		if (resolvedPath != null)
 		{
 			// ── Formatos externos: osu!mania / StepMania ──────────────────────
-			// Si findChart encontró un archivo .osu / .sm / .ssc, lo convertimos
+			// If findChart encontró a file .osu / .sm / .ssc, it convertimos
 			// directamente con ChartLoader + ChartConverter y retornamos sin pasar
-			// por parseJSONshit (que sólo entiende JSON).
+			// by parseJSONshit (that only entiende JSON).
 			final extCheck = resolvedPath.toLowerCase();
 			if (extCheck.endsWith('.osu') || extCheck.endsWith('.sm') || extCheck.endsWith('.ssc'))
 			{
@@ -309,16 +309,16 @@ class Song
 					throw 'Chart not found: $songFolder/$diffName';
 				}
 				// ChartConverter tiene su propio typedef SwagSong (subconjunto).
-				// Usamos Dynamic para evitar conflicto de tipos entre módulos —
-				// en runtime ambos son objetos anónimos estructuralmente compatibles.
+				// Usamos Dynamic for avoid conflicto of types between modules —
+				// in runtime both are objects anónimos estructuralmente compatibles.
 				final converted:Dynamic = funkin.data.charts.ChartConverter.toSwagSong(chartData);
 				if (converted == null)
 				{
-					trace('[Song] ERROR: ChartConverter devolvió null para: $resolvedPath');
+					trace('[Song] error: ChartConverter returned null for: $resolvedPath');
 					throw 'Chart conversion failed: $resolvedPath';
 				}
-				// Añadir los campos requeridos por SwagSong de Song.hx que
-				// ChartConverter no conoce (módulos distintos, typedefs distintos).
+				// Add the fields requeridos by SwagSong of Song.hx that
+				// ChartConverter no conoce (modules distintos, typedefs distintos).
 				if (!Reflect.hasField(converted, 'validScore'))
 					Reflect.setField(converted, 'validScore', true);
 				if (!Reflect.hasField(converted, 'events'))
@@ -363,7 +363,7 @@ class Song
 	 */
 	static function _diffNameToSuffix(folder:String, diffName:String):String
 	{
-		// Quitar el prefijo del folder si viene con él (ej: 'bopeebo-hard' → '-hard')
+		// Quitar the prefix of the folder if viene with it (ej: 'bopeebo-hard' → '-hard')
 		if (diffName.startsWith(folder + '-'))
 			return diffName.substr(folder.length);
 		// Sufijo puro (ej: 'hard' → '-hard', 'normal'/'folder' → '')
@@ -382,8 +382,8 @@ class Song
 		
 		swagShit.validScore = true;
 		
-		trace('[Song] characters antes de migración: ' + (swagShit.characters != null ? swagShit.characters.length + ' personajes' : 'NULL'));
-		trace('[Song] strumsGroups antes de migración: ' + (swagShit.strumsGroups != null ? swagShit.strumsGroups.length + ' grupos' : 'NULL'));
+		trace('[Song] characters antes de migration: ' + (swagShit.characters != null ? swagShit.characters.length + ' personajes' : 'NULL'));
+		trace('[Song] strumsGroups antes de migration: ' + (swagShit.strumsGroups != null ? swagShit.strumsGroups.length + ' grupos' : 'NULL'));
 		
 		// === AUTO-MIGRATION: Convertir formato legacy a nuevo ===
 		if (swagShit.characters == null || swagShit.characters.length == 0)
@@ -397,8 +397,8 @@ class Song
 			swagShit.strumsGroups = [];
 			
 			// Crear personajes por defecto.
-			// BUG FIX: Usar 'type' explícito — CharacterSlot infiere por nombre si type==null.
-			// Nombres no estándar ('ray', 'mighty') → tipificados como Opponent → posición incorrecta.
+			// BUG FIX: Usar 'type' explicit — CharacterSlot infiere by name if type==null.
+			// Names no standard ('ray', 'mighty') → tipificados as Opponent → position incorrecta.
 			var gfChar:CharacterSlotData = {
 				name: swagShit.gfVersion != null ? swagShit.gfVersion : 'gf',
 				x: 0, y: 0, visible: true,
@@ -428,7 +428,7 @@ class Song
 				id: 'gf_strums_0',
 				x: 400,
 				y: 50,
-				visible: false,  // Las flechas de GF están ocultas por defecto
+				visible: false,  // The arrows of GF are ocultas by default
 				cpu: true,
 				spacing: 110,
 				characters: [gfChar.name]
@@ -456,7 +456,7 @@ class Song
 			
 			swagShit.strumsGroups = [gfStrums, cpuStrums, playerStrums];
 			
-			trace('[Song] Migración completa:');
+			trace('[Song] Migration complete:');
 			trace('[Song]   - characters: ${swagShit.characters.length}');
 			for (i in 0...swagShit.characters.length)
 				trace('[Song]     [$i] ${swagShit.characters[i].name}');
@@ -538,7 +538,7 @@ class Song
 		    song.strumsGroups != null && song.strumsGroups.length > 0)
 			return; // ya migrado
 
-		// Ejecutar la misma lógica de migración que parseJSONshit
+		// Ejecutar the same logic of migration that parseJSONshit
 		var gfName  = (song.gfVersion != null && song.gfVersion != '') ? song.gfVersion : 'gf';
 		var dadName = (song.player2   != null && song.player2   != '') ? song.player2   : 'dad';
 		var bfName  = (song.player1   != null && song.player1   != '') ? song.player1   : 'bf';
@@ -563,17 +563,17 @@ class Song
 	}
 
 	/**
-	 * Auto-detecta las dificultades disponibles para una canción escaneando
-	 * los archivos de chart (.json) en la carpeta de la canción.
+	 * Auto-detecta the difficulties disponibles for a song escaneando
+	 * the files of chart (.json) in the folder of the song.
 	 *
 	 * Ejemplo: si hay "alone-nightmare.json", devuelve ['Nightmare', '-nightmare'].
-	 * Si hay "alone.json" o "normal.json", devuelve ['Normal', ''] (sufijo vacío).
+	 * If there is "alone.json" or "normal.json", returns ['Normal', ''] (suffix empty).
 	 *
-	 * El orden es: easy → normal → hard → resto (alfabético).
+	 * The orden is: easy → normal → hard → resto (alfabético).
 	 *
-	 * @param folder  Nombre de la carpeta de la canción (ej: "alone")
+	 * @param folder  Nombre of the folder of the song (ej: "alone")
 	 * @return Array de pares [label, suffix], ej: [['Easy','-easy'],['Nightmare','-nightmare']]
-	 *         Si no se detecta nada, devuelve las 3 dificultades clásicas.
+	 *         If no is detecta nada, returns the 3 classic difficulties.
 	 */
 	public static function getAvailableDifficulties(folder:String):Array<Array<String>>
 	{
@@ -600,10 +600,10 @@ class Song
 
 		// Rutas donde buscar charts
 		// BUGFIX: igual que findChart(), buscar en TODOS los mods habilitados y no
-		// solo en el mod activo. Sin este fix, si la canción estaba en un mod
-		// habilitado pero no activo (ej: base_game), la búsqueda no encontraba el
-		// chart V-Slice → devolvía el fallback ['Normal',''] → VSliceConverter
-		// recibía el nombre del folder como difficulty → ninguna clave matchaba →
+		// only in the mod active. Without this fix, if the song estaba in a mod
+		// enabled but no active (ej: base_game), the search no encontraba the
+		// chart V-Slice → returned the fallback ['Normal',''] → VSliceConverter
+		// recibía the name of the folder as difficulty → none key matchaba →
 		// siempre cargaba la primera dificultad disponible (easy) en vez de normal/hard.
 		final searchDirs:Array<String> = [];
 		// Mod activo primero (mayor prioridad)
@@ -636,7 +636,7 @@ class Song
 			{
 				final entryLow = entry.toLowerCase();
 				if (!entryLow.endsWith('.json')) continue;
-				// Ignorar meta, configuración, etc.
+				// Ignorar meta, configuration, etc.
 				if (entryLow == 'meta.json' || entryLow == 'config.json') continue;
 
 				final base = entryLow.substr(0, entryLow.length - 5); // quitar ".json"
@@ -649,9 +649,9 @@ class Song
 				// ── Filtro intro / dialogue ────────────────────────────────────────
 				// Charts de cutscene/intro (ej: "senpai-intro.json", "senpai-dialogue.json",
 				// "darnell-dialogue-erect.json") no deben aparecer como dificultades jugables.
-				// Regla: si el sufijo (todo lo que va DESPUÉS del nombre de carpeta) contiene
-				// "intro" o "dialogue" como segmento completo separado por guión, se ignora.
-				// Esto evita que aparezcan opciones de dificultad vacías o rotas en Freeplay.
+				// Regla: if the suffix (all it that va after of the nombre of folder) contains
+				// "intro" or "dialogue" as a complete segment separated by dash, is ignored.
+				// This avoids that aparezcan options of difficulty vacías or rotas in Freeplay.
 				{
 					final suffixCheck = base.startsWith(folderLow + '-')
 						? base.substr(folderLow.length + 1) // ej: "intro", "dialogue-erect"
@@ -666,7 +666,7 @@ class Song
 
 				// ── Chart multi-dificultad V-Slice (ej: "darnell-chart.json") ────
 				// Contiene todas las dificultades en un solo archivo bajo "notes": { easy, normal, hard... }
-				// Leemos sus keys y las añadimos como sufijos, sin hacer continue.
+				// We read its keys and add them as suffixes, without doing continue.
 				if (base.endsWith('-chart') || base == 'chart')
 				{
 					try
@@ -694,10 +694,10 @@ class Song
 					continue;
 				}
 
-				// ── Chart de variación V-Slice (ej: "lit_up-bf.json") ─────────────
-				// Patrón: el archivo empieza con el nombre del folder + '-' y tiene
-				// un objeto "notes" con múltiples claves de dificultad. En este caso
-				// NO es una dificultad individual: es un rework/variación completa.
+				// ── Chart of variation V-Slice (ej: "lit_up-bf.json") ─────────────
+				// Pattern: the file starts with the folder name + '-' and has
+				// a object "notes" with multiple keys of difficulty. In this caso
+				// no is a difficulty individual: is a rework/variation complete.
 				// Se generan sufijos compuestos: "-easy-bf", "-normal-bf", "-hard-bf"
 				// para distinguirlos de las dificultades del chart base y permitir
 				// seleccionarlos individualmente en Freeplay.
@@ -711,7 +711,7 @@ class Song
 						final notesObj:Dynamic = parsed.notes;
 						if (notesObj != null && Reflect.fields(notesObj).length > 1)
 						{
-							// Tiene múltiples dificultades → es un chart de variación
+							// Has multiple difficulties → it's a variation chart
 							for (diffKey in Reflect.fields(notesObj))
 							{
 								final dk = diffKey.toLowerCase();
@@ -724,16 +724,16 @@ class Song
 								// Sufijo compuesto: "-easy-bf", "-hard-bf", etc.
 								found.set('-$dk-$variation', true);
 							}
-							continue; // No caer al tratamiento de dificultad única
+							continue; // Don't fall through to single-difficulty handling
 						}
 					}
 					catch (_) {}
 				}
 
 				// ── Filtro de nombre: solo aceptar archivos que empiecen con el folder ──
-				// Archivos que NO empiecen con el nombre de la canción (ej: "hard.json" suelto,
+				// Files that no empiecen with the nombre of the song (ej: "hard.json" suelto,
 				// "config_extra.json", etc.) no se identifican como dificultades.
-				// Solo se exceptúa "normal.json" por compatibilidad histórica.
+				// Only "normal.json" is excepted for historical compatibility.
 				if (!base.startsWith(folderLow) && base != 'normal') continue;
 
 				var suffix:String;
@@ -752,7 +752,7 @@ class Song
 
 		// ── Formatos externos: osu!mania / StepMania ──────────────────────────
 		// Si hay archivos .osu / .sm / .ssc en la carpeta, consultamos al parser
-		// para obtener las dificultades disponibles y las añadimos al listado.
+		// for get the difficulties available and the add to the listado.
 		// Ejemplo: "mysong.sm" con difs [Easy, Hard] genera sufijos ['-easy', '-hard'].
 		for (dir in searchDirs)
 		{
@@ -771,7 +771,7 @@ class Song
 					for (diffLabel in diffs)
 					{
 						final dk = diffLabel.toLowerCase();
-						// Ignorar intro/dialogue también en charts externos
+						// Ignore intro/dialogue also in external charts
 						final dkSegs = dk.split('-');
 						var skip = false;
 						for (seg in dkSegs)
@@ -786,7 +786,7 @@ class Song
 			}
 		}
 
-		// Si no encontramos nada, fallback a las 3 clásicas
+		// If no encontramos nothing, fallback to the 3 classic
 		if (!found.keys().hasNext())
 			return [['Easy', '-easy'], ['Normal', ''], ['Hard', '-hard']];
 
@@ -808,14 +808,14 @@ class Song
 			}
 		}
 
-		// El resto en orden alfabético
+		// The resto in orden alfabético
 		final extras:Array<String> = [for (k in found.keys()) k];
 		extras.sort((a, b) -> a < b ? -1 : a > b ? 1 : 0);
 		for (suffix in extras)
 		{
 			// Capitalizar: "-nightmare" → "Nightmare"
 			// Para sufijos compuestos V-Slice como "-easy-bf" → "Easy"
-			// (solo la parte de dificultad, sin la variación al final)
+			// (only the parte of difficulty, without the variation to the end)
 			final inner   = suffix.startsWith('-') ? suffix.substr(1) : suffix; // "easy-bf"
 			final dashIdx = inner.indexOf('-');
 			final diffPart = dashIdx > 0 ? inner.substr(0, dashIdx) : inner;    // "easy"
@@ -824,10 +824,10 @@ class Song
 		}
 
 		// ── Filtro por meta.json: campo "difficulties" ────────────────────────
-		// Si el meta de la canción define allowedDifficulties, solo se muestran
-		// las dificultades cuyos sufijos estén en esa lista.
-		// Esto permite que el creador de la canción decida qué dificultades
-		// son visibles aunque existan charts de más en disco.
+		// If the meta of the song defines allowedDifficulties, only is muestran
+		// the difficulties cuyos sufijos are in that list.
+		// This allows that the creador of the song decida what difficulties
+		// are visibles aunque existan charts of more in disco.
 		#if sys
 		try
 		{

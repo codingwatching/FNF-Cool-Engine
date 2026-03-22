@@ -14,46 +14,46 @@ import funkin.audio.AudioConfig;
  * RenderOptimizer — configura el pipeline de renderizado de OpenFL/HaxeFlixel
  * para maximizar el trabajo en GPU y minimizar el overhead de CPU.
  *
- * ─── Técnicas ────────────────────────────────────────────────────────────────
+ * ─── Techniques ────────────────────────────────────────────────────────────────
  *
- * 1. cacheAsBitmap = true  (CPU → GPU upload ONCE, sin re-rasterización)
+ * 1. cacheAsBitmap = true  (CPU → GPU upload ONCE, without re-rasterización)
  *    Cuando un DisplayObject tiene `cacheAsBitmap = true`, OpenFL rasteriza
  *    su contenido a una textura interna y la sube a VRAM una sola vez.
  *    Cada frame subsiguiente se dibuja con un draw call GPU directamente desde
  *    esa textura, sin pasar por el rasterizador de CPU.
- *    IDEAL PARA: sprites de stage que no cambian (fondos, props estáticos).
+ *    IDEAL for: sprites of stage that no cambian (fondos, props static).
  *    NO USAR EN: sprites con animaciones o cambios de color frecuentes.
  *
  * 2. cacheAsBitmapMatrix = identityMatrix
- *    Junto con cacheAsBitmap, indica a OpenFL que la textura está en espacio
+ *    Junto with cacheAsBitmap, indicates to OpenFL that the texture is in espacio
  *    local (no transformada), lo que permite que el engine reutilice la misma
  *    textura cacheada aunque el sprite se mueva/rote.
- *    Sin esto, cualquier movimiento del sprite fuerza re-rasterización.
+ *    Without this, any movement of the sprite forces re-rasterización.
  *
  * 3. FlxCamera.bgColor con alpha=0
- *    El canal alpha de bgColor determina si la cámara limpia su canvas cada
+ *    The canal alpha of bgColor determina if the camera clears its canvas each
  *    frame (alpha > 0 = fill rect con el color). Si el stage cubre toda la
- *    pantalla, podemos evitar el clear del canvas de la cámara del juego
- *    usando alpha=0, ahorrando un fill rect de 1280×720 píxeles por frame.
+ *    screen, podemos avoid the clear of the canvas of the camera of the game
+ *    usando alpha=0, ahorrando a fill rect of 1280×720 pixels by frame.
  *
  * 4. Desactivar filtros innecesarios
  *    Cada FlxCamera con filtros fuerza un renderizado en dos pasadas (off-screen
- *    buffer + composición). Desactivar filtros en cámaras que no los necesitan
+ *    buffer + composition). Desactivar filtros in cameras that no the necesitan
  *    elimina ese coste.
  *
  * 5. smoothing = false en texturas de notas/HUD
- *    El bilinear filtering GPU tiene coste. Para texturas píxel-perfect (HUD,
+ *    The bilinear filtering GPU tiene coste. For textures pixel-perfect (HUD,
  *    notas a escala entera) desactivar smoothing es correcto y ahorra tiempo
  *    de texturizado.
  */
 
 class RenderOptimizer
 {
-	/** Instancia del stage de OpenFL para configuración global. */
+	/** Instancia of the stage of OpenFL for configuration global. */
 	private static var _stage:openfl.display.Stage = null;
 
 	/**
-	 * Llamar UNA VEZ al inicio del juego (en Main.setupGame() después de
+	 * Callr a VEZ to the start of the game (in Main.setupGame() after of
 	 * crear el FlxGame).
 	 */
 	public static function init():Void
@@ -62,18 +62,18 @@ class RenderOptimizer
 		if (_stage == null) return;
 
 		// ── Desactivar vector antialiasing global ────────────────────────────
-		// StageQuality.LOW = sin antialiasing de líneas vectoriales.
+		// StageQuality.LOW = without antialiasing of lines vectoriales.
 		// Las texturas de sprites tienen su propio antialiasing (antialiasing=true).
 		// El antialiasing vectorial solo aplica a primitivas drawn con Graphics,
-		// que en FNF son el bg del healthbar y poco más.
+		// that in FNF are the bg of the healthbar and poco more.
 		_stage.quality = openfl.display.StageQuality.LOW;
 
 		// ── Activar pixel snapping global ────────────────────────────────────
 		// PixelSnapping.ALWAYS hace que los DisplayObjects se posicionen en
 		// coordenadas enteras, eliminando el sub-pixel rendering (bilinear
 		// filtering en bordes). Mejora nitidez Y reduce trabajo de texturizado.
-		// Nota: HaxeFlixel ya redondea coordenadas internamente en la mayoría
-		// de targets, pero forzarlo a nivel de stage es la garantía definitiva.
+		// Note: HaxeFlixel already redondea coordenadas internamente in the majority
+		// of targets, but forzarlo to level of stage is the garantía definitiva.
 		try
 		{
 			@:privateAccess
@@ -86,10 +86,10 @@ class RenderOptimizer
 	}
 
 	/**
-	 * Aplica cacheAsBitmap a sprites de stage que son completamente estáticos.
-	 * Llamar después de crear el Stage.
+	 * Applies cacheAsBitmap to sprites of stage that are completely static.
+	 * Callr after of create the Stage.
 	 *
-	 * @param sprites  Array de FlxSprites que no tendrán cambios de contenido.
+	 * @param sprites  Array of FlxSprites that no tendrán cambios of contenido.
 	 */
 	public static function cacheStaticSprites(sprites:Array<FlxSprite>):Void
 	{
@@ -113,11 +113,11 @@ class RenderOptimizer
 	}
 
 	/**
-	 * Configura las FlxCameras para renderizado óptimo.
+	 * Configures the FlxCameras for rendering óptimo.
 	 * Usa CameraUtil para acceder a _filters correctamente — centraliza el
-	 * único punto de acceso privado en vez de `@:privateAccess` disperso.
-	 * - gameCam: cámara del escenario
-	 * - hudCam : cámara del HUD (puede ser null)
+	 * unique punto of acceso private in vez of `@:privateAccess` disperso.
+	 * - gameCam: camera of the stage
+	 * - hudCam : camera of the HUD (puede be null)
 	 */
 	public static function optimizeCameras(gameCam:FlxCamera, ?hudCam:FlxCamera):Void
 	{
@@ -127,7 +127,7 @@ class RenderOptimizer
 
 	/**
 	 * Marca un BitmapData como "no necesita mipmaps" y desactiva smoothing.
-	 * Útil para texturas de notas / HUD que se renderizan a tamaño 1:1 o escala entera.
+	 * Useful for textures of notes / HUD that is renderizan to size 1:1 or scales entera.
 	 */
 	public static inline function setNearestNeighbor(sprite:FlxSprite):Void
 	{
@@ -143,8 +143,8 @@ class RenderOptimizer
 	}
 
 	/**
-	 * Fuerza una recolección de basura mayor.
-	 * Llamar entre canciones / al entrar al menú principal.
+	 * Forces a recolección of basura mayor.
+	 * Callr between songs / to the entrar to the menu main.
 	 */
 	public static function forceGC():Void
 	{

@@ -14,7 +14,7 @@ import funkin.graphics.shaders.FunkinRuntimeShader;
  * | flixel-addons | FlxRuntimeShader |  setIntArray/setBoolArray  |
  * |---------------|------------------|---------------------------|
  * | 2.11.0        | ✔ (introducido)  | ✘ (no disponible)         |
- * | 2.11.x+       | ✔                | ✔ (añadido luego)         |
+ * | 2.11.x+       | ✔                | ✔ (added later)         |
  * | 2.12.0+       | ✔                | ✔ (garantizado)           |
  *
  * | Haxe | ??= operator |
@@ -29,10 +29,10 @@ import funkin.graphics.shaders.FunkinRuntimeShader;
  *
  * ## GLSL helper macros
  *
- * El prelude de Flixel (`#pragma header`) define automáticamente:
+ * The prelude of Flixel (`#pragma header`) defines automatically:
  *   • `openfl_TextureCoordv` — coordenada UV del fragmento actual
  *   • `flixel_texture2D(sampler, uv)` — muestreo de textura con alpha premultiplicado
- *   • `openfl_TextureSize` — resolución de la textura en píxeles
+ *   • `openfl_TextureSize` — resolution of the texture in pixels
  *   • `bitmap` — sampler2D de la textura principal
  *
  * **No** uses `texture2D(bitmap, uv)` directamente en shaders de FlxShader:
@@ -41,10 +41,10 @@ import funkin.graphics.shaders.FunkinRuntimeShader;
  */
 class ShaderCompat
 {
-	// ── Detección de runtime ──────────────────────────────────────────────────
+	// ── Detection of runtime ──────────────────────────────────────────────────
 
 	/**
-	 * Devuelve true si la versión instalada de flixel-addons tiene `setIntArray`.
+	 * Returns true if the version instalada of flixel-addons tiene `setIntArray`.
 	 * Se detecta en runtime via Reflect para no romper en versiones antiguas.
 	 */
 	public static var hasSetIntArray(get, never):Bool;
@@ -53,7 +53,7 @@ class ShaderCompat
 	static function get_hasSetIntArray():Bool
 	{
 		if (_hasSetIntArray != null) return _hasSetIntArray;
-		// Crear una instancia mínima temporal para inspeccionar su API
+		// Create a minimal temporary instance to inspect its API
 		try
 		{
 			final probe = new FlxRuntimeShader(null);
@@ -64,7 +64,7 @@ class ShaderCompat
 	}
 
 	/**
-	 * Devuelve true si la versión instalada de flixel-addons tiene `setBoolArray`.
+	 * Returns true if the version instalada of flixel-addons tiene `setBoolArray`.
 	 */
 	public static var hasSetBoolArray(get, never):Bool;
 	static var _hasSetBoolArray:Null<Bool> = null;
@@ -85,15 +85,15 @@ class ShaderCompat
 
 	/**
 	 * Escribe un uniform en un FlxRuntimeShader de forma segura,
-	 * detectando automáticamente el tipo y aplicando los fallbacks necesarios.
+	 * detectando automatically the type and appliesndo the fallbacks necesarios.
 	 *
-	 * Es el punto de entrada único para modificar uniforms desde código externo
+	 * Is the entry point unique for modificar uniforms from code external
 	 * (HScript, ScriptAPI, ShaderManager, etc.).
 	 *
 	 * @param shader     Shader destino
 	 * @param name       Nombre del uniform GLSL
 	 * @param value      Valor: Float, Int, Bool, o Array de cualquiera de ellos
-	 * @return           true si la escritura tuvo éxito
+	 * @return           true if the write succeeded
 	 */
 	public static function writeUniform(shader:FlxRuntimeShader, name:String, value:Dynamic):Bool
 	{
@@ -103,16 +103,16 @@ class ShaderCompat
 		if (Std.isOfType(shader, FunkinRuntimeShader))
 			return (cast shader:FunkinRuntimeShader).writeUniform(name, value);
 
-		// Fallback para FlxRuntimeShader genérico
+		// Fallback for FlxRuntimeShader generic
 		return _writeDynamic(shader, name, value);
 	}
 
 	/**
-	 * Escribe múltiples uniforms de una vez desde un Map.
+	 * Escribe multiple uniforms of a vez from a Map.
 	 *
 	 * @param shader   Shader destino
 	 * @param params   Map de nombre → valor
-	 * @return         Número de uniforms escritos con éxito
+	 * @return         Number of uniforms successfully written
 	 */
 	public static function writeUniforms(shader:FlxRuntimeShader, params:Map<String, Dynamic>):Int
 	{

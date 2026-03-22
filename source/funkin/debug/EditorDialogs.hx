@@ -43,7 +43,7 @@ class AddElementDialog extends FlxTypedGroup<FlxSprite>
 		var spriteBtn = new FlxButton(FlxG.width / 2 - 150, yPos, "Sprite Simple", () -> selectType("sprite"));
 		spriteBtn.loadGraphic("assets/images/ui/button.png");
 		add(spriteBtn);
-		add(createDescription(FlxG.width / 2 - 150, yPos + 25, "Imagen estática básica"));
+		add(createDescription(FlxG.width / 2 - 150, yPos + 25, "Image static basic"));
 		yPos += 60;
 		
 		// Sprite Animado
@@ -55,7 +55,7 @@ class AddElementDialog extends FlxTypedGroup<FlxSprite>
 		// Grupo
 		var groupBtn = new FlxButton(FlxG.width / 2 - 150, yPos, "Grupo", () -> selectType("group"));
 		add(groupBtn);
-		add(createDescription(FlxG.width / 2 - 150, yPos + 25, "Colección de sprites"));
+		add(createDescription(FlxG.width / 2 - 150, yPos + 25, "Colección of sprites"));
 		yPos += 60;
 		
 		// Sonido
@@ -73,7 +73,7 @@ class AddElementDialog extends FlxTypedGroup<FlxSprite>
 		// Grupo de Clases Custom
 		var customGroupBtn = new FlxButton(FlxG.width / 2 - 150, yPos, "Grupo Custom", () -> selectType("custom_class_group"));
 		add(customGroupBtn);
-		add(createDescription(FlxG.width / 2 - 150, yPos + 25, "Múltiples instancias de clase"));
+		add(createDescription(FlxG.width / 2 - 150, yPos + 25, "Multiple instancias of class"));
 		yPos += 60;
 		
 		// Cancel button
@@ -150,10 +150,10 @@ class FileManagerDialog extends FlxTypedGroup<FlxSprite>
 	function browseFile():Void
 	{
 		#if sys
-		// Aquí se usaría lime.ui.FileDialog para abrir el explorador de archivos
+		// Here is usaría lime.ui.FileDialog for abrir the explorador of files
 		// Por ahora simulamos con un path de ejemplo
 		
-		// En producción:
+		// In producción:
 		// var dialog = new lime.ui.FileDialog();
 		// dialog.onSelect.add(function(path:String) {
 		//     copyFileToStageFolder(path);

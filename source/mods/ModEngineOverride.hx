@@ -14,44 +14,44 @@ import haxe.Json;
 /**
  * ModEngineOverride — Reemplaza o extiende CUALQUIER componente del engine desde mods.
  *
- * ─── ¿Qué se puede cambiar desde un mod? ─────────────────────────────────────
+ * ─── What can be changed from a mod? ─────────────────────────────────────
  *
  *  ESTADOS (States)
  *    • Sustituir MainMenuState, FreeplayState, PlayState, etc. por clases propias del mod.
  *    • Inyectar hooks "before/after create(), update(), destroy()" sin reemplazar el state.
  *
  *  HUD
- *    • Registrar una clase HUD alternativa que el engine instanciará en PlayState.
+ *    • Register an alternative HUD class that the engine will instantiate in PlayState.
  *
  *  GAMEPLAY
  *    • Hook en onNoteHit, onNoteMiss, onSongStart, onSongEnd, onCountdown…
- *    • Override de la lógica de rating/scoring completo.
+ *    • Override of the logic of rating/scoring complete.
  *    • Override de scroll speed, botones, receptor positions.
  *
  *  RENDERIZADO
- *    • Override de cómo se carga y dibuja un personaje.
- *    • Override de cómo se carga un stage.
+ *    • Override of how a character is loaded and drawn.
+ *    • Override of how a stage is loaded.
  *    • Override del noteskin pipeline.
  *
  *  AUDIO
- *    • Override del conductor (BPM / offset) por canción.
+ *    • Override of the conductor (BPM / offset) by song.
  *    • Override del volumen de voces/instrumentales.
  *
  *  UI GLOBAL
- *    • Override de fuentes, colores, layout de menús.
+ *    • Override of fonts, colores, layout of menus.
  *    • Override del transition shader entre estados.
  *
  * ─── Uso desde un script de mod (script.hx) ──────────────────────────────────
  *
- *  // Reemplazar el menú principal por uno propio:
+ *  // Reemplazar the menu main by uno propio:
  *  ModEngineOverride.replaceState("MainMenuState", MyCustomMenu);
  *
  *  // Inyectar hook en cada nota acertada sin reemplazar PlayState:
  *  ModEngineOverride.onGameplayEvent("onNoteHit", function(note) {
- *    trace("¡Nota acertada! " + note.noteType);
+ *    trace("Note hit! " + note.noteType);
  *  });
  *
- *  // Cambiar toda la lógica de scoring:
+ *  // Change all the logic of scoring:
  *  ModEngineOverride.replaceScoring(MyCustomScoringClass);
  *
  *  // Reemplazar el HUD completo:
@@ -63,10 +63,10 @@ import haxe.Json;
  *  // Descargar todos los overrides al cambiar de mod:
  *  ModEngineOverride.clear();
  *
- * ─── Carga automática desde mod.json ─────────────────────────────────────────
+ * ─── Auto-load from mod.json ─────────────────────────────────────────
  *
  *  Si el mod incluye "engineOverrides": { ... } en su mod.json, se aplican
- *  automáticamente al activar el mod. Ejemplo:
+ *  automatically to the activar the mod. Ejemplo:
  *
  *  "engineOverrides": {
  *    "states": {
@@ -109,7 +109,7 @@ class ModEngineOverride
 	/** Clase de sistema de notas de reemplazo. */
 	var _noteSystemClass : Null<Class<Dynamic>>            = null;
 
-	/** Clase de transición de reemplazo. */
+	/** Class of transition of reemplazo. */
 	var _transitionClass : Null<Class<Dynamic>>            = null;
 
 	/** Metadatos extra que el mod puede adjuntar (para scripts avanzados). */
@@ -142,7 +142,7 @@ class ModEngineOverride
 	}
 
 	/**
-	 * Elimina el override de un estado específico.
+	 * Elimina the override of a state specific.
 	 */
 	public static function removeStateOverride(stateName:String):Void
 		instance._stateOverrides.remove(stateName);
@@ -181,7 +181,7 @@ class ModEngineOverride
 
 	/**
 	 * Registra una clase HUD personalizada.
-	 * El engine instanciará esta clase en lugar del HUD por defecto en PlayState.
+	 * The engine will instantiate this class instead of the default HUD in PlayState.
 	 *
 	 * @param cls  Clase del HUD. Debe ser compatible con el HUD base del engine.
 	 */
@@ -211,7 +211,7 @@ class ModEngineOverride
 
 	/**
 	 * Reemplaza el sistema de scoring (rating, puntos, combos).
-	 * La clase debe implementar los métodos del IScoringSystem del engine.
+	 * The class debe implementar the methods of the IScoringSystem of the engine.
 	 */
 	public static function replaceScoring(cls:Class<Dynamic>):Void
 	{
@@ -234,7 +234,7 @@ class ModEngineOverride
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Reemplaza el sistema de notas (spawning, timing windows, mecánicas).
+	 * Replaces the note system (spawning, timing windows, mechanics).
 	 */
 	public static function replaceNoteSystem(cls:Class<Dynamic>):Void
 	{
@@ -253,11 +253,11 @@ class ModEngineOverride
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// OVERRIDE DE TRANSICIÓN
+	// OVERRIDE of transition
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Reemplaza el shader/efecto de transición entre estados.
+	 * Reemplaza the shader/effect of transition between states.
 	 */
 	public static function replaceTransition(cls:Class<Dynamic>):Void
 	{
@@ -302,12 +302,12 @@ class ModEngineOverride
 	 * Se ejecutan en orden de registro.
 	 *
 	 * @param event     Nombre del evento.
-	 * @param callback  Función a llamar. Usa Dynamic para compatibilidad de firma.
-	 * @param priority  Mayor número = se ejecuta antes. Default = 0.
+	 * @param callback  Function to callr. Use Dynamic for compatibility of firma.
+	 * @param priority  Mayor number = is ejecuta before. Default = 0.
 	 *
 	 * @example
 	 *   ModEngineOverride.onGameplayEvent("onNoteHit", function(note) {
-	 *     FlxG.log.add("¡Hit! noteType=" + note.noteType);
+	 *     FlxG.log.add("Hit! noteType=" + note.noteType);
 	 *   });
 	 */
 	public static function onGameplayEvent(event:String, callback:Dynamic, priority:Int = 0):Void
@@ -325,7 +325,7 @@ class ModEngineOverride
 	}
 
 	/**
-	 * Elimina un callback específico de un evento.
+	 * Elimina a callback specific of a event.
 	 */
 	public static function removeGameplayHook(event:String, callback:Dynamic):Void
 	{
@@ -355,10 +355,10 @@ class ModEngineOverride
 	}
 
 	/**
-	 * Versión con retorno: ejecuta hooks hasta que uno devuelve non-null.
-	 * Útil para overrides que producen un valor (ej: rating, scoring).
+	 * Version with retorno: ejecuta hooks until that uno returns non-null.
+	 * Useful for overrides that producen a value (ej: rating, scoring).
 	 *
-	 * @return El primer valor non-null devuelto, o null si ningún hook respondió.
+	 * @return The first non-null value returned, or null if no hook respondsd.
 	 */
 	public static function fireEventWithResult(event:String, ?args:Array<Dynamic>):Null<Dynamic>
 	{
@@ -383,7 +383,7 @@ class ModEngineOverride
 
 	/**
 	 * Almacena un valor arbitrario con el override (para scripts avanzados).
-	 * Los scripts de mod pueden usarlo para pasar configuración al engine.
+	 * The scripts of mod pueden usarlo for pasar configuration to the engine.
 	 */
 	public static function setMeta(key:String, value:Dynamic):Void
 		instance._metadata.set(key, value);
@@ -402,7 +402,7 @@ class ModEngineOverride
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Lee la sección "engineOverrides" de mod.json y aplica los overrides.
+	 * Lee the section "engineOverrides" of mod.json and applies the overrides.
 	 *
 	 * Formato en mod.json:
 	 * {
@@ -420,7 +420,7 @@ class ModEngineOverride
 	 */
 	/**
 	 * Lee el mod.json desde disco y aplica los engineOverrides.
-	 * Si ModManager ya parseó el JSON (en _loadModInfo), usar applyFromRaw
+	 * If ModManager already parsed the JSON (in _loadModInfo), use applyFromRaw
 	 * directamente para evitar el doble parse.
 	 */
 	public static function loadFromModJson(modJsonPath:String, modId:String):Void
@@ -527,7 +527,7 @@ class ModEngineOverride
 	}
 
 	/**
-	 * Elimina sólo los overrides de un mod específico
+	 * Elimina only the overrides of a mod specific
 	 * (para sistemas multi-mod donde se activa/desactiva uno a la vez).
 	 */
 	public static function clearForMod(modId:String):Void

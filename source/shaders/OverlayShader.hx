@@ -20,7 +20,7 @@ class OverlayShader extends FlxShader
 			);
 		}
 
-		// FIX 3: base y blend son vec4 — hay que pasar .rgb a la función vec3
+		// FIX 3: base and blend are vec4 — there is that pasar .rgb to the function vec3
 		//        y reconstruir el alpha correctamente
 		vec4 blendOverlayAlpha(vec4 base, vec4 blend, float opacity)
 		{

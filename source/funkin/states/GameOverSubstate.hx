@@ -24,8 +24,8 @@ using StringTools;
 *   Los mismos callbacks de siempre.
 *
 * ── Scripts de personaje (assets/characters/{char}/scripts/) ─────────────────
-* ── Scripts de canción   (assets/songs/{song}/scripts/)       ─────────────────
-*   Callbacks disponibles (además de los propios del personaje):
+* ── Scripts of song   (assets/songs/{song}/scripts/)       ─────────────────
+*   Callbacks available (furthermore of the own of the character):
 *     onGameOverConfig(cfg)        → modifica la config ANTES de inicializar.
 *                                    cfg = { deathChar, deathSound, loopMusic,
 *                                            endSound, camFrame, bpm }
@@ -33,9 +33,9 @@ using StringTools;
 *     onGameOverCreate(substate)   → se llama al final del constructor.
 *     onGameOverUpdate(elapsed)    → cada frame.
 *     onGameOverBeatHit(beat)      → cada beat.
-*     onGameOverRetry()            → el jugador pulsó ACCEPT. Retorna true = cancelar.
-*     onGameOverBack()             → el jugador pulsó BACK.  Retorna true = cancelar.
-*     onGameOverDeathAnimEnd()     → animación firstDeath terminada.
+*     onGameOverRetry()            → the player pressed ACCEPT. Returns true = cancelar.
+*     onGameOverBack()             → the player pressed BACK.  Returns true = cancelar.
+*     onGameOverDeathAnimEnd()     → animation firstDeath terminada.
 *     onGameOverEndConfirm()       → endBullshit iniciado. Retorna true = cancelar.
 *     onGameOverDestroy()          → antes de destruir.
 *
@@ -117,7 +117,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		]);
 		StateScriptHandler.callOnScripts('onCreate', [this]);
 
-		// ── Notificar char/song scripts que el substate está listo ───────────
+		// ── Notificar char/song scripts that the substate is listo ───────────
 		ScriptHandler.callOnScripts('onGameOverCreate', [this]);
 
 		#if mobileC

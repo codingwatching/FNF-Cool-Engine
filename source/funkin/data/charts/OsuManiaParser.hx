@@ -5,8 +5,8 @@ import sys.io.File;
 import sys.FileSystem;
 #end
 
-// ChartNote y ChartBPMChange son sub-tipos del módulo ChartData.hx;
-// en Haxe requieren import explícito aunque estén en el mismo package.
+// ChartNote and ChartBPMChange are sub-types of the module ChartData.hx;
+// in Haxe require explicit import even if they're in the same package.
 import funkin.data.charts.ChartData.ChartNote;
 import funkin.data.charts.ChartData.ChartBPMChange;
 
@@ -18,9 +18,9 @@ using StringTools;
  * Soporta:
  *  • Formato osu!mania (Mode: 3)
  *  • Notas normales y long notes (hold)
- *  • Múltiples timing points (cambios de BPM y offset)
- *  • Mapas con cualquier número de teclas (keyCount)
- *  • Lectura de metadatos (título, artista, offset, audio)
+ *  • Multiple timing points (cambios of BPM and offset)
+ *  • Mapas with any number of keys (keyCount)
+ *  • Reading of metadatos (title, artista, offset, audio)
  *
  * ─── Formato .osu (resumen) ──────────────────────────────────────────────────
  *
@@ -29,12 +29,12 @@ using StringTools;
  *   Mode: 3              ← 3 = osu!mania
  *
  *   [Metadata]
- *   Title: Nombre canción
+ *   Title: Nombre song
  *   Artist: Nombre artista
  *   Version: Hard         ← nombre de la dificultad
  *
  *   [Difficulty]
- *   CircleSize: 4         ← número de teclas
+ *   CircleSize: 4         ← number of keys
  *
  *   [TimingPoints]
  *   offset,msPerBeat,meter,sampleSet,sampleIndex,volume,uninherited,effects
@@ -55,7 +55,7 @@ using StringTools;
  *     PlayState.SONG = song;
  *   }
  *
- *   // Cargar desde string (útil si el .osz ya está extraído en memoria)
+ *   // Load from string (useful if the .osz already is extraído in memory)
  *   var data = OsuManiaParser.fromString(osuFileContent, 'myDiff');
  *
  * ─── Mapeo de columnas ────────────────────────────────────────────────────────
@@ -73,12 +73,12 @@ class OsuManiaParser
 {
 	// ── Constantes ─────────────────────────────────────────────────────────
 
-	/** Type bit para HitObject normal (círculo / nota). */
+	/** Type bit for HitObject normal (circle / note). */
 	static inline final HIT_CIRCLE  = 1;
 	/** Type bit para HitObject hold (LN). */
 	static inline final HOLD_NOTE   = 128;
 
-	// ── API pública ────────────────────────────────────────────────────────
+	// ── API public ────────────────────────────────────────────────────────
 
 	/**
 	 * Parsea un archivo .osu desde el sistema de archivos.
@@ -145,7 +145,7 @@ class OsuManiaParser
 			var line = raw.trim();
 			if (line.length == 0 || line.startsWith('//')) continue;
 
-			// Detectar sección
+			// Detect section
 			if (line.startsWith('[') && line.endsWith(']'))
 			{
 				section = line.substring(1, line.length - 1).toLowerCase();
@@ -194,7 +194,7 @@ class OsuManiaParser
 
 		if (mode == -1)
 		{
-			trace('[OsuMania] No se encontró la sección [General] con Mode:3.');
+			trace('[OsuMania] No is encontró the section [General] with Mode:3.');
 			return null;
 		}
 
@@ -270,7 +270,7 @@ class OsuManiaParser
 	}
 
 	/**
-	 * Parsea una línea de [HitObjects].
+	 * Parsea a line of [HitObjects].
 	 * Formato: x,y,time,type,hitSound[,extras]
 	 *
 	 * Normal: x,y,time,1,hitSound,sampleInfo

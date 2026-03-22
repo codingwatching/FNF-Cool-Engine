@@ -18,11 +18,11 @@ using StringTools;
  * Los handlers concretos viven en `assets/data/scripts/events/`
  * y se registran con `registerEvent()` desde HScript.
  *
- * ─── Optimizaciones respecto a la versión anterior ───────────────────────────
- *   • Puntero de índice en `update()` — sin array `toRemove` por frame.
- *   • `events` ya no se modifica durante `update()`, sólo se avanza el índice.
+ * ─── Optimizaciones respecto to the version previous ───────────────────────────
+ *   • Puntero of index in `update()` — without array `toRemove` by frame.
+ *   • `events` already no is modifica durante `update()`, only is avanza the index.
  *   • `stepTimeToMs` es `inline` — el compilador la inlinea en hot paths.
- *   • `triggerEvent` sin creación de closures en el path normal.
+ *   • `triggerEvent` without creation of closures in the path normal.
  *
  * ─── Uso desde HScript ───────────────────────────────────────────────────────
  *   registerEvent('Flash', function(v1, v2, time) {
@@ -32,14 +32,14 @@ using StringTools;
  */
 class EventManager
 {
-	/** Todos los eventos de la canción actual, ordenados por tiempo. */
+	/** All the events of the song current, ordenados by tiempo. */
 	public static var events : Array<EventData> = [];
 
 	/** Handlers custom registrados por scripts. */
 	public static var customHandlers : Map<String, Array<EventData>->Bool> = [];
 
 	/**
-	 * Índice del siguiente evento a comprobar en `update()`.
+	 * Index of the next event to check in `update()`.
 	 * Al ser un puntero, update() nunca necesita crear arrays temporales.
 	 */
 	static var _nextIndex : Int = 0;
@@ -48,7 +48,7 @@ class EventManager
 
 	/**
 	 * Carga y ordena eventos desde `PlayState.SONG`.
-	 * Llamar DESPUÉS de que `Conductor` esté configurado.
+	 * Callr after of that `Conductor` is configurado.
 	 */
 	public static function loadEventsFromSong():Void
 	{
@@ -63,8 +63,8 @@ class EventManager
 		else if (songData.notes != null)
 			loadLegacyFormat(songData);
 
-		// Compatibilidad hacia atrás: generar Camera Follow desde mustHitSection
-		// si el chart (old .json o nuevo .level) no contiene ningún evento de cámara.
+		// Backwards compatibility: generate Camera Follow from mustHitSection
+		// if the chart (old .json or new .level) no contains no event of camera.
 		if (songData.notes != null)
 		{
 			var hasCam = false;
@@ -169,7 +169,7 @@ class EventManager
 
 	/**
 	 * Dispara los eventos cuyo tiempo ha llegado.
-	 * Usa un puntero de índice — sin allocaciones por frame.
+	 * Use a puntero of index — without allocaciones by frame.
 	 */
 	public static function update(songPosition:Float):Void
 	{
@@ -204,7 +204,7 @@ class EventManager
 			return;
 		}
 
-		// 2. Handler custom registrado vía registerCustomEvent() / registerEvent()
+		// 2. Handler custom registered via registerCustomEvent() / registerEvent()
 		final customHandler = customHandlers.get(event.name);
 		if (customHandler != null)
 		{
@@ -283,7 +283,7 @@ class EventManager
 						var easeFunc:Null<Float->Float> = null;
 						if (ease != '')
 							easeFunc = Reflect.field(flixel.tweens.FlxEase, ease);
-						// Solo tweenear si tenemos una función de ease válida.
+						// Only tween if we have a valid ease function.
 						// Si el nombre no existe en FlxEase simplemente hacer lerp normal.
 						if (easeFunc != null)
 							game.cameraController.tweenToTarget(dur, easeFunc);
@@ -432,9 +432,9 @@ class EventManager
 			case 'set var', 'set variable':
 				_setScriptVar(v1, v2);
 
-			// -- Subtítulos ---------------------------------------------------
+			// -- Subtitles ---------------------------------------------------
 			// value1 = texto (soporta formato extendido "texto|size|color|bgAlpha")
-			// value2 = duración en segundos (default: 3.0)
+			// value2 = duration in segundos (default: 3.0)
 			case 'subtitle', 'show subtitle':
 				if (v1 != '')
 				{
@@ -458,8 +458,8 @@ class EventManager
 
 	/**
 	 * Escanea todos los eventos ya cargados buscando "Change Character".
-	 * Por cada personaje nuevo único, llama a Character.precacheCharacter()
-	 * para que su JSON y spritesheet queden en los caches estáticos antes
+	 * By each character new unique, call to Character.precacheCharacter()
+	 * for that its JSON and spritesheet queden in the caches static before
 	 * de que empiece el gameplay → cambio de personaje sin hitch.
 	 */
 	static function _precacheChangeCharacters():Void
@@ -487,7 +487,7 @@ class EventManager
 	static function _resolveChar(game:PlayState,
 	                             slot:String):Null<funkin.gameplay.objects.character.Character>
 	{
-		// Delegar en PlayState.getCharacterByName que soporta aliases, índices y nombres exactos
+		// Delegar in PlayState.getCharacterByName that soporta aliases, indices and nombres exactos
 		return game.getCharacterByName(slot);
 	}
 
@@ -513,7 +513,7 @@ class EventManager
 			Reflect.setField(obj, parts[1], value);
 	}
 
-	// ─── API pública ──────────────────────────────────────────────────────────
+	// ─── API public ──────────────────────────────────────────────────────────
 
 	/** Registra un handler custom para eventos con `name`. */
 	public static function registerCustomEvent(name:String, handler:Array<EventData>->Bool):Void
@@ -521,7 +521,7 @@ class EventManager
 
 	/**
 	 * Dispara un evento manualmente (fuera del timeline).
-	 * El tiempo se lee de la posición actual de la música.
+	 * The tiempo is lee of the position current of the music.
 	 */
 	public static function fireEvent(name:String, value1:String = '', value2:String = ''):Void
 	{
@@ -543,7 +543,7 @@ class EventManager
 	/**
 	 * Rebobina todos los eventos al estado "no disparado" y reinicia el puntero
 	 * al inicio del timeline. Llamar al hacer rewind restart.
-	 * Los eventos se re-dispararán naturalmente conforme la canción avance de nuevo.
+	 * The events is re-dispararán naturalmente conforme the song avance of new.
 	 */
 	public static function rewindToStart():Void
 	{
@@ -562,7 +562,7 @@ class EventManager
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Datos de un evento de gameplay. Puede crearse como objeto anónimo. */
+/** Datos of a event of gameplay. Puede crearse as object anónimo. */
 class EventData
 {
 	public var name      : String = '';

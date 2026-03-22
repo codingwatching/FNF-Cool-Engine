@@ -4,8 +4,8 @@ import openfl.media.Sound;
 import openfl.utils.ByteArray;
 
 /**
- * Detecta el BPM de un Sound de OpenFL usando análisis de energía y autocorrelación.
- * También extrae datos de waveform para visualización.
+ * Detects the BPM of a Sound of OpenFL usando análisis of energía and autocorrelación.
+ * Also extrae datos of waveform for visualización.
  */
 class BPMDetector
 {
@@ -14,7 +14,7 @@ class BPMDetector
 	 * (que fue eliminado en versiones modernas de OpenFL).
 	 * Accede al buffer interno de Lime directamente.
 	 *
-	 * @return Número de muestras estéreo extraídas, o 0 si falla.
+	 * @return Number of muestras estéreo extraídas, or 0 if falla.
 	 */
 	static function _extractBytes(sound:Sound, bytes:ByteArray, maxSamples:Int):Int
 	{
@@ -68,11 +68,11 @@ class BPMDetector
 
 	/**
 	 * Detecta el BPM de un Sound extrayendo muestras de audio.
-	 * Usa análisis de energía + autocorrelación sobre la función de onset.
+	 * Use análisis of energía + autocorrelación over the function of onset.
 	 *
 	 * @param sound   El openfl.media.Sound a analizar (null → devuelve -1)
-	 * @param minBPM  Mínimo BPM válido (default 60)
-	 * @param maxBPM  Máximo BPM válido (default 200)
+	 * @param minBPM  Minimum BPM valid (default 60)
+	 * @param maxBPM  Maximum BPM valid (default 200)
 	 * @return BPM detectado redondeado a 0.5, o -1 si falla
 	 */
 	public static function detect(sound:Sound, minBPM:Float = 60, maxBPM:Float = 200):Float
@@ -84,7 +84,7 @@ class BPMDetector
 		{
 			final sampleRate:Int = 44100;
 
-			// Analizar hasta 45 segundos (suficiente para patrón rítmico)
+			// Parse until 45 segundos (suficiente for pattern rítmico)
 			final maxSamples:Int = sampleRate * 45;
 
 			var bytes:ByteArray = new ByteArray();
@@ -105,7 +105,7 @@ class BPMDetector
 				mono[i] = (l + r) * 0.5;
 			}
 
-			// --- Energía por ventana ---
+			// --- Energía by window ---
 			final windowSize:Int = 1024;
 			final hopSize:Int = 512;
 			var energies:Array<Float> = [];
@@ -123,7 +123,7 @@ class BPMDetector
 			if (energies.length < 4)
 				return -1;
 
-			// --- Función de onset (half-wave rectified flux) ---
+			// --- Function of onset (half-wave rectified flux) ---
 			var onsets:Array<Float> = [];
 			for (k in 1...energies.length)
 			{
@@ -142,7 +142,7 @@ class BPMDetector
 			for (k in 0...onsets.length)
 				onsets[k] /= maxOnset;
 
-			// --- Autocorrelación sobre onset para encontrar período dominante ---
+			// --- Autocorrelación over onset for find período dominante ---
 			final hopSeconds:Float = hopSize / sampleRate;
 			final minLag:Int = Std.int(Math.max(1, Math.round((60.0 / maxBPM) / hopSeconds)));
 			var maxLag:Int  = Math.round((60.0 / minBPM) / hopSeconds);
@@ -177,7 +177,7 @@ class BPMDetector
 			final beatPeriodSeconds:Float = bestLag * hopSeconds;
 			var detectedBPM:Float = 60.0 / beatPeriodSeconds;
 
-			// Redondear al 0.5 más cercano
+			// Redondear to the 0.5 more cercano
 			detectedBPM = Math.round(detectedBPM * 2.0) / 2.0;
 
 			// Validar rango
@@ -197,8 +197,8 @@ class BPMDetector
 	 * Extrae valores de amplitud normalizados [0..1] para dibujar la waveform.
 	 *
 	 * @param sound       Sound de OpenFL
-	 * @param resolution  Número de "bins" horizontales (ancho en píxeles)
-	 * @param maxSeconds  Segundos máximos a analizar (default 90)
+	 * @param resolution  Number of "bins" horizontales (width in pixels)
+	 * @param maxSeconds  Segundos maximum to parse (default 90)
 	 * @return Array<Float> con `resolution` valores entre 0 y 1
 	 */
 	public static function extractWaveform(sound:Sound, resolution:Int = 512, maxSeconds:Int = 90):Array<Float>

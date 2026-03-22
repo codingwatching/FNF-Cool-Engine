@@ -11,10 +11,10 @@ import flixel.util.FlxTimer;
 /**
  * SoundTray — persiste entre cambios de state igual que los stickers.
  *
- * SISTEMA: Mismo patrón que StickerTransition/StickerTransitionContainer:
+ * system: Same pattern as StickerTransition/StickerTransitionContainer:
  *  - SoundTrayContainer extiende openfl.display.Sprite
  *  - La FlxCamera es hijo del Sprite de OpenFL (NO de FlxG.cameras.list)
- *    → nunca se destruye cuando Flixel resetea las cámaras al cambiar state
+ *    → never is destroys when Flixel resetea the cameras to the change state
  *  - Update via FlxG.signals.preUpdate (sobrevive cambios de state)
  *  - Insertado via FlxG.addChildBelowMouse con z muy alto (encima de stickers)
  *
@@ -32,7 +32,7 @@ class SoundTray extends FlxBasic
     public static var instance(default, null):Null<SoundTray> = null;
 
     /**
-     * Cuando está en true, el SoundTray ignora las teclas de volumen.
+     * When is in true, the SoundTray ignora the keys of volumen.
      * Usado por ScriptEditorSubState (y cualquier UI con input de texto)
      * para evitar que escribir 0, + o - cambie el volumen.
      */
@@ -63,7 +63,7 @@ class SoundTray extends FlxBasic
     // Indica si la barra activa debe mostrarse (false solo cuando vol=0/muted).
     // Separado de volumeBar.alpha para que _setAlpha no confunda "oculto por fade"
     // con "oculto porque no hay volumen" — sin esto, tras un hide la barra no
-    // volvía a aparecer en el primer press porque alpha=0 bloqueaba el fade-in.
+    // volvía to aparecer in the primer press porque alpha=0 bloqueaba the fade-in.
     private var _barVisible:Bool = false;
 
     private static inline var SHOWN_Y:Float   = 10;
@@ -80,7 +80,7 @@ class SoundTray extends FlxBasic
 
         // ── FIX: desactivar teclas de volumen nativas de Flixel ───────────────
         // Sin esto, PLUS/MINUS lo procesa Flixel (+0.1) Y SoundTray (+0.1)
-        // → el volumen sube 0.2 de golpe = 2 barras por pulsación.
+        // → the volumen sube 0.2 of golpe = 2 barras by pulsación.
         FlxG.sound.volumeUpKeys   = [];
         FlxG.sound.volumeDownKeys = [];
         FlxG.sound.muteKeys       = [];
@@ -111,7 +111,7 @@ class SoundTray extends FlxBasic
         volumeBox.y = hiddenY;
         _setAlpha(0);
 
-        // ── CRÍTICO: globalManager → sobrevive cambios de state ──────────────
+        // ── critical: globalManager → sobrevive cambios of state ──────────────
         hideTimer = new FlxTimer(FlxTimer.globalManager);
 
         updateVolumeBar();
@@ -126,19 +126,19 @@ class SoundTray extends FlxBasic
 
     // ── Plugin lifecycle ──────────────────────────────────────────────────────
     // El update de los sprites lo hace SoundTrayContainer via preUpdate signal.
-    // Aquí solo manejamos input.
+    // Here only manejamos input.
 
     override public function update(elapsed:Float):Void
     {
         super.update(elapsed);
         // Input gestionado exclusivamente por VolumePlugin (conectado a
-        // FlxG.signals.preUpdate). Manejar las teclas aquí Y en VolumePlugin
-        // provocaba dos llamadas a volumeUp/Down por frame → el volumen subía/
-        // bajaba 0.2 de golpe y después _roundVol lo dejaba atascado en un
+        // FlxG.signals.preUpdate). Handle the keys here and in VolumePlugin
+        // provocaba dos calldas to volumeUp/Down by frame → the volumen subía/
+        // bajaba 0.2 of golpe and after _roundVol it dejaba atascado in a
         // valor incorrecto. NO procesar input en este update.
     }
 
-    // El render lo maneja SoundTrayContainer — nada que hacer aquí.
+    // The render it handles SoundTrayContainer — nada that do here.
     override public function draw():Void {}
 
     // ── Mostrar / Ocultar ─────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ class SoundTray extends FlxBasic
     private function updateVolumeBar():Void
     {
         // Leer masterVolume de CoreAudio, no FlxG.sound.volume — CoreAudio.update()
-        // puede estar todavía sincronizando FlxG.sound.volume en el mismo frame.
+        // puede be still sincronizando FlxG.sound.volume in the same frame.
         var barLevel:Int = isMuted ? 0 : Math.round(funkin.audio.CoreAudio.masterVolume * 10);
         barLevel = Std.int(Math.max(0, Math.min(10, barLevel)));
 
@@ -306,7 +306,7 @@ class SoundTray extends FlxBasic
     private function saveVolume():Void
     {
         // Guardar siempre el volumen REAL (masterVolume de CoreAudio, no FlxG.sound.volume
-        // que puede ser 0 si está muteado) para que el unmute restaure correctamente.
+        // that puede be 0 if is muteado) for that the unmute restaure correctly.
         FlxG.save.data.volume = isMuted ? volumeBeforeMute : funkin.audio.CoreAudio.masterVolume;
         FlxG.save.data.muted  = isMuted;
         FlxG.save.flush();
@@ -315,7 +315,7 @@ class SoundTray extends FlxBasic
     private function loadVolume():Void
     {
         // Cargar desde CoreAudio en lugar de leer FlxG.save directamente —
-        // CoreAudio.loadVolume() ya habrá corrido antes (desde initialize())
+        // CoreAudio.loadVolume() already habrá corrido before (from initialize())
         // y tiene el valor correcto en masterVolume.
         // Solo inicializamos isMuted/volumeBeforeMute localmente.
         if (FlxG.save.data.muted != null)
@@ -327,7 +327,7 @@ class SoundTray extends FlxBasic
                 volumeBeforeMute = (savedVol > 0) ? savedVol : 0.5;
             }
         }
-        // No tocar FlxG.sound.volume aquí — CoreAudio lo gestiona.
+        // No tocar FlxG.sound.volume here — CoreAudio it manages.
     }
 
     override public function destroy():Void
@@ -344,7 +344,7 @@ class SoundTray extends FlxBasic
  * SoundTrayContainer — OpenFL Sprite persistente entre cambios de state.
  *
  * La clave: la FlxCamera es addChild() del Sprite (igual que StickerTransitionContainer),
- * NO está en FlxG.cameras.list. Flixel solo destruye las cámaras que están en
+ * is not in FlxG.cameras.list. Flixel only destroys cameras that are in
  * esa lista cuando cambia de state → la nuestra sobrevive siempre.
  *
  * Z-index 99999 → por encima de stickers (9999) y de cualquier state.
@@ -374,7 +374,7 @@ class SoundTrayContainer extends openfl.display.Sprite
         onResize();
     }
 
-    /** Asigna los tres sprites del tray y los apunta a nuestra cámara. */
+    /** Asigna the tres sprites of the tray and the apunta to nuestra camera. */
     public function attachSprites(box:FlxSprite, bg:FlxSprite, bar:FlxSprite):Void
     {
         sprBox = box;
@@ -412,7 +412,7 @@ class SoundTrayContainer extends openfl.display.Sprite
 
         var elapsed = FlxG.elapsed;
 
-        // Sincronizar barras a la posición del box (el tween mueve box.y)
+        // Sincronizar barras to the position of the box (the tween moves box.and)
         _syncBars();
 
         sprBox.update(elapsed);

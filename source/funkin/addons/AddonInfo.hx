@@ -7,7 +7,7 @@ package funkin.addons;
  * {
  *   "id":          "my-addon",
  *   "name":        "My Addon",
- *   "description": "Añade mecánicas de combo extendidas",
+ *   "description": "Adds mechanics of combo extendidas",
  *   "author":      "NombreAutor",
  *   "version":     "1.0.0",
  *   "priority":    10,
@@ -35,15 +35,15 @@ package funkin.addons;
  * }
  */
 typedef AddonInfo = {
-	/** Identificador único del addon (nombre de carpeta). */
+	/** Identificador unique of the addon (nombre of folder). */
 	var id: String;
 	/** Nombre visible. */
 	var name: String;
-	/** Descripción. */
+	/** Description. */
 	var ?description: String;
 	/** Autor. */
 	var ?author: String;
-	/** Versión semántica. */
+	/** Version semántica. */
 	var ?version: String;
 	/** Prioridad de carga (mayor = se carga antes). Default: 0. */
 	var ?priority: Int;
@@ -65,13 +65,13 @@ typedef AddonInfo = {
 	var ?hooks: Dynamic;
 
 	/**
-	 * IDs de mods con los que este addon es compatible/diseñado.
-	 * Si es null/vacío = compatible con todos.
+	 * IDs of mods with the that this addon is compatible/diseñado.
+	 * If is null/empty = compatible with all.
 	 */
 	var ?modCompat: Array<String>;
 
 	/**
-	 * Addons requeridos (con versión mínima opcional).
+	 * Addons requeridos (with version minimal optional).
 	 * Ejemplo: ["base-addon >= 1.0.0"]
 	 */
 	var ?requires: Array<String>;

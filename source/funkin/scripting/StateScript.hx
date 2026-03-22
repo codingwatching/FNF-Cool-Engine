@@ -22,10 +22,10 @@ import flixel.util.FlxTimer;
  *     assets/states/{NombreDelEstado}/
  *     mods/{mod}/states/{NombreDelEstado}/
  *
- * El engine inyecta automáticamente:
- *   `state`  → instancia del FlxState  (acceso a TODOS los campos públicos)
+ * The engine inyecta automatically:
+ *   `state`  → instance of the FlxState  (acceso to all the fields public)
  *
- * ─── Ejemplo básico ─────────────────────────────────────────────────────────
+ * ─── Basic example ─────────────────────────────────────────────────────────
  *
  *   class MiScript extends StateScript {
  *     override function onCreate() {
@@ -41,8 +41,8 @@ import flixel.util.FlxTimer;
  *     }
  *
  *     override function onBack():Bool {
- *       trace("El jugador intentó salir");
- *       return false; // no cancelar la acción
+ *       trace("The player intentó salir");
+ *       return false; // no cancelar the action
  *     }
  *   }
  *
@@ -50,7 +50,7 @@ import flixel.util.FlxTimer;
  *
  *   getVar("nombreVariable")    — leer cualquier campo del estado
  *   setVar("nombreVariable", v) — modificar cualquier campo del estado
- *   callMethod("metodo", args)  — llamar cualquier método del estado
+ *   callMethod("metodo", args)  — callr cualquier method of the state
  *
  *   // Ejemplo: acceder a estado de FreeplayState
  *   var currentSong = getVar("selectedSong");
@@ -60,37 +60,37 @@ import flixel.util.FlxTimer;
  *
  *   LIFECYCLE:
  *     onCreate()                   — al crear el estado
- *     postCreate()                 — después de crear
+ *     postCreate()                 — after of create
  *     onUpdate(elapsed)            — cada frame
- *     onUpdatePost(elapsed)        — después del update
+ *     onUpdatePost(elapsed)        — after of the update
  *     onDestroy()                  — al destruir
  *     onFocusLost()                — al perder foco de la ventana
  *     onFocus()                    — al recuperar foco
  *
  *   INPUT:
- *     onBack()  → Bool             — acción "atrás/escape" (true=cancelar)
- *     onAccept() → Bool            — acción "aceptar/enter" (true=cancelar)
+ *     onBack()  → Bool             — action "back/escape" (true=cancelar)
+ *     onAccept() → Bool            — action "aceptar/enter" (true=cancelar)
  *     onKeyPressed(key)            — tecla presionada (string con nombre)
- *     onKeyJustPressed(key)        — tecla recién presionada
+ *     onKeyJustPressed(key)        — key recién presionada
  *     onKeyReleased(key)           — tecla soltada
  *
  *   BEAT/STEP (si el estado hereda de MusicBeatState):
  *     onBeatHit(beat)              — cada beat musical
  *     onStepHit(step)              — cada step musical
  *
- *   MENÚ PRINCIPAL:
- *     getCustomMenuItems() → Array<String>   — ítems extra en el menú
- *     onMenuItemSelected(item, index)        — ítem seleccionado
+ *   menu main:
+ *     getCustomMenuItems() → Array<String>   — items extra in the menu
+ *     onMenuItemSelected(item, index)        — item seleccionado
  *
  *   OPCIONES:
  *     getCustomOptions() → Array<Dynamic>    — opciones extra
- *     getCustomCategories() → Array<String>  — categorías extra
- *     onOptionSelected(name)                 — opción seleccionada
- *     onOptionChanged(name, value)           — valor de opción cambió
- *     onSelectionChanged(index)              — selección movida
+ *     getCustomCategories() → Array<String>  — categories extra
+ *     onOptionSelected(name)                 — option seleccionada
+ *     onOptionChanged(name, value)           — value of option changed
+ *     onSelectionChanged(index)              — selection movida
  *
  *   FREEPLAY:
- *     onSongSelected(song)                   — canción seleccionada
+ *     onSongSelected(song)                   — song seleccionada
  *     onDifficultyChanged(diff)              — dificultad cambiada
  *     getCustomSongs() → Array<Dynamic>      — canciones extra
  *
@@ -116,7 +116,7 @@ class StateScript
 	public var version     : String   = '1.0.0';
 	public var active      : Bool     = true;
 
-	/** El FlxState al que pertenece este script. Asignado automáticamente. */
+	/** The FlxState to the that pertenece this script. Asignado automatically. */
 	public var state       : FlxState;
 
 	public function new() {}
@@ -142,7 +142,7 @@ class StateScript
 	/** Llamado cuando una tecla es presionada (mantenida). */
 	public function onKeyPressed(key:String):Void {}
 
-	/** Llamado cuando una tecla es recién presionada (solo el primer frame). */
+	/** Calldo when a key is recién presionada (only the first frame). */
 	public function onKeyJustPressed(key:String):Void {}
 
 	/** Llamado cuando una tecla es soltada. */
@@ -156,9 +156,9 @@ class StateScript
 	/** Llamado en cada step musical (si el estado es MusicBeatState). */
 	public function onStepHit(step:Int):Void {}
 
-	// ─── Menú ─────────────────────────────────────────────────────────────────
+	// ─── Menu ─────────────────────────────────────────────────────────────────
 
-	/** Añade items extra al menú principal. */
+	/** Adds items extra to the menu main. */
 	public function getCustomMenuItems():Array<String>     return [];
 	public function onMenuItemSelected(item:String, index:Int):Void {}
 
@@ -190,7 +190,7 @@ class StateScript
 	public function onIntroComplete():Void {}
 	public function onIntroBeat(beat:Int):Void {}
 
-	/** Sobreescribe el texto de intro. Array vacío = usar el por defecto. */
+	/** Sobreescribe the text of intro. Array empty = usar the by default. */
 	public function getIntroText():Array<String>           return [];
 
 	// ─── Transiciones ─────────────────────────────────────────────────────────
@@ -201,8 +201,8 @@ class StateScript
 	// ─── Acceso completo al estado ────────────────────────────────────────────
 
 	/**
-	 * Obtiene CUALQUIER campo del estado por reflexión.
-	 * Funciona incluso con campos privados o específicos del estado.
+	 * Gets any field of the state by reflection.
+	 * Works incluso with fields privados or específicos of the state.
 	 *
 	 * Ejemplo:
 	 *   var selectedSong = getVar("selectedSong");
@@ -212,7 +212,7 @@ class StateScript
 		return state != null ? Reflect.getProperty(state, name) : null;
 
 	/**
-	 * Modifica CUALQUIER campo del estado por reflexión.
+	 * Modifica any field of the state by reflection.
 	 *
 	 * Ejemplo:
 	 *   setVar("canSelect", false);
@@ -225,7 +225,7 @@ class StateScript
 	}
 
 	/**
-	 * Llama CUALQUIER método del estado por reflexión.
+	 * Call any method of the state by reflection.
 	 *
 	 * Ejemplo:
 	 *   callMethod("changeSelection", [1]);
@@ -257,7 +257,7 @@ class StateScript
 
 	// ─── Utilidades de UI ─────────────────────────────────────────────────────
 
-	/** Añade un FlxSprite al estado. */
+	/** Adds a FlxSprite to the state. */
 	public inline function addSprite(sprite:FlxSprite):FlxSprite
 	{
 		if (state != null) state.add(sprite);
@@ -271,11 +271,11 @@ class StateScript
 		return sprite;
 	}
 
-	/** Crea un FlxText con los parámetros dados. */
+	/** Creates a FlxText with the parameters dados. */
 	public function createText(x:Float, y:Float, text:String, size:Int = 16, ?width:Float):FlxText
 		return new FlxText(x, y, width != null ? Std.int(width) : 0, text, size);
 
-	/** Crea un FlxSprite de color sólido. */
+	/** Creates a FlxSprite of color solid. */
 	public function createRect(x:Float, y:Float, w:Int, h:Int, color:Int = 0xFFFFFFFF):FlxSprite
 	{
 		var spr = new FlxSprite(x, y);
@@ -293,13 +293,13 @@ class StateScript
 	public function timer(seconds:Float, callback:Void->Void):FlxTimer
 		return new FlxTimer().start(seconds, function(_) callback());
 
-	// ─── Cámara ───────────────────────────────────────────────────────────────
+	// ─── Camera ───────────────────────────────────────────────────────────────
 
-	/** Flash de la cámara actual. */
+	/** Flash of the camera current. */
 	public function cameraFlash(color:Int = 0xFFFFFFFF, duration:Float = 0.5):Void
 		FlxG.camera.flash(color, duration);
 
-	/** Shake de la cámara actual. */
+	/** Shake of the camera current. */
 	public function cameraShake(intensity:Float = 0.05, duration:Float = 0.3):Void
 		FlxG.camera.shake(intensity, duration);
 
@@ -309,7 +309,7 @@ class StateScript
 	public function playSound(path:String, volume:Float = 1.0):Dynamic
 		return FlxG.sound.play(Paths.sound(path), volume);
 
-	/** Reproduce música. */
+	/** Reproduce music. */
 	public function playMusic(path:String, volume:Float = 1.0):Void
 		FlxG.sound.playMusic(Paths.music(path), volume);
 

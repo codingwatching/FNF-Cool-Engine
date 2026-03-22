@@ -1,20 +1,20 @@
 package funkin.gameplay.notes;
 
 /**
- * NotePool — STUB. El pool real está en NoteRenderer (instancia por canción).
+ * NotePool — STUB. The pool actual is in NoteRenderer (instance by song).
  *
- * ¿Por qué existe este stub?
- *  - La versión anterior tenía DOS sistemas de pool simultáneos:
- *      1. NotePool (estático, FlxTypedSpriteGroup) — inicializado pero NUNCA usado para
+ * Why does this stub exist?
+ *  - The version previous tenía DOS systems of pool simultáneos:
+ *      1. NotePool (static, FlxTypedSpriteGroup) — inicializado but never usado for
  *         spawning real. Sus notas prewarm'd eran RAM desperdiciada.
- *      2. NoteRenderer.notePool/sustainPool (por instancia, Array<Note>) — el que SÍ
+ *      2. NoteRenderer.notePool/sustainPool (by instance, Array<Note>) — the that itself
  *         maneja todas las notas en gameplay via getNote()/recycleNote().
  *  - Tener dos pools duplicaba GC pressure: 32 Note prewarm'd × 2 grupos = 64 objetos
- *    con texturas que nunca se utilizaban, más el overhead de FlxTypedSpriteGroup.
+ *    with textures that never is utilizaban, more the overhead of FlxTypedSpriteGroup.
  *  - Este stub mantiene la API para que OptimizationManager y PlayState compilen
  *    sin cambios mientras se elimina el pool duplicado.
  *
- * El pool real se puede consultar vía NoteRenderer.getPoolStats().
+ * The pool actual is puede consultar via NoteRenderer.getPoolStats().
  */
 class NotePool
 {
@@ -43,7 +43,7 @@ class NotePool
 
 	public static function getStats():String
 	{
-		// Las stats reales las reporta NoteRenderer vía NoteManager.getPoolStats()
+		// The stats reales the reporta NoteRenderer via NoteManager.getPoolStats()
 		// que OptimizationManager puede consultar si tiene ref a PlayState.
 		return '[NotePool] Delegado a NoteRenderer — ver NoteManager.getPoolStats()';
 	}

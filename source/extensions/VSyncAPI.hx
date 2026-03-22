@@ -1,18 +1,18 @@
 package extensions;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VSyncAPI — Control nativo de VSync en tiempo de ejecución.
+// VSyncAPI — Native VSync control at runtime.
 //
 // Implementa VSync sin depender de lime.ui.Window.vsync (que no existe
 // en muchas versiones de Lime) accediendo directamente a la API de
 // intercambio de buffers OpenGL de cada plataforma:
 //
-//   Windows  → wglSwapIntervalEXT   (extensión WGL_EXT_swap_control)
+//   Windows  → wglSwapIntervalEXT   (WGL_EXT_swap_control extension)
 //   Linux    → glXSwapIntervalMESA  (MESA) + glXSwapIntervalEXT (SGI) fallback
 //   macOS    → CGLSetParameter(kCGLCPSwapInterval)
 //
 // En todas las plataformas:
-//   0 = VSync OFF  (sin límite / tan rápido como la GPU pueda)
+//   0 = VSync OFF  (no limit / as fast as the GPU can)
 //   1 = VSync ON   (sincronizado con el refresco del monitor)
 //
 // Uso desde Haxe:
@@ -56,7 +56,7 @@ static void _initVSyncProcs() {
 ')
 class VSyncAPI
 {
-    /** Activa o desactiva el VSync a través de wglSwapIntervalEXT. */
+    /** Activates or deactivates VSync via wglSwapIntervalEXT. */
     @:functionCode('
         _initVSyncProcs();
         if (_wglSwapIntervalEXT != nullptr) {
@@ -65,7 +65,7 @@ class VSyncAPI
     ')
     public static function setVSync(enable:Bool):Void {}
 
-    /** Devuelve true si el VSync está activo. */
+    /** Returns true if the VSync is active. */
     @:functionCode('
         _initVSyncProcs();
         if (_wglGetSwapIntervalEXT != nullptr) {
@@ -93,9 +93,9 @@ static PFNGLXSWAPINTERVALMESAPROC    _glXSwapIntervalMESA = nullptr;
 static PFNGLXGETSWAPINTERVALMESAPROC _glXGetSwapIntervalMESA = nullptr;
 static bool _glx_initialized = false;
 
-// Carga un símbolo de la librería GL dinámicamente
+// Dynamically load a symbol from the GL library
 static void* _glGetProc(const char* name) {
-    // Intentar via glXGetProcAddressARB primero (más portable)
+    // Intentar via glXGetProcAddressARB first (more portable)
     typedef void* (*PFNglXGetProcAddressARB)(const GLubyte*);
     static PFNglXGetProcAddressARB _glXGetProcAddressARB = nullptr;
     if (!_glXGetProcAddressARB) {

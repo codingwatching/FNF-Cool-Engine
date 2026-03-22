@@ -3,28 +3,28 @@ package funkin.data;
 import flixel.FlxG;
 
 /**
- * EngineSettings — Configuración centralizada del engine.
+ * EngineSettings — Centralized engine configuration.
  *
  * ─── Bugs que resuelve ───────────────────────────────────────────────────────
  *
  *  FPS NO CAMBIA
  *    El campo de guardado era 'FPSCap' (obsoleto). El engine ya usa 'fpsTarget',
- *    pero la pantalla de opciones seguía escribiendo en el campo viejo, por lo que
+ *    but the options screen kept writing to the old field, por lo que
  *    el cambio nunca se aplicaba al reinicar. Esta clase migra el campo
- *    automáticamente y garantiza que el cambio se aplica a AMBOS framerates
+ *    automatically and guarantees that the cambio is applies to AMBOS framerates
  *    de Flixel (drawFramerate + updateFramerate).
  *
- *  VENTANA SE HACE PEQUEÑA AL INICIAR
+ *  WINDOW SHRINKS ON STARTUP
  *    En Windows con DPI > 100 %, Lime a veces reduce la ventana porque
- *    interpreta el tamaño lógico según el DPI del sistema. La llamada a
+ *    interpreta the size lógico according to the DPI of the system. The callda to
  *    SetProcessDPIAware() en InitAPI debe suceder ANTES de que se cree la
- *    ventana (lo gestiona Main). Esta clase fuerza el tamaño correcto DESPUÉS
- *    de que la ventana existe, actuando como segunda línea de defensa.
+ *    window (it manages Main). This class forces the size correct after
+ *    de que la ventana existe, actuando como second line of defense.
  *
- *  RESOLUCIÓN POR DEFECTO
- *    La resolución por defecto pasa a ser 1920×1080. La opción de resolución
- *    personalizada queda eliminada del menú de opciones; el juego siempre
- *    ocupa 1080p (o ajusta al monitor si es más pequeño).
+ *  DEFAULT RESOLUTION
+ *    The default resolution becomes 1920×1080. The option of resolution
+ *    personalizada queda eliminada of the menu of options; the game always
+ *    ocupa 1080p (or ajusta to the monitor if is more small).
  *
  * @author  Cool Engine Team
  * @since   0.6.0
@@ -36,13 +36,13 @@ class EngineSettings
 	/** FPS por defecto en desktop. */
 	public static inline var DEFAULT_FPS:Int = 60;
 
-	/** FPS mínimo aceptado. */
+	/** Minimum accepted FPS. */
 	public static inline var MIN_FPS:Int = 30;
 
-	/** FPS máximo aceptado. 0 = sin límite. */
+	/** Maximum accepted FPS. 0 = no limit. */
 	public static inline var MAX_FPS:Int = 2000;
 
-	// ── Resolución ───────────────────────────────────────────────────────────
+	// ── Resolution ───────────────────────────────────────────────────────────
 
 	/** Ancho por defecto (1080p). */
 	public static inline var DEFAULT_WIDTH:Int = 1920;
@@ -57,7 +57,7 @@ class EngineSettings
 	/**
 	 * Aplica el FPS guardado al engine.
 	 *
-	 * Lógica de migración:
+	 * Migration logic:
 	 *   • Si 'FPSCap' existe y 'fpsTarget' es null → migrar y guardar.
 	 *   • Si 'fpsTarget' existe → usar ese valor directamente.
 	 *   • Si ninguno existe → usar DEFAULT_FPS.
@@ -68,7 +68,7 @@ class EngineSettings
 	{
 		var fps:Int = DEFAULT_FPS;
 
-		// ── Migración automática del campo obsoleto ──────────────────────────
+		// ── Automatic migration of obsolete field ──────────────────────────
 		if (FlxG.save.data.FPSCap != null && FlxG.save.data.fpsTarget == null)
 		{
 			trace('[EngineSettings] Migrando FPSCap → fpsTarget (valor: ${FlxG.save.data.FPSCap})');
@@ -80,7 +80,7 @@ class EngineSettings
 		if (FlxG.save.data.fpsTarget != null)
 			fps = Std.int(FlxG.save.data.fpsTarget);
 
-		// Forzar rango válido
+		// Force rango valid
 		fps = clampFPS(fps);
 
 		_applyFPSRaw(fps);
@@ -92,7 +92,7 @@ class EngineSettings
 	 * Usar desde la pantalla de opciones en lugar de escribir directamente en
 	 * FlxG.save.data.
 	 *
-	 * @param fps  Valor deseado. Se clampea automáticamente a [MIN_FPS, MAX_FPS].
+	 * @param fps  Value deseado. Is clampea automatically to [MIN_FPS, MAX_FPS].
 	 */
 	public static function setFPS(fps:Int):Void
 	{
@@ -124,22 +124,22 @@ class EngineSettings
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Garantiza que la ventana tenga el tamaño correcto (1080p).
+	 * Guarantees that the window tenga the size correct (1080p).
 	 *
-	 * Se llama desde CacheState.goToTitle() como segunda línea de defensa
+	 * Se call desde CacheState.goToTitle() como second line of defense
 	 * contra el encogimiento de ventana por DPI scaling en Windows.
 	 *
-	 * Si el monitor es más pequeño que 1920×1080 se respeta el tamaño del monitor.
+	 * If the monitor is more small that 1920×1080 is respeta the size of the monitor.
 	 */
 	/**
 	 * Centra la ventana en la pantalla sin redimensionarla.
 	 *
-	 * IMPORTANTE — NO hacer resize aquí:
-	 *   Redimensionar a resolución de pantalla completa (1920×1080) en Windows
-	 *   activa el modo pseudo-fullscreen automáticamente, incluso con -2px de margen.
-	 *   El tamaño de ventana lo fija Project.xml (<window width="1280" height="720"/>).
-	 *   El juego siempre renderiza en 1080p internamente vía la cámara de Flixel,
-	 *   independientemente del tamaño de la ventana del SO.
+	 * IMPORTANTE — no do resize here:
+	 *   Redimensionar to resolution of screen complete (1920×1080) in Windows
+	 *   active the modo pseudo-fullscreen automatically, incluso with -2px of margen.
+	 *   The size of window it fija Project.xml (<window width="1280" height="720"/>).
+	 *   The game always renders in 1080p internamente via the camera of Flixel,
+	 *   independientemente of the size of the window of the SO.
 	 */
 	public static function ensureWindowSize():Void
 	{
@@ -186,7 +186,7 @@ class EngineSettings
 		}
 	}
 
-	/** Clampea un valor de FPS al rango válido. 0 = sin límite, se permite pasar. */
+	/** Clampea a value of FPS to the rango valid. 0 = no limit, is allows pasar. */
 	static inline function clampFPS(fps:Int):Int
 	{
 		if (fps == 0)

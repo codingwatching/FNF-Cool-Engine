@@ -47,10 +47,10 @@ class StateTransition
 	public static var globalEaseIn:EaseFunction = null; // null = cubeInOut
 	public static var globalEaseOut:EaseFunction = null;
 
-	/** Si false, no se hace ninguna transición (útil para debug). */
+	/** If false, no is hace none transition (useful for debug). */
 	public static var enabled:Bool = true;
 
-	// ─── Override para el PRÓXIMO switch (se consume una vez) ─────────────────
+	// ─── Override for the next switch (is consume a vez) ─────────────────
 	private static var _nextType:Null<TransitionType> = null;
 	private static var _nextDuration:Null<Float> = null;
 	private static var _nextColor:Null<Int> = null;
@@ -59,10 +59,10 @@ class StateTransition
 
 	// ─── Custom callbacks (scripts) ───────────────────────────────────────────
 
-	/** Función de salida custom: recibe callback `done` que debe llamarse al terminar. */
+	/** Function of output custom: receives callback `done` that debe callrse to the terminar. */
 	public static var customOut:Null<(Void->Void)->Void> = null;
 
-	/** Función de entrada custom: se llama cuando el nuevo estado ya está creado. */
+	/** Function of entry custom: is call when the new state already is creado. */
 	public static var customIn:Null<Void->Void> = null;
 
 	// ─── Estado interno ───────────────────────────────────────────────────────
@@ -77,15 +77,15 @@ class StateTransition
 	private static var _active:Bool = false;
 
 	// ═════════════════════════════════════════════════════════════════════════
-	//  API PÚBLICA
+	//  API public
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Configura la transición para el PRÓXIMO switchState solamente.
+	 * Configures the transition for the next switchState solamente.
 	 * Se descarta tras usarse (no afecta transiciones posteriores).
 	 *
-	 * @param type     Tipo de transición (String o TransitionType)
-	 * @param duration Duración total en segundos
+	 * @param type     Type of transition (String or TransitionType)
+	 * @param duration Duration total in segundos
 	 * @param color    Color del overlay (ARGB)
 	 */
 	public static function setNext(?type:Dynamic, ?duration:Float, ?color:Int, ?easeIn:EaseFunction, ?easeOut:EaseFunction):Void
@@ -98,7 +98,7 @@ class StateTransition
 	}
 
 	/**
-	 * Cambia la configuración global (afecta todos los switches siguientes).
+	 * Changes the configuration global (afecta all the switches siguientes).
 	 */
 	public static function setGlobal(?type:Dynamic, ?duration:Float, ?color:Int, ?easeIn:EaseFunction, ?easeOut:EaseFunction):Void
 	{
@@ -115,9 +115,9 @@ class StateTransition
 	}
 
 	/**
-	 * Registra una función de salida custom para el próximo switch.
-	 * La función recibe un callback `done:Void->Void` que DEBE llamarse
-	 * cuando la animación de salida termina.
+	 * Registra a function of output custom for the next switch.
+	 * The function receives a callback `done:Void->Void` that DEBE callrse
+	 * when the animation of output termina.
 	 *
 	 * Ejemplo HScript:
 	 *   StateTransition.setCustomOut(function(done) {
@@ -130,15 +130,15 @@ class StateTransition
 		_nextType = CUSTOM;
 	}
 
-	/** Registra una función de entrada custom (se llama en el nuevo state). */
+	/** Registra a function of entry custom (is call in the new state). */
 	public static function setCustomIn(fn:Void->Void):Void
 	{
 		customIn = fn;
 	}
 
 	/**
-	 * Hace un switchState con transición suave.
-	 * Compatible con StickerTransition: si los stickers están activos,
+	 * Hace a switchState with transition suave.
+	 * Compatible with StickerTransition: if the stickers are activos,
 	 * simplemente hace el switch sin overlay para no pelear con ellos.
 	 */
 	public static function switchState(target:FlxState, ?type:Dynamic, ?duration:Float, ?color:Int):Void
@@ -146,7 +146,7 @@ class StateTransition
 		if (type != null || duration != null || color != null)
 			setNext(type, duration, color);
 
-		// Si StickerTransition está corriendo, no meter un overlay encima.
+		// If StickerTransition is corriendo, no meter a overlay above.
 		if (StickerTransition.isActive())
 		{
 			_consumeNext(); // descartar override sin usar
@@ -165,8 +165,8 @@ class StateTransition
 	}
 
 	/**
-	 * Llamado automáticamente por MusicBeatState.create() para reproducir
-	 * la animación de entrada ("intro") en el nuevo state.
+	 * Calldo automatically by MusicBeatState.create() for play
+	 * the animation of entry ("intro") in the new state.
 	 * No llamar manualmente salvo en estados custom que no extiendan MusicBeatState.
 	 */
 	public static function onStateCreated():Void
@@ -200,7 +200,7 @@ class StateTransition
 		});
 	}
 
-	/** Devuelve true si hay una transición en curso. */
+	/** Returns true if there is a transition in curso. */
 	public static inline function isActive():Bool
 		return _active;
 
@@ -218,7 +218,7 @@ class StateTransition
 
 	static function _performSwitch(target:FlxState):Void
 	{
-		// Resolver parámetros (override de próximo switch > global)
+		// Resolve parameters (override of next switch > global)
 		var type = _nextType ?? globalType;
 		var duration = _nextDuration ?? globalDuration;
 		var color = _nextColor ?? globalColor;
@@ -226,7 +226,7 @@ class StateTransition
 		var easeIn = _nextEaseIn ?? globalEaseIn ?? FlxEase.cubeInOut;
 		_consumeNext();
 
-		// Guardar parámetros para el intro del nuevo state
+		// Save parameters for the intro of the new state
 		_pendingType = type;
 		_pendingDuration = duration;
 		_pendingColor = color;
@@ -258,7 +258,7 @@ class StateTransition
 			return;
 		}
 
-		// Animación de "salida" (cubrir pantalla)
+		// Animation of "output" (cubrir screen)
 		_overlay.setup(type, color);
 		_overlay.attach();
 		_overlay.animateOut_reverse(type, halfDur, easeOut, function()
@@ -312,8 +312,8 @@ class StateTransition
 // ═════════════════════════════════════════════════════════════════════════════
 
 /**
- * Sprite OpenFL que dibuja el overlay de transición.
- * Z-order: debajo de StickerTransition (que usa 9999), aquí usamos 9998.
+ * Sprite OpenFL that draws the overlay of transition.
+ * Z-order: debajo of StickerTransition (that use 9999), here usamos 9998.
  */
 class TransitionOverlay extends Sprite
 {
@@ -322,7 +322,7 @@ class TransitionOverlay extends Sprite
 
 	private var _color:Int;
 	private var _type:TransitionType;
-	private var _currentProgress:Float = 1.0; // progreso actual de la animación (0-1)
+	private var _currentProgress:Float = 1.0; // progreso current of the animation (0-1)
 
 	public function new()
 	{
@@ -350,8 +350,8 @@ class TransitionOverlay extends Sprite
 		// Usar 9998 para estar debajo de StickerTransition (9999)
 		FlxG.addChildBelowMouse(this, 9998);
 		_resize();
-		// FIX: escuchar cambios de tamaño de ventana para que el overlay
-		// siempre cubra toda la pantalla aunque se redimensione durante la transición.
+		// FIX: escuchar cambios of size of window for that the overlay
+		// always cubra all the screen aunque is redimensione durante the transition.
 		FlxG.stage.addEventListener(openfl.events.Event.RESIZE, _onStageResize);
 	}
 
@@ -608,7 +608,7 @@ class TransitionOverlay extends Sprite
 		}
 	}
 
-	/** Ancho real del stage OpenFL (no la resolución lógica de Flixel). */
+	/** Width actual of the stage OpenFL (no the resolution logic of Flixel). */
 	private inline function _gw():Float
 		return FlxG.stage.stageWidth > 0 ? FlxG.stage.stageWidth : FlxG.width;
 
@@ -616,7 +616,7 @@ class TransitionOverlay extends Sprite
 	private inline function _gh():Float
 		return FlxG.stage.stageHeight > 0 ? FlxG.stage.stageHeight : FlxG.height;
 
-	/** Llamado al redimensionar la ventana — actualiza shape Y posición para slides. */
+	/** Calldo to the redimensionar the window — updates shape and position for slides. */
 	private function _onStageResize(_:openfl.events.Event):Void
 	{
 		_resize();
@@ -627,19 +627,19 @@ class TransitionOverlay extends Sprite
 		_shape.x = 0;
 		_shape.y = 0;
 
-		// Redibujar la shape al nuevo tamaño con el progreso actual
+		// Redibujar the shape to the new size with the progreso current
 		_redraw(_type, _currentProgress);
 
-		// Para slides, la posición X/Y del overlay depende del tamaño de ventana.
-		// Si hay un tween activo, reposicionar según el progreso actual.
+		// For slides, the position X/and of the overlay depende of the size of window.
+		// If there is a tween active, reposicionar according to the progreso current.
 		// _currentProgress va de 0 (oculto) a 1 (cubriendo pantalla).
 		switch (_type)
 		{
 			case SLIDE_LEFT:
 				// animateOut_reverse: x va de -gw→0; animateOut: x va de 0→gw
-				// No podemos saber en qué fase estamos aquí, pero el tween
+				// We can't know what phase we're in here, but the tween
 				// actualiza x en su callback. Solo nos aseguramos de que la
-				// shape se redibuja al tamaño correcto (ya hecho arriba).
+				// shape is redibuja to the size correct (already hecho arriba).
 			case SLIDE_RIGHT:
 				// ídem
 			case SLIDE_UP:
@@ -647,12 +647,12 @@ class TransitionOverlay extends Sprite
 			case SLIDE_DOWN:
 				// ídem
 			default:
-				// FADE y CIRCLE_WIPE no tienen posición — nada más que hacer
+				// FADE and CIRCLE_WIPE no tienen position — nada more that do
 		}
 	}
 
 	/**
-	 * Redibujar la Shape según el tipo y progreso (0=vacío, 1=lleno).
+	 * Redibujar the Shape according to the type and progreso (0=empty, 1=full).
 	 */
 	private function _redraw(type:TransitionType, progress:Float):Void
 	{

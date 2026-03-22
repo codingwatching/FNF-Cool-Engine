@@ -1,7 +1,7 @@
 package funkin.scripting;
 
 /**
- * IScript — interfaz común para cualquier instancia de script del engine.
+ * IScript — interface common for any instance of script of the engine.
  *
  * Actualmente implementada por:
  *   - LuaScriptInstance  (.lua  — linc_luajit)
@@ -14,30 +14,30 @@ package funkin.scripting;
  * ─── Contrato ────────────────────────────────────────────────────────────────
  *
  *   • id / filePath  — identidad del script
- *   • active         — true si el script está cargado y puede recibir calls
+ *   • active         — true if the script is loaded and puede receive calls
  *   • errored        — true si hubo un error irrecuperable
- *   • lastError      — mensaje del último error, o null
- *   • call()         — invocar una función del script por nombre
+ *   • lastError      — mensaje of the last error, or null
+ *   • call()         — invocar a function of the script by nombre
  *   • set() / get()  — leer/escribir variables globales del script
- *   • hasFunction()  — comprobar si una función existe
+ *   • hasFunction()  — check if a function exists
  *   • destroy()      — liberar todos los recursos del script
  */
 interface IScript
 {
-	/** Identificador único del script (normalmente nombre de archivo sin ext). */
+	/** Identificador unique of the script (normalmente nombre of file without ext). */
 	public var id        : String;
-	/** Ruta al archivo fuente, o null si se cargó desde string. */
+	/** Path to the file font, or null if is cargó from string. */
 	public var filePath  (default, null) : Null<String>;
-	/** true si el script está activo y puede recibir llamadas. */
+	/** true if the script is active and puede receive calldas. */
 	public var active    : Bool;
-	/** true si ocurrió un error irrecuperable que desactivó el script. */
+	/** true if ocurrió a error irrecuperable that desactivó the script. */
 	public var errored   : Bool;
-	/** Texto del último error, o null. */
+	/** Text of the last error, or null. */
 	public var lastError : Null<String>;
 
 	/**
-	 * Llama a la función `fn` del script con los argumentos dados.
-	 * Si la función no existe o el script no está activo, devuelve null.
+	 * Call to the function `fn` of the script with the argumentos dados.
+	 * If the function no exists or the script no is active, returns null.
 	 */
 	public function call(fn:String, ?args:Array<Dynamic>):Dynamic;
 
@@ -53,12 +53,12 @@ interface IScript
 	public function get(name:String):Dynamic;
 
 	/**
-	 * Devuelve true si la función global `name` está definida en el script.
+	 * Returns true if the function global `name` is definida in the script.
 	 */
 	public function hasFunction(name:String):Bool;
 
 	/**
-	 * Libera todos los recursos del script (estado Lua, intérprete, etc.).
+	 * Libera all the recursos of the script (state Lua, interpreter, etc.).
 	 * Tras llamar a destroy(), active = false y el script no puede reutilizarse.
 	 */
 	public function destroy():Void;

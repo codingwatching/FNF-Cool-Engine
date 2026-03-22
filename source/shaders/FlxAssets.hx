@@ -8,7 +8,7 @@ class GraphicLogo extends openfl.display.BitmapData {}
 /**
  * FlxShader typedef de compatibilidad.
  *
- * | Condición de compilación       | Tipo resultante                         |
+ * | Compilation condition       | Resulting type                         |
  * |--------------------------------|-----------------------------------------|
  * | openfl_legacy o nme            | Dynamic (no hay sistema de shaders)     |
  * | FLX_DRAW_QUADS (Flixel 5.x)    | flixel.graphics.tile.FlxGraphicsShader  |
@@ -16,7 +16,7 @@ class GraphicLogo extends openfl.display.BitmapData {}
  *
  * NOTA: En Flixel 5.x con FLX_DRAW_QUADS activo, los shaders solo se pueden
  * aplicar a sprites individuales (sprite.shader), NO a FlxCamera via filters.
- * Para efectos de cámara usa siempre openfl.display.Shader / FlxRuntimeShader.
+ * For effects of camera use always openfl.display.Shader / FlxRuntimeShader.
  */
 typedef FlxShader =
 	#if (openfl_legacy || nme)
@@ -28,10 +28,10 @@ typedef FlxShader =
 	#end
 
 /**
- * VirtualInputData — datos de entrada virtual para móvil.
+ * VirtualInputData — virtual input data for mobile.
  *
  * Usa ByteArrayData en OpenFL 9+ y ByteArray en versiones anteriores.
- * La distinción importa porque `@:bitmap` / `@:file` generan clases distintas.
+ * The distinction matters because `@:bitmap` / `@:file` generate different classes.
  */
 @:keep @:file("titlestate/virtual-input.txt")
 class VirtualInputData extends

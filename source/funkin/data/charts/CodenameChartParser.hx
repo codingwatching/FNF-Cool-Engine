@@ -40,7 +40,7 @@ import haxe.Json;
  *   }
  *
  *   "id"   → carril dentro del strumLine (0-3)
- *   "sLen" → duración del hold en ms (0 = tap normal)
+ *   "sLen" → duration of the hold in ms (0 = tap normal)
  *   "time" → tiempo en ms
  *
  * ─── Mapeo de columnas ────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ import haxe.Json;
  */
 class CodenameChartParser
 {
-	// ── API pública ────────────────────────────────────────────────────────
+	// ── API public ────────────────────────────────────────────────────────
 
 	/**
 	 * Carga un chart de Codename Engine desde un archivo .json.
@@ -86,7 +86,7 @@ class CodenameChartParser
 
 		var parsed:Dynamic;
 		try { parsed = Json.parse(content); }
-		catch (e:Dynamic) { trace('[Codename] JSON inválido: $e'); return null; }
+		catch (e:Dynamic) { trace('[Codename] Invalid JSON: $e'); return null; }
 
 		// Verificar que es un chart Codename
 		if (Reflect.field(parsed, 'codenameChart') != true)

@@ -23,15 +23,15 @@ import funkin.data.Conductor;
  *     assets/stages/{nombre_stage}/scripts/
  *     mods/{mod}/songs/{cancion}/scripts/
  *
- * El engine inyecta automáticamente:
- *   `game`  → instancia de PlayState  (acceso a TODOS los campos públicos)
+ * The engine inyecta automatically:
+ *   `game`  → instance of PlayState  (acceso to all the fields public)
  *   `bf`    → boyfriend  (Character)
  *   `dad`   → dad        (Character)
  *   `gf`    → gf         (Character)
  *   `stage` → currentStage (Stage)
  *   `conductor` → Conductor (BPM, beat, step, etc.)
  *
- * ─── Ejemplo básico ─────────────────────────────────────────────────────────
+ * ─── Basic example ─────────────────────────────────────────────────────────
  *
  *   function onCreate() {
  *     game.camGame.zoom = 0.9;
@@ -56,7 +56,7 @@ import funkin.data.Conductor;
  *
  *   game.boyfriend / game.dad / game.gf         — personajes principales
  *   game.currentStage                            — stage actual
- *   game.camGame / game.camHUD / game.camCountdown — cámaras
+ *   game.camGame / game.camHUD / game.camCountdown — cameras
  *   game.health                                  — salud del jugador (0..2)
  *   game.vocals / game.vocalsBf / game.vocalsDad — sonidos
  *   game.notes / game.sustainNotes               — grupos de notas
@@ -67,7 +67,7 @@ import funkin.data.Conductor;
  *   game.uiManager                               — manager del HUD
  *   game.noteManager                             — manager de notas
  *   game.characterController                     — controller de personajes
- *   game.cameraController                        — controller de cámara
+ *   game.cameraController                        — controller of camera
  *   game.gameState                               — estado interno del juego
  *   game.modChartManager                         — sistema modchart
  *   game.countdown                               — countdown del inicio
@@ -81,16 +81,16 @@ import funkin.data.Conductor;
  *
  *   LIFECYCLE:
  *     onCreate()                    — al crear el PlayState
- *     postCreate()                  — después de crear (personajes/stage listos)
+ *     postCreate()                  — after of create (characters/stage listos)
  *     onUpdate(elapsed)             — cada frame
- *     onUpdatePost(elapsed)         — después del update
+ *     onUpdatePost(elapsed)         — after of the update
  *     onDestroy()                   — al destruir
  *
  *   GAMEPLAY:
  *     onBeatHit(beat)               — cada beat musical
  *     onStepHit(step)               — cada step musical
  *     onNoteHit(note)               — nota golpeada por el jugador
- *     onNoteHitPost(note)           — después del procesamiento de nota
+ *     onNoteHitPost(note)           — after of the processing of note
  *     onNoteMiss(note)              — nota perdida
  *     onCpuNoteHit(note)            — nota del CPU
  *     onPlayerNoteHit(note, rating) — nota del jugador con rating
@@ -101,8 +101,8 @@ import funkin.data.Conductor;
  *     onFocusChange(focus)          — "bf", "dad", "gf"
  *
  *   ESTADO:
- *     onSongStart()                 — cuando empieza la música
- *     onSongEnd()                   — cuando termina la canción
+ *     onSongStart()                 — when empieza the music
+ *     onSongEnd()                   — when termina the song
  *     onPause()                     — al pausar
  *     onResume()                    — al reanudar
  *     onGameOver()                  — al morir
@@ -118,20 +118,20 @@ import funkin.data.Conductor;
  *     onCharacterChange(slot, oldName, newName) — cambio de personaje
  *
  *   SALUD:
- *     onHealthChange(prev, curr)    — salud cambió
+ *     onHealthChange(prev, curr)    — salud changed
  *     onHealthDanger(health)        — salud baja (<= 0.3)
  *
- *   CÁMARA:
- *     onCameraMove(x, y)            — la cámara se mueve
- *     onCameraZoom(zoom)            — la cámara hace zoom
+ *   camera:
+ *     onCameraMove(x, and)            — the camera is moves
+ *     onCameraZoom(zoom)            — the camera hace zoom
  *
  * ─── Funciones de ayuda disponibles ─────────────────────────────────────────
  *
- *   // Añadir un sprite al juego
+ *   // Add a sprite to the game
  *   var spr = addSprite(new FlxSprite(100, 100));
  *   spr.makeGraphic(200, 200, FlxColor.RED);
  *
- *   // Añadir un texto
+ *   // Add a text
  *   var txt = addText(100, 100, "Hola!", 32);
  *   txt.color = FlxColor.WHITE;
  *
@@ -152,7 +152,7 @@ import funkin.data.Conductor;
  *
  * ─── Hooks de gameplay ───────────────────────────────────────────────────────
  *
- *   // Añadir un hook personalizado (útil si tienes múltiples scripts)
+ *   // Add a hook personalizado (useful if tienes multiple scripts)
  *   addUpdateHook("miHook", function(elapsed) {
  *     // ejecutado cada frame
  *   });
@@ -174,10 +174,10 @@ class PlayStateScript
 	public var version     : String = '1.0.0';
 	public var active      : Bool   = true;
 
-	/** Instancia del PlayState. Asignada automáticamente por el engine. */
+	/** Instancia of the PlayState. Asignada automatically by the engine. */
 	public var game        : PlayState;
 
-	// ── Shortcuts (asignados automáticamente) ─────────────────────────────────
+	// ── Shortcuts (asignados automatically) ─────────────────────────────────
 
 	/** Alias de game.boyfriend */
 	public var bf          : Character;
@@ -201,13 +201,13 @@ class PlayStateScript
 	/** Llamado cuando el PlayState termina de crear sus sistemas (personajes, stage, notas). */
 	public function onCreate():Void {}
 
-	/** Llamado justo después de onCreate, cuando TODO está listo. */
+	/** Calldo justo after of onCreate, when all is listo. */
 	public function postCreate():Void {}
 
-	/** Llamado cada frame. elapsed = segundos desde el último frame. */
+	/** Calldo each frame. elapsed = segundos from the last frame. */
 	public function onUpdate(elapsed:Float):Void {}
 
-	/** Llamado después del update del engine. */
+	/** Calldo after of the update of the engine. */
 	public function onUpdatePost(elapsed:Float):Void {}
 
 	/** Llamado al destruir el PlayState (cambio de estado). */
@@ -215,16 +215,16 @@ class PlayStateScript
 
 	// ─── Gameplay ─────────────────────────────────────────────────────────────
 
-	/** Llamado en cada beat musical (compás). beat = número de beat desde el inicio. */
+	/** Calldo in each beat musical (compás). beat = number of beat from the start. */
 	public function onBeatHit(beat:Int):Void {}
 
-	/** Llamado en cada step musical (subdivisión del beat). */
+	/** Calldo in each step musical (subdivisión of the beat). */
 	public function onStepHit(step:Int):Void {}
 
 	/** Llamado cuando el jugador golpea una nota. */
 	public function onNoteHit(note:Note):Void {}
 
-	/** Llamado después de procesar un golpe de nota. */
+	/** Calldo after of process a golpe of note. */
 	public function onNoteHitPost(note:Note):Void {}
 
 	/** Llamado cuando el jugador pierde una nota. */
@@ -250,23 +250,23 @@ class PlayStateScript
 	 * @param name  Nombre del evento
 	 * @param v1    Primer valor
 	 * @param v2    Segundo valor
-	 * @param time  Tiempo en ms en el que está posicionado el evento
+	 * @param time  Time in ms in the that is posicionado the event
 	 * @return true para cancelar el comportamiento por defecto del evento
 	 */
 	public function onEvent(name:String, v1:String, v2:String, time:Float):Bool return false;
 
 	/**
-	 * Llamado cuando la cámara cambia de foco.
+	 * Calldo when the camera changes of foco.
 	 * @param focus "bf", "dad", "gf"
 	 */
 	public function onFocusChange(focus:String):Void {}
 
 	// ─── Estado del juego ─────────────────────────────────────────────────────
 
-	/** Llamado cuando empieza a sonar la música. */
+	/** Calldo when empieza to sonar the music. */
 	public function onSongStart():Void {}
 
-	/** Llamado cuando la canción termina (antes de cambiar de estado). */
+	/** Calldo when the song termina (before of change of state). */
 	public function onSongEnd():Void {}
 
 	/** Llamado al pausar el juego. */
@@ -287,7 +287,7 @@ class PlayStateScript
 	 */
 	public function onCountdownTick(tick:Int):Void {}
 
-	/** Llamado cuando el countdown termina y empieza la canción. */
+	/** Calldo when the countdown termina and empieza the song. */
 	public function onCountdownEnd():Void {}
 
 	/** Llamado al inicio de una cutscene. */
@@ -301,14 +301,14 @@ class PlayStateScript
 	/**
 	 * Llamado cuando un personaje baila.
 	 * @param char  El personaje ("bf", "dad", "gf" u otro nombre)
-	 * @param anim  La animación que se reprodujo
+	 * @param anim  The animation that is reprodujo
 	 */
 	public function onCharacterDance(char:String, anim:String):Void {}
 
 	/**
-	 * Llamado cuando un personaje reproduce una animación.
+	 * Calldo when a character reproduce a animation.
 	 * @param char  El personaje
-	 * @param anim  La animación
+	 * @param anim  The animation
 	 */
 	public function onCharacterPlayAnim(char:String, anim:String):Void {}
 
@@ -330,23 +330,23 @@ class PlayStateScript
 	public function onHealthChange(prev:Float, curr:Float):Void {}
 
 	/**
-	 * Llamado cuando la salud está en zona de peligro (<= 0.3).
+	 * Calldo when the salud is in zona of peligro (<= 0.3).
 	 * @param health  Salud actual
 	 */
 	public function onHealthDanger(health:Float):Void {}
 
-	// ─── Cámara ───────────────────────────────────────────────────────────────
+	// ─── Camera ───────────────────────────────────────────────────────────────
 
-	/** Llamado cuando la cámara se mueve a un nuevo punto. */
+	/** Calldo when the camera is moves to a new punto. */
 	public function onCameraMove(x:Float, y:Float):Void {}
 
-	/** Llamado cuando la cámara hace zoom. */
+	/** Calldo when the camera hace zoom. */
 	public function onCameraZoom(zoom:Float):Void {}
 
 	// ─── Funciones de utilidad ────────────────────────────────────────────────
 
 	/**
-	 * Añade un FlxSprite al juego (al camGame).
+	 * Adds a FlxSprite to the game (to the camGame).
 	 * @return El mismo sprite, para encadenar operaciones.
 	 */
 	public function addSprite(sprite:FlxSprite):FlxSprite
@@ -356,7 +356,7 @@ class PlayStateScript
 	}
 
 	/**
-	 * Añade un sprite al HUD (camHUD).
+	 * Adds a sprite to the HUD (camHUD).
 	 */
 	public function addToHUD(sprite:FlxSprite):FlxSprite
 	{
@@ -372,7 +372,7 @@ class PlayStateScript
 	public function removeSprite(sprite:FlxSprite):Void
 		if (game != null) game.remove(sprite, true);
 
-	/** Crea y añade un FlxText al juego. */
+	/** Creates and adds a FlxText to the game. */
 	public function addText(x:Float, y:Float, text:String, size:Int = 16):FlxText
 	{
 		var t = new FlxText(x, y, 0, text, size);
@@ -408,18 +408,18 @@ class PlayStateScript
 	public function playSound(path:String, volume:Float = 1.0):FlxSound
 		return flixel.FlxG.sound.play(Paths.sound(path), volume);
 
-	/** Reproduce música. */
+	/** Reproduce music. */
 	public function playMusic(path:String, volume:Float = 1.0):Void
 		flixel.FlxG.sound.playMusic(Paths.music(path), volume);
 
-	/** Flash de la cámara del juego. */
+	/** Flash of the camera of the game. */
 	public function cameraFlash(color:FlxColor = FlxColor.WHITE, duration:Float = 0.5):Void
 	{
 		if (game?.camGame != null)
 			game.camGame.flash(color, duration);
 	}
 
-	/** Shake de la cámara del juego. */
+	/** Shake of the camera of the game. */
 	public function cameraShake(intensity:Float = 0.05, duration:Float = 0.3):Void
 	{
 		if (game?.camGame != null)
@@ -491,17 +491,17 @@ class PlayStateScript
 	}
 
 	/**
-	 * Obtiene una variable del PlayState por reflexión.
-	 * Útil para acceder a campos privados o nuevos sin modificar esta clase.
+	 * Gets a variable of the PlayState by reflection.
+	 * Useful for acceder to fields privados or new without modificar this class.
 	 */
 	public inline function getVar(varName:String):Dynamic
 		return game != null ? Reflect.getProperty(game, varName) : null;
 
-	/** Modifica una variable del PlayState por reflexión. */
+	/** Modifica a variable of the PlayState by reflection. */
 	public inline function setVar(varName:String, value:Dynamic):Void
 		if (game != null) Reflect.setProperty(game, varName, value);
 
-	/** Llama un método del PlayState por reflexión. */
+	/** Call a method of the PlayState by reflection. */
 	public inline function callMethod(methodName:String, ?args:Array<Dynamic>):Dynamic
 		return game != null ? Reflect.callMethod(game, Reflect.field(game, methodName), args ?? []) : null;
 

@@ -25,8 +25,8 @@ package funkin.menus;
  *        "header": "Directores",
  *        "headerColor": "FF4CA0",
  *        "body": [
- *          { "line": "ninjamuffin99 — Programación" },
- *          { "line": "PhantomArcade — Animación" }
+ *          { "line": "ninjamuffin99 — Programming" },
+ *          { "line": "PhantomArcade — Animation" }
  *        ]
  *      }
  *    ]
@@ -58,7 +58,7 @@ class CreditsState extends funkin.states.MusicBeatState
 	static final SCREEN_PAD = 140;
 	static final FONT_HEADER = 40;
 	static final FONT_BODY = 28;
-	static final LINE_SPACING = 8; // px extra entre líneas
+	static final LINE_SPACING = 8; // px extra between lines
 	static final SECTION_GAP = 60; // px entre secciones
 	static final COLOR_HEADER_DEF = 0xFFFFFFFF;
 	static final COLOR_BODY_DEF = 0xFFCCCCCC;
@@ -76,11 +76,11 @@ class CreditsState extends funkin.states.MusicBeatState
 	public var bg:FlxSprite;
 	public var creditsGroup:FlxSpriteGroup;
 
-	// ── Construcción lazy ──────────────────────────────────────────────────
+	// ── Build lazy ──────────────────────────────────────────────────
 	var _entries:Array<CreditsEntry> = [];
-	var _entryIdx:Int = 0; // índice de la entrada actual
-	var _lineIdx:Int = 0; // sub-índice dentro de la entrada (0 = header, 1+ = body)
-	var _buildY:Float = 0; // Y relativa al grupo donde añadir la próxima línea
+	var _entryIdx:Int = 0; // index of the entry current
+	var _lineIdx:Int = 0; // sub-index dentro of the entry (0 = header, 1+ = body)
+	var _buildY:Float = 0; // and relativa to the grupo where add the next line
 	var _allBuilt:Bool = false;
 
 	// ── Estado interno ─────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ class CreditsState extends funkin.states.MusicBeatState
 
 	override function create():Void
 	{
-		super.create(); // MusicBeatState carga automáticamente assets/states/CreditsState/
+		super.create(); // MusicBeatState load automatically assets/states/CreditsState/
 
 		#if desktop
 		DiscordClient.changePresence("In the Credits", null);
@@ -109,18 +109,18 @@ class CreditsState extends funkin.states.MusicBeatState
 		bottomBar.scrollFactor.set();
 		add(bottomBar);
 
-		// ── Grupo de créditos ──────────────────────────────────────────────
+		// ── Grupo of credits ──────────────────────────────────────────────
 		creditsGroup = new FlxSpriteGroup();
 		creditsGroup.x = SCREEN_PAD;
 		creditsGroup.y = FlxG.height / 1.5; // empieza dos pantallas abajo para que no pop al inicio
 		add(creditsGroup);
 
-		// ── Datos de créditos ──────────────────────────────────────────────
+		// ── Datos of credits ──────────────────────────────────────────────
 		CreditsDataHandler.reload();
 		final data = CreditsDataHandler.get();
 		_entries = (data != null && data.entries != null) ? data.entries : [];
 
-		// ── Música ─────────────────────────────────────────────────────────
+		// ── Music ─────────────────────────────────────────────────────────
 		// Cambia a freeplayRandom. MusicManager lo hace solo si la pista es diferente.
 		MusicManager.play('freeplayRandom/freeplayRandom', 0.0);
 		if (FlxG.sound.music != null)
@@ -137,11 +137,11 @@ class CreditsState extends funkin.states.MusicBeatState
 	{
 		super.update(elapsed);
 
-		// Fade-in de música
+		// Fade-in of music
 		if (FlxG.sound.music != null && FlxG.sound.music.volume < 0.7)
 			FlxG.sound.music.volume = Math.min(0.7, FlxG.sound.music.volume + 0.5 * elapsed);
 
-		// ── Construcción lazy ──────────────────────────────────────────────
+		// ── Build lazy ──────────────────────────────────────────────
 		if (!_allBuilt)
 			_buildPendingLines();
 
@@ -156,7 +156,7 @@ class CreditsState extends funkin.states.MusicBeatState
 
 		creditsGroup.y -= spd * elapsed;
 
-		// ── Culling + fade-in basado en posición en pantalla ──────────────
+		// ── Culling + fade-in basado in position in screen ──────────────
 		final fadeZoneBottom = 100.0;
 		creditsGroup.forEachExists(function(s:FlxSprite)
 		{
@@ -175,7 +175,7 @@ class CreditsState extends funkin.states.MusicBeatState
 				s.alpha = 1.0;
 		});
 
-		// ── Detectar fin de créditos ───────────────────────────────────────
+		// ── Detect end of credits ───────────────────────────────────────
 		if (!_hasEnded && _allBuilt && creditsGroup.getFirstExisting() == null)
 		{
 			_hasEnded = true;
@@ -193,11 +193,11 @@ class CreditsState extends funkin.states.MusicBeatState
 		ScriptHandler.callOnScripts('onUpdate', [elapsed]);
 	}
 
-	// ── Construcción lazy ────────────────────────────────────────────────────
+	// ── Build lazy ────────────────────────────────────────────────────
 
 	/**
-	 * Construye líneas mientras el frente del contenido
-	 * esté dentro del viewport (+ prefetch de 200px).
+	 * Construye lines mientras the frente of the contenido
+	 * is inside of the viewport (+ prefetch of 200px).
 	 */
 	function _buildPendingLines():Void
 	{
@@ -223,7 +223,7 @@ class CreditsState extends funkin.states.MusicBeatState
 					final t = _makeLine(entry.header, _buildY, true, hColor);
 					_buildY += t.height + LINE_SPACING;
 					_lineIdx = 1;
-					return; // una sola línea por frame
+					return; // a sola line by frame
 				}
 				else
 				{
@@ -251,7 +251,7 @@ class CreditsState extends funkin.states.MusicBeatState
 	}
 
 	/**
-	 * Crea o recicla un FlxText y lo añade al creditsGroup.
+	 * Creates or recicla a FlxText and it adds to the creditsGroup.
 	 * Usa el objeto pool interno de FlxSpriteGroup.
 	 */
 	function _makeLine(text:String, yPos:Float, isHeader:Bool, color:FlxColor):FlxText
@@ -293,11 +293,11 @@ class CreditsState extends funkin.states.MusicBeatState
 		}
 	}
 
-	// ── API pública (para scripts) ────────────────────────────────────────────
+	// ── API public (for scripts) ────────────────────────────────────────────
 
 	/**
-	 * Añade una entrada extra a los créditos (solo funciona antes de _allBuilt).
-	 * Útil para mods que quieran añadir créditos via script en runtime.
+	 * Adds a entry extra to the credits (only works before of _allBuilt).
+	 * Useful for mods that quieran add credits via script in runtime.
 	 */
 	public function addEntry(entry:CreditsEntry):Void
 	{
@@ -305,7 +305,7 @@ class CreditsState extends funkin.states.MusicBeatState
 			_entries.push(entry);
 	}
 
-	/** Salta al final de los créditos. */
+	/** Salta to the end of the credits. */
 	public function skipToEnd():Void
 	{
 		_allBuilt = true;

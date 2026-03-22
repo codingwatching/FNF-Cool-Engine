@@ -28,9 +28,9 @@ import openfl.ui.Keyboard;
  *   F5           → limpiar log
  *   Scroll arriba/abajo → desplazar historial
  *
- * INTERCEPTACIÓN AUTOMÁTICA:
+ * INTERCEPTACIÓN automatic:
  *   Sobreescribe haxe.Log.trace para capturar TODOS los trace() del juego.
- *   Los errores no capturados de OpenFL también se muestran si está activo.
+ *   The errors no capturados of OpenFL also is muestran if is active.
  */
 class GameDevConsole
 {
@@ -72,7 +72,7 @@ class GameDevConsole
 
 	/**
 	 * Inicializa la consola. Llama esto en Main.hx o al entrar al primer estado.
-	 * Si ya está inicializada, no hace nada.
+	 * If already is inicializada, no hace nothing.
 	 */
 	public static function init():Void
 	{
@@ -92,7 +92,7 @@ class GameDevConsole
 		_overlay.addChild(_bg);
 		_drawBg();
 
-		// Campo título / toolbar
+		// Field title / toolbar
 		_titleField = _makeTextField(PADDING, PADDING, CONSOLE_W - PADDING * 2, 16);
 		_titleField.textColor = COL_TITLE;
 		_titleField.text = "▣ DEV CONSOLE  [F4 toggle]  [F5 clean]";
@@ -104,13 +104,13 @@ class GameDevConsole
 		_logField.wordWrap  = true;
 		_overlay.addChild(_logField);
 
-		// Añadir al stage OpenFL (encima de todo, incluido HaxeFlixel)
+		// Add to the stage OpenFL (encima of all, incluido HaxeFlixel)
 		FlxG.stage.addChild(_overlay);
 
 		// ── Interceptar haxe.Log.trace ────────────────────────────────────────
 		_origTrace = haxe.Log.trace;
 		haxe.Log.trace = function(v:Dynamic, ?infos:haxe.PosInfos) {
-			// Llamar al handler original (así sigue apareciendo en el log nativo)
+			// Callr to the handler original (so sigue apareciendo in the log nativo)
 			if (_origTrace != null) _origTrace(v, infos);
 
 			var src = (infos != null) ? '${infos.fileName}:${infos.lineNumber}' : '';
@@ -132,9 +132,9 @@ class GameDevConsole
 		log("[GameDevConsole] INICIALIZED. F4 = toggle, F5 = clean.", COL_SUCCESS);
 	}
 
-	// ─── API pública ──────────────────────────────────────────────────────────
+	// ─── API public ──────────────────────────────────────────────────────────
 
-	/** Log genérico (blanco/gris) */
+	/** Log generic (blanco/gris) */
 	public static function log(msg:String, ?col:Null<Int>):Void
 	{
 		if (!initialized) return;
@@ -157,7 +157,7 @@ class GameDevConsole
 		if (!visible) show();
 	}
 
-	/** Éxito / info verde */
+	/** Success / info green */
 	public static function success(msg:String):Void
 	{
 		if (!initialized) return;
@@ -211,7 +211,7 @@ class GameDevConsole
 
 	/**
 	 * Actualiza la consola. Llamar desde MusicBeatState.update() (o Main).
-	 * Maneja scroll con rueda del ratón cuando está visible.
+	 * Handles scroll with mouse wheel when is visible.
 	 */
 	public static function update():Void
 	{
@@ -232,12 +232,12 @@ class GameDevConsole
 		var ts = _timestamp();
 		var full = '[$ts] ' + (src != null && src.length > 0 ? '($src) ' : '') + msg;
 
-		// Fragmentar líneas largas para que el TextField las envuelva bien
+		// Fragmentar lines largas for that the TextField the envuelva well
 		_lines.push({text: full, col: col});
 		if (_lines.length > MAX_LINES)
 			_lines.shift();
 
-		// Auto-scroll al fondo si ya estábamos ahí
+		// Auto-scroll to the fondo if already were ahí
 		var maxScroll = Std.int(Math.max(0, _lines.length - _visibleLineCount()));
 		if (_scrollPos >= maxScroll - 1)
 			_scrollPos = maxScroll;
@@ -269,7 +269,7 @@ class GameDevConsole
 		// Scrollbar visual simplificado en el fondo
 		_drawBg(start, end);
 
-		// Título con conteo
+		// Title with conteo
 		_titleField.text = '▣ DEV CONSOLE  ${_lines.length} msgs  [F4 toogle]  [F5 clean]';
 	}
 
@@ -289,7 +289,7 @@ class GameDevConsole
 		g.drawRoundRect(0, 0, CONSOLE_W, CONSOLE_H, 6, 6);
 		g.lineStyle(0);
 
-		// Separador título
+		// Separador title
 		g.beginFill(COL_BORDER, 0.4);
 		g.drawRect(PADDING, 20, CONSOLE_W - PADDING * 2, 1);
 		g.endFill();

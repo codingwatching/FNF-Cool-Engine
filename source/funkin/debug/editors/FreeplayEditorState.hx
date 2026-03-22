@@ -57,7 +57,7 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 	public static var curDifficultyPublic(get, never):Int;
 	static function get_curDifficultyPublic():Int return curDifficulty;
 
-	/** Acción pendiente tras cerrar DebugMenuSubState. 0 = nada, 1 = editar datos canción */
+	/** Action pending tras cerrar DebugMenuSubState. 0 = nothing, 1 = editar datos song */
 	public static var pendingAction:Int = 0;
 
 	var scoreBG:FlxSprite;
@@ -108,7 +108,7 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 		transOut = FlxTransitionableState.defaultTransOut;
 
 		funkin.system.CursorManager.show();
-		// MusicManager cambia solo si chartEditorLoop no está ya sonando.
+		// MusicManager changes only if chartEditorLoop no is already sonando.
 		if (!MusicManager.isPlaying('chartEditorLoop/chartEditorLoop'))
 			MusicManager.play('chartEditorLoop/chartEditorLoop', 0.7);
 
@@ -274,7 +274,7 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 		versionShit.scrollFactor.set();
 		versionShit.setFormat("VCR OSD Mono", 16, funkin.debug.themes.EditorTheme.current.accent, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
-		// ✨ Botón de tema
+		// ✨ Button of tema
 		var _themeBtn = new flixel.ui.FlxButton(FlxG.width - 85, 4, "\u2728 Theme", function()
 		{
 			openSubState(new funkin.debug.themes.ThemePickerSubState());
@@ -351,7 +351,7 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 
 	override function closeSubState()
 	{
-		// Si el DebugMenuSubState pidió editar datos de la canción, abrir AddSongSubState
+		// If the DebugMenuSubState pidió editar datos of the song, abrir AddSongSubState
 		if (pendingAction == 1 && curSelected > 0)
 		{
 			pendingAction = 0;
@@ -522,13 +522,13 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 
 			if (curSelected == 0)
 			{
-				// Abrir substate para agregar canción nueva
+				// Abrir substate for agregar song new
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
 				openSubState(new AddSongSubState());
 			}
 			else
 			{
-				// Abrir menú de selección de editor de debug
+				// Open debug editor selection menu
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
 				openSubState(new funkin.debug.DebugMenuSubState(songs[curSelected - 1]));
 			}

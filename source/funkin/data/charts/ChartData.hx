@@ -8,20 +8,20 @@ package funkin.data.charts;
  *
  * ─── Compatibilidad ──────────────────────────────────────────────────────────
  *
- *   La estructura está diseñada para ser convertida a SwagSong (formato FNF)
+ *   The structure is diseñada for be convertida to SwagSong (format FNF)
  *   con ChartConverter.toSwagSong(data), o usada directamente si el PlayState
  *   acepta ChartData en el futuro.
  *
  * ─── Campos de ChartData ─────────────────────────────────────────────────────
  *
- *   title       → Título de la canción
+ *   title       → Title of the song
  *   artist      → Artista
  *   source      → "osu" | "stepmania" | "fnf"
  *   bpm         → BPM inicial
- *   bpmChanges  → Cambios de BPM a lo largo de la canción
+ *   bpmChanges  → Cambios of BPM to it largo of the song
  *   audioFile   → Ruta al archivo de audio (relativa al .osz/.sm)
  *   offset      → Offset en ms
- *   keyCount    → Número de carriles (4 para FNF, variable en osu/SM)
+ *   keyCount    → Number of carriles (4 for FNF, variable in osu/SM)
  *   difficulties → Mapa nombre→notas  { "Hard": [...], "Normal": [...] }
  *   notes       → Lista aplanada de notas de la dificultad seleccionada
  *
@@ -35,7 +35,7 @@ package funkin.data.charts;
 
 typedef ChartData =
 {
-	/** Título de la canción. */
+	/** Title of the song. */
 	var title:String;
 	/** Artista. */
 	var artist:String;
@@ -43,13 +43,13 @@ typedef ChartData =
 	var source:String;
 	/** BPM inicial. */
 	var bpm:Float;
-	/** Cambios de BPM a lo largo de la canción. */
+	/** Cambios of BPM to it largo of the song. */
 	var bpmChanges:Array<ChartBPMChange>;
 	/** Ruta al archivo de audio relativa al archivo de chart. */
 	var audioFile:String;
-	/** Offset global en ms (positivo = notas más tarde). */
+	/** Offset global in ms (positivo = notes more tarde). */
 	var offset:Float;
-	/** Número de carriles (4 en FNF). */
+	/** Number of carriles (4 in FNF). */
 	var keyCount:Int;
 	/**
 	 * Mapa de dificultades disponibles.
@@ -61,17 +61,17 @@ typedef ChartData =
 	var notes:Array<ChartNote>;
 	/** Nombre de la dificultad actualmente activa. */
 	var activeDifficulty:String;
-	/** Metadatos adicionales según la fuente (nullable). */
+	/** Metadatos adicionales according to the font (nullable). */
 	var ?meta:Dynamic;
 }
 
 typedef ChartNote =
 {
-	/** Tiempo de la nota en milisegundos desde el inicio de la canción. */
+	/** Tiempo of the note in milisegundos from the start of the song. */
 	var time:Float;
 	/** Carril (columna), empezando en 0. */
 	var column:Int;
-	/** Duración en ms. 0 = nota normal; >0 = hold/long note. */
+	/** Duration in ms. 0 = note normal; >0 = hold/long note. */
 	var duration:Float;
 	/** Tipo: "normal" | "hold" | "roll" | "mine" | "lift". */
 	var type:String;

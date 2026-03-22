@@ -30,7 +30,7 @@ import sys.io.File;
 using StringTools;
 
 /**
- * ModSelectorState — 3 tabs: Mods / Configuración / Sistema
+ * ModSelectorState — 3 tabs: Mods / Configuration / System
  *
  * MODS tab:
  *  [↑↓]   Navegar lista           [Enter] Activar mod
@@ -43,9 +43,9 @@ using StringTools;
  *
  * SISTEMA tab:
  *  [↑↓]   Navegar opciones        [Enter] Cambiar/Abrir
- *  [F5]   Guardar configuración
+ *  [F5]   Save configuration
  *
- * Global: [1][2][3] cambiar tab   [Esc] volver al menú
+ * Global: [1][2][3] change tab   [Esc] volver to the menu
  *
  * Todos los colores se toman de EditorTheme.current.
  */
@@ -251,7 +251,7 @@ class ModSelectorState extends MusicBeatState
 		_infoKey.cameras = [_camUI];
 		add(_infoKey);
 
-		// Título arriba del panel izquierdo
+		// Title up of the panel izquierdo
 		final title = new FlxText(0, 4, LIST_W, 'MODS');
 		title.setFormat(Paths.font('vcr.ttf'), 20, T.accent, CENTER, OUTLINE, T.bgDark);
 		title.scrollFactor.set();
@@ -362,7 +362,7 @@ class ModSelectorState extends MusicBeatState
 		_infoWebsite.cameras = [_camUI];
 		add(_infoWebsite);
 
-		// ── Botón "⬆ IMPORT MOD" ──────────────────────────────────────────────
+		// ── Button "⬆ IMPORT mod" ──────────────────────────────────────────────
 		final importBtnY = FlxG.height - 116;
 		_importBtn = new FlxSprite(8, importBtnY).makeGraphic(LIST_W - 16, 28, T.warning);
 		_importBtn.scrollFactor.set();
@@ -375,7 +375,7 @@ class ModSelectorState extends MusicBeatState
 		_importBtnTxt.cameras = [_camUI];
 		add(_importBtnTxt);
 
-		// ── Botón "+ NEW MOD" ─────────────────────────────────────────────────
+		// ── Button "+ NEW mod" ─────────────────────────────────────────────────
 		final btnY = FlxG.height - 80;
 		_newBtn = new FlxSprite(8, btnY).makeGraphic(LIST_W - 16, 30, T.accent);
 		_newBtn.scrollFactor.set();
@@ -478,7 +478,7 @@ class ModSelectorState extends MusicBeatState
 			_sysItems.push({label: lbl, value: val, key: d.key});
 		}
 
-		// Descripción dinámica
+		// Description dynamic
 		_sysDescText = new FlxText(ix, iy + defs.length * 44 + 8, PREVIEW_W - 24, '');
 		_sysDescText.setFormat(Paths.font('vcr.ttf'), 12, T.textDim, LEFT);
 		_sysDescText.scrollFactor.set();
@@ -659,14 +659,14 @@ class ModSelectorState extends MusicBeatState
 		// ── Tab MODS ─────────────────────────────────────────────────────────
 		if (_curTab == 0)
 		{
-			// Botón "⬆ IMPORT MOD"
+			// Button "⬆ IMPORT mod"
 			if (_importBtn != null && FlxG.mouse.overlaps(_importBtn, _camUI))
 			{
 				_sndConfirm();
 				_openImportMod();
 				return;
 			}
-			// Botón "+ NEW MOD"
+			// Button "+ NEW mod"
 			if (_newBtn != null && FlxG.mouse.overlaps(_newBtn, _camUI))
 			{
 				_sndConfirm();
@@ -852,7 +852,7 @@ class ModSelectorState extends MusicBeatState
 	 * Lee el global.json del mod indicado (por su carpeta) y actualiza
 	 * los campos del tab CONFIG con esos valores.
 	 * Si el mod no tiene global.json, carga el de assets/ base.
-	 * Así el CONFIG tab siempre muestra la config del mod seleccionado,
+	 * So the CONFIG tab always muestra the config of the mod seleccionado,
 	 * no la del mod activo.
 	 */
 	function _refreshConfigForMod(mod:ModInfo):Void
@@ -999,7 +999,7 @@ class ModSelectorState extends MusicBeatState
 		final mod = _mods[idx];
 		_updateInfo(mod);
 		_loadPreview(mod, instant);
-		// Refrescar CONFIG tab si está visible para mostrar la config de este mod
+		// Refrescar CONFIG tab if is visible for show the config of this mod
 		if (_curTab == 1) _refreshConfigForMod(mod);
 	}
 
@@ -1152,14 +1152,14 @@ class ModSelectorState extends MusicBeatState
 		#if cpp _stopVideo(); #end
 
 		// Limpiar todo el estado de audio ANTES de cambiar de state,
-		// para que CoreAudio no retenga FlxSounds muertos de esta sesión.
+		// for that CoreAudio no retenga FlxSounds muertos of this session.
 		funkin.audio.CoreAudio.flushForModSwitch();
 
 		Paths.forceClearCache();
 		#if cpp cpp.vm.Gc.run(true); #end
 		#if hl hl.Gc.major(); #end
 
-		// Fade en la cámara visible (_camBG cubre toda la pantalla)
+		// Fade in the camera visible (_camBG cubre all the screen)
 		// y luego switchState a CacheState — NO resetGame(), que deja
 		// el estado de plugins en un estado potencialmente inconsistente.
 		funkin.system.CursorManager.hide();
@@ -1444,7 +1444,7 @@ class SimpleTextInputSubState extends FlxSubState
 
 	override function create()
 	{
-		// Cámara propia para renderizarse sobre camUI del estado padre
+		// Camera propia for renderizarse over camUI of the state padre
 		final camSub = new flixel.FlxCamera();
 		camSub.bgColor = flixel.util.FlxColor.TRANSPARENT;
 		FlxG.cameras.add(camSub, false);
@@ -1490,7 +1490,7 @@ class SimpleTextInputSubState extends FlxSubState
 		add(hint);
 
 		// Escucha nativa via Lime — independiente de foco.
-		// CRÍTICO: textInputEnabled = true activa SDL_StartTextInput() en desktop,
+		// critical: textInputEnabled = true active SDL_StartTextInput() in desktop,
 		// sin esto onTextInput nunca dispara y no se puede escribir nada.
 		LimeApp.current.window.textInputEnabled = true;
 		LimeApp.current.window.onTextInput.add(_onLimeTextInput);
@@ -1613,7 +1613,7 @@ class ModEditSubState extends FlxSubState
 
 	override function create()
 	{
-		// Cámara propia para renderizarse sobre camUI del estado padre
+		// Camera propia for renderizarse over camUI of the state padre
 		final camSub = new flixel.FlxCamera();
 		camSub.bgColor = flixel.util.FlxColor.TRANSPARENT;
 		FlxG.cameras.add(camSub, false);
@@ -1729,7 +1729,7 @@ class ModEditSubState extends FlxSubState
 		_updateCursor();
 
 		// Captura nativa de texto via Lime — independiente de foco.
-		// CRÍTICO: textInputEnabled = true activa SDL_StartTextInput() en desktop,
+		// critical: textInputEnabled = true active SDL_StartTextInput() in desktop,
 		// sin esto onTextInput nunca dispara y no se puede escribir nada.
 		LimeApp.current.window.textInputEnabled = true;
 		LimeApp.current.window.onTextInput.add(_onLimeTextInput);
@@ -1751,13 +1751,13 @@ class ModEditSubState extends FlxSubState
 		// ── Mouse ─────────────────────────────────────────────────────────────
 		if (FlxG.mouse.justPressed)
 		{
-			// Botón SAVE
+			// Button SAVE
 			if (_saveBtn != null && FlxG.mouse.overlaps(_saveBtn, cameras[0]))
 			{
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 				_save();
 			}
-			// Botón CLOSE
+			// Button CLOSE
 			else if (_closeBtn != null && FlxG.mouse.overlaps(_closeBtn, cameras[0]))
 			{
 				funkin.system.CursorManager.show();
@@ -1828,7 +1828,7 @@ class ModEditSubState extends FlxSubState
 			_endEdit(true);
 			return;
 		}
-		// La actualización real la hacen _onLimeTextInput / _onKeyDown
+		// The update actual the hacen _onLimeTextInput / _onKeyDown
 	}
 
 	function _onLimeTextInput(text:String):Void

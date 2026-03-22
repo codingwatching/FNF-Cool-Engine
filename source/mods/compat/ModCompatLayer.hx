@@ -75,7 +75,7 @@ class ModCompatLayer
 	 *
 	 * @param rawJson      Contenido crudo del JSON del chart.
 	 * @param difficulty   Nombre de dificultad (para convertidores que necesitan saberlo).
-	 * @param chartFilePath  Path físico al archivo (para que VSliceConverter pueda
+	 * @param chartFilePath  Path physical to the file (for that VSliceConverter pueda
 	 *                       buscar el archivo de metadata separado).
 	 */
 	public static function loadChart(rawJson:String, ?difficulty:String = 'hard',
@@ -170,7 +170,7 @@ class ModCompatLayer
 
 		// 2. Fall back to standard Cool Engine path
 		// Paths.stageJSON devuelve un path relativo (sin assets/) pensado para
-		// Paths.getText, que internamente llama a resolve() y añade el prefijo.
+		// Paths.getText, that internamente call to resolve() and adds the prefix.
 		final coolContent = Paths.getText(Paths.stageJSON(stageName));
 		if (coolContent != null && coolContent.length > 0)
 			return coolContent;
@@ -295,7 +295,7 @@ class ModCompatLayer
 	 *   • showInStoryMode[] → si todo es false, StoryMenuState la omite
 	 *
 	 * Llamar desde loadSongsData() de FreeplayState Y StoryMenuState justo
-	 * después de parsear el songList.json base, y hacer push a songsWeeks.
+	 * after of parsear the songList.json base, and do push to songsWeeks.
 	 */
 	public static function getModSongsInfo():Array<ModSongsInfo>
 	{
@@ -357,18 +357,18 @@ class ModCompatLayer
 					}
 					catch (e:Dynamic) { trace('[ModCompatLayer] Error parsing $weekDir/$wf: $e'); }
 				}
-				break; // primer directorio válido
+				break; // primer directorio valid
 			}
 			if (loaded) continue;
 
 			// ── C: V-Slice — data/songs.json o data/levels/*.json ────────────
 			// V-Slice (Funkin' official) organiza las canciones en:
 			//   data/songs.json → lista de IDs de canciones disponibles
-			//   data/songs/{id}/{id}-metadata.json → metadatos de cada canción
+			//   data/songs/{id}/{id}-metadata.json → metadatos of each song
 			//   data/levels/{id}.json → "levels" (semanas) con lista de canciones
 			//
 			// Primero intentamos leer levels (equivalente a weeks) para preservar
-			// agrupación. Si no hay levels, creamos una semana única con todas las
+			// grouping. If no there is levels, creamos a week single with all the
 			// canciones del metadata.
 			for (levelDir in ['$base/data/levels', '$base/levels'])
 			{
@@ -396,7 +396,7 @@ class ModCompatLayer
 			if (loaded) continue;
 
 			// Si no hay levels, escanear data/songs.json para obtener IDs y cargar
-			// cada metadata individualmente (todo en una "semana" única).
+			// each metadata individualmente (all in a "week" single).
 			for (songListPath in ['$base/data/songs.json', '$base/data/freeplaySongs.json'])
 			{
 				if (!FileSystem.exists(songListPath)) continue;
@@ -421,7 +421,7 @@ class ModCompatLayer
 		return result;
 	}
 
-	// ─── Conversión interna ───────────────────────────────────────────────────
+	// ─── Conversion internal ───────────────────────────────────────────────────
 
 	/**
 	 * Convierte un "level" de V-Slice (equivalente a una semana de Psych).
@@ -512,13 +512,13 @@ class ModCompatLayer
 	}
 
 	/**
-	 * Convierte el data/songs.json de V-Slice en una semana única para Freeplay.
+	 * Converts the data/songs.json of V-Slice in a week single for Freeplay.
 	 *
 	 * data/songs.json puede ser:
 	 *   { "songs": ["bopeebo", "fresh"] }   ← lista de IDs
 	 *   [ "bopeebo", "fresh" ]              ← array directo
 	 *
-	 * Para cada canción lee data/songs/{id}/{id}-metadata.json si existe.
+	 * For each song lee data/songs/{id}/{id}-metadata.json if exists.
 	 */
 	static function _weekFromVSliceSongList(raw:Dynamic, modFallback:String, modBase:String):ModSongsInfo
 	{
@@ -570,7 +570,7 @@ class ModCompatLayer
 	}
 
 	/**
-	 * Intenta cargar el metadata de una canción V-Slice y llama al callback si lo encuentra.
+	 * Intenta load the metadata of a song V-Slice and call to the callback if it encuentra.
 	 *
 	 * Rutas buscadas (V-Slice):
 	 *   {modBase}/data/songs/{id}/{id}-metadata.json
@@ -617,7 +617,7 @@ class ModCompatLayer
 	{
 		final songs:Array<String>       = [];
 		final icons:Array<String>       = [];
-		final colors:Array<String>      = [];   // color POR CANCIÓN (índice 2 de cada entry)
+		final colors:Array<String>      = [];   // color by song (index 2 of each entry)
 		final bpms:Array<Float>         = [];
 		final showInStory:Array<Bool>   = [];
 
@@ -646,12 +646,12 @@ class ModCompatLayer
 				songs.push(name);
 				icons.push(arr.length > 1 && arr[1] != null ? Std.string(arr[1]) : 'bf');
 
-				// Color por canción (arr[2]) — si no existe, usar freeplayColor
+				// Color by song (arr[2]) — if no exists, usar freeplayColor
 				colors.push(arr.length > 2 && arr[2] != null
 					? _parseColor(arr[2])
 					: weekFreeplayColor);
 
-				bpms.push(100.0); // Psych weeks no incluyen BPM por canción
+				bpms.push(100.0); // Psych weeks no incluyen BPM by song
 				showInStory.push(!hideStoryMode);
 			}
 		}
@@ -667,7 +667,7 @@ class ModCompatLayer
 		if (w.weekCharacters != null && Std.isOfType(w.weekCharacters, Array))
 		{
 			final wc:Array<Dynamic> = cast w.weekCharacters;
-			// Rellenar posibles huecos con cadena vacía
+			// Rellenar posibles huecos with cadena empty
 			chars = [
 				wc.length > 0 && wc[0] != null ? Std.string(wc[0]) : '',
 				wc.length > 1 && wc[1] != null ? Std.string(wc[1]) : 'bf',
@@ -677,7 +677,7 @@ class ModCompatLayer
 
 		// Parsear dificultades: Psych las guarda como string CSV "Easy,Normal,Hard"
 		// BUG FIX: ignorar este campo dejaba al FreeplayState / StoryMode sin saber
-		// qué dificultades soporta la semana, lo que rompía la selección de dificultad.
+		// which difficulties the week supports, which broke difficulty selection.
 		var weekDiffs:Array<String> = ['Easy', 'Normal', 'Hard']; // default Psych
 		if (w.difficulties != null)
 		{
@@ -750,7 +750,7 @@ class ModCompatLayer
 
 	/**
 	 * Convierte un campo "freeplayColor":[R,G,B] a string "0xFFRRGGBB".
-	 * Devuelve "0xFF9271FD" (violeta) si el input es null o inválido.
+	 * Returns "0xFF9271FD" (violeta) if the input is null or invalid.
 	 */
 	static inline function _parseColorArr(raw:Dynamic):String
 		return _parseColor(raw);
@@ -760,7 +760,7 @@ class ModCompatLayer
 	 *   [R, G, B]     → "0xFFRRGGBB"
 	 *   "RRGGBB"      → "0xFFRRGGBB"
 	 *   "#RRGGBB"     → "0xFFRRGGBB"
-	 *   null/inválido → "0xFF9271FD"  (violeta por defecto)
+	 *   null/invalid → "0xFF9271FD"  (violeta by default)
 	 */
 	static function _parseColor(raw:Dynamic):String
 	{
@@ -812,6 +812,6 @@ typedef ModSongsInfo =
 	// Campos exclusivos de mods
 	@:optional var hideFreeplay    : Bool;
 	@:optional var weekBackground  : String;
-	// BUG FIX: Psych weeks.json tiene "difficulties":"Easy,Normal,Hard" — se mapea aquí
+	// BUG FIX: Psych weeks.json tiene "difficulties":"Easy,Normal,Hard" — is mapea here
 	@:optional var difficulties    : Array<String>;
 }

@@ -29,8 +29,8 @@ import sys.FileSystem;
  *
  * Novedades:
  *   • Auto-scripting: si hay scripts en assets/states/{ClassName}/, los carga
- *     automáticamente sin que cada state tenga que hacerlo manualmente.
- *   • Propagación de beatHit/stepHit a scripts.
+ *     automatically without that each state tenga that hacerlo manualmente.
+ *   • Propagación of beatHit/stepHit to scripts.
  *   • Hook onStateCreate/onStateDestroy para scripts globales.
  *   • autoScriptLoad: bool para deshabilitar si el state lo gestiona manualmente.
  */
@@ -43,7 +43,7 @@ class MusicBeatState extends FlxUIState
 	private var curBeat : Int = 0;
 	private var controls(get, never):Controls;
 
-	/** Si true, carga automáticamente scripts de assets/states/{ClassName}/. */
+	/** If true, load automatically scripts of assets/states/{ClassName}/. */
 	public var autoScriptLoad:Bool = true;
 
 	// Cache BPM incremental
@@ -112,10 +112,10 @@ class MusicBeatState extends FlxUIState
 
 		if (mods.ModManager.developerMode)
 		{
-			// Callback: reiniciar el state automáticamente cuando un JSON vigilado cambia.
+			// Callback: reset the state automatically when a JSON vigilado changes.
 			JsonWatcher.onChange = function(type:String, name:String, path:String):Void
 			{
-				final msg = '[HotReload] ${type.toUpperCase()} "$name" modificado — caché invalidado.';
+				final msg = '[HotReload] ${type.toUpperCase()} "$name" modificado — cache invalidado.';
 				GameDevConsole.log(msg, 0xFF69F0AE);
 				trace(msg);
 
@@ -126,15 +126,15 @@ class MusicBeatState extends FlxUIState
 			};
 		}
 
-		// Auto-cargar scripts si el state lo permite y no los cargó manualmente
+		// Auto-load scripts if the state it allows and no the cargó manualmente
 		if (autoScriptLoad)
 			_autoLoadScripts();
 
 		// GPU caching: liberar RAM de todas las texturas cargadas en este state
-		// que ya fueron subidas a VRAM. Esto reduce RAM en menús (240 MB → mucho menos).
-		// Se hace 5 frames después para garantizar que todas las texturas tuvieron
+		// that already fueron subidas to VRAM. This reduce RAM in menus (240 MB → mucho menos).
+		// Is hace 5 frames after for guarantee that all the textures tuvieron
 		// al menos un draw call antes de disposeImage().
-		// PlayState tiene su propio mecanismo más granular — no se doble-flush.
+		// PlayState tiene its propio mecanismo more granular — no is doble-flush.
 		#if (desktop && cpp && !hl)
 		if (!Std.isOfType(this, funkin.gameplay.PlayState))
 		{
@@ -143,7 +143,7 @@ class MusicBeatState extends FlxUIState
 				if (++_menuFlushFrames < 5) return;
 				FlxG.stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _onMenuFlush);
 				funkin.cache.PathsCache.instance.flushGPUCache();
-				cpp.vm.Gc.run(false); // ciclo leve — no compact() para no causar stutter en menús
+				cpp.vm.Gc.run(false); // ciclo leve — no compact() for no causar stutter in menus
 			}
 			FlxG.stage.addEventListener(openfl.events.Event.ENTER_FRAME, _onMenuFlush);
 		}
@@ -156,10 +156,10 @@ class MusicBeatState extends FlxUIState
 		if (mods.ModManager.developerMode){
 			GameDevConsole.update();
 
-			// ── F6: Hot-reload de cachés JSON ────────────────────────────────────
-			// Limpia los datos parseados de personajes y stages para que el próximo
+			// ── F6: Hot-reload of caches JSON ────────────────────────────────────
+			// Clears the datos parseados of characters and stages for that the next
 			// acceso los lea de nuevo desde disco. No recarga la partida actual —
-			// solo invalida el caché estático. Útil mientras se editan JSONs sin
+			// only invalida the cache static. Useful while is editan JSONs without
 			// tener que reiniciar el juego.
 			if (FlxG.keys.justPressed.F6)
 			{
@@ -171,7 +171,7 @@ class MusicBeatState extends FlxUIState
 
 			// ── F5: Reiniciar state (developer mode) ─────────────────────────────
 			// En PlayState recarga el chart desde disco antes de reiniciar,
-			// para que los cambios al JSON de la canción surtan efecto al instante.
+			// for that the cambios to the JSON of the song surtan effect to the instante.
 			// En cualquier otro state hace un FlxG.resetState() limpio.
 			if (FlxG.keys.justPressed.F5 && mods.ModManager.developerMode)
 			{
@@ -186,7 +186,7 @@ class MusicBeatState extends FlxUIState
 			// ── Poll del ScriptWatcher (live reload de .hx / .lua) ─────────────────
 			// Detecta cambios en disco cada 0.5 s y recarga el script en caliente
 			// sin reiniciar el state. Los objetos actuales (bf, dad, stage…)
-			// se re-inyectan automáticamente en el script recargado.
+			// is re-inyectan automatically in the script recargado.
 			ScriptWatcher.poll(elapsed);
 
 			// ── F7: Forzar reload de TODOS los scripts ahora mismo ─────────────────
@@ -222,17 +222,17 @@ class MusicBeatState extends FlxUIState
 	/**
 	 * Carga scripts para el state actual desde todas las rutas posibles
 	 * (assets/, mod activo, etc.). StateScriptHandler.loadStateScripts()
-	 * ya maneja todas las rutas — la comprobación FileSystem previa era
-	 * incorrecta porque solo miraba assets/ y perdía los scripts de mods.
+	 * already handles all the paths — the comprobación FileSystem previa era
+	 * incorrect porque only miraba assets/ and perdía the scripts of mods.
 	 *
-	 * Llamado automáticamente al final de create(). Los states que gestionan
+	 * Calldo automatically to the final of create(). The states that gestionan
 	 * sus scripts manualmente deben poner `autoScriptLoad = false` en su
 	 * create() ANTES de llamar a super.create().
 	 */
 	function _autoLoadScripts():Void
 	{
 		#if HSCRIPT_ALLOWED
-		// Si el state ya cargó scripts manualmente antes de super.create(),
+		// If the state already cargó scripts manualmente before of super.create(),
 		// no volver a cargar — evita duplicados en TitleState, MainMenuState, etc.
 		if (Lambda.count(StateScriptHandler.scripts) > 0)
 		{
@@ -250,7 +250,7 @@ class MusicBeatState extends FlxUIState
 
 		if (Lambda.count(StateScriptHandler.scripts) > 0)
 		{
-			// Re-sincronizar campos DESPUÉS de crear todos los objetos del state
+			// Re-sincronizar fields after of create all the objects of the state
 			// para que los scripts vean los sprites/grupos reales, no null.
 			StateScriptHandler.refreshStateFields(this);
 			StateScriptHandler.callOnScripts('onCreate', []);
@@ -286,7 +286,7 @@ class MusicBeatState extends FlxUIState
 			ScriptWatcher.watchFolder('$r/data/scripts',     'global');
 			ScriptWatcher.watchFolder('$r/states/$cn',       'menu');
 
-			// Si estamos en PlayState: vigilar carpetas de canción, stage y personajes
+			// If estamos in PlayState: vigilar folders of song, stage and characters
 			final ps = funkin.gameplay.PlayState.instance;
 			if (ps != null && funkin.gameplay.PlayState.SONG != null)
 			{
@@ -309,9 +309,9 @@ class MusicBeatState extends FlxUIState
 
 	function _onDestroy():Void
 	{
-		// Garantía de seguridad: limpiar blockInput al salir de cualquier state.
-		// Si OptionsMenuState (u otro state con inputs de texto) lo dejó en true
-		// por salir de forma inesperada, la tecla 0 quedaría bloqueada para siempre.
+		// Garantía of seguridad: clear blockInput to the salir of any state.
+		// If OptionsMenuState (u otro state with inputs of text) it dejó in true
+		// by salir of forma inesperada, the key 0 quedaría bloqueada for always.
 		funkin.audio.SoundTray.blockInput = false;
 
 		var soundTray = FlxG.plugins.get(SoundTray);
@@ -335,12 +335,12 @@ class MusicBeatState extends FlxUIState
 	 * Hot-reload restart — reinicia el state actual releyendo assets desde disco.
 	 *
 	 * En PlayState:
-	 *   1. Limpia los cachés de chars y stages.
+	 *   1. Clears the caches of chars and stages.
 	 *   2. Recarga el SONG desde el .json en disco (recoge cambios al chart).
 	 *   3. Hace FlxG.resetState() — el PlayState se re-crea con el SONG fresco.
 	 *
 	 * En cualquier otro state:
-	 *   Limpia cachés y hace FlxG.resetState() directamente.
+	 *   Clears caches and hace FlxG.resetState() directamente.
 	 *
 	 * Solo activo en `#if debug` — no se compila en builds de release.
 	 */
@@ -389,7 +389,7 @@ class MusicBeatState extends FlxUIState
 	}
 
 	/**
-	 * Calcula el step actual con búsqueda incremental O(1) amortizado.
+	 * Calcula the step current with search incremental or(1) amortizado.
 	 */
 	public function updateCurStep():Void
 	{

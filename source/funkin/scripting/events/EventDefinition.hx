@@ -1,17 +1,17 @@
 package funkin.scripting.events;
 
 /**
- * EventDefinition — Definición completa de un evento del engine.
+ * EventDefinition — Definition complete of a event of the engine.
  *
  * Cada evento tiene:
- *  • Metadatos (nombre, descripción, color, contextos, aliases)
- *  • Parámetros para el editor (lista de EventParamDef)
+ *  • Metadatos (name, description, color, contextos, aliases)
+ *  • Parameters for the editor (list of EventParamDef)
  *  • Rutas a sus handlers de script (HScript/Lua), si los tiene
  *
  * ─── Estructura de carpetas ──────────────────────────────────────────────────
  *
  *  Formato A — archivos planos en la carpeta de contexto:
- *    data/events/chart/Camera Follow.json    ← definición UI
+ *    data/events/chart/Camera Follow.json    ← definition UI
  *    data/events/chart/Camera Follow.hx      ← handler HScript
  *    data/events/chart/Camera Follow.lua     ← handler Lua
  *
@@ -27,7 +27,7 @@ package funkin.scripting.events;
  *
  *  {
  *    "name":        "Camera Follow",
- *    "description": "Mueve la cámara hacia un personaje.",
+ *    "description": "Moves the camera towards a character.",
  *    "color":       "#88CCFF",
  *    "context":     ["chart"],
  *    "aliases":     ["Camera", "Follow Camera"],
@@ -54,12 +54,12 @@ package funkin.scripting.events;
  *    // Retornar true = no ejecutar el handler built-in
  *    function onTrigger(v1, v2, time) {
  *      if (game != null) game.cameraController.setTarget(v1);
- *      return false; // dejar que el built-in también corra
+ *      return false; // dejar that the built-in also corra
  *    }
  *
  *  Lua (Camera Follow.lua):
  *    function onTrigger(v1, v2, time)
- *      -- v1, v2, time están disponibles como args
+ *      -- v1, v2, time are available as args
  *      trace("Camera Follow: " .. v1)
  *      return false
  *    end
@@ -79,17 +79,17 @@ import funkin.scripting.events.EventInfoSystem.EventParamType;
 
 typedef EventDefinition =
 {
-	/** Nombre canónico del evento. */
+	/** Name canónico of the event. */
 	var name:String;
 
-	/** Descripción breve para tooltips del editor. */
+	/** Description breve for tooltips of the editor. */
 	var ?description:String;
 
 	/** Color ARGB para el sidebar del editor (ej. 0xFF88CCFF). */
 	var color:Int;
 
 	/**
-	 * Contextos en los que este evento está disponible.
+	 * Contextos in the that this event is available.
 	 * Valores: "chart" | "cutscene" | "playstate" | "modchart" | "global"
 	 * Un evento con contexto "global" aparece en todos los editores.
 	 */
@@ -97,11 +97,11 @@ typedef EventDefinition =
 
 	/**
 	 * Nombres alternativos que disparan este mismo handler.
-	 * Útil para compatibilidad con otros formatos (Psych Engine, V-Slice, etc.)
+	 * Useful for compatibility with otros formats (Psych Engine, V-Slice, etc.)
 	 */
 	var aliases:Array<String>;
 
-	/** Lista de parámetros para la UI del editor. */
+	/** List of parameters for the UI of the editor. */
 	var params:Array<EventParamDef>;
 
 	// ── Rutas a los scripts handler (null = solo built-in) ──────────────────

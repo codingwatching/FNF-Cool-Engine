@@ -9,7 +9,7 @@ import flixel.math.FlxPoint;
 class FlxAtlasFramesExt
 {
 	/**
-	 * Recreación del antiguo FlxAtlasFrames.fromGraphic
+	 * Recreation of the old FlxAtlasFrames.fromGraphic
 	 * BUGFIX: guarda contra graphic==null para evitar NPE en NoteSkinSystem.loadAtlas
 	 */
 	public static function fromGraphic(graphic:FlxGraphic, frameWidth:Int, frameHeight:Int, ?name:String):FlxAtlasFrames
@@ -28,7 +28,7 @@ class FlxAtlasFramesExt
 		var cols = Std.int(graphic.width / frameWidth);
 		var rows = Std.int(graphic.height / frameHeight);
 
-		// Protección ante dimensiones inválidas (frame más grande que el bitmap)
+		// Protection against invalid dimensions (frame larger than the bitmap)
 		if (cols <= 0) cols = 1;
 		if (rows <= 0) rows = 1;
 
@@ -49,14 +49,14 @@ class FlxAtlasFramesExt
 	}
 
 	/**
-	 * Fusiona múltiples FlxAtlasFrames en uno solo.
+	 * Merges multiple FlxAtlasFrames in uno only.
 	 *
 	 * Cada atlas puede referenciar su propio FlxGraphic (PNG independiente), ya que
-	 * cada FlxFrame guarda su propio `parent` (la textura de origen). Flixel usará
+	 * each FlxFrame saves its own `parent` (the source texture). Flixel will use
 	 * el parent correcto al dibujar cada frame, independientemente del parent nominal
 	 * del atlas resultante.
 	 *
-	 * Uso típico: personajes con varios sprite sheets (evitar límite 4096×4096).
+	 * Typical usage: characters with various sprite sheets (avoid limit 4096×4096).
 	 *
 	 *   var merged = FlxAtlasFramesExt.mergeAtlases([sheet0, sheet1, sheet2]);
 	 *   sprite.frames = merged;
@@ -66,7 +66,7 @@ class FlxAtlasFramesExt
 		if (atlases == null || atlases.length == 0) return null;
 		if (atlases.length == 1) return atlases[0];
 
-		// Usar el primer atlas válido como base (parent nominal del resultado)
+		// Usar the primer atlas valid as base (parent nominal of the resultado)
 		var baseAtlas:FlxAtlasFrames = null;
 		for (a in atlases)
 			if (a != null) { baseAtlas = a; break; }

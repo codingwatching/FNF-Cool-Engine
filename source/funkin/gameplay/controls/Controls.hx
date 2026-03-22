@@ -684,7 +684,7 @@ class Controls extends FlxActionSet
 	public function addDefaultGamepad(id):Void
 	{
 		#if !switch
-		// ── Mapping genérico (Xbox / PS4 / PS5 / Switch Pro) ────────────────
+		// ── Mapping generic (Xbox / PS4 / PS5 / Switch Pro) ────────────────
 		// En FlxGamepad:  A = Cross(PS) / A(Xbox)   B = Circle(PS) / B(Xbox)
 		//                 X = Square(PS) / X(Xbox)  Y = Triangle(PS) / Y(Xbox)
 		//
@@ -692,9 +692,9 @@ class Controls extends FlxActionSet
 		//   Square/X(Xbox) = LEFT   Cross/A(Xbox) = DOWN
 		//   Circle/B(Xbox) = RIGHT  Triangle/Y(Xbox) = UP
 		//
-		// El D-Pad y stick izquierdo siguen siendo la opción principal para menús.
+		// The D-Pad and stick izquierdo siguen siendo the option main for menus.
 		addGamepadLiteral(id, [
-			// Menú / UI
+			// Menu / UI
 			Control.ACCEPT => [A, START],
 			Control.BACK   => [B],
 			Control.PAUSE  => [START],

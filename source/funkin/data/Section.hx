@@ -1,7 +1,7 @@
 package funkin.data;
 
 /**
- * SwagSection MEJORADO - Soporte para múltiples personajes
+ * SwagSection MEJORADO - Support for multiple characters
  */
 typedef SwagSection =
 {
@@ -17,9 +17,9 @@ typedef SwagSection =
 	@:optional var gfSing:Bool; // GF canta (legacy)
 	
 	// === NUEVO SISTEMA ===
-	@:optional var characterIndex:Int; // Índice del personaje que canta (desde array characters)
+	@:optional var characterIndex:Int; // Index of the character that canta (from array characters)
 	@:optional var strumsGroupId:String; // ID del grupo de strums a usar
-	@:optional var activeCharacters:Array<Int>; // Array de índices de personajes activos en esta sección
+	@:optional var activeCharacters:Array<Int>; // Array of indices of characters activos in this section
 	
 	@:optional var stage:String;
 }
@@ -36,7 +36,7 @@ class Section
 	public var gfSing:Bool = false;     // GF canta (legacy, mirror of SwagSection)
 
 	// Nuevo
-	public var characterIndex:Int = -1; // -1 = usar lógica default (mustHitSection)
+	public var characterIndex:Int = -1; // -1 = usar logic default (mustHitSection)
 	public var strumsGroupId:String = null;
 	public var activeCharacters:Array<Int> = null; // null = solo personaje principal
 
@@ -51,15 +51,15 @@ class Section
 	}
 	
 	/**
-	 * NUEVO: Obtener personaje que canta según lógica
+	 * new: Get character that canta according to logic
 	 */
 	public function getSingingCharacterIndex(defaultDadIndex:Int = 1, defaultBFIndex:Int = 2):Int
 	{
-		// Si se especificó un personaje manualmente, usar ese
+		// If is especificó a character manualmente, usar that
 		if (characterIndex >= 0)
 			return characterIndex;
 		
-		// Si no, usar lógica legacy
+		// If no, usar logic legacy
 		if (mustHitSection)
 			return defaultBFIndex; // Boyfriend
 		else
@@ -67,7 +67,7 @@ class Section
 	}
 	
 	/**
-	 * NUEVO: Obtener todos los personajes activos en esta sección
+	 * new: Get all the characters activos in this section
 	 */
 	public function getActiveCharacterIndices(defaultDadIndex:Int = 1, defaultBFIndex:Int = 2):Array<Int>
 	{

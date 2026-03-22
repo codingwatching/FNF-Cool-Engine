@@ -49,7 +49,7 @@ class FlxFilteredSprite extends FlxSprite
 
 	/**
 	 * Fuerza re-render con filtros en cada frame.
-	 * Actívalo si tu shader usa tiempo u otros uniforms que cambian.
+	 * Enable it if your shader uses time or other uniforms that change.
 	 */
 	public var filterDirty:Bool = false;
 

@@ -4,7 +4,7 @@ package funkin.scripting;
  * ScriptEvent — objeto de evento cancelable para el sistema de scripts.
  *
  * Permite que un script detenga el comportamiento por defecto del engine
- * devolviendo `true` desde un hook, o usando cancel() explícitamente.
+ * devolviendo `true` from a hook, or usando cancel() explicitly.
  *
  * ─── Uso desde HScript ───────────────────────────────────────────────────────
  *
@@ -30,7 +30,7 @@ package funkin.scripting;
  */
 class ScriptEvent
 {
-	/** true si algún script llamó cancel() o devolvió true. */
+	/** true if some script llamó cancel() or devolvió true. */
 	public var cancelled(default, null):Bool = false;
 
 	/** Datos extra que el engine o el script pueden adjuntar al evento. */
@@ -42,7 +42,7 @@ class ScriptEvent
 	}
 
 	/**
-	 * Cancela el evento — el engine no ejecutará el comportamiento por defecto.
+	 * Cancela the event — the engine no executeá the comportamiento by default.
 	 */
 	public function cancel():Void
 	{
@@ -51,7 +51,7 @@ class ScriptEvent
 
 	/**
 	 * Restaura el evento a su estado inicial (no cancelado).
-	 * Útil para reutilizar la misma instancia en varios scripts.
+	 * Useful for reutilizar the same instance in various scripts.
 	 */
 	public function reset(?newData:Dynamic):Void
 	{

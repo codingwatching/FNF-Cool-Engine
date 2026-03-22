@@ -19,7 +19,7 @@ import llua.State;
 
 typedef StrumState =
 {
-    // ── Posición del strum ──────────────────────────────────────────────────
+    // ── Position of the strum ──────────────────────────────────────────────────
     var baseX    : Float;
     var baseY    : Float;
     var offsetX  : Float;
@@ -27,7 +27,7 @@ typedef StrumState =
     var absX     : Null<Float>;
     var absY     : Null<Float>;
 
-    // ── Rotación / apariencia del strum ─────────────────────────────────────
+    // ── Rotation / apariencia of the strum ─────────────────────────────────────
     var angle    : Float;
     var spinRate : Float;
     var alpha    : Float;
@@ -46,13 +46,13 @@ typedef StrumState =
     var drunkY      : Float;
     /** Frecuencia de las ondas drunk (default 1.0). */
     var drunkFreq   : Float;
-    /** Rotación en onda según strumTime de cada nota (grados). 0 = desactivado. */
+    /** Rotation in onda according to strumTime of each note (grados). 0 = deactivated. */
     var tornado     : Float;
-    /** Rotación plana extra en cada nota (grados). 0 = sin efecto. */
+    /** Rotation plana extra in each note (grados). 0 = without effect. */
     var confusion   : Float;
     /** Multiplicador de scroll speed (default 1.0). -1 = invertido. */
     var scrollMult  : Float;
-    /** Inversión X de notas (0=normal, 1=espejo alrededor del strum). */
+    /** Inversion X of notes (0=normal, 1=espejo alrededor of the strum). */
     var flipX       : Float;
     /** Offset X plano para todas las notas del strum (px). */
     var noteOffsetX : Float;
@@ -88,25 +88,25 @@ typedef StrumState =
     var noteAlpha   : Float;
 }
 
-// ─── Estado de cámara controlado por modchart ─────────────────────────────────
+// ─── State of camera controlado by modchart ─────────────────────────────────
 
 /**
- * PlayState lee estos valores cada frame y los suma al estado base de la cámara.
+ * PlayState lee these values each frame and the suma to the state base of the camera.
  * Todos empiezan en 0 / 1 y se interpolan con el sistema de tweens normal.
  */
 typedef CameraModState =
 {
     /** Zoom extra (se suma al zoom base del juego; 0 = sin efecto). */
     var zoom    : Float;
-    /** Offset horizontal de cámara (px). */
+    /** Offset horizontal of camera (px). */
     var offsetX : Float;
-    /** Offset vertical de cámara (px). */
+    /** Offset vertical of camera (px). */
     var offsetY : Float;
-    /** Rotación extra de cámara (grados). */
+    /** Rotation extra of camera (grados). */
     var angle   : Float;
 }
 
-// ─── Evento en ejecución ──────────────────────────────────────────────────────
+// ─── Event in execution ──────────────────────────────────────────────────────
 
 typedef ActiveTween =
 {
@@ -133,7 +133,7 @@ class ModChartManager
     private var states:Map<String, Array<StrumState>> = new Map();
 
     /**
-     * Estado de cámara — PlayState lo lee cada frame y lo aplica.
+     * State of camera — PlayState it lee each frame and it applies.
      * Ejemplo en PlayState.update():
      *   if (modChartManager != null) {
      *     var cs = modChartManager.camState;
@@ -145,16 +145,16 @@ class ModChartManager
      */
     public var camState:CameraModState = { zoom: 0, offsetX: 0, offsetY: 0, angle: 0 };
 
-    // ── Eventos pendientes (aún no disparados) ─────────────────────────────────
+    // ── Events pending (still no disparados) ─────────────────────────────────
     private var pending:Array<ModChartEvent> = [];
 
     /**
-     * Índice del próximo evento pendiente.
+     * Index of the next event pending.
      * Reemplaza pending.shift() (O(n)) por un avance de puntero O(1).
      */
     private var _pendingIdx:Int = 0;
 
-    // ── Tweens activos (en interpolación) ─────────────────────────────────────
+    // ── Tweens active (in interpolation) ─────────────────────────────────────
     private var activeTweens:Array<ActiveTween> = [];
 
     /**
@@ -169,7 +169,7 @@ class ModChartManager
     // ── Flags ──────────────────────────────────────────────────────────────────
     public var enabled:Bool = true;
 
-    // ── Singleton cómodo ──────────────────────────────────────────────────────
+    // ── Singleton howdo ──────────────────────────────────────────────────────
     public static var instance:ModChartManager = null;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ class ModChartManager
         instance = this;
         this.strumsGroups = strumsGroups;
 
-        // Datos vacíos por defecto
+        // Datos empty by default
         data = {
             name    : "New ModChart",
             song    : "",
@@ -195,8 +195,8 @@ class ModChartManager
 
     /**
      * Reemplaza los StrumsGroups internos por unos nuevos y recaptura posiciones.
-     * Úsalo desde el editor para redirigir applyAllStates() a los strums propios
-     * del editor en vez de los de PlayState (que ya habrán sido destruidos).
+     * Úsalo from the editor for redirigir applyAllStates() to the strums own
+     * of the editor in vez of the of PlayState (that already habrán sido destroyed).
      */
     public function replaceStrumsGroups(newGroups:Array<StrumsGroup>):Void
     {
@@ -206,8 +206,8 @@ class ModChartManager
     }
 
     /**
-     * Captura la posición ACTUAL de cada strum como posición base.
-     * Llamar después de que PlayState haya colocado todos los strums.
+     * Captura the position current of each strum as position base.
+     * Callr after of that PlayState haya colocado all the strums.
      * Funciona en cualquier modo de scroll porque lee las posiciones reales.
      */
     public function captureBasePositions():Void
@@ -322,16 +322,16 @@ class ModChartManager
 
     // ─── Carga/guardado ───────────────────────────────────────────────────────
 
-    /** Carga el modchart de una canción desde assets/modcharts/<song>.json */
+    /** Load the modchart of a song from assets/modcharts/<song>.json */
     public function loadFromFile(songName:String):Bool
     {
         var song = songName.toLowerCase();
 
-        // ── Función helper: buscar en todas las fuentes posibles ─────────────
+        // ── Function helper: search in all the fonts posibles ─────────────
         // Orden de prioridad: mod activo → otros mods habilitados → assets base
         var searchPaths:Array<String> = [];
 
-        // 1. Mod activo (máxima prioridad)
+        // 1. Mod active (maximum priority)
         #if sys
         var activeMod = mods.ModManager.activeMod;
         if (activeMod != null)
@@ -345,7 +345,7 @@ class ModChartManager
         for (mod in mods.ModManager.installedMods)
         {
             if (!mod.enabled) continue;
-            if (mod.id == activeMod) continue; // ya añadido arriba
+            if (mod.id == activeMod) continue; // already added up
             searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.lua');
             searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.hx');
             searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.json');
@@ -485,7 +485,7 @@ class ModChartManager
             interp.variables.set('BEAT_SCALE',    ModEventType.BEAT_SCALE);
             interp.variables.set('STEALTH',       ModEventType.STEALTH);
             interp.variables.set('NOTE_ALPHA',    ModEventType.NOTE_ALPHA);
-            // cámara
+            // camera
             interp.variables.set('CAM_ZOOM',      ModEventType.CAM_ZOOM);
             interp.variables.set('CAM_MOVE_X',    ModEventType.CAM_MOVE_X);
             interp.variables.set('CAM_MOVE_Y',    ModEventType.CAM_MOVE_Y);
@@ -516,7 +516,7 @@ class ModChartManager
             interp.variables.set('Math', Math);
             interp.variables.set('FlxG', flixel.FlxG);
             interp.variables.set('Conductor', funkin.data.Conductor);
-            // noteManager y playState: disponibles si el juego ya arrancó
+            // noteManager and playState: available if the game already arrancó
             interp.variables.set('noteManager',
                 funkin.gameplay.PlayState.instance != null
                     ? funkin.gameplay.PlayState.instance.noteManager : null);
@@ -527,7 +527,7 @@ class ModChartManager
             // Ejecutar el programa (define funciones)
             interp.execute(prog);
 
-            // Guardar el intérprete para callbacks en tiempo real
+            // Save the interpreter for callbacks in time actual
             _hscriptInterp = interp;
 
             // Llamar onCreate() si existe
@@ -555,7 +555,7 @@ class ModChartManager
     }
 
     #if HSCRIPT_ALLOWED
-    /** Intérprete HScript para el modchart (null si no hay script activo) */
+    /** Interpreter HScript for the modchart (null if no there is script active) */
     private var _hscriptInterp:Null<hscript.Interp> = null;
 
     #if (LUA_ALLOWED && linc_luajit)
@@ -563,7 +563,7 @@ class ModChartManager
     private var _luaScript:Null<funkin.scripting.LuaScriptInstance> = null;
     #end
 
-    /** Llama una función del modchart HScript si existe. */
+    /** Call a function of the modchart HScript if exists. */
     private inline function _callHScript(func:String, args:Array<Dynamic>):Void
     {
         if (_hscriptInterp == null) return;
@@ -593,13 +593,13 @@ class ModChartManager
      *   CUBE_IN_OUT, SINE_IN, SINE_OUT, SINE_IN_OUT,
      *   ELASTIC_IN, ELASTIC_OUT, BOUNCE_OUT, BACK_IN, BACK_OUT, INSTANT
      *
-     *   -- Función de modchart
+     *   -- Function of modchart
      *   addEvent(beat, target, strumIdx, type, value, duration, ease)
      *   clearEvents()
      *   getState(groupId, strumIdx)   -- devuelve tabla con campos del StrumState
      *
      *   -- Propiedades de solo lectura
-     *   songPosition    -- ms actual de la canción
+     *   songPosition    -- ms current of the song
      *   currentBeat     -- beat actual (float)
      *
      * Hooks del script (definir como funciones globales Lua):
@@ -629,7 +629,7 @@ class ModChartManager
      *   end
      *
      *   function onUpdate(pos)
-     *     -- Zoom de cámara ondulante
+     *     -- Zoom of camera ondulante
      *     addEvent(currentBeat, "all", -1, CAM_ZOOM, math.sin(pos * 0.003) * 0.1, 0, INSTANT)
      *   end
      */
@@ -651,12 +651,12 @@ class ModChartManager
 
             // ── Exponer constantes ModEventType ───────────────────────────────
             inline function setStr(k:String, v:String) lua.set(k, v);
-            // Strum - posición
+            // Strum - position
             setStr('MOVE_X',        ModEventType.MOVE_X);
             setStr('MOVE_Y',        ModEventType.MOVE_Y);
             setStr('SET_ABS_X',     ModEventType.SET_ABS_X);
             setStr('SET_ABS_Y',     ModEventType.SET_ABS_Y);
-            // Strum - apariencia/rotación
+            // Strum - apariencia/rotation
             setStr('ANGLE',         ModEventType.ANGLE);
             setStr('SPIN',          ModEventType.SPIN);
             setStr('ALPHA',         ModEventType.ALPHA);
@@ -688,7 +688,7 @@ class ModChartManager
             setStr('BEAT_SCALE',    ModEventType.BEAT_SCALE);
             setStr('STEALTH',       ModEventType.STEALTH);
             setStr('NOTE_ALPHA',    ModEventType.NOTE_ALPHA);
-            // Cámara
+            // Camera
             setStr('CAM_ZOOM',      ModEventType.CAM_ZOOM);
             setStr('CAM_MOVE_X',    ModEventType.CAM_MOVE_X);
             setStr('CAM_MOVE_Y',    ModEventType.CAM_MOVE_Y);
@@ -769,7 +769,7 @@ class ModChartManager
 
             _luaScript = lua;
 
-            // Sortear y preparar eventos que el onCreate() pudo haber añadido
+            // Sortear and preparar events that the onCreate() pudo haber added
             data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
             pending = data.events.copy();
 
@@ -788,7 +788,7 @@ class ModChartManager
     }
 
     #if (LUA_ALLOWED && linc_luajit)
-    /** Llama una función del script Lua del modchart si existe. */
+    /** Call a function of the script Lua of the modchart if exists. */
     private inline function _callLua(func:String, args:Array<Dynamic>):Void
     {
         if (_luaScript == null || !_luaScript.active) return;
@@ -796,7 +796,7 @@ class ModChartManager
     }
     #end
 
-    /** Carga modchart desde string JSON (útil para el editor) */
+    /** Load modchart from string JSON (useful for the editor) */
     public function loadFromJson(json:String):Void
     {
         try
@@ -827,7 +827,7 @@ class ModChartManager
     // ─── Control de playback ──────────────────────────────────────────────────
 
     /**
-     * Reinicia todos los estados a posición base y recarga eventos pendientes.
+     * Resets all the states to position base and recarga events pendientes.
      * Llamar cuando el juego reinicia o se salta a un punto.
      */
     public function resetToStart():Void
@@ -894,8 +894,8 @@ class ModChartManager
     }
 
     /**
-     * Salta a un beat específico (para preview del editor).
-     * Aplica todos los eventos hasta ese beat instantáneamente.
+     * Salta to a beat specific (for preview of the editor).
+     * Applies all the events until that beat instantly.
      */
     public function seekToBeat(beat:Float):Void
     {
@@ -934,7 +934,7 @@ class ModChartManager
         for (ev in data.events)
         {
             if (ev.beat > beat) break;
-            // Aplicar instantáneamente (t=1)
+            // Appliesr instantly (t=1)
             applyEventInstant(ev);
         }
 
@@ -973,7 +973,7 @@ class ModChartManager
 
         this.currentBeat = beatFloat;
 
-        // 1. Disparar eventos cuyo beat ya llegó
+        // 1. Fire events cuyo beat already llegó
         fireReadyEvents(beatFloat);
 
         // 2. Actualizar tweens activos
@@ -985,7 +985,7 @@ class ModChartManager
         // 4. Escribir valores en los sprites
         applyAllStates();
 
-        // 5. HScript onUpdate hook (para modcharts que quieran lógica por frame)
+        // 5. HScript onUpdate hook (for modcharts that quieran logic by frame)
         #if HSCRIPT_ALLOWED
         _callHScript('onUpdate', [songPos]);
         #end
@@ -1026,7 +1026,7 @@ class ModChartManager
             {
                 if (ModChartHelpers.isCameraType(ev.type))
                 {
-                    // Los eventos de cámara no tienen grupo/strum — un solo tween global
+                    // The events of camera no tienen grupo/strum — a only tween global
                     activeTweens.push({
                         event     : ev,
                         startBeat : ev.beat,
@@ -1126,7 +1126,7 @@ class ModChartManager
 
                 var st = arr[i];
 
-                // Posición
+                // Position
                 if (st.absX != null)
                     spr.x = st.absX;
                 else
@@ -1137,7 +1137,7 @@ class ModChartManager
                 else
                     spr.y = st.baseY + st.offsetY;
 
-                // Ángulo
+                // Angle
                 spr.angle = st.angle;
 
                 // Alpha
@@ -1154,7 +1154,7 @@ class ModChartManager
         }
     }
 
-    // ── Helpers de resolución de targets ────────────────────────────────────
+    // ── Helpers of resolution of targets ────────────────────────────────────
 
     private function resolveTargets(target:String, strumIdx:Int):Array<{groupId:String, strumIdx:Int}>
     {
@@ -1198,7 +1198,7 @@ class ModChartManager
 
     private function getStateValue(groupId:String, strumIdx:Int, type:ModEventType):Float
     {
-        // Eventos de cámara: leer del camState global
+        // Events of camera: leer of the camState global
         if (ModChartHelpers.isCameraType(type))
         {
             return switch (type)
@@ -1258,7 +1258,7 @@ class ModChartManager
 
     private function setStateValue(groupId:String, strumIdx:Int, type:ModEventType, value:Float):Void
     {
-        // Eventos de cámara: escribir en camState global
+        // Events of camera: escribir in camState global
         if (ModChartHelpers.isCameraType(type))
         {
             switch (type)
@@ -1326,7 +1326,7 @@ class ModChartManager
 
     private function applyReset(ev:ModChartEvent):Void
     {
-        // RESET "camera" también resetea el camState
+        // RESET "camera" also resetea the camState
         if (ev.target == "camera" || ev.target == "cam")
         {
             camState.zoom = 0; camState.offsetX = 0;
@@ -1368,10 +1368,10 @@ class ModChartManager
         }
     }
 
-    // ─── API pública de scripting ─────────────────────────────────────────────
+    // ─── API public of scripting ─────────────────────────────────────────────
 
     /**
-     * Agrega un evento en tiempo de ejecución (desde scripts de canción).
+     * Agrega a event in time of execution (from scripts of song).
      * El evento se integra ordenado en la lista.
      */
     public function addEvent(ev:ModChartEvent):Void
@@ -1409,7 +1409,7 @@ class ModChartManager
         return arr[strumIdx];
     }
 
-    /** Devuelve la posición visual actual de un strum (para el editor) */
+    /** Returns the position visual current of a strum (for the editor) */
     public function getStrumDisplayPos(groupId:String, strumIdx:Int):{x:Float, y:Float}
     {
         var st = getState(groupId, strumIdx);

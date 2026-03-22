@@ -12,14 +12,14 @@ import openfl.geom.Rectangle;
 /**
  * GPURenderer OPTIMIZADO — sin allocs por frame.
  *
- * Cambios críticos vs la versión anterior:
+ * Cambios críticos vs the version previous:
  *  - GPUBatch.render() ya NO crea Vector<Float>/Vector<Int> nuevos cada frame.
  *    Antes: 2 allocs × 3000 sprites × 60 FPS = ~360 000 objetos/seg → GC enorme.
  *    Ahora: reutiliza los buffers pre-alojados, copia solo el rango usado.
- *  - Se eliminó haxe.Timer.stamp() del render loop (coste nativo no trivial).
+ *  - Is eliminó haxe.Timer.stamp() of the render loop (coste native no trivial).
  *  - updateCameraRect() se llama una vez por render, no por sprite.
  *  - Se redujo MAX_SPRITES de 3000 a 512 (FNF nunca muestra 3000 notas
- *    simultáneas; valores altos solo desperdician ~11 MB por batch).
+ *    simultáneas; values altos only desperdician ~11 MB by batch).
  *  - sortedBatches usa array pool en clear() para no realojar cada frame.
  */
 class GPURenderer
@@ -56,7 +56,7 @@ class GPURenderer
         cameraRect     = new Rectangle();
     }
 
-    // ─── API pública ──────────────────────────────────────────────────────────
+    // ─── API public ──────────────────────────────────────────────────────────
 
     public function addSprite(sprite:FlxSprite):Void
     {
@@ -203,15 +203,15 @@ class GPURenderer
 /**
  * GPUBatch — buffer pre-alojado, CERO allocs durante el juego.
  *
- * La versión anterior hacía:
+ * The version previous hacía:
  *   var renderVerts = new Vector<Float>(vertCount);   // ← ALLOC cada frame
  *   var renderIndices = new Vector<Int>(idxCount);    // ← ALLOC cada frame
  *   for (i in ...) renderVerts[i] = vertices[i];     // ← copia O(n) extra
  * Ahora usamos los buffers directamente con drawTriangles usando el
- * subvector exacto ya rellenado (trick: Vector.slice no está en openfl,
+ * exact subvector already filled (trick: Vector.slice is not in openfl,
  * pero podemos pasar los buffers con un conteo exacto gracias a que
  * openfl.display.Graphics.drawTriangles acepta Vectors completos y
- * simplemente usa los primeros N elementos relevantes si los demás
+ * simply use the first N relevant elements if the rest
  * quedan en 0 — lo cual es cierto porque clear() los pone a 0).
  * Para mayor seguridad usamos el setLength trick.
  */
@@ -221,9 +221,9 @@ class GPUBatch
 
     // Buffers reutilizables — alojados UNA VEZ en el constructor
     // openfl.display.Graphics.drawTriangles espera:
-    //   vertices : [x0,y0, x1,y1, ...]  — solo posiciones (2 floats/vértice)
-    //   uvtData  : [u0,v0, u1,v1, ...]  — coordenadas UV  (2 floats/vértice)
-    //   indices  : triángulos como triples de índices de vértice
+    //   vertices : [x0,y0, x1,y1, ...]  — only positions (2 floats/vertex)
+    //   uvtData  : [u0,v0, u1,v1, ...]  — coordenadas UV  (2 floats/vertex)
+    //   indices  : triangles as triples of indices of vertex
     private var vertices:Vector<Float>;
     private var uvtData:Vector<Float>;
     private var indices:Vector<Int>;
@@ -233,10 +233,10 @@ class GPUBatch
     private var totalZIndex:Float = 0;
 
     // Capacidades
-    private static inline var MAX_SPRITES        :Int = 32; // FNF muestra ~20 notas simultáneas
-    private static inline var VERTS_PER_SPRITE   :Int = 8;  // 4 vértices × 2 floats (x, y)
-    private static inline var UVT_PER_SPRITE     :Int = 8;  // 4 vértices × 2 floats (u, v)
-    private static inline var INDICES_PER_SPRITE :Int = 6;  // 2 triángulos × 3 índices
+    private static inline var MAX_SPRITES        :Int = 32; // FNF muestra ~20 notes simultáneas
+    private static inline var VERTS_PER_SPRITE   :Int = 8;  // 4 vertices × 2 floats (x, y)
+    private static inline var UVT_PER_SPRITE     :Int = 8;  // 4 vertices × 2 floats (u, v)
+    private static inline var INDICES_PER_SPRITE :Int = 6;  // 2 triangles × 3 indices
 
     public function new(texture:BitmapData)
     {
@@ -279,7 +279,7 @@ class GPUBatch
         uvtData[u++] = uvX + uvW;  uvtData[u++] = uvY + uvH;     // BR
         uvtData[u++] = uvX;        uvtData[u++] = uvY + uvH;     // BL
 
-        // ── Índices (2 triángulos por quad) ──────────────────────────────────
+        // ── Indices (2 triangles by quad) ──────────────────────────────────
         var idx  = spriteCount * INDICES_PER_SPRITE;
         final b  = spriteCount * 4;
         indices[idx++] = b;     indices[idx++] = b + 1; indices[idx++] = b + 2;
@@ -290,7 +290,7 @@ class GPUBatch
 
     /**
      * Render sin alloc: truncamos los Vectors al rango usado antes de
-     * pasarlos a drawTriangles, y restauramos la capacidad después.
+     * pasarlos to drawTriangles, and restauramos the capacidad after.
      */
     public function render(graphics:Graphics):Void
     {

@@ -62,10 +62,10 @@ using StringTools;
 //  Typedefs
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** Evento del PlayState Editor — se guarda en el JSON de la canción. */
+/** Event of the PlayState Editor — is save in the JSON of the song. */
 typedef PSEEvent =
 {
-	var id          : String;        // UUID único
+	var id          : String;        // UUID unique
 	var stepTime    : Float;         // Step en que ocurre
 	var type        : String;        // Nombre del tipo de evento
 	var value       : String;        // Valor (v1|v2)
@@ -103,7 +103,7 @@ typedef PSEData =
  * Editor visual completo del PlayState sin strums.
  * Muestra Stage + Personajes + HUD en tiempo real.
  * Permite insertar Eventos y Scripts con soporte de dificultad,
- * probarlos en tiempo real y guardar en el JSON de la canción.
+ * probarlos in tiempo actual and save in the JSON of the song.
  *
  * Controles:
  *   SPACE         — Play / Pause
@@ -111,8 +111,8 @@ typedef PSEData =
  *   T             — Toggle timeline
  *   H             — Toggle panel derecho
  *   F5            — Guardar
- *   ESC           — Volver al menú anterior
- *   Click timeline — Seek a esa posición
+ *   ESC           — Volver to the menu previous
+ *   Click timeline — Seek to that position
  */
 class PlayStateEditorState extends funkin.states.MusicBeatState
 {
@@ -155,7 +155,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		"Camera", "Character", "Visual", "Script", "Song", "Custom"
 	];
 
-	// ── Cámaras ───────────────────────────────────────────────────────────────
+	// ── Cameras ───────────────────────────────────────────────────────────────
 	var camGame   : FlxCamera;
 	var camHUD    : FlxCamera;
 	var camUI     : FlxCamera;  // cameras[0], zoom=1 fixed, used by FlxUI for hit detection
@@ -179,10 +179,10 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var vocalsDad : FlxSound;
 	var _perCharVocals : Bool = false;
 
-	// ── Reproducción ──────────────────────────────────────────────────────────
+	// ── Playback ──────────────────────────────────────────────────────────
 	var isPlaying      : Bool  = false;
 	var songLength     : Float = 0;
-	var autoSeekTime   : Float = -1;  // si != -1, hacer seek en próximo frame
+	var autoSeekTime   : Float = -1;  // if != -1, do seek in next frame
 	var _lastBeat      : Int   = -1;
 	var _lastStep      : Int   = -1;
 	var _nextEventIdx  : Int   = 0;   // puntero para eventos del editor
@@ -197,7 +197,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var currentDiff    : String = 'normal';  // dificultad activa para filtrar
 	var allDiffs       : Array<String> = []; // se rellena en _refreshDiffList()
 
-	// Scripts en ejecución (HScriptInstance instanciados)
+	// Scripts in execution (HScriptInstance instanciados)
 	var scriptInstances : Map<String, HScriptInstance> = new Map();
 
 	// ── UI - Top Bar ──────────────────────────────────────────────────────────
@@ -243,7 +243,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var evtDiffChecks      : Array<FlxUICheckBox> = [];
 	var evtAddBtn          : MiniBtn2;
 	var evtDeleteBtn       : MiniBtn2;
-	var step_nowBtn        : MiniBtn2;       // Botón "insert at playhead"
+	var step_nowBtn        : MiniBtn2;       // Button "insert at playhead"
 	var evtListTxt         : FlxText;
 	var evtListScroll      : Int = 0;
 	var selectedEventId    : String = '';
@@ -267,7 +267,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var layoutPresetBtn: MiniBtn2;
 
 	// ── Floating Game Viewport (tipo ZGameVisualizer) ─────────────────────────
-	// Cuando _vpFloating=true, la cámara de juego se muestra en una sub-ventana
+	// When _vpFloating=true, the camera of game is muestra in a sub-window
 	// arrastrable y redimensionable en lugar de ocupar todo el fondo.
 	var _vpFloating    : Bool  = false;
 	var _vpX           : Float = 20;
@@ -290,11 +290,11 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var _vpTitleBar    : FlxSprite;
 	var _vpTitleTxt    : FlxText;
 	var _vpHandleCorner: FlxSprite;    // esquina SE de resize
-	var _vpFloatBtn    : MiniBtn2;     // botón en top bar para toggle
+	var _vpFloatBtn    : MiniBtn2;     // button in top bar for toggle
 
 	// ── Timeline horizontal scrollbar ─────────────────────────────────────────
 	// Un scrollbar delgado (12px) encima de la scrubber progress bar para
-	// scrollear la zona de tracks sin usar la rueda del ratón.
+	// scrollear the zona of tracks without usar the mouse wheel.
 	var tlHScrollBg    : FlxSprite;
 	var tlHScrollThumb : FlxSprite;
 	var _tlHScrollDrag : Bool  = false;
@@ -356,7 +356,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		// Validar SONG
 		if (PlayState.SONG == null)
 		{
-			trace('[PSEditor] ERROR: PlayState.SONG es null — volviendo al menú');
+			trace('[PSEditor] error: PlayState.SONG is null — volviendo to the menu');
 			StateTransition.switchState(new FreeplayEditorState());
 			return;
 		}
@@ -370,7 +370,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			FlxG.sound.music = null;
 		}
 
-		// Cámaras
+		// Cameras
 		setupCameras();
 
 		// GameState
@@ -399,7 +399,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		setupRightPanel();
 		setupStatusBar();
 
-		// ── CRÍTICO: Inicializar posición al inicio de la canción ──────────────
+		// ── critical: Initialize position to the start of the song ──────────────
 		// Conductor.songPosition puede ser un valor residual de un estado anterior.
 		// Forzar a 0 para que la timebar aparezca al inicio.
 		Conductor.songPosition = 0;
@@ -408,18 +408,18 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		rebuildTimelineRuler();
 		rebuildTimelineEventSprites();
 
-		// ── Viewport flotante: calcular tamaño inicial ────────────────────────
+		// ── Viewport flotante: calculate size inicial ────────────────────────
 		_initGameViewport();
 		_setupCharHandles();
 
-		// ── Importar secciones mustHitSection como eventos de cámara ──────────
+		// ── Importar sections mustHitSection as events of camera ──────────
 		_importSectionCameraEvents();
 
 		// Exponer a scripts
 		ScriptHandler.setOnScripts('playStateEditor', this);
 		ScriptHandler.setOnScripts('game', this);
 
-		// Empezar pausa (el usuario decide cuándo reproducir)
+		// Empezar pausa (the usuario decide when play)
 		isPlaying = false;
 		showStatus('PlayState Editor listo. SPACE=play  T=timeline  H=panel  G=viewport flotante  C=drag personajes');
 
@@ -600,7 +600,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		var SONG = PlayState.SONG;
 		Conductor.changeBPM(SONG.bpm);
 
-		// Parar cualquier música que venga de menús anteriores
+		// Parar cualquier music that venga of menus anteriores
 		if (FlxG.sound.music != null)
 		{
 			FlxG.sound.music.stop();
@@ -694,7 +694,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	{
 		isPlaying = false;
 		syncAudio(false);
-		showStatus('♪ Canción terminada');
+		showStatus('♪ Song terminada');
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -779,13 +779,13 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 	function _refreshDiffList():Void
 	{
-		// Obtener las dificultades reales de la canción (del .level o de los .json)
+		// Get the difficulties reales of the song (of the .level or of the .json)
 		final songDiffPairs = funkin.data.LevelFile.getAvailableDifficulties(currentSong);
 
 		// Construir set: diffs reales + las que aparecen en los datos PSE
 		var set : Map<String, Bool> = new Map();
 
-		// Siempre incluir las diffs reales de la canción
+		// Always include the diffs reales of the song
 		for (pair in songDiffPairs)
 		{
 			// pair[1] es el sufijo: '', '-easy', '-hard', etc.
@@ -795,7 +795,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			set.set(name, true);
 		}
 
-		// Agregar cualquier diff mencionada en eventos/scripts pero no en la canción
+		// Agregar cualquier diff mencionada in events/scripts but no in the song
 		for (e in (pseData.events ?? []))
 			for (d in e.difficulties)
 				if (d != '*') set.set(d, true);
@@ -838,7 +838,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		topBorder.scrollFactor.set(); topBorder.alpha = 0.5;
 		topBorder.cameras = [camHUD]; add(topBorder);
 
-		// Título
+		// Title
 		songTitleTxt = new FlxText(8, 5, 260, '▶ PLAYSTATE EDITOR — ${currentSong.toUpperCase()}', 11);
 		songTitleTxt.setFormat(Paths.font('vcr.ttf'), 11, C_ACCENT, LEFT);
 		songTitleTxt.scrollFactor.set(); songTitleTxt.cameras = [camHUD]; add(songTitleTxt);
@@ -929,12 +929,12 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	// Additional UI elements for the new timeline
 	var tlScrubBg       : FlxSprite;       // fondo del scrubber
 	var tlScrubFill     : FlxSprite;       // relleno de progreso (se redimensiona cada frame)
-	var tlScrubHandle   : FlxSprite;       // círculo del playhead en el scrubber
+	var tlScrubHandle   : FlxSprite;       // circle of the playhead in the scrubber
 	var tlTransportBar  : FlxSprite;       // fondo del transport
 	var tlTimeLbl       : FlxText;         // "00:00" tiempo actual
 	var tlTimeRemLbl    : FlxText;         // "-01:21" tiempo restante
 	var tlBpmLbl        : FlxText;         // "Normal BPM: 100"
-	var tlBeatGridLines : Array<FlxSprite> = [];   // líneas verticales del beat en los tracks
+	var tlBeatGridLines : Array<FlxSprite> = [];   // lines verticales of the beat in the tracks
 	var tlTransBtns     : Array<MiniBtn2>  = [];   // botones del transport
 
 	// Dragging scrubber
@@ -954,7 +954,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		tlBg.scrollFactor.set(); tlBg.cameras = [camHUD];
 		timelineGroup.add(tlBg); add(tlBg);
 
-		// Línea de separación superior (accent)
+		// Line of separation superior (accent)
 		var topLine = new FlxSprite(0, tlY).makeGraphic(SW, 2, C_ACCENT);
 		topLine.scrollFactor.set(); topLine.cameras = [camHUD]; topLine.alpha = 0.5;
 		timelineGroup.add(topLine); add(topLine);
@@ -1005,7 +1005,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			var ty     = tracksY + i * TL_TRACK_H2;
 			var tColor = TRACK_COLORS[i];
 
-			// Fondo de la pista (área de eventos)
+			// Fondo of the pista (area of events)
 			var trackBg = new FlxSprite(TL_LABEL_W, ty).makeGraphic(_tlAreaW(), TL_TRACK_H2, C_TIMELINE);
 			trackBg.scrollFactor.set(); trackBg.cameras = [camHUD]; trackBg.alpha = 0.7;
 			timelineGroup.add(trackBg); add(trackBg);
@@ -1066,7 +1066,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		tlScrubFill.scrollFactor.set(); tlScrubFill.cameras = [camHUD];
 		timelineGroup.add(tlScrubFill); add(tlScrubFill);
 
-		// Tick lines de waveform simulada (estética)
+		// Tick lines of waveform simulada (estética)
 		var tickW = SW / 80;
 		for (i in 0...80)
 		{
@@ -1077,7 +1077,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			timelineGroup.add(tick); add(tick);
 		}
 
-		// Handle del scrubber (círculo del playhead en el scrubber)
+		// Handle of the scrubber (circle of the playhead in the scrubber)
 		tlScrubHandle = new FlxSprite(0, scrubY + TL_SCRUB_H / 2 - 7).makeGraphic(4, 14, C_PLAYHEAD);
 		tlScrubHandle.scrollFactor.set(); tlScrubHandle.cameras = [camHUD];
 		timelineGroup.add(tlScrubHandle); add(tlScrubHandle);
@@ -1118,7 +1118,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		for (i in 0...btnLabels.length)
 		{
-			var bw = (i == 2) ? 48 : 38;  // ▶ más ancho
+			var bw = (i == 2) ? 48 : 38;  // ▶ more width
 			var btn = new MiniBtn2(centerX, transY + 4, bw, TL_TRANS_H - 8, btnLabels[i],
 				btnColors[i], i == 2 ? 0xFF88FF88 : C_TEXT, btnActions[i]);
 			btn.scrollFactor.set(); btn.cameras = [camHUD];
@@ -1151,13 +1151,13 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		timelineGroup.add(zmIn);  add(zmIn);  add(zmIn.label);
 
 		// ── Playhead ──────────────────────────────────────────────────────────
-		// Línea vertical roja que cruza ruler + tracks + scrubber
+		// Line vertical roja that cruza ruler + tracks + scrubber
 		var phH = TL_RULER_H + tracksH + TL_SCRUB_H;
 		tlPlayhead = new FlxSprite(TL_LABEL_W, tlY).makeGraphic(2, phH, C_PLAYHEAD);
 		tlPlayhead.scrollFactor.set(); tlPlayhead.cameras = [camHUD]; tlPlayhead.alpha = 0.85;
 		timelineGroup.add(tlPlayhead); add(tlPlayhead);
 
-		// Triángulo en la cabeza del playhead (ruler)
+		// Triangle in the cabeza of the playhead (ruler)
 		tlPlayheadTop = new FlxSprite(TL_LABEL_W - 4, tlY).makeGraphic(10, TL_RULER_H, C_PLAYHEAD);
 		tlPlayheadTop.scrollFactor.set(); tlPlayheadTop.cameras = [camHUD]; tlPlayheadTop.alpha = 0.9;
 		timelineGroup.add(tlPlayheadTop); add(tlPlayheadTop);
@@ -1215,7 +1215,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 				// Beat tick vertical en el ruler
 				var tickH = isBar ? TL_RULER_H - 4 : TL_RULER_H / 2;
-				// (reusamos el sprite de gridLine si está visible, sino tomamos el siguiente)
+				// (we reuse the gridLine sprite if visible, otherwise we take the next)
 				var gl = tlBeatGridLines[glIdx];
 				gl.x       = xPos;
 				gl.y       = tlY + TL_RULER_H - tickH;
@@ -1307,7 +1307,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			var visibleMs   = areaW / tlZoom;
 			var thumbRatio  = Math.min(1.0, visibleMs / totalMs);
 			var thumbW      = Std.int(Math.max(20, hsW * thumbRatio));
-			// Posición del thumb
+			// Position of the thumb
 			var scrollRatio = tlScrollX / Math.max(1, totalMs - visibleMs);
 			var thumbX      = TL_LABEL_W + Std.int((hsW - thumbW) * FlxMath.bound(scrollRatio, 0, 1));
 			tlHScrollThumb.x = thumbX;
@@ -1338,7 +1338,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		if (tlBpmLbl != null)
 			tlBpmLbl.text = 'Normal BPM: ${Std.int(Conductor.bpm)}';
 
-		// Botón play ▶/⏸ (índice 2)
+		// Button play ▶/⏸ (index 2)
 		if (tlTransBtns.length > 2 && tlTransBtns[2] != null)
 		{
 			tlTransBtns[2].label.text = isPlaying ? '⏸' : '▶';
@@ -1415,7 +1415,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		evtStepStepper = new FlxUINumericStepper(6, y + 13, 1, 0, 0, 9999, 0);
 		tab.add(evtStepStepper);
 
-		// Botón "At Playhead" — establece el step al tiempo actual
+		// Button "At Playhead" — sets the step to the tiempo current
 		var atPlayheadBtn = _makeTabBtn(RIGHT_W / 2 + 4, y + 12, '⏱ NOW', 0xFF223344, function()
 		{
 			var step = Conductor.songPosition / Conductor.stepCrochet;
@@ -1464,7 +1464,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		_tweenEaseDropdown.selectedLabel = 'linear';
 		tab.add(_tweenEaseDropdown); y += 40;
 
-		// Botón que genera el value compuesto para el tween
+		// Button that generates the value compuesto for the tween
 		var buildTweenBtn = _makeTabBtn(6, y, '⚙ BUILD TWEEN VALUE', 0xFF1A2244, _buildTweenValue);
 		tab.add(buildTweenBtn); tab.add(buildTweenBtn.label);
 		add(buildTweenBtn); add(buildTweenBtn.label);
@@ -1481,7 +1481,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		evtDiffChecks = [];
 		var dx = 6.0;
-		// Usar las dificultades reales de la canción + opción 'all'
+		// Usar the difficulties reales of the song + option 'all'
 		final diffOptions = allDiffs.concat(['*']);
 		for (diff in diffOptions)
 		{
@@ -1494,8 +1494,8 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		sep(y); y += 6;
 
-		// Botones añadir / eliminar — añadidos AL TAB (visibilidad controlada por FlxUITabMenu)
-		// y también al estado raíz para que se dibujen en camHUD.
+		// Buttons add / remove — added to the TAB (visibility controlada by FlxUITabMenu)
+		// and also to the state root for that is dibujen in camHUD.
 		evtAddBtn    = _makeTabBtn(6,         y, 'ADD',    0xFF224422, _onAddEvent);
 		evtDeleteBtn = _makeTabBtn(RIGHT_W/2, y, 'DELETE', 0xFF441122, _onDeleteEvent);
 		tab.add(evtAddBtn); tab.add(evtAddBtn.label);
@@ -1637,7 +1637,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		y += 110;
 
 		sep(y); y += 6;
-		// Botón para abrir el ScriptEditorSubState completo
+		// Button for abrir the ScriptEditorSubState complete
 		var openScriptEditorBtn = _makeTabBtn(6, y, '📝 OPEN FULL EDITOR', 0xFF1A1A40, function()
 		{
 			var scriptName = selectedScriptId != '' ? _getSelectedScriptName() : (scrNameInput != null ? scrNameInput.text.trim() : 'new_script');
@@ -1695,7 +1695,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			s.alpha = 0.3; tab.add(s); return s;
 		}
 
-		// ── Info básica ───────────────────────────────────────────────────────
+		// ── Info basic ───────────────────────────────────────────────────────
 		info('Song',    currentSong, y);      y += 28;
 		info('Stage',   SONG.stage ?? '?', y); y += 28;
 
@@ -1780,7 +1780,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		sep(y); y += 8;
 
-		// ── Botones de acción ─────────────────────────────────────────────────
+		// ── Buttons of action ─────────────────────────────────────────────────
 		var saveInfoBtn = new MiniBtn2(6, y, RIGHT_W - 20, 24, 'SAVE PSE DATA (F5)', 0xFF224422, C_TEXT, savePSEData);
 		saveInfoBtn.scrollFactor.set(); saveInfoBtn.cameras = [camHUD];
 		saveInfoBtn.label.scrollFactor.set(); saveInfoBtn.label.cameras = [camHUD];
@@ -1815,7 +1815,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			autoSeekTime = -1;
 		}
 
-		// Sincronizar conductor con audio — sincronización directa con el tiempo del audio
+		// Sincronizar conductor with audio — synchronization directa with the time of the audio
 		if (isPlaying && FlxG.sound.music != null && FlxG.sound.music.playing)
 		{
 			var musicTime = FlxG.sound.music.time;
@@ -1899,7 +1899,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		if (currentStage != null)
 			currentStage.beatHit(beat);
 
-		// Llamar a scripts del editor que estén activos
+		// Callr to scripts of the editor that are activos
 		for (key in scriptInstances.keys())
 		{
 			var inst = scriptInstances.get(key);
@@ -2064,7 +2064,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		if (FlxG.keys.justPressed.G && !_anyInputFocused())
 			_toggleFloatingViewport();
 
-		// Navegar lista de eventos con flechas cuando el foco no está en input
+		// Navegar list of events with arrows when the foco no is in input
 		if (!_anyInputFocused())
 		{
 			if (FlxG.keys.justPressed.UP)
@@ -2120,7 +2120,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			rebuildTimelineEventSprites();
 		}
 
-		// ── Scrubber: click o drag para seek rápido ───────────────────────────
+		// ── Scrubber: click or drag for seek fast ───────────────────────────
 		var inScrub = my >= scrubY && my <= scrubY + TL_SCRUB_H && mx >= 0 && mx <= SW;
 		if (FlxG.mouse.justPressed && inScrub)   _scrubDragging = true;
 		if (FlxG.mouse.justReleased)              _scrubDragging = false;
@@ -2149,7 +2149,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			autoSeekTime = Math.max(0, dragMs);
 		}
 
-		// ── Scroll horizontal (rueda del ratón en el track area) ──────────────
+		// ── Scroll horizontal (mouse wheel in the track area) ──────────────
 		if (my >= tlY && my <= transY)
 		{
 			var wheel = FlxG.mouse.wheel;
@@ -2169,7 +2169,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			}
 		}
 
-		// ── Rueda en el área de juego = zoom de camGame ────────────────────────
+		// ── Wheel in the area of game = zoom of camGame ────────────────────────
 		var gameAreaBottom = _tlY();
 		if (!FlxG.keys.pressed.CONTROL
 			&& my >= TOP_H && my < gameAreaBottom
@@ -2188,7 +2188,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 	function _handleEventSpriteClicks():Void
 	{
-		// ── Scroll de la lista de eventos con la rueda cuando el ratón está sobre el panel ──
+		// ── Scroll of the list of events with the wheel when the mouse is over the panel ──
 		if (rightPanelVisible && FlxG.mouse.wheel != 0)
 		{
 			var panelX = SW - RIGHT_W;
@@ -2351,7 +2351,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		var label = evtLabelInput  != null ? evtLabelInput.text  : '';
 		var diffs = _getDiffChecks(evtDiffChecks);
 
-		// Si hay uno seleccionado, actualizar en lugar de añadir
+		// If there is uno seleccionado, update in lugar of add
 		if (selectedEventId != '')
 		{
 			for (evt in (pseData.events ?? []))
@@ -2391,7 +2391,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		_updateUnsavedDot();
 		_rebuildSorted();
 		_refreshEventList();
-		showStatus('✓ Evento añadido: $type @ step ${Std.int(step)}');
+		showStatus('✓ Event added: $type @ step ${Std.int(step)}');
 	}
 
 	function _onDeleteEvent():Void
@@ -2464,7 +2464,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		_updateUnsavedDot();
 		_rebuildSorted();
 		_refreshScriptList();
-		showStatus('✓ Script añadido: $name');
+		showStatus('✓ Script added: $name');
 	}
 
 	function _onDeleteScript():Void
@@ -2570,11 +2570,11 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	inline function _tlY():Int
 		return TOP_H + _gameH();
 
-	/** Altura disponible del área de juego (entre topbar y timeline) */
+	/** Altura available of the area of game (between topbar and timeline) */
 	inline function _gameH():Int
 		return SH - TOP_H - STATUS_H - (timelineVisible ? TL_H : 0);
 
-	/** Ancho del área de eventos en la timeline */
+	/** Width of the area of events in the timeline */
 	inline function _tlAreaW():Int
 		return SW - TL_LABEL_W - (rightPanelVisible ? RIGHT_W : 0);
 
@@ -2660,7 +2660,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	 * Lee las secciones de PlayState.SONG y genera eventos "Camera Follow" en el
 	 * track 0 (Camera) cada vez que mustHitSection cambia, para que las secciones
 	 * ya colocadas sean visibles en la tabla de eventos del editor.
-	 * Solo añade los eventos que aún no existen (compara stepTime y tipo).
+	 * Only adds the events that still no existen (compara stepTime and type).
 	 */
 	function _importSectionCameraEvents():Void
 	{
@@ -2668,14 +2668,14 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		if (SONG == null || SONG.notes == null || SONG.notes.length == 0) return;
 
 		var stepAccum  : Float = 0;
-		var prevMustHit: Bool  = true; // primer valor por defecto = cámara en BF
+		var prevMustHit: Bool  = true; // primer value by default = camera in BF
 
 		for (i in 0...SONG.notes.length)
 		{
 			var section = SONG.notes[i];
 			final mustHit = section.mustHitSection ?? true;
 
-			// Insertar evento si es la primera sección o si cambia respecto a la anterior
+			// Insertar event if is the first section or if changes respecto to the previous
 			if (i == 0 || mustHit != prevMustHit)
 			{
 				final target = mustHit ? 'bf' : 'dad';
@@ -2743,7 +2743,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Calcula el tamaño inicial del viewport flotante basándose en el espacio
+	 * Calcula the size inicial of the viewport flotante basándose in the espacio
 	 * disponible entre topbar y timeline.
 	 */
 	function _initGameViewport():Void
@@ -2763,7 +2763,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		if (camGame == null) return;
 		if (_vpFloating)
 		{
-			// Modo flotante: la cámara ocupa solo el rectángulo _vp*
+			// Modo flotante: the camera ocupa only the rectangle _vp*
 			camGame.x      = Std.int(_vpX);
 			camGame.y      = Std.int(_vpY);
 			camGame.width  = _vpW;
@@ -2772,7 +2772,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		}
 		else
 		{
-			// Modo normal: ocupa todo el área de juego
+			// Modo normal: ocupa all the area of game
 			camGame.x      = 0;
 			camGame.y      = 0;
 			camGame.width  = SW - (rightPanelVisible ? RIGHT_W : 0);
@@ -2786,13 +2786,13 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		if (_vpFloating)
 		{
-			// Tamaño y posición inicial de la ventana flotante
+			// Size and position inicial of the window flotante
 			_vpW = Std.int((SW - (rightPanelVisible ? RIGHT_W : 0)) * 0.65);
 			_vpH = Std.int(_gameH() * 0.65);
 			_vpX = (SW - (rightPanelVisible ? RIGHT_W : 0) - _vpW) / 2;
 			_vpY = TOP_H + (_gameH() - _vpH) / 2;
 			_buildFloatingWindowUI();
-			showStatus('🎮 Viewport flotante activado — arrastra el título, esquina SE para redimensionar', 4.0);
+			showStatus('🎮 Viewport flotante activated — arrastra the title, esquina is for redimensionar', 4.0);
 		}
 		else
 		{
@@ -2820,7 +2820,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		flixel.util.FlxSpriteUtil.drawRect(_vpBorder, _vpW + 2, 0, 2, _vpH + 22, C_ACCENT);
 		_vpBorder.scrollFactor.set(); _vpBorder.cameras = [camHUD]; add(_vpBorder);
 
-		// Título / drag handle
+		// Title / drag handle
 		_vpTitleBar = new FlxSprite(_vpX - 2, _vpY - 20).makeGraphic(_vpW + 4, 20, 0xCC101020);
 		_vpTitleBar.scrollFactor.set(); _vpTitleBar.cameras = [camHUD]; add(_vpTitleBar);
 
@@ -2828,7 +2828,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		_vpTitleTxt.setFormat(Paths.font('vcr.ttf'), 9, C_ACCENT, LEFT);
 		_vpTitleTxt.scrollFactor.set(); _vpTitleTxt.cameras = [camHUD]; add(_vpTitleTxt);
 
-		// Esquina SE para resize (triángulo visual)
+		// Esquina is for resize (triangle visual)
 		_vpHandleCorner = new FlxSprite(_vpX + _vpW - 14, _vpY + _vpH - 14).makeGraphic(14, 14, C_ACCENT);
 		_vpHandleCorner.alpha = 0.5;
 		_vpHandleCorner.scrollFactor.set(); _vpHandleCorner.cameras = [camHUD]; add(_vpHandleCorner);
@@ -2869,7 +2869,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		var mx = FlxG.mouse.x;
 		var my = FlxG.mouse.y;
 
-		// ── Inicio de drag (título) / resize (esquina SE) ────────────────────
+		// ── Start of drag (title) / resize (esquina is) ────────────────────
 		if (FlxG.mouse.justPressed)
 		{
 			// Resize: esquina SE (14×14)
@@ -2886,7 +2886,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				// Drag: barra de título
+				// Drag: title bar
 				var inTitle = mx >= _vpX - 2 && mx <= _vpX + _vpW + 2
 				           && my >= _vpY - 20 && my <= _vpY;
 				if (inTitle)
@@ -2904,7 +2904,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			_vpResizing = false;
 		}
 
-		// ── Drag posición ────────────────────────────────────────────────────
+		// ── Drag position ────────────────────────────────────────────────────
 		if (_vpDragging)
 		{
 			_vpX = FlxMath.bound(mx - _vpDragOffX, 0, SW - _vpW);
@@ -2920,7 +2920,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			var dy = my - _vpResStartY;
 			_vpW = Std.int(Math.max(_vpMinW, _vpResStartW + dx));
 			_vpH = Std.int(Math.max(_vpMinH, _vpResStartH + dy));
-			// Clamp al área visible
+			// Clamp to the area visible
 			_vpW = Std.int(Math.min(_vpW, SW - Std.int(_vpX) - (rightPanelVisible ? RIGHT_W : 0)));
 			_vpH = Std.int(Math.min(_vpH, SH - Std.int(_vpY) - STATUS_H));
 			_applyViewportToCam();
@@ -3047,7 +3047,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	function _getAvailableNoteSkins():Array<String>
 	{
 		var skins = ['default'];
-		// Intentar leer de Paths si está disponible
+		// Intentar leer of Paths if is available
 		#if sys
 		var dir = Paths.resolve('images/NOTE_assets');
 		if (sys.FileSystem.exists(dir))
@@ -3078,11 +3078,11 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 				_updateUnsavedDot();
 			}
 		}
-		// Recargar el HUD si soporta reloadNoteSkin (reflección para no romper builds)
+		// Reload the HUD if supports reloadNoteSkin (reflección for no break builds)
 		if (uiManager != null)
 		{
 			try { Reflect.callMethod(uiManager, Reflect.field(uiManager, 'reloadNoteSkin'), [skin]); }
-			catch (e:Dynamic) { /* método no disponible en esta build */ }
+			catch (and:Dynamic) { /* method no available in this build */ }
 		}
 		showStatus('Note skin: $skin (guarda con F5 para persistir)', 3.0);
 	}
@@ -3091,7 +3091,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	 * Cicla entre cuatro presets de layout del viewport de juego:
 	 *   0 = Full  — maximiza la ventana de gameplay, oculta panel + timeline
 	 *   1 = Normal — layout por defecto (panel + timeline visibles)
-	 *   2 = Compact — timeline oculta, panel visible, viewport más grande
+	 *   2 = Compact — timeline oculta, panel visible, viewport more large
 	 *   3 = Side-by-side — panel izquierdo de 40%, viewport derecho 60%
 	 */
 	function _cycleLayoutPreset():Void
@@ -3199,7 +3199,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		// Limpiar ventana flotante
 		_destroyFloatingWindowUI();
 
-		// Restaurar camGame a pantalla completa para que no quede "pequeño" en el estado siguiente
+		// Restaurar camGame to screen complete for that no quede "small" in the state next
 		if (camGame != null) { camGame.x = 0; camGame.y = 0; camGame.width = SW; camGame.height = SH; }
 
 		super.destroy();

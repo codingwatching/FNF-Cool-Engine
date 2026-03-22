@@ -29,8 +29,8 @@ class FixedBitmapData extends BitmapData
 
 	/**
 	 * Crea una FixedBitmapData con las dimensiones dadas.
-	 * @param width  Ancho en píxeles
-	 * @param height Alto en píxeles
+	 * @param width  Width in pixels
+	 * @param height Height in pixels
 	 * @param useGPU Si es true usa una textura de hardware (recomendado)
 	 */
 	public static function create(width:Int, height:Int, useGPU:Bool = true):FixedBitmapData
@@ -38,7 +38,7 @@ class FixedBitmapData extends BitmapData
 		if (useGPU)
 		{
 			// FIX: context3D puede ser null en Android durante el arranque.
-			// Si no está disponible, caemos a bitmap software (sin GPU).
+			// If no is available, caemos to bitmap software (without GPU).
 			var texture:Null<TextureBase> = _createTexture(width, height);
 			if (texture != null) return fromTexture(texture);
 		}
@@ -63,11 +63,11 @@ class FixedBitmapData extends BitmapData
 
 	static function _createTexture(width:Int, height:Int):Null<TextureBase>
 	{
-		// Las texturas de tamaño cero dan problemas
+		// The textures of size cero dan problemas
 		width  = width  < 1 ? 1 : width;
 		height = height < 1 ? 1 : height;
 		// FIX: context3D es null en Android hasta el primer frame renderizado.
-		// Devolver null aquí es seguro; create() caerá a bitmap software.
+		// Return null here is safe; create() caerá to bitmap software.
 		var ctx = Lib.current.stage.context3D;
 		if (ctx == null) return null;
 		return ctx.createTexture(width, height, BGRA, true);

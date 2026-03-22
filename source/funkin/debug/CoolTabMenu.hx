@@ -13,9 +13,9 @@ import flixel.addons.ui.FlxUITabMenu;
 import funkin.debug.themes.EditorTheme;
 
 /**
- * CoolTabMenu — Reemplazo visual de FlxUITabMenu con la estética del engine.
+ * CoolTabMenu — Replacement visual of FlxUITabMenu with the estética of the engine.
  *
- * ── Drop-in: cambia 3 líneas por editor ──────────────────────────────────────
+ * ── Drop-in: changes 3 lines by editor ──────────────────────────────────────
  *
  *   // 1. Import
  *   import funkin.debug.CoolTabMenu;          // en vez de FlxUITabMenu
@@ -26,26 +26,26 @@ import funkin.debug.themes.EditorTheme;
  *   // 3. Constructor
  *   rightPanel = new CoolTabMenu(null, tabs, true);
  *
- *   // Todo lo demás queda igual:
+ *   // All it demás queda igual:
  *   rightPanel.resize(w, h);
  *   rightPanel.addGroup(tab);
  *   rightPanel.selected_tab_id = 'MyTab';
  *
- * ── Diseño visual ────────────────────────────────────────────────────────────
+ * ── Visual design ────────────────────────────────────────────────────────────
  *
  *   • Barra de tabs (28 px): fondo bgPanelAlt.
- *   • Línea accent de 1 px separa barra de body.
+ *   • Line accent of 1 px separa barra of body.
  *   • Tab inactiva: fondo bgHover, texto textSecondary al 75 %.
  *   • Tab activa:   fondo accent×18 % alpha, texto blanco, underline 2 px.
  *   • Hover: texto al 100 % opacity.
  *   • Body: bgPanel puro.
- *   • Fade-in de 80 ms al cambiar de pestaña.
+ *   • Fade-in of 80 ms to the change of pestaña.
  *   • refresh() para actualizar colores cuando cambia el tema.
  *
- * ── Estrategia de ocultación del chrome nativo ───────────────────────────────
+ * ── Native chrome hiding strategy ───────────────────────────────
  *
- *   Hacemos snapshot de members.length antes/después de super() para
- *   identificar exactamente qué sprites añadió FlxUITabMenu internamente
+ *   Hacemos snapshot of members.length before/after of super() for
+ *   identificar exactly what sprites añadió FlxUITabMenu internamente
  *   y los ocultamos con visible=false. Nuestro chrome va encima.
  *
  * @author Cool Engine Team
@@ -53,7 +53,7 @@ import funkin.debug.themes.EditorTheme;
 @:access(flixel.addons.ui.FlxUITabMenu)
 class CoolTabMenu extends FlxUITabMenu
 {
-	// ── Constantes de diseño ─────────────────────────────────────────────────
+	// ── Constants of diseño ─────────────────────────────────────────────────
 
 	public static inline var TAB_BAR_H  : Int   = 28;
 	public static inline var ACCENT_BAR : Int   = 2;
@@ -68,7 +68,7 @@ class CoolTabMenu extends FlxUITabMenu
 	var _tabBtns    : Array<CoolTabBtn> = [];
 	var _fadeTween  : FlxTween;
 
-	/** Cuántos miembros añadió super() — son el chrome nativo a ocultar. */
+	/** How many miembros añadió super() — are the chrome native to hide. */
 	var _nativeCount : Int = 0;
 
 	var _pw      : Int = 300;
@@ -82,13 +82,13 @@ class CoolTabMenu extends FlxUITabMenu
 		_tabDefs = tabs;
 		super(back_, tabs, wrap);
 
-		// Después de super(): todos los miembros son chrome nativo.
+		// After of super(): all the miembros are chrome nativo.
 		_nativeCount = members.length;
 		_hideNativeMembers();
 		_buildChrome();
 	}
 
-	// ── API pública ──────────────────────────────────────────────────────────
+	// ── API public ──────────────────────────────────────────────────────────
 
 	override public function resize(w:Float, h:Float):Void
 	{
@@ -142,7 +142,7 @@ class CoolTabMenu extends FlxUITabMenu
 		_tabBarBg.scrollFactor.set();
 		add(_tabBarBg);
 
-		// Línea accent separadora
+		// Line accent separadora
 		_tabBarLine = new FlxSprite(0, TAB_BAR_H);
 		_tabBarLine.makeGraphic(pw, 1, T.accent);
 		_tabBarLine.alpha = 0.4;
@@ -224,7 +224,7 @@ class CoolTabMenu extends FlxUITabMenu
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Botón de pestaña individual.
+ * Button of pestaña individual.
  * FlxSpriteGroup puro: bg + underline + separador + label.
  * No usa FlxButton para evitar el estilo por defecto de flixel-addons.
  */
@@ -305,7 +305,7 @@ class CoolTabBtn extends FlxSpriteGroup
 		super.update(elapsed);
 
 		// Las coordenadas del grupo en pantalla dependen de si scrollFactor=0
-		// y de la posición del padre (CoolTabMenu). Como usamos scrollFactor.set()
+		// and of the position dthe parent (CoolTabMenu). As usamos scrollFactor.set()
 		// en el padre y en cada btn, x/y son coordenadas de pantalla directas.
 		var hover = (FlxG.mouse.x >= x && FlxG.mouse.x <= x + _bw
 		          && FlxG.mouse.y >= y && FlxG.mouse.y <= y + _bh);

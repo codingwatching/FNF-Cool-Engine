@@ -22,12 +22,12 @@ import flixel.graphics.FlxGraphic;
  * Inspirado directamente en el TouchPointerPlugin de V-Slice / FNF.
  * Diferencias con el original:
  *   - No usa assets externos (michael.png / kevin.png). Las texturas se generan
- *     por código: anillo exterior + círculo interior con gradiente.
+ *     by code: anillo exterior + circle interior with gradiente.
  *   - Si el jugador coloca sus propios PNGs en assets/images/touch/finger-still.png
- *     y assets/images/touch/finger-move.png, el plugin los usa automáticamente.
- *   - Se integra con el sistema de cámara de Cool Engine (no necesita FunkinCamera).
+ *     and assets/images/touch/finger-move.png, the plugin the use automatically.
+ *   - Is integra with the system of camera of Cool Engine (no necesita FunkinCamera).
  *
- * Para activarlo, llama a TouchPointerPlugin.initialize() en Main.hx (ya está añadido).
+ * For activarlo, call to TouchPointerPlugin.initialize() in Main.hx (already is added).
  * Para desactivarlo en runtime: TouchPointerPlugin.enabled = false;
  */
 class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
@@ -45,18 +45,18 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 	@:allow(funkin.util.plugins.TouchPointer)
 	static var _texMove:FlxGraphic = null;
 
-	/** Tamaño del indicador en píxeles */
+	/** Size of the indicador in pixels */
 	public static inline var POINTER_SIZE:Int = 80;
 
 	// ── Color del indicador ────────────────────────────────────────────────
-	// V-Slice usa 0xff6666e1 (lila) con blend=screen. Aquí usamos el mismo.
+	// V-Slice use 0xff6666e1 (lila) with blend=screen. Here usamos the mismo.
 	public static var pointerColor:FlxColor = 0xff6666e1;
 
 	// ──────────────────────────────────────────────────────────────────────
 
 	public function new() { super(); }
 
-	// ── API pública ───────────────────────────────────────────────────────
+	// ── API public ───────────────────────────────────────────────────────
 
 	/**
 	 * Inicializa el plugin. Llamar UNA SOLA VEZ desde Main.hx.
@@ -66,7 +66,7 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 		// Generar texturas procedurales
 		_buildTextures();
 
-		// Cámara dedicada, siempre encima de todo
+		// Camera dedicada, always encima of all
 		_camera = new FlxCamera();
 		_camera.bgColor.alpha = 0;
 
@@ -76,7 +76,7 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 		FlxG.cameras.add(_camera, false);
 		FlxG.plugins.add(_instance);
 
-		// Mantener la cámara del plugin en la cima ante cualquier cambio
+		// Mantener the camera of the plugin in the cima ante cualquier cambio
 		FlxG.cameras.cameraAdded.add(_onCameraAdded);
 		FlxG.cameras.cameraRemoved.add(_onCameraRemoved);
 
@@ -84,7 +84,7 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 		FlxG.signals.preStateSwitch.add(function() { if (_instance != null) _instance._clearAll(true); });
 	}
 
-	// ── Generación de texturas ────────────────────────────────────────────
+	// ── Generación of textures ────────────────────────────────────────────
 
 	static function _buildTextures():Void
 	{
@@ -100,7 +100,7 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 			var g = (c >> 8)  & 0xFF;
 			var b =  c        & 0xFF;
 
-			// Pintar pixel a pixel con círculos suaves
+			// Pintar pixel to pixel with círculos smooth
 			for (py in 0...S)
 			{
 				for (px in 0...S)
@@ -135,7 +135,7 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 			_texStill = FlxGraphic.fromBitmapData(bd, false, "__touch_still__", false);
 		}
 
-		// ── Textura "move" (deslizando): anillo con dirección ──────────────────
+		// ── Texture "move" (deslizando): anillo with direction ──────────────────
 		{
 			var bd = new BitmapData(S, S, true, 0x00000000);
 			var cx = S >> 1;
@@ -155,11 +155,11 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 					var outer = S / 2 - 2;
 					var inner = S / 2 - 10;
 
-					// Anillo más grueso + arco superior más brillante (simula dirección)
+					// Thicker ring + brighter top arc (simulates direction)
 					if (dist <= outer && dist >= inner)
 					{
 						var t = 1 - Math.abs(dist - (outer + inner) / 2) / ((outer - inner) / 2);
-						// Ángulo: superior más opaco para dar sensación de flecha
+						// Angle: top more opaque to give arrow feel
 						var angle = Math.atan2(-dy, dx); // -dy para que "arriba" sea brillante
 						var bright = (Math.cos(angle) * 0.4 + 0.6);
 						var alpha = t * 240 * bright;
@@ -311,10 +311,10 @@ class TouchPointerPlugin extends FlxTypedSpriteGroup<TouchPointer>
 // ═════════════════════════════════════════════════════════════════════════════
 
 /**
- * TouchPointer — un único indicador visual para un dedo en pantalla.
+ * TouchPointer — a unique indicador visual for a dedo in screen.
  *
  * Al presionar: aparece con scale 1.4 → 1.0 (pop).
- * Al mover: cambia a la textura "move" y rota hacia la dirección de movimiento.
+ * To the move: changes to the texture "move" and rota towards the direction of movement.
  * Al soltar: fade out gestionado por TouchPointerPlugin.
  */
 class TouchPointer extends FlxSprite
@@ -356,7 +356,7 @@ class TouchPointer extends FlxSprite
 
 	public function updateFromTouch(touch:FlxTouch, cam:FlxCamera):Void
 	{
-		// Posición en coordenadas de vista
+		// Position in coordenadas of vista
 		var vp = FlxPoint.get();
 		vp.set(touch.screenX, touch.screenY);
 
@@ -381,7 +381,7 @@ class TouchPointer extends FlxSprite
 
 		if (moved)
 		{
-			// Rotar hacia la dirección del movimiento
+			// Rotate towards the direction of the movement
 			var dx = vp.x - _lastPos.x;
 			var dy = vp.y - _lastPos.y;
 			angle = Math.atan2(dy, dx) * (180 / Math.PI);

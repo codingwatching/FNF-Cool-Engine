@@ -21,22 +21,22 @@ import animationdata.FunkinSprite;
 using StringTools;
 
 /**
- * PathsCache v4 — sistema de caché tricapa con prefetch asíncrono y LRU.
+ * PathsCache v4 — system of cache tricapa with prefetch asynchronous and LRU.
  *
  * ─── Mejoras v4 ──────────────────────────────────────────────────────────────
  *
  *  LRU REAL
  *    • _lruOrder: Array<String> que mantiene el orden de acceso.
  *    • Cuando _currentGraphics supera maxGraphics, evicta el menos usado.
- *    • Evita acumulación silenciosa de texturas no referenciadas.
+ *    • Avoids acumulación silenciosa of textures no referenciadas.
  *
- *  PREFETCH ASÍNCRONO (desktop C++)
+ *  PREFETCH asynchronous (desktop C++)
  *    • prefetchAsync(keys): inicia la carga de texturas en background.
- *    • isPrefetchDone(): true cuando todas las texturas están listas.
+ *    • isPrefetchDone(): true when all the textures are lists.
  *    • Integrado con CacheState para mostrar progreso real.
  *
  *  HIT RATE METRICS
- *    • Contadores: _hits, _misses, _rescues para diagnóstico de rendimiento.
+ *    • Contadores: _hits, _misses, _rescues for diagnostic of performance.
  *    • hitRate(): porcentaje de hits sobre el total de lookups.
  *    • Visibles en el debug overlay.
  *
@@ -45,11 +45,11 @@ using StringTools;
  *    • resolveWithMod(id): resuelve el path real teniendo en cuenta el mod activo.
  *    • clearModPathCache(): llamar al cambiar de mod para invalidar el cache.
  *
- * ─── Capas de caché ──────────────────────────────────────────────────────────
+ * ─── Layers of cache ──────────────────────────────────────────────────────────
  *
  *   PERMANENTE  — UI esencial, countdown, fonts. Nunca se destruye.
- *   CURRENT     — Assets de la sesión actual. Se rota al cambiar estado.
- *   PREVIOUS    — Assets de la sesión anterior. Se rescatan o destruyen.
+ *   CURRENT     — Assets of the session current. Is rota to the change state.
+ *   PREVIOUS    — Assets of the previous session. Is rescatan or destruyen.
  *
  * ─── Compatibilidad ──────────────────────────────────────────────────────────
  *  OpenFL ≥ 9.2.0 / OpenFL < 9.2.0 (via import condicional)
@@ -81,7 +81,7 @@ class PathsCache
 		lowMemoryMode = v;
 		if (instance != null)
 		{
-			// Mobile tiene RAM más limitada — límites más bajos incluso en modo normal
+			// Mobile tiene RAM more limitada — limits more bajos incluso in modo normal
 			#if (mobileC || android || ios)
 			instance.maxGraphics = v ? 20 : 40;
 			instance.maxSounds   = v ? 16 : 32;
@@ -103,9 +103,9 @@ class PathsCache
 	 */
 	public static var pathResolver:(String)->String = null;
 
-	// ── Límites de caché ──────────────────────────────────────────────────────
+	// ── Limits of cache ──────────────────────────────────────────────────────
 	// Desktop: 80 texturas / 64 sonidos.
-	// Mobile (Android/iOS): 40 / 32 — RAM más limitada y sin swap.
+	// Mobile (Android/iOS): 40 / 32 — RAM more limitada and without swap.
 
 	public var maxGraphics:Int = #if (mobileC || android || ios) 40 #else 80 #end;
 	public var maxSounds:Int   = #if (mobileC || android || ios) 32 #else 64 #end;
@@ -117,7 +117,7 @@ class PathsCache
 	var   _previousGraphics  : Map<String, FlxGraphic> = [];
 
 	// ── LRU de texturas current ───────────────────────────────────────────────
-	// Mantiene el orden de acceso: [más antiguo ... más reciente]
+	// Mantiene the orden of acceso: [more old ... more reciente]
 	var _lruOrder : Array<String> = [];
 
 	// ── Tricapa de sonidos ────────────────────────────────────────────────────
@@ -126,11 +126,11 @@ class PathsCache
 	final _currentSounds   : Map<String, Sound> = [];
 	var   _previousSounds  : Map<String, Sound> = [];
 
-	// ── Caché de paths de mod ─────────────────────────────────────────────────
+	// ── Cache of paths of mod ─────────────────────────────────────────────────
 	// Evita llamar a ModManager.resolveInMod en cada carga repetida.
 	var _modPathCache : Map<String, String> = [];
 
-	// ── Métricas de hit rate ──────────────────────────────────────────────────
+	// ── Metrics of hit rate ──────────────────────────────────────────────────
 	var _hits    : Int = 0;
 	var _misses  : Int = 0;
 	var _rescues : Int = 0; // hits rescatados desde previous
@@ -173,7 +173,7 @@ class PathsCache
 		return total > 0 ? _hits / total : 0.0;
 	}
 
-	/** Reset de métricas. */
+	/** Reset of metrics. */
 	public function resetMetrics():Void { _hits = 0; _misses = 0; _rescues = 0; }
 
 	// ── API compatibilidad ────────────────────────────────────────────────────
@@ -208,13 +208,13 @@ class PathsCache
 	function new() {}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// GESTIÓN DE SESIÓN
+	// management of session
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Inicia una nueva sesión.
+	 * Starts a new session.
 	 * Los assets de current pasan a previous.
-	 * Los assets que se carguen ahora se añaden a current.
+	 * The assets that is carguen now is añaden to current.
 	 */
 	public function beginSession():Void
 	{
@@ -224,22 +224,22 @@ class PathsCache
 	}
 
 	/**
-	 * Rota las capas de gráficos: _current → _previous, _previous descartada.
+	 * Rota the layers of graphics: _current → _previous, _previous descartada.
 	 * Llamar desde FunkinCache.preStateSwitch, ANTES de que el nuevo estado cargue assets.
 	 *
-	 * Por qué es necesario:
+	 * By what is necesario:
 	 *   FunkinCache.clearSecondLayer() llama FlxG.bitmap.removeByKey() → g.destroy()
-	 *   → g.bitmap = null sobre los gráficos de la sesión anterior.
-	 *   Sin esta rotación, PathsCache._currentGraphics retiene esos FlxGraphics muertos
-	 *   indefinidamente. hasValidGraphic() veía el objeto != null y devolvía true.
-	 *   El nuevo estado obtenía un gráfico con bitmap=null, lo usaba en FlxAtlasFrames,
+	 *   → g.bitmap = null over the graphics of the previous session.
+	 *   Without this rotation, PathsCache._currentGraphics retiene those FlxGraphics muertos
+	 *   indefinidamente. hasValidGraphic() veía the object != null and returned true.
+	 *   The new state obtenía a graphic with bitmap=null, it usaba in FlxAtlasFrames,
 	 *   y el primer draw → FlxDrawQuadsItem::render → null-object crash.
 	 *
-	 * Con esta rotación:
-	 *   - Los gráficos actuales se mueven a _previousGraphics.
+	 * With this rotation:
+	 *   - The graphics actuales is mueven to _previousGraphics.
 	 *   - Si el nuevo estado los necesita, getGraphic() los rescata a _current (siempre
 	 *     que bitmap != null — si ya fueron destruidos se descartan y se recargan).
-	 *   - _currentGraphics queda vacío → hasValidGraphic() devuelve false → carga limpia.
+	 *   - _currentGraphics queda empty → hasValidGraphic() returns false → load clears.
 	 */
 	public function rotateSession():Void
 	{
@@ -316,8 +316,8 @@ class PathsCache
 	}
 
 	/**
-	 * Si _currentGraphics supera maxGraphics, evicta las entradas más antiguas.
-	 * Solo evicta gráficos sin referencias activas (useCount == 0, no persist, no permanent).
+	 * If _currentGraphics supera maxGraphics, evicta the entradas more antiguas.
+	 * Only evicta graphics without references activas (useCount == 0, no persist, no permanent).
 	 */
 	function _evictIfNeeded():Void
 	{
@@ -335,7 +335,7 @@ class PathsCache
 				_lruOrder.splice(i, 1);
 				_graphicCount--;
 				evicted++;
-				// No destruir aquí — FunkinCache.clearSecondLayer() lo hará seguro
+				// Don't destroy here — FunkinCache.clearSecondLayer() will do it safely
 			}
 			else i++;
 		}
@@ -344,7 +344,7 @@ class PathsCache
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// PREFETCH ASÍNCRONO
+	// PREFETCH asynchronous
 	// ══════════════════════════════════════════════════════════════════════════
 
 	var _prefetchQueue   : Array<String>       = [];
@@ -353,11 +353,11 @@ class PathsCache
 
 	/**
 	 * Inicia la precarga de una lista de texturas en background (desktop C++).
-	 * En otras plataformas, hace la carga sincrónica normal.
+	 * In otras plataformas, hace the load sincrónica normal.
 	 *
 	 * @param keys      Lista de claves/paths a precargar.
 	 * @param onProgress Callback (loaded:Int, total:Int) llamado tras cada carga.
-	 * @param onDone    Callback llamado cuando todas las texturas están listas.
+	 * @param onDone    Callback calldo when all the textures are lists.
 	 */
 	public function prefetchAsync(keys:Array<String>, ?onProgress:(Int,Int)->Void, ?onDone:()->Void):Void
 	{
@@ -397,13 +397,13 @@ class PathsCache
 			}
 			else
 			{
-				// Siguiente batch en el próximo frame
+				// Next batch in the next frame
 				new flixel.util.FlxTimer().start(0, function(_) loadBatch());
 			}
 		}
 		loadBatch();
 		#else
-		// Plataformas sin hilos: carga síncrona
+		// Plataformas without threads: load synchronous
 		for (k in keys)
 		{
 			if (!hasValidGraphic(k)) cacheGraphic(k);
@@ -418,7 +418,7 @@ class PathsCache
 	/** true cuando el prefetch ha completado. */
 	public function isPrefetchDone():Bool return _prefetchDone;
 
-	/** Cuántos assets del último prefetch se cargaron correctamente. */
+	/** How many assets of the last prefetch is cargaron correctly. */
 	public function prefetchSuccessCount():Int
 	{
 		var n = 0;
@@ -427,7 +427,7 @@ class PathsCache
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// SOPORTE MODS — resolución de paths con caché
+	// support mods — resolution of paths with cache
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
@@ -457,14 +457,14 @@ class PathsCache
 		return null;
 	}
 
-	/** Invalida el caché de paths de mod (llamar al cambiar de mod). */
+	/** Invalida the cache of paths of mod (callr to the change of mod). */
 	public function clearModPathCache():Void
 		_modPathCache = [];
 
 
 	/**
 	 * Carga una textura y la marca como permanente.
-	 * Usada durante el pre-caché de arranque.
+	 * Usada durante the pre-cache of arranque.
 	 */
 	public function permanentCacheGraphic(key:String):Null<FlxGraphic>
 	{
@@ -474,7 +474,7 @@ class PathsCache
 		return g;
 	}
 
-	/** Registra un FlxGraphic ya existente en la sesión actual. */
+	/** Registra a FlxGraphic already existente in the session current. */
 	public function trackGraphic(key:String, graphic:FlxGraphic):Void
 	{
 		if (_currentGraphics.exists(key)) return;
@@ -486,9 +486,9 @@ class PathsCache
 	/**
 	 * Rescata un FlxGraphic de _previousGraphics a _currentGraphics.
 	 * Llamar cuando un atlas cacheado se reutiliza entre sesiones para
-	 * evitar que su gráfico sea destruido por clearPreviousSession().
+	 * avoid that its graphic sea destruido by clearPreviousSession().
 	 *
-	 * BUGFIX: también rescata el BitmapData subyacente en FunkinCache.
+	 * BUGFIX: also rescata the BitmapData subyacente in FunkinCache.
 	 * Sin esto, FunkinCache.clearSecondLayer() llama dispose() sobre el
 	 * BitmapData que este FlxGraphic sigue usando → graphic.bitmap = null
 	 * → FlxDrawQuadsItem::render null-object crash en el primer frame.
@@ -508,10 +508,10 @@ class PathsCache
 	/** Devuelve un FlxGraphic buscando en todas las capas. */
 	public function getGraphic(key:String, ?bitmapData:openfl.display.BitmapData, allowGPU:Bool = true):Null<FlxGraphic>
 	{
-		// BUGFIX: siempre verificar bitmap != null antes de devolver un gráfico.
-		// FunkinCache.clearSecondLayer() puede haber destruido el gráfico (g.bitmap = null)
+		// BUGFIX: always verify bitmap != null before of return a graphic.
+		// FunkinCache.clearSecondLayer() puede haber destruido the graphic (g.bitmap = null)
 		// mientras PathsCache._currentGraphics sigue sosteniendo la referencia.
-		// Devolver un gráfico muerto → FlxAtlasFrames con bitmap=null → crash en primer render.
+		// Return a graphic muerto → FlxAtlasFrames with bitmap=null → crash in first render.
 		var gPerm = _permanentGraphics.get(key);
 		if (gPerm != null)
 		{
@@ -526,12 +526,12 @@ class PathsCache
 			_currentGraphics.remove(key);
 			_graphicCount--;
 		}
-		// ── RESCUE: mover de previous a current para que sobreviva esta sesión ──
+		// ── RESCUE: move of previous to current for that sobreviva this session ──
 		if (_previousGraphics.exists(key))
 		{
 			final g = _previousGraphics.get(key);
 			_previousGraphics.remove(key);
-			// BUGFIX: si el gráfico fue destruido (bitmap=null), no rescatar — recargar.
+			// BUGFIX: if the graphic was destruido (bitmap=null), no rescue — reload.
 			if (g != null && g.bitmap != null)
 			{
 				_currentGraphics.set(key, g);
@@ -556,20 +556,20 @@ class PathsCache
 
 	function _loadGraphic(key:String, permanent:Bool):Null<FlxGraphic>
 	{
-		// Intentar con FlxG.bitmap primero (puede que Flixel ya lo tenga en caché propia)
+		// Intentar with FlxG.bitmap first (puede that Flixel already it tenga in cache propia)
 		var existing = FlxG.bitmap.get(key);
 		if (existing != null)
 		{
-			// BUGFIX CRÍTICO — FlxDrawQuadsItem::render null object reference:
+			// BUGFIX critical — FlxDrawQuadsItem::render null object reference:
 			// FlxG.bitmap._cache conserva entradas cuyo FlxGraphic fue destruido por
-			// clearPreviousSession() (llamado desde PlayState.destroy() vía clearUnusedMemory).
+			// clearPreviousSession() (calldo from PlayState.destroy() via clearUnusedMemory).
 			// destroy() llama bitmap.dispose() → bitmap = null, pero la entrada sigue en el cache.
-			// Si aceptamos ese gráfico sin verificar, lo metemos en _currentGraphics con bitmap=null
+			// If aceptamos that graphic without verify, it metemos in _currentGraphics with bitmap=null
 			// → FlxDrawQuadsItem::render falla en el primer frame con null object reference.
-			// Solución: si bitmap es null, eliminar la entrada huérfana y recargar desde disco.
+			// Solution: if bitmap is null, remove the entry huérfana and reload from disco.
 			if (existing.bitmap == null)
 			{
-				trace('[PathsCache] FlxGraphic huérfano detectado para "$key" (bitmap=null), recargando desde disco.');
+				trace('[PathsCache] FlxGraphic orphan detectado for "$key" (bitmap=null), recargando from disco.');
 				@:privateAccess FlxG.bitmap.removeKey(key);
 				existing = null;
 				// Caer al bloque de carga desde disco abajo
@@ -580,25 +580,25 @@ class PathsCache
 				_currentGraphics.set(key, existing);
 				_graphicCount++;
 				// BUGFIX (crash FlxDrawQuadsItem::render):
-				// FlxG.bitmap todavía contiene FlxGraphics de la sesión anterior —
+				// FlxG.bitmap still contains FlxGraphics from the previous session —
 				// no se limpian hasta postStateSwitch → clearPreviousSession().
 				// Su BitmapData fue movido a bitmapData2 por moveToSecondLayer().
-				// Si no lo rescatamos aquí, clearSecondLayer() llama dispose() sobre él
-				// mientras este FlxGraphic (ya en _currentGraphics) sigue usándolo →
+				// If we don't rescue it here, clearSecondLayer() will call dispose() on it
+				// while this FlxGraphic (already in _currentGraphics) sigue usándolo →
 				// bitmap dispuesto en el primer frame de render → crash.
 						return existing;
 			}
 		}
 
-		// Cargar vía FlxGraphic.fromAssetKey — igual que V-Slice FunkinMemory.cacheTexture().
-		// Es más directo que getBitmapData → fromBitmapData y funciona con todas las
-		// versiones de OpenFL porque delega la resolución al pipeline nativo de Flixel.
+		// Load via FlxGraphic.fromAssetKey — igual that V-Slice FunkinMemory.cacheTexture().
+		// Is more directo that getBitmapData → fromBitmapData and funciona with all the
+		// versiones of OpenFL porque delega the resolution to the pipeline nativo of Flixel.
 		//
 		// FALLBACK PARA MODS (build no recompilada):
-		// Los assets de mods existen en disco pero NO están en el manifest de OpenFL
-		// (solo se registran en compilación). fromAssetKey → Assets.getBitmapData falla
+		// The assets of mods existen in disco but no are in the manifest of OpenFL
+		// (only is registran in compilation). fromAssetKey → Assets.getBitmapData falla
 		// con "Could not find a BitmapData asset with ID mods/...". 
-		// Solución: si fromAssetKey falla y el archivo existe en disco, cargamos el
+		// Solution: if fromAssetKey falla and the file exists in disco, cargamos the
 		// BitmapData directamente con BitmapData.fromFile() y construimos el FlxGraphic.
 		var g:FlxGraphic = null;
 		try
@@ -611,7 +611,7 @@ class PathsCache
 			// Intento 2: carga directa desde disco (rutas de mods no compilados)
 			if (FileSystem.exists(key))
 			{
-				trace('[PathsCache] fromAssetKey falló para "$key", intentando carga directa desde disco...');
+				trace('[PathsCache] fromAssetKey failed for "$key", intentando load directa from disco...');
 				try
 				{
 					final bitmap = BitmapData.fromFile(key);
@@ -622,8 +622,8 @@ class PathsCache
 			}
 			#end
 
-			// Intento 3: resolver el path completo vía pathResolver (ej: Paths.image)
-			// Evita los falsos "no se pudo cargar" cuando el key corto no está en el
+			// Intento 3: resolve the path complete via pathResolver (ej: Paths.image)
+			// Avoids the falsos "no is pudo load" when the key corto no is in the
 			// manifiesto de OpenFL pero el asset existe bajo assets/images/<key>.png.
 			if (g == null && pathResolver != null)
 			{
@@ -634,13 +634,13 @@ class PathsCache
 					{
 						g = FlxGraphic.fromAssetKey(resolved, false, key, true);
 						// g.key es (default, null) en Flixel — no se puede asignar.
-						// Lo guardamos en _currentGraphics bajo el key corto más abajo.
+						// We store it in _currentGraphics under the short key below.
 					}
 				}
 				catch (e3:Dynamic) {}
 
 				#if sys
-				// Si fromAssetKey con path resuelto también falló, intentar disco directamente
+				// If fromAssetKey with resolved path also failed, try disk directly
 				if (g == null && pathResolver != null)
 				{
 					try
@@ -672,9 +672,9 @@ class PathsCache
 
 		// GPU pre-render: llama getTexture() para registrar la textura en el pipeline de OpenFL.
 		// El upload real de pixels ocurre en el PRIMER DRAW CALL del render thread.
-		// NO llamamos disposeImage() aquí — los pixels deben existir hasta ese primer draw.
-		// flushGPUCache() (llamado 5 frames después via ENTER_FRAME en PlayState.create())
-		// se encarga de liberar los pixels DESPUÉS de confirmar que el render ocurrió.
+		// no callmos disposeImage() here — the pixels deben exist until that primer draw.
+		// flushGPUCache() (calldo 5 frames after via ENTER_FRAME in PlayState.create())
+		// is encarga of free the pixels after of confirmar that the render ocurrió.
 		_forceGPURender(g);
 
 		_currentGraphics.set(key, g);
@@ -694,9 +694,9 @@ class PathsCache
 	 * del render loop causa stutter durante el precacheo (especialmente al
 	 * cargar 40-100 texturas en LoadingState→PlayState). Flixel sube la textura
 	 * a GPU en el primer draw call real, lo que ocurre suavemente dentro del
-	 * frame loop cuando la loading screen ya está visible.
+	 * frame loop when the loading screen already is visible.
 	 *
-	 * getTexture() se mantiene como optimización opcional para context3D
+	 * getTexture() is mantiene as optimization optional for context3D
 	 * disponible (desktop, no web/mobile).
 	 */
 	static function _forceGPURender(graphic:FlxGraphic):Void
@@ -772,34 +772,34 @@ class PathsCache
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// LIBERACIÓN DE MEMORIA
+	// release of memory
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Destruye los assets de la sesión ANTERIOR que no fueron rescatados.
-	 * Llamar después de `beginSession()` cuando la nueva sesión ya cargó sus assets.
+	 * Destroys the assets of the previous session that no fueron rescatados.
+	 * Callr after of `beginSession()` when the new session already cargó its assets.
 	 */
 	/**
-	 * DEPRECATED — la destrucción de assets la hace FunkinCache.clearSecondLayer()
+	 * DEPRECATED — the destruction of assets the hace FunkinCache.clearSecondLayer()
 	 * via FlxG.bitmap.removeByKey (modelo Codename). Mantener como no-op para
 	 * compatibilidad con Paths.clearPreviousSession() en PlayState/LoadingState.
 	 */
 	public function clearPreviousSession():Void
 	{
 		// No-op: FunkinCache.postStateSwitch ya llama clearSecondLayer() que
-		// usa FlxG.bitmap.removeByKey para destruir los gráficos no rescatados.
-		// Destruir FlxGraphics aquí (como hacía antes) causaba el crash porque
-		// se destruían DESPUÉS de que los sprites del nuevo estado los cargaron.
-		trace('[PathsCache] clearPreviousSession() — no-op, FunkinCache gestiona la destrucción');
+		// use FlxG.bitmap.removeByKey for destroy the graphics no rescatados.
+		// Destroy FlxGraphics here (as hacía before) causaba the crash porque
+		// is destruían after of that the sprites of the new state the cargaron.
+		trace('[PathsCache] clearPreviousSession() — no-op, FunkinCache manages the destruction');
 	}
 
 	
 
 	function _clearPreviousGraphics():Void
 	{
-		// No-op: FunkinCache.clearSecondLayer() via FlxG.bitmap.removeByKey() maneja la destrucción.
-		// Destruir FlxGraphics aquí causaba crashes porque ocurría después de que
-		// los sprites del nuevo estado ya tenían referencias a esos gráficos.
+		// No-op: FunkinCache.clearSecondLayer() via FlxG.bitmap.removeByKey() handles the destruction.
+		// Destroy FlxGraphics here causaba crashes porque ocurría after of that
+		// the sprites of the new state already tenían references to those graphics.
 		_previousGraphics.clear();
 	}
 
@@ -813,7 +813,7 @@ class PathsCache
 			_previousSounds.remove(key);
 		}
 
-		// Limpiar las librerías de canciones completas — igual que V-Slice purgeSoundCache().
+		// Clear the libraries of songs completas — igual that V-Slice purgeSoundCache().
 		// removeSound() por key individual no libera los bundles de audio de OpenFL.
 		try { OpenFLAssets.cache.clear('songs'); }  catch(_) {}
 		try { OpenFLAssets.cache.clear('music'); }  catch(_) {}
@@ -842,7 +842,7 @@ class PathsCache
 		_soundCount   = 0;
 	}
 
-	/** Limpieza de assets de un contexto específico (p.ej. "freeplay"). */
+	/** Limpieza of assets of a contexto specific (p.ej. "freeplay"). */
 	public function clearContext(contextTag:String):Void
 	{
 		final toRemove:Array<String> = [];
@@ -869,7 +869,7 @@ class PathsCache
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// COMPAT — métodos esperados por Paths.hx y el resto del engine
+	// COMPAT — methods esperados by Paths.hx and the resto of the engine
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	/** Lista de claves pendientes de marcar como permanentes. */
@@ -877,8 +877,8 @@ class PathsCache
 
 	/**
 	 * Marca una clave como permanente (nunca se evicta).
-	 * Si el asset ya está cargado en current, lo promueve a permanente.
-	 * Si aún no está cargado, lo anota para promoverlo cuando se cargue.
+	 * If the asset already is loaded in current, it promueve to permanent.
+	 * If still no is loaded, it anota for promoverlo when is cargue.
 	 */
 	public function addExclusion(key:String):Void
 	{
@@ -890,15 +890,15 @@ class PathsCache
 			_pendingExclusions.push(key);
 	}
 
-	/** Libera assets de la sesión anterior. FunkinCache maneja la destrucción real. */
+	/** Libera assets of the previous session. FunkinCache handles the destruction actual. */
 	public function clearStoredMemory():Void
 	{
 		// FunkinCache.clearSecondLayer() ya destruye via removeByKey en postStateSwitch.
-		// Esta función queda como no-op para compatibilidad con Paths.clearStoredMemory().
+		// This function queda as no-op for compatibility with Paths.clearStoredMemory().
 		try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
 	}
 
-	/** Destruye gráficos sin uso y fuerza GC. */
+	/** Destroys graphics without uso and forces GC. */
 	public function clearUnusedMemory():Void
 	{
 		try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
@@ -912,14 +912,14 @@ class PathsCache
 
 	/**
 	 * GPU caching post-load flush: libera la RAM (imagen CPU) de todos los
-	 * gráficos de la sesión actual que ya hayan sido subidos a VRAM.
+	 * graphics of the session current that already hayan sido subidos to VRAM.
 	 *
-	 * Llamar DESPUÉS de que el state haya completado su create() y haya
-	 * renderizado al menos un frame — garantiza que context3D esté listo
+	 * Callr after of that the state haya completado its create() and haya
+	 * rendering to the menos a frame — guarantees that context3D is listo
 	 * y que todas las texturas hayan sido subidas por OpenFL.
 	 *
 	 * Solo efectivo en desktop C++ (requiere OpenGL context3D).
-	 * Libera típicamente 50-400 MB de RAM en canciones con muchos sprites.
+	 * Libera típicamente 50-400 MB of RAM in songs with muchos sprites.
 	 */
 	public function flushGPUCache():Void
 	{
@@ -952,13 +952,13 @@ class PathsCache
 			catch (_:Dynamic) {}
 		}
 		if (released > 0 || skipped > 0)
-			trace('[PathsCache] flushGPUCache: $released texturas liberadas a VRAM-only, $skipped sin textura GPU aún');
+			trace('[PathsCache] flushGPUCache: $released textures liberadas to VRAM-only, $skipped without texture GPU still');
 		#end
 	}
 
 	/**
-	 * Versión selectiva: libera RAM de una textura específica si ya fue subida a VRAM.
-	 * Útil para liberar sprites de personaje/stage individualmente.
+	 * Version selectiva: libera RAM of a texture specific if already was subida to VRAM.
+	 * Useful for free sprites of character/stage individualmente.
 	 */
 	public function flushGPUCacheFor(key:String):Void
 	{

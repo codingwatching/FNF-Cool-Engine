@@ -203,12 +203,12 @@ class FreeplayState extends funkin.states.MusicBeatState
 			transOut = null;
 		}
 
-		// Resetear preview estático — puede quedar con índice viejo si venimos de PlayState
+		// Resetear preview static — puede quedar with index old if venimos of PlayState
 		instPlaying = -1;
 
 		// Registrar el resolver de paths en PathsCache para que la clave corta
 		// 'menu/ratings/SS' se resuelva a 'assets/images/menu/ratings/SS.png', etc.
-		// Esto elimina los falsos "No se pudo cargar" cuando el asset sí existe.
+		// This elimina the falsos "No is pudo load" when the asset itself exists.
 		funkin.cache.PathsCache.pathResolver = function(k) return Paths.image(k);
 
 		MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7);
@@ -217,8 +217,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 		// FIX: cargar scripts ANTES de songsSystem() para que preFilterSongs()
 		// pueda modificar freeplayData.songs antes de que se construya la UI.
-		// Sin este cambio, los scripts se cargaban DESPUÉS de la lista de canciones
-		// y no podían filtrarla.
+		// Without this cambio, the scripts is cargaban after of the list of songs
+		// and no podían filtrarla.
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.init();
 		StateScriptHandler.loadStateScripts('FreeplayState', this);
@@ -308,8 +308,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 		}
 
 		// Scripts ya cargados arriba (antes de songsSystem).
-		// Aquí solo llamamos onCreate — la UI ya está construida,
-		// el script puede añadir elementos extra o modificar estado.
+		// Here only callmos onCreate — the UI already is construida,
+		// the script puede add elementos extra or modificar state.
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onCreate', []);
 		#end
@@ -418,7 +418,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		}
 
 		_updateDifficultyStuff();
-		// Precachear álbumes y rank badges en el main thread.
+		// Precachear álbumes and rank badges in the main thread.
 		// PathsCache/FlxG.bitmap/HarfBuzz NO son thread-safe — llamarlos desde
 		// un hilo secundario corrompe buffers internos de HarfBuzz y causa
 		// "Assertion failed: bits == (allocated_var_bits & bits)" al volver al freeplay.
@@ -677,7 +677,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 			songs.push(meta);
 
-			// Color del grupo (un color por grupo, usando el de la primera canción del grupo)
+			// Color of the grupo (a color by grupo, usando the of the first song of the grupo)
 			if (i >= coolColors.length)
 			{
 				final colorInt:Null<Int> = Std.parseInt(entry.color ?? '0xFFFFD900');
@@ -912,9 +912,9 @@ class FreeplayState extends funkin.states.MusicBeatState
 				final audioSuffix = (PlayState.SONG.instSuffix != null && PlayState.SONG.instSuffix != '') ? '-' + PlayState.SONG.instSuffix : diffSuffix;
 				// loadStream lanza SampleDataEvent en cpp/Windows cuando el backend OpenAL
 				// no puede cumplir el requisito de 2048-8192 muestras por ciclo.
-				// El try/catch de Haxe no puede capturar esa excepción nativa de cpp.
-				// Solución: usar loadEmbedded para el preview (decodifica el OGG completo,
-				// ligeramente más RAM pero sin excepciones nativas).
+				// The try/catch of Haxe no puede capturar that excepción native of cpp.
+				// Solution: use loadEmbedded for the preview (decodes the full OGG,
+				// ligeramente more RAM but without excepciones nativas).
 				final _instPath = Paths.inst(PlayState.SONG.song, audioSuffix);
 				if (_instPath != null)
 				{
@@ -939,7 +939,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 				discSpr.updateHitbox();
 				discSpr.scrollFactor.set();
 				// Insertar el disco DEBAJO del albumArt en el display list
-				// para que el album quede encima y el disco sobresalga por detrás.
+				// for that the album quede above and the disco sobresalga by behind.
 				var _albumIdx = members.indexOf(albumArt);
 				if (_albumIdx >= 0)
 					insert(_albumIdx, discSpr);
@@ -1033,9 +1033,9 @@ class FreeplayState extends funkin.states.MusicBeatState
 			return;
 		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.4);
 
-		// ── Detener preview de música al navegar ──────────────────────────────
-		// Si había una canción previsualizándose y el jugador scrollea, detener
-		// la música y restaurar el menú. Evita que suenen dos audios a la vez
+		// ── Stop preview of music to the navegar ──────────────────────────────
+		// If había a song previsualizándose and the player scrollea, stop
+		// the music and restaurar the menu. Avoids that suenen dos audios to the vez
 		// y que instPlaying quede desincronizado con curSelected.
 		#if sys
 		if (change != 0 && instPlaying != -1)
@@ -1105,12 +1105,12 @@ class FreeplayState extends funkin.states.MusicBeatState
 		FlxG.camera.zoom = 1.018;
 
 		// changeDiff con suppressSpotlight=true para que NO llame _refreshSpotlight()
-		// aquí — lo llamamos nosotros UNA sola vez al final.
+		// here — it callmos nosotros a sola vez to the final.
 		// Esto evita el doble-render del spotlight que causaba stutter perceptible
-		// al scrollear rápido (HealthIcon.updateIcon, rank badge load, tweens).
+		// to the scrollear fast (HealthIcon.updateIcon, rank badge load, tweens).
 		changeDiff(0, true);
 
-		_refreshSpotlight(); // ← única llamada por selección
+		_refreshSpotlight(); // ← single callda by selection
 
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onSelectionChanged', [curSelected]);
@@ -1141,7 +1141,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 		if (spotlightIcon == null)
 		{
-			// Primera vez: crear el icono y añadirlo
+			// First vez: create the icono and añadirlo
 			spotlightIcon = new HealthIcon(song.songCharacter);
 			spotlightIcon.scrollFactor.set();
 			add(spotlightIcon);
@@ -1158,8 +1158,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 		spotlightIcon.y = CARD_Y;
 		// Guardar la escala correcta calculada por setGraphicSize (puede diferir de 1.0
 		// si el atlas tiene frames grandes), y animar desde 0.6× hasta esa escala.
-		// Si se hiciera tween hasta {x:1, y:1}, el icono terminaría en tamaño incorrecto
-		// y el offset quedaría desajustado, provocando que se desplace a la derecha/abajo.
+		// If is hiciera tween until {x:1, and:1}, the icono would end in size incorrect
+		// and the offset quedaría desajustado, provocando that is desplace to the right/down.
 		var _tgX = spotlightIcon.scale.x;
 		var _tgY = spotlightIcon.scale.y;
 		spotlightIcon.scale.set(_tgX * 0.6, _tgY * 0.6);
@@ -1169,7 +1169,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			ease:     FlxEase.elasticOut,
 			type:     ONESHOT,
 			// updateHitbox() en cada frame mantiene el offset alineado con la escala
-			// durante la animación, evitando el desplazamiento visual incorrecto.
+			// durante the animation, evitando the desplazamiento visual incorrect.
 			onUpdate: function(_) { if (_ico != null && _ico.alive && _ico.frames != null) _ico.updateHitbox(); }
 		});
 
@@ -1183,7 +1183,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		{
 			try
 			{
-				// Usar PathsCache para badges de rank (pocas imágenes, muy repetidas)
+				// Usar PathsCache for badges of rank (pocas images, very repetidas)
 				final _rankGfx = funkin.cache.PathsCache.instance.cacheGraphic('menu/ratings/$rank');
 				if (_rankGfx != null && _rankGfx.bitmap != null)
 					rankBadge.loadGraphic(_rankGfx);
@@ -1237,7 +1237,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 	/**
 	 * @param suppressSpotlight  Pasar true cuando se llama desde changeSelection para
 	 *                           evitar que _refreshSpotlight() se invoque dos veces
-	 *                           (changeSelection ya lo llama después de changeDiff).
+	 *                           (changeSelection already it call after of changeDiff).
 	 */
 	function changeDiff(change:Int = 0, suppressSpotlight:Bool = false)
 	{
@@ -1383,16 +1383,16 @@ class SongMetadata
 	public var songCharacter:String = '';
 	public var color:Int = -7179779;
 
-	/** Índice dentro del array de canciones (para leer album, etc.). */
+	/** Index dentro of the array of songs (for leer album, etc.). */
 	public var songIndex:Int = 0;
 
-	/** Artista de la canción — leído desde freeplayList.json o meta.json. */
+	/** Artista of the song — leído from freeplayList.json or meta.json. */
 	public var artist:String = '';
 
-	/** Clave de álbum para esta canción. */
+	/** Key of álbum for this song. */
 	public var album:String = '';
 
-	/** Clave de atlas de texto de álbum para esta canción. */
+	/** Key of atlas of text of álbum for this song. */
 	public var albumText:String = '';
 
 	public function new(song:String, week:Int, songCharacter:String, ?songIndex:Int = 0)

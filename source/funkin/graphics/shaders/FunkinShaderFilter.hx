@@ -7,10 +7,10 @@ import openfl.filters.ShaderFilter;
 /**
  * FunkinShaderFilter — Wrapper de ShaderFilter al estilo V-Slice.
  *
- * Facilita aplicar un `FunkinRuntimeShader` a una cámara de forma segura,
- * con un API limpia para añadir/quitar el efecto.
+ * Facilita appliesr a `FunkinRuntimeShader` to a camera of forma segura,
+ * with a API clears for add/quitar the effect.
  *
- * Inspirado en el patrón usado en FunkinCrew/Funkin (V-Slice):
+ * Inspirado in the pattern usado in FunkinCrew/Funkin (V-Slice):
  *   • El ShaderFilter envuelve al shader y se aplica a `camera.filters`
  *   • Se puede activar/desactivar sin recrear el shader
  *   • Compatible con el sistema de filtros de FlxCamera en todas las versiones
@@ -20,14 +20,14 @@ import openfl.filters.ShaderFilter;
  * // Crear efecto:
  * var fx = new FunkinShaderFilter(myShader);
  *
- * // Aplicar a cámara:
+ * // Appliesr to camera:
  * fx.applyTo(FlxG.camera);
  * fx.applyTo(hudCamera);
  *
  * // Actualizar uniforms (desde el update loop):
  * fx.shader.setFloat('uTime', totalElapsed);
  *
- * // Quitar de todas las cámaras:
+ * // Quitar of all the cameras:
  * fx.removeAll();
  * ```
  */
@@ -42,7 +42,7 @@ class FunkinShaderFilter
 	/** Si es false, el efecto no se aplica (el filter se mantiene pero sin efecto visual). */
 	public var enabled(default, set):Bool = true;
 
-	/** Cámaras a las que está aplicado actualmente. */
+	/** Cameras to the that is appliesdo currently. */
 	var _cameras:Array<FlxCamera> = [];
 
 	// ── Constructor ───────────────────────────────────────────────────────────
@@ -60,10 +60,10 @@ class FunkinShaderFilter
 	// ── API ───────────────────────────────────────────────────────────────────
 
 	/**
-	 * Aplica el efecto a una cámara añadiendo el filter a su lista.
-	 * Si ya está aplicado a esa cámara, no lo añade de nuevo.
+	 * Applies the effect to a camera adding the filter to its list.
+	 * If already is appliesdo to that camera, no it adds of new.
 	 *
-	 * @param cam  Cámara destino. null = FlxG.camera.
+	 * @param cam  Camera destino. null = FlxG.camera.
 	 */
 	public function applyTo(?cam:FlxCamera):Void
 	{
@@ -74,10 +74,10 @@ class FunkinShaderFilter
 	}
 
 	/**
-	 * Quita el efecto de una cámara específica.
+	 * Quita the effect of a camera specific.
 	 *
-	 * @param cam  Cámara de la que quitar el efecto. null = FlxG.camera.
-	 * @return     true si se eliminó con éxito.
+	 * @param cam  Camera of the that quitar the effect. null = FlxG.camera.
+	 * @return     true if is eliminó with success.
 	 */
 	public function removeFrom(?cam:FlxCamera):Bool
 	{
@@ -88,7 +88,7 @@ class FunkinShaderFilter
 	}
 
 	/**
-	 * Quita el efecto de TODAS las cámaras a las que está aplicado.
+	 * Quita the effect of all the cameras to the that is appliesdo.
 	 */
 	public function removeAll():Void
 	{
@@ -97,7 +97,7 @@ class FunkinShaderFilter
 		_cameras.resize(0);
 	}
 
-	/** Devuelve true si el efecto está actualmente aplicado a alguna cámara. */
+	/** Returns true if the effect is currently appliesdo to alguna camera. */
 	public var isApplied(get, never):Bool;
 	inline function get_isApplied():Bool return _cameras.length > 0;
 
@@ -105,14 +105,14 @@ class FunkinShaderFilter
 	{
 		enabled = v;
 		// Cambiar la opacidad del filter para activar/desactivar sin quitar el filter
-		// (quitar y re-añadir puede cambiar el orden de los filters)
-		// ShaderFilter no tiene un flag "enabled", así que usamos alpha en el shader si existe.
-		// Por ahora simplemente gestionamos el flag para que el código externo lo consulte.
+		// (quitar and re-add puede change the orden of the filters)
+		// ShaderFilter no tiene a flag "enabled", so that usamos alpha in the shader if exists.
+		// By now simply gestionamos the flag for that the code external it consulte.
 		return v;
 	}
 
 	/**
-	 * Libera los recursos y quita el efecto de todas las cámaras.
+	 * Libera the recursos and quita the effect of all the cameras.
 	 */
 	public function destroy():Void
 	{

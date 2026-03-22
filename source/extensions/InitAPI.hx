@@ -5,11 +5,11 @@ package extensions;
 //
 // Compilado condicionalmente: el bloque #if windows usa @:functionCode para
 // generar C++ inline que llama directamente a la API de Windows.
-// En macOS/Linux todas las funciones son stubs inline vacíos.
+// On macOS/Linux all functions are empty inline stubs.
 //
 // ─── Funciones disponibles ───────────────────────────────────────────────────
 //  setWindowBorderColor(r,g,b)  — tint DWM Win11 (DWMWA_BORDER_COLOR)
-//  setWindowCaptionColor(r,g,b) — tint título DWM Win11 (DWMWA_CAPTION_COLOR)
+//  setWindowCaptionColor(r,g,b) — tint title bar DWM Win11 (DWMWA_CAPTION_COLOR)
 //  setDarkMode(enable)          — Win10 1809+ dark/light frame
 //  setDPIAware()                — SetProcessDPIAware para monitores HiDPI
 //
@@ -52,7 +52,7 @@ class InitAPI
 {
     /**
      * Cambia el color del borde de la ventana (DWMWA_BORDER_COLOR).
-     * Sólo visible en Windows 11 (build 22000+).
+     * Only visible in Windows 11 (build 22000+).
      */
     @:functionCode('
         COLORREF color = RGB(r, g, b);
@@ -64,7 +64,7 @@ class InitAPI
 
     /**
      * Cambia el color del caption/titlebar (DWMWA_CAPTION_COLOR).
-     * Sólo visible en Windows 11 (build 22000+).
+     * Only visible in Windows 11 (build 22000+).
      */
     @:functionCode('
         COLORREF color = RGB(r, g, b);

@@ -6,22 +6,22 @@ import flixel.group.FlxSpriteGroup;
 /**
  * NoteBatcher — agrupa notas por tipo de textura para minimizar cambios de estado GL.
  *
- * ─── Cómo funciona ───────────────────────────────────────────────────────────
+ * ─── How it works ───────────────────────────────────────────────────────────
  * HaxeFlixel renderiza cada FlxSprite en un draw call separado.
- * Si agrupamos notas del mismo tipo juntas en el árbol de display,
+ * If agrupamos notes of the same type joints in the árbol of display,
  * el driver de OpenGL puede fusionar los draw calls adyacentes con la
  * misma textura en un solo batch — especialmente en targets con batching
- * automático (HTML5/WebGL y algunos targets nativos con OpenFL 9+).
+ * automatic (HTML5/WebGL and algunos targets nativos with OpenFL 9+).
  *
- * ─── Optimizaciones respecto a la versión anterior ───────────────────────────
+ * ─── Optimizaciones respecto to the version previous ───────────────────────────
  * • Clave de batch es `Int` en vez de `String` — sin alloc por nota.
  * • `removeNoteFromBatch` usa swap-and-pop O(1) en vez de Array.remove O(n).
  * • `getBatchIndex` es `inline` — el compilador la elimina en el hot path.
- * • Stats sin concatenación de strings en el hot path.
+ * • Stats without string concatenation in the hot path.
  */
 class NoteBatcher extends FlxSpriteGroup
 {
-	// Índices de batch (Int para evitar alloc de String)
+	// Indices of batch (Int for avoid alloc of String)
 	static inline var BATCH_PURPLE  = 0;
 	static inline var BATCH_BLUE    = 1;
 	static inline var BATCH_GREEN   = 2;
@@ -29,13 +29,13 @@ class NoteBatcher extends FlxSpriteGroup
 	static inline var BATCH_SUSTAIN = 4;
 	static inline var BATCH_COUNT   = 5;
 
-	/** Máximo de notas por batch antes de hacer flush. */
+	/** Maximum of notes by batch before of do flush. */
 	public static var batchSize : Int = 128;
 	public var enabled : Bool = true;
 
-	// Batches como arrays de tamaño fijo — sin alloc en hot path
+	// Batches as arrays of size fijo — without alloc in hot path
 	final batches  : Array<Array<Note>>;
-	final counts   : Array<Int>;   // tamaños actuales de cada batch
+	end counts   : Array<Int>;   // sizes actuales of each batch
 
 	// Stats
 	public var totalBatches    : Int = 0;
@@ -68,7 +68,7 @@ class NoteBatcher extends FlxSpriteGroup
 		final batch = batches[idx];
 		final last  = counts[idx] - 1;
 
-		// Swap-and-pop O(1): reemplaza el elemento con el último y trunca
+		// Swap-and-pop or(1): reemplaza the elemento with the last and trunca
 		for (i in 0...counts[idx])
 		{
 			if (batch[i] == note)
@@ -106,9 +106,9 @@ class NoteBatcher extends FlxSpriteGroup
 
 	// ─── Helpers ──────────────────────────────────────────────────────────────
 
-	/** Devuelve el índice de batch para una nota. `inline` → sin overhead. */
+	/** Returns the index of batch for a note. `inline` → without overhead. */
 	static inline function getBatchIndex(note:Note):Int
-		return note.isSustainNote ? BATCH_SUSTAIN : (note.noteData & 3); // % 4 sin división
+		return note.isSustainNote ? BATCH_SUSTAIN : (note.noteData & 3); // % 4 without division
 
 	public function clearBatches():Void
 	{

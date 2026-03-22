@@ -6,14 +6,14 @@ import flixel.util.FlxColor;
 /**
  * NoteGlowShader — tinte de color sutil aplicado a cada flecha.
  *
- * ─── Por qué el shader anterior rompía las flechas ───────────────────────────
+ * ─── Why the previous shader broke the arrows ───────────────────────────
  * OpenFL usa texturas con alfa PREMULTIPLICADO: base.rgb ya es color×alpha.
- * El shader anterior hacía `inner * base.a` → color×alpha² → los píxeles
+ * The shader previous hacía `inner * base.to` → color×alpha² → the pixels
  * semi-transparentes de los bordes quedaban casi invisibles.
- * Además, el 4-tap de vecinos (+/-uGlowSize) en un atlas spritesheet
+ * Furthermore, the 4-tap of vecinos (+/-uGlowSize) in a atlas spritesheet
  * sampleaba frames adyacentes → alpha corrupto → flechas invisibles.
  *
- * ─── Solución ────────────────────────────────────────────────────────────────
+ * ─── Solution ────────────────────────────────────────────────────────────────
  * 1. Desempaquetar premult: actual_rgb = base.rgb / base.a
  * 2. Aplicar tinte sobre el color real
  * 3. Reempaquetar: output = vec4(tinted * base.a, base.a)
@@ -58,7 +58,7 @@ class NoteGlowShader extends FlxShader
 		}
 	")
 
-	// ── Colores por dirección FNF estándar ────────────────────────────────────
+	// ── Colores by direction FNF standard ────────────────────────────────────
 	public static final COLOR_LEFT  :FlxColor = 0xFFC24B99;
 	public static final COLOR_DOWN  :FlxColor = 0xFF00FFFF;
 	public static final COLOR_UP    :FlxColor = 0xFF12FA05;
@@ -88,7 +88,7 @@ class NoteGlowShader extends FlxShader
 	inline function get_pulse():Float  return uPulse.value[0];
 	inline function set_pulse(v:Float):Float { uPulse.value = [v]; return v; }
 
-	/** Crea un NoteGlowShader con el color de dirección FNF estándar. */
+	/** Creates a NoteGlowShader with the color of direction FNF standard. */
 	public static function forDirection(direction:Int, intensity:Float = 0.55):NoteGlowShader
 	{
 		final color:FlxColor = switch (direction % 4)

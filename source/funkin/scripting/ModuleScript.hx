@@ -4,10 +4,10 @@ import funkin.gameplay.PlayState;
 import funkin.gameplay.notes.Note;
 
 /**
- * Plantilla base para scripts de gameplay (canción, stage).
+ * Plantilla base for scripts of gameplay (song, stage).
  *
  * Extiende esta clase en tus scripts HScript para obtener autocompletado
- * y documentación de todos los callbacks disponibles.
+ * and documentación of all the callbacks available.
  *
  * ─── Ejemplo de uso ──────────────────────────────────────────────────────────
  *
@@ -23,12 +23,12 @@ import funkin.gameplay.notes.Note;
  *
  * ─── Callbacks disponibles ───────────────────────────────────────────────────
  *   Lifecycle      onCreate, postCreate, onUpdate, onUpdatePost, onDestroy
- *   Canción        onCountdownStarted, onCountdownTick, onSongStart, onSongEnd
+ *   Song        onCountdownStarted, onCountdownTick, onSongStart, onSongEnd
  *   Ritmo          onBeatHit, onStepHit, onSectionHit
  *   Notas          onNoteSpawn, onPlayerNoteHit, onPlayerNoteHitPost,
  *                  onPlayerNoteMiss, onPlayerNoteMissPost, onOpponentNoteHit
  *   Eventos        onEvent (return true = cancelar), onEventPost
- *   Cámara         onCameraMove, onCameraZoom (return nuevo zoom)
+ *   Camera         onCameraMove, onCameraZoom (return new zoom)
  *   UI             onScoreUpdate, onHealthUpdate
  *   Gameplay       onPause (true=cancelar), onResume, onGameOver (true=cancelar), onRestart
  *   Stage          onStageCreate, onStageUpdate
@@ -43,7 +43,7 @@ class ModuleScript
 	public var version     : String = '1.0.0';
 	public var active      : Bool   = true;
 
-	/** Referencia al PlayState. Asignada automáticamente al cargar. */
+	/** Referencia to the PlayState. Asignada automatically to the load. */
 	public var playState   : PlayState;
 
 	public function new()
@@ -54,19 +54,19 @@ class ModuleScript
 	/** Llamado al cargar el script. Ideal para inicializar variables. */
 	public function onCreate():Void {}
 
-	/** Llamado después del `create()` del PlayState. */
+	/** Calldo after of the `create()` of the PlayState. */
 	public function postCreate():Void {}
 
 	/** Llamado cada frame. */
 	public function onUpdate(elapsed:Float):Void {}
 
-	/** Llamado después del `update()` del PlayState. */
+	/** Calldo after of the `update()` of the PlayState. */
 	public function onUpdatePost(elapsed:Float):Void {}
 
 	/** Llamado al destruir el script. */
 	public function onDestroy():Void {}
 
-	// ─── Canción ──────────────────────────────────────────────────────────────
+	// ─── Song ──────────────────────────────────────────────────────────────
 
 	public function onCountdownStarted():Void {}
 	public function onCountdownTick(tick:Int):Void {}
@@ -99,11 +99,11 @@ class ModuleScript
 	public function onEvent(name:String, value1:String, value2:String, time:Float):Bool return false;
 	public function onEventPost(name:String, value1:String, value2:String):Void {}
 
-	// ─── Cámara ───────────────────────────────────────────────────────────────
+	// ─── Camera ───────────────────────────────────────────────────────────────
 
 	public function onCameraMove(target:String):Void {}
 
-	/** @return El zoom final a aplicar (modifícalo para personalizar). */
+	/** @return The zoom end to appliesr (modifícalo for personalizar). */
 	public function onCameraZoom(zoom:Float):Float return zoom;
 
 	// ─── UI ───────────────────────────────────────────────────────────────────
@@ -141,7 +141,7 @@ class ModuleScript
 	public inline function setVar(name:String, value:Dynamic):Void
 		Reflect.setProperty(playState, name, value);
 
-	/** Log con prefijo del módulo. */
+	/** Log with prefix of the module. */
 	public inline function log(msg:Dynamic):Void
 		trace('[$name] $msg');
 }

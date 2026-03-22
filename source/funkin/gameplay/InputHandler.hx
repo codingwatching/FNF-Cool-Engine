@@ -13,19 +13,19 @@ using StringTools;
 /**
  * InputHandler — Manejo de inputs del jugador.
  *
- * OPTIMIZACIONES vs versión anterior:
+ * OPTIMIZACIONES vs version previous:
  *
  *  1. possibleNotesByDir es un Array<Array<Note>> PREALLOCADO como campo de instancia.
  *     Antes se creaba `[[], [], [], []]` cada frame → 5 allocs × 60fps = 300 allocs/seg
  *     de objetos de corta vida que presionan el GC. Ahora se hace .resize(0) en su lugar.
  *
  *  2. forEachAlive() eliminado del hot path. Creaba un closure (heap alloc) en cada llamada.
- *     Reemplazado por iteración directa sobre members[i] con chequeo manual alive/canBeHit.
+ *     Reemplazado by iteration directa over members[i] with chequeo manual alive/canBeHit.
  *
- *  3. Sort lambda reemplazado por función estática — cero closures en el sort.
+ *  3. Sort lambda reemplazado by function static — cero closures in the sort.
  *
  *  4. processInputs y processSustains son llamados ~60-120 veces/seg;
- *     eliminar los closures es lo más importante de todo.
+ *     remove the closures is it more importante of all.
  */
 class InputHandler
 {
@@ -72,7 +72,7 @@ class InputHandler
 	// === CONTROLES MÓVILES ===
 	// Se asignan desde PlayState cuando se compila con el flag mobileC.
 	// Cada campo es un FlxButton cuya state (PRESSED/JUST_PRESSED/JUST_RELEASED)
-	// se combina con el input de teclado para que ambos funcionen simultáneamente.
+	// is combina with the input of teclado for that both funcionen simultáneamente.
 	#if mobileC
 	public var mobileLeft:FlxButton  = null;
 	public var mobileDown:FlxButton  = null;
@@ -128,9 +128,9 @@ class InputHandler
 			if (onKeyRelease != null) onKeyRelease(3);
 		}
 
-		// ── Controles táctiles (mobile) ───────────────────────────────────────
+		// ── Controles touch (mobile) ───────────────────────────────────────
 		// Se combinan con OR con el teclado: si cualquiera de los dos registra
-		// una pulsación, el estado queda activado para ese frame.
+		// a pulsación, the state queda activated for that frame.
 		#if mobileC
 		_updateMobileButton(mobileLeft,  0);
 		_updateMobileButton(mobileDown,  1);
@@ -151,7 +151,7 @@ class InputHandler
 		// FlxButton.status: FlxButton.NORMAL=0, HIGHLIGHT=1, PRESSED=2
 		var isPressed = (btn.status == flixel.ui.FlxButton.PRESSED);
 
-		// justPressed: estaba sin presionar el frame anterior, ahora sí
+		// justPressed: was without presionar the frame previous, now itself
 		if (isPressed && !held[dir])
 			pressed[dir] = true;
 
@@ -180,13 +180,13 @@ class InputHandler
 	/**
 	 * Procesa inputs del jugador contra las notas disponibles.
 	 *
-	 * OPT: iteración directa sobre members[] en lugar de forEachAlive().
+	 * OPT: iteration directa over members[] in lugar of forEachAlive().
 	 *      forEachAlive() asigna un closure nuevo en el heap cada llamada.
-	 *      Con iteración directa hay cero allocs en este path.
+	 *      With iteration directa there is cero allocs in this path.
 	 *
 	 * OPT: possibleNotesByDir usa arrays preallocados (resize vs new).
 	 *
-	 * OPT: sort comparator es función estática — cero closures.
+	 * OPT: sort comparator is function static — cero closures.
 	 */
 	public function processInputs(notes:FlxTypedGroup<Note>):Void
 	{
@@ -196,7 +196,7 @@ class InputHandler
 			held[0]    = held[1]    = held[2]    = held[3]    = false;
 			released[0]= released[1]= released[2]= released[3]= false;
 
-			// Iteración directa — sin closure
+			// Iteration directa — without closure
 			final members = notes.members;
 			final len = members.length;
 			for (i in 0...len)
@@ -237,7 +237,7 @@ class InputHandler
 		_notesByDir2.resize(0);
 		_notesByDir3.resize(0);
 
-		// Clasificar notas por dirección — iteración directa, sin closure
+		// Clasificar notes by direction — iteration directa, without closure
 		final members = notes.members;
 		final len = members.length;
 		for (i in 0...len)
@@ -257,7 +257,7 @@ class InputHandler
 			}
 		}
 
-		// Ordenar por tiempo (función estática — cero closures)
+		// Ordenar by tiempo (function static — cero closures)
 		if (_notesByDir0.length > 1) _notesByDir0.sort(_compareByStrumTime);
 		if (_notesByDir1.length > 1) _notesByDir1.sort(_compareByStrumTime);
 		if (_notesByDir2.length > 1) _notesByDir2.sort(_compareByStrumTime);
@@ -269,7 +269,7 @@ class InputHandler
 		_processDir(3, _notesByDir3, currentTime);
 	}
 
-	/** Comparador estático — reutilizado por todos los sorts, cero allocs. */
+	/** Comparador static — reutilizado by all the sorts, cero allocs. */
 	static function _compareByStrumTime(a:Note, b:Note):Int
 		return Std.int(a.strumTime - b.strumTime);
 
@@ -308,7 +308,7 @@ class InputHandler
 
 	/**
 	 * Procesa sustain notes del jugador.
-	 * OPT: iteración directa — sin forEachAlive/closure.
+	 * OPT: iteration directa — without forEachAlive/closure.
 	 */
 	public function processSustains(notes:FlxTypedGroup<Note>):Void
 	{

@@ -8,12 +8,12 @@ import mods.ModManager;
 using StringTools;
 
 /**
- * Tipo de un parámetro de evento (UI del editor de charts).
+ * Type of a parameter of event (UI of the editor of charts).
  *
  *   PDString              → campo de texto libre
  *   PDBool                → dropdown "true / false"
- *   PDInt(?min, ?max)     → campo numérico entero
- *   PDFloat(?min, ?max)   → campo numérico decimal
+ *   PDInt(?min, ?max)     → field numeric entero
+ *   PDFloat(?min, ?max)   → field numeric decimal
  *   PDDropDown(options)   → dropdown con opciones fijas
  *   PDColor               → campo de texto hex (ej "#FFFFFF")
  */
@@ -28,14 +28,14 @@ enum EventParamType
 }
 
 /**
- * Definición de un parámetro de evento para la UI del editor.
+ * Definition of a parameter of event for the UI of the editor.
  */
 typedef EventParamDef =
 {
 	var name:String;
 	var type:EventParamType;
 	var defValue:String;
-	/** Descripción breve para tooltip del editor (opcional). */
+	/** Description breve for tooltip of the editor (optional). */
 	@:optional var description:Null<String>;
 }
 
@@ -61,10 +61,10 @@ typedef EventParamDef =
  * Tipos de campo soportados en JSON:
  *   "String"              → texto libre
  *   "Bool"                → dropdown true/false
- *   "Int"                 → número entero (sin límites)
- *   "Int(min,max)"        → número entero con rango
- *   "Float"               → número decimal (sin límites)
- *   "Float(min,max)"      → número decimal con rango
+ *   "Int"                 → number entero (no limits)
+ *   "Int(min,max)"        → number entero with rango
+ *   "Float"               → number decimal (no limits)
+ *   "Float(min,max)"      → number decimal with rango
  *   "DropDown(a,b,c)"     → dropdown con opciones
  *   "Color"               → texto hex para un color
  */
@@ -206,7 +206,7 @@ class EventInfoSystem
 		},
 	];
 
-	// ── API pública ─────────────────────────────────────────────────────────────
+	// ── API public ─────────────────────────────────────────────────────────────
 
 	/**
 	 * Recarga todas las definiciones: built-ins + JSONs del engine + del mod activo.
@@ -238,7 +238,7 @@ class EventInfoSystem
 		}
 	}
 
-	/** Registra un evento manualmente desde código (útil para scripts). */
+	/** Registra a event manualmente from code (useful for scripts). */
 	public static function registerEvent(name:String, color:Int = 0xFFAAAAAA, ?params:Array<EventParamDef>):Void
 		_register(name, color, params != null ? params : []);
 
@@ -254,7 +254,7 @@ class EventInfoSystem
 
 	/**
 	 * Lee todos los .json de una carpeta del sistema de archivos.
-	 * `isShared`: si true, no sobreescribe eventos built-in (solo añade nuevos).
+	 * `isShared`: if true, no sobreescribe events built-in (only adds new).
 	 */
 	static function _loadDir(dir:String, isShared:Bool):Void
 	{
@@ -307,7 +307,7 @@ class EventInfoSystem
 		return result;
 	}
 
-	/** Parsea un string de tipo de param (público para uso de EventRegistry). */
+	/** Parsea a string of type of param (public for uso of EventRegistry). */
 	public static function parseParamType(raw:String):EventParamType
 		return _parseType(raw);
 

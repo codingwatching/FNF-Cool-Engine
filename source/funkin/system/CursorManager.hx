@@ -32,11 +32,11 @@ using StringTools;
  *  El OflSprite contenedor se posiciona en stage.mouseX/Y cada tick,
  *  y dentro hay un Bitmap con el frame actual del cursor.
  *
- *  Animación: carga el atlas Sparrow una vez, extrae los BitmapData de cada
+ *  Animation: load the atlas Sparrow a vez, extrae the BitmapData of each
  *  frame y los cicla con un simple timer. Sin FlxCamera → sin problemas de
  *  coordenadas, zoom, letterbox ni state-switch.
  *
- *  Sobrevive entre estados vía FlxG.signals.preUpdate (mismo patrón que SoundTray).
+ *  Sobrevive between states via FlxG.signals.preUpdate (same pattern that SoundTray).
  *
  * ─── Uso ──────────────────────────────────────────────────────────────────────
  *
@@ -105,7 +105,7 @@ typedef CursorConfig =
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CursorManager — singleton estático
+// CursorManager — singleton static
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CursorManager
@@ -147,7 +147,7 @@ class CursorManager
 		_container.insert();
 
 		_applyConfig(_config);
-		// loadState se hace en el primer tick para que los assets estén listos
+		// loadState is hace in the primer tick for that the assets are listos
 		_needsLoad = true;
 
 		_initialized = true;
@@ -167,7 +167,7 @@ class CursorManager
 			_container.visible = false;
 			return;
 		}
-		// Visibilidad manejada en _tick según _hiddenStack
+		// Visibility manejada in _tick according to _hiddenStack
 		_container.loadState(s, _config);
 	}
 
@@ -267,19 +267,19 @@ class CursorManager
 	{
 		if (!_initialized || _container == null) return;
 
-		// Carga diferida: ahora sí los assets están disponibles
+		// Load diferida: now itself the assets are available
 		if (_needsLoad)
 		{
 			_needsLoad = false;
 			_container.loadState(DEFAULT, _config);
-			// visible se aplica en la sección de visibilidad de abajo
+			// visible is applies in the section of visibilidad of abajo
 			state = DEFAULT;
 		}
 
 		// Bloquear SIEMPRE el cursor nativo — no leerlo, solo escribirlo.
 		FlxG.mouse.visible = false;
 		openfl.ui.Mouse.hide();
-		// _visible es la única fuente de verdad — se controla con show()/hide()
+		// _visible is the single font of verdad — is controla with show()/hide()
 		_container.visible = _visible && (_hiddenStack == 0) && (state != HIDDEN);
 
 		// Auto-estado
@@ -381,8 +381,8 @@ class CursorContainer extends OflSprite
 	var _bmp       : Bitmap;          // el Bitmap visible del cursor
 	var _scale     : Float = 1.0;
 
-	// ── Animación ─────────────────────────────────────────────────────────────
-	var _frames    : Array<BitmapData> = [];  // frames extraídos del atlas
+	// ── Animation ─────────────────────────────────────────────────────────────
+	var _frames    : Array<BitmapData> = [];  // frames extraídos of the atlas
 	var _frameIdx  : Int   = 0;
 	var _fps       : Float = 12;
 	var _loop      : Bool  = true;
@@ -418,12 +418,12 @@ class CursorContainer extends OflSprite
 
 	public function insert():Void
 	{
-		// Añadir directamente al stage de OpenFL en el índice más alto posible.
+		// Add directamente to the stage of OpenFL in the index more height posible.
 		// stage.addChild() lo pone encima de TODO (juego, UI, transiciones).
 		var _stage = openfl.Lib.current.stage;
 		if (_stage != null)
 		{
-			// Quitar primero si ya está en el display list (evitar duplicados)
+			// Quitar first if already is in the display list (avoid duplicados)
 			if (_stage.contains(this)) _stage.removeChild(this);
 			_stage.addChild(this);
 		}
@@ -512,7 +512,7 @@ class CursorContainer extends OflSprite
 			catch (_) {}
 		}
 
-		// Último fallback: cuadrado magenta 16×16
+		// Last fallback: cuadrado magenta 16×16
 		if (!extracted)
 		{
 			var bd = new BitmapData(16, 16, false, 0xFFFF00FF);
@@ -533,7 +533,7 @@ class CursorContainer extends OflSprite
 
 	public function setTint(col:FlxColor):Void
 	{
-		// Aplicar color a través de la transform de OflSprite
+		// Appliesr color to través of the transform of OflSprite
 		// (ColorTransform multiplica cada canal)
 		var r = col.redFloat;
 		var g = col.greenFloat;
@@ -555,7 +555,7 @@ class CursorContainer extends OflSprite
 		_trailCooldown -= FlxG.elapsed;
 		if (_trailCooldown > 0 || _trail.length >= TRAIL_MAX) return;
 		_trailCooldown = 0.03;
-		// Trail particle: pequeño bitmap del frame actual en posición absoluta
+		// Trail particle: small bitmap of the frame current in position absoluta
 		if (_bmp.bitmapData != null)
 			_trail.push(new TrailEffect(_bmp.bitmapData, x, y));
 	}
@@ -564,13 +564,13 @@ class CursorContainer extends OflSprite
 
 	function _tick():Void
 	{
-		// El container vive en el stage de OpenFL directamente, así que
+		// The container vive in the stage of OpenFL directamente, so that
 		// necesita coordenadas NATIVAS del stage (no game-space de Flixel).
 		var _s = openfl.Lib.current.stage;
 		x = _s.mouseX - _hotX * _scale;
 		y = _s.mouseY - _hotY * _scale;
 
-		// Delegar lógica de estado al manager (puede cambiar visible)
+		// Delegar logic of state to the manager (puede change visible)
 		CursorManager._tick();
 
 		if (!visible) return;
@@ -579,7 +579,7 @@ class CursorContainer extends OflSprite
 
 		// ── Coordenadas de stage ya asignadas arriba ─────────────────────────
 
-		// ── Avanzar animación ────────────────────────────────────────────────
+		// ── Avanzar animation ────────────────────────────────────────────────
 		if (_frames.length > 1)
 		{
 			_elapsed += elapsed;
@@ -635,7 +635,7 @@ class CursorContainer extends OflSprite
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RippleEffect — círculo OpenFL que se expande al hacer clic
+// RippleEffect — OpenFL circle that expands on click
 // ─────────────────────────────────────────────────────────────────────────────
 
 class RippleEffect
@@ -688,7 +688,7 @@ class RippleEffect
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TrailEffect — partícula de estela del cursor
+// TrailEffect — cursor trail particle
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TrailEffect

@@ -4,7 +4,7 @@ import flixel.system.FlxAssets.FlxShader;
 
 /**
  * ChromaticAberrationShader — separa ligeramente los canales RGB.
- * uOffset eliminado (era uniform sin usar, el parser lo quitaba y rompía la compilación).
+ * uOffset removed (it was an unused uniform, the parser removed it and broke compilation).
  */
 class ChromaticAberrationShader extends FlxShader
 {

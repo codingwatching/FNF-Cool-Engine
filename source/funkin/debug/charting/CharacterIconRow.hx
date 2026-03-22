@@ -22,7 +22,7 @@ using StringTools;
 // ============================================================================
 //  CharacterIconRow — fila de iconos encima del grid
 //  Click en un icono → abre CharacterPickerMenu (estilo V-Slice)
-//  Botón "+" → modal para añadir personaje nuevo
+//  Button "+" → modal for add character new
 // ============================================================================
 class CharacterIconRow extends FlxGroup
 {
@@ -196,7 +196,7 @@ class CharacterIconRow extends FlxGroup
 			_rowScrollX  = Math.max(0, Math.min(_rowScrollX, _rowMaxScroll));
 			refreshIcons();
 			// ← Marcar que la rueda fue consumida por este componente para que
-			//   ChartingState NO haga scroll del grid también.
+			//   ChartingState no haga scroll of the grid also.
 			parent.wheelConsumed = true;
 			return;
 		}
@@ -352,8 +352,8 @@ class CharacterPickerMenu extends FlxGroup
 	var editingIndex:Int = -1;
 
 	/**
-	 * `true` durante el frame inmediatamente posterior al cierre del menú.
-	 * Evita que el click que cerró el panel "se filtre" al grid de fondo.
+	 * `true` durante the frame inmediatamente posterior to the cierre of the menu.
+	 * Avoids that the click that cerró the panel "is filtre" to the grid of fondo.
 	 * Se resetea al inicio del siguiente update().
 	 */
 	public var _justClosed:Bool = false;
@@ -625,10 +625,10 @@ class CharacterPickerMenu extends FlxGroup
 
 	public function close():Void
 	{
-		// FIX: NO poner active=false aquí.
+		// FIX: no poner active=false here.
 		// Si active=false, Flixel no llama update() → _justClosed nunca se resetea
 		// → isAnyModalOpen() devuelve true para siempre → grid bloqueado permanentemente.
-		// Dejamos active=true 1 frame más para que update() pueda limpiar _justClosed.
+		// Dejamos active=true 1 frame more for that update() pueda clear _justClosed.
 		isOpen   = false;
 		visible  = false;
 		// active queda true deliberadamente
@@ -763,7 +763,7 @@ class CharacterPropertiesPanel extends FlxGroup
 
 	public var isOpen:Bool = false;
 	var editingIndex:Int = -1;
-	/** Igual que en CharacterPickerMenu — evita propagación de clicks al grid. */
+	/** Igual that in CharacterPickerMenu — avoids propagación of clicks to the grid. */
 	public var _justClosed:Bool = false;
 
 	static inline var PANEL_W:Int    = 420;

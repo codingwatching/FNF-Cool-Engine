@@ -8,8 +8,8 @@ import funkin.scripting.StateScriptHandler;
  * ScriptableState — estado completo definido en HScript.
  *
  * Inspirado en el sistema @:hscriptClass de V-Slice pero sin polymod.
- * En lugar de extender la clase desde script, el estado actúa como
- * proxy delegando TODOS los métodos de ciclo de vida al script.
+ * In lugar of extender the class from script, the state actúa as
+ * proxy delegando all the methods of lifecycle to the script.
  *
  * ─── Uso ─────────────────────────────────────────────────────────────────────
  *
@@ -27,7 +27,7 @@ import funkin.scripting.StateScriptHandler;
  *   // Ciclo de vida
  *   function onCreate()      { ... }   // al crear el state
  *   function onUpdate(dt)    { ... }   // cada frame (antes de super)
- *   function onUpdatePost(dt){ ... }   // cada frame (después de super)
+ *   function onUpdatePost(dt){ ... }   // each frame (after of super)
  *   function onBeatHit(beat) { ... }
  *   function onStepHit(step) { ... }
  *   function onDestroy()     { ... }
@@ -88,7 +88,7 @@ class ScriptableState extends MusicBeatState
 		StateScriptHandler.init();
 		_scripts = StateScriptHandler.loadStateScripts(scriptName, this);
 
-		// Exponer helpers estándar
+		// Exponer helpers standard
 		StateScriptHandler.exposeElement('FlxG', FlxG);
 
 		StateScriptHandler.callOnScripts('onCreate', []);
@@ -98,7 +98,7 @@ class ScriptableState extends MusicBeatState
 	{
 		StateScriptHandler.callOnScripts('onUpdate', [elapsed]);
 
-		// Propagación de input a scripts (cancelable)
+		// Propagación of input to scripts (cancelable)
 		#if !mobile
 		for (key in _getPressedKeys())
 			StateScriptHandler.callOnScripts('onKeyJustPressed', [key]);

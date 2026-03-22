@@ -23,13 +23,13 @@ using StringTools;
  * Sistema multi-atlas al estilo V-Slice:
  *   • Cada carpeta de Animate se carga como FlxAnimateFrames independiente.
  *   • Se combinan en memoria con FlxAnimateFrames.combineAtlas().
- *   • Sin manipulación de filesystem / directorios temporales.
+ *   • No filesystem manipulation / temporary directories.
  *   • Compatible con targets no-sys (HTML5, etc.).
  */
 @:access(animate.FlxAnimateController)
 class FunkinSprite extends FlxAnimate
 {
-	// ── Compatibilidad con código existente ───────────────────────────────────
+	// ── Compatibility with existing code ───────────────────────────────────
 
 	/** true si el asset cargado es un Texture Atlas de Adobe Animate. */
 	public var isAnimateAtlas(get, never):Bool;
@@ -42,7 +42,7 @@ class FunkinSprite extends FlxAnimate
 	public var currentAssetKey(default, null):String = '';
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  CACHÉS ESTÁTICOS  (Sparrow / Packer)
+	//  STATIC CACHES  (Sparrow / Packer)
 	// ══════════════════════════════════════════════════════════════════════════
 
 	static var _frameCache:Map<String, FlxAtlasFrames>  = [];
@@ -51,13 +51,13 @@ class FunkinSprite extends FlxAnimate
 	static final MAX_FRAME_CACHE = 30;
 
 	/**
-	 * Caché de FlxAnimateFrames individuales por carpeta.
+	 * Cache of individual FlxAnimateFrames per folder.
 	 * Evita re-parsear Animation.json en cada carga del mismo personaje.
 	 */
 	static var _animateFrameCache:Map<String, FlxAnimateFrames> = [];
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  GESTIÓN DE VIDA ÚTIL DE ATLASES (por instancia, al estilo V-Slice)
+	//  ATLAS LIFETIME MANAGEMENT (por instancia, V-Slice style)
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
@@ -107,7 +107,7 @@ class FunkinSprite extends FlxAnimate
 		_atlasResCache.remove(key);
 		final idx = _frameLRU.indexOf(key);
 		if (idx >= 0) _frameLRU.splice(idx, 1);
-		// Invalidar también caché de FlxAnimateFrames si la key coincide con una carpeta
+		// Also invalidate FlxAnimateFrames cache if the key matches a folder
 		_animateFrameCache.remove(key);
 		trace('[FunkinSprite] Cache invalidated: $key');
 	}
@@ -166,14 +166,14 @@ class FunkinSprite extends FlxAnimate
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Resuelve una ruta de carpeta/asset al path físico correcto,
+	 * Resolves a folder/asset path to the correct physical path,
 	 * dando prioridad al mod activo sobre assets/.
 	 *
 	 * Regla:
 	 *   - Si el path ya es absoluto (empieza por 'mods/', 'assets/' o '/') → se devuelve tal cual.
 	 *   - Si no → se consulta primero el mod activo, luego se cae a 'assets/'.
 	 *
-	 * Esto reemplaza el patrón:
+	 * This replaces the pattern:
 	 *   folderPath.startsWith('assets/') || folderPath.startsWith('mods/') ? folderPath : 'assets/$folderPath'
 	 * que ignoraba el mod activo para rutas relativas.
 	 */
@@ -198,11 +198,11 @@ class FunkinSprite extends FlxAnimate
 	}
 
 	/**
-	 * Detección automática:
+	 * Automatic detection:
 	 *   1. Carpeta Animation.json → Texture Atlas
 	 *   2. PNG + XML              → Sparrow
 	 *   3. PNG + TXT              → Packer
-	 *   4. Solo PNG               → Estático
+	 *   4. Only PNG               → Static
 	 */
 	public function loadAsset(assetPath:String):FunkinSprite
 	{
@@ -211,10 +211,10 @@ class FunkinSprite extends FlxAnimate
 		if (atlasFolder != null) return loadAnimateAtlas(atlasFolder);
 
 		// Rutas candidatas: mod primero (si hay mod activo), luego assets/
-		// Para cada raíz se comprueba también la subcarpeta images/ porque es
+		// For each root, the images/ subfolder is also checked because
 		// donde FNF/Psych almacena los atlas de sprites de cutscene (y en general).
-		// loadSparrow/loadPacker siempre reciben el assetPath sin prefijo de raíz
-		// porque Paths.getSparrowAtlas ya añade images/ internamente.
+		// loadSparrow/loadPacker always receive the assetPath without root prefix
+		// because Paths.getSparrowAtlas already adds images/ internally.
 		final roots:Array<String> = [];
 		if (mods.ModManager.activeMod != null)
 			roots.push('${mods.ModManager.MODS_FOLDER}/${mods.ModManager.activeMod}');
@@ -240,7 +240,7 @@ class FunkinSprite extends FlxAnimate
 	}
 
 	/**
-	 * Carga un Texture Atlas de Adobe Animate (carpeta única).
+	 * Loads an Adobe Animate Texture Atlas (single folder).
 	 */
 	public function loadAnimateAtlas(folderPath:String):FunkinSprite
 	{
@@ -255,9 +255,9 @@ class FunkinSprite extends FlxAnimate
 	}
 
 	/**
-	 * Carga múltiples carpetas de Adobe Animate y las fusiona al estilo V-Slice.
+	 * Loads multiple Adobe Animate folders and merges them V-Slice style.
 	 *
-	 * El primer elemento de `folders` actúa como el ATLAS PRINCIPAL (el que contiene
+	 * The first element of `folders` acts as the MAIN ATLAS (el que contiene
 	 * el Animation.json con la timeline y los frame labels usados por todas las
 	 * animaciones). Los elementos siguientes son SUBATLASES (texturas adicionales).
 	 *
@@ -346,7 +346,7 @@ class FunkinSprite extends FlxAnimate
 		return this;
 	}
 
-	// ── Resolución de .sheets multi-animate ──────────────────────────────────
+	// ── Resolution of multi-animate .sheets ──────────────────────────────────
 
 	/**
 	 * Busca un archivo .sheets para el personaje y, si sus entradas son carpetas
@@ -419,7 +419,7 @@ class FunkinSprite extends FlxAnimate
 		return null;
 	}
 
-	/** Sparrow (PNG + XML) con caché. */
+	/** Sparrow (PNG + XML) with cache. */
 	public function loadSparrow(key:String):FunkinSprite
 	{
 		final cacheKey = 'sparrow:$key';
@@ -437,7 +437,7 @@ class FunkinSprite extends FlxAnimate
 		return this;
 	}
 
-	/** Packer (PNG + TXT) con caché. */
+	/** Packer (PNG + TXT) with cache. */
 	public function loadPacker(key:String):FunkinSprite
 	{
 		final cacheKey = 'packer:$key';
@@ -455,12 +455,12 @@ class FunkinSprite extends FlxAnimate
 		return this;
 	}
 
-	/** Personaje: Multi-Atlas → Atlas único → Sparrow → Packer → placeholder. */
+	/** Character: Multi-Atlas → Single Atlas → Sparrow → Packer → placeholder. */
 	public function loadCharacterSparrow(key:String):FunkinSprite
 	{
 		// BUGFIX: Algunos character JSON tienen path como "tankmen/basic/spritemap1"
 		// apuntando directamente al nombre del spritemap. La carpeta real del atlas
-		// Animate es "tankmen/basic/" (el padre). Detectar y normalizar este patrón.
+		// Animate es "tankmen/basic/" (the parent). Detect and normalize this pattern.
 		var resolvedKey = key;
 		{
 			final spritemapRe = ~/\/spritemap\d*$/i;
@@ -475,11 +475,11 @@ class FunkinSprite extends FlxAnimate
 			}
 		}
 
-		// 1. .sheets con múltiples carpetas Animate (Tankman, etc.)
+		// 1. .sheets with multiple Animate folders (Tankman, etc.)
 		final multiAnimFolders = resolveMultiAnimateFolders(resolvedKey);
 		if (multiAnimFolders != null) return loadMultiAnimateAtlas(multiAnimFolders);
 
-		// 2. Carpeta única de Adobe Animate
+		// 2. Single Adobe Animate folder
 		final atlasFolder = resolveAtlasFolder('characters/images/$resolvedKey');
 		if (atlasFolder != null) return loadAnimateAtlas(atlasFolder);
 
@@ -500,7 +500,7 @@ class FunkinSprite extends FlxAnimate
 		return this;
 	}
 
-	/** Stage sprite (assets/stages/) con caché. */
+	/** Stage sprite (assets/stages/) with cache. */
 	public function loadStageSparrow(key:String):FunkinSprite
 	{
 		final ck = 'stage_sparrow:$key';
@@ -517,8 +517,8 @@ class FunkinSprite extends FlxAnimate
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Añade una animación.
-	 * Para atlases auto-detecta si el prefix es frame label o símbolo.
+	 * Adds an animation.
+	 * For atlases, auto-detects if the prefix is a frame label or symbol.
 	 */
 	public function addAnim(name:String, prefix:String, fps:Int = 24, looped:Bool = true,
 		?indices:Array<Int>):Void
@@ -552,7 +552,7 @@ class FunkinSprite extends FlxAnimate
 		}
 	}
 
-	/** Reproduce una animación. Guard con hasAnim() evita crashes. */
+	/** Plays an animation. Guard with hasAnim() prevents crashes. */
 	public function playAnim(name:String, force:Bool = false, reversed:Bool = false,
 		startFrame:Int = 0):Void
 	{
@@ -571,8 +571,8 @@ class FunkinSprite extends FlxAnimate
 	inline function get_animName():String return this.animation.name ?? '';
 
 	/**
-	 * true si la animación existe.
-	 * Para atlases: si existe como label/símbolo pero no fue añadida, la añade.
+	 * true if the animation exists.
+	 * For atlases: if it exists as a label/symbol but wasn't added, adds it.
 	 */
 	public function hasAnim(name:String):Bool
 	{
@@ -599,7 +599,7 @@ class FunkinSprite extends FlxAnimate
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  HELPERS PRIVADOS — frame labels / símbolos
+	//  PRIVATE HELPERS — frame labels / symbols
 	// ══════════════════════════════════════════════════════════════════════════
 
 	function _frameLabelExists(name:String):Bool
@@ -614,7 +614,7 @@ class FunkinSprite extends FlxAnimate
 						if (frame.name != null && frame.name.rtrim() == name)
 							return true;
 
-			// FIX: También buscar en los timelines de atlases secundarios (multi-atlas)
+			// FIX: Also search in secondary atlas timelines (multi-atlas)
 			@:privateAccess
 			final collections = this.library.addedCollections;
 			if (collections != null)
@@ -652,8 +652,8 @@ class FunkinSprite extends FlxAnimate
 	}
 
 	/**
-	 * Intenta registrar la animación si existe en el atlas.
-	 * FIX: Usa library.existsSymbol / getSymbol para buscar en addedCollections también.
+	 * Tries to register the animation if it exists in the atlas.
+	 * FIX: Uses library.existsSymbol / getSymbol for search in addedCollections also.
 	 */
 	function _addAnimIfExists(name:String):Bool
 	{
@@ -677,7 +677,7 @@ class FunkinSprite extends FlxAnimate
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  DETECCIÓN DE TIPO DE ASSET
+	//  ASSET TYPE DETECTION
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function resolveAtlasFolder(key:String):Null<String>
@@ -744,7 +744,7 @@ class FunkinSprite extends FlxAnimate
 	{
 		// BUGFIX: En Linux/macOS el sistema de archivos es case-sensitive.
 		// V-Slice usa "Animation.json" (capital A), pero algunos assets exportados
-		// por versiones antiguas de Adobe Animate generan "animation.json" (minúscula).
+		// by older versions of Adobe Animate that generate "animation.json" (lowercase).
 		// Comprobamos ambas variantes para evitar que loadAsset devuelva "not found"
 		// cuando el archivo existe con casing diferente.
 		#if sys

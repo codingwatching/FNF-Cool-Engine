@@ -20,18 +20,18 @@ import sys.io.File;
  *
  * ─── Nuevas features v3 ──────────────────────────────────────────────────────
  *
- *  • Guards de compatibilidad de librerías:
+ *  • Guards of compatibility of libraries:
  *      - hscript 2.4.x / 2.5.x  → allowMetadata manejado con try/catch
- *      - openfl 8.x / 9.x        → no hay dependencias directas aquí
+ *      - openfl 8.x / 9.x        → no there is dependencias directas here
  *      - sys-only FileSystem     → guard #if sys
  *
- *  • hotReload() mejorado: también re-expone el ScriptAPI completo tras recargar.
- *  • Errores más legibles: formato "NombreScript.hx:42 — mensaje".
- *  • set/get son más seguros: null-check antes de acceder a interp.variables.
- *  • dispose() para limpiar el intérprete sin destruir el objeto.
+ *  • hotReload() mejorado: also re-expone the ScriptAPI complete tras recargar.
+ *  • Errors more legibles: formato "NombreScript.hx:42 — mensaje".
+ *  • set/get are more seguros: null-check before of acceder to interp.variables.
+ *  • dispose() for clear the interpreter without destroy the object.
  *
  * ─── Compatibilidad garantizada ──────────────────────────────────────────────
- *  Flixel 4.x, 5.x — no hay dependencias directas de Flixel aquí
+ *  Flixel 4.x, 5.x — no there is dependencias directas of Flixel here
  *  hscript 2.4.x, 2.5.x — API de Parser/Interp es igual
  *  OpenFL 8.x, 9.x — sin dependencias directas
  *
@@ -46,7 +46,7 @@ class HScriptInstance
 	public var priority : Int    = 0;
 	public var tag      : String = '';
 
-	/** Último valor devuelto por `call()`. */
+	/** Last value devuelto by `call()`. */
 	public var returnValue : Dynamic = null;
 
 	/** Callback de error: (scriptName, funcName, error) → Void. */
@@ -60,14 +60,14 @@ class HScriptInstance
 	var _source : String = '';
 
 	/**
-	 * Caché de funciones: mapea nombre → función (o _MISSING si no existe).
+	 * Cache of functions: mapea nombre → function (or _MISSING if no exists).
 	 * Evita hacer interp.variables.get() + Reflect.isFunction() en cada llamada
-	 * cuando la función simplemente no está definida en el script.
+	 * when the function simply no is definida in the script.
 	 * Se invalida en hotReload() y dispose().
 	 */
 	var _funcCache : haxe.ds.StringMap<Dynamic> = new haxe.ds.StringMap();
 
-	/** Sentinel: indica que la función NO existe en este script. */
+	/** Sentinel: indicates that the function no exists in this script. */
 	static final _MISSING : {} = {};
 	#end
 
@@ -85,11 +85,11 @@ class HScriptInstance
 
 	/**
 	 * Llama a `funcName` con `args`. Devuelve el resultado o null.
-	 * Null-safe: si la función no existe, no hace nada.
+	 * Null-safe: if the function no exists, no hace nada.
 	 *
-	 * OPTIMIZACIÓN: usa _funcCache para evitar interp.variables.get() +
-	 * Reflect.isFunction() en cada llamada cuando la función no está definida.
-	 * El caché se rellena perezosamente en la primera llamada a cada nombre.
+	 * optimization: use _funcCache for avoid interp.variables.get() +
+	 * Reflect.isFunction() in each callda when the function no is definida.
+	 * The cache is rellena perezosamente in the first callda to each nombre.
 	 */
 	public function call(funcName:String, args:Array<Dynamic> = null):Dynamic
 	{
@@ -139,7 +139,7 @@ class HScriptInstance
 
 	/**
 	 * Llama a `funcName` y devuelve true si el resultado es literalmente `true`.
-	 * Usado por StateScriptHandler para la mecánica de cancelación de eventos.
+	 * Usado by StateScriptHandler for the mecánica of cancelación of events.
 	 */
 	public function callBool(funcName:String, args:Array<Dynamic> = null):Bool
 	{
@@ -190,8 +190,8 @@ class HScriptInstance
 	}
 
 	/**
-	 * Sobreescribe completamente una función en el script con una implementación Haxe.
-	 * Útil para que el engine overridee comportamiento sin que el script lo sepa.
+	 * Sobreescribe completely a function in the script with a implementación Haxe.
+	 * Useful for that the engine overridee comportamiento without that the script it sepa.
 	 */
 	public function overrideFunction(funcName:String, impl:Dynamic):Void
 	{
@@ -242,7 +242,7 @@ class HScriptInstance
 	}
 
 	/**
-	 * Recarga el archivo desde disco sin recrear el intérprete.
+	 * Recarga the file from disco without recrear the interpreter.
 	 * Las variables que ya existen en `interp` se preservan.
 	 * El ScriptAPI se re-expone para que nuevas APIs sean visibles.
 	 */
@@ -257,10 +257,10 @@ class HScriptInstance
 			_source  = File.getContent(path);
 			program  = ScriptHandler.parser.parseString(_source, path);
 
-			// Re-exponer ScriptAPI (podría haber cambiado entre recargas)
+			// Re-exponer ScriptAPI (podría haber cambiado between recargas)
 			ScriptAPI.expose(interp);
 
-			// Invalidar caché de funciones — el script redefinió sus funciones
+			// Invalidate cache of functions — the script redefinió its functions
 			_funcCache.clear();
 
 			interp.execute(program);
@@ -279,11 +279,11 @@ class HScriptInstance
 		#end
 	}
 
-	// ── Módulos (require) ─────────────────────────────────────────────────────
+	// ── Modules (require) ─────────────────────────────────────────────────────
 
 	/**
-	 * Importa otro script como módulo.
-	 * Devuelve el intérprete del módulo para acceder a sus variables.
+	 * Importa otro script as module.
+	 * Returns the interpreter of the module for acceder to its variables.
 	 * Uso desde un script: `var mod = require('ruta/otroScript.hx');`
 	 */
 	public function require(modulePath:String):Dynamic
@@ -295,11 +295,11 @@ class HScriptInstance
 		final mod = ScriptHandler.loadScript(resolved, 'song');
 		if (mod == null || mod.interp == null) return null;
 
-		// BUG FIX: devolver objeto dinámico en lugar del StringMap crudo.
+		// BUG FIX: return object dynamic in lugar of the StringMap crudo.
 		// mod.interp.variables es StringMap<Dynamic>. En C++/HL, Reflect.field
-		// no puede acceder a los métodos del StringMap, así que vizModule.get('create')
-		// retornaba null silenciosamente → viz = null → barras nunca se añadían.
-		// Con un objeto anónimo, vizModule.create(x, y) funciona directamente.
+		// no puede acceder to the methods of the StringMap, so that vizModule.get('create')
+		// retornaba null silenciosamente → viz = null → barras never is añadían.
+		// With a object anónimo, vizModule.create(x, and) works directly.
 		final proxy:Dynamic = {};
 		for (k => v in mod.interp.variables)
 			Reflect.setField(proxy, k, v);
@@ -312,15 +312,15 @@ class HScriptInstance
 	// ── Limpieza ──────────────────────────────────────────────────────────────
 
 	/**
-	 * Alias de dispose() para compatibilidad con código que llame destroy().
-	 * Destruye el intérprete y desactiva la instancia.
+	 * Alias of dispose() for compatibility with code that llame destroy().
+	 * Destroys the interpreter and desactiva the instance.
 	 */
 	public function destroy():Void
 		dispose();
 
 	/**
-	 * Destruye el intérprete pero preserva metadata (name, path, tag).
-	 * Útil para liberar RAM manteniendo el slot registrado.
+	 * Destroys the interpreter but preserva metadata (name, path, tag).
+	 * Useful for free RAM manteniendo the slot registered.
 	 */
 	public function dispose():Void
 	{
@@ -339,7 +339,7 @@ class HScriptInstance
 	{
 		var msg = Std.string(e);
 
-		// Intentar extraer número de línea de hscript.Expr.Error (2.4+)
+		// Intentar extraer number of line of hscript.Expr.Error (2.4+)
 		#if HSCRIPT_ALLOWED
 		try
 		{
@@ -347,15 +347,15 @@ class HScriptInstance
 			final exprErr = cast(e, hscript.Expr.Error);
 			if (exprErr != null)
 			{
-				// Intentar leer `.e` (línea del error en algunos formatos)
+				// Intentar leer `.and` (line of the error in algunos formatos)
 				final lineField = Reflect.hasField(exprErr, 'pmin') ? Reflect.field(exprErr, 'pmin') : null;
-				if (lineField != null) msg = 'Línea ~${lineField}: $msg';
+				if (lineField != null) msg = 'Line ~${lineField}: $msg';
 			}
 		}
-		catch (_) {} // Ignorar si el cast falla (versión antigua de hscript)
+		catch (_) {} // Ignorar if the cast falla (version old of hscript)
 		#end
 
-		trace('[HScript] ¡Error en $name.$funcName()! → $msg');
+		trace('[HScript] Error in $name.$funcName()! → $msg');
 
 		if (onError != null)
 		{
@@ -376,7 +376,7 @@ class HScriptInstance
 			                               : path.substring(0, path.lastIndexOf('\\') + 1);
 			final rel = dir + rawPath;
 			if (FileSystem.exists(rel)) return rel;
-			// Con extensión .hx
+			// With extension .hx
 			if (FileSystem.exists(rel + '.hx')) return rel + '.hx';
 		}
 

@@ -34,7 +34,7 @@ using StringTools;
  *     // Variables globales: v1, v2, time, game
  *     function onTrigger(v1, v2, time) {
  *       if (game != null) game.cameraController.setTarget(v1);
- *       return false; // false = también corre el built-in
+ *       return false; // false = also corre the built-in
  *     }
  *
  *   Lua (Camera Follow.lua):
@@ -42,7 +42,7 @@ using StringTools;
  *       return false
  *     end
  *
- *   También se aceptan las funciones de compatibilidad:
+ *   Also is aceptan the functions of compatibility:
  *     onEvent(name, v1, v2, time)   -- igual que en scripts globales
  *     onCreate()                     -- al cargar el handler
  *     onDestroy()                    -- al descargar el handler
@@ -51,10 +51,10 @@ class EventHandlerLoader
 {
 	// ── Maps de handlers cargados por nombre de evento ─────────────────────────
 
-	/** HScript handlers indexados por nombre canónico de evento. */
+	/** HScript handlers indexados by name canónico of event. */
 	static var _hx:Map<String, HScriptInstance> = new Map();
 
-	/** Lua handlers indexados por nombre canónico de evento. */
+	/** Lua handlers indexados by name canónico of event. */
 	#if (LUA_ALLOWED && linc_luajit)
 	static var _lua:Map<String, LuaScriptInstance> = new Map();
 	#end
@@ -131,11 +131,11 @@ class EventHandlerLoader
 	 * @param v1    Valor 1.
 	 * @param v2    Valor 2.
 	 * @param time  Tiempo en ms.
-	 * @return      true si el handler pidió cancelar el built-in.
+	 * @return      true if the handler pidió cancelar the built-in.
 	 */
 	public static function dispatch(name:String, v1:String, v2:String, time:Float):Bool
 	{
-		// Resolver alias al nombre canónico
+		// Resolve alias to the name canónico
 		final canonical = EventRegistry.resolveAlias(name) ?? name;
 		var cancelled = false;
 
@@ -152,7 +152,7 @@ class EventHandlerLoader
 				hx.set('game', funkin.gameplay.PlayState.instance);
 				final result = hx.call('onTrigger', [v1, v2, time]);
 				if (result == true) cancelled = true;
-				// También probar onEvent para compat con scripts globales
+				// Also probar onEvent for compat with scripts globales
 				if (!cancelled)
 				{
 					final r2 = hx.call('onEvent', [canonical, v1, v2, time]);
@@ -189,7 +189,7 @@ class EventHandlerLoader
 	}
 
 	/**
-	 * Devuelve true si hay algún handler (HScript o Lua) para el evento.
+	 * Returns true if there is some handler (HScript or Lua) for the event.
 	 */
 	public static function hasHandler(name:String):Bool
 	{

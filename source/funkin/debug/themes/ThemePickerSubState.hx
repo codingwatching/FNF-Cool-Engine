@@ -83,7 +83,7 @@ class ThemePickerSubState extends FlxSubState
 	{
 		super.create();
 
-		// FIX: cámara propia para ser visible sobre camUI (transparente) del StageEditor
+		// FIX: camera propia for be visible over camUI (transparente) of the StageEditor
 		var camSub = new flixel.FlxCamera();
 		camSub.bgColor.alpha = 0;
 		FlxG.cameras.add(camSub, false);
@@ -114,7 +114,7 @@ class ThemePickerSubState extends FlxSubState
 		// Detecta cambios en los inputs de color y refresca swatches en tiempo real
 		_flushColorInputs();
 
-		// Click en botón de preset
+		// Click in button of preset
 		if (FlxG.mouse.justPressed)
 		{
 			var mx = FlxG.mouse.screenX;
@@ -131,7 +131,7 @@ class ThemePickerSubState extends FlxSubState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// CONSTRUCCIÓN DEL UI
+	// build of the UI
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function _addOverlay():Void
@@ -252,7 +252,7 @@ class ThemePickerSubState extends FlxSubState
 		_nameInput.scrollFactor.set(); add(_nameInput);
 	}
 
-	// ── Columna de previsualización ───────────────────────────────────────────
+	// ── Columna of previsualización ───────────────────────────────────────────
 
 	function _addPreviewColumn():Void
 	{
@@ -297,7 +297,7 @@ class ThemePickerSubState extends FlxSubState
 		sw('Row Even',     T.rowEven);
 	}
 
-	// ── Botones de acción ─────────────────────────────────────────────────────
+	// ── Buttons of action ─────────────────────────────────────────────────────
 
 	function _addActionRow():Void
 	{
@@ -320,7 +320,7 @@ class ThemePickerSubState extends FlxSubState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// LÓGICA
+	// logic
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function _applyPreset(name:String):Void
@@ -355,7 +355,7 @@ class ThemePickerSubState extends FlxSubState
 			var val:Null<Int> = null;
 			if (s.length == 6)
 			{
-				// Parsear sólo los 6 dígitos RGB (max 0xFFFFFF = 16777215, cabe en Int32).
+				// Parse only the 6 RGB digits (max 0xFFFFFF = 16777215, fits in Int32).
 				// Si concatenamos 'FF' antes → '0xFFRRGGBB' overflowea en C++ Haxe
 				// y Std.parseInt devuelve 0x7FFFFFFF → todos los colores se vuelven #FFFFFF.
 				var rgb = Std.parseInt('0x' + s);
@@ -464,7 +464,7 @@ class ThemePickerSubState extends FlxSubState
 
 	override function close():Void
 	{
-		// FIX: limpiar la cámara temporal al cerrar
+		// FIX: clear the camera temporary to the cerrar
 		if (cameras != null && cameras.length > 0)
 		{
 			var cam = cameras[0];

@@ -13,9 +13,9 @@ import haxe.Json;
 import ui.Alphabet;
 
 /**
- * CustomMenuState — Ejecuta en el juego cualquier menú creado con MenuEditor.
+ * CustomMenuState — Ejecuta in the game cualquier menu creado with MenuEditor.
  *
- * Uso desde código Haxe:
+ * Uso from code Haxe:
  *   StateTransition.switchState(new CustomMenuState("my_custom_menu"));
  *
  * Uso desde HScript (assets/states/mainmenustate/override.hx):
@@ -24,11 +24,11 @@ import ui.Alphabet;
  *       return true; // cancela el comportamiento normal
  *   }
  *
- * Búsqueda de datos en orden:
+ * Search of datos in orden:
  *   1. mods/{mod}/data/menus/{name}.json    (si hay mod activo)
  *   2. assets/data/menus/{name}.json
  *
- * ─── Acciones predefinidas (campo "action" del ítem) ─────────────────────────
+ * ─── Actions predefinidas (field "action" of the item) ─────────────────────────
  *   "play" / "storymode"  → StoryMenuState
  *   "freeplay"            → FreeplayState
  *   "options"             → OptionsMenuState
@@ -49,7 +49,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 	var _items     : Array<CustomMenuItemData> = [];  // solo items navegables
 	var _curIdx    : Int = 0;
 
-	/** Objetos Flixel creados para cada ítem navegable (mismo índice que _items). */
+	/** Objects Flixel creados for each item navegable (same index that _items). */
 	var _alphabets : Array<Alphabet>  = [];
 	var _sprites   : Array<FlxSprite> = [];
 
@@ -62,7 +62,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 	var _musicStarted   : Bool = false;
 	var _useAlphabet    : Bool = true;
 
-	// ─── Cámara follow (como MainMenuState) ───────────────────────────────────
+	// ─── Camera follow (as MainMenuState) ───────────────────────────────────
 	var _camFollow : FlxObject;
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * @param menuName   Nombre del menú (sin extensión) — busca en assets/data/menus/
+	 * @param menuName   Name of the menu (without extension) — busca in assets/data/menus/
 	 * @param backState  Estado al que volver con BACK (null = TitleState)
 	 */
 	public function new(menuName:String, ?backState:FlxState)
@@ -92,7 +92,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 		// ── Cargar datos ──────────────────────────────────────────────────────
 		_data = _loadMenuData(_menuName);
 		if (_data == null) {
-			trace('[CustomMenuState] No se encontró "$_menuName" — usando fallback');
+			trace('[CustomMenuState] No is encontró "$_menuName" — usando fallback');
 			_data = _fallbackData(_menuName);
 		}
 
@@ -111,11 +111,11 @@ class CustomMenuState extends funkin.states.MusicBeatState
 		_bgSprite.screenCenter();
 		add(_bgSprite);
 
-		// ── Cámara follow ─────────────────────────────────────────────────────
+		// ── Camera follow ─────────────────────────────────────────────────────
 		_camFollow = new FlxObject(0, 0, 1, 1);
 		add(_camFollow);
 
-		// ── Título ────────────────────────────────────────────────────────────
+		// ── Title ────────────────────────────────────────────────────────────
 		if (_data.title != null && _data.title.trim() != "") {
 			var titleTxt = new FlxText(0, 20, FlxG.width, _data.title, 24);
 			titleTxt.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER,
@@ -127,7 +127,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 		// ── Construir items navegables ─────────────────────────────────────────
 		_buildItems();
 
-		// ── Música ────────────────────────────────────────────────────────────
+		// ── Music ────────────────────────────────────────────────────────────
 		_startMusic();
 
 		// ── Scripts ───────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 		StateScriptHandler.callOnScripts('onCreate', []);
 		#end
 
-		// Animación de entrada — los ítems vienen desde abajo
+		// Animation of entry — the items vienen from down
 		_enterAnimation();
 
 		super.create();
@@ -173,7 +173,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 
 		_useAlphabet = _items.length > 0 && _items[0].type == "Alphabet";
 
-		// Construir según tipo del primer ítem
+		// Construir according to type of the primer item
 		if (_useAlphabet) {
 			_buildAlphabetItems();
 		} else {
@@ -203,7 +203,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 		_changeSelection(0);
 	}
 
-	/** Estilo Button/Text — usa FlxSprite o FlxText con posición fija. */
+	/** Estilo Button/Text — use FlxSprite or FlxText with position fija. */
 	function _buildSpriteItems() : Void
 	{
 		var totalH   = _items.length * 56;
@@ -234,7 +234,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 				lbl.screenCenter(X);
 				lbl.scrollFactor.set();
 				add(lbl);
-				_sprites.push(spr); // guarda spr aunque esté vacío para mantener índices
+				_sprites.push(spr); // save spr although is empty for mantener indices
 				continue;
 			}
 			spr.antialiasing = FlxG.save.data.antialiasing;
@@ -264,7 +264,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 					onComplete: function(_) { _canMove = true; }
 				});
 		}
-		// Simple tween de alpha para dar sensación de fade-in
+		// Simple tween of alpha for dar sensación of fade-in
 		FlxG.camera.alpha = 0;
 		FlxTween.tween(FlxG.camera, {alpha: 1}, 0.25, {
 			onComplete: function(_) { _canMove = true; }
@@ -289,7 +289,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 			if (controls.BACK)   _onBack();
 		}
 
-		// Música fade in
+		// Music fade in
 		if (_musicStarted && FlxG.sound.music != null && FlxG.sound.music.volume < 0.7)
 			FlxG.sound.music.volume += 0.5 * elapsed;
 
@@ -324,7 +324,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 			}
 		}
 
-		// Mueve la cámara como MainMenuState
+		// Moves the camera as MainMenuState
 		if (_useAlphabet && _alphabets.length > _curIdx) {
 			var al = _alphabets[_curIdx];
 			_camFollow.setPosition(al.getGraphicMidpoint().x, al.getGraphicMidpoint().y);
@@ -427,7 +427,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 				var nextMenu = action.substr(5);
 				StateTransition.switchState(new CustomMenuState(nextMenu, this));
 			default:
-				trace('[CustomMenuState] Acción desconocida: "$action" — maneja en script');
+				trace('[CustomMenuState] Action desconocida: "$action" — handles in script');
 				_selected = false; // permite volver a navegar
 		}
 	}
@@ -527,16 +527,16 @@ class CustomMenuState extends funkin.states.MusicBeatState
 	//  Expose to scripts
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/** Navega al índice dado (callable desde scripts). */
+	/** Navega to the index dado (callable from scripts). */
 	public function selectIndex(idx:Int) : Void { _changeSelection(idx - _curIdx); }
 
-	/** Devuelve el label del ítem seleccionado. */
+	/** Returns the label of the item seleccionado. */
 	public function getSelectedLabel() : String { return _items.length > 0 ? _items[_curIdx].label : ""; }
 
-	/** Devuelve los datos del ítem en el índice dado. */
+	/** Returns the datos of the item in the index dado. */
 	public function getItem(idx:Int) : CustomMenuItemData { return _items[idx]; }
 
-	/** Número de ítems navegables. */
+	/** Number of items navegables. */
 	public function getItemCount() : Int { return _items.length; }
 
 	override public function destroy() : Void

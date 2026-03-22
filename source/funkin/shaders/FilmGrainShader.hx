@@ -3,7 +3,7 @@ package funkin.shaders;
 import flixel.system.FlxAssets.FlxShader;
 
 /**
- * FilmGrainShader — grano de película sutil y animado.
+ * FilmGrainShader — grano of película sutil and animado.
  */
 class FilmGrainShader extends FlxShader
 {

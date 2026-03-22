@@ -9,12 +9,12 @@ using StringTools;
 /**
  * WinMacroFix.hx — source/WinMacroFix.hx
  *
- * Parchea los .h generados de FlxKey y FlxColor DESPUÉS de que Haxe
+ * Parchea the .h generados of FlxKey and FlxColor after of that Haxe
  * los genera pero ANTES de que MSVC los compile.
  * Inyecta #undef al principio de cada header para eliminar las macros
  * de windows.h que colisionan (TRANSPARENT, DELETE, etc.).
  *
- * En project.xml añade:
+ * In project.xml adds:
  *   <haxeflag name="--macro" value="WinMacroFix.apply()" if="windows"/>
  */
 class WinMacroFix
@@ -69,7 +69,7 @@ class WinMacroFix
 		Context.onAfterGenerate(function()
 		{
 			// Usar ruta absoluta del proyecto para que funcione sin importar
-			// el directorio de trabajo durante la ejecución del macro.
+			// the directorio of trabajo during the execution of the macro.
 			var cwd = Sys.getCwd().split("\\").join("/");
 			if (cwd.endsWith("/")) cwd = cwd.substr(0, cwd.length - 1);
 
@@ -85,7 +85,7 @@ class WinMacroFix
 				'export/release/windows/cpp/obj',
 			];
 
-			// También respetar HXCPP_OUT si viene definido
+			// Also respetar HXCPP_OUT if viene definido
 			var envOut = Context.definedValue('HXCPP_OUT');
 			if (envOut != null && envOut != '')
 				baseDirs.unshift(envOut.split("\\").join("/"));
@@ -121,7 +121,7 @@ class WinMacroFix
 
 				var content = File.getContent(t.path);
 
-				// Solo parchear si aún no tiene los undefs (evita doble parcheo)
+				// Only patch if it doesn't have the undefs yet (avoids double patching)
 				if (content.indexOf('#undef TRANSPARENT') != -1 ||
 				    content.indexOf('#undef DELETE') != -1)
 				{
@@ -129,7 +129,7 @@ class WinMacroFix
 					continue;
 				}
 
-				// Inyectar después del primer #pragma once o #ifndef guard
+				// Inyectar after of the primer #pragma once or #ifndef guard
 				var insertAfter = '#pragma once';
 				var idx = content.indexOf(insertAfter);
 				if (idx == -1)

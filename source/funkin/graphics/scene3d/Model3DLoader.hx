@@ -11,13 +11,13 @@ using StringTools;
  * Model3DLoader — Carga modelos 3D en formato OBJ / MTL.
  *
  * Soporta:
- *  • Vértices (v), normales (vn), coordenadas de textura (vt)
- *  • Caras trianguladas y no trianguladas (fan-triangulation automática)
- *  • Materiales básicos desde .mtl (color diffuse → color de vértice)
- *  • Múltiples objetos en un solo archivo (o:, g:)
+ *  • Vertices (v), normales (vn), coordenadas of texture (vt)
+ *  • Caras trianguladas and no trianguladas (fan-triangulation automatic)
+ *  • Basic materials from .mtl (diffuse color → vertex color)
+ *  • Multiple objects in a only file (or:, g:)
  *  • Archivos multi-material (usemtl)
  *
- * ─── Rutas de búsqueda ────────────────────────────────────────────────────────
+ * ─── Rutas of search ────────────────────────────────────────────────────────
  *
  *   Para personajes (renderType: "model3d"):
  *     mods/{mod}/characters/models/{name}.obj
@@ -29,7 +29,7 @@ using StringTools;
  *     assets/stages/{stage}/models/{name}.obj
  *     assets/stages/models/{name}.obj
  *
- *   También acepta paths absolutos o relativos completos.
+ *   Also acepta paths absolutos or relativos completos.
  *
  * ─── Uso desde JSON de stage ─────────────────────────────────────────────────
  *
@@ -71,13 +71,13 @@ using StringTools;
  */
 class Model3DLoader
 {
-	// ── API pública ───────────────────────────────────────────────────────────
+	// ── API public ───────────────────────────────────────────────────────────
 
 	/**
 	 * Carga un archivo OBJ desde cualquier ruta del sistema de archivos.
-	 * Si la ruta no es absoluta se busca en los paths estándar.
+	 * If the path no is absoluta is busca in the paths standard.
 	 *
-	 * @param path   Ruta al .obj (absoluta o relativa a la raíz del proyecto).
+	 * @param path   Ruta to the .obj (absoluta or relativa to the root of the proyecto).
 	 * @return       Flx3DMesh listo para usar, o null si no se puede cargar.
 	 */
 	public static function load(path:String):Null<Flx3DMesh>
@@ -147,19 +147,19 @@ class Model3DLoader
 
 	/**
 	 * Devuelve la ruta resuelta a un modelo sin cargarlo.
-	 * Útil para precachear o verificar existencia.
+	 * Useful for precachear or verify existencia.
 	 */
 	public static function resolve(name:String, ?context:String, ?stageName:String):Null<String>
 		return _resolve(name, context, stageName);
 
-	// ── Resolución de rutas ───────────────────────────────────────────────────
+	// ── Resolution of rutas ───────────────────────────────────────────────────
 
 	static function _resolve(name:String, ?context:String, ?stageName:String):Null<String>
 	{
 		#if sys
 		// Si es un path ya existente devolver directo
 		if (FileSystem.exists(name)) return name;
-		// Añadir extensión si no la tiene
+		// Add extension if no the tiene
 		final withExt = name.endsWith('.obj') ? name : '$name.obj';
 		if (FileSystem.exists(withExt)) return withExt;
 
@@ -189,7 +189,7 @@ class Model3DLoader
 		}
 		else
 		{
-			// Búsqueda genérica
+			// Search generic
 			if (modRoot != null) candidates.push('$modRoot/models/$withExt');
 			candidates.push('assets/models/$withExt');
 			candidates.push('assets/data/models/$withExt');
@@ -217,7 +217,7 @@ class Model3DLoader
 		var matB:Float = 1.0; var matA:Float = 1.0;
 		final matColors:Map<String, Array<Float>> = new Map();
 
-		// Resultado: vértices expandidos (sin índices compartidos, para normales per-face correctas)
+		// Resultado: vertices expandidos (without indices compartidos, for normales per-face correctas)
 		final outVerts:Array<Float>  = [];  // stride 12: x,y,z, nx,ny,nz, u,v, r,g,b,a
 		final outIdx:Array<Int>      = [];
 
@@ -237,7 +237,7 @@ class Model3DLoader
 
 			switch (tok[0])
 			{
-				case 'v':   // posición
+				case 'v':   // position
 					if (tok.length >= 4)
 					{
 						posArr.push(_pf(tok[1])); posArr.push(_pf(tok[2])); posArr.push(_pf(tok[3]));
@@ -263,7 +263,7 @@ class Model3DLoader
 						matR = c[0]; matG = c[1]; matB = c[2]; matA = c.length > 3 ? c[3] : 1.0;
 					}
 
-				case 'f':   // cara (3+ vértices)
+				case 'f':   // cara (3+ vertices)
 					// Triangular en fan: v0, v1, v2 / v0, v2, v3 / ...
 					final faceVerts:Array<Array<Int>> = [];
 					for (i in 1...tok.length)
@@ -313,7 +313,7 @@ class Model3DLoader
 		mesh.name  = _baseName(sourcePath);
 		mesh.setGeometry(outVerts, outIdx);
 
-		trace('[Model3DLoader] Cargado "$sourcePath": ${Std.int(outIdx.length / 3)} triángulos, $vertCounter vértices.');
+		trace('[Model3DLoader] Loaded "$sourcePath": ${Std.int(outIdx.length / 3)} triangles, $vertCounter vertices.');
 		return mesh;
 	}
 

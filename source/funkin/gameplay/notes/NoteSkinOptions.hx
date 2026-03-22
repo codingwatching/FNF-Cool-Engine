@@ -22,14 +22,14 @@ import ui.Alphabet;
 
 enum PreviewMode
 {
-	STATIC; // Notas estáticas
+	STATIC; // Notes static
 	ANIMATED; // Notas animadas cayendo
-	GAMEPLAY; // Simulación de gameplay
+	GAMEPLAY; // Simulación of gameplay
 }
 
 class NoteSkinOptions extends funkin.states.MusicBeatState
 {
-	// Selección
+	// Selection
 	var curSelected:Int = 0;
 	var currentTab:Int = 0; // 0 = Skins, 1 = Splashes, 2 = Settings
 
@@ -138,7 +138,7 @@ class NoteSkinOptions extends funkin.states.MusicBeatState
 		// Tabs
 		setupTabs();
 
-		// Tab indicator (línea debajo del tab seleccionado)
+		// Tab indicator (line debajo of the tab seleccionado)
 		tabIndicator = new FlxSprite(40, 130).makeGraphic(150, 5, FlxColor.CYAN);
 		add(tabIndicator);
 
@@ -537,7 +537,7 @@ class NoteSkinOptions extends funkin.states.MusicBeatState
 	function openAnimationEditor():Void
 	{
 		// TODO: Implementar editor completo
-		// Por ahora, mostrar info y permitir cambiar algunas animaciones básicas
+		// By now, show info and allow change some animations básicas
 		showNotification("Animation Editor - Coming Soon!");
 		
 		// Obtener skin actual

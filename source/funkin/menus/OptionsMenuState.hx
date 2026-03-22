@@ -27,11 +27,11 @@ import openfl.Lib;
 
 /**
  * Options Menu - Sistema de tabs integrado con keybinds
- * EXTENSIBLE: Usa StateScriptHandler para opciones dinámicas
+ * EXTENSIBLE: Use StateScriptHandler for options dynamic
  */
 class OptionsMenuState extends MusicBeatSubstate
 {
-	// Categorías principales (se pueden agregar más desde scripts)
+	// Categories principales (is pueden agregar more from scripts)
 	#if mobileC
 	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Subtitles', 'Note Skin', 'Offset', 'Mobile'];
 	#else
@@ -55,7 +55,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		if (current <= 0)        return FPS_MIN;       // Unlimited → 30
 		if (current >= FPS_MAX)  return 0;             // 240 → Unlimited
-		// Redondear al múltiplo de 5 más cercano por encima
+		// Redondear to the múltiplo of 5 more cercano by above
 		final snapped = Math.ceil(current / FPS_STEP) * FPS_STEP;
 		final next    = (snapped == current) ? current + FPS_STEP : snapped;
 		return next > FPS_MAX ? 0 : next;
@@ -85,9 +85,9 @@ class OptionsMenuState extends MusicBeatSubstate
 	var currentOptions:Array<Dynamic> = [];
 
 	// ── Scroll de opciones ────────────────────────────────────────────────
-	// Desplazamiento vertical en píxeles para cuando hay más opciones que espacio
+	// Desplazamiento vertical in pixels for when there is more options that espacio
 	var _optScrollY:Float = 0.0;
-	// Área visible de opciones: desde startY hasta el footer
+	// Area visible of options: from startY until the footer
 	static inline var OPT_START_Y:Int  = 180;
 	static inline var OPT_SPACING:Int  = 55;
 	static inline var OPT_VISIBLE_H:Int = 370; // FlxG.height(720) - footer(100) - startY(180) - margen(70)
@@ -121,7 +121,7 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	public static var fromPause:Bool = false;
 
-	/** Si se cambia una opción que requiere restart mientras en pausa, este flag
+	/** If is changes a option that requiere restart mientras in pausa, this flag
 	 *  le indica a PauseSubState que dispare el rewind al volver. */
 	public static var pendingRewind:Bool = false;
 
@@ -150,7 +150,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		if (fromPause)
 			isOpenOptions = true;
 
-		// Cargar categorías custom desde scripts
+		// Load categories custom from scripts
 		loadCustomCategoriesFromScripts();
 
 		StateScriptHandler.callOnScripts('onCreate', []);
@@ -169,7 +169,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		bg.scrollFactor.set();
 		add(bg);
 
-		// Borde del panel (agregar primero para que esté detrás)
+		// Edge of the panel (agregar first for that is behind)
 		var borderThickness = 3;
 		var panelBorder = new FlxSprite(50 - borderThickness,
 			80 - borderThickness).makeGraphic(Std.int(FlxG.width - 100 + borderThickness * 2), Std.int(FlxG.height - 160 + borderThickness * 2), 0xFF2a2a2a);
@@ -181,7 +181,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		menuBG.scrollFactor.set();
 		add(menuBG);
 
-		// Título del menú
+		// Title of the menu
 		var titleText = new FlxText(0, 20, FlxG.width, "OPTIONS MENU", 48);
 		titleText.setFormat(Paths.font("Funkin.otf"), 48, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		titleText.borderSize = 3;
@@ -193,7 +193,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		contentPanel = new FlxTypedGroup<FlxSprite>();
 		add(contentPanel);
 
-		// Categorías en la parte superior con backgrounds individuales
+		// Categories in the top part with backgrounds individuales
 		categoryTexts = new FlxTypedGroup<FlxText>();
 		add(categoryTexts);
 
@@ -203,13 +203,13 @@ class OptionsMenuState extends MusicBeatSubstate
 
 		for (i in 0...categories.length)
 		{
-			// Background de la pestaña (inicialmente inactiva)
+			// Background of the pestaña (initially inactive)
 			var tabBG = new FlxSprite(60 + (i * categoryWidth), tabY).makeGraphic(Std.int(categoryWidth - 4), tabHeight, 0xFF1a1a1a);
 			tabBG.scrollFactor.set();
 			tabBG.ID = i;
 			contentPanel.add(tabBG);
 
-			// Borde superior de la pestaña
+			// Edge superior of the pestaña
 			var tabBorder = new FlxSprite(tabBG.x, tabBG.y - 2).makeGraphic(Std.int(tabBG.width), 2, 0xFF444444);
 			tabBorder.scrollFactor.set();
 			tabBorder.ID = i;
@@ -224,12 +224,12 @@ class OptionsMenuState extends MusicBeatSubstate
 			categoryTexts.add(categoryText);
 		}
 
-		// Separador horizontal entre pestañas y contenido
+		// Separador horizontal between pestañas and contenido
 		var separator = new FlxSprite(menuBG.x, tabY + tabHeight).makeGraphic(Std.int(menuBG.width), 3, 0xFF444444);
 		separator.scrollFactor.set();
 		add(separator);
 
-		// Indicador de pestaña activa (barra inferior)
+		// Indicador of pestaña active (bar inferior)
 		var activeIndicator = new FlxSprite(0, tabY + tabHeight - 3).makeGraphic(Std.int(categoryWidth - 4), 3, FlxColor.CYAN);
 		activeIndicator.scrollFactor.set();
 		activeIndicator.ID = -1; // ID especial para el indicador
@@ -331,7 +331,7 @@ class OptionsMenuState extends MusicBeatSubstate
 
 		loadCategory(curCategory);
 
-		// Configurar cámaras si se abre desde pause menu
+		// Configure cameras if is abre from pause menu
 		if (fromPause)
 		{
 			cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
@@ -342,7 +342,7 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	#if HSCRIPT_ALLOWED
 	/**
-	 * Carga categorías custom registradas desde scripts
+	 * Load categories custom registered from scripts
 	 */
 	function loadCustomCategoriesFromScripts():Void
 	{
@@ -440,13 +440,13 @@ class OptionsMenuState extends MusicBeatSubstate
 				loadMobileControlsOptions();
 				#end
 			default:
-				// Categoría custom desde script
+				// Custom category from script
 				#if HSCRIPT_ALLOWED
 				loadCustomCategory(categoryName);
 				#end
 		}
 
-		// Agregar opciones custom a categorías existentes desde scripts
+		// Agregar options custom to categories existentes from scripts
 		#if HSCRIPT_ALLOWED
 		loadCustomOptionsForCategory(categoryName);
 		#end
@@ -458,11 +458,11 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	#if HSCRIPT_ALLOWED
 	/**
-	 * Carga una categoría custom completa desde scripts
+	 * Load a category custom complete from scripts
 	 */
 	function loadCustomCategory(categoryName:String):Void
 	{
-		// Llamar a los scripts para obtener opciones de esta categoría
+		// Callr to the scripts for get options of this category
 		var customOptions = StateScriptHandler.callOnScriptsReturn('getOptionsForCategory', [categoryName]);
 
 		if (customOptions != null && Std.isOfType(customOptions, Array))
@@ -478,11 +478,11 @@ class OptionsMenuState extends MusicBeatSubstate
 	}
 
 	/**
-	 * Carga opciones custom que se agregan a categorías existentes
+	 * Load options custom that is agregan to categories existentes
 	 */
 	function loadCustomOptionsForCategory(categoryName:String):Void
 	{
-		// Llamar a los scripts para obtener opciones adicionales para esta categoría
+		// Callr to the scripts for get options adicionales for this category
 		var additionalOptions = StateScriptHandler.callOnScriptsReturn('getAdditionalOptionsForCategory', [categoryName]);
 
 		if (additionalOptions != null && Std.isOfType(additionalOptions, Array))
@@ -589,9 +589,9 @@ class OptionsMenuState extends MusicBeatSubstate
 		FlxG.save.data.fpsTarget = fps;
 		FlxG.save.flush();
 
-		// Delegar SIEMPRE en Main.setMaxFps() — es el único punto que sabe
+		// Delegar always in Main.setMaxFps() — is the unique punto that sabe
 		// si usar FrameLimiterAPI (desktop/cpp) o stage.frameRate (mobile/html5).
-		// NO tocar stage.frameRate directamente aquí:
+		// no tocar stage.frameRate directamente here:
 		//   • stage.frameRate = 0 → OpenFL deja de disparar ENTER_FRAME → juego congelado.
 		//   • En desktop el throttle real ya lo hace FrameLimiterAPI, no Lime.
 		var main = cast(openfl.Lib.current.getChildAt(0), Main);
@@ -600,7 +600,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		trace('[Options] FPS cap -> ' + (fps <= 0 ? 'Unlimited' : fps + ' FPS'));
 	}
 
-	/** Aplica/quita VSync via extensión nativa y lo persiste en el save */
+	/** Applies/quita VSync via extension nativa and it persiste in the save */
 	function applyVSync(value:Bool):Void
 	{
 		FlxG.save.data.vsync = value;
@@ -759,8 +759,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				}
 			},
 			// ── Lane Backdrop (osu-style) ───────────────────────────────────────
-			// Fondo negro semitransparente detrás del carril de notas del jugador.
-			// La posición se adapta automáticamente a Middlescroll / Downscroll / Upscroll.
+			// Fondo black semitransparente behind of the carril of notes of the player.
+			// The position is adapta automatically to Middlescroll / Downscroll / Upscroll.
 			// Alpha 0% = transparente (por defecto). Ajustar con ← / → o A / D.
 			{
 				name: "Lane Backdrop",
@@ -785,7 +785,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				}
 			},
 			// ── Rating Position ────────────────────────────────────────────────
-			// Abre un substate visual donde se puede mover la posición del popup
+			// Abre a substate visual where is puede move the position of the popup
 			// de rating (Sick, Good, Bad, etc.) en pantalla.
 			{
 				name: "Rating Position",
@@ -824,7 +824,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			});
 		}
 
-		// Opción de resetear
+		// Option of resetear
 		currentOptions.push({
 			name: "Reset to Default",
 			get: function() return "BACKSPACE",
@@ -960,10 +960,10 @@ class OptionsMenuState extends MusicBeatSubstate
 	}
 	#end
 
-	// ── Tamaños de fuente disponibles para subtítulos ─────────────────────────
+	// ── Sizes of font available for subtitles ─────────────────────────
 	static final SUBTITLE_SIZES:Array<Int> = [16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40, 48];
 
-	// ── Fuentes disponibles para subtítulos ───────────────────────────────────
+	// ── Fonts available for subtitles ───────────────────────────────────
 	// Nombre visible | nombre real del archivo en assets/fonts/
 	static final SUBTITLE_FONT_NAMES:Array<String>  = ['VCR OSD',  'Funkin',      'Arial',    'Pixel',       'Bold'];
 	static final SUBTITLE_FONT_FILES:Array<String>  = ['vcr.ttf',  'Funkin.otf',  'arial.ttf','pixel.ttf',   'bold.ttf'];
@@ -973,7 +973,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	static final SUBTITLE_COLOR_NAMES:Array<String> = ['White', 'Yellow', 'Cyan', 'Lime', 'Pink', 'Orange'];
 	static final SUBTITLE_COLOR_VALUES:Array<Int>   = [0xFFFFFFFF, 0xFFFFFF00, 0xFF00FFFF, 0xFF00FF00, 0xFFFF69B4, 0xFFFF8C00];
 
-	// ── Idiomas de traducción ─────────────────────────────────────────────────
+	// ── Idiomas of translation ─────────────────────────────────────────────────
 	static final SUBTITLE_LANG_NAMES:Array<String> = [
 		'None', 'Spanish', 'English', 'French', 'German', 'Italian',
 		'Portuguese', 'Japanese', 'Korean', 'Chinese', 'Russian', 'Arabic'
@@ -986,7 +986,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	function loadSubtitlesOptions()
 	{
 		currentOptions = [
-			// ── Activar / desactivar subtítulos ───────────────────────────────
+			// ── Activar / desactivar subtitles ───────────────────────────────
 			{
 				name: "Subtitles",
 				get: function()
@@ -1025,7 +1025,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					_applySubtitleSettings();
 				}
 			},
-			// ── Tamaño de fuente ──────────────────────────────────────────────
+			// ── Size of font ──────────────────────────────────────────────
 			{
 				name: "Font Size",
 				get: function()
@@ -1103,7 +1103,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					_applySubtitleSettings();
 				}
 			},
-			// ── Posición vertical ─────────────────────────────────────────────
+			// ── Position vertical ─────────────────────────────────────────────
 			{
 				name: "Position",
 				get: function()
@@ -1166,7 +1166,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					_applySubtitleSettings();
 				}
 			},
-			// ── Idioma de traducción ──────────────────────────────────────────
+			// ── Idioma of translation ──────────────────────────────────────────
 			{
 				name: "Translate To",
 				get: function()
@@ -1224,7 +1224,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		return available;
 	}
 
-	/** Devuelve el índice de la fuente en _availableSubtitleFonts(), o 0 si no se encuentra. */
+	/** Returns the index of the font in _availableSubtitleFonts(), or 0 if no is encuentra. */
 	function _resolveSubtitleFontIndex(fontFile:String):Int
 	{
 		var avail = _availableSubtitleFonts();
@@ -1232,7 +1232,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		return idx >= 0 ? idx : 0;
 	}
 
-	/** Aplica la configuración de subtítulos guardada al SubtitleManager singleton. */
+	/** Applies the configuration of subtitles guardada to the SubtitleManager singleton. */
 	function _applySubtitleSettings():Void
 	{
 		FlxG.save.flush();
@@ -1242,7 +1242,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		if (FlxG.save.data.subtitleFont != null)
 			sm.defaultFont = FlxG.save.data.subtitleFont;
 
-		// Tamaño
+		// Size
 		if (FlxG.save.data.subtitleSize != null)
 			sm.defaultSize = FlxG.save.data.subtitleSize;
 
@@ -1265,12 +1265,12 @@ class OptionsMenuState extends MusicBeatSubstate
 			sm.defaultFadeOut = FlxG.save.data.subtitleFadeIn;
 		}
 
-		// Posición Y
+		// Position and
 		var pos:String = FlxG.save.data.subtitlePosition != null ? FlxG.save.data.subtitlePosition : 'bottom';
 		sm.defaultY = switch (pos) {
 			case 'top':    60.0;
 			case 'center': -2.0; // valor especial: centrado vertical
-			default:       -1.0; // -1 = automático (cerca del fondo)
+			default:       -1.0; // -1 = automatic (cerca of the fondo)
 		};
 	}
 
@@ -1388,16 +1388,16 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		if (currentOptions.length == 0) return;
 
-		// Posición Y del item seleccionado (relativa al area, sin scroll)
+		// Position and of the item seleccionado (relativa to the area, without scroll)
 		var itemY:Float = curSelected * OPT_SPACING;
 
-		// Asegurar que el item seleccionado esté dentro del área visible
+		// Asegurar that the item seleccionado is inside of the area visible
 		if (itemY < _optScrollY)
 			_optScrollY = itemY;
 		if (itemY + OPT_SPACING > _optScrollY + OPT_VISIBLE_H)
 			_optScrollY = itemY + OPT_SPACING - OPT_VISIBLE_H;
 
-		// Clamp: no desplazar más allá del contenido
+		// Clamp: no desplazar more allá of the contenido
 		var maxScroll:Float = Math.max(0, currentOptions.length * OPT_SPACING - OPT_VISIBLE_H);
 		if (_optScrollY < 0)   _optScrollY = 0;
 		if (_optScrollY > maxScroll) _optScrollY = maxScroll;
@@ -1447,7 +1447,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		var categoryWidth = (FlxG.width - 120) / categories.length;
 
-		// Actualizar textos de categorías
+		// Update texts of categories
 		categoryTexts.forEach(function(txt:FlxText)
 		{
 			if (txt.ID == curCategory)
@@ -1469,26 +1469,26 @@ class OptionsMenuState extends MusicBeatSubstate
 			}
 		});
 
-		// Actualizar backgrounds de pestañas
+		// Update backgrounds of pestañas
 		contentPanel.forEach(function(sprite:FlxSprite)
 		{
 			if (sprite.ID >= 0 && sprite.ID < categories.length)
 			{
 				if (sprite.ID == curCategory)
 				{
-					// Pestaña activa - más clara y brillante
+					// Active tab - lighter and brighter
 					sprite.color = 0xFF2a2a2a;
 					sprite.alpha = 1;
 				}
 				else
 				{
-					// Pestaña inactiva - más oscura
+					// Inactive tab - darker
 					sprite.color = 0xFF1a1a1a;
 					sprite.alpha = 0.7;
 				}
 			}
 
-			// Mover el indicador de pestaña activa
+			// Move the indicador of pestaña active
 			if (sprite.ID == -1) // El indicador tiene ID -1
 			{
 				var targetX = 60 + (curCategory * categoryWidth);
@@ -1582,7 +1582,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			return;
 		}
 
-		// ── Modo edición: A/D cambia el valor, ENTER o ESC confirma y sale ────
+		// ── Modo edition: to/D changes the value, ENTER or ESC confirma and sale ────
 		if (_editMode)
 		{
 			final opt = currentOptions[curSelected];
@@ -1601,7 +1601,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				updateOptionDisplay();
 				FlxG.save.flush();
 			}
-			// Salir del modo edición con ENTER o ESC
+			// Salir of the modo edition with ENTER or ESC
 			if (controls.ACCEPT || controls.BACK)
 			{
 				_editMode = false;
@@ -1611,7 +1611,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			return;
 		}
 
-		// Navegación de categorías con ← →
+		// Navigation of categories with ← →
 		if (controls.LEFT_P && currentOptions.length > 0)
 		{
 			changeCategory(-1);
@@ -1621,7 +1621,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			changeCategory(1);
 		}
 
-		// Navegación de opciones ↑ ↓
+		// Navigation of options ↑ ↓
 		if (controls.UP_P)
 		{
 			changeSelection(-1);
@@ -1632,7 +1632,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		}
 
 		// Ajuste izquierda/derecha para opciones con slider (p.ej. FPS Cap)
-		// Cuando NO estamos en modo edición y la opción tiene funciones left/right.
+		// When no are in modo edition and the option tiene functions left/right.
 		if (categories[curCategory] != 'Controls' && currentOptions.length > 0)
 		{
 			final opt = currentOptions[curSelected];
@@ -1656,12 +1656,12 @@ class OptionsMenuState extends MusicBeatSubstate
 			}
 		}
 
-		// Aceptar/Toggle opción
+		// Aceptar/Toggle option
 		if (controls.ACCEPT && currentOptions.length > 0)
 		{
 			final opt = currentOptions[curSelected];
 
-			// Si la opción tiene left/right (multi-valor), entrar en edit mode al pulsar ENTER
+			// If the option tiene left/right (multi-value), entrar in edit mode to the pulsar ENTER
 			if (opt.left != null || opt.right != null)
 			{
 				_editMode = true;
@@ -1680,19 +1680,19 @@ class OptionsMenuState extends MusicBeatSubstate
 			// Si estamos en pause menu
 			if (fromPause)
 			{
-				// Verificar si es una configuración SEGURA para aplicar en tiempo real
+				// Verify if is a configuration SEGURA for appliesr in tiempo actual
 				if (isGameplaySetting(optionName))
 				{
 					applyGameplaySettingsRealtime();
 				}
-				// Si requiere reinicio y estamos en pausa dentro del PlayState → señalar rewind
+				// If restart required and we're paused inside PlayState → signal rewind
 				else if (requiresRestart(optionName))
 				{
 					if (fromPause && PlayState.instance != null)
 					{
 						FlxG.save.flush();
 						pendingRewind = true;
-						close(); // vuelve a PauseSubState que detectará pendingRewind
+						close(); // returns to PauseSubState which will detect pendingRewind
 						isOpenOptions = false;
 					}
 					else
@@ -1828,7 +1828,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		// SPACE nunca se permite (se usa para UI)
 		if (key == "SPACE") return false;
 
-		// Para controles de dirección (0-3) y RESET (4): no permitir teclas reservadas de sistema
+		// For controles of direction (0-3) and RESET (4): no allow keys reservadas of system
 		if (keyIndex <= 4)
 		{
 			if (key == "ESCAPE" || key == "ENTER" || key == "BACKSPACE") return false;
@@ -1887,8 +1887,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	}
 
 	/**
-	 * Determina si una configuración es SEGURA para aplicar en tiempo real
-	 * Solo configuraciones visuales/UI que no afectan la lógica del juego
+	 * Determina if a configuration is SEGURA for appliesr in tiempo actual
+	 * Only configuraciones visuales/UI that no afectan the logic of the game
 	 */
 	function isGameplaySetting(optionName:String):Bool
 	{
@@ -1903,14 +1903,14 @@ class OptionsMenuState extends MusicBeatSubstate
 		// Configuraciones que REQUIEREN REINICIO (NO en tiempo real):
 		// - Downscroll: requiere reposicionar strums y notas en vuelo
 		// - Middlescroll: requiere reorganizar layout completo
-		// - Perfect Mode/Sick Mode: cambian lógica de scoring
+		// - Perfect Mode/Sick Mode: cambian logic of scoring
 		// - Static Stage: puede causar memory leaks
 
 		return safeGameplaySettings.contains(optionName);
 	}
 
 	/**
-	 * Verifica si una configuración requiere reiniciar la canción
+	 * Verifies if a configuration requiere reset the song
 	 */
 	function requiresRestart(optionName:String):Bool
 	{
@@ -1931,8 +1931,8 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	/**
 	 * Aplica el alpha del lane backdrop al PlayState activo si existe.
-	 * Si no hay PlayState activo (options desde menú), el cambio solo se
-	 * persiste en FlxG.save.data y se aplicará al siguiente gameplay.
+	 * If no there is PlayState active (options from menu), the cambio only is
+	 * persiste in FlxG.save.data and is appliesrá to the next gameplay.
 	 */
 	private function _applyLaneBackdropAlpha(alpha:Float):Void
 	{
@@ -2274,7 +2274,7 @@ class OptionsData
 			FlxG.save.data.antialiasing = true;
 
 		// ── Keybinds ──────────────────────────────────────────────────────────
-		// Inicializar defaults aquí para que loadKeyBinds() nunca lea null
+		// Initialize defaults here for that loadKeyBinds() never lea null
 		// (FlxKey.fromString(null) devuelve NONE=0, lo que puede disparar
 		// capturas accidentales si el ScreenshotPlugin se inicializa antes).
 		if (FlxG.save.data.leftBind   == null) FlxG.save.data.leftBind   = "A";
@@ -2290,7 +2290,7 @@ class OptionsData
 
 		// ── PathsCache: GPU texture caching ──────────────────────────────────
 		// Por defecto activo en desktop (false en web/mobile sin context3D fiable).
-		// Cuando está activo, los bitmaps se suben a VRAM y la copia en RAM se
+		// When is active, the bitmaps is suben to VRAM and the copia in RAM is
 		// libera → ahorro de ~4 MB por textura 1024×1024.
 		if (FlxG.save.data.gpuCaching == null)
 			FlxG.save.data.gpuCaching = #if (desktop && !hl) true #else false #end;
@@ -2312,17 +2312,17 @@ class OptionsData
 		#if mobileC
 		if (FlxG.save.data.mobileAlpha == null)
 			FlxG.save.data.mobileAlpha = 0.75;
-		// mobilePadLayout se inicializa como null → Mobilecontrols usará posiciones default
+		// mobilePadLayout is inicializa as null → Mobilecontrols will use positions default
 		#end
 	}
 }
 
 /**
- * OffsetCalibrationState — Calibración de offset de audio al estilo pro.
+ * OffsetCalibrationState — Calibración of offset of audio to the estilo pro.
  *
- * Reproduce un click track generado por código a exactamente 120 BPM.
+ * Reproduce a click track generado by code to exactly 120 BPM.
  * El usuario presiona SPACE en cada beat; tras 8 taps se calcula el offset
- * como promedio de (tiempo_tap - tiempo_beat_más_cercano).
+ * as average of (tap_time - nearest_beat_time).
  *
  * Teclas:
  *   SPACE   → Tap en el beat
@@ -2339,7 +2339,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 	static final CLICK_MUSIC:String = "offsetMusic";
 	static final CLICK_SOUND:String = "menus/chartingSounds/metronome";
 
-	// ── Estado del metrónomo ──────────────────────────────────────────────────
+	// ── State of the metrónomo ──────────────────────────────────────────────────
 	var _beatTimer:Float  = 0.0;
 	var _beatCount:Int    = 0;
 
@@ -2349,7 +2349,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 	/** Timestamps de cada tap del usuario. */
 	var _tapTimes:Array<Float>   = [];
 
-	/** Tiempo transcurrido desde que se abrió el substate. */
+	/** Time transcurrido from that is abrió the substate. */
 	var _elapsed:Float = 0.0;
 
 	/** Countdown inicial de 2 s antes de empezar. */
@@ -2367,7 +2367,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 	var _countdownTxt:FlxText;
 	var _resultsTxt:FlxText;
 
-	// Línea de tiempo visual — último tap vs último beat
+	// Line of tiempo visual — last tap vs last beat
 	var _timelineBg:FlxSprite;
 	var _timelineBeat:FlxSprite;
 	var _timelineTap:FlxSprite;
@@ -2395,7 +2395,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		addBehindSprite(_panel, border);
 		add(border);
 
-		// ── Título ────────────────────────────────────────────────────────────
+		// ── Title ────────────────────────────────────────────────────────────
 		var title = new FlxText(0, _panel.y + 24, FlxG.width, "OFFSET CALIBRATION", 38);
 		title.setFormat(Paths.font("vcr.ttf"), 38, FlxColor.WHITE, CENTER, OUTLINE, 0xFF5555FF);
 		title.borderSize = 2;
@@ -2417,7 +2417,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		_pulseDot.alpha = 0.15;
 		add(_pulseDot);
 
-		// ── Línea de tiempo (diff visual entre tap y beat) ────────────────────
+		// ── Line of tiempo (diff visual between tap and beat) ────────────────────
 		_timelineBg = new FlxSprite(0, _panel.y + 305).makeGraphic(500, 6, 0xFF333355);
 		_timelineBg.screenCenter(X);
 		add(_timelineBg);
@@ -2430,7 +2430,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		_timelineBeat = new FlxSprite(_timelineBg.x + 247, _panel.y + 299).makeGraphic(6, 18, 0xFF4488FF);
 		add(_timelineBeat);
 
-		// Indicador de tap (amarillo, se mueve según el error)
+		// Indicador of tap (yellow, is moves according to the error)
 		_timelineTap = new FlxSprite(_timelineBg.x + 247, _panel.y + 299).makeGraphic(6, 18, FlxColor.YELLOW);
 		_timelineTap.alpha = 0;
 		add(_timelineTap);
@@ -2566,9 +2566,9 @@ class OffsetCalibrationState extends MusicBeatSubstate
 	{
 		if (_beatCount == 0) return; // Esperar al menos un beat
 
-		// Calcular diferencia con el beat más cercano
-		var tapTime = _elapsed - _beatTimer; // tiempo absoluto del tap en la escala del metrónomo
-		var beatPhase = _beatTimer;           // fracción de beat actual (0 = justo en el beat)
+		// Calculate diferencia with the beat more cercano
+		var tapTime = _elapsed - _beatTimer; // time absoluto of the tap in the scales of the metrónomo
+		var beatPhase = _beatTimer;           // fracción of beat current (0 = justo in the beat)
 		// Normalizar al rango [-BEAT_SEC/2, BEAT_SEC/2]
 		var diff = beatPhase;
 		if (diff > BEAT_SEC / 2) diff -= BEAT_SEC;
@@ -2581,7 +2581,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		var pct = Math.min(1.0, _tapTimes.length / MAX_TAPS);
 		_tapBarFill.makeGraphic(Std.int(Math.max(4, Std.int(500 * pct))), 16, 0xFF5555FF);
 
-		// Timeline visual: posición del tap relativa al beat
+		// Timeline visual: position of the tap relativa to the beat
 		var lineW:Float = 500;
 		var halfBeat    = BEAT_SEC / 2;
 		var normDiff    = (diff / halfBeat) * 0.5; // -0.5 .. +0.5
@@ -2640,25 +2640,25 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		_offsetTxt.text = "Current Offset: " + (FlxG.save.data.offset ?? 0) + " ms";
 	}
 
-	/** Añade un sprite justo detrás de otro en la display list. */
+	/** Adds a sprite justo behind of otro in the display list. */
 	function addBehindSprite(target:FlxSprite, spr:FlxSprite):Void
 	{
-		// simplificado — spr ya se añade antes que _panel, así que queda detrás
+		// simplificado — spr already is adds before that _panel, so that queda behind
 	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * RatingPositionSubState — Editor visual de posición del popup de rating.
+ * RatingPositionSubState — Editor visual of position of the popup of rating.
  *
- * Muestra una recreación simplificada del HUD de gameplay y un popup de
+ * Muestra a recreation simplificada of the HUD of gameplay and a popup of
  * rating de ejemplo que el usuario puede mover con WASD / flechas o arrastrando
- * con el ratón. Guarda los offsets en FlxG.save.data.ratingOffsetX / ratingOffsetY.
+ * with the mouse. Save the offsets in FlxG.save.data.ratingOffsetX / ratingOffsetY.
  */
 class RatingPositionSubState extends FlxSubState
 {
-	// Offset acumulado (píxeles desde la posición base del juego)
+	// Offset acumulado (pixels from the position base of the game)
 	var _offsetX:Int = 0;
 	var _offsetY:Int = 0;
 
@@ -2681,7 +2681,7 @@ class RatingPositionSubState extends FlxSubState
 	static final MOVE_SPEED:Float = 2.0;
 	static final FAST_SPEED:Float = 10.0;
 
-	// Posición base del rating (igual que en script.hx por defecto)
+	// Position base of the rating (igual that in script.hx by default)
 	var _baseX:Float;
 	var _baseY:Float;
 
@@ -2695,12 +2695,12 @@ class RatingPositionSubState extends FlxSubState
 	var _dragStartOffX:Int = 0;
 	var _dragStartOffY:Int = 0;
 
-	// BUGFIX: cámara que se usará para TODOS los sprites de este substate.
+	// BUGFIX: camera that is will use for all the sprites of this substate.
 	// Cuando el editor se abre desde gameplay (fromPause), OptionsMenuState
-	// ya se renderiza en la última cámara (camHUD/pausa). Si RatingPositionSubState
-	// añade sus sprites a la cámara por defecto (camGame), quedan por detrás del
-	// menú de opciones. Asignando la misma cámara a todos los sprites se garantiza
-	// que el editor aparezca en la capa correcta (encima de todo lo demás).
+	// already is renders in the last camera (camHUD/pausa). If RatingPositionSubState
+	// adds its sprites to the camera by default (camGame), quedan by behind of the
+	// menu of options. Asignando the misma camera to all the sprites is guarantees
+	// that the editor aparezca in the layer correct (above of all it demás).
 	var _cam:flixel.FlxCamera;
 
 	var posX:Float = 0;
@@ -2708,7 +2708,7 @@ class RatingPositionSubState extends FlxSubState
 
 	function onInit()
 	{
-		// Leer los offsets guardados (default: posición base original = -50, 0)
+		// Leer the offsets guardados (default: position base original = -50, 0)
 		posX = (FlxG.save.data.ratingOffsetX != null) ? FlxG.save.data.ratingOffsetX : -100;
 		posY = (FlxG.save.data.ratingOffsetY != null) ? FlxG.save.data.ratingOffsetY : 0;
 	}
@@ -2717,12 +2717,12 @@ class RatingPositionSubState extends FlxSubState
 	{
 		super.create();
 
-		// BUGFIX: determinar la cámara correcta.
-		// • Desde gameplay (fromPause=true): OptionsMenuState usa la última cámara
-		//   de la lista (normalmente camHUD o una cámara dedicada al pause).
-		//   Todos los sprites de este substate deben ir a esa misma cámara para
-		//   aparecer encima y no quedar enterrados bajo el menú de opciones.
-		// • Fuera de gameplay: basta con la cámara por defecto.
+		// BUGFIX: determinar the camera correct.
+		// • From gameplay (fromPause=true): OptionsMenuState use the last camera
+		//   of the list (normalmente camHUD or a camera dedicada to the pause).
+		//   All the sprites of this substate deben ir to that misma camera for
+		//   aparecer encima and no quedar enterrados under the menu of options.
+		// • Fuera of gameplay: basta with the camera by default.
 		_cam = OptionsMenuState.fromPause
 			? FlxG.cameras.list[FlxG.cameras.list.length - 1]
 			: FlxG.camera;
@@ -2740,11 +2740,11 @@ class RatingPositionSubState extends FlxSubState
 		// ── HUD simulado ──────────────────────────────────────────────────────
 		_buildSimulatedHUD();
 
-		// ── Posición base ─────────────────────────────────────────────────────
+		// ── Position base ─────────────────────────────────────────────────────
 		_baseX = FlxG.width  * 0.55 - 40;
 		_baseY = FlxG.height * 0.5  - 90;
 
-		// Línea de referencia Y base
+		// Line of referencia and base
 		var refLine = new FlxSprite(0, _baseY).makeGraphic(FlxG.width, 1, 0xFF5555FF);
 		refLine.alpha = 0.30;
 		refLine.scrollFactor.set();
@@ -2772,8 +2772,8 @@ class RatingPositionSubState extends FlxSubState
 
 		onInit();
 
-		// BUGFIX: el borde se añade ANTES del rating preview para que quede detrás.
-		// Antes se añadía después (encima) y sin posición (quedaba en x=0, y=0).
+		// BUGFIX: the edge is adds before of the rating preview for that quede behind.
+		// Before is añadía after (above) and without position (quedaba in x=0, and=0).
 		// Ahora es un member var para poder actualizarlo en _applyPosition().
 		_previewBorder = new FlxSprite();
 		_previewBorder.makeGraphic(204, 94, 0xFF5555FF);
@@ -2800,7 +2800,7 @@ class RatingPositionSubState extends FlxSubState
 		_sickLabel.cameras = [_cam];
 		add(_sickLabel);
 
-		// Números del combo de demo
+		// Numbers of the combo of demo
 		for (i in 0...3)
 		{
 			var num = new FlxSprite();
@@ -2838,7 +2838,7 @@ class RatingPositionSubState extends FlxSubState
 		hint.cameras = [_cam];
 		add(hint);
 
-		// ── Título superior ───────────────────────────────────────────────────
+		// ── Title superior ───────────────────────────────────────────────────
 		var titleBg = new FlxSprite(0, 0).makeGraphic(FlxG.width, 36, 0xFF0A0A1A);
 		titleBg.alpha = 0.92;
 		titleBg.scrollFactor.set();
@@ -2863,7 +2863,7 @@ class RatingPositionSubState extends FlxSubState
 		// ── Mouse drag ────────────────────────────────────────────────────────
 		if (FlxG.mouse.justPressed)
 		{
-			// Solo iniciar drag si el clic está sobre el rating preview
+			// Only start drag if the clic is over the rating preview
 			var mx = FlxG.mouse.x;
 			var my = FlxG.mouse.y;
 			if (mx >= _ratingPreview.x && mx <= _ratingPreview.x + _ratingPreview.width
@@ -2916,7 +2916,7 @@ class RatingPositionSubState extends FlxSubState
 		if (!_dragging)
 			_ratingPreview.y = _baseY + _offsetY + bounce;
 
-		// Cursor de mano cuando está sobre el rating
+		// Cursor of mano when is over the rating
 		var mx = FlxG.mouse.x;
 		var my = FlxG.mouse.y;
 		var overPreview = (mx >= _ratingPreview.x && mx <= _ratingPreview.x + _ratingPreview.width

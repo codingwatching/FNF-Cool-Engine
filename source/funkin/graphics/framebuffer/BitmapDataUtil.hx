@@ -14,7 +14,7 @@ import openfl.geom.Matrix;
 import openfl.geom.ColorTransform;
 
 /**
- * Utilidades para BitmapData relacionadas con cámaras y filtros.
+ * Utilidades for BitmapData relacionadas with cameras and filtros.
  * Portado de v-slice (FunkinCrew/Funkin).
  */
 @:nullSafety
@@ -49,7 +49,7 @@ class BitmapDataUtil
 	}
 
 	/**
-	 * Dibuja el contenido de varias cámaras en un BitmapData.
+	 * Draws the contenido of various cameras in a BitmapData.
 	 */
 	public static function drawCameraScreens(bitmap:BitmapData, cameras:Array<FlxCamera>):BitmapData
 	{
@@ -67,10 +67,10 @@ class BitmapDataUtil
 	}
 
 	/**
-	 * Dibuja el contenido de una cámara en un BitmapData.
+	 * Draws the contenido of a camera in a BitmapData.
 	 *
 	 * Basado en el RenderTexture de flixel-animate.
-	 * Créditos: ACrazyTown y MaybeMaru.
+	 * Credits: ACrazyTown and MaybeMaru.
 	 */
 	public static function drawCameraScreen(bitmap:BitmapData, camera:FlxCamera, clearBitmap:Bool = true, drawFlashSprite:Bool = false):BitmapData
 	{

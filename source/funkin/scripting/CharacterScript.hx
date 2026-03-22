@@ -13,7 +13,7 @@ import funkin.data.Conductor;
  * CharacterScript — Script para personalizar un personaje con acceso COMPLETO
  * a todas las variables y funciones de Character.
  *
- * ─── Ruta canónica (recomendada) ────────────────────────────────────────────
+ * ─── Canonical path (recommended) ────────────────────────────────────────────
  *
  *   assets/characters/scripts/{nombrePersonaje}/scripts.hx
  *   mods/{mod}/characters/scripts/{nombrePersonaje}/scripts.hx
@@ -27,11 +27,11 @@ import funkin.data.Conductor;
  *   mods/{mod}/characters/{nombrePersonaje}/scripts/
  *   mods/{mod}/characters/{nombrePersonaje}/{script}.hx
  *
- * El engine inyecta automáticamente:
+ * The engine inyecta automatically:
  *   `character` → instancia de Character (acceso TOTAL)
- *   `game`      → instancia de PlayState (si está en gameplay)
+ *   `game`      → instance of PlayState (if is in gameplay)
  *
- * ─── Ejemplo básico ─────────────────────────────────────────────────────────
+ * ─── Basic example ─────────────────────────────────────────────────────────
  *
  *   function onCreate() {
  *     character.scale.set(1.1, 1.1);
@@ -62,18 +62,18 @@ import funkin.data.Conductor;
  *
  *   character.curCharacter          — nombre del personaje ("bf", "dad"...)
  *   character.isPlayer              — es el personaje del jugador?
- *   character.animOffsets            — mapa de offsets de animación
+ *   character.animOffsets            — mapa of offsets of animation
  *   character.characterData          — datos JSON del personaje
  *   character.healthIcon             — nombre del icono de salud
  *   character.healthBarColor         — color de la barra de salud
- *   character.cameraOffset           — offset de la cámara al enfocarlo
+ *   character.cameraOffset           — offset of the camera to the enfocarlo
  *   character.debugMode              — modo debug (desactiva auto-animate)
  *   character.stunned                — personaje aturdido (no anima)
  *   character.holdTimer              — tiempo sosteniendo una nota
- *   character.x / character.y       — posición
+ *   character.x / character.and       — position
  *   character.scale                  — escala (FlxPoint)
  *   character.alpha                  — transparencia (0..1)
- *   character.angle                  — ángulo de rotación
+ *   character.angle                  — angle of rotation
  *   character.flipX                  — voltear horizontalmente
  *   character.color                  — tinte de color (FlxColor)
  *   character.visible                — visible?
@@ -83,21 +83,21 @@ import funkin.data.Conductor;
  *   character.offset                 — offset manual adicional (FlxPoint)
  *   character.width / height         — dimensiones del sprite
  *
- * ─── Métodos disponibles (en character.*) ────────────────────────────────────
+ * ─── Methods disponibles (in character.*) ────────────────────────────────────
  *
- *   character.playAnim(name, force, reversed, frame) — reproducir animación
- *   character.dance()                                — ejecutar animación idle/dance
+ *   character.playAnim(name, force, reversed, frame) — play animation
+ *   character.dance()                                — ejecutar animation idle/dance
  *   character.returnToIdle()                         — volver al idle
- *   character.addOffset(name, x, y)                  — añadir offset a animación
+ *   character.addOffset(name, x, and)                  — add offset to animation
  *   character.updateOffset(name, x, y)               — modificar offset existente
- *   character.getOffset(name)                        — obtener offset de animación
- *   character.hasAnimation(name)                     — ¿tiene esta animación?
+ *   character.getOffset(name)                        — get offset of animation
+ *   character.hasAnimation(name)                     — tiene this animation?
  *   character.getAnimationList()                     — lista de todas las animaciones
- *   character.getCurAnimName()                       — nombre de la animación actual
- *   character.isCurAnimFinished()                    — ¿acabó la animación actual?
- *   character.isPlayingSpecialAnim()                 — ¿está en animación especial?
+ *   character.getCurAnimName()                       — nombre of the animation current
+ *   character.isCurAnimFinished()                    — acabó the animation current?
+ *   character.isPlayingSpecialAnim()                 — is in animation especial?
  *   character.reloadCharacter(newName)               — recargar como otro personaje
- *   character.makeGraphic(w, h, color)               — crear sprite de color sólido
+ *   character.makeGraphic(w, h, color)               — create sprite of color solid
  *   character.loadGraphic(path)                      — cargar una imagen
  *   character.updateHitbox()                         — actualizar hitbox tras escalar
  *   character.setPosition(x, y)                      — mover personaje
@@ -111,23 +111,23 @@ import funkin.data.Conductor;
  *     onUpdate(elapsed)             — cada frame
  *     onDestroy()                   — al destruir
  *
- *   ANIMACIÓN:
- *     onDance()                     — al iniciar animación de baile
+ *   animation:
+ *     onDance()                     — to the start animation of baile
  *     onReturnToIdle()              — al volver al idle
- *     onAnimStart(name)             — al iniciar cualquier animación
- *     onAnimEnd(name)               — al terminar una animación
+ *     onAnimStart(name)             — to the start cualquier animation
+ *     onAnimEnd(name)               — to the terminar a animation
  *     onSingStart(direction, anim)  — al iniciar sing (dir: 0=LEFT,1=DOWN,2=UP,3=RIGHT)
  *     onSingEnd(direction)          — al terminar el sing y volver al idle
- *     onMissStart(direction, anim)  — al iniciar animación de miss
+ *     onMissStart(direction, anim)  — to the start animation of miss
  *
  *   GAMEPLAY (solo si hay PlayState activo):
  *     onBeatHit(beat)               — cada beat musical
  *     onStepHit(step)               — cada step musical
  *     onNoteHit(note)               — nota golpeada (si es el personaje del jugador)
  *     onNoteMiss(note)              — nota perdida (si es el personaje del jugador)
- *     onSongStart()                 — cuando empieza la canción
- *     onSongEnd()                   — cuando termina la canción
- *     onHealthChange(prev, curr)    — salud del jugador cambió
+ *     onSongStart()                 — when empieza the song
+ *     onSongEnd()                   — when termina the song
+ *     onHealthChange(prev, curr)    — salud of the player changed
  */
 class CharacterScript
 {
@@ -138,10 +138,10 @@ class CharacterScript
 	public var version     : String    = '1.0.0';
 	public var active      : Bool      = true;
 
-	/** El personaje al que pertenece este script. Asignado automáticamente. */
+	/** The character to the that pertenece this script. Asignado automatically. */
 	public var character   : Character;
 
-	/** El PlayState activo. Puede ser null si el personaje no está en gameplay. */
+	/** The PlayState active. Puede be null if the character no is in gameplay. */
 	public var game        : PlayState;
 
 	public function new() {}
@@ -151,7 +151,7 @@ class CharacterScript
 	/** Llamado cuando el personaje ha sido creado y sus datos cargados. */
 	public function onCreate():Void {}
 
-	/** Llamado después de la creación del stage/PlayState (game puede ya no ser null). */
+	/** Calldo after of the creation of the stage/PlayState (game puede already no be null). */
 	public function postCreate():Void {}
 
 	/** Llamado cada frame. */
@@ -160,37 +160,37 @@ class CharacterScript
 	/** Llamado al destruir el personaje. */
 	public function onDestroy():Void {}
 
-	// ─── Animación ────────────────────────────────────────────────────────────
+	// ─── Animation ────────────────────────────────────────────────────────────
 
-	/** Llamado cuando el personaje inicia una animación de baile (danceLeft/danceRight/idle). */
+	/** Calldo when the character starts a animation of baile (danceLeft/danceRight/idle). */
 	public function onDance():Void {}
 
 	/** Llamado cuando el personaje vuelve al idle. */
 	public function onReturnToIdle():Void {}
 
-	/** Llamado al iniciar cualquier animación. */
+	/** Calldo to the start cualquier animation. */
 	public function onAnimStart(animName:String):Void {}
 
-	/** Llamado al terminar cualquier animación. */
+	/** Calldo to the terminar cualquier animation. */
 	public function onAnimEnd(animName:String):Void {}
 
 	/**
-	 * Llamado al iniciar una animación de sing.
-	 * @param direction  Dirección (0=LEFT, 1=DOWN, 2=UP, 3=RIGHT)
-	 * @param animName   Nombre completo de la animación (ej: "singLEFT")
+	 * Calldo to the start a animation of sing.
+	 * @param direction  Direction (0=LEFT, 1=DOWN, 2=UP, 3=RIGHT)
+	 * @param animName   Nombre complete of the animation (ej: "singLEFT")
 	 */
 	public function onSingStart(direction:Int, animName:String):Void {}
 
 	/**
 	 * Llamado cuando el personaje termina el sing y vuelve al idle.
-	 * @param direction  Dirección que estaba cantando
+	 * @param direction  Direction that was cantando
 	 */
 	public function onSingEnd(direction:Int):Void {}
 
 	/**
-	 * Llamado al iniciar una animación de miss.
-	 * @param direction  Dirección del miss
-	 * @param animName   Nombre de la animación (ej: "singLEFTmiss")
+	 * Calldo to the start a animation of miss.
+	 * @param direction  Direction of the miss
+	 * @param animName   Nombre of the animation (ej: "singLEFTmiss")
 	 */
 	public function onMissStart(direction:Int, animName:String):Void {}
 
@@ -208,10 +208,10 @@ class CharacterScript
 	/** Llamado cuando este personaje (jugador) pierde una nota. */
 	public function onNoteMiss(note:Dynamic):Void {}
 
-	/** Llamado cuando empieza la canción. */
+	/** Calldo when empieza the song. */
 	public function onSongStart():Void {}
 
-	/** Llamado cuando termina la canción. */
+	/** Calldo when termina the song. */
 	public function onSongEnd():Void {}
 
 	/**
@@ -225,23 +225,23 @@ class CharacterScript
 
 	/**
 	 * Override del comportamiento de baile. Retorna true para cancelar el baile por defecto.
-	 * Si devuelves true, el engine NO llamará a danceLeft/danceRight/idle automáticamente.
+	 * If returnss true, the engine no callrá to danceLeft/danceRight/idle automatically.
 	 */
 	public function overrideDance():Bool return false;
 
 	/**
 	 * Override del comportamiento de sing timeout.
-	 * Retorna true para cancelar la vuelta automática al idle.
+	 * Returns true for cancelar the vuelta automatic to the idle.
 	 */
 	public function overrideSingTimeout():Bool return false;
 
 	// ─── Funciones de utilidad ────────────────────────────────────────────────
 
 	/**
-	 * Reproduce una animación en el personaje.
-	 * @param name     Nombre de la animación
-	 * @param force    Forzar aunque ya se esté reproduciendo
-	 * @param reversed Reproducir al revés
+	 * Plays an animation en el personaje.
+	 * @param name     Nombre of the animation
+	 * @param force    Force although already is is reproduciendo
+	 * @param reversed Play to the revés
 	 * @param frame    Frame inicial
 	 */
 	public function playAnim(name:String, force:Bool = false, reversed:Bool = false, frame:Int = 0):Void
@@ -253,7 +253,7 @@ class CharacterScript
 	public function dance():Void
 		if (character != null) character.dance();
 
-	/** Mueve el personaje a la posición indicada. */
+	/** Moves the character to the position indicada. */
 	public function setPosition(x:Float, y:Float):Void
 		if (character != null) character.setPosition(x, y);
 
@@ -267,7 +267,7 @@ class CharacterScript
 		}
 	}
 
-	/** Añade un offset a una animación. */
+	/** Adds a offset to a animation. */
 	public function addOffset(anim:String, x:Float, y:Float):Void
 		if (character != null) character.addOffset(anim, x, y);
 
@@ -296,27 +296,27 @@ class CharacterScript
 		if (character != null) character.shader = null;
 
 	/**
-	 * Lee una variable del personaje por reflexión.
-	 * Útil para acceder a campos no expuestos directamente.
+	 * Lee a variable of the character by reflection.
+	 * Useful for acceder to fields no expuestos directly.
 	 */
 	public inline function getVar(varName:String):Dynamic
 		return character != null ? Reflect.getProperty(character, varName) : null;
 
-	/** Modifica una variable del personaje por reflexión. */
+	/** Modifica a variable of the character by reflection. */
 	public inline function setVar(varName:String, value:Dynamic):Void
 		if (character != null) Reflect.setProperty(character, varName, value);
 
-	/** Llama un método del personaje por reflexión. */
+	/** Call a method of the character by reflection. */
 	public inline function callMethod(methodName:String, ?args:Array<Dynamic>):Dynamic
 		return character != null
 			? Reflect.callMethod(character, Reflect.field(character, methodName), args ?? [])
 			: null;
 
-	/** Lee una variable del PlayState por reflexión. */
+	/** Lee a variable of the PlayState by reflection. */
 	public inline function getGameVar(varName:String):Dynamic
 		return game != null ? Reflect.getProperty(game, varName) : null;
 
-	/** Modifica una variable del PlayState por reflexión. */
+	/** Modifica a variable of the PlayState by reflection. */
 	public inline function setGameVar(varName:String, value:Dynamic):Void
 		if (game != null) Reflect.setProperty(game, varName, value);
 

@@ -19,23 +19,23 @@ using StringTools;
  *
  * ─── Capas de script ─────────────────────────────────────────────────────────
  *
- *   global   → siempre activos (toda la sesión de juego)
+ *   global   → always active (entire game session)
  *   stage    → activos durante el stage actual
- *   song     → activos durante la canción actual
+ *   song     → active during the current song
  *   ui       → scripts del HUD / UIScriptedManager
- *   menu     → scripts de estados y menús (FreeplayState, TitleState, etc.)
- *   char     → scripts de personaje específico
+ *   menu     → state and menu scripts (FreeplayState, TitleState, etc.)
+ *   char     → specific character scripts
  *
- * ─── Estructura de carpetas MÁS COMPLETA ────────────────────────────────────
+ * ─── Most complete folder structure ────────────────────────────────────
  *
  *   BASE GAME:
  *   assets/data/scripts/global/          → scripts globales base
  *   assets/data/scripts/events/          → handlers de eventos personalizados
- *   assets/songs/{song}/scripts/         → scripts de canción
- *   assets/songs/{song}/events/          → eventos custom de canción
+ *   assets/songs/{song}/scripts/         → scripts of song
+ *   assets/songs/{song}/events/          → events custom of song
  *   assets/stages/{stage}/scripts/       → scripts de stage
  *   assets/characters/{char}/scripts/    → scripts de personaje
- *   assets/states/{state}/              → scripts de estado / menú
+ *   assets/states/{state}/              → scripts of state / menu
  *
  *   MODS:
  *   mods/{mod}/scripts/global/           → equivalente base
@@ -51,9 +51,9 @@ using StringTools;
  *   mods/{mod}/custom_events/{event}.hx
  *   mods/{mod}/custom_notetypes/{type}.hx
  *
- * ─── Compatibilidad de librerías ─────────────────────────────────────────────
+ * ─── Library compatibility ─────────────────────────────────────────────
  *  hscript 2.4.x y 2.5.x — mismo Parser/Interp API
- *  hscript anterior a allowMetadata: compilación condicional
+ *  hscript previous to allowMetadata: compilation condicional
  *
  * @author Cool Engine Team
  * @version 3.0.0
@@ -79,17 +79,17 @@ class ScriptHandler
 	#end
 
 	/**
-	 * Índice de scripts de personaje agrupados por nombre.
+	 * Index of scripts of character agrupados by nombre.
 	 * Permite callOnCharacterScripts en O(1) en vez de iterar todo charScripts.
 	 * Se rellena en loadCharacterScripts y se limpia en destroy().
 	 */
 	public static var charScriptsByName : Map<String, Array<HScriptInstance>> = [];
 
 	// ── Arrays reutilizables para el hot-path (evitan new Array cada frame) ──
-	// Cada función de callback del gameplay (onUpdate, onBeatHit, onStepHit,
-	// onNoteHit, onMiss…) pasa sus args a través de estos arrays estáticos en
+	// Each function of callback of the gameplay (onUpdate, onBeatHit, onStepHit,
+	// onNoteHit, onMiss…) pasa its args to través of these arrays static in
 	// lugar de crear un new Array<Dynamic> en cada llamada.
-	// IMPORTANTE: Estos arrays son de uso temporal — solo válidos durante la
+	// IMPORTANTE: These arrays are of uso temporary — only valid during the
 	// llamada a callOnScripts. No guardarlos por referencia en los scripts.
 
 	/** Para onUpdate(elapsed:Float) */
@@ -102,9 +102,9 @@ class ScriptHandler
 	public static final _argsStep     : Array<Dynamic> = [0];
 	/** Para onNoteHit / onMiss — [note, extra] */
 	public static final _argsNote     : Array<Dynamic> = [null, null];
-	/** Para eventos con un solo arg genérico */
+	/** For events with a only arg generic */
 	public static final _argsOne      : Array<Dynamic> = [null];
-	/** Array vacío reutilizable — para callbacks sin argumentos */
+	/** Array empty reutilizable — for callbacks without argumentos */
 	public static final _argsEmpty    : Array<Dynamic> = [];
 	/** Para onAnimStart/onSingStart/onSingEnd en scripts de personaje — [arg0, arg1] */
 	public static final _argsAnim     : Array<Dynamic> = [null, null];
@@ -122,7 +122,7 @@ class ScriptHandler
 			_parser = new Parser();
 			_parser.allowTypes = true;
 			_parser.allowJSON  = true;
-			// allowMetadata fue añadido en hscript 2.5. Guard seguro:
+			// allowMetadata was added in hscript 2.5. Guard seguro:
 			try { Reflect.setField(_parser, 'allowMetadata', true); } catch(_) {}
 		}
 		return _parser;
@@ -150,7 +150,7 @@ class ScriptHandler
 		if (mods.ModManager.isActive())
 		{
 			final r = mods.ModManager.modRoot();
-			// Rutas estándar del mod
+			// Paths standard of the mod
 			_loadFolder('$r/scripts/global',   'global');
 			_loadFolder('$r/scripts/events',   'global');
 			_loadFolder('$r/data/scripts',     'global');
@@ -167,7 +167,7 @@ class ScriptHandler
 
 	// ── Carga por contexto ────────────────────────────────────────────────────
 
-	/** Carga scripts de la canción `songName` desde base + mod. */
+	/** Load scripts of the song `songName` from base + mod. */
 	public static function loadSongScripts(songName:String):Void
 	{
 		#if sys
@@ -201,13 +201,13 @@ class ScriptHandler
 	}
 
 	/** Carga scripts de personaje `charName` desde base + mod.
-	 *  Los scripts quedan taggeados con `charName` para poder filtrarlos después.
+	 *  The scripts quedan taggeados with `charName` for poder filtrarlos after.
 	 *  Retorna la lista de scripts cargados para poder inyectarles variables.
 	 *
 	 *  ── Rutas (en orden de prioridad) ───────────────────────────────────────
 	 *
-	 *   NUEVA ruta canónica (recomendada):
-	 *     assets/characters/scripts/{char}/scripts.hx    ← coloca aquí tu script
+	 *   new path canónica (recommended):
+	 *     assets/characters/scripts/{char}/scripts.hx    ← coloca here tu script
 	 *     mods/{mod}/characters/scripts/{char}/scripts.hx
 	 *
 	 *   Rutas heredadas (siguen funcionando para compat):
@@ -222,18 +222,18 @@ class ScriptHandler
 		if (mods.ModManager.isActive())
 		{
 			final r = mods.ModManager.modRoot();
-			// ── Nueva ruta canónica (mod) ────────────────────────────────────
+			// ── New path canónica (mod) ────────────────────────────────────
 			for (s in _loadFolder('$r/characters/scripts/$charName', 'char')) loaded.push(s);
 			// ── Rutas heredadas (mod) — compat con mods anteriores ───────────
 			for (s in _loadFolder('$r/characters/$charName/scripts', 'char')) loaded.push(s);
 			for (s in _loadFolder('$r/characters/$charName',         'char')) loaded.push(s);
 		}
 		#end
-		// ── Nueva ruta canónica (base game) ─────────────────────────────────
+		// ── New path canónica (base game) ─────────────────────────────────
 		for (s in _loadFolder('assets/characters/scripts/$charName', 'char')) loaded.push(s);
 		// ── Ruta heredada (base game) ────────────────────────────────────────
 		for (s in _loadFolder('assets/characters/$charName/scripts', 'char')) loaded.push(s);
-		// Taggear y registrar en el índice por nombre
+		// Taggear and register in the index by nombre
 		if (loaded.length > 0)
 		{
 			for (s in loaded) s.tag = charName;
@@ -253,21 +253,21 @@ class ScriptHandler
 	{
 		#if HSCRIPT_ALLOWED
 		final list = charScriptsByName.get(charName);
-		if (list == null) return; // guard rápido: sin scripts para este personaje
+		if (list == null) return; // guard fast: without scripts for this character
 		for (script in list)
 			if (script.active) script.call(func, args);
 		#end
 	}
 
 	/**
-	 * Igual que callOnCharacterScripts pero retorna true si algún script devuelve true.
+	 * Igual that callOnCharacterScripts but returns true if some script returns true.
 	 * (Para cancelar comportamiento por defecto: return true en overrideDance, etc.)
 	 */
 	public static function callOnCharacterScriptsReturn(charName:String, func:String, args:Array<Dynamic>):Bool
 	{
 		#if HSCRIPT_ALLOWED
 		final list = charScriptsByName.get(charName);
-		if (list == null) return false; // guard rápido
+		if (list == null) return false; // guard fast
 		var result = false;
 		for (script in list)
 			if (script.active && script.call(func, args) == true) result = true;
@@ -278,7 +278,7 @@ class ScriptHandler
 	}
 
 	/**
-	 * Inyecta variables en los scripts de un personaje específico.
+	 * Inyecta variables in the scripts of a character specific.
 	 * Usa charScriptsByName para lookup O(1).
 	 */
 	public static function setOnCharacterScripts(charName:String, varName:String, value:Dynamic):Void
@@ -293,7 +293,7 @@ class ScriptHandler
 	}
 
 	/**
-	 * Carga scripts de un estado/menú `stateName`.
+	 * Load scripts of a state/menu `stateName`.
 	 * Busca en `assets/states/{stateName}/` y `mods/{mod}/states/{stateName}/`.
 	 */
 	public static function loadStateScripts(stateName:String):Void
@@ -312,7 +312,7 @@ class ScriptHandler
 
 	/**
 	 * Carga un script desde `scriptPath`.
-	 * Soporta .hx / .hscript nativos y .lua (transpilación Psych-compat).
+	 * Supports .hx / .hscript natives and .lua (transpilación Psych-compat).
 	 *
 	 * @param presetVars  Variables inyectadas ANTES de execute() (top-level code las ve).
 	 * @param stage       Stage reference para el API shim de Psych Lua.
@@ -353,12 +353,12 @@ class ScriptHandler
 			// ── require() y log() por instancia ──────────────────────────────
 			// require() necesita la instancia concreta para resolver la ruta
 			// relativa al script que hace la llamada. ScriptAPI.expose() no
-			// tiene acceso a la instancia, así que lo inyectamos aquí.
+			// tiene acceso to the instancia, so that it inyectamos here.
 			// BUG FIX: sin esto, require('ABotVis.hx') en nene.hx devuelve null
-			// porque el intérprete no conoce 'require' → viz = null → barras invisibles.
+			// porque the interpreter no conoce 'require' → viz = null → barras invisible.
 			script.interp.variables.set('require', function(path:String):Dynamic return script.require(path));
-			// log() como función top-level (el API solo expone debug.log()).
-			// BUG FIX: scripts que llaman log('msg') obtenían "Variable log not found".
+			// log() as function top-level (the API only expone debug.log()).
+			// BUG FIX: scripts that calln log('msg') obtenían "Variable log not found".
 			script.interp.variables.set('log', function(msg:Dynamic):Void trace('[Script:$scriptName] $msg'));
 
 			if (presetVars != null)
@@ -403,9 +403,9 @@ class ScriptHandler
 		}
 		catch (e:Dynamic)
 		{
-			trace('[ScriptHandler] ¡Error en "$scriptName"!');
+			trace('[ScriptHandler] Error in "$scriptName"!');
 			trace('  → ${Std.string(e)}');
-			if (isLua) trace('[ScriptHandler] Código transpilado:\n$content');
+			if (isLua) trace('[ScriptHandler] Code transpilado:\n$content');
 			return null;
 		}
 
@@ -416,10 +416,10 @@ class ScriptHandler
 	}
 
 	/**
-	 * Igual que loadScript() pero NO llama onCreate/postCreate automáticamente.
+	 * Igual that loadScript() but no call onCreate/postCreate automatically.
 	 * Usar cuando el llamador necesita inyectar APIs adicionales ANTES del primer onCreate.
 	 * El script queda parseado, con ScriptAPI expuesto y el programa ejecutado (funciones definidas).
-	 * El llamador es responsable de llamar script.call('onCreate') cuando esté listo.
+	 * The calldor is responsable of callr script.call('onCreate') when is listo.
 	 */
 	public static function loadScriptNoInit(scriptPath:String, scriptType:String = 'song',
 		?presetVars:Map<String, Dynamic>):Null<HScriptInstance>
@@ -449,7 +449,7 @@ class ScriptHandler
 
 			ScriptAPI.expose(script.interp);
 
-			// ── require() y log() por instancia (ver loadScript() para explicación) ─
+			// ── require() and log() by instance (ver loadScript() for explicación) ─
 			script.interp.variables.set('require', function(path:String):Dynamic return script.require(path));
 			script.interp.variables.set('log', function(msg:Dynamic):Void trace('[Script:$scriptName] $msg'));
 
@@ -470,7 +470,7 @@ class ScriptHandler
 			}
 			#end
 
-			// Ejecutar el programa define funciones en interp.variables — sin llamar onCreate aún.
+			// Ejecutar the programa defines functions in interp.variables — without callr onCreate still.
 			script.interp.execute(script.program);
 
 			if (isLuaNoInit)
@@ -482,7 +482,7 @@ class ScriptHandler
 		}
 		catch (e:Dynamic)
 		{
-			trace('[ScriptHandler] ¡Error parseando "$scriptName"!');
+			trace('[ScriptHandler] Error parsing "$scriptName"!');
 			trace('  → ${Std.string(e)}');
 			return null;
 		}
@@ -499,7 +499,7 @@ class ScriptHandler
 		return _loadFolder(folderPath, scriptType);
 	}
 
-	/** Carga scripts desde una lista explícita de paths. */
+	/** Load scripts from a list explicit of paths. */
 	public static function loadScriptsFromArray(paths:Array<String>, scriptType:String = 'stage'):Array<HScriptInstance>
 	{
 		final out:Array<HScriptInstance> = [];
@@ -539,7 +539,7 @@ class ScriptHandler
 
 	/**
 	 * Como callOnScripts pero devuelve el primer valor no-nulo / no-defaultValue.
-	 * Si algún script devuelve `true` (cancelar), se detiene la propagación.
+	 * If some script returns `true` (cancelar), is stops the propagación.
 	 * Sin alloc de array intermedio — itera las capas directamente.
 	 */
 	public static function callOnScriptsReturn(funcName:String, args:Array<Dynamic> = null, defaultValue:Dynamic = null):Dynamic
@@ -594,7 +594,7 @@ class ScriptHandler
 			if (script.active) script.set(varName, value);
 	}
 
-	/** Llama una función solo en los scripts de stage. */
+	/** Call a function only in the scripts of stage. */
 	public static function callOnStageScripts(funcName:String, args:Array<Dynamic> = null):Void
 	{
 		if (args == null) args = [];
@@ -602,7 +602,7 @@ class ScriptHandler
 	}
 
 	/**
-	 * Llama una función en todos los layers EXCEPTO stageScripts.
+	 * Call a function in all the layers EXCEPTO stageScripts.
 	 * Usar cuando los stage scripts ya dispararon el evento en loadStageScripts()
 	 * y no queremos una segunda ejecucion que pise el estado correcto.
 	 */
@@ -658,7 +658,7 @@ class ScriptHandler
 	{
 		_destroyLayer(charScripts);
 		charScripts.clear();
-		charScriptsByName.clear(); // limpiar índice también
+		charScriptsByName.clear(); // clear index also
 	}
 
 	public static function clearMenuScripts():Void
@@ -679,7 +679,7 @@ class ScriptHandler
 
 	// ── Hot-reload ────────────────────────────────────────────────────────────
 
-	/** Recarga un script por nombre (sin reiniciar el intérprete). */
+	/** Recarga a script by name (without reset the interpreter). */
 	public static function hotReload(name:String):Bool
 	{
 		final layers = [globalScripts, stageScripts, songScripts, uiScripts, menuScripts, charScripts];
@@ -751,7 +751,7 @@ class ScriptHandler
 			case 'char':   charScripts;
 			default:       songScripts;
 		};
-		// Nombres duplicados → sufijo numérico
+		// Names duplicados → suffix numeric
 		var name = script.name;
 		var i    = 1;
 		while (target.exists(name)) name = '${script.name}_${i++}';
@@ -774,13 +774,13 @@ class ScriptHandler
 
 	static function _destroyLayer(layer:Map<String, HScriptInstance>):Void
 	{
-		// BUGFIX: NO llamar onDestroy aquí.
+		// BUGFIX: no callr onDestroy here.
 		// PlayState.destroy() ya llama callOnScripts('onDestroy') antes de
 		// clearSongScripts() / clearStageScripts() / clearCharScripts(), lo que
 		// a su vez llamaba a _destroyLayer() → onDestroy se ejecutaba DOS VECES.
-		// La segunda ejecución ocurría con el estado parcialmente destruido
+		// The segunda execution ocurría with the state parcialmente destroyed
 		// (stage elements, camGame, etc. ya nulleados) → crash.
-		// Esta función ahora solo libera el intérprete de cada script.
+		// This function now only libera the interpreter of each script.
 		for (script in layer)
 			script.dispose();
 	}
@@ -859,7 +859,7 @@ class ScriptHandler
 	}
 	#end
 
-	/** Alias público de _extractName para compatibilidad. */
+	/** Alias public of _extractName for compatibility. */
 	public static inline function extractName(path:String):String
 		return _extractName(path);
 
@@ -874,21 +874,21 @@ class ScriptHandler
 	// ── Import pre-processor ──────────────────────────────────────────────────
 
 	/**
-	 * Pre-procesa las líneas `import a.b.C;` y `import a.b.C as Alias;`
-	 * del código fuente de un HScript.
+	 * Pre-procesa the lines `import to.b.C;` and `import to.b.C as Alias;`
+	 * of the code font of a HScript.
 	 *
 	 * Cada import se resuelve con Type.resolveClass / Type.resolveEnum
 	 * y se inyecta en `interp.variables` bajo el nombre corto (o alias).
-	 * Las líneas de import se sustituyen por comentarios para que el parser
+	 * The lines of import is sustituyen by comentarios for that the parser
 	 * hscript no las rechace (hscript no soporta la sintaxis `import`).
 	 *
 	 * Uso desde un script .hx:
 	 *   import flixel.util.FlxColor;
 	 *   import flixel.math.FlxMath as Math;
 	 *
-	 * @param source   Código fuente original del script.
-	 * @param interp   Intérprete en el que se inyectarán las clases.
-	 * @return         Código fuente con las líneas de import comentadas.
+	 * @param source   Code font original of the script.
+	 * @param interp   Interpreter in the that is inyectarán the classes.
+	 * @return         Code font with the lines of import comentadas.
 	 */
 	#if HSCRIPT_ALLOWED
 	public static function processImports(source:String, interp:Interp):String
@@ -911,9 +911,9 @@ class ScriptHandler
 			}
 			else
 			{
-				trace('[ScriptHandler] import no resuelta: $fullName (¿falta en el build?)');
+				trace('[ScriptHandler] import no resolved: $fullName (falta in the build?)');
 			}
-			// Comentar la línea para que hscript no la vea
+			// Comentar the line for that hscript no the vea
 			return '// [import] $fullName';
 		});
 	}
