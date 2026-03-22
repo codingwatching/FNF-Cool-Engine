@@ -1,8 +1,17 @@
 # [Cool Engine REBORN (70%)](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine)
+<p align="center">
+    <img alt="Stars" src="https://img.shields.io/github/stars/The-Cool-Engine-Crew/FNF-Cool-Engine?style=flat-square" style=";padding-right:10px;">
+    <img alt="Forks" src="https://img.shields.io/github/forks/The-Cool-Engine-Crew/FNF-Cool-Engine?style=flat-square" style=";padding-right:10px;">
+    <img alt="Issues" src="https://img.shields.io/github/issues/The-Cool-Engine-Crew/FNF-Cool-Engine?style=flat-square" style=";padding-right:10px;">
+    <img alt="License" src="https://img.shields.io/github/license/The-Cool-Engine-Crew/FNF-Cool-Engine?style=flat-square">
+</p>
+
 > **Note**  
 > This engine is currently a work in progress. If you find any bugs or unexpected behavior, please open an issue in the repository.
 
-[![Build Cool Engine](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/actions/workflows/main.yml/badge.svg)](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/actions/workflows/main.yml)
+<p align="center">
+  [![Build Cool Engine](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/actions/workflows/main.yml/badge.svg)](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/actions/workflows/main.yml)
+</p>
 
 **FNF': Cool Engine is a modification of the original FNF' source code the mod includes new Options and better Graphics!!**
 ----------------------------------------------

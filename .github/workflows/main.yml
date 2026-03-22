@@ -51,7 +51,7 @@ jobs:
           haxelib install openfl ${{ env.OPENFL_VERSION }} --never
           haxelib install flixel 6.1.2               --never
           haxelib install flixel-addons 4.0.1        --never
-          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      2.6.1 --never
+          haxelib install flixel-ui      --never
           haxelib install flixel-tools 1.5.1 --quiet --never
           haxelib install actuate            --quiet --never
           haxelib install hscript            --quiet --never
@@ -69,6 +69,7 @@ jobs:
           haxelib set lime   ${{ env.LIME_VERSION }}
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         shell: cmd
@@ -130,7 +131,7 @@ jobs:
           haxelib install openfl ${{ env.OPENFL_VERSION }} --never
           haxelib install flixel 6.1.2               --never
           haxelib install flixel-addons 4.0.1        --never
-          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      2.6.1 --never
+          haxelib install flixel-ui      --never
           haxelib install flixel-tools 1.5.1 --quiet --never
           haxelib install actuate            --quiet --never
           haxelib install hscript            --quiet --never
@@ -148,6 +149,7 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
@@ -202,7 +204,7 @@ jobs:
           haxelib install openfl ${{ env.OPENFL_VERSION }} --never
           haxelib install flixel 6.1.2               --never
           haxelib install flixel-addons 4.0.1        --never
-          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      2.6.1 --never
+          haxelib install flixel-ui       --never
           haxelib install flixel-tools 1.5.1 --quiet --never
           haxelib install actuate            --quiet --never
           haxelib install hscript            --quiet --never
@@ -220,6 +222,7 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
@@ -276,7 +279,7 @@ jobs:
           haxelib install openfl ${{ env.OPENFL_VERSION }} --never
           haxelib install flixel 6.1.2               --never
           haxelib install flixel-addons 4.0.1        --never
-          haxelib git flixel-ui      https://github.com/HaxeFlixel/flixel-ui      2.6.1 --never
+          haxelib install flixel-ui       --never
           haxelib install flixel-tools 1.5.1 --quiet --never
           haxelib install actuate            --quiet --never
           haxelib install hscript            --quiet --never
@@ -294,6 +297,7 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
+          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
