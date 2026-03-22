@@ -2,6 +2,8 @@
 > **Note**  
 > This engine is currently a work in progress. If you find any bugs or unexpected behavior, please open an issue in the repository.
 
+[![Build Cool Engine](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/actions/workflows/main.yml/badge.svg)](https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/actions/workflows/main.yml)
+
 **FNF': Cool Engine is a modification of the original FNF' source code the mod includes new Options and better Graphics!!**
 ----------------------------------------------
 <p align="center">

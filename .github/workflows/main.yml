@@ -61,7 +61,7 @@ jobs:
           haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
           haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      2.1.0 --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
 
       - name: Lock library versions
         shell: cmd
@@ -140,7 +140,7 @@ jobs:
           haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
           haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      2.1.0 --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
 
       - name: Lock library versions
         run: |
@@ -212,7 +212,7 @@ jobs:
           haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
           haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      2.1.0 --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
 
       - name: Lock library versions
         run: |
@@ -285,7 +285,7 @@ jobs:
           haxelib install linc_luajit           --quiet --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
           haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      2.1.0 --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
           # discord_rpc omitido: no disponible en Android
 
       - name: Lock library versions
