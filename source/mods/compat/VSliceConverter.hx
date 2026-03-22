@@ -442,20 +442,55 @@ class VSliceConverter
 			case 'focuscamera', 'focus camera':
 				/*
 				 * V-Slice char index:
-				 *   0 = player (BF)
-				 *   1 = opponent (Dad)
-				 *   2 = girlfriend (GF)
-				 * Cool Engine Camera Follow value: "bf" / "dad" / "gf"
+				 *   0  = player (BF)
+				 *   1  = opponent (Dad)
+				 *   2  = girlfriend (GF)
+				 *  -1  = posición absoluta (x,y)
+				 *
+				 * Formato de value en Cool Engine:
+				 *   "target|offsetX|offsetY|duration|ease"
+				 *   (campos opcionales; solo target es obligatorio)
 				 */
 				final charIdx:Int = value != null ? Std.int(_float(value.char, 0)) : 0;
 				final target = switch (charIdx)
 				{
-					case 0: 'bf';
-					case 1: 'dad';
-					case 2: 'gf';
+					case -1: 'position';
+					case 0:  'bf';
+					case 1:  'dad';
+					case 2:  'gf';
 					default: 'bf';
 				};
-				{type: 'Camera Follow', value: target};
+				final offX:Float   = value != null ? _float(value.x, 0.0) : 0.0;
+				final offY:Float   = value != null ? _float(value.y, 0.0) : 0.0;
+				final dur:Float    = value != null ? _float(value.duration, 0.0) : 0.0;
+				// Construir ease completo: "expo" + "Out" → "expoOut"
+				var ease:String = value != null ? _str(value.ease, '') : '';
+				if (ease != '' && ease != 'CLASSIC' && ease != 'INSTANT' && ease != 'linear')
+				{
+					final easeDir:String = value != null ? _str(value.easeDir, '') : '';
+					if (easeDir != '') ease = ease + easeDir;
+				}
+
+				// CLASSIC = snap del follow point sin tween (comportamiento por defecto).
+				// INSTANT = snap instantáneo (duración 0).
+				// Ambos se traducen a un Camera Follow simple sin duration/ease.
+				final isSnap = (ease == 'CLASSIC' || ease == 'INSTANT');
+
+				var composed = target;
+				if (!isSnap && (offX != 0 || offY != 0 || dur > 0 || (ease != '' && ease != 'linear')))
+				{
+					composed += '|$offX|$offY';
+					if (dur > 0 || ease != '')
+					{
+						composed += '|$dur';
+						if (ease != '') composed += '|$ease';
+					}
+				}
+				else if (!isSnap && (offX != 0 || offY != 0))
+				{
+					composed += '|$offX|$offY';
+				}
+				{type: 'Camera Follow', value: composed};
 
 			case 'zoomcamera', 'zoom camera':
 				/*

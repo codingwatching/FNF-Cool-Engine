@@ -319,8 +319,8 @@ class NoteSkinSystem
 	public static var offsetDefault:Bool = true;
 
 	// Paths calculados en init() según el mod activo
-	private static var SKINS_PATH:String = "assets/skins";
-	private static var SPLASHES_PATH:String = "assets/splashes";
+	private static var SKINS_PATH:String = "assets/notes/skins";
+	private static var SPLASHES_PATH:String = "assets/notes/splashes";
 
 	/** Previene re-entrada en init() cuando setTemporarySkin/setModDefault son llamados durante la inicialización. */
 	private static var _initializing:Bool = false;
@@ -365,8 +365,8 @@ class NoteSkinSystem
 		// Calcular paths en runtime según el mod activo
 		// SIEMPRE apuntamos a assets/ como base (los skins de mod se descubren
 		// adicionalmente en discoverSkins / discoverSplashes).
-		SKINS_PATH = "assets/skins";
-		SPLASHES_PATH = "assets/splashes";
+		SKINS_PATH = "assets/notes/skins";
+		SPLASHES_PATH = "assets/notes/splashes";
 
 		_lastInitMod = currentMod;
 
@@ -470,12 +470,12 @@ class NoteSkinSystem
 		final modRoot = mods.ModManager.modRoot();
 		if (modRoot != null)
 		{
-			final modSkinsPath = '$modRoot/skins';
+			final modSkinsPath = '$modRoot/notes/skins';
 			if (modSkinsPath != SKINS_PATH)
 				_discoverSkinsInPath(modSkinsPath);
 		}
 		#else
-		for (skinPath in Assets.list().filter(p -> p.contains("skins/") && p.endsWith("skin.json")))
+		for (skinPath in Assets.list().filter(p -> p.contains("notes/skins/") && p.endsWith("skin.json")))
 		{
 			try
 			{
@@ -540,7 +540,7 @@ class NoteSkinSystem
 		final modRoot = mods.ModManager.modRoot();
 		if (modRoot != null)
 		{
-			final modSplashesPath = '$modRoot/splashes';
+			final modSplashesPath = '$modRoot/notes/splashes';
 			if (modSplashesPath != SPLASHES_PATH)
 				_discoverSplashesInPath(modSplashesPath);
 		}
@@ -1465,8 +1465,8 @@ class NoteSkinSystem
 			return switch (hc.textureType.toLowerCase())
 			{
 				case "packer": FlxAtlasFrames.fromSpriteSheetPacker(
-					flixel.FlxG.bitmap.add('assets/splashes/$fullPath.png'),
-					'assets/splashes/$fullPath.txt');
+					flixel.FlxG.bitmap.add('assets/notes/splashes/$fullPath.png'),
+					'assets/notes/splashes/$fullPath.txt');
 				default: Paths.splashSprite(fullPath); // sparrow
 			};
 		}
@@ -1560,7 +1560,7 @@ class NoteSkinSystem
 					return null;
 
 				case "image":
-					var graphic = FlxG.bitmap.add('assets/skins/$folder/$path.png');
+					var graphic = FlxG.bitmap.add('assets/notes/skins/$folder/$path.png');
 					if (graphic == null) throw 'PNG not found para image skin: $folder/$path';
 					// BUGFIX: FlxG.bitmap.add() deja persist=false y useCount=0.
 					// FunkinCache.clearSecondLayer() → clearUnused() destruye cualquier
@@ -1571,7 +1571,7 @@ class NoteSkinSystem
 					// sistema de caché lo gestione correctamente entre sesiones.
 					graphic.persist = true;
 					graphic.destroyOnNoUse = false;
-					funkin.cache.PathsCache.instance.trackGraphic('assets/skins/$folder/$path.png', graphic);
+					funkin.cache.PathsCache.instance.trackGraphic('assets/notes/skins/$folder/$path.png', graphic);
 					// Dimensiones de frame leídas del JSON — sin hardcodeo por nombre de archivo
 					var fw:Int = tex.frameWidth != null ? Std.int(tex.frameWidth) : 17;
 					var fh:Int = tex.frameHeight != null ? Std.int(tex.frameHeight) : 17;
@@ -1635,15 +1635,15 @@ class NoteSkinSystem
 				case "sparrow":
 					return Paths.splashSprite('$folder/$path');
 				case "packer":
-					return FlxAtlasFrames.fromSpriteSheetPacker(FlxG.bitmap.add('assets/splashes/$folder/$path.png'), 'assets/splashes/$folder/$path.txt');
+					return FlxAtlasFrames.fromSpriteSheetPacker(FlxG.bitmap.add('assets/notes/splashes/$folder/$path.png'), 'assets/notes/splashes/$folder/$path.txt');
 				case "image":
-					var g = FlxG.bitmap.add('assets/splashes/$folder/$path.png');
+					var g = FlxG.bitmap.add('assets/notes/splashes/$folder/$path.png');
 					if (g == null) throw 'PNG not found para image splash: $folder/$path';
 					// BUGFIX: igual que loadAtlas "image" — persist=true para evitar que
 					// clearSecondLayer() → clearUnused() destruya el gráfico antes del primer render.
 					g.persist = true;
 					g.destroyOnNoUse = false;
-					funkin.cache.PathsCache.instance.trackGraphic('assets/splashes/$folder/$path.png', g);
+					funkin.cache.PathsCache.instance.trackGraphic('assets/notes/splashes/$folder/$path.png', g);
 					return FlxAtlasFramesExt.fromGraphic(g, g.width, g.height);
 				default:
 					return Paths.splashSprite('$folder/$path');
@@ -1659,14 +1659,14 @@ class NoteSkinSystem
 	{
 		#if sys
 		// Comprobar primero en el mod activo, luego en assets base.
-		// Sin esto, skins en mods/MyMod/skins/ZoneNotes/NOTE_assets.png
+		// Sin esto, skins en mods/MyMod/notes/skins/ZoneNotes/NOTE_assets.png
 		// son ignoradas y el juego cae silenciosamente al Default.
 		final modRoot = mods.ModManager.modRoot();
-		if (modRoot != null && sys.FileSystem.exists('$modRoot/skins/$folder/$path.png'))
+		if (modRoot != null && sys.FileSystem.exists('$modRoot/notes/skins/$folder/$path.png'))
 			return true;
-		return sys.FileSystem.exists('assets/skins/$folder/$path.png') || sys.FileSystem.exists('$path.png');
+		return sys.FileSystem.exists('assets/notes/skins/$folder/$path.png') || sys.FileSystem.exists('$path.png');
 		#else
-		return openfl.utils.Assets.exists('assets/skins/$folder/$path.png');
+		return openfl.utils.Assets.exists('assets/notes/skins/$folder/$path.png');
 		#end
 	}
 
@@ -1675,11 +1675,11 @@ class NoteSkinSystem
 		#if sys
 		// Misma lógica que assetExists: comprobar mod primero.
 		final modRoot = mods.ModManager.modRoot();
-		if (modRoot != null && sys.FileSystem.exists('$modRoot/splashes/$folder/$path.png'))
+		if (modRoot != null && sys.FileSystem.exists('$modRoot/notes/splashes/$folder/$path.png'))
 			return true;
-		return sys.FileSystem.exists('assets/splashes/$folder/$path.png') || sys.FileSystem.exists('$path.png');
+		return sys.FileSystem.exists('assets/notes/splashes/$folder/$path.png') || sys.FileSystem.exists('$path.png');
 		#else
-		return openfl.utils.Assets.exists('assets/splashes/$folder/$path.png');
+		return openfl.utils.Assets.exists('assets/notes/splashes/$folder/$path.png');
 		#end
 	}
 
@@ -1687,7 +1687,7 @@ class NoteSkinSystem
 
 	/**
 	 * Genera un JSON de ejemplo para una skin normal.
-	 * Colócalo en:  assets/skins/MiSkin/skin.json
+	 * Colócalo en:  assets/notes/skins/MiSkin/skin.json
 	 */
 	public static function exportSkinExample():String
 	{
@@ -1738,7 +1738,7 @@ class NoteSkinSystem
 
 	/**
 	 * Genera un JSON de ejemplo para una skin PIXEL.
-	 * Colócalo en:  assets/skins/MiSkinPixel/skin.json
+	 * Colócalo en:  assets/notes/skins/MiSkinPixel/skin.json
 	 *
 	 * Para asociarlo a un stage:
 	 *   NoteSkinSystem.registerStageSkin("miStage", "MiSkinPixel");
@@ -1843,8 +1843,8 @@ class NoteSkinSystem
 	 * Genera un JSON de ejemplo de splash.json con sección holdCover personalizada.
 	 * Útil como punto de partida para un splash con atlas único compartido.
 	 *
-	 * Coloca el JSON en: assets/splashes/MySplash/splash.json
-	 * Y los assets en:   assets/splashes/MySplash/holdCoverAll.png  (+ .xml)
+	 * Coloca el JSON en: assets/notes/splashes/MySplash/splash.json
+	 * Y los assets en:   assets/notes/splashes/MySplash/holdCoverAll.png  (+ .xml)
 	 */
 	public static function exportHoldCoverExample():String
 	{

@@ -290,7 +290,30 @@ class CoreAudio extends FlxBasic
 		vocals.clear();
 	}
 
-	// ── Reproducción ──────────────────────────────────────────────────────────
+	/**
+	 * Limpia todo el estado de audio antes de cambiar de mod.
+	 * Detiene y desregistra el inst, las voces y todos los sonidos registrados.
+	 * Llamar justo antes de hacer switchState/resetGame al cambiar de mod.
+	 */
+	public static function flushForModSwitch():Void
+	{
+		// Parar y limpiar inst
+		_unregisterInst();
+
+		// Parar y limpiar voces
+		clearVocals();
+
+		// Parar música de menú
+		_stopMenuInternal();
+		menuTrack = '';
+
+		// Vaciar el registry — cualquier FlxSound que siga ahí es de la sesión anterior
+		for (snd => _ in _registry)
+		{
+			try { if (snd != null && snd.alive) snd.stop(); } catch (_) {}
+		}
+		_registry.clear();
+	}
 
 	/** Inicia el instrumental al volumen maestro actual. */
 	public static function playInst():Void
@@ -579,6 +602,11 @@ class CoreAudio extends FlxBasic
 			snd.volume = 0.0;  // silencio explícito por si defaultMusicGroup ignora FlxG.sound.volume
 		else
 			snd.volume = base; // FlxG.sound.volume = masterVolume ya actúa de multiplicador
+
+		// Forzar aplicación inmediata al backend OpenAL/SDL.
+		// Sin esto, FlxSound.updateTransform() solo se llama en el próximo frame
+		// de audio → hay un delay audible al mutear o bajar el volumen a 0.
+		@:privateAccess snd.updateTransform();
 	}
 
 	/** Aplica el volumen efectivo a todos los sounds registrados. */

@@ -194,6 +194,15 @@ class Note extends FlxSprite
 		}
 		frames = NoteSkinSystem.loadSkinFrames(tex, skinData.folder);
 
+		// ── NoteType: textura de sustain custom ───────────────────────────
+		// Si el noteType tiene su propio atlas de hold, sobreescribir aquí.
+		// Solo aplica a sustain notes; las cabezas se sobreescriben en onNoteSpawn.
+		if (isSustainNote && NoteTypeManager.isCustomType(noteType))
+		{
+			final typeHoldFrames = NoteTypeManager.getHoldFrames(noteType);
+			if (typeHoldFrames != null) frames = typeHoldFrames;
+		}
+
 		// BUGFIX CRÍTICO: si frames es null (asset faltante, XML roto, etc.)
 		// el sprite crashea en FlxDrawQuadsItem::render al primer frame de PlayState.
 		if (frames == null)

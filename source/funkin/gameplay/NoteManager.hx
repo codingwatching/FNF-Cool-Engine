@@ -15,6 +15,7 @@ import funkin.data.Conductor;
 import funkin.gameplay.notes.NoteSkinSystem;
 import funkin.gameplay.modchart.ModChartManager;
 import funkin.gameplay.modchart.ModChartEvent;
+import funkin.gameplay.notes.NoteTypeManager;
 
 using StringTools;
 
@@ -123,6 +124,9 @@ class NoteManager
 	private var holdEndTimes:Map<Int, Float> = new Map();
 	/** Mismo para CPU (por dirección 0-3). */
 	private var cpuHoldEndTimes:Array<Float> = [-1, -1, -1, -1];
+
+	/** strumsGroupIndex del hold cover activo del CPU por dirección. */
+	private var _cpuHoldGroupIdx:Array<Int> = [0, 0, 0, 0];
 
 	/**
 	 * Estado de teclas presionadas — actualizado desde PlayState cada frame
@@ -378,9 +382,10 @@ class NoteManager
 			}
 			for (dir in _autoReleaseBuffer)
 			{
-				if (renderer != null) renderer.stopHoldCover(dir, false);
+				if (renderer != null) renderer.stopHoldCover(dir, false, _cpuHoldGroupIdx[dir]);
 				_cpuHeldDirs[dir] = false;
 				cpuHoldEndTimes[dir] = -1;
+				_cpuHoldGroupIdx[dir] = 0;
 			}
 		}
 	}
@@ -606,10 +611,12 @@ class NoteManager
 			if (!_cpuHeldDirs[dir])
 			{
 				_cpuHeldDirs[dir] = true;
+				_cpuHoldGroupIdx[dir] = note.strumsGroupIndex;
 				var strum = getStrumForDirection(dir, note.strumsGroupIndex, false);
 				if (strum != null)
 				{
-					var cover = renderer.startHoldCover(dir, strum.x - strum.offset.x + strum.frameWidth * 0.5, strum.y - strum.offset.y + strum.frameHeight * 0.5, false);
+					var holdSplashCPU = NoteTypeManager.getHoldSplashName(note.noteType);
+					var cover = renderer.startHoldCover(dir, strum.x - strum.offset.x + strum.frameWidth * 0.5, strum.y - strum.offset.y + strum.frameHeight * 0.5, false, note.strumsGroupIndex, holdSplashCPU);
 					if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0) {
 						_holdCoverSet.set(cover, true);
 						holdCovers.add(cover);
@@ -1186,7 +1193,8 @@ class NoteManager
 				var strum = getStrumForDirection(direction, note.strumsGroupIndex, true);
 				if (strum != null)
 				{
-					var cover = renderer.startHoldCover(direction, strum.x - strum.offset.x + strum.frameWidth * 0.5, strum.y - strum.offset.y + strum.frameHeight * 0.5);
+					var holdSplashPlayer = NoteTypeManager.getHoldSplashName(note.noteType);
+					var cover = renderer.startHoldCover(direction, strum.x - strum.offset.x + strum.frameWidth * 0.5, strum.y - strum.offset.y + strum.frameHeight * 0.5, true, note.strumsGroupIndex, holdSplashPlayer);
 					// BUGFIX: indexOf evita doble-add de covers pre-calentados que ya
 					// están en el grupo → doble update/draw causaba animación duplicada.
 					if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0) {
@@ -1217,7 +1225,8 @@ class NoteManager
 		var strum = getStrumForDirection(note.noteData, note.strumsGroupIndex, isPlayer);
 		if (strum != null)
 		{
-			var splash = renderer.spawnSplash(strum.x, strum.y, note.noteData);
+			var splashName = NoteTypeManager.getSplashName(note.noteType);
+		var splash = renderer.spawnSplash(strum.x, strum.y, note.noteData, splashName);
 			if (splash != null)
 				splashes.add(splash);
 		}
@@ -1316,6 +1325,7 @@ class NoteManager
 		_prevSpawnedNote.clear();
 		heldNotes.clear();
 		_cpuHeldDirs[0] = _cpuHeldDirs[1] = _cpuHeldDirs[2] = _cpuHeldDirs[3] = false;
+		_cpuHoldGroupIdx[0] = _cpuHoldGroupIdx[1] = _cpuHoldGroupIdx[2] = _cpuHoldGroupIdx[3] = 0;
 		holdStartTimes.clear();
 		holdEndTimes.clear();
 		cpuHoldEndTimes[0] = cpuHoldEndTimes[1] = cpuHoldEndTimes[2] = cpuHoldEndTimes[3] = -1;
@@ -1353,6 +1363,7 @@ class NoteManager
 		_prevSpawnedNote.clear();
 		heldNotes.clear();
 		_cpuHeldDirs[0] = _cpuHeldDirs[1] = _cpuHeldDirs[2] = _cpuHeldDirs[3] = false;
+		_cpuHoldGroupIdx[0] = _cpuHoldGroupIdx[1] = _cpuHoldGroupIdx[2] = _cpuHoldGroupIdx[3] = 0;
 		holdStartTimes.clear();
 		holdEndTimes.clear();
 		cpuHoldEndTimes[0] = cpuHoldEndTimes[1] = cpuHoldEndTimes[2] = cpuHoldEndTimes[3] = -1;

@@ -12,9 +12,9 @@ import flixel.addons.ui.*;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import funkin.data.Song.SwagSong;
-import funkin.scripting.EventInfoSystem;
-import funkin.scripting.EventInfoSystem.EventParamType;
-import funkin.scripting.EventInfoSystem.EventParamDef;
+import funkin.scripting.events.EventInfoSystem;
+import funkin.scripting.events.EventInfoSystem.EventParamType;
+import funkin.scripting.events.EventInfoSystem.EventParamDef;
 
 typedef ChartEvent =
 {
@@ -83,7 +83,7 @@ class EventsSidebar extends FlxGroup
 		this.gridX   = gridX;
 		this.gridY   = gridY;
 
-		funkin.scripting.EventRegistry.reload();
+		funkin.scripting.events.EventRegistry.reload();
 
 		if (_song.events == null) _song.events = [];
 		_evtHistory.push(haxe.Json.stringify(_song.events));
@@ -952,7 +952,7 @@ class EventPopup extends FlxGroup
 		typeLbl.setFormat(Paths.font("vcr.ttf"), 11, GRAY, LEFT);
 		typeLbl.scrollFactor.set(); typeLbl.cameras = [camHUD]; add(typeLbl);
 
-		var typeNames = funkin.scripting.EventRegistry.getNamesForContext('chart');
+		var typeNames = funkin.scripting.events.EventRegistry.getNamesForContext('chart');
 		if (typeNames.length == 0) typeNames.push("(no events)");
 
 		typeDropDown = new FlxUIDropDownMenu(cx + 15, cy + 53, FlxUIDropDownMenu.makeStrIdLabelArray(typeNames, true), function(id:String)
@@ -982,7 +982,7 @@ class EventPopup extends FlxGroup
 		_selectedType = type;
 		_clearDynamic();
 
-		final def = funkin.scripting.EventRegistry.get(type);
+		final def = funkin.scripting.events.EventRegistry.get(type);
 		_paramDefs  = def != null ? def.params : (EventInfoSystem.eventParams.exists(type) ? EventInfoSystem.eventParams.get(type) : []);
 		_paramWidgets = [];
 
@@ -1094,7 +1094,7 @@ class EventPopup extends FlxGroup
 		titleText.text = 'Add Event @ step ${Std.int(step)}';
 		if (addBtn != null) addBtn.label.text = "Add Event";
 
-		var types = funkin.scripting.EventRegistry.getNamesForContext('chart');
+		var types = funkin.scripting.events.EventRegistry.getNamesForContext('chart');
 		if (types.length == 0) types = EventInfoSystem.eventList;
 		if (types.length > 0) _switchToType(types[0]);
 

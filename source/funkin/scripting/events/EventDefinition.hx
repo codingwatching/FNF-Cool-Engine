@@ -1,4 +1,4 @@
-package funkin.scripting;
+package funkin.scripting.events;
 
 /**
  * EventDefinition — Definición completa de un evento del engine.
@@ -74,8 +74,8 @@ package funkin.scripting;
  */
 
 // Importar tipos de EventInfoSystem para reusar EventParamDef
-import funkin.scripting.EventInfoSystem.EventParamDef;
-import funkin.scripting.EventInfoSystem.EventParamType;
+import funkin.scripting.events.EventInfoSystem.EventParamDef;
+import funkin.scripting.events.EventInfoSystem.EventParamType;
 
 typedef EventDefinition =
 {

@@ -1908,7 +1908,7 @@ BossBar = Class {
 		try
 		{
 			final evData:Dynamic = {name:name, value1:v1, value2:v2, time:t};
-			funkin.scripting.EventManager.triggerEvent(evData);
+			funkin.scripting.events.EventManager.triggerEvent(evData);
 		}
 		catch(e:Dynamic) trace('[Lua] triggerEvent: $e');
 		return 0;
@@ -1936,7 +1936,7 @@ BossBar = Class {
 	static function _fnGetEventDef(l:Dynamic):Int
 	{
 		final name = Lua.tostring(l, 1); Lua.settop(l, 0);
-		final def = funkin.scripting.EventRegistry.get(name);
+		final def = funkin.scripting.events.EventRegistry.get(name);
 		if (def == null) { Lua.pushnil(l); return 1; }
 
 		Lua.newtable(l); // root table
@@ -1989,8 +1989,8 @@ BossBar = Class {
 	{
 		final ctx = Lua.gettop(l) > 0 ? Lua.tostring(l, 1) : null; Lua.settop(l, 0);
 		final names = (ctx != null && ctx != '')
-			? funkin.scripting.EventRegistry.getNamesForContext(ctx)
-			: funkin.scripting.EventRegistry.eventList;
+			? funkin.scripting.events.EventRegistry.getNamesForContext(ctx)
+			: funkin.scripting.events.EventRegistry.eventList;
 
 		Lua.newtable(l);
 		for (i in 0...names.length)
@@ -2036,7 +2036,7 @@ BossBar = Class {
 			aliases = [for (a in (opts.aliases:Array<Dynamic>)) Std.string(a)];
 
 		// Parse params
-		var params:Array<funkin.scripting.EventInfoSystem.EventParamDef> = [];
+		var params:Array<funkin.scripting.events.EventInfoSystem.EventParamDef> = [];
 		if (opts.params != null && Std.isOfType(opts.params, Array))
 		{
 			for (p in (opts.params:Array<Dynamic>))
@@ -2044,7 +2044,7 @@ BossBar = Class {
 				if (p == null || p.name == null) continue;
 				params.push({
 					name:     Std.string(p.name),
-					type:     funkin.scripting.EventInfoSystem.parseParamType(
+					type:     funkin.scripting.events.EventInfoSystem.parseParamType(
 					              Std.string(p.type ?? 'String')),
 					defValue: p.defaultValue != null ? Std.string(p.defaultValue) : '',
 					description: p.description != null ? Std.string(p.description) : null
@@ -2052,7 +2052,7 @@ BossBar = Class {
 			}
 		}
 
-		funkin.scripting.EventRegistry.register({
+		funkin.scripting.events.EventRegistry.register({
 			name:        name,
 			description: opts.description != null ? Std.string(opts.description) : null,
 			color:       opts.color != null ? Std.int(opts.color) : 0xFFAAAAAA,

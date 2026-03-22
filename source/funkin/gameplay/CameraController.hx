@@ -65,11 +65,19 @@ class CameraController
 
 	// === STAGE CAMERA OFFSETS ===
 	// Definidos en el stage JSON como cameraBoyfriend / cameraDad / cameraGirlfriend.
-	// Se suman al follow position igual que los offsets del personaje.
-	public var stageOffsetBf:FlxPoint  = new FlxPoint(0, 0);
-	public var stageOffsetDad:FlxPoint = new FlxPoint(0, 0);
+	// Defaults reproducen el comportamiento clásico del engine:
+	//   player   → -100 X, -100 Y  (cámara ligeramente a la izquierda/arriba de BF)
+	//   opponent → +150 X, -100 Y  (cámara más a la derecha para el oponente)
+	//   gf       →    0 X,  -80 Y
+	// Los stages que definen cameraBoyfriend/cameraDad en su JSON sobreescriben estos valores.
+	public var stageOffsetBf:FlxPoint  = new FlxPoint(-100, -100);
+	public var stageOffsetDad:FlxPoint = new FlxPoint(150, -100);
 	/** Offset de cámara para GF (camera_girlfriend en Psych). */
-	public var stageOffsetGf:FlxPoint  = new FlxPoint(0, 0);
+	public var stageOffsetGf:FlxPoint  = new FlxPoint(0, -80);
+
+	/** Offset adicional pasado por el evento (campo x/y de FocusCamera en V-Slice). */
+	var _extraOffsetX:Float = 0.0;
+	var _extraOffsetY:Float = 0.0;
 
 	// === CONFIG ===
 	/**
@@ -128,17 +136,26 @@ class CameraController
 	 * Cambiar el personaje al que sigue la cámara.
 	 * Llamar desde EventManager al procesar el evento "Camera Follow".
 	 *
-	 * @param target  "player" | "opponent" | "gf"
-	 *                (también acepta aliases bf/dad/boyfriend/girlfriend)
-	 * @param snap    Si true, mueve camFollow instantáneamente en lugar de lerp.
+	 * @param target    "player" | "opponent" | "gf" | "position"
+	 *                  (también acepta aliases bf/dad/boyfriend/girlfriend)
+	 * @param extraOffX Offset X adicional del evento (campo "x" en FocusCamera V-Slice).
+	 * @param extraOffY Offset Y adicional del evento (campo "y" en FocusCamera V-Slice).
+	 * @param snap      Si true, mueve camFollow instantáneamente (sin lerp de follow point).
+	 *                  Para CLASSIC de V-Slice usar snap=true: el follow point salta
+	 *                  al nuevo target y solo camGame.follow() hace el lerp suave.
 	 */
-	public function setTarget(target:String, snap:Bool = false):Void
+	public function setTarget(target:String, extraOffX:Float = 0.0, extraOffY:Float = 0.0, snap:Bool = true):Void
 	{
-		currentTarget = resolveTarget(target);
-		trace('[CameraController] Target → $currentTarget (snap=$snap)');
+		currentTarget  = resolveTarget(target);
+		_extraOffsetX  = extraOffX;
+		_extraOffsetY  = extraOffY;
+		trace('[CameraController] Target → $currentTarget (extraOff=${extraOffX},${extraOffY} snap=$snap)');
 
-		if (snap)
-			_snapToTarget();
+		// Siempre snapear camFollow al nuevo target — la transición suave la
+		// hace camGame.follow(camFollow, LOCKON, followLerp), igual que V-Slice.
+		// El lerpSpeed de updateFollowPosition añadiría un segundo lerp encadenado
+		// que ralentiza y suaviza en exceso la transición.
+		_snapToTarget();
 	}
 
 	/**
@@ -230,6 +247,20 @@ class CameraController
 	}
 
 	/**
+	 * Tweenea camFollow al target actual (calculado en este momento) con
+	 * la duración y ease dados. Equivalente a panTo pero calcula el destino
+	 * desde el personaje activo en lugar de una posición fija.
+	 * Usado por FocusCamera V-Slice con ease/duration.
+	 */
+	public function tweenToTarget(duration:Float, ?ease:Float->Float):Void
+	{
+		final dest = _computeTargetPos();
+		if (dest == null) return;
+		panTo(dest.x, dest.y, duration, ease ?? FlxEase.sineOut);
+		dest.put();
+	}
+
+	/**
 	 * Centra la cámara en el punto medio entre bf y dad.
 	 * Equivalente a setTarget('both') pero instantáneo o con snap.
 	 *
@@ -242,7 +273,7 @@ class CameraController
 		var bfMid  = boyfriend.getMidpoint();
 		var dadMid = dad.getMidpoint();
 		var cx = (bfMid.x + dadMid.x) * 0.5;
-		var cy = (bfMid.y + dadMid.y) * 0.5 - 100;
+		var cy = (bfMid.y + dadMid.y) * 0.5;
 		bfMid.put();
 		dadMid.put();
 
@@ -332,9 +363,8 @@ class CameraController
 			// Offset vertical genérico para que no quede en los pies
 			midY -= 100;
 
-			var lerpVal:Float = FlxMath.bound(elapsed * lerpSpeed, 0, 1);
-			camFollow.x = FlxMath.lerp(camFollow.x, midX, lerpVal);
-			camFollow.y = FlxMath.lerp(camFollow.y, midY, lerpVal);
+			camFollow.x = midX;
+			camFollow.y = midY;
 
 			bfMid.put();
 			dadMid.put();
@@ -351,9 +381,7 @@ class CameraController
 		targetPos.x += targetChar.cameraOffset[0];
 		targetPos.y += targetChar.cameraOffset[1];
 
-		// BUG FIX: Seleccionar el stage offset correcto según el target.
-		// Antes: `currentTarget == 'player' ? stageOffsetBf : stageOffsetDad`
-		// → GF siempre recibía el offset del Dad (else branch), que era incorrecto.
+		// Stage offset (cameraBoyfriend/cameraDad/cameraGirlfriend del stage.json).
 		var stageOff = switch (currentTarget)
 		{
 			case 'player':   stageOffsetBf;
@@ -361,34 +389,43 @@ class CameraController
 			case 'gf':       stageOffsetGf;
 			default:         stageOffsetDad;
 		};
-		targetPos.x += stageOff.x;
-		targetPos.y += stageOff.y;
-
-		// Offsets base según slot (ajusta según tu diseño de stage).
-		switch (currentTarget)
-		{
-			case 'player':
-				targetPos.x -= 100;
-				targetPos.y -= 100;
-			case 'opponent':
-				targetPos.x += 150;
-				targetPos.y -= 100;
-			case 'gf':
-				targetPos.y -= 80;
-			default:
-				targetPos.y -= 100;
-		}
+		targetPos.x += stageOff.x + _extraOffsetX;
+		targetPos.y += stageOff.y + _extraOffsetY;
 
 		// Offsets de animación de nota.
 		var noteOffX = currentTarget == 'player' ? bfOffsetX : dadOffsetX;
 		var noteOffY = currentTarget == 'player' ? bfOffsetY : dadOffsetY;
 
-		// Lerp suave hacia el destino.
-		var lerpVal:Float = FlxMath.bound(elapsed * lerpSpeed, 0, 1);
-		camFollow.x = FlxMath.lerp(camFollow.x, targetPos.x + noteOffX, lerpVal);
-		camFollow.y = FlxMath.lerp(camFollow.y, targetPos.y + noteOffY, lerpVal);
+		// Setear camFollow directo al destino. La transición suave la hace
+		// camGame.follow(camFollow, LOCKON, followLerp) — sin doble lerp encadenado.
+		// El noteOffset se aplica directamente para el micro-movimiento de notas.
+		camFollow.x = targetPos.x + noteOffX;
+		camFollow.y = targetPos.y + noteOffY;
 
 		targetPos.put();
+	}
+
+	/**
+	 * Calcula la posición destino del follow para el target actual.
+	 * Devuelve un FlxPoint pooled — el caller debe llamar .put().
+	 */
+	private function _computeTargetPos():Null<flixel.math.FlxPoint>
+	{
+		var targetChar = getTargetCharacter();
+		if (targetChar == null) return null;
+		var pos = targetChar.getMidpoint();
+		pos.x += targetChar.cameraOffset[0];
+		pos.y += targetChar.cameraOffset[1];
+		var stageOff = switch (currentTarget)
+		{
+			case 'player':   stageOffsetBf;
+			case 'opponent': stageOffsetDad;
+			case 'gf':       stageOffsetGf;
+			default:         stageOffsetDad;
+		};
+		pos.x += stageOff.x + _extraOffsetX;
+		pos.y += stageOff.y + _extraOffsetY;
+		return pos;
 	}
 
 	private function lerpZoom(elapsed:Float):Void
@@ -409,7 +446,7 @@ class CameraController
 			var dadMid = dad.getMidpoint();
 			camFollow.setPosition(
 				(bfMid.x + dadMid.x) * 0.5,
-				(bfMid.y + dadMid.y) * 0.5 - 100
+				(bfMid.y + dadMid.y) * 0.5
 			);
 			bfMid.put();
 			dadMid.put();
@@ -428,18 +465,10 @@ class CameraController
 			case 'gf':       stageOffsetGf;
 			default:         stageOffsetDad;
 		};
-		switch (currentTarget)
-		{
-			case 'player':
-				camFollow.setPosition(mid.x - 100 + targetChar.cameraOffset[0] + stageOff.x,
-					mid.y - 100 + targetChar.cameraOffset[1] + stageOff.y);
-			case 'opponent':
-				camFollow.setPosition(mid.x + 150 + targetChar.cameraOffset[0] + stageOff.x,
-					mid.y - 100 + targetChar.cameraOffset[1] + stageOff.y);
-			default:
-				camFollow.setPosition(mid.x + targetChar.cameraOffset[0] + stageOff.x,
-					mid.y - 80 + targetChar.cameraOffset[1] + stageOff.y);
-		}
+		camFollow.setPosition(
+			mid.x + targetChar.cameraOffset[0] + stageOff.x + _extraOffsetX,
+			mid.y + targetChar.cameraOffset[1] + stageOff.y + _extraOffsetY
+		);
 		mid.put();
 	}
 

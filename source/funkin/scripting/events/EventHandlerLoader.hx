@@ -1,12 +1,12 @@
-package funkin.scripting;
+package funkin.scripting.events;
 
 #if sys
 import sys.FileSystem;
 import sys.io.File;
 #end
 
-import funkin.scripting.EventDefinition;
-import funkin.scripting.EventInfoSystem.EventParamDef;
+import funkin.scripting.events.EventDefinition;
+import funkin.scripting.events.EventInfoSystem.EventParamDef;
 
 using StringTools;
 

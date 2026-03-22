@@ -1,4 +1,4 @@
-package funkin.scripting;
+package funkin.scripting.events;
 
 import haxe.Json;
 import sys.FileSystem;

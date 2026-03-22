@@ -36,7 +36,7 @@ import funkin.gameplay.notes.NoteBatcher;
 import funkin.gameplay.*;
 // Scripting
 import funkin.scripting.ScriptHandler;
-import funkin.scripting.EventManager;
+import funkin.scripting.events.EventManager;
 // Other
 import funkin.data.Song.SwagSong;
 import funkin.data.Song;
@@ -1004,10 +1004,18 @@ class PlayState extends funkin.states.MusicBeatState
 		if (currentStage.defaultCamZoom > 0)
 			cameraController.defaultZoom = currentStage.defaultCamZoom;
 
-		// Aplicar los offsets de cámara definidos en el stage JSON.
-		cameraController.stageOffsetBf.set(currentStage.cameraBoyfriend.x, currentStage.cameraBoyfriend.y);
-		cameraController.stageOffsetDad.set(currentStage.cameraDad.x, currentStage.cameraDad.y);
-		cameraController.stageOffsetGf.set(currentStage.cameraGirlfriend.x, currentStage.cameraGirlfriend.y);
+		// Sumar los offsets del stage JSON encima de los defaults del CameraController.
+		// Los defaults (-100/-100 para player, +150/-100 para opponent, 0/-80 para gf)
+		// siempre se aplican; el stage los ajusta sumando encima si los define.
+		{
+			final sd = currentStage.stageData;
+			if (sd != null && sd.cameraBoyfriend != null)
+				cameraController.stageOffsetBf.add(currentStage.cameraBoyfriend.x, currentStage.cameraBoyfriend.y);
+			if (sd != null && sd.cameraDad != null)
+				cameraController.stageOffsetDad.add(currentStage.cameraDad.x, currentStage.cameraDad.y);
+			if (sd != null && sd.cameraGirlfriend != null)
+				cameraController.stageOffsetGf.add(currentStage.cameraGirlfriend.x, currentStage.cameraGirlfriend.y);
+		}
 		// cameraSpeed es un multiplicador: 1.0 = default. Se aplica sobre BASE_LERP_SPEED.
 		cameraController.lerpSpeed = CameraController.BASE_LERP_SPEED * currentStage.cameraSpeed;
 
@@ -3283,8 +3291,8 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler.clearCharScripts(); // quedan vivos al regresar al state → crash
 			EventManager.clear();
 			// Descargar los handlers de eventos del contexto gameplay
-			funkin.scripting.EventHandlerLoader.clearContext('chart');
-			funkin.scripting.EventHandlerLoader.clearContext('global');
+			funkin.scripting.events.EventHandlerLoader.clearContext('chart');
+			funkin.scripting.events.EventHandlerLoader.clearContext('global');
 		}
 
 		// ── 5. OMITIR currentStage.destroy() manual ─────────────────────────────

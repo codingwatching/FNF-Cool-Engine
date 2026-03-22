@@ -915,10 +915,10 @@ class Paths
 	}
 
 	public static function skinSprite(key:String):FlxAtlasFrames
-		return _cachedAtlas('skin_$key', () -> _sparrow(resolve('skins/$key.png', IMAGE), resolve('skins/$key.xml', TEXT)));
+		return _cachedAtlas('skin_$key', () -> _sparrow(resolve('notes/skins/$key.png', IMAGE), resolve('notes/skins/$key.xml', TEXT)));
 
 	public static function splashSprite(key:String):FlxAtlasFrames
-		return _cachedAtlas('splash_$key', () -> _sparrow(resolve('splashes/$key.png', IMAGE), resolve('splashes/$key.xml', TEXT)));
+		return _cachedAtlas('splash_$key', () -> _sparrow(resolve('notes/splashes/$key.png', IMAGE), resolve('notes/splashes/$key.xml', TEXT)));
 
 	public static function getSparrowAtlasCutscene(key:String):FlxAtlasFrames
 		return _cachedAtlas('cutscene_$key', () -> FlxAtlasFrames.fromSparrow('$key.png', '$key.xml'));
@@ -952,7 +952,7 @@ class Paths
 	}
 
 	public static function skinSpriteTxt(key:String):FlxAtlasFrames
-		return _cachedAtlas('skin_txt_$key', () -> _packer(resolve('skins/$key.png', IMAGE), resolve('skins/$key.txt', TEXT)));
+		return _cachedAtlas('skin_txt_$key', () -> _packer(resolve('notes/skins/$key.png', IMAGE), resolve('notes/skins/$key.txt', TEXT)));
 
 	// ── Gestión del caché de atlas ────────────────────────────────────────────
 

@@ -40,10 +40,10 @@ import funkin.gameplay.objects.character.Character;
 import funkin.gameplay.objects.character.CharacterSlot;
 import funkin.gameplay.objects.hud.ScoreManager;
 import funkin.gameplay.objects.stages.Stage;
-import funkin.scripting.EventManager;
+import funkin.scripting.events.EventManager;
 import funkin.scripting.HScriptInstance;
 import funkin.scripting.ScriptHandler;
-import funkin.scripting.EventInfoSystem;
+import funkin.scripting.events.EventInfoSystem;
 import funkin.transitions.StateTransition;
 import funkin.menus.FreeplayState.SongMetadata;
 // ─── System ───────────────────────────────────────────────────────────────────

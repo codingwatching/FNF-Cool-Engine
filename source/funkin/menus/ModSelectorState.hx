@@ -565,6 +565,7 @@ class ModSelectorState extends MusicBeatState
 		{
 			_camUI.scroll.y = 0;
 			_updateCfgCursor();
+			if (_mods.length > 0) _refreshConfigForMod(_mods[_cur]);
 		}
 		if (isSys)
 		{
@@ -847,6 +848,49 @@ class ModSelectorState extends MusicBeatState
 			_cfgItems[i].value.color = i == _cfgCursor ? T.accent : T.textPrimary;
 	}
 
+	/**
+	 * Lee el global.json del mod indicado (por su carpeta) y actualiza
+	 * los campos del tab CONFIG con esos valores.
+	 * Si el mod no tiene global.json, carga el de assets/ base.
+	 * Así el CONFIG tab siempre muestra la config del mod seleccionado,
+	 * no la del mod activo.
+	 */
+	function _refreshConfigForMod(mod:ModInfo):Void
+	{
+		#if sys
+		var ui         = 'default';
+		var noteSkin   = 'default';
+		var noteSplash = 'Default';
+
+		// Intentar cargar desde la carpeta del mod seleccionado
+		final modCfgPath = '${mod.folder}/data/config/global.json';
+		final baseCfgPath = 'assets/data/config/global.json';
+		final path = sys.FileSystem.exists(modCfgPath) ? modCfgPath
+		           : sys.FileSystem.exists(baseCfgPath) ? baseCfgPath
+		           : null;
+
+		if (path != null)
+		{
+			try
+			{
+				final d:Dynamic = haxe.Json.parse(sys.io.File.getContent(path));
+				if (d.ui         != null) ui         = Std.string(d.ui);
+				if (d.noteSkin   != null) noteSkin   = Std.string(d.noteSkin);
+				if (d.noteSplash != null) noteSplash = Std.string(d.noteSplash);
+			}
+			catch (_) {}
+		}
+
+		for (it in _cfgItems)
+			switch (it.key)
+			{
+				case 'ui':         it.value.text = ui;
+				case 'noteSkin':   it.value.text = noteSkin;
+				case 'noteSplash': it.value.text = noteSplash;
+			}
+		#end
+	}
+
 	function _editCfgField():Void
 	{
 		final item = _cfgItems[_cfgCursor];
@@ -955,6 +999,8 @@ class ModSelectorState extends MusicBeatState
 		final mod = _mods[idx];
 		_updateInfo(mod);
 		_loadPreview(mod, instant);
+		// Refrescar CONFIG tab si está visible para mostrar la config de este mod
+		if (_curTab == 1) _refreshConfigForMod(mod);
 	}
 
 	function _updateInfo(mod:ModInfo):Void
@@ -1102,13 +1148,25 @@ class ModSelectorState extends MusicBeatState
 			ModManager.deactivate();
 		else
 			ModManager.setActive(mod.id);
+
 		#if cpp _stopVideo(); #end
-		if (FlxG.sound.music != null)
-			FlxG.sound.music.stop();
+
+		// Limpiar todo el estado de audio ANTES de cambiar de state,
+		// para que CoreAudio no retenga FlxSounds muertos de esta sesión.
+		funkin.audio.CoreAudio.flushForModSwitch();
+
 		Paths.forceClearCache();
 		#if cpp cpp.vm.Gc.run(true); #end
 		#if hl hl.Gc.major(); #end
-		FlxG.camera.fade(flixel.util.FlxColor.BLACK, 0.5, false, () -> FlxG.resetGame());
+
+		// Fade en la cámara visible (_camBG cubre toda la pantalla)
+		// y luego switchState a CacheState — NO resetGame(), que deja
+		// el estado de plugins en un estado potencialmente inconsistente.
+		funkin.system.CursorManager.hide();
+		_camBG.fade(flixel.util.FlxColor.BLACK, 0.4, false, function()
+		{
+			funkin.transitions.StateTransition.switchState(new CacheState());
+		});
 	}
 
 	function _toggleEnable():Void

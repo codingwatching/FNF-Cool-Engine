@@ -16,7 +16,7 @@ import funkin.gameplay.CharacterController;
 import funkin.gameplay.objects.character.Character;
 import funkin.gameplay.objects.character.CharacterSlot;
 import funkin.gameplay.objects.stages.Stage;
-import funkin.scripting.EventManager;
+import funkin.scripting.events.EventManager;
 import funkin.scripting.ScriptHandler;
 
 /**

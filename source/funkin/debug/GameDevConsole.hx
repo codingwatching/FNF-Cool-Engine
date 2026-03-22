@@ -122,6 +122,9 @@ class GameDevConsole
 		// ── Escuchar teclado en el stage para toggle ──────────────────────────
 		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, _onKeyDown);
 
+		// ── Scroll nativo via OpenFL — funciona en cualquier SubState ────────
+		FlxG.stage.addEventListener(openfl.events.MouseEvent.MOUSE_WHEEL, _onMouseWheel);
+
 		// ── Capturar errores no controlados ───────────────────────────────────
 		FlxG.stage.addEventListener(openfl.events.UncaughtErrorEvent.UNCAUGHT_ERROR, _onUncaughtError);
 
@@ -214,16 +217,6 @@ class GameDevConsole
 	{
 		if (!initialized) return;
 		if (!visible) return;
-
-		#if !flash
-		var wheel = FlxG.mouse.wheel;
-		if (wheel != 0)
-		{
-			_scrollPos = Std.int(Math.max(0, Math.min(_scrollPos - wheel * 2,
-			                             Std.int(Math.max(0, _lines.length - _visibleLineCount())))));
-			_dirty = true;
-		}
-		#end
 
 		if (_dirty)
 		{
@@ -376,6 +369,20 @@ class GameDevConsole
 			case Keyboard.F5:
 				if (visible) clear();
 		}
+	}
+
+	private static function _onMouseWheel(e:openfl.events.MouseEvent):Void
+	{
+		if (!visible) return;
+		#if !flash
+		_scrollPos = Std.int(Math.max(0, Math.min(
+			_scrollPos - Std.int(e.delta) * 2,
+			Std.int(Math.max(0, _lines.length - _visibleLineCount()))
+		)));
+		_dirty = true;
+		_render();
+		_dirty = false;
+		#end
 	}
 
 	private static function _onUncaughtError(e:openfl.events.UncaughtErrorEvent):Void

@@ -109,6 +109,18 @@ class NoteHoldCover extends FlxSprite
 			try { atlasFrames = NoteSkinSystem.getHoldCoverTexture(_color, resolvedSplash); }
 			catch (e:Dynamic) { trace('[NoteHoldCover] Error cargando textura $_color/$resolvedSplash: $e'); }
 
+			// Fallback a Default si el splash no tiene holdCover
+			if (atlasFrames == null && resolvedSplash != 'Default')
+			{
+				try { atlasFrames = NoteSkinSystem.getHoldCoverTexture(_color, 'Default'); }
+				catch (e:Dynamic) {}
+				if (atlasFrames != null)
+				{
+					_hcData = NoteSkinSystem.getHoldCoverData('Default');
+					trace('[NoteHoldCover] "$resolvedSplash" sin holdCover → usando Default para $_color');
+				}
+			}
+
 			if (atlasFrames != null)
 			{
 				frames = atlasFrames;

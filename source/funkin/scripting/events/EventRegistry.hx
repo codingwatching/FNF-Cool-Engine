@@ -1,4 +1,4 @@
-package funkin.scripting;
+package funkin.scripting.events;
 
 #if sys
 import sys.FileSystem;
@@ -7,10 +7,10 @@ import sys.io.File;
 import haxe.Json;
 import mods.ModManager;
 
-import funkin.scripting.EventDefinition;
-import funkin.scripting.EventInfoSystem;
-import funkin.scripting.EventInfoSystem.EventParamDef;
-import funkin.scripting.EventInfoSystem.EventParamType;
+import funkin.scripting.events.EventDefinition;
+import funkin.scripting.events.EventInfoSystem;
+import funkin.scripting.events.EventInfoSystem.EventParamDef;
+import funkin.scripting.events.EventInfoSystem.EventParamType;
 
 using StringTools;
 

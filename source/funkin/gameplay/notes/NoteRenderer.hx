@@ -250,7 +250,7 @@ class NoteRenderer
      * @return El NoteHoldCover asignado, o null si ya había uno para esta nota.
      */
     // strumCenterX/Y = centro visual del strum (strum.x + strum.width/2, strum.y + strum.height/2)
-    public function startHoldCover(direction:Int, strumCenterX:Float, strumCenterY:Float, isPlayer:Bool = true, strumsGroupIndex:Int = 0):NoteHoldCover
+    public function startHoldCover(direction:Int, strumCenterX:Float, strumCenterY:Float, isPlayer:Bool = true, strumsGroupIndex:Int = 0, ?splashName:String):NoteHoldCover
     {
         // BUG FIX: incluir strumsGroupIndex en la clave para que dos holds simultáneos
         // en la misma dirección pero distintos grupos no compartan el mismo cover.
@@ -260,7 +260,7 @@ class NoteRenderer
         if (activeHoldCovers.exists(key))
             return activeHoldCovers.get(key);
 
-        var cover = _getHoldCover(strumCenterX, strumCenterY, direction);
+        var cover = _getHoldCover(strumCenterX, strumCenterY, direction, splashName);
         cover.playStart();
         activeHoldCovers.set(key, cover);
         return cover;

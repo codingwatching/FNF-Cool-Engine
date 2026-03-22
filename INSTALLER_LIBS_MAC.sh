@@ -67,8 +67,8 @@ haxelib set    openfl  $OPENFL_VERSION
 # ── HaxeFlixel ───────────────────────────────────
 echo ""
 echo "Installing HaxeFlixel (FunkinCrew fork)..."
-haxelib git flixel         https://github.com/FunkinCrew/flixel         --never
-haxelib git flixel-addons  https://github.com/FunkinCrew/flixel-addons  funkin-4.0.6 --never
+haxelib install flixel 6.1.2         --never
+haxelib git flixel-addons  4.0.1 --never
 haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
 haxelib install flixel-ui    --quiet --never
 haxelib install flixel-tools 1.5.1  --quiet --never
@@ -108,8 +108,8 @@ echo ""
 echo "Versions installed:"
 echo "  Lime:           $LIME_VERSION"
 echo "  OpenFL:         $OPENFL_VERSION"
-echo "  Flixel:         FunkinCrew/flixel (git)"
-echo "  flixel-addons:  FunkinCrew/flixel-addons funkin-4.0.6 (git)"
+echo "  Flixel:         6.1.2"
+echo "  flixel-addons:  4.0.1"
 echo "  flixel-animate: MaybeMaru/flixel-animate (git)"
 echo "  funkin.vis:     FunkinCrew/funkVis (git)"
 echo "  hxvlc:          MAJigsaw77/hxvlc (git)"

@@ -1,4 +1,4 @@
-package funkin.scripting;
+package funkin.scripting.events;
 
 import flixel.FlxG;
 import funkin.gameplay.PlayState;
@@ -6,8 +6,8 @@ import funkin.gameplay.objects.character.Character;
 import funkin.data.Song.SwagSong;
 import funkin.data.Section.SwagSection;
 import Paths;
-import funkin.scripting.EventRegistry;
-import funkin.scripting.EventHandlerLoader;
+import funkin.scripting.events.EventRegistry;
+import funkin.scripting.events.EventHandlerLoader;
 
 using StringTools;
 
@@ -263,7 +263,33 @@ class EventManager
 			case 'camera follow', 'camera':
 				if (game != null && game.cameraController != null)
 				{
-					game.cameraController.setTarget(v1);
+					// Formato: "target|offsetX|offsetY|duration|ease"
+					// Todos los campos salvo target son opcionales.
+					final parts = v1.split('|');
+					final target  = parts[0].trim();
+					final offX    = parts.length > 1 ? Std.parseFloat(parts[1]) : Math.NaN;
+					final offY    = parts.length > 2 ? Std.parseFloat(parts[2]) : Math.NaN;
+					final dur     = parts.length > 3 ? Std.parseFloat(parts[3]) : Math.NaN;
+					final ease    = parts.length > 4 ? parts[4].trim() : '';
+
+					final extraOffX = Math.isNaN(offX) ? 0.0 : offX;
+					final extraOffY = Math.isNaN(offY) ? 0.0 : offY;
+
+					game.cameraController.setTarget(target, extraOffX, extraOffY);
+
+					// Si tiene duration/ease, tweenea en lugar del lerp normal
+					if (!Math.isNaN(dur) && dur > 0)
+					{
+						var easeFunc:Null<Float->Float> = null;
+						if (ease != '')
+							easeFunc = Reflect.field(flixel.tweens.FlxEase, ease);
+						// Solo tweenear si tenemos una función de ease válida.
+						// Si el nombre no existe en FlxEase simplemente hacer lerp normal.
+						if (easeFunc != null)
+							game.cameraController.tweenToTarget(dur, easeFunc);
+					}
+
+					// v2 legacy: lerp speed
 					if (v2 != '')
 					{
 						final lerp = Std.parseFloat(v2);

@@ -500,7 +500,7 @@ class ScriptAPI
 			'VideoManager'      => funkin.cutscenes.VideoManager,
 			// Scripting
 			'ScriptHandler'     => funkin.scripting.ScriptHandler,
-			'EventManager'      => funkin.scripting.EventManager,
+			'EventManager'      => funkin.scripting.events.EventManager,
 			// OpenFL
 			'BitmapData'        => openfl.display.BitmapData,
 			'Sound'             => openfl.media.Sound,
@@ -1361,9 +1361,9 @@ class ScriptAPI
 
 	static function exposeEvents(interp:Interp):Void
 	{
-		interp.variables.set('EventManager',      funkin.scripting.EventManager);
-		interp.variables.set('EventRegistry',     funkin.scripting.EventRegistry);
-		interp.variables.set('EventHandlerLoader',funkin.scripting.EventHandlerLoader);
+		interp.variables.set('EventManager',      funkin.scripting.events.EventManager);
+		interp.variables.set('EventRegistry',     funkin.scripting.events.EventRegistry);
+		interp.variables.set('EventHandlerLoader',funkin.scripting.events.EventHandlerLoader);
 
 		// Objeto 'events' con API de alto nivel para scripts de mods
 		interp.variables.set('events', {
@@ -1372,7 +1372,7 @@ class ScriptAPI
 			 *   events.fire("Camera Shake", "0.01", "0.5")
 			 */
 			fire: function(name:String, ?v1:String, ?v2:String) {
-				funkin.scripting.EventManager.fireEvent(name, v1 ?? '', v2 ?? '');
+				funkin.scripting.events.EventManager.fireEvent(name, v1 ?? '', v2 ?? '');
 			},
 			/**
 			 * Registra un handler para un evento concreto.
@@ -1381,7 +1381,7 @@ class ScriptAPI
 			 *   events.on("My Event", function(v1, v2, time) { ... })
 			 */
 			on: function(name:String, handler:Dynamic) {
-				funkin.scripting.EventManager.registerCustomEvent(name, function(evArr) {
+				funkin.scripting.events.EventManager.registerCustomEvent(name, function(evArr) {
 					final e = evArr != null && evArr.length > 0 ? evArr[0] : null;
 					if (e == null) return false;
 					try { return handler(e.value1, e.value2, e.time) == true; }
@@ -1395,8 +1395,8 @@ class ScriptAPI
 			 */
 			list: function(?context:String):Array<String> {
 				if (context != null)
-					return funkin.scripting.EventRegistry.getNamesForContext(context);
-				return funkin.scripting.EventRegistry.eventList;
+					return funkin.scripting.events.EventRegistry.getNamesForContext(context);
+				return funkin.scripting.events.EventRegistry.eventList;
 			},
 			/**
 			 * Definición completa de un evento (params, color, descripción, etc.)
@@ -1405,7 +1405,7 @@ class ScriptAPI
 			 *   trace(def.params.length)
 			 */
 			get: function(name:String):Dynamic {
-				return funkin.scripting.EventRegistry.get(name);
+				return funkin.scripting.events.EventRegistry.get(name);
 			},
 			/**
 			 * Registra un nuevo evento con su definición completa.
@@ -1420,7 +1420,7 @@ class ScriptAPI
 			 *   })
 			 */
 			register: function(def:Dynamic) {
-				final paramDefs:Array<funkin.scripting.EventInfoSystem.EventParamDef> = [];
+				final paramDefs:Array<funkin.scripting.events.EventInfoSystem.EventParamDef> = [];
 				if (def.params != null && Std.isOfType(def.params, Array))
 				{
 					for (p in (def.params : Array<Dynamic>))
@@ -1428,14 +1428,14 @@ class ScriptAPI
 						if (p == null || p.name == null) continue;
 						paramDefs.push({
 							name:     Std.string(p.name),
-							type:     funkin.scripting.EventInfoSystem.parseParamType(
+							type:     funkin.scripting.events.EventInfoSystem.parseParamType(
 							              Std.string(p.type ?? 'String')),
 							defValue: p.defaultValue != null ? Std.string(p.defaultValue) : '',
 							description: p.description != null ? Std.string(p.description) : null
 						});
 					}
 				}
-				funkin.scripting.EventRegistry.register({
+				funkin.scripting.events.EventRegistry.register({
 					name:        Std.string(def.name ?? ''),
 					description: def.description != null ? Std.string(def.description) : null,
 					color:       def.color  != null ? Std.int(def.color) : 0xFFAAAAAA,
