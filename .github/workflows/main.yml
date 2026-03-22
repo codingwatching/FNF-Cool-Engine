@@ -69,7 +69,6 @@ jobs:
           haxelib set lime   ${{ env.LIME_VERSION }}
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel-addons 4.0.1
-          haxelib set flixel-ui
 
       - name: Setup Lime
         shell: cmd
@@ -149,7 +148,6 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
-          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
@@ -222,7 +220,6 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
-          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
@@ -297,7 +294,6 @@ jobs:
           haxelib set openfl ${{ env.OPENFL_VERSION }}
           haxelib set flixel 6.1.2
           haxelib set flixel-addons 4.0.1
-          haxelib set flixel-ui
 
       - name: Setup Lime
         run: haxelib run lime setup -y
