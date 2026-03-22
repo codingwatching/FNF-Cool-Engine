@@ -8,7 +8,7 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import funkin.scripting.HScriptInstance;
 import funkin.scripting.ScriptHandler;
 #if (LUA_ALLOWED && linc_luajit)
-import funkin.scripting.LuaScriptInstance;
+import funkin.scripting.RuleScriptInstance;
 #end
 
 /**
@@ -60,7 +60,7 @@ class NoteTypeManager
 	static var _scripts:Map<String, Null<HScriptInstance>> = [];
 
 	#if (LUA_ALLOWED && linc_luajit)
-	static var _luaScripts:Map<String, Null<LuaScriptInstance>> = [];
+	static var _luaScripts:Map<String, Null<RuleScriptInstance>> = [];
 	#end
 
 	static var _frames:Map<String, Null<FlxAtlasFrames>> = [];
@@ -220,16 +220,16 @@ class NoteTypeManager
 	// ─── SCRIPTS LUA ─────────────────────────────────────────────────────────
 
 	#if (LUA_ALLOWED && linc_luajit)
-	public static function getLuaScript(typeName:String):Null<LuaScriptInstance>
+	public static function getLuaScript(typeName:String):Null<RuleScriptInstance>
 	{
 		if (!isCustomType(typeName)) return null;
 		if (_luaScripts.exists(typeName)) return _luaScripts.get(typeName);
 
 		final path = _findScriptPath(typeName, true);
-		var inst:Null<LuaScriptInstance> = null;
+		var inst:Null<RuleScriptInstance> = null;
 		if (path != null)
 		{
-			inst = new LuaScriptInstance(typeName, path);
+			inst = new RuleScriptInstance(typeName, path);
 			inst.loadFile(path);
 			inst.set('typeName', typeName);
 			inst.set('typeConfig', getConfig(typeName));

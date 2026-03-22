@@ -78,6 +78,8 @@ class Note extends FlxSprite
 
 	/** Referencia directa al shader de glow para actualizar intensidad por proximidad. */
 	private var _glowShader:funkin.shaders.NoteGlowShader = null;
+	/** Shader de colorización automática (colorAuto:true en skin.json). Mutex con _glowShader. */
+	private var _rgbShader:funkin.shaders.NoteRGBShader = null;
 
 
 	/** Distancia máxima (ms) desde la que empieza el glow de aproximación. */
@@ -112,14 +114,27 @@ class Note extends FlxSprite
 		// se reconstruyan automáticamente cuando la skin cambia (recycle).
 
 		// Glow de proximidad: shader propio en notas normales, no en sustain
-		if (!isSustainNote && shaders.ShaderManager.enabled)
+		// Si la skin tiene colorAuto:true → usar NoteRGBShader en su lugar (mutex)
+		final _skinData = NoteSkinSystem.getCurrentSkinData();
+		if (_skinData != null && _skinData.colorAuto == true)
+		{
+			final mult      = (_skinData.colorMult != null) ? _skinData.colorMult : 1.0;
+			final customDir = (_skinData.colorDirections != null && noteData < _skinData.colorDirections.length)
+				? _skinData.colorDirections[noteData] : null;
+			_rgbShader  = new funkin.shaders.NoteRGBShader(noteData % 4, mult, customDir);
+			_glowShader = null;
+			shader      = _rgbShader;
+		}
+		else if (!isSustainNote && funkin.graphics.shaders.ShaderManager.enabled)
 		{
 			_glowShader = funkin.shaders.NoteGlowShader.forDirection(noteData % 4, 0.0);
-			shader = _glowShader;
+			_rgbShader  = null;
+			shader      = _glowShader;
 		}
 		else
 		{
 			_glowShader = null;
+			_rgbShader  = null;
 		}
 
 		setupNoteDirection();
@@ -316,16 +331,28 @@ class Note extends FlxSprite
 
 			_applyNoteAnim(animArrows[noteData] + 'Scroll');
 
-			// Re-crear shader de glow al reciclar (la dirección puede haber cambiado)
-			if (shaders.ShaderManager.enabled)
+			// Re-crear shader al reciclar (dirección puede haber cambiado)
+			final _rSkinData = NoteSkinSystem.getCurrentSkinData();
+			if (_rSkinData != null && _rSkinData.colorAuto == true)
+			{
+				final mult      = (_rSkinData.colorMult != null) ? _rSkinData.colorMult : 1.0;
+				final customDir = (_rSkinData.colorDirections != null && noteData < _rSkinData.colorDirections.length)
+					? _rSkinData.colorDirections[noteData] : null;
+				_rgbShader  = new funkin.shaders.NoteRGBShader(noteData % 4, mult, customDir);
+				_glowShader = null;
+				shader      = _rgbShader;
+			}
+			else if (funkin.graphics.shaders.ShaderManager.enabled)
 			{
 				_glowShader = funkin.shaders.NoteGlowShader.forDirection(noteData % 4, 0.0);
-				shader = _glowShader;
+				_rgbShader  = null;
+				shader      = _glowShader;
 			}
 			else
 			{
 				_glowShader = null;
-				shader = null;
+				_rgbShader  = null;
+				shader      = null;
 			}
 		}
 		else

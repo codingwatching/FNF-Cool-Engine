@@ -1,4 +1,4 @@
-package funkin.menus;
+package funkin.menus.substate;
 
 import funkin.gameplay.controls.Controls.Control;
 import flixel.FlxG;

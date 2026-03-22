@@ -57,8 +57,8 @@ class StateScriptHandler
 	public static var overrides : Map<String, FunctionOverride> = [];
 
 	#if (LUA_ALLOWED && linc_luajit)
-	/** Native Lua scripts for this state. */
-	public static var luaScripts : Array<LuaScriptInstance> = [];
+	/** RuleScript (Lua) scripts for this state. */
+	public static var luaScripts : Array<RuleScriptInstance> = [];
 	#end
 
 	/** Datos compartidos entre scripts del mismo state. */
@@ -491,41 +491,39 @@ class StateScriptHandler
 		#end
 	}
 
-	// ─── Lua scripts para states ──────────────────────────────────────────────
+	// ─── Lua scripts for states ───────────────────────────────────────────────
 
 	/**
-	 * Loads a .lua file as a native LuaScriptInstance for a state/menu.
-	 * Supports the same hooks and ui API as HScript state scripts.
+	 * Loads a .lua file as a RuleScriptInstance for a state/menu.
+	 * Supports the same hooks and full top-level API as HScript state scripts.
 	 *
 	 * Hooks:  onCreate, postCreate, onUpdate, onUpdatePost,
 	 *         onBeatHit, onStepHit, onDestroy, onKeyJustPressed
-	 * API:    ui.add/remove/text/solidSprite/tween/center/zoom/playSound/switchState
+	 * API:    add, remove, insert, switchState, timer, interval,
+	 *         shake, flash, fade, zoomCamera, center, playSound, …
+	 *         Plus the full RuleScript OOP bridge (import, FlxTween.tween, etc.)
 	 */
 	#if (LUA_ALLOWED && linc_luajit)
 	public static function loadLuaScript(scriptPath:String, state:Dynamic,
-		?extraVars:Map<String, Dynamic>):Null<LuaScriptInstance>
+		?extraVars:Map<String, Dynamic>):Null<RuleScriptInstance>
 	{
 		if (!FileSystem.exists(scriptPath)) return null;
 
 		final name   = ScriptHandler.extractName(scriptPath);
-		final script = new LuaScriptInstance(name, scriptPath);
+		final script = new RuleScriptInstance(name, scriptPath);
 
-		// Inject the state ui-helper API
+		// Inject state-bound top-level API
 		_exposeLuaStateAPI(script, state);
 
 		// Extra caller-provided vars
 		if (extraVars != null)
 			for (k => v in extraVars) script.set(k, v);
 
-		// Hot-reload self-reference
-		script.set('hotReload', function():Bool return script.hotReload());
-		script.set('log', function(msg:Dynamic):Void trace('[Lua:$name] $msg'));
-
 		script.loadFile(scriptPath);
 
 		if (!script.active)
 		{
-			trace('[StateScriptHandler] Lua error in: $scriptPath');
+			trace('[StateScriptHandler] RuleScript error in: $scriptPath');
 			script.destroy();
 			return null;
 		}
@@ -533,31 +531,79 @@ class StateScriptHandler
 		luaScripts.push(script);
 		script.call('onCreate');
 		script.call('postCreate');
-		trace('[StateScriptHandler] Lua loaded: $name');
+		trace('[StateScriptHandler] RuleScript loaded: $name');
 		return script;
 	}
 
 	/**
-	 * Exposes the standard state ui API to a Lua script.
-	 * Mirrors _exposeStateAPI (HScript version) but uses lua.set().
+	 * Exposes the standard state API to a RuleScript (Lua) script.
+	 * State-bound functions (add, remove, insert, switchState, timer…) are
+	 * injected as top-level globals — identical to _exposeStateAPI for HScript.
+	 * Everything else (FlxTween, FlxG, FlxSprite…) is already accessible via
+	 * the RuleScript OOP bridge, so no duplication needed.
 	 */
-	static function _exposeLuaStateAPI(script:LuaScriptInstance, state:Dynamic):Void
+	static function _exposeLuaStateAPI(script:RuleScriptInstance, state:Dynamic):Void
 	{
 		script.set('FlxG',  flixel.FlxG);
 		script.set('Math',  Math);
 		script.set('Std',   Std);
 		script.set('self',  state);
 
-		// Build ui helper object matching ScriptBridge.buildUIHelper output
+		// ui object — backward compat
 		final uiHelper:Dynamic =
 			(state != null && Std.isOfType(state, flixel.FlxState))
 			? funkin.scripting.ScriptBridge.buildUIHelper(cast state)
 			: funkin.scripting.ScriptBridge.buildUIHelper(flixel.FlxG.state);
-
 		script.set('ui', uiHelper);
 
+		final st:flixel.FlxState = Std.isOfType(state, flixel.FlxState)
+			? cast state : flixel.FlxG.state;
+
+		// Display list
+		script.set('add',    function(obj:Dynamic) { st.add(obj); return obj; });
+		script.set('remove', function(obj:Dynamic) return st.remove(obj));
+		script.set('insert', function(pos:Int, obj:Dynamic) { st.insert(pos, obj); return obj; });
+
+		// Navigation
+		script.set('switchState',         function(name:String) funkin.scripting.ScriptBridge.switchStateByName(name));
+		script.set('switchStateInstance', function(inst:flixel.FlxState) funkin.transitions.StateTransition.switchState(inst));
+		script.set('stickerSwitch',       function(inst:flixel.FlxState)
+			funkin.transitions.StickerTransition.start(function() funkin.transitions.StateTransition.switchState(inst)));
+		script.set('loadState',           function(inst:flixel.FlxState)
+			funkin.states.LoadingState.loadAndSwitchState(inst));
+
+		// Timers
+		script.set('timer',    function(delay:Float, cb:Dynamic) return new flixel.util.FlxTimer().start(delay, cb));
+		script.set('interval', function(delay:Float, cb:Dynamic, loops:Int = 0) return new flixel.util.FlxTimer().start(delay, cb, loops));
+		script.set('cancelTweens', function(obj:Dynamic) flixel.tweens.FlxTween.cancelTweensOf(obj));
+
+		// Camera
+		script.set('shake',      function(i:Float = 0.005, d:Float = 0.25) flixel.FlxG.camera.shake(i, d));
+		script.set('flash',      function(c:Int = 0xFFFFFFFF, d:Float = 0.5) flixel.FlxG.camera.flash(c, d));
+		script.set('fade',       function(c:Int = 0xFF000000, d:Float = 0.5, fadeIn:Bool = false) flixel.FlxG.camera.fade(c, d, fadeIn));
+		script.set('zoomCamera', function(target:Float = 1.0, d:Float = 0.3)
+			flixel.tweens.FlxTween.tween(flixel.FlxG.camera, {zoom: target}, d, {ease: flixel.tweens.FlxEase.quadOut}));
+
+		// Centering
+		script.set('center',  function(spr:flixel.FlxSprite) { spr.screenCenter(); return spr; });
+		script.set('centerX', function(spr:flixel.FlxSprite) { spr.screenCenter(flixel.util.FlxAxes.X); return spr; });
+		script.set('centerY', function(spr:flixel.FlxSprite) { spr.screenCenter(flixel.util.FlxAxes.Y); return spr; });
+
+		// Sound
+		script.set('playSound', function(path:String, vol:Float = 1.0) {
+			final resolved = Paths.sound(path);
+			final snd = Paths.getSound(resolved);
+			if (snd != null) flixel.FlxG.sound.play(snd, vol); else flixel.FlxG.sound.play(resolved, vol);
+		});
+		script.set('playMusic', function(path:String, vol:Float = 1.0) {
+			final resolved = Paths.music(path);
+			final snd = Paths.getSound(resolved);
+			if (snd != null) flixel.FlxG.sound.playMusic(snd, vol); else flixel.FlxG.sound.playMusic(resolved, vol);
+		});
+		script.set('stopMusic', function() { if (flixel.FlxG.sound.music != null) flixel.FlxG.sound.music.stop(); });
+
 		// PlayState reference if available
-		var ps = funkin.gameplay.PlayState.instance;
+		final ps = funkin.gameplay.PlayState.instance;
 		if (ps != null) script.set('game', ps);
 	}
 	#end
@@ -682,20 +728,77 @@ class StateScriptHandler
 			})
 		);
 
-		// ── 14. Builder de elementos UI ───────────────────────────────────────
+		// ── 14. ui helper object (backward compat — scripts using ui.X still work) ──
 		interp.variables.set('ui', ScriptBridge.buildUIHelper(state));
 
-		// ── 15. Funciones de stage directas (add/remove) ──────────────────────
-		// IMPORTANTE: add() viene de FlxGroup (padre de FlxState) y NO se refleja
-		// automáticamente por _reflectStateFields porque el bucle para en FlxState.
-		// Se exponen aquí explícitamente para que los scripts puedan llamar
-		// add(sprite) y remove(sprite) igual que en Codename Engine.
-		if (!interp.variables.exists('add'))
-			interp.variables.set('add', function(obj:Dynamic) { state.add(obj); return obj; });
-		if (!interp.variables.exists('remove'))
-			interp.variables.set('remove', function(obj:Dynamic, splice:Bool = false) { return state.remove(obj, splice); });
+		// ── 15. Top-level equivalents — accurate to how a real FlxState works ────
+		//
+		// In Haxe you call add(), remove(), FlxTween.tween(), etc. directly.
+		// Everything that used to require ui.X is now also available bare.
+		// ui.X still works for old scripts — this is purely additive.
 
-		// ── 16. Referencia al propio script ───────────────────────────────────
+		// Display list (state-bound — need the state reference)
+		if (!interp.variables.exists('add'))
+			interp.variables.set('add',    function(obj:Dynamic) { state.add(obj); return obj; });
+		if (!interp.variables.exists('remove'))
+			interp.variables.set('remove', function(obj:Dynamic, splice:Bool = false) return state.remove(obj, splice));
+		if (!interp.variables.exists('insert'))
+			interp.variables.set('insert', function(pos:Int, obj:Dynamic) { state.insert(pos, obj); return obj; });
+
+		// State navigation
+		interp.variables.set('switchState',         function(name:String) funkin.scripting.ScriptBridge.switchStateByName(name));
+		interp.variables.set('switchStateInstance', function(inst:flixel.FlxState) funkin.transitions.StateTransition.switchState(inst));
+		interp.variables.set('stickerSwitch',       function(inst:flixel.FlxState)
+			funkin.transitions.StickerTransition.start(function() funkin.transitions.StateTransition.switchState(inst)));
+		interp.variables.set('loadState',           function(inst:flixel.FlxState)
+			funkin.states.LoadingState.loadAndSwitchState(inst));
+
+		// Timers (mirrors new FlxTimer().start(...))
+		interp.variables.set('timer',    function(delay:Float, cb:flixel.util.FlxTimer->Void):flixel.util.FlxTimer
+			return new flixel.util.FlxTimer().start(delay, cb));
+		interp.variables.set('interval', function(delay:Float, cb:flixel.util.FlxTimer->Void, loops:Int = 0):flixel.util.FlxTimer
+			return new flixel.util.FlxTimer().start(delay, cb, loops));
+
+		// Tweens — FlxTween is already exposed by ScriptAPI, but these shorthands
+		// mirror what you'd call directly on the state in Haxe:
+		//   FlxTween.tween(spr, {alpha:0}, 0.5)  ← that already works
+		//   cancelTweens(spr)                     ← shorthand for FlxTween.cancelTweensOf
+		interp.variables.set('cancelTweens', function(obj:Dynamic) flixel.tweens.FlxTween.cancelTweensOf(obj));
+
+		// Camera helpers (equivalent to FlxG.camera.X — those also work directly)
+		interp.variables.set('shake', function(intensity:Float = 0.005, duration:Float = 0.25)
+			flixel.FlxG.camera.shake(intensity, duration));
+		interp.variables.set('flash', function(color:Int = 0xFFFFFFFF, duration:Float = 0.5)
+			flixel.FlxG.camera.flash(color, duration));
+		interp.variables.set('fade',  function(color:Int = 0xFF000000, duration:Float = 0.5, fadeIn:Bool = false)
+			flixel.FlxG.camera.fade(color, duration, fadeIn));
+		interp.variables.set('zoomCamera', function(target:Float = 1.0, duration:Float = 0.3)
+			flixel.tweens.FlxTween.tween(flixel.FlxG.camera, {zoom: target}, duration,
+				{ease: flixel.tweens.FlxEase.quadOut}));
+
+		// Centering helpers (mirrors spr.screenCenter())
+		interp.variables.set('center',  function(spr:flixel.FlxSprite) { spr.screenCenter(); return spr; });
+		interp.variables.set('centerX', function(spr:flixel.FlxSprite) { spr.screenCenter(flixel.util.FlxAxes.X); return spr; });
+		interp.variables.set('centerY', function(spr:flixel.FlxSprite) { spr.screenCenter(flixel.util.FlxAxes.Y); return spr; });
+
+		// Sound (mirrors FlxG.sound.X — those also work directly)
+		interp.variables.set('playSound', function(path:String, vol:Float = 1.0) {
+			final resolved = Paths.sound(path);
+			final snd = Paths.getSound(resolved);
+			if (snd != null) flixel.FlxG.sound.play(snd, vol);
+			else flixel.FlxG.sound.play(resolved, vol);
+		});
+		interp.variables.set('playMusic', function(path:String, vol:Float = 1.0) {
+			final resolved = Paths.music(path);
+			final snd = Paths.getSound(resolved);
+			if (snd != null) flixel.FlxG.sound.playMusic(snd, vol);
+			else flixel.FlxG.sound.playMusic(resolved, vol);
+		});
+		interp.variables.set('stopMusic', function() {
+			if (flixel.FlxG.sound.music != null) flixel.FlxG.sound.music.stop();
+		});
+
+		// ── 16. Reference to the script itself ────────────────────────────────
 		interp.variables.set('self', script);
 	}
 
@@ -719,7 +822,12 @@ class StateScriptHandler
 		'overrideFunction','removeOverride','toggleOverride','hasOverride',
 		'setShared','getShared','deleteShared','registerHook','broadcast',
 		'hotReload','require','getScript','getScriptTag','createOption','ui','self',
-		'add','remove'
+		'add','remove','insert',
+		'switchState','switchStateInstance','stickerSwitch','loadState',
+		'timer','interval','cancelTweens',
+		'shake','flash','fade','zoomCamera',
+		'center','centerX','centerY',
+		'playSound','playMusic','stopMusic'
 	];
 
 	static function _reflectStateFields(interp:Interp, state:FlxState, refresh:Bool = false):Void

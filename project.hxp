@@ -260,16 +260,27 @@ class Project extends HXProject
     setHaxedef("HSCRIPT_ALLOWED");
     setHaxedef("LUA_ALLOWED");
     setHaxedef("FLX_NO_FOCUS_LOST_SCREEN");
-    setHaxedef("HXCPP_CHECK_POINTER");
+    // HXCPP_CHECK_POINTER: null-pointer checks in C++ — debug only.
+    // Enabling this in release adds overhead on every pointer dereference with no benefit.
     setHaxedef("openfl_enable_handle_error");
     setHaxedef("HXCPP_LARGE_BLOCKS");
+
+    if (debug)
+    {
+      // Null-pointer safety checks — debug only
+      setHaxedef("HXCPP_CHECK_POINTER");
+    }
 
     if (!debug)
     {
       setHaxedef("FLX_NO_DEBUG");
       setHaxedef("NAPE_RELEASE_BUILD");
       setHaxedef("no-deprecation-warnings");
-      haxeflags.push("-dce"); haxeflags.push("full");
+      // DCE std: removes only unused stdlib code, NOT game/engine classes.
+      // DO NOT use -dce full on a scripted engine — it strips classes that are
+      // only referenced at runtime via Type.resolveClass / Reflect.getProperty,
+      // which breaks ALL script imports, HScript API access, and the Lua OOP bridge.
+      haxeflags.push("-dce"); haxeflags.push("std");
     }
 
     // define mobileC para targets mobile (usado en Main.hx y otros)
@@ -303,6 +314,39 @@ class Project extends HXProject
       haxeflags.push("--resource art/iconOG.png@AppIcon");
     else if (sys.FileSystem.exists("art/icon64.png"))
       haxeflags.push("--resource art/icon64.png@AppIcon");
+
+    // ── DCE keep: protect all packages used by the scripting system ──────────
+    //
+    // Scripts resolve classes at RUNTIME via Type.resolveClass / Reflect.*
+    // The compiler can't see these usages statically, so -dce would strip them.
+    // @:keep on individual classes is fragile; --macro keep('package') is the
+    // correct engine-wide solution — it marks the entire package as reachable.
+    //
+    // This is exactly what V-Slice / Psych Engine do for their script APIs.
+
+    // Engine scripting bridge itself
+    addHaxeFlag("--macro keep('funkin.scripting')");
+    addHaxeFlag("--macro keep('shaders')");
+
+    // Flixel classes accessible from scripts (FlxSprite, FlxTween, FlxG, etc.)
+    addHaxeFlag("--macro keep('flixel')");
+
+    // Engine gameplay classes scripts can import (PlayState, Note, Conductor…)
+    addHaxeFlag("--macro keep('funkin.gameplay')");
+    addHaxeFlag("--macro keep('funkin.data')");
+    addHaxeFlag("--macro keep('funkin.ui')");
+    addHaxeFlag("--macro keep('funkin.graphics')");
+    addHaxeFlag("--macro keep('funkin.menus')");
+    addHaxeFlag("--macro keep('funkin.states')");
+    addHaxeFlag("--macro keep('funkin.transitions')");
+    addHaxeFlag("--macro keep('animationdata')");
+    addHaxeFlag("--macro keep('mods')");
+
+    // OpenFL types used by shaders and rendering scripts
+    addHaxeFlag("--macro keep('openfl')");
+
+    // HScript interpreter itself — must survive DCE
+    addHaxeFlag("--macro keep('hscript')");
 
     // WinMacroFix: parchea los .h de FlxKey y FlxColor para evitar colisiones
     // con macros de windows.h (TRANSPARENT, DELETE, etc.).

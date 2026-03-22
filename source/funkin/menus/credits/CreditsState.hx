@@ -1,4 +1,4 @@
-package funkin.menus;
+package funkin.menus.credits;
 
 /**
  * CreditsState v2 — Friday Night Funkin' v-slice style credits.

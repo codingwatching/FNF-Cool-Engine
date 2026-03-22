@@ -51,8 +51,8 @@ import funkin.menus.ResultScreen;
 import funkin.gameplay.objects.hud.ScoreManager;
 import funkin.transitions.StickerTransition;
 // Menu Pause
-import funkin.menus.GitarooPause;
-import funkin.menus.PauseSubState;
+import funkin.menus.substate.GitarooPause;
+import funkin.menus.substate.PauseSubState;
 import funkin.debug.charting.ChartingState;
 #if desktop
 import data.Discord.DiscordClient;
@@ -456,6 +456,8 @@ class PlayState extends funkin.states.MusicBeatState
 			}
 			NoteSkinSystem.applySkinForStage(curStage);
 		}
+		// Cargar script de la skin activa (si existe)
+		NoteSkinSystem.loadSkinScript();
 
 		// ── Aplicar splash de notas ───────────────────────────────────────────
 		// meta.noteSplash > global player preference (NoteSkinSystem ya cargo la global)
@@ -467,6 +469,8 @@ class PlayState extends funkin.states.MusicBeatState
 			NoteSkinSystem.setTemporarySplash(metaData.noteSplash);
 		else
 			NoteSkinSystem.applySplashForStage(curStage);
+		// Cargar script del splash activo (si existe)
+		NoteSkinSystem.loadSplashScript();
 
 		// Crear UI — ahora la skin ya está activa, así que UIScriptedManager
 		// lee isPixel correcto desde getCurrentSkinData().
@@ -2168,6 +2172,7 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler._argsNote[1] = rating;
 			ScriptHandler.callOnScripts('onPlayerNoteHitPost', ScriptHandler._argsNote);
 		}
+		NoteSkinSystem.callSkinHook('onNoteHit', [note, rating]);
 	}
 
 	/**
@@ -2263,6 +2268,7 @@ class PlayState extends funkin.states.MusicBeatState
 				ScriptHandler.callOnCharacterScripts(boyfriend.curCharacter, 'onNoteMiss', ScriptHandler._argsAnim);
 			}
 		}
+		NoteSkinSystem.callSkinHook('onNoteMiss', [missedNote, direction]);
 	}
 
 	/**
@@ -3340,6 +3346,7 @@ class PlayState extends funkin.states.MusicBeatState
 		// ── 9. Limpiar estructuras internas
 		NoteSkinSystem.restoreGlobalSkin();
 		NoteSkinSystem.restoreGlobalSplash();
+		NoteSkinSystem.destroyScripts();
 		heldNotes.clear();
 
 		characterSlots = [];

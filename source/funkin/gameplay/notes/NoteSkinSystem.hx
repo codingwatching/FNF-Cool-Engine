@@ -168,6 +168,33 @@ typedef NoteSkinData =
 	var ?holdStretch:Float; // default: 1.0
 	// ── Animaciones ───────────────────────────────────────────────────
 	var animations:NoteSkinAnims;
+	// ── Script (opcional) ─────────────────────────────────────────────
+	/** Nombre del archivo Lua/HScript en la carpeta de la skin. Si es null, no se ejecuta. */
+	var ?script:String;
+	// ── Colorización automática (shader RGB) ──────────────────────────
+	/**
+	 * Si es true, aplica NoteRGBShader a cada nota usando los presets de color
+	 * estándar de FNF (Left=púrpura, Down=cian, Up=verde, Right=rojo).
+	 * Útil para sprites en escala de grises / neutros como NOTE_assets.png.
+	 */
+	var ?colorAuto:Bool;
+	/** Intensidad del shader RGB (0.0–1.0). Default: 1.0. */
+	var ?colorMult:Float;
+	/**
+	 * Paleta de colores custom por dirección.
+	 * Array de 4 entradas (Left, Down, Up, Right), cada una con campos r/g/b
+	 * que son vectores [x,y,z] (columnas de la matriz de transformación de color).
+	 * Si es null, se usan los presets de NoteRGBShader.PRESETS.
+	 *
+	 * Ejemplo en skin.json:
+	 *   "colorDirections": [
+	 *     { "r":[0.76,0.11,0.67], "g":[0,0,0], "b":[0.09,0.03,0.94] },
+	 *     { "r":[0,1,1],          "g":[0,0,0], "b":[0,1,0]           },
+	 *     { "r":[0.07,0.98,0.02], "g":[0,0,0], "b":[0,0.96,0]        },
+	 *     { "r":[0.98,0.22,0.25], "g":[0,0,0], "b":[0.96,0.09,0.12]  }
+	 *   ]
+	 */
+	var ?colorDirections:Array<{ r:Array<Float>, g:Array<Float>, b:Array<Float> }>;
 }
 
 // ── Splash (sistema independiente, no cambia) ─────────────────────────────────
@@ -182,6 +209,14 @@ typedef NoteSplashData =
 	var animations:SplashAnimations;
 	/** Configuración de los hold covers. Null = usar defaults hardcodeados. */
 	var ?holdCover:NoteHoldCoverData;
+	/** Nombre del archivo Lua/HScript en la carpeta del splash. Si es null, no se ejecuta. */
+	var ?script:String;
+	/** Si true, aplica NoteRGBShader al splash usando los presets de color estándar. */
+	var ?colorAuto:Bool;
+	/** Intensidad del shader RGB (0.0–1.0). Default: 1.0. */
+	var ?colorMult:Float;
+	/** Paleta custom por dirección (igual que en NoteSkinData). */
+	var ?colorDirections:Array<{ r:Array<Float>, g:Array<Float>, b:Array<Float> }>;
 }
 
 typedef NoteSplashAssets =
@@ -324,6 +359,285 @@ class NoteSkinSystem
 
 	/** Previene re-entrada en init() cuando setTemporarySkin/setModDefault son llamados durante la inicialización. */
 	private static var _initializing:Bool = false;
+
+	// ==================== SKIN / SPLASH SCRIPT SYSTEM ====================
+
+	/**
+	 * Scripts Lua activos para la skin actual (se cargan en loadSkinScript).
+	 * Se ejecutan cuando se usan los hooks onNoteHit, onNoteMiss, onSplashSpawn,
+	 * onHoldSplash, onNoteSpawn, onStrumConfirm, onStrumPress, onStrumRelease.
+	 */
+	public static var skinScripts:Array<funkin.scripting.RuleScriptInstance> = [];
+	public static var splashScripts:Array<funkin.scripting.RuleScriptInstance> = [];
+
+	/**
+	 * Carga y ejecuta el script de la skin activa si existe.
+	 * Se llama automáticamente desde setSkin() / setTemporarySkin().
+	 * Admite .lua y .hx (HScript) — se detecta por extensión.
+	 */
+	public static function loadSkinScript(?skinName:String):Void
+	{
+		#if (LUA_ALLOWED && linc_luajit && sys)
+		// Limpiar scripts anteriores
+		for (s in skinScripts) try s.destroy() catch(_) {}
+		skinScripts = [];
+
+		final name = skinName ?? currentSkin;
+		final data = availableSkins.get(name);
+		if (data == null) return;
+
+		// Buscar script: prioridad a campo "script" del JSON, luego skin.lua / skin.hx
+		final folder = data.folder ?? name;
+		final candidates:Array<String> = [];
+		if (data.script != null && data.script != '')
+		{
+			candidates.push('$SKINS_PATH/$folder/${data.script}');
+			// Buscar también en mod
+			final modRoot = mods.ModManager.modRoot();
+			if (modRoot != null) candidates.push('$modRoot/notes/skins/$folder/${data.script}');
+		}
+		else
+		{
+			for (ext in ['lua', 'hx'])
+			{
+				candidates.push('$SKINS_PATH/$folder/skin.$ext');
+				final modRoot = mods.ModManager.modRoot();
+				if (modRoot != null) candidates.push('$modRoot/notes/skins/$folder/skin.$ext');
+			}
+		}
+
+		for (path in candidates)
+		{
+			if (FileSystem.exists(path))
+			{
+				trace('[NoteSkinSystem] Loading skin script: $path');
+				final script = new funkin.scripting.RuleScriptInstance('noteSkin_$name', path);
+				script.loadFile(path);
+				// Expose skin context to the script
+				script.set('skinName',         name);
+				script.set('NoteSkinSystem',    funkin.gameplay.notes.NoteSkinSystem);
+				script.set('NoteRGBShader',     funkin.shaders.NoteRGBShader);
+				script.set('applyRGBShader',    funkin.gameplay.notes.NoteSkinSystem.applyRGBShader);
+				script.set('applyRGBColor',     funkin.gameplay.notes.NoteSkinSystem.applyRGBColor);
+				script.set('setRGBIntensity',   funkin.gameplay.notes.NoteSkinSystem.setRGBIntensity);
+				script.set('removeRGBShader',      funkin.gameplay.notes.NoteSkinSystem.removeRGBShader);
+				script.set('tweenRGBToDirection',  funkin.gameplay.notes.NoteSkinSystem.tweenRGBToDirection);
+				script.set('tweenRGBToColor',      funkin.gameplay.notes.NoteSkinSystem.tweenRGBToColor);
+				script.set('tweenRGBIntensity',    funkin.gameplay.notes.NoteSkinSystem.tweenRGBIntensity);
+				script.call('onCreate', []);
+				skinScripts.push(script);
+				break; // one script per skin
+			}
+		}
+		#end
+	}
+
+	/**
+	 * Carga y ejecuta el script del splash activo si existe.
+	 * Se llama automáticamente desde setSplash() / setTemporarySplash().
+	 */
+	public static function loadSplashScript(?splashName:String):Void
+	{
+		#if (LUA_ALLOWED && linc_luajit && sys)
+		for (s in splashScripts) try s.destroy() catch(_) {}
+		splashScripts = [];
+
+		final name = splashName ?? currentSplash;
+		final data = availableSplashes.get(name);
+		if (data == null) return;
+
+		final folder = data.folder ?? name;
+		final candidates:Array<String> = [];
+		if (data.script != null && data.script != '')
+		{
+			candidates.push('$SPLASHES_PATH/$folder/${data.script}');
+			final modRoot = mods.ModManager.modRoot();
+			if (modRoot != null) candidates.push('$modRoot/notes/splashes/$folder/${data.script}');
+		}
+		else
+		{
+			for (ext in ['lua', 'hx'])
+			{
+				candidates.push('$SPLASHES_PATH/$folder/splash.$ext');
+				final modRoot = mods.ModManager.modRoot();
+				if (modRoot != null) candidates.push('$modRoot/notes/splashes/$folder/splash.$ext');
+			}
+		}
+
+		for (path in candidates)
+		{
+			if (FileSystem.exists(path))
+			{
+				trace('[NoteSkinSystem] Loading splash script: $path');
+				final script = new funkin.scripting.RuleScriptInstance('noteSplash_$name', path);
+				script.loadFile(path);
+				// Expose splash context to the script
+				script.set('splashName',        name);
+				script.set('NoteSkinSystem',     funkin.gameplay.notes.NoteSkinSystem);
+				script.set('NoteRGBShader',      funkin.shaders.NoteRGBShader);
+				script.set('applyRGBShader',     funkin.gameplay.notes.NoteSkinSystem.applyRGBShader);
+				script.set('applyRGBColor',      funkin.gameplay.notes.NoteSkinSystem.applyRGBColor);
+				script.set('setRGBIntensity',    funkin.gameplay.notes.NoteSkinSystem.setRGBIntensity);
+				script.set('removeRGBShader',      funkin.gameplay.notes.NoteSkinSystem.removeRGBShader);
+				script.set('tweenRGBToDirection',  funkin.gameplay.notes.NoteSkinSystem.tweenRGBToDirection);
+				script.set('tweenRGBToColor',      funkin.gameplay.notes.NoteSkinSystem.tweenRGBToColor);
+				script.set('tweenRGBIntensity',    funkin.gameplay.notes.NoteSkinSystem.tweenRGBIntensity);
+				script.call('onCreate', []);
+				splashScripts.push(script);
+				break;
+			}
+		}
+		#end
+	}
+
+	/** Llama un hook en todos los scripts de skin activos. */
+	public static inline function callSkinHook(fn:String, ?args:Array<Dynamic>):Void
+	{
+		#if (LUA_ALLOWED && linc_luajit)
+		for (s in skinScripts) s.call(fn, args ?? []);
+		#end
+	}
+
+	/** Llama un hook en todos los scripts de splash activos. */
+	public static inline function callSplashHook(fn:String, ?args:Array<Dynamic>):Void
+	{
+		#if (LUA_ALLOWED && linc_luajit)
+		for (s in splashScripts) s.call(fn, args ?? []);
+		#end
+	}
+
+	/** Limpia todos los scripts de skin y splash (llamar al destruir PlayState). */
+	public static function destroyScripts():Void
+	{
+		#if (LUA_ALLOWED && linc_luajit)
+		for (s in skinScripts)  try s.destroy() catch(_) {}
+		for (s in splashScripts) try s.destroy() catch(_) {}
+		skinScripts  = [];
+		splashScripts = [];
+		#end
+	}
+
+	// ==================== COLOR / SHADER HELPERS ====================
+	// Estos métodos permiten que los scripts (.lua / .hx) de skins y splashes
+	// apliquen o quiten el shader RGB en runtime sobre cualquier sprite.
+
+	/**
+	 * Aplica NoteRGBShader a un sprite con los presets estándar o un preset custom.
+	 * Úsalo desde el script de la skin:
+	 *   applyRGBShader(note, noteData)           -- preset estándar
+	 *   applyRGBShader(note, noteData, 0.5)      -- intensidad reducida
+	 *   applyRGBShader(note, noteData, 1.0, preset) -- paleta completamente custom
+	 */
+	public static function applyRGBShader(sprite:flixel.FlxSprite, direction:Int,
+		mult:Float = 1.0,
+		?customPreset:{ r:Array<Float>, g:Array<Float>, b:Array<Float> }):Void
+	{
+		if (sprite == null) return;
+		sprite.shader = new funkin.shaders.NoteRGBShader(direction % 4, mult, customPreset);
+	}
+
+	/**
+	 * Aplica NoteRGBShader a partir de un color hex (convierte automáticamente al preset).
+	 * Úsalo desde el script de la skin:
+	 *   applyRGBColor(note, 0xFF00FF00)       -- verde puro
+	 *   applyRGBColor(note, 0xC24B99)         -- púrpura FNF
+	 */
+	public static function applyRGBColor(sprite:flixel.FlxSprite,
+		color:flixel.util.FlxColor, mult:Float = 1.0):Void
+	{
+		if (sprite == null) return;
+		sprite.shader = funkin.shaders.NoteRGBShader.fromColor(color, mult);
+	}
+
+	/**
+	 * Cambia la intensidad del NoteRGBShader ya aplicado en un sprite (0.0–1.0).
+	 * No hace nada si el sprite no tiene un NoteRGBShader.
+	 */
+	public static function setRGBIntensity(sprite:flixel.FlxSprite, mult:Float):Void
+	{
+		if (sprite == null) return;
+		final s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
+		if (s != null) s.intensity = mult;
+	}
+
+	/**
+	 * Elimina el shader RGB de un sprite (restaura el shader por defecto / null).
+	 */
+	public static function removeRGBShader(sprite:flixel.FlxSprite):Void
+	{
+		if (sprite == null) return;
+		if (Std.isOfType(sprite.shader, funkin.shaders.NoteRGBShader))
+			sprite.shader = null;
+	}
+
+	/**
+	 * Tween del color del NoteRGBShader de un sprite hacia un preset de dirección.
+	 * Si el sprite no tiene NoteRGBShader, se le aplica uno primero.
+	 *
+	 * @param sprite     Sprite objetivo (nota, splash, hold cover...).
+	 * @param direction  Dirección destino (0=izq, 1=abajo, 2=arriba, 3=der).
+	 * @param duration   Duración en segundos. Default: 0.25.
+	 * @param ease       Nombre del ease como String (e.g. "quadOut", "sineInOut").
+	 *                   Acepta cualquier función de FlxEase. Default: "linear".
+	 * @return           El FlxTween creado.
+	 */
+	public static function tweenRGBToDirection(sprite:flixel.FlxSprite, direction:Int,
+		duration:Float = 0.25, ease:String = 'linear'):flixel.tweens.FlxTween
+	{
+		if (sprite == null) return null;
+		var s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
+		if (s == null) { s = new funkin.shaders.NoteRGBShader(direction); sprite.shader = s; }
+		return s.tweenToDirection(direction, duration, _ease(ease));
+	}
+
+	/**
+	 * Tween del color del NoteRGBShader de un sprite hacia un color hex.
+	 */
+	public static function tweenRGBToColor(sprite:flixel.FlxSprite,
+		color:flixel.util.FlxColor, duration:Float = 0.25, ease:String = 'linear'):flixel.tweens.FlxTween
+	{
+		if (sprite == null) return null;
+		var s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
+		if (s == null) { s = new funkin.shaders.NoteRGBShader(0, 1.0, funkin.shaders.NoteRGBShader.fromColor(color, 1.0).getCurrentPreset()); sprite.shader = s; }
+		return s.tweenToColor(color, duration, _ease(ease));
+	}
+
+	/**
+	 * Tween de la intensidad del NoteRGBShader (efecto de pulso / flash).
+	 * Muy útil en onBeatHit para hacer un flash de color en beat.
+	 *
+	 * Ejemplo de pulso en beat:
+	 *   tweenRGBIntensity(note, 1.5, 0.6, 0.3, "quadOut")  // flash fuerte → normal
+	 */
+	public static function tweenRGBIntensity(sprite:flixel.FlxSprite,
+		fromMult:Float, toMult:Float, duration:Float = 0.2, ease:String = 'linear'):flixel.tweens.FlxTween
+	{
+		if (sprite == null) return null;
+		final s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
+		if (s == null) return null;
+		return s.tweenIntensity(fromMult, toMult, duration, _ease(ease));
+	}
+
+	/** Convierte nombre de ease a función. */
+	static function _ease(name:String):Float->Float
+	{
+		return switch (name ?? 'linear') {
+			case 'quadIn':      flixel.tweens.FlxEase.quadIn;
+			case 'quadOut':     flixel.tweens.FlxEase.quadOut;
+			case 'quadInOut':   flixel.tweens.FlxEase.quadInOut;
+			case 'cubeIn':      flixel.tweens.FlxEase.cubeIn;
+			case 'cubeOut':     flixel.tweens.FlxEase.cubeOut;
+			case 'cubeInOut':   flixel.tweens.FlxEase.cubeInOut;
+			case 'sineIn':      flixel.tweens.FlxEase.sineIn;
+			case 'sineOut':     flixel.tweens.FlxEase.sineOut;
+			case 'sineInOut':   flixel.tweens.FlxEase.sineInOut;
+			case 'bounceOut':   flixel.tweens.FlxEase.bounceOut;
+			case 'elasticOut':  flixel.tweens.FlxEase.elasticOut;
+			case 'expoIn':      flixel.tweens.FlxEase.expoIn;
+			case 'expoOut':     flixel.tweens.FlxEase.expoOut;
+			default:            flixel.tweens.FlxEase.linear;
+		};
+	}
 
 	/**
 	 * Fuerza una re-inicialización completa del sistema en el próximo acceso.
@@ -882,6 +1196,7 @@ class NoteSkinSystem
 		currentSkin = skinName;
 		FlxG.save.data.noteSkin = skinName;
 		FlxG.save.flush();
+		loadSkinScript(skinName);
 		return true;
 	}
 
@@ -892,11 +1207,13 @@ class NoteSkinSystem
 		if (skinName == null || skinName == '' || skinName == 'default')
 		{
 			currentSkin = FlxG.save.data.noteSkin != null ? FlxG.save.data.noteSkin : 'Default';
+			loadSkinScript(currentSkin);
 			return;
 		}
 		if (availableSkins.exists(skinName))
 		{
 			currentSkin = skinName;
+			loadSkinScript(currentSkin);
 			return;
 		}
 		for (key in availableSkins.keys())
@@ -904,10 +1221,12 @@ class NoteSkinSystem
 			if (key.toLowerCase() == skinName.toLowerCase())
 			{
 				currentSkin = key;
+				loadSkinScript(currentSkin);
 				return;
 			}
 		}
 		currentSkin = FlxG.save.data.noteSkin != null ? FlxG.save.data.noteSkin : 'Default';
+		loadSkinScript(currentSkin);
 		trace('[NoteSkinSystem] Skin "$skinName" no encontrada, usando global: $currentSkin');
 	}
 
@@ -953,6 +1272,7 @@ class NoteSkinSystem
 		currentSplash = splashName;
 		FlxG.save.data.noteSplash = splashName;
 		FlxG.save.flush();
+		loadSplashScript(splashName);
 		return true;
 	}
 
@@ -970,11 +1290,13 @@ class NoteSkinSystem
 		{
 			// Splash vacío en meta = usar el global del jugador
 			currentSplash = _globalSplash;
+			loadSplashScript(currentSplash);
 			return;
 		}
 		if (availableSplashes.exists(splashName))
 		{
 			currentSplash = splashName;
+			loadSplashScript(currentSplash);
 			return;
 		}
 		for (key in availableSplashes.keys())
@@ -982,11 +1304,13 @@ class NoteSkinSystem
 			if (key.toLowerCase() == splashName.toLowerCase())
 			{
 				currentSplash = key;
+				loadSplashScript(currentSplash);
 				return;
 			}
 		}
 		// Fallback al global (sin tocar _globalSplash)
 		currentSplash = _globalSplash;
+		loadSplashScript(currentSplash);
 		trace('[NoteSkinSystem] Splash "$splashName" not found, usando global: $currentSplash');
 	}
 

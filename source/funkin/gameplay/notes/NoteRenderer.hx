@@ -190,6 +190,7 @@ class NoteRenderer
         }
 
         splash.setup(x, y, noteData, splashName);
+        funkin.gameplay.notes.NoteSkinSystem.callSplashHook('onSplashSpawn', [splash, noteData, x, y]);
         return splash;
     }
 
@@ -263,6 +264,7 @@ class NoteRenderer
         var cover = _getHoldCover(strumCenterX, strumCenterY, direction, splashName);
         cover.playStart();
         activeHoldCovers.set(key, cover);
+        funkin.gameplay.notes.NoteSkinSystem.callSplashHook('onHoldSplashSpawn', [cover, direction, strumCenterX, strumCenterY]);
         return cover;
     }
 

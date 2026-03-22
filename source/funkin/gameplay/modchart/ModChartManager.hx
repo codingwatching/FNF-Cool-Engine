@@ -560,7 +560,7 @@ class ModChartManager
 
     #if (LUA_ALLOWED && linc_luajit)
     /** Script Lua activo para el modchart (null si no hay script Lua). */
-    private var _luaScript:Null<funkin.scripting.LuaScriptInstance> = null;
+    private var _luaScript:Null<funkin.scripting.RuleScriptInstance> = null;
     #end
 
     /** Llama una función del modchart HScript si existe. */
@@ -646,7 +646,7 @@ class ModChartManager
             }
             #end
 
-            var lua = new funkin.scripting.LuaScriptInstance(
+            var lua = new funkin.scripting.RuleScriptInstance(
                 'modchart_${songName}', path);
 
             // ── Exponer constantes ModEventType ───────────────────────────────

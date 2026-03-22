@@ -239,7 +239,7 @@ class ScriptBridge
 			case 'story'     | 'storymenustate':  new funkin.menus.StoryMenuState();
 			case 'title'     | 'titlestate':      new funkin.menus.TitleState();
 			case 'options'   | 'optionsmenustate':new funkin.menus.OptionsMenuState();
-			case 'credits'   | 'creditsstate':    new funkin.menus.CreditsState();
+			case 'credits'   | 'creditsstate':    new funkin.menus.credits.CreditsState();
 			case 'play'      | 'playstate':       new funkin.gameplay.PlayState();
 			default:
 				trace('[ScriptBridge] Estado desconocido: "$name"');

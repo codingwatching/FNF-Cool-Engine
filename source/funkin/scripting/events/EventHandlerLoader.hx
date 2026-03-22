@@ -7,6 +7,9 @@ import sys.io.File;
 
 import funkin.scripting.events.EventDefinition;
 import funkin.scripting.events.EventInfoSystem.EventParamDef;
+#if (LUA_ALLOWED && linc_luajit)
+import funkin.scripting.RuleScriptInstance;
+#end
 
 using StringTools;
 
@@ -56,7 +59,7 @@ class EventHandlerLoader
 
 	/** Lua handlers indexados por nombre canónico de evento. */
 	#if (LUA_ALLOWED && linc_luajit)
-	static var _lua:Map<String, LuaScriptInstance> = new Map();
+	static var _lua:Map<String, RuleScriptInstance> = new Map();
 	#end
 
 	/** Contextos ya cargados (para evitar doble-carga). */
@@ -236,7 +239,7 @@ class EventHandlerLoader
 			{
 				try
 				{
-					final lua = new LuaScriptInstance(name, def.luaPath);
+					final lua = new RuleScriptInstance(name, def.luaPath);
 					lua.call('onCreate', []);
 					_lua.set(name, lua);
 					trace('[EventHandlerLoader] Lua cargado: "${name}" ← ${def.luaPath}');

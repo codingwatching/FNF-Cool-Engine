@@ -10,7 +10,7 @@ import funkin.menus.TitleState;
 import funkin.gameplay.objects.hud.Highscore;
 import data.PlayerSettings;
 import funkin.states.LoadingState;
-import funkin.shaders.ShaderManager;
+import funkin.graphics.shaders.ShaderManager;
 
 using StringTools;
 

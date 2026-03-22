@@ -466,10 +466,10 @@ class ScriptAPI
 			'CppAPI'            => extensions.CppAPI,
 			// Shaders
 			'ShaderManager'     => _shaderManagerProxy(),
-			'WaveEffect'        => shaders.WaveEffect,
-			'WiggleEffect'      => shaders.WiggleEffect,
-			'BlendModeEffect'   => shaders.BlendModeEffect,
-			'OverlayShader'     => shaders.OverlayShader,
+			'WaveEffect'        => funkin.graphics.shaders.custom.WaveEffect,
+			'WiggleEffect'      => funkin.graphics.shaders.custom.WiggleEffect,
+			'BlendModeEffect'   => funkin.graphics.shaders.custom.BlendModeEffect,
+			'OverlayShader'     => funkin.graphics.shaders.custom.OverlayShader,
 			// Funkin gameplay
 			'PlayState'         => funkin.gameplay.PlayState,
 			'Countdown'         => funkin.gameplay.Countdown,
@@ -914,7 +914,7 @@ class ScriptAPI
 				final ps = funkin.gameplay.PlayState.instance;
 				final cam:FlxCamera = camTarget ?? (ps != null ? Reflect.field(ps, 'camGame') : FlxG.camera);
 				if (cam == null) return;
-				shaders.ShaderManager.applyShaderToCamera(shaderName, cam);
+				funkin.graphics.shaders.ShaderManager.applyShaderToCamera(shaderName, cam);
 			},
 			clearShaders: function(?camTarget:Dynamic) {
 				final ps = funkin.gameplay.PlayState.instance;
@@ -985,15 +985,15 @@ class ScriptAPI
 	static function exposeShaders(interp:Interp):Void
 	{
 		interp.variables.set('ShaderManager',    _shaderManagerProxy());
-		interp.variables.set('WaveEffect',       shaders.WaveEffect);
-		interp.variables.set('WiggleEffect',     shaders.WiggleEffect);
-		interp.variables.set('BlendModeEffect',  shaders.BlendModeEffect);
-		interp.variables.set('OverlayShader',    shaders.OverlayShader);
-		interp.variables.set('DropShadowShader', shaders.DropShadowShader);
+		interp.variables.set('WaveEffect',       funkin.graphics.shaders.custom.WaveEffect);
+		interp.variables.set('WiggleEffect',     funkin.graphics.shaders.custom.WiggleEffect);
+		interp.variables.set('BlendModeEffect',  funkin.graphics.shaders.custom.BlendModeEffect);
+		interp.variables.set('OverlayShader',    funkin.graphics.shaders.custom.OverlayShader);
+		interp.variables.set('DropShadowShader', funkin.graphics.shaders.custom.DropShadowShader);
 
 		// WiggleEffect — object wrapper para usar en scripts fácilmente
 		interp.variables.set('wiggleEffect', {
-			create: function():shaders.WiggleEffect { return new shaders.WiggleEffect(); },
+			create: function():funkin.graphics.shaders.custom.WiggleEffect { return new funkin.graphics.shaders.custom.WiggleEffect(); },
 			DREAMY:     'DREAMY',
 			WAVY:       'WAVY',
 			HEAT_WAVE:  'HEAT_WAVE',
@@ -1072,7 +1072,7 @@ class ScriptAPI
 			}
 
 			// Registrar (o reemplazar) el shader inline en ShaderManager.
-			final cs = shaders.ShaderManager.registerInline(name, fragCode);
+			final cs = funkin.graphics.shaders.ShaderManager.registerInline(name, fragCode);
 			if (cs == null)
 			{
 				trace('[ScriptAPI] createShader: error al registrar "$name".');
@@ -1085,11 +1085,11 @@ class ScriptAPI
 
 				/** Aplica el shader a un FlxSprite. */
 				applyTo: function(sprite:Dynamic, ?cam:Dynamic):Bool
-					return shaders.ShaderManager.applyShader(sprite, name, cam),
+					return funkin.graphics.shaders.ShaderManager.applyShader(sprite, name, cam),
 
 				/** Aplica el shader como filtro de cámara (default: FlxG.camera). */
 				applyToCamera: function(?cam:Dynamic):Dynamic
-					return shaders.ShaderManager.applyShaderToCamera(name, cam),
+					return funkin.graphics.shaders.ShaderManager.applyShaderToCamera(name, cam),
 
 				/** Aplica el shader al video activo (si hay uno). */
 				applyToVideo: function():Bool
@@ -1097,27 +1097,27 @@ class ScriptAPI
 
 				/** Actualiza un uniform float/bool/array. */
 				set: function(param:String, value:Dynamic):Bool
-					return shaders.ShaderManager.setShaderParam(name, param, value),
+					return funkin.graphics.shaders.ShaderManager.setShaderParam(name, param, value),
 
 				/** Actualiza un uniform int (para samplers, etc.). */
 				setInt: function(param:String, value:Int):Bool
-					return shaders.ShaderManager.setShaderParamInt(name, param, value),
+					return funkin.graphics.shaders.ShaderManager.setShaderParamInt(name, param, value),
 
 				/** Quita el shader de un sprite, o limpia todas las instancias si sprite es null. */
 				remove: function(?sprite:Dynamic):Void
 				{
 					if (sprite != null)
-						shaders.ShaderManager.removeShader(sprite);
+						funkin.graphics.shaders.ShaderManager.removeShader(sprite);
 					else
 					{
-						shaders.ShaderManager.clearSpriteShaders();
+						funkin.graphics.shaders.ShaderManager.clearSpriteShaders();
 						funkin.cutscenes.VideoManager.removeShader(name);
 					}
 				},
 
 				/** Recarga el shader con nuevo código GLSL (útil para hot-reload en debug). */
 				reload: function(newFragCode:String):Void
-					shaders.ShaderManager.registerInline(name, newFragCode)
+					funkin.graphics.shaders.ShaderManager.registerInline(name, newFragCode)
 			};
 		});
 	}
@@ -2769,8 +2769,8 @@ class ScriptAPI
 		interp.variables.set('StoryMenuState',       funkin.menus.StoryMenuState);
 		interp.variables.set('TitleState',           funkin.menus.TitleState);
 		interp.variables.set('OptionsMenuState',     funkin.menus.OptionsMenuState);
-		interp.variables.set('CreditsState',         funkin.menus.CreditsState);
-		interp.variables.set('PauseSubState',        funkin.menus.PauseSubState);
+		interp.variables.set('CreditsState',         funkin.menus.credits.CreditsState);
+		interp.variables.set('PauseSubState',        funkin.menus.substate.PauseSubState);
 		interp.variables.set('GameOverSubstate',     funkin.states.GameOverSubstate);
 		interp.variables.set('LoadingState',         funkin.states.LoadingState);
 		interp.variables.set('MusicBeatState',       funkin.states.MusicBeatState);
@@ -2876,7 +2876,7 @@ class ScriptAPI
 		interp.variables.set('titlescreen', _castState(funkin.menus.TitleState));
 		interp.variables.set('options',     _castState(funkin.menus.OptionsMenuState));
 		interp.variables.set('pause',    (FlxG.state != null && FlxG.state.subState != null
-			&& Std.isOfType(FlxG.state.subState, funkin.menus.PauseSubState))
+			&& Std.isOfType(FlxG.state.subState, funkin.menus.substate.PauseSubState))
 			? FlxG.state.subState : null);
 		interp.variables.set('gameover', (FlxG.state != null && FlxG.state.subState != null
 			&& Std.isOfType(FlxG.state.subState, funkin.states.GameOverSubstate))
@@ -2901,8 +2901,8 @@ class ScriptAPI
 			case 'StoryMenuState':        funkin.menus.StoryMenuState;
 			case 'TitleState':            funkin.menus.TitleState;
 			case 'OptionsMenuState':      funkin.menus.OptionsMenuState;
-			case 'CreditsState':          funkin.menus.CreditsState;
-			case 'PauseSubState':         funkin.menus.PauseSubState;
+			case 'CreditsState':          funkin.menus.credits.CreditsState;
+			case 'PauseSubState':         funkin.menus.substate.PauseSubState;
 			case 'GameOverSubstate':      funkin.states.GameOverSubstate;
 			case 'LoadingState':          funkin.states.LoadingState;
 			case 'MusicBeatState':        funkin.states.MusicBeatState;
@@ -3064,22 +3064,22 @@ class ScriptAPI
 	static function _shaderManagerProxy():Dynamic
 	{
 		return {
-			applyShader          : shaders.ShaderManager.applyShader,
-			applyShaderToCamera  : shaders.ShaderManager.applyShaderToCamera,
-			registerInstance     : shaders.ShaderManager.registerInstance,
-			unregisterInstance   : shaders.ShaderManager.unregisterInstance,
-			removeShader         : shaders.ShaderManager.removeShader,
-			setShaderParam       : shaders.ShaderManager.setShaderParam,
-			setShaderParamInt    : shaders.ShaderManager.setShaderParamInt,
-			clearSpriteShaders   : shaders.ShaderManager.clearSpriteShaders,
-			loadShader           : shaders.ShaderManager.loadShader,
-			getShader            : shaders.ShaderManager.getShader,
-			registerInline       : shaders.ShaderManager.registerInline,
-			getAvailableShaders  : shaders.ShaderManager.getAvailableShaders,
-			scanShaders          : shaders.ShaderManager.scanShaders,
-			reloadShader         : shaders.ShaderManager.reloadShader,
-			reloadAllShaders     : shaders.ShaderManager.reloadAllShaders,
-			clear                : shaders.ShaderManager.clear,
+			applyShader          : funkin.graphics.shaders.ShaderManager.applyShader,
+			applyShaderToCamera  : funkin.graphics.shaders.ShaderManager.applyShaderToCamera,
+			registerInstance     : funkin.graphics.shaders.ShaderManager.registerInstance,
+			unregisterInstance   : funkin.graphics.shaders.ShaderManager.unregisterInstance,
+			removeShader         : funkin.graphics.shaders.ShaderManager.removeShader,
+			setShaderParam       : funkin.graphics.shaders.ShaderManager.setShaderParam,
+			setShaderParamInt    : funkin.graphics.shaders.ShaderManager.setShaderParamInt,
+			clearSpriteShaders   : funkin.graphics.shaders.ShaderManager.clearSpriteShaders,
+			loadShader           : funkin.graphics.shaders.ShaderManager.loadShader,
+			getShader            : funkin.graphics.shaders.ShaderManager.getShader,
+			registerInline       : funkin.graphics.shaders.ShaderManager.registerInline,
+			getAvailableShaders  : funkin.graphics.shaders.ShaderManager.getAvailableShaders,
+			scanShaders          : funkin.graphics.shaders.ShaderManager.scanShaders,
+			reloadShader         : funkin.graphics.shaders.ShaderManager.reloadShader,
+			reloadAllShaders     : funkin.graphics.shaders.ShaderManager.reloadAllShaders,
+			clear                : funkin.graphics.shaders.ShaderManager.clear,
 		};
 	}
 

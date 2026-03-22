@@ -1,4 +1,4 @@
-package shaders.compat;
+package funkin.graphics.shaders.compat;
 
 import flixel.addons.display.FlxRuntimeShader;
 import funkin.graphics.shaders.FunkinRuntimeShader;

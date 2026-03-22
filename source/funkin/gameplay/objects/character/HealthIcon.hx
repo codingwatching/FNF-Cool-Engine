@@ -101,7 +101,7 @@ class HealthIcon extends FlxSprite
 	var _iconConfig:Null<Dynamic>     = null;
 	/** Script Lua opcional (assets/characters/scripts/{char}/healthicon/). */
 	#if (LUA_ALLOWED && linc_luajit)
-	var _luaScript:Null<funkin.scripting.LuaScriptInstance> = null;
+	var _luaScript:Null<funkin.scripting.RuleScriptInstance> = null;
 	#end
 
 	// ── constructor ──────────────────────────────────────────────────────────
@@ -492,7 +492,7 @@ class HealthIcon extends FlxSprite
 		var luaPath = _findLuaPath(char);
 		if (luaPath != null)
 		{
-			_luaScript = new funkin.scripting.LuaScriptInstance('healthicon_$char', luaPath);
+			_luaScript = new funkin.scripting.RuleScriptInstance('healthicon_$char', luaPath);
 			_luaScript.set('char',     char);
 			_luaScript.set('isPlayer', _isPlayer);
 			_luaScript.call('onCreate', []);

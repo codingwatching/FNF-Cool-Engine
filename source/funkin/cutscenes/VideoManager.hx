@@ -354,7 +354,7 @@ class VideoManager
 			return null;
 		}
 
-		final cs = shaders.ShaderManager.getShader(shaderName);
+		final cs = funkin.graphics.shaders.ShaderManager.getShader(shaderName);
 		if (cs == null || cs.fragmentCode == null)
 		{
 			trace('[VideoManager] applyShader: shader "$shaderName" no encontrado.');
@@ -376,7 +376,7 @@ class VideoManager
 		current.applyFilter(sf);
 
 		// Registrar la instancia en ShaderManager para que setVideoShaderParam() funcione.
-		shaders.ShaderManager.registerInstance(shaderName, instance);
+		funkin.graphics.shaders.ShaderManager.registerInstance(shaderName, instance);
 
 		_videoShaderInstances.set(shaderName, {filter: sf, instance: instance});
 		trace('[VideoManager] Shader "$shaderName" aplicado al video.');
@@ -390,7 +390,7 @@ class VideoManager
 	 *   VideoManager.setVideoShaderParam('chromaKey', 'threshold', 0.25);
 	 */
 	public static function setVideoShaderParam(shaderName:String, paramName:String, value:Dynamic):Bool
-		return shaders.ShaderManager.setShaderParam(shaderName, paramName, value);
+		return funkin.graphics.shaders.ShaderManager.setShaderParam(shaderName, paramName, value);
 
 	/**
 	 * Quita el shader con nombre `shaderName` del video activo.
@@ -401,7 +401,7 @@ class VideoManager
 		final entry = _videoShaderInstances.get(shaderName);
 		if (entry == null) return;
 		current.removeFilter(entry.filter);
-		shaders.ShaderManager.unregisterInstance(shaderName, entry.instance);
+		funkin.graphics.shaders.ShaderManager.unregisterInstance(shaderName, entry.instance);
 		_videoShaderInstances.remove(shaderName);
 	}
 
@@ -412,7 +412,7 @@ class VideoManager
 	{
 		if (current != null) current.clearFilters();
 		for (name => entry in _videoShaderInstances)
-			shaders.ShaderManager.unregisterInstance(name, entry.instance);
+			funkin.graphics.shaders.ShaderManager.unregisterInstance(name, entry.instance);
 		_videoShaderInstances.clear();
 	}
 

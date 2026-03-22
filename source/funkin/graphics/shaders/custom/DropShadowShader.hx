@@ -1,4 +1,4 @@
-package shaders;
+package funkin.graphics.shaders.custom;
 
 import flixel.FlxSprite;
 import flixel.graphics.frames.FlxFrame;

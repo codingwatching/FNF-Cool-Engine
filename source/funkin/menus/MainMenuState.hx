@@ -269,7 +269,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 									case 'options':
 										StateTransition.switchState(new OptionsMenuState());
 									case 'credits':
-										StateTransition.switchState(new CreditsState());
+										StateTransition.switchState(new funkin.menus.credits.CreditsState());
 								}
 							});
 						});

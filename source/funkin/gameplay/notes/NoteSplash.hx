@@ -96,6 +96,19 @@ class NoteSplash extends FlxSprite
 		revive();
 
 		_playRandomAnim(splashData, noteData);
+
+		// ── Shader de colorización automática ───────────────────────────────
+		if (splashData.colorAuto == true)
+		{
+			final mult      = (splashData.colorMult != null) ? splashData.colorMult : 1.0;
+			final customDir = (splashData.colorDirections != null && noteData < splashData.colorDirections.length)
+				? splashData.colorDirections[noteData] : null;
+			shader = new funkin.shaders.NoteRGBShader(noteData % 4, mult, customDir);
+		}
+		else
+		{
+			shader = null;
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

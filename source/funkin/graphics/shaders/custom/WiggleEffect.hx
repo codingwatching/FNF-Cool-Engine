@@ -1,4 +1,4 @@
-package shaders;
+package funkin.graphics.shaders.custom;
 
 // STOLEN FROM HAXEFLIXEL DEMO LOL
 import flixel.system.FlxAssets.FlxShader;

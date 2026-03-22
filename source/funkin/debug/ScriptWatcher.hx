@@ -23,7 +23,7 @@ import funkin.scripting.HScriptInstance;
  *                        con el intérprete existente. Las variables del state
  *                        (bf, dad, stage, etc.) se re-inyectan automáticamente.
  *
- *   • .lua             → LuaScriptInstance.hotReload() si LUA_ALLOWED.
+ *   • .lua             → RuleScriptInstance.hotReload() si LUA_ALLOWED.
  *
  *  Además, si aparece un archivo NUEVO en una carpeta vigilada, lo carga
  *  dinámicamente con el scriptType correspondiente.
@@ -281,7 +281,7 @@ class ScriptWatcher
 	}
 
 	#if (LUA_ALLOWED && linc_luajit)
-	static function _indexLuaLayer(layer:Array<funkin.scripting.LuaScriptInstance>):Void
+	static function _indexLuaLayer(layer:Array<funkin.scripting.RuleScriptInstance>):Void
 		for (lua in layer)
 			if (lua.filePath != null && lua.filePath != '' && FileSystem.exists(lua.filePath))
 				_fileMtimes.set(lua.filePath, _mtime(lua.filePath));

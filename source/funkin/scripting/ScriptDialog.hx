@@ -159,6 +159,12 @@ class ScriptDialog extends FlxSprite
 		_showLine(_curLine);
 	}
 
+	/** Muestra el diálogo añadiéndolo al estado actual (alias público de _show). */
+	public function show():Void { _show(); }
+
+	/** Salta todas las líneas restantes y cierra el diálogo. */
+	public function skipAll():Void { close(); }
+
 	// ── Internos ──────────────────────────────────────────────────────────────
 
 	function _show():Void

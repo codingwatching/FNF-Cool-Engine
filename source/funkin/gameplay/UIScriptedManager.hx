@@ -9,6 +9,7 @@ import funkin.scripting.HScriptInstance;
 import funkin.gameplay.GameState;
 import sys.FileSystem;
 
+using StringTools;
 /**
 	* UIScriptedManager — A UIManager fully controlled by HScript.
 
@@ -65,6 +66,9 @@ class UIScriptedManager extends FlxGroup
 {
 	// ─── Script ─────────────────────────────────────────────────────────────
 	private var uiScript:HScriptInstance;
+	#if (LUA_ALLOWED && linc_luajit)
+	private var uiLuaScript:Null<funkin.scripting.RuleScriptInstance> = null;
+	#end
 
 	// ─── Arrays reutilizables para callbacks del script (evitan alloc/frame) ─
 	static final _argUpdate    : Array<Dynamic> = [0.0];
@@ -97,13 +101,27 @@ class UIScriptedManager extends FlxGroup
 	private function loadUIScript(name:String):Void
 	{
 		// Buscar en el mod activo primero, luego en assets/.
-		// Estructura soportada:
-		//   mods/{mod}/data/ui/{name}/script.hx   ← Cool Engine layout
-		//   mods/{mod}/assets/data/ui/{name}/script.hx ← Psych layout
-		//   assets/data/ui/{name}/script.hx        ← base
+		// Soporta .hx y .lua (.lua tiene prioridad si existe):
+		//   mods/{mod}/data/ui/{name}/script.lua|hx
+		//   assets/data/ui/{name}/script.lua|hx
 		var path:String = null;
+		var isLua:Bool  = false;
 
-		#if sys
+		#if (LUA_ALLOWED && linc_luajit && sys)
+		if (mods.ModManager.isActive())
+		{
+			final modRoot = mods.ModManager.modRoot();
+			for (candidate in [
+				'$modRoot/data/ui/$name/script.lua',
+				'$modRoot/data/ui/$name/script.hx',
+				'$modRoot/assets/data/ui/$name/script.lua',
+				'$modRoot/assets/data/ui/$name/script.hx'
+			])
+			{
+				if (FileSystem.exists(candidate)) { path = candidate; isLua = candidate.endsWith('.lua'); break; }
+			}
+		}
+		#elseif sys
 		if (mods.ModManager.isActive())
 		{
 			final modRoot = mods.ModManager.modRoot();
@@ -119,8 +137,13 @@ class UIScriptedManager extends FlxGroup
 
 		if (path == null)
 		{
+			#if (LUA_ALLOWED && linc_luajit && sys)
+			for (candidate in ['assets/data/ui/$name/script.lua', 'assets/data/ui/$name/script.hx'])
+				if (FileSystem.exists(candidate)) { path = candidate; isLua = candidate.endsWith('.lua'); break; }
+			#elseif sys
 			final assetPath = 'assets/data/ui/$name/script.hx';
 			if (FileSystem.exists(assetPath)) path = assetPath;
+			#end
 		}
 
 		if (path == null)
@@ -137,12 +160,30 @@ class UIScriptedManager extends FlxGroup
 			return;
 		}
 
-		trace('[UIScriptedManager] Cargando UI script desde: $path');
-		// BUGFIX: ScriptHandler.loadScript() llama onCreate() automáticamente ANTES de que
-		// exposeUIAPI() haya inyectado makeSprite/makeBar/uiAdd/etc.
-		// Eso hace que la primera onCreate() falle silenciosamente (makeSprite = null).
-		// Solución: cargar el script SIN auto-onCreate usando loadScriptNoInit(), luego
-		// exponer la API y llamar onCreate() una sola vez nosotros.
+		trace('[UIScriptedManager] Cargando UI script desde: $path (lua=$isLua)');
+		#if (LUA_ALLOWED && linc_luajit)
+		if (isLua)
+		{
+			// Cargar como RuleScript (Lua) — exponer API vía variables globales
+			uiLuaScript = new funkin.scripting.RuleScriptInstance('ui_$name', path);
+			uiLuaScript.loadFile(path);
+			if (!uiLuaScript.active)
+			{
+				trace('[UIScriptedManager] Error en Lua UI "$name", cargando default...');
+				uiLuaScript.destroy(); uiLuaScript = null;
+				if (name != 'default') loadUIScript('default');
+				return;
+			}
+			exposeUIAPILua();
+			uiLuaScript.call('onCreate', []);
+			trace('[UIScriptedManager] Lua UI activo: "$name"');
+			return;
+		}
+		#end
+		// ── HScript path ─────────────────────────────────────────────────────
+		// BUGFIX: ScriptHandler.loadScript() llama onCreate() automáticamente ANTES
+		// de que exposeUIAPI() haya inyectado makeSprite/makeBar/uiAdd/etc.
+		// Solución: cargar SIN auto-onCreate, exponer API y llamar nosotros.
 		uiScript = ScriptHandler.loadScriptNoInit(path, 'ui');
 
 		if (uiScript == null)
@@ -155,7 +196,7 @@ class UIScriptedManager extends FlxGroup
 
 		exposeUIAPI();
 		uiScript.call('onCreate', []);
-		trace('[UIScriptedManager] Script de UI activo: "$name" (desde $path)');
+		trace('[UIScriptedManager] HScript UI activo: "$name" (desde $path)');
 	}
 
 	// ─── API expuesta al script ──────────────────────────────────────────────
@@ -283,6 +324,53 @@ class UIScriptedManager extends FlxGroup
 		uiScript.set('screenCenterY', function(spr:flixel.FlxObject):Void spr.screenCenter(flixel.util.FlxAxes.Y));
 	}
 
+	// ─── API expuesta al script Lua ─────────────────────────────────────────
+
+	#if (LUA_ALLOWED && linc_luajit)
+	private function exposeUIAPILua():Void
+	{
+		if (uiLuaScript == null) return;
+		final self = this;
+		final cam  = camHUD;
+		// Contexto
+		uiLuaScript.set('camHUD',      camHUD);
+		uiLuaScript.set('gameState',   gameState);
+		uiLuaScript.set('uiGroup',     this);
+		uiLuaScript.set('metaData',    metaData);
+		uiLuaScript.set('SONG',        funkin.gameplay.PlayState.SONG);
+		uiLuaScript.set('isPixel',     funkin.gameplay.notes.NoteSkinSystem.getCurrentSkinData()?.isPixel ?? false);
+		uiLuaScript.set('PIXEL_ZOOM',  funkin.gameplay.PlayStateConfig.PIXEL_ZOOM);
+		uiLuaScript.set('HealthIcon',  funkin.gameplay.objects.character.HealthIcon);
+		uiLuaScript.set('ScoreManager',funkin.gameplay.objects.hud.ScoreManager);
+		uiLuaScript.set('FlxMath',     flixel.math.FlxMath);
+		// Duración de canción
+		var _songLenMs:Float = 0.0;
+		final _song = funkin.gameplay.PlayState.SONG;
+		if (_song != null && _song.notes != null && _song.bpm > 0) {
+			var _curBpm:Float = _song.bpm;
+			for (section in _song.notes) {
+				if (section.changeBPM && section.bpm > 0) _curBpm = section.bpm;
+				_songLenMs += section.lengthInSteps * (60000.0 / _curBpm / 4.0);
+			}
+		}
+		uiLuaScript.set('SONG_LENGTH_MS', _songLenMs);
+		// Helpers de creación
+		uiLuaScript.set('makeSprite', function(?x:Float=0,?y:Float=0):flixel.FlxSprite {
+			var s = new flixel.FlxSprite(x,y); s.scrollFactor.set(); s.cameras=[cam]; return s;
+		});
+		uiLuaScript.set('makeText', function(?x:Float=0,?y:Float=0,?txt:String='',?sz:Int=20):flixel.text.FlxText {
+			var t = new flixel.text.FlxText(x,y,0,txt,sz); t.scrollFactor.set(); t.cameras=[cam]; return t;
+		});
+		uiLuaScript.set('uiAdd', function(obj:flixel.FlxBasic):flixel.FlxBasic {
+			if (Std.isOfType(obj,flixel.FlxObject)) cast(obj,flixel.FlxObject).cameras=[cam];
+			self.add(obj); return obj;
+		});
+		uiLuaScript.set('uiRemove', function(obj:flixel.FlxBasic):Void { self.remove(obj,true); });
+		uiLuaScript.set('screenCenterX', function(spr:flixel.FlxObject):Void spr.screenCenter(flixel.util.FlxAxes.X));
+		uiLuaScript.set('screenCenterY', function(spr:flixel.FlxObject):Void spr.screenCenter(flixel.util.FlxAxes.Y));
+	}
+	#end
+
 	// ─── Ciclo de vida ───────────────────────────────────────────────────────
 
 	override function update(elapsed:Float):Void
@@ -290,6 +378,9 @@ class UIScriptedManager extends FlxGroup
 		super.update(elapsed);
 		_argUpdate[0] = elapsed;
 		uiScript?.call('onUpdate', _argUpdate);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onUpdate', _argUpdate);
+		#end
 	}
 
 	// ─── Callbacks del juego → script ────────────────────────────────────────
@@ -298,12 +389,18 @@ class UIScriptedManager extends FlxGroup
 	{
 		_argBeat[0] = beat;
 		uiScript?.call('onBeatHit', _argBeat);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onBeatHit', _argBeat);
+		#end
 	}
 
 	public function onStepHit(step:Int):Void
 	{
 		_argStep[0] = step;
 		uiScript?.call('onStepHit', _argStep);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onStepHit', _argStep);
+		#end
 	}
 
 	public function showRatingPopup(ratingName:String, combo:Int):Void
@@ -312,23 +409,35 @@ class UIScriptedManager extends FlxGroup
 			return;
 		_argTwo[0] = ratingName; _argTwo[1] = combo;
 		uiScript?.call('onRatingPopup', _argTwo);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onRatingPopup', _argTwo);
+		#end
 	}
 
 	public function showMissPopup():Void
 	{
 		uiScript?.call('onMissPopup', _argEmpty);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onMissPopup', _argEmpty);
+		#end
 	}
 
 	public function setIcons(p1:String, p2:String):Void
 	{
 		_argTwo[0] = p1; _argTwo[1] = p2;
 		uiScript?.call('onIconsSet', _argTwo);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onIconsSet', _argTwo);
+		#end
 	}
 
 	public function setStage(stage:String):Void
 	{
 		_argOne[0] = stage;
 		uiScript?.call('onStageSet', _argOne);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onStageSet', _argOne);
+		#end
 	}
 
 	// ─── Acceso a iconos (compatibilidad con PlayState) ───────────────────────
@@ -347,6 +456,11 @@ class UIScriptedManager extends FlxGroup
 
 	override function destroy():Void
 	{
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call('onDestroy', _argEmpty);
+		uiLuaScript?.destroy();
+		uiLuaScript = null;
+		#end
 		uiScript?.call('onDestroy', _argEmpty);
 		uiScript?.destroy();
 		uiScript = null;

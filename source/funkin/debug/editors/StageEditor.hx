@@ -35,7 +35,7 @@ import sys.io.File;
 #end
 import funkin.debug.themes.EditorTheme;
 import funkin.debug.themes.ThemePickerSubState;
-import shaders.ShaderManager;
+import funkin.graphics.shaders.ShaderManager;
 
 using StringTools;
 

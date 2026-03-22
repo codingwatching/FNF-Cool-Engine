@@ -1,4 +1,4 @@
-package funkin.menus;
+package funkin.menus.substate;
 
 import flixel.FlxG;
 import flixel.FlxSprite;

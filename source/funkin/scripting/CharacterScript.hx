@@ -287,7 +287,7 @@ class CharacterScript
 	public function applyShader(shaderName:String):Void
 	{
 		if (character == null) return;
-		try { shaders.ShaderManager.applyShader(character, shaderName); }
+		try { funkin.graphics.shaders.ShaderManager.applyShader(character, shaderName); }
 		catch (e:Dynamic) trace('[CharacterScript] Shader error: $e');
 	}
 

@@ -1,4 +1,4 @@
-package shaders;
+package funkin.graphics.shaders;
 
 import flixel.FlxCamera;
 import flixel.FlxG;
@@ -12,7 +12,7 @@ import funkin.shaders.NoteGlowShader;
 import mods.ModManager;
 import openfl.filters.BitmapFilter;
 import openfl.filters.ShaderFilter;
-import shaders.compat.ShaderCompat;
+import funkin.graphics.shaders.compat.ShaderCompat;
 #if sys
 import sys.FileSystem;
 import sys.io.File;
@@ -137,11 +137,14 @@ class ShaderManager
 
 	// ─── Update ───────────────────────────────────────────────────────────────
 
-	/** Llamar desde MusicBeatState.update(elapsed). Anima filmGrain. */
+	/** Call from MusicBeatState.update(elapsed). Animates camera effects and script shaders. */
 	public static function update(elapsed:Float):Void
 	{
 		if (!initialized || !enabled) return;
 		_time += elapsed;
+
+		// Update all active script shaders
+		for (ss in scriptShaders) ss.update(elapsed);
 	}
 
 	// ─── Presets ──────────────────────────────────────────────────────────────
@@ -199,8 +202,11 @@ class ShaderManager
 	public static var shaders:Map<String, CustomShader>    = new Map();
 	public static var shaderPaths:Map<String, String>      = new Map();
 
-	/** Rutas de vertex shader opcionales (.vert) para cada shader registrado. */
+	/** Vertex shader paths (.vert siblings). */
 	public static var vertPaths:Map<String, String>        = new Map();
+
+	/** Script shaders — .lua / .hx files in the shaders folder. */
+	public static var scriptShaders:Map<String, ScriptShader> = new Map();
 
 	static var _liveInstances:Map<String, Array<FunkinRuntimeShader>>                         = new Map();
 	static var _spriteToInstance:Map<FlxSprite, {name:String, instance:FunkinRuntimeShader}> = new Map();
@@ -244,13 +250,44 @@ class ShaderManager
 		final prefix = modId != null ? '[$modId] ' : '[base] ';
 		for (file in FileSystem.readDirectory(folderPath))
 		{
-			if (!file.endsWith('.frag')) continue;
-			final shaderName = file.substr(0, file.length - 5);
-			shaderPaths.set(shaderName, '$folderPath/$file');
-			final vertFile = shaderName + '.vert';
-			if (FileSystem.exists('$folderPath/$vertFile'))
-				vertPaths.set(shaderName, '$folderPath/$vertFile');
-			trace('[ShaderManager] Registrado ${prefix}$shaderName');
+			// ── .frag — standard GLSL file ───────────────────────────────────
+			if (file.endsWith('.frag'))
+			{
+				final shaderName = file.substr(0, file.length - 5);
+				shaderPaths.set(shaderName, '$folderPath/$file');
+				final vertFile = shaderName + '.vert';
+				if (FileSystem.exists('$folderPath/$vertFile'))
+					vertPaths.set(shaderName, '$folderPath/$vertFile');
+				trace('[ShaderManager] Registered ${prefix}$shaderName (GLSL)');
+				continue;
+			}
+
+			// ── .lua / .hx — script shader ───────────────────────────────────
+			final isLua     = file.endsWith('.lua');
+			final isHScript = file.endsWith('.hx') || file.endsWith('.hscript');
+			if (!isLua && !isHScript) continue;
+
+			final dotIdx     = file.lastIndexOf('.');
+			final shaderName = dotIdx >= 0 ? file.substr(0, dotIdx) : file;
+			final fullPath   = '$folderPath/$file';
+
+			// Don't overwrite a .frag with the same name — .frag takes priority
+			if (shaderPaths.exists(shaderName)) continue;
+
+			final ss = new ScriptShader(shaderName, fullPath);
+			if (ss.load())
+			{
+				scriptShaders.set(shaderName, ss);
+				// Also register the compiled FunkinRuntimeShader as a CustomShader
+				// so the existing applyShader/applyShaderToCamera API works unchanged.
+				if (ss.shader != null)
+				{
+					final cs = new CustomShader(shaderName, ss.shader.fragmentSource, ss.shader.vertexSource);
+					shaders.set(shaderName, cs);
+					registerInstance(shaderName, ss.shader);
+				}
+				trace('[ShaderManager] Registered ${prefix}$shaderName (script)');
+			}
 		}
 		#end
 	}
@@ -661,6 +698,19 @@ class ShaderManager
 
 	public static function reloadShader(shaderName:String):Bool
 	{
+		// Script shader reload
+		if (scriptShaders.exists(shaderName))
+		{
+			final ss = scriptShaders.get(shaderName);
+			final ok = ss.hotReload();
+			if (ok && ss.shader != null)
+			{
+				final cs = new CustomShader(shaderName, ss.shader.fragmentSource, ss.shader.vertexSource);
+				shaders.set(shaderName, cs);
+			}
+			return ok;
+		}
+		// GLSL file reload
 		if (shaders.exists(shaderName)) shaders.remove(shaderName);
 		final cs = loadShader(shaderName);
 		if (cs == null) return false;
@@ -675,18 +725,24 @@ class ShaderManager
 
 	public static function reloadAllShaders():Void
 	{
+		// Reload script shaders
+		for (name => ss in scriptShaders) ss.hotReload();
+		// Reload GLSL shaders
 		shaders.clear();
 		scanShaders();
-		trace('[ShaderManager] ${Lambda.count(shaderPaths)} shaders disponibles');
+		trace('[ShaderManager] ${Lambda.count(shaderPaths) + Lambda.count(scriptShaders)} shaders available');
 	}
 
-	/** Limpia TODO: efectos de cámara + shaders runtime. */
+	/** Clears everything: camera effects + runtime shaders + script shaders. */
 	public static function clear():Void
 	{
+		// Destroy script shaders
+		for (ss in scriptShaders) ss.destroy();
+		scriptShaders.clear();
+
 		shaders.clear();
 		shaderPaths.clear();
 		vertPaths.clear();
-		// Limpiar overlays de cámara sin removerlos del estado (puede que el estado ya no exista)
 		_cameraOverlayMap.clear();
 		_liveInstances.clear();
 		_spriteToInstance.clear();

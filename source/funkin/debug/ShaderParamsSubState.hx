@@ -9,7 +9,7 @@ import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
 import funkin.debug.themes.EditorTheme;
-import shaders.ShaderManager;
+import funkin.graphics.shaders.ShaderManager;
 
 using StringTools;
 

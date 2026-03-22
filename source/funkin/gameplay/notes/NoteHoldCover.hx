@@ -155,6 +155,22 @@ class NoteHoldCover extends FlxSprite
 		// ── Centrar el cover sobre el strum ───────────────────────────────
 		_applyPosition();
 
+		// ── Shader de colorización automática ──────────────────────────────
+		final _hcSplashData = NoteSkinSystem.getSplashData(resolvedSplash);
+		if (_hcSplashData != null && _hcSplashData.colorAuto == true)
+		{
+			final _noteDir  = ['Purple','Blue','Green','Red'].indexOf(_color);
+			final dir       = _noteDir >= 0 ? _noteDir : 0;
+			final mult      = (_hcSplashData.colorMult != null) ? _hcSplashData.colorMult : 1.0;
+			final customDir = (_hcSplashData.colorDirections != null && dir < _hcSplashData.colorDirections.length)
+				? _hcSplashData.colorDirections[dir] : null;
+			shader = new funkin.shaders.NoteRGBShader(dir % 4, mult, customDir);
+		}
+		else
+		{
+			shader = null;
+		}
+
 		revive();
 		visible = false;
 		active  = true;
