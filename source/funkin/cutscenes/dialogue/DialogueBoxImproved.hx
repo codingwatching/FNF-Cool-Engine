@@ -14,7 +14,7 @@ import funkin.cutscenes.dialogue.DialogueData.*;
 using StringTools;
 
 /**
- * System of dialogues 100% softcoding with skins
+ * Sistema de diálogos 100% softcoding con skins
  */
 class DialogueBoxImproved extends FlxSpriteGroup
 {
@@ -56,13 +56,13 @@ class DialogueBoxImproved extends FlxSpriteGroup
 	{
 		super();
 
-		// 1. Load conversation (only mensajes + reference to skin)
+		// 1. Cargar conversación (solo mensajes + referencia a skin)
 		conversation = DialogueData.loadConversation(songName);
 		if (conversation == null)
 		{
 			trace('ERROR: Failed to load conversation for: $songName');
 			trace('Make sure the file exists at: assets/songs/${songName.toLowerCase()}/dialogue.json');
-			// Create conversation dummy for avoid crashes
+			// Crear conversación dummy para evitar crashes
 			conversation = {
 				name: "error",
 				skinName: "default",
@@ -75,7 +75,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 			};
 		}
 
-		// 2. Load skin asociada (all the configuration visual)
+		// 2. Cargar skin asociada (toda la configuración visual)
 		skin = DialogueData.loadSkin(conversation.skinName);
 		if (skin == null)
 		{
@@ -143,7 +143,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 	}
 
 	/**
-	 * Create caja of dialogue inicial
+	 * Crear caja de diálogo inicial
 	 */
 	function createDialogueBox():Void
 	{
@@ -157,7 +157,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		}
 		else
 		{
-			// If no there is box specific, usar the first available
+			// Si no hay box específica, usar la primera disponible
 			var firstBoxName:String = null;
 			for (name in skin.boxes.keys())
 			{
@@ -182,7 +182,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		{
 			add(box);
 
-			// Start animation of apertura if exists
+			// Iniciar animación de apertura si existe
 			if (box.animation != null && box.animation.exists('normalOpen'))
 			{
 				box.animation.play('normalOpen');
@@ -195,11 +195,11 @@ class DialogueBoxImproved extends FlxSpriteGroup
 	}
 
 	/**
-	 * Load caja from configuration of skin
+	 * Cargar caja desde configuración de skin
 	 */
 	function loadBox(boxName:String):FlxSprite
 	{
-		// Verify cache
+		// Verificar caché
 		if (boxCache.exists(boxName))
 		{
 			return boxCache.get(boxName);
@@ -225,7 +225,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 			// Agregar animaciones comunes
 			if (boxSprite.frames != null)
 			{
-				// Animations by style
+				// Animaciones según estilo
 				if (currentStyle == DialogueStyle.PIXEL)
 				{
 					boxSprite.animation.addByPrefix('normalOpen', config.animation ?? 'Text Box Appear', 24, false);
@@ -247,30 +247,30 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		}
 		catch (e:Dynamic)
 		{
-			// If falla, load as image static
+			// Si falla, cargar como imagen estática
 			trace('Loading box as static image: $fullPath');
 			boxSprite.loadGraphic(Paths.imageCutscene(fullPath));
 		}
 
-		// Appliesr scales from configuration
+		// Aplicar escala desde configuración
 		boxSprite.scale.set(config.scaleX ?? 1.0, config.scaleY ?? 1.0);
 		boxSprite.updateHitbox();
 		boxSprite.screenCenter(X);
 
-		// Save in cache
+		// Guardar en caché
 		boxCache.set(boxName, boxSprite);
 
 		return boxSprite;
 	}
 
 	/**
-	 * Create area of text from configuration of skin
+	 * Crear área de texto desde configuración de skin
 	 */
 	function createTextArea():Void
 	{
 		var textConfig = skin.textConfig;
 
-		// If no there is configuration, usar values by default according to estilo
+		// Si no hay configuración, usar valores por defecto según estilo
 		if (textConfig == null)
 		{
 			textConfig = switch (currentStyle)
@@ -323,7 +323,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		var soundPath = conversation.messages[0].sound;
 		if (soundPath == null)
 		{
-			// Sound by default according to estilo
+			// Sonido por defecto según estilo
 			soundPath = switch (currentStyle)
 			{
 				case DialogueStyle.PIXEL: 'pixelText';
@@ -360,7 +360,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 	}
 
 	/**
-	 * Load portrait from configuration of skin
+	 * Cargar portrait desde configuración de skin
 	 */
 	function loadPortrait(portraitName:String):FlxSprite
 	{
@@ -398,12 +398,12 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		}
 		catch (e:Dynamic)
 		{
-			// If falla, load as image static
+			// Si falla, cargar como imagen estática
 			trace('Loading portrait as static image: $fullPath');
 			portrait.loadGraphic(Paths.imageCutscene(fullPath));
 		}
 
-		// Appliesr configuration
+		// Aplicar configuración
 		portrait.scale.set(config.scaleX ?? 1.0, config.scaleY ?? 1.0);
 		portrait.flipX = config.flipX ?? false;
 		portrait.updateHitbox();
@@ -414,11 +414,11 @@ class DialogueBoxImproved extends FlxSpriteGroup
 	}
 
 	/**
-	 * Get or create portrait (with cache)
+	 * Obtener o crear portrait (con caché)
 	 */
 	function getOrCreatePortrait(portraitName:String):FlxSprite
 	{
-		// Verify cache
+		// Verificar caché
 		if (portraitCache.exists(portraitName))
 		{
 			return portraitCache.get(portraitName);
@@ -462,11 +462,11 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		}
 		else
 		{
-			// If no there is animation of apertura, abrir inmediatamente
+			// Si no hay animación de apertura, abrir inmediatamente
 			dialogueOpened = true;
 		}
 
-		// Start dialogue
+		// Iniciar diálogo
 		if (dialogueOpened && !dialogueStarted)
 		{
 			startDialogue();
@@ -500,13 +500,13 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		{
 			if (!textFinished)
 			{
-				// Complete text instantly
+				// Completar texto instantáneamente
 				swagDialogue.skip();
 				textFinished = true;
 				return;
 			}
 
-			// If already ended the text, avanzar to the next mensaje
+			// Si ya terminó el texto, avanzar al siguiente mensaje
 			FlxG.sound.play(Paths.sound('clickText'), 0.8);
 			currentMessageIndex++;
 
@@ -560,7 +560,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 			});
 		}
 
-		// Update portrait if is especificado
+		// Actualizar portrait si está especificado
 		if (msg.portrait != null && msg.portrait != "")
 		{
 			updatePortrait(msg.portrait);
@@ -572,13 +572,13 @@ class DialogueBoxImproved extends FlxSpriteGroup
 			activePortrait = null;
 		}
 
-		// Change caja if is especificada
+		// Cambiar caja si está especificada
 		if (msg.boxSprite != null && msg.boxSprite != "")
 		{
 			updateBox(msg.boxSprite);
 		}
 
-		// Update animation of the caja according to the type of burbuja
+		// Actualizar animación de la caja según el tipo de burbuja
 		if (box != null && box.animation != null && msg.bubbleType != null)
 		{
 			switch (msg.bubbleType)
@@ -598,7 +598,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 			}
 		}
 
-		// Change music if is especificada
+		// Cambiar música si está especificada
 		if (msg.music != null && msg.music != "")
 		{
 			FlxG.sound.playMusic(Paths.music(msg.music), 0.7);
@@ -623,7 +623,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 		{
 			newPortrait.visible = true;
 
-			// Play animation
+			// Reproducir animación
 			if (newPortrait.animation != null)
 			{
 				if (newPortrait.animation.exists('enter'))
@@ -641,7 +641,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 	}
 
 	/**
-	 * Update caja of dialogue
+	 * Actualizar caja de diálogo
 	 */
 	function updateBox(boxName:String):Void
 	{
@@ -673,7 +673,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 			box = newBox;
 			add(box);
 
-			// Start animation
+			// Iniciar animación
 			if (box.animation != null)
 			{
 				if (box.animation.exists('normalOpen'))
@@ -694,7 +694,7 @@ class DialogueBoxImproved extends FlxSpriteGroup
 			return;
 		isEnding = true;
 
-		// Stop the music of the dialogue with fade out
+		// Detener la música del diálogo con fade out
 		if (FlxG.sound.music != null)
 		{
 			FlxG.sound.music.fadeOut(1.2, 0, function(twn:flixel.tweens.FlxTween)

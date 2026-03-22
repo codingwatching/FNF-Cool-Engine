@@ -51,13 +51,13 @@ import funkin.cutscenes.SpriteCutsceneData;
  *   b.gf  / b.girlfriend  → CharacterProxy para GF
  *   b.sprite('id')        → SpriteProxy para cualquier sprite de la cutscene
  *
- * ─── Methods of CharacterProxy ──────────────────────────────────────────────
+ * ─── Métodos de CharacterProxy ──────────────────────────────────────────────
  *
- *   .bf.playAnim('hey')          // lanza animation (force=true by default)
+ *   .bf.playAnim('hey')          // lanza animación (force=true por defecto)
  *   .bf.playAnim('hey', false)   // force=false
  *   .bf.dance()                  // vuelve al idle/dance
  *
- * ─── Methods of SpriteProxy ─────────────────────────────────────────────────
+ * ─── Métodos de SpriteProxy ─────────────────────────────────────────────────
  *
  *   .sprite('can').add()
  *   .sprite('can').remove()
@@ -112,10 +112,10 @@ class CutsceneBuilder
 		return this;
 	}
 
-	// ── definition of sprites ─────────────────────────────────────────────────
+	// ── definición de sprites ─────────────────────────────────────────────────
 
 	/**
-	 * Defines a rectangle of color.
+	 * Define un rectángulo de color.
 	 * Por defecto 2×2 en (-100,-100) con scrollFactor=0: cubre toda la pantalla.
 	 */
 	public function defineRect(id:String, color:String = 'BLACK',
@@ -129,7 +129,7 @@ class CutsceneBuilder
 	}
 
 	/**
-	 * Defines a sprite with datos completos (equivalente to the section "sprites" of the JSON).
+	 * Define un sprite con datos completos (equivalente a la sección "sprites" del JSON).
 	 * Acepta exactamente los mismos campos: type, image, x, y, alpha,
 	 * scrollFactor, antialiasing, scale, animations, etc.
 	 */
@@ -152,7 +152,7 @@ class CutsceneBuilder
 
 	// ── acciones de sprite ────────────────────────────────────────────────────
 
-	/** Adds a sprite to the escena. */
+	/** Añade un sprite a la escena. */
 	public function add(id:String, ?alpha:Float):CutsceneBuilder
 	{
 		var s:CutsceneStep = { action:'add', sprite:id };
@@ -164,15 +164,15 @@ class CutsceneBuilder
 	public function remove(id:String):CutsceneBuilder
 		return _push({ action:'remove', sprite:id });
 
-	/** Changes the alpha instantly. */
+	/** Cambia el alpha instantáneamente. */
 	public function setAlpha(id:String, alpha:Float):CutsceneBuilder
 		return _push({ action:'setAlpha', sprite:id, alpha:alpha });
 
-	/** Changes the visibilidad instantly. */
+	/** Cambia la visibilidad instantáneamente. */
 	public function setVisible(id:String, v:Bool):CutsceneBuilder
 		return _push({ action:'setVisible', sprite:id, visible:v });
 
-	/** Moves a sprite to (x, and) instantly. */
+	/** Mueve un sprite a (x, y) instantáneamente. */
 	public function setPosition(id:String, x:Float, y:Float):CutsceneBuilder
 		return _push({ action:'setPosition', sprite:id, x:x, y:y });
 
@@ -189,14 +189,14 @@ class CutsceneBuilder
 		return _push(s);
 	}
 
-	/** Plays an animation en un sprite de la cutscene. */
+	/** Reproduce una animación en un sprite de la cutscene. */
 	public function playAnim(id:String, anim:String, ?force:Bool):CutsceneBuilder
 		return _push({ action:'playAnim', sprite:id, anim:anim, force:force ?? false });
 
 	// ── acciones de personaje ─────────────────────────────────────────────────
 
 	/**
-	 * Lanza a animation in bf/dad/gf of the PlayState.
+	 * Lanza una animación en bf/dad/gf del PlayState.
 	 * Preferiblemente usa los proxies: b.bf.playAnim('hey')
 	 * @param who   "bf" | "dad" | "gf" y sus aliases
 	 * @param opts  Opcional: { force:true, wait:false }
@@ -231,7 +231,7 @@ class CutsceneBuilder
 	public function waitSound(id:String):CutsceneBuilder
 		return _push({ action:'waitSound', id:id });
 
-	// ── camera ────────────────────────────────────────────────────────────────
+	// ── cámara ────────────────────────────────────────────────────────────────
 
 	/** Tweenea el zoom. @param opts { ease:'quadOut', async:true } */
 	public function cameraZoom(zoom:Float, duration:Float, ?opts:Dynamic):CutsceneBuilder
@@ -241,11 +241,11 @@ class CutsceneBuilder
 		return _push(s);
 	}
 
-	/** Moves the camera instantly to the coordenadas of scroll (x, and). */
+	/** Mueve la cámara instantáneamente a las coordenadas de scroll (x, y). */
 	public function cameraMove(x:Float, y:Float):CutsceneBuilder
 		return _push({ action:'cameraMove', camX:x, camY:y });
 
-	/** Tweenea the position of the camera. @param opts { ease:'sineInOut', async:true } */
+	/** Tweenea la posición de la cámara. @param opts { ease:'sineInOut', async:true } */
 	public function cameraPan(x:Float, y:Float, duration:Float, ?opts:Dynamic):CutsceneBuilder
 	{
 		var s:CutsceneStep = { action:'cameraPan', camX:x, camY:y, duration:duration };
@@ -253,7 +253,7 @@ class CutsceneBuilder
 		return _push(s);
 	}
 
-	/** Restaura zoom and position to the state previo. @param opts { duration:0.5, async:true } */
+	/** Restaura zoom y posición al estado previo. @param opts { duration:0.5, async:true } */
 	public function cameraReset(?opts:Dynamic):CutsceneBuilder
 	{
 		var s:CutsceneStep = { action:'cameraReset' };
@@ -261,7 +261,7 @@ class CutsceneBuilder
 		return _push(s);
 	}
 
-	/** Flash of the camera. */
+	/** Flash de la cámara. */
 	public function cameraFlash(?color:String, ?duration:Float, ?async:Bool):CutsceneBuilder
 	{
 		var s:Dynamic = { action:'cameraFlash', color:color ?? 'WHITE', duration:duration ?? 0.5 };
@@ -269,7 +269,7 @@ class CutsceneBuilder
 		return _push(cast s);
 	}
 
-	/** Fade of the camera. @param opts { fadeIn:false, async:false } */
+	/** Fade de la cámara. @param opts { fadeIn:false, async:false } */
 	public function cameraFade(?color:String, ?duration:Float, ?opts:Dynamic):CutsceneBuilder
 	{
 		var s:CutsceneStep = { action:'cameraFade', color:color ?? 'BLACK', duration:duration ?? 0.5 };
@@ -277,18 +277,18 @@ class CutsceneBuilder
 		return _push(s);
 	}
 
-	/** Shake of the camera. */
+	/** Shake de la cámara. */
 	public function cameraShake(?intensity:Float, ?duration:Float):CutsceneBuilder
 		return _push({ action:'cameraShake', intensity:intensity ?? 0.03, duration:duration ?? 0.2 });
 
-	/** Hace that the camera siga to a sprite. null = dejar of seguir. */
+	/** Hace que la cámara siga a un sprite. null = dejar de seguir. */
 	public function cameraTarget(?spriteId:String):CutsceneBuilder
 	{
 		var s:Dynamic = { action:'cameraTarget', camTarget:spriteId };
 		return _push(cast s);
 	}
 
-	/** Fade of alpha of a camera of the PlayState. @param opts { duration:0.3, async:true } */
+	/** Fade de alpha de una cámara del PlayState. @param opts { duration:0.3, async:true } */
 	public function setCamVisible(cam:String, visible:Bool, ?opts:Dynamic):CutsceneBuilder
 	{
 		var s:Dynamic = { action:'setCamVisible', cam:cam, visible:visible };
@@ -296,11 +296,11 @@ class CutsceneBuilder
 		return _push(cast s);
 	}
 
-	// ── callbacks — ejecutar code Haxe/HScript arbitrario ──────────────────
+	// ── callbacks — ejecutar código Haxe/HScript arbitrario ──────────────────
 
 	/**
-	 * Ejecuta a function in this punto of the cutscene without bloquearla.
-	 * The function is call inmediatamente and the cutscene continúa to the next paso.
+	 * Ejecuta una función en este punto de la cutscene sin bloquearla.
+	 * La función se llama inmediatamente y la cutscene continúa al siguiente paso.
 	 *
 	 *   b.call(function() {
 	 *       FlxG.sound.play(Paths.sound('explosion'));
@@ -317,9 +317,9 @@ class CutsceneBuilder
 	}
 
 	/**
-	 * Ejecuta a function asynchronous that bloquea the cutscene until that
-	 * the function llame to its argumento `done`.
-	 * Useful for wait to that termine a FlxTween, a FlxTimer, etc.
+	 * Ejecuta una función asíncrona que bloquea la cutscene hasta que
+	 * la función llame a su argumento `done`.
+	 * Útil para esperar a que termine un FlxTween, un FlxTimer, etc.
 	 *
 	 *   b.callAsync(function(done) {
 	 *       FlxTween.tween(mySprite, {alpha:0}, 1.0, { onComplete: function(_) done() });
@@ -341,9 +341,9 @@ class CutsceneBuilder
 
 	/**
 	 * Bloquea la cutscene hasta que Conductor llegue al beat indicado.
-	 * If the beat already passed continúa inmediatamente.
+	 * Si el beat ya pasó continúa inmediatamente.
 	 *
-	 *   b.waitBeat(8)    // wait until the beat 8 of the song
+	 *   b.waitBeat(8)    // esperar hasta el beat 8 de la canción
 	 */
 	public function waitBeat(beat:Int):CutsceneBuilder
 	{
@@ -364,12 +364,12 @@ class CutsceneBuilder
 	}
 
 	/**
-	 * Ejecuta a function each vez that is dispara a beat mientras the
-	 * cutscene is active.
-	 * The log is hace via onBeatHitHooks of PlayState, and is elimina
-	 * automatically when the cutscene termina or is salta.
+	 * Ejecuta una función cada vez que se dispara un beat mientras la
+	 * cutscene esté activa.
+	 * El registro se hace vía onBeatHitHooks de PlayState, y se elimina
+	 * automáticamente cuando la cutscene termina o se salta.
 	 *
-	 * `fn` receives the number of beat current as argument: function(beat) { ... }
+	 * `fn` recibe el número de beat actual como argumento: function(beat) { ... }
 	 *
 	 *   b.onBeat(function(beat) {
 	 *       if (beat % 2 == 0) mySprite.scale.set(1.1, 1.1);
@@ -389,10 +389,10 @@ class CutsceneBuilder
 	}
 
 	/**
-	 * Ejecuta a function each vez that is dispara a step mientras the
-	 * cutscene is active.
+	 * Ejecuta una función cada vez que se dispara un step mientras la
+	 * cutscene esté activa.
 	 *
-	 * `fn` receives the number of step current: function(step) { ... }
+	 * `fn` recibe el número de step actual: function(step) { ... }
 	 *
 	 *   b.onStep(function(step) {
 	 *       if (step % 4 == 0) mySprite.animation.play('bop');
@@ -412,8 +412,8 @@ class CutsceneBuilder
 	}
 
 	/**
-	 * Registra a function that is call when the cutscene termina or is salta.
-	 * Useful for clear recursos creados with call() or callAsync().
+	 * Registra una función que se llama cuando la cutscene termina o se salta.
+	 * Útil para limpiar recursos creados con call() o callAsync().
 	 *
 	 *   b.call(function() { someExternalTimer.start(); })
 	 *    .onCleanup(function() { someExternalTimer.cancel(); })
@@ -435,14 +435,14 @@ class CutsceneBuilder
 		return _push(cast s);
 	}
 
-	/** Adds a paso arbitrario in format raw (same object that the JSON). */
+	/** Añade un paso arbitrario en formato raw (mismo objeto que el JSON). */
 	public function step(raw:Dynamic):CutsceneBuilder
 		return _push(cast raw);
 
 	// ── finalización ──────────────────────────────────────────────────────────
 
 	/**
-	 * Adds the paso `end` end. Optional — play() it adds automatically.
+	 * Añade el paso `end` final. Opcional — play() lo añade automáticamente.
 	 */
 	public function end():CutsceneBuilder
 		return _push({ action:'end' });
@@ -450,7 +450,7 @@ class CutsceneBuilder
 	/**
 	 * Construye el documento, crea la SpriteCutscene y la lanza.
 	 * @param onComplete  Callback al terminar o saltar.
-	 * @return            The instancia for poder callr skip() after.
+	 * @return            La instancia para poder llamar skip() después.
 	 */
 	public function play(?onComplete:Void->Void):SpriteCutscene
 	{
@@ -489,7 +489,7 @@ class CutsceneBuilder
 
 /**
  * Proxy que representa a bf, dad o gf dentro del builder.
- * All its methods añaden a paso to the builder and returnsn the builder
+ * Todos sus métodos añaden un paso al builder y devuelven el builder
  * para seguir encadenando.
  *
  *   b.bf.playAnim('hey')     → igual que b.stageAnim('bf', 'hey')
@@ -508,16 +508,16 @@ class CharacterProxy
 	}
 
 	/**
-	 * Lanza a animation in this character.
-	 * @param anim   Nombre of the animation (igual that in Character.playAnim)
-	 * @param force  Force restart although already is reproduciéndose (default: true)
+	 * Lanza una animación en este personaje.
+	 * @param anim   Nombre de la animación (igual que en Character.playAnim)
+	 * @param force  Forzar reinicio aunque ya esté reproduciéndose (default: true)
 	 */
 	public function playAnim(anim:String, ?force:Bool):CutsceneBuilder
 		return _b._push({ action:'stageAnim', sprite:_who, anim:anim, force:force ?? true });
 
 	/**
 	 * Vuelve al idle/dance.
-	 * Lanza 'idle' with force=false; Character.update() elegirá the anim correct.
+	 * Lanza 'idle' con force=false; Character.update() elegirá la anim correcta.
 	 */
 	public function dance():CutsceneBuilder
 		return _b._push({ action:'stageAnim', sprite:_who, anim:'idle', force:false });
@@ -547,7 +547,7 @@ class SpriteProxy
 		_id = id;
 	}
 
-	/** Adds the sprite to the escena. */
+	/** Añade el sprite a la escena. */
 	public function add(?alpha:Float):CutsceneBuilder
 	{
 		var s:CutsceneStep = { action:'add', sprite:_id };
@@ -559,7 +559,7 @@ class SpriteProxy
 	public function remove():CutsceneBuilder
 		return _b._push({ action:'remove', sprite:_id });
 
-	/** Plays an animation en el sprite. */
+	/** Reproduce una animación en el sprite. */
 	public function playAnim(anim:String, ?force:Bool):CutsceneBuilder
 		return _b._push({ action:'playAnim', sprite:_id, anim:anim, force:force ?? false });
 
@@ -575,15 +575,15 @@ class SpriteProxy
 		return _b._push(s);
 	}
 
-	/** Changes the alpha instantly. */
+	/** Cambia el alpha instantáneamente. */
 	public function setAlpha(alpha:Float):CutsceneBuilder
 		return _b._push({ action:'setAlpha', sprite:_id, alpha:alpha });
 
-	/** Changes the visibilidad instantly. */
+	/** Cambia la visibilidad instantáneamente. */
 	public function setVisible(v:Bool):CutsceneBuilder
 		return _b._push({ action:'setVisible', sprite:_id, visible:v });
 
-	/** Moves the sprite to (x, and) instantly. */
+	/** Mueve el sprite a (x, y) instantáneamente. */
 	public function setPosition(x:Float, y:Float):CutsceneBuilder
 		return _b._push({ action:'setPosition', sprite:_id, x:x, y:y });
 }

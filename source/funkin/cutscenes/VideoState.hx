@@ -34,8 +34,8 @@ class VideoState extends MusicBeatState
 
 	public override function create():Void
 	{
-		// FIX (music to the minimizar): mantener false for that the audio no is corte
-		// if the player minimiza during a cutscene. The video is seguirá viendo
+		// FIX (música al minimizar): mantener false para que el audio no se corte
+		// si el jugador minimiza durante una cutscene. El video se seguirá viendo
 		// igual; solo cambia que el audio no se pausa.
 		FlxG.autoPause = false;
 

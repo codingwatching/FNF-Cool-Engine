@@ -12,19 +12,19 @@ import funkin.gameplay.notes.NoteBatcher;
 /**
  * NoteRenderer SUPER OPTIMIZADO
  *
- * ARQUITECTURA (pattern v-slice):
+ * ARQUITECTURA (patrón v-slice):
  * - NoteSplash    → solo splashes de hit en notas normales
  * - NoteHoldCover → covers visuales para hold notes (start → loop → end)
  * - Object pooling separado para cada tipo
  * - Cero allocs en los paths calientes (buffers preallocados)
  *
- * API public usada by NoteManager:
+ * API pública usada por NoteManager:
  * - getNote / recycleNote
  * - spawnSplash        (notas normales)
  * - recycleSplash
  * - startHoldCover     (inicio de hold note)
  * - stopHoldCover      (release o miss)
- * - updateHoldCovers   (clear covers orphaned, callr 1×/frame)
+ * - updateHoldCovers   (limpiar covers huérfanos, llamar 1×/frame)
  * - updateBatcher
  * - clearPools / destroy
  */
@@ -34,9 +34,9 @@ class NoteRenderer
     private var playerStrums:FlxTypedGroup<FlxSprite>;
     private var cpuStrums:FlxTypedGroup<FlxSprite>;
 
-    // BUGFIX: The batcher internal of NoteRenderer never is adds to the FlxState
+    // BUGFIX: El batcher interno de NoteRenderer NUNCA se añade al FlxState
     // via add(), por lo que nunca se dibuja. Las notas se renderizan desde el
-    // FlxTypedGroup<Note> that PlayState itself adds to the escena.
+    // FlxTypedGroup<Note> que PlayState sí añade a la escena.
     public var noteBatcher:NoteBatcher = null;
     private var useBatching:Bool = false;
 
@@ -49,8 +49,8 @@ class NoteRenderer
     // BUGFIX: mezclarlos causaba que note.recycle() cambiara isSustainNote sin
     // recargar animaciones → WARNING "No animation called 'purpleScroll'" etc.
     // 24 + 24 = 48 objetos poolados — suficiente para canciones densas.
-    // The value previous (50+50=100) mantenía demasiados FlxSprites vivos with
-    // its textures, contribuyendo to the presión of RAM during gameplay.
+    // El valor anterior (50+50=100) mantenía demasiados FlxSprites vivos con
+    // sus texturas, contribuyendo a la presión de RAM durante gameplay.
     private var notePool:Array<Note>    = [];   // notas normales (cabeza)
     private var sustainPool:Array<Note> = [];   // hold pieces + tails
     private var maxPoolSize:Int = 24;
@@ -58,13 +58,13 @@ class NoteRenderer
     // OPTIMIZATION: pool de splashes de hit normales
     private var splashPool:Array<NoteSplash> = [];
     private var maxSplashPoolSize:Int = 16;
-    private var _splashNext:Int = 0; // index circular for or(1) amortizado in spawnSplash
+    private var _splashNext:Int = 0; // índice circular para O(1) amortizado en spawnSplash
 
     // NUEVO (v-slice): pool de NoteHoldCover
     public var holdCoverPool:Array<NoteHoldCover> = [];
     private var maxHoldCoverPoolSize:Int = 8;
 
-    // Tracking of hold notes activas → cover asociado (keyed by direction 0-3)
+    // Tracking de hold notes activas → cover asociado (keyed por dirección 0-3)
     private var activeHoldCovers:Map<Int, NoteHoldCover> = new Map();
 
     // Stats de pooling
@@ -150,9 +150,9 @@ class NoteRenderer
 
     /**
      * Crear y devolver un splash de hit para una nota normal.
-     * OPT: scan lineal reemplazado by search with index circular (_splashNext).
-     *      The splashes is liberan fast (animation corta) → casi always the
-     *      primer candidato is libre. Caso peor: itera the pool 1× (16 items max).
+     * OPT: scan lineal reemplazado por búsqueda con índice circular (_splashNext).
+     *      Los splashes se liberan rápido (animación corta) → casi siempre el
+     *      primer candidato está libre. Caso peor: itera el pool 1× (16 items max).
      */
     public function spawnSplash(x:Float, y:Float, noteData:Int = 0, ?splashName:String):NoteSplash
     {
@@ -175,7 +175,7 @@ class NoteRenderer
             }
         }
 
-        // Pool full or empty → create new if there is hueco, if no reusar more old
+        // Pool lleno o vacío → crear nuevo si hay hueco, si no reusar más viejo
         var splash:NoteSplash;
         if (poolLen < maxSplashPoolSize)
         {
@@ -220,7 +220,7 @@ class NoteRenderer
         }
 
         // Ninguno libre → crear siempre uno nuevo (nunca robar uno activo)
-        // maxHoldCoverPoolSize is a techo smooth — 4 dirs × 2 lados = 8 max simultáneos
+        // maxHoldCoverPoolSize es un techo suave — 4 dirs × 2 lados = 8 max simultáneos
         var cover = new NoteHoldCover();
         holdCoverPool.push(cover);
         createdHoldCovers++;
@@ -242,18 +242,18 @@ class NoteRenderer
 
     /**
      * Iniciar cover visual para una hold note.
-     * Reproduce start → loop (automatic) → end (when is call stopHoldCover).
+     * Reproduce start → loop (automático) → end (cuando se llama stopHoldCover).
      *
      * Solo llamar si FlxG.save.data.notesplashes == true (el check lo hace NoteManager).
-     * The caller debe add the resultado to the FlxGroup of the escena.
+     * El caller debe añadir el resultado al FlxGroup de la escena.
      *
-     * @return The NoteHoldCover assigned, or null if already había uno for this note.
+     * @return El NoteHoldCover asignado, o null si ya había uno para esta nota.
      */
     // strumCenterX/Y = centro visual del strum (strum.x + strum.width/2, strum.y + strum.height/2)
     public function startHoldCover(direction:Int, strumCenterX:Float, strumCenterY:Float, isPlayer:Bool = true, strumsGroupIndex:Int = 0, ?splashName:String):NoteHoldCover
     {
-        // BUG FIX: include strumsGroupIndex in the key for that dos holds simultáneos
-        // in the same direction but distintos grupos no compartan the same cover.
+        // BUG FIX: incluir strumsGroupIndex en la clave para que dos holds simultáneos
+        // en la misma dirección pero distintos grupos no compartan el mismo cover.
         // Player: 0-3 (grupo 0), 8-11 (grupo 1), ...
         // CPU:    4-7 (grupo 0), 12-15 (grupo 1), ...
         var key:Int = direction + (isPlayer ? strumsGroupIndex * 8 : 4 + strumsGroupIndex * 8);
@@ -268,7 +268,7 @@ class NoteRenderer
 
     /**
      * Detener el cover de una hold note (release o miss).
-     * Reproduce the animation of fin; NoteHoldCover is mata only to the terminar.
+     * Reproduce la animación de fin; NoteHoldCover se mata solo al terminar.
      */
     public function stopHoldCover(direction:Int, isPlayer:Bool = true, strumsGroupIndex:Int = 0):Void
     {
@@ -276,16 +276,16 @@ class NoteRenderer
         if (activeHoldCovers.exists(key))
         {
             var cover = activeHoldCovers.get(key);
-            // If playEnd() returns false → cover in state "end_pending" (start still no acabó)
-            // Is eliminará of the map igualmente; the cover is autodestruirá to the terminar its start
+            // Si playEnd() devuelve false → cover en estado "end_pending" (start aún no acabó)
+            // Se eliminará del map igualmente; el cover se autodestruirá al terminar su start
             if (cover != null) cover.playEnd();
             activeHoldCovers.remove(key);
         }
     }
 
     /**
-     * Already no necesario: the lifecycle is manages explicitly
-     * by direction in NoteManager (startHoldCover / stopHoldCover).
+     * Ya no necesario: el ciclo de vida se gestiona explícitamente
+     * por dirección en NoteManager (startHoldCover / stopHoldCover).
      * Se mantiene por compatibilidad con llamadas existentes.
      */
     public function updateHoldCovers():Void {}
@@ -370,7 +370,7 @@ class NoteRenderer
     public function clearPools():Void
     {
         // Hold covers activos — solo kill, NO destroy
-        // (are in grpHoldCovers that PlayState destruirá correctly)
+        // (están en grpHoldCovers que PlayState destruirá correctamente)
         for (dir in activeHoldCovers.keys())
         {
             var cover = activeHoldCovers.get(dir);
@@ -378,7 +378,7 @@ class NoteRenderer
         }
         activeHoldCovers.clear();
 
-        // Note pool — these notes no are in no FlxGroup → destroy
+        // Note pool — estas notas NO están en ningún FlxGroup → destruir
         for (note in notePool)
             if (note != null) note.destroy();
         notePool = [];
@@ -387,12 +387,12 @@ class NoteRenderer
             if (note != null) note.destroy();
         sustainPool = [];
 
-        // Splash pool — are in grpNoteSplashes → only kill, no destroy
+        // Splash pool — están en grpNoteSplashes → solo kill, NO destroy
         for (splash in splashPool)
             if (splash != null) splash.kill();
         splashPool = [];
 
-        // HoldCover pool — are in grpHoldCovers → only kill, no destroy
+        // HoldCover pool — están en grpHoldCovers → solo kill, NO destroy
         for (cover in holdCoverPool)
             if (cover != null) cover.kill();
         holdCoverPool = [];

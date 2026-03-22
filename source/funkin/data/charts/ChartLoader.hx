@@ -4,19 +4,19 @@ package funkin.data.charts;
 import sys.FileSystem;
 #end
 
-// Explicitly import sub-types from the ChartData.hx module.
+// Importar sub-tipos del módulo ChartData.hx explícitamente.
 import funkin.data.charts.ChartData.ChartNote;
 import funkin.data.charts.ChartData.ChartBPMChange;
 
 /**
  * ChartLoader — Punto de entrada unificado para cargar charts de cualquier formato.
  *
- * Detecta automatically the format by the extension of the file and use
+ * Detecta automáticamente el formato por la extensión del archivo y usa
  * el parser correcto: OsuManiaParser (.osu), StepManiaParser (.sm / .ssc).
  *
- * ─── Basic usage ──────────────────────────────────────────────────────────────
+ * ─── Uso básico ──────────────────────────────────────────────────────────────
  *
- *   // Detecta formato automatically
+ *   // Detecta formato automáticamente
  *   var data = ChartLoader.load('mods/mymod/charts/song.osu');
  *   var data = ChartLoader.load('mods/mymod/charts/song.sm', 'Hard');
  *   var data = ChartLoader.load('mods/mymod/charts/song.ssc', 'Challenge');
@@ -33,7 +33,7 @@ import funkin.data.charts.ChartData.ChartBPMChange;
  *   // En un script de mod:
  *   var data = ChartLoader.load('mods/mymod/charts/song.osu');
  *   if (data != null) {
- *     trace('Title: ' + data.title);
+ *     trace('Título: ' + data.title);
  *     trace('BPM: '    + data.bpm);
  *     trace('Notas: '  + data.notes.length);
  *
@@ -45,7 +45,7 @@ import funkin.data.charts.ChartData.ChartBPMChange;
  *
  *   local data = ChartLoader.load("mods/mymod/charts/song.sm", "Hard")
  *   if data ~= nil then
- *     log("Title: " .. data.title)
+ *     log("Título: " .. data.title)
  *     log("Notas: "  .. #data.notes)
  *     local song = ChartConverter.toSwagSong(data)
  *     PlayState.SONG = song
@@ -65,7 +65,7 @@ class ChartLoader
 	// ── API principal ──────────────────────────────────────────────────────
 
 	/**
-	 * Load a file of chart detectando its format by the extension.
+	 * Carga un archivo de chart detectando su formato por la extensión.
 	 *
 	 * Formatos soportados:
 	 *   .osu  → osu!mania  (OsuManiaParser)
@@ -98,7 +98,7 @@ class ChartLoader
 				StepManiaParser.fromFile(path, difficulty);
 
 			default:
-				trace('[ChartLoader] Extension no soportada: ".$ext" in "$path".');
+				trace('[ChartLoader] Extensión no soportada: ".$ext" en "$path".');
 				null;
 		};
 		#else

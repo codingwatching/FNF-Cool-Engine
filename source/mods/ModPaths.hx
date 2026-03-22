@@ -36,7 +36,7 @@ import sys.io.File;
 
 class ModPaths
 {
-	// ─── Basic paths ────────────────────────────────────────────────────────
+	// ─── Paths básicos ────────────────────────────────────────────────────────
 
 	/** Resuelve `file` dentro del mod `mod` (o el activo si no se especifica). */
 	public static function resolve(file:String, ?mod:String):String
@@ -82,7 +82,7 @@ class ModPaths
 		return resolve('stages/$key/$key.json',
 			mod) != 'assets/stages/$key/$key.json' ? resolve('stages/$key/$key.json', mod) : resolve('stages/$key.json', mod);
 
-	// ─── Images and sprites ───────────────────────────────────────────────────
+	// ─── Imágenes y sprites ───────────────────────────────────────────────────
 
 	public static function image(key:String, ?mod:String):String
 		return resolve('images/$key.png', mod);
@@ -93,7 +93,7 @@ class ModPaths
 	public static function iconImage(key:String, ?mod:String):String
 		return resolve('images/icons/$key.png', mod);
 
-	/** Video preview of the mod in a selector. */
+	/** Previsualización de vídeo del mod en un selector. */
 	public static function previewVideo(modId:String, key:String):String
 		return '${ModManager.MODS_FOLDER}/previewVids/$modId/$key.mp4';
 
@@ -114,7 +114,7 @@ class ModPaths
 	public static function music(key:String, ?mod:String):String
 		return resolve('music/$key.${Paths.SOUND_EXT}', mod);
 
-	// ─── Video ────────────────────────────────────────────────────────────────
+	// ─── Vídeo ────────────────────────────────────────────────────────────────
 
 	public static function video(key:String, ?mod:String):String
 		return resolve('videos/$key.mp4', mod);
@@ -128,8 +128,8 @@ class ModPaths
 
 	/**
 	 * Carga un atlas Sparrow del mod especificado.
-	 * Note: no use the cache of Paths (is a load puntual for a mod specific).
-	 * If quieres cache, active the mod with ModManager and use Paths.getSparrowAtlas().
+	 * Nota: NO usa el caché de Paths (es una carga puntual para un mod específico).
+	 * Si quieres caché, activa el mod con ModManager y usa Paths.getSparrowAtlas().
 	 */
 	public static function getSparrowAtlas(key:String, ?mod:String):FlxAtlasFrames
 	{
@@ -148,7 +148,7 @@ class ModPaths
 
 	// ─── Utilidades ───────────────────────────────────────────────────────────
 
-	/** Does `file` exist in mod `mod` (or the active one)? */
+	/** ¿Existe `file` en el mod `mod` (o el activo)? */
 	public static function exists(file:String, ?mod:String):Bool
 	{
 		final id = mod ?? ModManager.activeMod;

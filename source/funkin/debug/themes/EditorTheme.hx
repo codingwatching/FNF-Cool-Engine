@@ -26,9 +26,9 @@ typedef ThemeData =
 	var borderColor:Int;
 
 	// ── Accentos ──────────────────────────────────────────────────────────────
-	var accent:Int;       // color main of the title / text seleccionado
+	var accent:Int;       // color principal del título / texto seleccionado
 	var accentAlt:Int;    // animated / secondary accent
-	var selection:Int;    // caja of selection of canvas
+	var selection:Int;    // caja de selección de canvas
 
 	// ── Texto ─────────────────────────────────────────────────────────────────
 	var textPrimary:Int;
@@ -47,7 +47,7 @@ typedef ThemeData =
 }
 
 /**
- * EditorTheme — gestor static of the tema visual of all the editores.
+ * EditorTheme — gestor estático del tema visual de todos los editores.
  *
  * Uso:
  *   EditorTheme.load();             // al inicio del editor
@@ -68,7 +68,7 @@ class EditorTheme
 	// Carga / guardado
 	// ─────────────────────────────────────────────────────────────────────────
 
-	// Version of the formato of saved. Incrementar if changes the estructura.
+	// Versión del formato de guardado. Incrementar si cambia la estructura.
 	// Archivos con version < FORMAT_VERSION se ignoran (pueden estar corruptos).
 	static inline final FORMAT_VERSION:Int = 2;
 
@@ -85,7 +85,7 @@ class EditorTheme
 		{
 			var raw:Dynamic = Json.parse(File.getContent(SAVE_PATH));
 
-			// Elegir the base according to the field 'preset'
+			// Elegir la base según el campo 'preset'
 			var presetName:String = (raw.preset : String) ?? 'dark';
 			var base:ThemeData = switch (presetName.toLowerCase())
 			{
@@ -97,7 +97,7 @@ class EditorTheme
 				default:          _darkTheme();
 			};
 
-			// ── Comprobación of format ───────────────────────────────────
+			// ── Comprobación de formato ───────────────────────────────────
 			var fileVersion:Int = (raw.version == null) ? 0 : Std.int(raw.version);
 			if (fileVersion < FORMAT_VERSION)
 			{
@@ -114,7 +114,7 @@ class EditorTheme
 			var hasCustom = (raw.name != null && raw.name != presetName);
 			if (isKnownPreset && !hasCustom)
 			{
-				// Verify if there is some color custom diferente to the preset base
+				// Verificar si hay algún color custom diferente al preset base
 				var hasCustomColors = false;
 				var fields = ['bgDark','bgPanel','bgPanelAlt','bgHover','borderColor',
 					'accent','accentAlt','selection','textPrimary','textSecondary',
@@ -142,7 +142,7 @@ class EditorTheme
 				}
 			}
 
-			// Sobreescribe fields individuales if are in the JSON (tema custom)
+			// Sobreescribe campos individuales si están en el JSON (tema custom)
 			current = _mergeTheme(base, raw);
 			trace('[EditorTheme] Cargado: "${current.name}"');
 		}
@@ -167,11 +167,11 @@ class EditorTheme
 
 			// ─── IMPORTANTE ────────────────────────────────────────────────
 			// Los colores ARGB (0xFFRRGGBB) son > Int32.MAX en unsigned.
-			// Serializar the Int with signo da numbers negativos, and to the releer
+			// Serializar el Int con signo da números negativos, y al releer
 			// Std.parseInt('0xFF...') OVERFLOWEA en C++ devolviendo 0x7FFFFFFF,
 			// lo que hace que todos los colores aparezcan #FFFFFF tras reiniciar.
 			//
-			// Solution: guardamos only the 6 RGB digits as string "#RRGGBB".
+			// Solución: guardamos sólo los 6 dígitos RGB como string "#RRGGBB".
 			// Al cargar, parseamos el RGB (cabe en Int32) y le ponemos el alpha
 			// manualmente con OR (0xFF000000 = -16777216 en Int32 con signo).
 			// ───────────────────────────────────────────────────────────────
@@ -189,9 +189,9 @@ class EditorTheme
 				// Leer el color del ThemeData de forma segura
 				var colorInt:Int = 0;
 				try { colorInt = cast Reflect.field(current, f); } catch (_:Dynamic) {}
-				// Only the 6 RGB digits, without the alpha byte (avoids overflow in C++)
+				// Solo los 6 dígitos RGB, sin el byte alpha (evita overflow en C++)
 				var rgb = colorInt & 0xFFFFFF;
-				// Ensure we have 6 digits (pad with zeros on the left)
+				// Asegurar que tenemos 6 dígitos (rellenar con ceros a la izquierda)
 				var hex = StringTools.hex(rgb < 0 ? 0 : rgb, 6);
 				Reflect.setField(obj, f, '#' + hex);
 			}
@@ -276,7 +276,7 @@ class EditorTheme
 			var v = Reflect.field(raw, field);
 			if (v == null) return fallback;
 
-			// ── Caso Int (saved directly as number) ──────────────
+			// ── Caso Int (guardado directamente como número) ──────────────
 			if (Std.isOfType(v, Int))
 			{
 				var iv:Int = v;
@@ -322,7 +322,7 @@ class EditorTheme
 	// PRESETS
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/** Oscuro classic (by default) */
+	/** Oscuro clásico (por defecto) */
 	static function _darkTheme():ThemeData return {
 		name:          'dark',
 		bgDark:        0xFF0B0B16,

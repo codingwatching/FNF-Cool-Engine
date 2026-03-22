@@ -90,7 +90,7 @@ class StageEditor extends funkin.states.MusicBeatState
 	// ── Cameras ───────────────────────────────────────────────────────────────
 	var camGame:FlxCamera;
 	var camHUD:FlxCamera;
-	var camUI:FlxCamera; // camera invisible in cameras[0]: zoom always 1 → FlxUI calcula well the clicks
+	var camUI:FlxCamera; // cámara invisible en cameras[0]: zoom siempre 1 → FlxUI calcula bien los clicks
 	var camZoom:Float = 0.75;
 	var camTargetX:Float = 0;
 	var camTargetY:Float = 0;
@@ -258,7 +258,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		camHUD = new FlxCamera();
 		camHUD.bgColor.alpha = 0;
 
-		// Igual that AnimationDebug: camUI is a camera transparente and empty
+		// Igual que AnimationDebug: camUI es una cámara transparente y vacía
 		// que ocupa cameras[0] (= FlxG.camera). FlxUI usa cameras[0] para
 		// calcular las posiciones de click. Al tener zoom=1 fijo, los inputs,
 		// steppers y checkboxes responden correctamente sin importar el zoom
@@ -416,8 +416,8 @@ class StageEditor extends funkin.states.MusicBeatState
 			if (!_stageDataReady)
 			{
 				// FIX: Verificar si el archivo del stage existe en disco ANTES de crear Stage().
-				// If it doesn't exist, Stage.loadStage() fell back to loadDefaultStage() → cargaba the assets
-				// of stage_week1 aunque the usuario no the pidiera, ensuciando the canvas empty.
+				// Si no existe, Stage.loadStage() caía a loadDefaultStage() → cargaba los assets
+				// de stage_week1 aunque el usuario no los pidiera, ensuciando el canvas vacío.
 				final stageFileExists = mods.compat.ModCompatLayer.readStageFile(stageData.name) != null;
 
 				if (stageFileExists)
@@ -433,10 +433,10 @@ class StageEditor extends funkin.states.MusicBeatState
 				}
 				else
 				{
-					// ── Stage new without file: canvas empty ───────────────────
-					// Usar __fromData__ with stageData empty (elements:[]) in lugar of
+					// ── Stage nuevo sin archivo: canvas vacío ───────────────────
+					// Usar __fromData__ con stageData vacío (elements:[]) en lugar de
 					// new Stage(nombre) para evitar completamente el fallback a stage_week1.
-					trace('[StageEditor] Stage "${stageData.name}" no encontrado in disco — canvas empty.');
+					trace('[StageEditor] Stage "${stageData.name}" no encontrado en disco — canvas vacío.');
 					_stageDataReady = true;
 					stage = new Stage('__fromData__');
 					stage.isEditorPreview = true;
@@ -457,7 +457,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			}
 
 			stage.cameras = [camGame];
-			// FlxTypedGroup.cameras no hace cascade automatic to the miembros
+			// FlxTypedGroup.cameras no hace cascade automático a los miembros
 			// existentes, ni tampoco a sub-grupos. Propagamos recursivamente.
 			_assignCamerasRecursive(stage, [camGame]);
 			add(stage);
@@ -585,7 +585,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		selBox.cameras = [camGame];
 		add(selBox);
 
-		// Mesh semitransparente over the sprite seleccionado (pattern checkerboard)
+		// Malla semitransparente sobre el sprite seleccionado (patrón checkerboard)
 		selMesh = new FlxSprite();
 		selMesh.makeGraphic(1, 1, FlxColor.TRANSPARENT);
 		selMesh.visible = false;
@@ -593,7 +593,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		selMesh.cameras = [camGame];
 		add(selMesh);
 
-		// Tooltip of hover — vive in camHUD for that always is above of all
+		// Tooltip de hover — vive en camHUD para que siempre esté encima de todo
 		hoverTooltipBg = new FlxSprite();
 		hoverTooltipBg.makeGraphic(4, 18, 0xCC000000);
 		hoverTooltipBg.visible = false;
@@ -1823,7 +1823,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function handleKeyboard():Void
 	{
-		// If the usuario is escribiendo in a input, no fire shortcuts ni nudge
+		// Si el usuario está escribiendo en un input, no disparar shortcuts ni nudge
 		if (isTyping())
 			return;
 
@@ -1874,7 +1874,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			var elem = stageData.elements[selectedIdx];
 			var moved = false;
 
-			// Guardia: position puede be null if the elemento is cargó of a JSON incompleto
+			// Guardia: position puede ser null si el elemento se cargó de un JSON incompleto
 			if (elem.position == null)
 				elem.position = [0.0, 0.0];
 
@@ -2361,7 +2361,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		var needW = Std.int(spr.width  + pad * 2);
 		var needH = Std.int(spr.height + pad * 2);
 
-		// ── Edge of selection (only rebuildear if changed size) ─────────────
+		// ── Borde de selección (solo rebuildear si cambió tamaño) ─────────────
 		if (needW != _selBoxW || needH != _selBoxH)
 		{
 			_selBoxW = needW;
@@ -2403,8 +2403,8 @@ class StageEditor extends funkin.states.MusicBeatState
 
 			selMesh.makeGraphic(mw, mh, FlxColor.TRANSPARENT, true);
 			var mp = selMesh.pixels;
-			var cA = EditorTheme.current.selection | 0xFF000000;  // color solid
-			var tile = 8; // size of each cuadro of the damero
+			var cA = EditorTheme.current.selection | 0xFF000000;  // color sólido
+			var tile = 8; // tamaño de cada cuadro del damero
 
 			for (yi in 0...mh)
 			{
@@ -2428,7 +2428,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		_updateHoverTooltip();
 	}
 
-	/** Muestra the name of the elemento/character that is under the cursor of the mouse. */
+	/** Muestra el nombre del elemento/personaje que está bajo el cursor del mouse. */
 	function _updateHoverTooltip():Void
 	{
 		var worldPos = FlxG.mouse.getWorldPosition(camGame);
@@ -2438,7 +2438,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		var foundName:String = null;
 
-		// Chequear characters first (are above)
+		// Chequear personajes primero (están encima)
 		for (cid => c in characters)
 		{
 			if (wx >= c.x && wx <= c.x + c.width && wy >= c.y && wy <= c.y + c.height)
@@ -2448,7 +2448,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			}
 		}
 
-		// Chequear elementos if no cayó in character
+		// Chequear elementos si no cayó en personaje
 		if (foundName == null)
 		{
 			var i = stageData.elements.length - 1;
@@ -2478,14 +2478,14 @@ class StageEditor extends funkin.states.MusicBeatState
 			return;
 		}
 
-		// Only rebuild text if changed the name
+		// Solo rebuild texto si cambió el nombre
 		if (foundName != _hoverName)
 		{
 			_hoverName = foundName;
 			hoverTooltipTxt.text = foundName;
 		}
 
-		// Position: ligeramente by encima and to the derecha of the cursor (HUD space)
+		// Posición: ligeramente por encima y a la derecha del cursor (HUD space)
 		var tx = sx + 12;
 		var ty = sy - 20;
 		var tw = Std.int(hoverTooltipTxt.width) + 8;
@@ -3184,7 +3184,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		trace('[StageEditor] $msg');
 	}
 
-	/** True if some input of text tiene the foco.
+	/** True si algún input de texto tiene el foco.
 	 *  Mientras el usuario escribe, las flechas/delete NO deben mover el elemento. */
 	function isTyping():Bool
 	{
@@ -3426,12 +3426,12 @@ class StageEditor extends funkin.states.MusicBeatState
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Propaga a list of cameras to all the FlxBasic dentro of a grupo,
+	 * Propaga una lista de cámaras a TODOS los FlxBasic dentro de un grupo,
 	 * bajando recursivamente a sub-grupos (FlxTypedGroup dentro de FlxTypedGroup).
 	 *
-	 * FlxGroup.cameras only updates the field of the grupo in itself and the new
-	 * miembros that is añadan after of the assignment. The miembros already existentes
-	 * in the momento of the assignment no reciben the camera — there is that hacerlo manual.
+	 * FlxGroup.cameras solo actualiza el campo del grupo en sí y los NUEVOS
+	 * miembros que se añadan DESPUÉS de la asignación. Los miembros ya existentes
+	 * en el momento de la asignación NO reciben la cámara — hay que hacerlo manual.
 	 * Sin este fix, los sprites dentro de stage.groups tienen cameras=[] y
 	 * Flixel no puede compilar el programa GL del shader ("no camera detected").
 	 */
@@ -3468,7 +3468,7 @@ class StageEditor extends funkin.states.MusicBeatState
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Substate flotante for add a new elemento to the stage.
+ * Substate flotante para añadir un nuevo elemento al stage.
  * Muestra un formulario con tipo, nombre y asset, y llama al callback al confirmar.
  */
 class AddElementSubState extends flixel.FlxSubState

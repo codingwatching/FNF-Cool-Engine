@@ -1,24 +1,24 @@
 package funkin.graphics.scene3d;
 
 /**
- * Flx3DCamera — Camera 3D with projection perspectiva.
+ * Flx3DCamera — Cámara 3D con proyección perspectiva.
  *
- * Controls position, orientation and projection parameters.
+ * Controla posición, orientación y parámetros de proyección.
  * Las matrices view/projection se recalculan solo cuando cambian
- * the parameters (dirty flag), not every frame.
+ * los parámetros (dirty flag), no cada frame.
  */
 class Flx3DCamera
 {
-	// ── Position and orientation ──────────────────────────────────────────────
+	// ── Posición y orientación ──────────────────────────────────────────────
 
-	/** Position in espacio mundo. */
+	/** Posición en espacio mundo. */
 	public var position:Vec3 = new Vec3(0, 0, 5);
 	/** Punto al que mira. */
 	public var target:Vec3   = new Vec3(0, 0, 0);
 	/** Vector "arriba" (normalmente 0,1,0). */
 	public var up:Vec3       = new Vec3(0, 1, 0);
 
-	// ── Projection ─────────────────────────────────────────────────────────
+	// ── Proyección ─────────────────────────────────────────────────────────
 
 	/** Field of view vertical en grados. */
 	public var fovDegrees(default, set):Float = 60.0;
@@ -40,9 +40,9 @@ class Flx3DCamera
 
 	/** Matriz de vista (world → camera space). */
 	public var viewMatrix     (default, null):Mat4 = new Mat4();
-	/** Matriz of projection (camera → clip space). */
+	/** Matriz de proyección (camera → clip space). */
 	public var projMatrix     (default, null):Mat4 = new Mat4();
-	/** Combination viewProj precalculada. */
+	/** Combinación viewProj precalculada. */
 	public var viewProjMatrix (default, null):Mat4 = new Mat4();
 
 	var _projDirty:Bool = true;
@@ -55,7 +55,7 @@ class Flx3DCamera
 	/** Actualiza las matrices si es necesario. Llamar antes de cada render. */
 	public function update():Void
 	{
-		// View always is recalcula (position/target pueden change each frame)
+		// View siempre se recalcula (posición/target pueden cambiar cada frame)
 		viewMatrix.setLookAt(
 			position.x, position.y, position.z,
 			target.x,   target.y,   target.z,
@@ -71,7 +71,7 @@ class Flx3DCamera
 		Mat4.multiply(projMatrix, viewMatrix, viewProjMatrix);
 	}
 
-	/** Moves the camera for orbitar alrededor of the target. */
+	/** Mueve la cámara para orbitar alrededor del target. */
 	public function orbit(yawDeg:Float, pitchDeg:Float, radius:Float):Void
 	{
 		final yaw   = yawDeg   * (Math.PI / 180.0);

@@ -26,8 +26,8 @@ import sys.io.File;
 import sys.FileSystem;
 
 /**
- * Submenú that aparece to the presionar Enter over a song in FreeplayEditorState.
- * Allows elegir what editor of debug abrir without pasar by PlayState.
+ * Submenú que aparece al presionar Enter sobre una canción en FreeplayEditorState.
+ * Permite elegir qué editor de debug abrir sin pasar por PlayState.
  *
  * Opciones:
  *  0 — Edit Song Data       (comportamiento original)
@@ -294,7 +294,7 @@ class DebugMenuSubState extends FlxSubState
 			trace('[DebugMenuSubState] loadFromJson error for "$songName": $e');
 		}
 
-		trace('[DebugMenuSubState] Fallback empty for "$songName"');
+		trace('[DebugMenuSubState] Fallback vacío para "$songName"');
 		return cast {
 			song: songName, notes: [], events: [], characters: [], strumsGroups: [],
 			bpm: 120, speed: 2, needsVoices: true, stage: 'stage_week1',

@@ -26,13 +26,13 @@ typedef CharacterData =
 	/**
 	 * Clave del asset en el portal Discord Developer.
 	 * Si es null, se usa `healthIcon` como fallback.
-	 * Useful when the name of the character no coincide with the key Discord
+	 * Útil cuando el nombre del personaje no coincide con la clave Discord
 	 * (ej: charName 'monster-christmas' → discordIcon 'monster').
 	 */
 	@:optional var discordIcon:String;
 	@:optional var healthBarColor:String;
 	@:optional var cameraOffset:Array<Float>;
-	/** Offset of position global of the character (field "position" of Psych). Is suma to the position of the stage. */
+	/** Offset de posición global del personaje (campo "position" de Psych). Se suma a la posición del stage. */
 	@:optional var positionOffset:Array<Float>;
 	@:optional var gameOverSound:String;
 	@:optional var gameOverMusic:String;
@@ -44,16 +44,16 @@ typedef CharacterData =
 	// ── Renderizado 3D ────────────────────────────────────────────────────────
 	/**
 	 * Tipo de renderizado alternativo.
-	 * If is omite or is null, use the rendering 2D standard (Sparrow/Atlas).
+	 * Si se omite o es null, usa el renderizado 2D estándar (Sparrow/Atlas).
 	 *
 	 *   "model3d"  → carga un archivo .obj como companion Flx3DSprite
-	 *                visible in the position of the character; the sprite 2D
-	 *                is oculta. The scripts controlan the animation of the modelo.
+	 *                visible en la posición del personaje; el sprite 2D
+	 *                se oculta. Los scripts controlan la animación del modelo.
 	 */
 	@:optional var renderType:String;
 
 	/**
-	 * Name of the file .obj to load (without extension) when renderType = "model3d".
+	 * Nombre del archivo .obj a cargar (sin extensión) cuando renderType = "model3d".
 	 * Rutas buscadas:
 	 *   mods/{mod}/characters/models/{modelFile}.obj
 	 *   assets/characters/models/{modelFile}.obj
@@ -61,23 +61,23 @@ typedef CharacterData =
 	 */
 	@:optional var modelFile:String;
 
-	/** Scales of the modelo 3D (unidades of the mundo 3D → pixels). Default: 1.0. */
+	/** Escala del modelo 3D (unidades del mundo 3D → píxeles). Default: 1.0. */
 	@:optional var modelScale:Float;
 
-	/** Width of the render 3D in pixels. Default: 320. */
+	/** Ancho del render 3D en píxeles. Default: 320. */
 	@:optional var modelWidth:Int;
 
-	/** Height of the render 3D in pixels. Default: 400. */
+	/** Alto del render 3D en píxeles. Default: 400. */
 	@:optional var modelHeight:Int;
 
-	/** Position Z of the camera 3D (alejamiento). Default: 5.0. */
+	/** Posición Z de la cámara 3D (alejamiento). Default: 5.0. */
 	@:optional var modelCamZ:Float;
 
-	/** Offset 2D of the sprite 3D respecto to the position base of the character [x, and]. */
+	/** Offset 2D del sprite 3D respecto a la posición base del personaje [x, y]. */
 	@:optional var modelOffset:Array<Float>;
 }
 
-// Also modificar AnimData for include the hoja to the that pertenece:
+// También modificar AnimData para incluir la hoja a la que pertenece:
 
 typedef AnimData =
 {
@@ -91,8 +91,8 @@ typedef AnimData =
 	@:optional var assetPath:String;
 	@:optional var renderType:String;
 	/**
-	 * Voltear horizontalmente only for this animation, independiente of the flipX global.
-	 * Useful when a sub-atlas tiene the sprite dibujado in the direction contraria.
+	 * Voltear horizontalmente SOLO para esta animación, independiente del flipX global.
+	 * Útil cuando un sub-atlas tiene el sprite dibujado en la dirección contraria.
 	 *
 	 * El flipX resultante es: (flipX_global) XOR (flipX_anim).
 	 * Ejemplos:
@@ -148,17 +148,17 @@ class Character extends FunkinSprite
 
 	/**
 	 * Companion Flx3DSprite activo cuando renderType = "model3d".
-	 * Null for characters 2D standard.
-	 * The scripts pueden acceder to it for animar the model:
+	 * Null para personajes 2D estándar.
+	 * Los scripts pueden acceder a él para animar el modelo:
 	 *   character.model3D.scene.objects[0].rotY += elapsed * 2;
 	 */
 	public var model3D:Null<funkin.graphics.scene3d.Flx3DSprite> = null;
 
 	var danced:Bool = false;
 
-	/** Nombre of the animation of the frame previous — for detect fin of anim. */
+	/** Nombre de la animación del frame anterior — para detectar fin de anim. */
 	var _prevAnimName  :String = '';
-	/** If the animation estaba terminada in the frame previous. */
+	/** Si la animación estaba terminada en el frame anterior. */
 	var _prevAnimDone  :Bool   = false;
 	var _singAnimPrefix:String = "sing";
 	var _idleAnim:String = "idle";
@@ -167,47 +167,47 @@ class Character extends FunkinSprite
 	var _baseFlipX:Bool = false;
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  STATIC CACHES
+	//  CACHÉS ESTÁTICOS
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Cache of CharacterData parseados.
+	 * Caché de CharacterData parseados.
 	 * key → nombre del personaje (p.ej. "bf", "dad", "gf")
 	 *
 	 * Almacena el Dynamic ya casteado para que clone() sea O(1) mediante
 	 * haxe.Json.parse(haxe.Json.stringify(data)) — deep-copy barato.
 	 * Esto garantiza que modificar el CharacterData de una instancia no
-	 * corrompa the dato cacheado (inmutabilidad logic).
+	 * corrompa el dato cacheado (inmutabilidad lógica).
 	 */
 	static var _dataCache:Map<String, String> = []; // key → JSON string del data
 
 	/**
-	 * Cache of rutas resueltas by ModCompatLayer.
+	 * Caché de rutas resueltas por ModCompatLayer.
 	 * key → nombre del personaje, value → path absoluto al JSON
 	 */
 	static var _pathCache:Map<String, String> = [];
 
-	/** Invalida the entradas of a character specific (recarga of mod). */
+	/** Invalida las entradas de un personaje específico (recarga de mod). */
 	public static function invalidateCharCache(charName:String):Void
 	{
 		_dataCache.remove(charName);
 		_pathCache.remove(charName);
-		// Invalidar also the cache of frames of FunkinSprite
+		// Invalidar también el caché de frames de FunkinSprite
 		FunkinSprite.invalidateCache('char_sparrow:$charName');
 		FunkinSprite.invalidateCache('char_packer:$charName');
 		trace('[Character] Cache invalidado para: $charName');
 	}
 
-	/** Clears all the caches of Character. */
+	/** Limpia todos los cachés de Character. */
 	public static function clearCharCaches():Void
 	{
 		_dataCache.clear();
 		_pathCache.clear();
-		trace('[Character] All the caches of Character limpiados.');
+		trace('[Character] Todos los cachés de Character limpiados.');
 	}
 
 	/**
-	 * Precachea a character without añadirlo to the stage ni to none camera.
+	 * Precachea un personaje SIN añadirlo al stage ni a ninguna cámara.
 	 *
 	 * Carga en background:
 	 *   • JSON de datos → _dataCache  (Character.loadCharacterData)
@@ -215,7 +215,7 @@ class Character extends FunkinSprite
 	 *
 	 * Llamar esto durante la fase de carga (antes del gameplay) elimina
 	 * el hitch que ocurre al cambiar de personaje con Change Character
-	 * if the character new no había sido loaded before.
+	 * si el personaje nuevo no había sido cargado antes.
 	 *
 	 * @param name  Nombre del personaje a precachear
 	 */
@@ -226,12 +226,12 @@ class Character extends FunkinSprite
 		try
 		{
 			// Crear una instancia temporal completamente fuera de pantalla
-			// and without añadirla to no grupo/camera.
+			// y sin añadirla a ningún grupo/cámara.
 			// El constructor llama loadCharacterData + characterLoad internamente,
 			// lo que rellena _dataCache y FunkinSprite._frameCache.
 			final dummy = new Character(-99999, -99999, name, false);
 			// Destruir inmediatamente para liberar la instancia Haxe,
-			// but the assets PNG/XML already quedaron in the caches static.
+			// pero los assets PNG/XML ya quedaron en los caches estáticos.
 			dummy.destroy();
 			trace('[Character] Precacheo completado: "$name"');
 		}
@@ -284,19 +284,19 @@ class Character extends FunkinSprite
 			flipX = !flipX;
 		}
 
-		// Save the flipX base here, when already are appliesdos isPlayer and flipX of the JSON.
-		// playAnim() will use this value as base for the XOR with AnimData.flipX.
+		// Guardar el flipX base AQUÍ, cuando ya están aplicados isPlayer y flipX del JSON.
+		// playAnim() usará este valor como base para el XOR con AnimData.flipX.
 		_baseFlipX = this.flipX;
 
 		// Re-danzar con el _baseFlipX ya correcto para que la pose inicial sea la adecuada.
 		dance();
 	}
 
-	// ── Load of datos with cache ──────────────────────────────────────────────
+	// ── Carga de datos con caché ──────────────────────────────────────────────
 
 	function loadCharacterData(character:String):Void
 	{
-		// ── Cache hit ─────────────────────────────────────────────────────────
+		// ── Caché hit ─────────────────────────────────────────────────────────
 		if (_dataCache.exists(character))
 		{
 			try
@@ -308,13 +308,13 @@ class Character extends FunkinSprite
 			}
 			catch (e:Dynamic)
 			{
-				// If the cached JSON is corrupted, invalidate and reload
+				// Si el JSON cacheado está corrupto, invalidar y recargar
 				trace('[Character] Cache corrupto para "$character", recargando...');
 				_dataCache.remove(character);
 			}
 		}
 
-		// ── Cache miss: load from disco ────────────────────────────────────
+		// ── Caché miss: cargar desde disco ────────────────────────────────────
 		var jsonPath = _pathCache.get(character);
 		if (jsonPath == null)
 		{
@@ -332,7 +332,7 @@ class Character extends FunkinSprite
 
 			characterData = cast mods.compat.ModCompatLayer.loadCharacter(content, character);
 
-			// Save in cache as JSON string (deep-copy)
+			// Guardar en caché como JSON string (deep-copy)
 			_dataCache.set(character, haxe.Json.stringify(characterData));
 
 			applyCharacterDataDefaults(characterData, character);
@@ -357,18 +357,18 @@ class Character extends FunkinSprite
 		healthBarColor = data.healthBarColor != null ? FlxColor.fromString(data.healthBarColor) : healthBarColor;
 		cameraOffset = data.cameraOffset != null ? data.cameraOffset : cameraOffset;
 		// positionOffset se almacena en characterData.positionOffset y se aplica en PlayState/AnimationDebug
-		// after setPosition(), by it that no is toca here (avoid double-apply).
+		// after setPosition(), por lo que no se toca aquí (evitar double-apply).
 	}
 
 	function characterLoad(character:String):Void
 	{
 		// ── Multi-atlas al estilo V-Slice ────────────────────────────────────
-		// Recolectamos all the assetPath unique by animation.
-		// If alguna animation tiene its propio assetPath, construimos the atlas
+		// Recolectamos todos los assetPath únicos por animación.
+		// Si alguna animación tiene su propio assetPath, construimos el atlas
 		// combinado igual que MultiSparrowCharacter / MultiAnimateAtlasCharacter.
 		//
 		// El primer path siempre es el path principal (characterData.path).
-		// The sub-paths is añaden in orden of aparición (without duplicados).
+		// Los sub-paths se añaden en orden de aparición (sin duplicados).
 		// Esto permite que BF-holding-GF, Tankman, etc. funcionen
 		// sin necesidad de un archivo .sheets externo.
 
@@ -386,10 +386,10 @@ class Character extends FunkinSprite
 
 		if (needsMultiAtlas)
 		{
-			// V-Slice style: main first, subs after.
+			// V-Slice style: main primero, subs después.
 			// IMPORTANTE: usamos resolveAtlasFolder() que ya sabe buscar en mods/ primero
-			// and luego in assets/. So "tankman/basic" → "mods/base_game/characters/images/tankman/basic"
-			// if exists ahí, or "assets/characters/images/tankman/basic" if no.
+			// y luego en assets/. Así "tankman/basic" → "mods/base_game/characters/images/tankman/basic"
+			// si existe ahí, o "assets/characters/images/tankman/basic" si no.
 			// NO construimos el path a mano para evitar ignorar el mod activo.
 			final resolveCharAtlas = (p:String) -> {
 				// Si ya es un path absoluto resuelto (mods/ o assets/) lo usamos directo
@@ -399,7 +399,7 @@ class Character extends FunkinSprite
 				// resolveAtlasFolder busca en mods → assets y devuelve el path real con Animation.json
 				final resolved = animationdata.FunkinSprite.resolveAtlasFolder(charKey);
 				if (resolved != null) return resolved;
-				// Fallback: return as it was (loadMultiAnimateAtlas will try with assets/)
+				// Fallback: devolver como estaba (loadMultiAnimateAtlas lo intentará con assets/)
 				return charKey;
 			};
 
@@ -438,8 +438,8 @@ class Character extends FunkinSprite
 
 		applyCharacterSpecificAdjustments();
 
-		// note: _baseFlipX no is save here porque isPlayer and flipX of the JSON
-		// is appliesn after in the constructor. Is save there, tras those modificaciones.
+		// NOTA: _baseFlipX NO se guarda aquí porque isPlayer y flipX del JSON
+		// se aplican DESPUÉS en el constructor. Se guarda allí, tras esas modificaciones.
 
 		if (animOffsets.exists('danceRight'))
 			playAnim('danceRight');
@@ -450,7 +450,7 @@ class Character extends FunkinSprite
 
 		// ── Modelo 3D companion ───────────────────────────────────────────────────
 		// renderType: "model3d" → crea un Flx3DSprite que reemplaza visualmente
-		// to the sprite 2D. The sprite 2D sigue active for hitbox and position.
+		// al sprite 2D. El sprite 2D sigue activo para hitbox y posición.
 		if (characterData.renderType == 'model3d')
 			_initModel3D();
 	}
@@ -499,8 +499,8 @@ class Character extends FunkinSprite
 	{
 		super.playAnim(AnimName, Force, Reversed, Frame);
 
-		// ── flipX by animation ────────────────────────────────────────────────
-		// Is resuelve before of the offset for saber if there is inversion in this frame.
+		// ── flipX por animación ────────────────────────────────────────────────
+		// Se resuelve ANTES del offset para saber si hay inversión en este frame.
 		if (characterData != null)
 		{
 			for (anim in characterData.animations)
@@ -513,10 +513,10 @@ class Character extends FunkinSprite
 			}
 		}
 
-		// ── Appliesr offset with compensación of flipX ──────────────────────────
-		// The offsets is autorean with the sprite in its orientation base (_baseFlipX).
+		// ── Aplicar offset con compensación de flipX ──────────────────────────
+		// Los offsets se autorean con el sprite en su orientación base (_baseFlipX).
 		// Si el flipX actual difiere del base, invertimos offsetX para que el
-		// desplazamiento visual resultante sea always the that the autor pretendía.
+		// desplazamiento visual resultante sea siempre el que el autor pretendía.
 		var daOffset = animOffsets.get(AnimName);
 		if (daOffset != null)
 		{
@@ -535,7 +535,7 @@ class Character extends FunkinSprite
 		#end
 	}
 
-	// ── State of animation ───────────────────────────────────────────────────
+	// ── Estado de animación ───────────────────────────────────────────────────
 
 	public function getCurAnimName():String
 		return animName;
@@ -575,7 +575,7 @@ class Character extends FunkinSprite
 		if (!hasCurAnim())
 			return;
 
-		// In debug mode no is hace nothing automatic with the animations
+		// En modo debug no se hace nada automático con las animaciones
 		// (ni idle, ni sing timeout, ni dance) — el usuario controla todo.
 		if (debugMode)
 			return;
@@ -583,9 +583,9 @@ class Character extends FunkinSprite
 		var curAnimName = getCurAnimName();
 		var curAnimDone = isCurAnimFinished();
 
-		// ── Detect fin of animation and disparar onAnimEnd ────────────────────
-		// Condition: the animation acaba of terminar (this frame is done, the previous no)
-		// or: the animation changed while was terminada (animation no-looped completada)
+		// ── Detectar fin de animación y disparar onAnimEnd ────────────────────
+		// Condición: la animación acaba de terminar (esta frame está done, la anterior no)
+		// O: la animación cambió mientras estaba terminada (animación no-looped completada)
 		#if HSCRIPT_ALLOWED
 		if (curAnimDone && (!_prevAnimDone || curAnimName != _prevAnimName))
 		{
@@ -625,9 +625,9 @@ class Character extends FunkinSprite
 				if (curAnimDone)
 				{
 					// FIX: No llamar dance() cada frame cuando termina danceLeft/danceRight.
-					// danceOnBeat() advances the cycle on each beat. If we call dance() here,
-					// the character cycles danceLeft↔danceRight at 60 fps ignoring the music.
-					// Only re-trigger dance() if the animation that finished is NOT already a dance.
+					// danceOnBeat() avanza el ciclo en cada beat. Si llamamos dance() aquí,
+					// el personaje cicla danceLeft↔danceRight a 60 fps ignorando la música.
+					// Solo relanzar dance() si la animación que terminó NO es ya una dance.
 					if (!curAnimName.startsWith('dance'))
 						dance();
 				}
@@ -695,8 +695,8 @@ class Character extends FunkinSprite
 
 	/**
 	 * Recarga completamente los datos y visuales de este personaje con un nuevo nombre.
-	 * Useful for event scripts (ChangeCharacter.hx) without necesidad of acceder to methods privados.
-	 * Preserva the position current and the flag isPlayer.
+	 * Útil para event scripts (ChangeCharacter.hx) sin necesidad de acceder a métodos privados.
+	 * Preserva la posición actual y el flag isPlayer.
 	 *
 	 * @param newName  Nombre del personaje a cargar (debe existir en assets/characters/)
 	 */
@@ -707,7 +707,7 @@ class Character extends FunkinSprite
 		final savedY      = y;
 		final savedPlayer = isPlayer;
 
-		// Borrar animations and offsets of the character previous for avoid acumulación
+		// Borrar animaciones y offsets del personaje anterior para evitar acumulación
 		animOffsets.clear();
 		animation.destroyAnimations();
 
@@ -754,7 +754,7 @@ class Character extends FunkinSprite
 		}
 	}
 
-	// ── Settings específicos ───────────────────────────────────────────────────
+	// ── Ajustes específicos ───────────────────────────────────────────────────
 
 	function applyCharacterSpecificAdjustments():Void
 	{
@@ -785,7 +785,7 @@ class Character extends FunkinSprite
 		}
 	}
 
-	// ── API public ───────────────────────────────────────────────────────────
+	// ── API pública ───────────────────────────────────────────────────────────
 
 	public function addOffset(name:String, x:Float = 0, y:Float = 0):Void
 		animOffsets[name] = [x, y];

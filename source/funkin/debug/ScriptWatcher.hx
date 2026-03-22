@@ -13,25 +13,25 @@ import funkin.scripting.HScriptInstance;
 /**
  * ScriptWatcher — Live reload de scripts .hx / .hscript / .lua en tiempo real.
  *
- * ─── What does it do? ───────────────────────────────────────────────────────────────
+ * ─── ¿Qué hace? ───────────────────────────────────────────────────────────────
  *
  *  Mientras el juego corre, escanea cada POLL_INTERVAL segundos los archivos
  *  registrados (y sus carpetas). Si detecta que un archivo fue modificado en
- *  disco (mtime changed) it recarga to the instante without reset the state:
+ *  disco (mtime cambió) lo recarga al instante SIN reiniciar el state:
  *
  *   • .hx / .hscript  → HScriptInstance.hotReload() → reejecutar el script
- *                        with the interpreter existente. The variables of the state
- *                        (bf, dad, stage, etc.) is re-inyectan automatically.
+ *                        con el intérprete existente. Las variables del state
+ *                        (bf, dad, stage, etc.) se re-inyectan automáticamente.
  *
  *   • .lua             → LuaScriptInstance.hotReload() si LUA_ALLOWED.
  *
- *  Furthermore, if aparece a file new in a folder vigilada, it load
- *  dynamically with the scriptType correspondiente.
+ *  Además, si aparece un archivo NUEVO en una carpeta vigilada, lo carga
+ *  dinámicamente con el scriptType correspondiente.
  *
- * ─── Integration ──────────────────────────────────────────────────────────────
+ * ─── Integración ──────────────────────────────────────────────────────────────
  *
  *  MusicBeatState.update() llama ScriptWatcher.poll(elapsed) exactamente
- *  igual that hace with JsonWatcher. No necesitas do nada more.
+ *  igual que hace con JsonWatcher. No necesitas hacer nada más.
  *
  *  Para forzar un hot-reload manual desde teclado: F7 (en developerMode).
  *
@@ -39,11 +39,11 @@ import funkin.scripting.HScriptInstance;
  *
  *  1. ScriptWatcher detecta que script.path fue modificado.
  *  2. Llama script.hotReload() → re-parsea el archivo, re-expone ScriptAPI,
- *     invalida the cache of functions, re-ejecuta the programa (re-defines functions),
+ *     invalida el caché de funciones, re-ejecuta el programa (re-define funciones),
  *     llama onCreate() + postCreate().
  *  3. Re-inyecta las variables del state actual (refreshStateFields) para que
- *     the new objects that the script añada tengan acceso to bf, dad, stage, etc.
- *  4. Call onReload(scriptName) in all the scripts — useful for that otros
+ *     los nuevos objetos que el script añada tengan acceso a bf, dad, stage, etc.
+ *  4. Llama onReload(scriptName) en TODOS los scripts — útil para que otros
  *     scripts reaccionen al cambio.
  *  5. Loguea en GameDevConsole con color verde.
  *
@@ -53,7 +53,7 @@ import funkin.scripting.HScriptInstance;
  *
  *    function onReload(who) {
  *        // Se llama cuando CUALQUIER script (incluyendo este) fue recargado.
- *        // 'who' = name of the script that is reloaded.
+ *        // 'who' = nombre del script que se recargó.
  *        trace('Script recargado: ' + who);
  *    }
  *
@@ -66,14 +66,14 @@ import funkin.scripting.HScriptInstance;
  */
 class ScriptWatcher
 {
-	// ── Configuration ─────────────────────────────────────────────────────────
+	// ── Configuración ─────────────────────────────────────────────────────────
 
 	/** Intervalo entre scans en segundos. 0.5 = 2 veces por segundo. */
 	public static inline var POLL_INTERVAL:Float = 0.5;
 
 	// ── Estado interno ────────────────────────────────────────────────────────
 
-	/** Files of script activos → its mtime in the last check. */
+	/** Archivos de script activos → su mtime en el último check. */
 	static var _fileMtimes:Map<String, Float> = [];
 
 	/** Carpetas vigiladas para detectar archivos nuevos. */
@@ -85,14 +85,14 @@ class ScriptWatcher
 	/** Acumulador de tiempo para throttle. */
 	static var _timer:Float = 0.0;
 
-	/** If false, the watcher is paused (ej: during a transition). */
+	/** Si false, el watcher está pausado (ej: durante una transición). */
 	public static var enabled:Bool = true;
 
 	// ── Init / Clear ──────────────────────────────────────────────────────────
 
 	/**
 	 * Registra el state actual y re-escanea todos los scripts cargados.
-	 * Callr from MusicBeatState.create() after of load the scripts.
+	 * Llamar desde MusicBeatState.create() después de cargar los scripts.
 	 */
 	public static function init(state:flixel.FlxState):Void
 	{
@@ -138,7 +138,7 @@ class ScriptWatcher
 
 	/**
 	 * Vigila una carpeta entera. Si aparece un .hx/.lua nuevo, se carga
-	 * automatically with the scriptType indicado.
+	 * automáticamente con el scriptType indicado.
 	 *
 	 * @param folderPath  Ruta absoluta o relativa a la carpeta.
 	 * @param scriptType  'song' | 'stage' | 'menu' | 'global' | 'ui' | 'char'
@@ -158,7 +158,7 @@ class ScriptWatcher
 
 	/**
 	 * Registra los scripts de un personaje ya cargados para vigilancia.
-	 * Callr from PlayState after of ScriptHandler.loadCharacterScripts().
+	 * Llamar desde PlayState después de ScriptHandler.loadCharacterScripts().
 	 *
 	 * @param charName  Nombre del personaje (ej: 'bf', 'dad')
 	 */
@@ -181,7 +181,7 @@ class ScriptWatcher
 
 	/**
 	 * Registra los scripts de un stage ya cargados para vigilancia.
-	 * Callr from PlayState/Stage after of ScriptHandler.loadStageScripts().
+	 * Llamar desde PlayState/Stage después de ScriptHandler.loadStageScripts().
 	 *
 	 * @param stageName  Nombre del stage (ej: 'stage_week1')
 	 */
@@ -203,10 +203,10 @@ class ScriptWatcher
 	}
 
 	/**
-	 * Registra the scripts of the song current for vigilancia.
-	 * Callr from PlayState after of ScriptHandler.loadSongScripts().
+	 * Registra los scripts de la canción actual para vigilancia.
+	 * Llamar desde PlayState después de ScriptHandler.loadSongScripts().
 	 *
-	 * @param songName  Name of the song in lowercases (ej: 'bopeebo')
+	 * @param songName  Nombre de la canción en minúsculas (ej: 'bopeebo')
 	 */
 	public static function watchSongScripts(songName:String):Void
 	{
@@ -261,9 +261,9 @@ class ScriptWatcher
 	// ── Indexado ──────────────────────────────────────────────────────────────
 
 	/**
-	 * Adds a script individual to the index of vigilancia.
-	 * Callr from outside if is load a script in time of execution
-	 * after of ScriptWatcher.init().
+	 * Añade un script individual al índice de vigilancia.
+	 * Llamar desde fuera si se carga un script en tiempo de ejecución
+	 * DESPUÉS de ScriptWatcher.init().
 	 */
 	public static function indexScript(script:HScriptInstance):Void
 		_indexScript(script);
@@ -287,7 +287,7 @@ class ScriptWatcher
 				_fileMtimes.set(lua.filePath, _mtime(lua.filePath));
 	#end
 
-	/** Checks if some file registered was modified. */
+	/** Comprueba si algún archivo registrado fue modificado. */
 	static function _checkFiles():Void
 	{
 		for (path => oldMtime in _fileMtimes)
@@ -312,7 +312,7 @@ class ScriptWatcher
 				if (!_isScript(file)) continue;
 				if (folder.known.exists(file)) continue;
 
-				// File new! Registrarlo and cargarlo.
+				// ¡Archivo nuevo! Registrarlo y cargarlo.
 				folder.known.set(file, true);
 				final fullPath = '${folder.path}/$file';
 				_fileMtimes.set(fullPath, _mtime(fullPath));
@@ -368,7 +368,7 @@ class ScriptWatcher
 				if (ok)
 				{
 					reloadedName = s.name;
-					// Re-inject state fields (objects the script might need)
+					// Re-inyectar campos del state (objetos que el script podría necesitar)
 					if (_currentState != null)
 						StateScriptHandler.refreshStateFields(_currentState);
 				}
@@ -423,16 +423,16 @@ class ScriptWatcher
 	}
 
 	/**
-	 * Re-injects the variables of the state current in a script recién reloaded.
+	 * Re-inyecta las variables del state actual en un script recién recargado.
 	 * Esto garantiza que el script vea los objetos actuales (bf, dad, stage…)
-	 * incluso if is recarga after of that the state ended its create().
+	 * incluso si se recarga después de que el state terminó su create().
 	 */
 	static function _injectStateVarsInto(script:HScriptInstance):Void
 	{
 		#if HSCRIPT_ALLOWED
 		if (script == null || script.interp == null || _currentState == null) return;
 
-		// Inyectar all the fields of the state by reflection
+		// Inyectar todos los campos del state por reflexión
 		var cls:Dynamic = Type.getClass(_currentState);
 		while (cls != null)
 		{

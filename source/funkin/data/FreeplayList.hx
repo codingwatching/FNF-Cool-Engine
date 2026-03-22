@@ -32,7 +32,7 @@ using StringTools;
  * ─── Compatibilidad con songList.json ────────────────────────────────────────
  *
  * Si no existe freeplayList.json, se intenta leer el antiguo songList.json
- * and is converts to the formato new automatically (without escribir nada to disco).
+ * y se convierte al formato nuevo automáticamente (sin escribir nada a disco).
  *
  * @version 1.0.0
  */
@@ -50,7 +50,7 @@ typedef FreeplaySongEntry =
 	@:optional var artist    : String;
 	@:optional var album     : String;
 	@:optional var albumText : String;
-	/** Number of grupo (for organizar songs in freeplay). */
+	/** Número de grupo (para organizar canciones en freeplay). */
 	@:optional var group     : Int;
 }
 
@@ -90,7 +90,7 @@ class FreeplayList
 	/**
 	 * Carga freeplayList.json.
 	 * Si no existe, intenta convertir el antiguo songList.json al vuelo.
-	 * Returns always a object valid (never null).
+	 * Devuelve siempre un objeto válido (nunca null).
 	 */
 	public static function load():FreeplayListData
 	{
@@ -165,8 +165,8 @@ class FreeplayList
 	}
 
 	/**
-	 * Adds or updates a entry of song.
-	 * If already exists a song with that name the updates, if no the adds.
+	 * Añade o actualiza una entrada de canción.
+	 * Si ya existe una canción con ese nombre la actualiza, si no la añade.
 	 */
 	public static function upsert(data:FreeplayListData, entry:FreeplaySongEntry):FreeplayListData
 	{
@@ -185,7 +185,7 @@ class FreeplayList
 		return data;
 	}
 
-	/** Elimina a song by nombre. */
+	/** Elimina una canción por nombre. */
 	public static function remove(data:FreeplayListData, name:String):FreeplayListData
 	{
 		final key = name.toLowerCase();
@@ -193,7 +193,7 @@ class FreeplayList
 		return data;
 	}
 
-	// ── Conversion from songList.json legacy ─────────────────────────────────
+	// ── Conversión desde songList.json legacy ─────────────────────────────────
 
 	/**
 	 * Lee el antiguo songList.json y lo convierte al formato FreeplayListData.

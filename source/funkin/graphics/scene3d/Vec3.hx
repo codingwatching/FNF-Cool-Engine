@@ -24,7 +24,7 @@ class Vec3
 
 	public inline function clone():Vec3 return new Vec3(x, y, z);
 
-	// ── Arithmetic ─────────────────────────────────────────────────────────
+	// ── Aritmética ─────────────────────────────────────────────────────────
 
 	public inline function add(v:Vec3):Vec3         return new Vec3(x+v.x, y+v.y, z+v.z);
 	public inline function sub(v:Vec3):Vec3         return new Vec3(x-v.x, y-v.y, z-v.z);
@@ -61,12 +61,12 @@ class Vec3
 		return this;
 	}
 
-	// ── Interpolation ───────────────────────────────────────────────────────
+	// ── Interpolación ───────────────────────────────────────────────────────
 
 	public static inline function lerp(a:Vec3, b:Vec3, t:Float):Vec3
 		return new Vec3(a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t, a.z + (b.z-a.z)*t);
 
-	// ── Commonly used statics ──────────────────────────────────────────────
+	// ── Estáticos de uso común ──────────────────────────────────────────────
 
 	public static final ZERO   = new Vec3(0,  0,  0);
 	public static final ONE    = new Vec3(1,  1,  1);

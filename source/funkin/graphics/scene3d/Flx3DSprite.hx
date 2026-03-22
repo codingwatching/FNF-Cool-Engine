@@ -12,12 +12,12 @@ import flixel.FlxG;
  *   var sp3d = new Flx3DSprite(0, 0, 640, 480);
  *   add(sp3d);
  *
- *   // Add objects to the escena
+ *   // Añadir objetos a la escena
  *   var cube = new Flx3DObject();
  *   cube.mesh = Flx3DPrimitives.cube();
  *   sp3d.scene.add(cube);
  *
- *   // The camera
+ *   // La cámara
  *   sp3d.scene.camera.position.set(0, 1, 4);
  *   sp3d.scene.camera.target.set(0, 0, 0);
  *
@@ -27,7 +27,7 @@ import flixel.FlxG;
  * ─── Rendimiento ─────────────────────────────────────────────────────────────
  *   • renderEveryFrame: true (default) — re-renderiza cada update()
  *   • renderEveryFrame: false — solo renderiza cuando llames a sp3d.scene.render()
- *   • For escenas static, setea renderEveryFrame = false and call
+ *   • Para escenas estáticas, setea renderEveryFrame = false y llama
  *     scene.render() solo cuando cambie algo.
  */
 class Flx3DSprite extends FlxSprite
@@ -38,7 +38,7 @@ class Flx3DSprite extends FlxSprite
 	/** Si true, renderiza la escena en cada update(). Default: true. */
 	public var renderEveryFrame:Bool = true;
 
-	/** Callback when the contexto 3D is listo. */
+	/** Callback cuando el contexto 3D esté listo. */
 	public var onReady:Null<Void->Void> = null;
 
 	var _sceneW:Int;
@@ -53,8 +53,8 @@ class Flx3DSprite extends FlxSprite
 
 		scene = new Flx3DScene(sceneW, sceneH);
 
-		// Initialize in the next frame for that Stage3D is available
-		// (in mobile is diferimos a tick more)
+		// Inicializar en el siguiente frame para que Stage3D esté disponible
+		// (en mobile se diferimos un tick más)
 		FlxG.stage.addEventListener(openfl.events.Event.ENTER_FRAME, _onFirstFrame);
 	}
 
@@ -82,7 +82,7 @@ class Flx3DSprite extends FlxSprite
 
 		// Re-sincronizar el BitmapData con el sprite cada frame
 		// (Flixel cachea el graphic, pero scene.output es el mismo objeto
-		// so that the bitmap is updates in-place in GPU — the sprite it verá)
+		// así que el bitmap se actualiza in-place en GPU — el sprite lo verá)
 		if (scene.output != null && pixels != scene.output)
 			loadGraphic(scene.output);
 	}
@@ -102,18 +102,18 @@ class Flx3DSprite extends FlxSprite
 		super.destroy();
 	}
 
-	// ── Helpers of acceso fast ───────────────────────────────────────────
+	// ── Helpers de acceso rápido ───────────────────────────────────────────
 
-	/** Acceso directo to the camera 3D of the escena.
+	/** Acceso directo a la cámara 3D de la escena.
 	 *  (Llamado cam3D para no colisionar con FlxBasic.camera:FlxCamera) */
 	public var cam3D(get, never):Flx3DCamera;
 	inline function get_cam3D():Flx3DCamera return scene.camera;
 
-	/** Adds a object to the escena. */
+	/** Añade un objeto a la escena. */
 	public inline function addObject(obj:Flx3DObject):Flx3DObject
 		return scene.add(obj);
 
-	/** Creates a cubo and it adds. Shorthand of uso frecuente. */
+	/** Crea un cubo y lo añade. Shorthand de uso frecuente. */
 	public function makeCube(w:Float=1, h:Float=1, d:Float=1,
 	                         color:Int = 0xFFFFFFFF):Flx3DObject
 	{
@@ -128,7 +128,7 @@ class Flx3DSprite extends FlxSprite
 		return obj;
 	}
 
-	/** Creates a esfera and the adds. */
+	/** Crea una esfera y la añade. */
 	public function makeSphere(radius:Float=0.5, segments:Int=16,
 	                           color:Int = 0xFFFFFFFF):Flx3DObject
 	{
@@ -143,7 +143,7 @@ class Flx3DSprite extends FlxSprite
 		return obj;
 	}
 
-	/** Creates a plano and it adds. */
+	/** Crea un plano y lo añade. */
 	public function makePlane(w:Float=2, d:Float=2, segs:Int=1,
 	                          color:Int = 0xFFFFFFFF):Flx3DObject
 	{

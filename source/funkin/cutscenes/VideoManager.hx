@@ -16,7 +16,7 @@ import funkin.ui.SubtitleManager;
 using StringTools;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoManager — system centralizado of playback of video.
+// VideoManager — sistema centralizado de reproducción de video.
 //
 // Re-worked following V-Slice (FunkinCrew/Funkin) patterns:
 //   • FlxSignal hooks: onVideoStarted / onVideoEnded / onVideoPaused / onVideoResumed
@@ -74,13 +74,13 @@ class VideoManager
 
 	// ── SRT subtitle state ────────────────────────────────────────────────────
 
-	/** Entradas SRT cargadas for the video current. Empty if no there is .srt. */
+	/** Entradas SRT cargadas para el video actual. Vacío si no hay .srt. */
 	static var _srtEntries:Array<SRTEntry> = [];
 
-	/** Index of the last entry mostrada (-1 = ninguna). */
+	/** Índice de la última entrada mostrada (-1 = ninguna). */
 	static var _srtLastIndex:Int = -1;
 
-	/** Text of the subtitle currently visible (for no re-show the same). */
+	/** Texto del subtítulo actualmente visible (para no re-mostrar el mismo). */
 	static var _srtCurrentText:String = '';
 
 
@@ -94,9 +94,9 @@ class VideoManager
 
 	/**
 	 * Carga el archivo .srt que corresponde al video en `videoPath` y conecta
-	 * the callback onTick of the handler for show the subtitles in time actual.
-	 * If the usuario desactivó the subtitles in options, no hace nothing.
-	 * If no exists no .srt junto to the video, no hace nothing.
+	 * el callback onTick del handler para mostrar los subtítulos en tiempo real.
+	 * Si el usuario desactivó los subtítulos en opciones, no hace nada.
+	 * Si no existe ningún .srt junto al video, no hace nada.
 	 */
 	static function _setupSrt(handler:MP4Handler, videoPath:String):Void
 	{
@@ -105,10 +105,10 @@ class VideoManager
 		_srtLastIndex   = -1;
 		_srtCurrentText = '';
 
-		// If subtitles desactivados, no conectar nothing
+		// Si subtítulos desactivados, no conectar nada
 		if (FlxG.save.data.subtitlesEnabled == false) return;
 
-		// Search .srt: first in the idioma of translation configurado, then generic
+		// Buscar .srt: primero en el idioma de traducción configurado, luego genérico
 		var srtPath:Null<String> = null;
 		var langCode:String = FlxG.save.data.subtitleTranslateLang != null
 			? FlxG.save.data.subtitleTranslateLang : '';
@@ -126,7 +126,7 @@ class VideoManager
 			#end
 		}
 
-		// Fallback: .srt generic junto to the video
+		// Fallback: .srt genérico junto al video
 		if (srtPath == null)
 			srtPath = SRTParser.srtPathForVideo(videoPath);
 
@@ -147,7 +147,7 @@ class VideoManager
 
 		trace('[VideoManager] SRT loaded: $srtPath (${_srtEntries.length} entries)');
 
-		// Conectar tick for synchronization frame to frame
+		// Conectar tick para sincronización frame a frame
 		handler.onTick = function(ms:Int)
 		{
 			_tickSrt(ms);
@@ -156,7 +156,7 @@ class VideoManager
 
 	/**
 	 * Llamado cada frame con el tiempo actual del video en ms.
-	 * Muestra u hides the subtitle apropiado according to the times SRT.
+	 * Muestra u oculta el subtítulo apropiado según los tiempos SRT.
 	 */
 	static function _tickSrt(ms:Int):Void
 	{
@@ -166,7 +166,7 @@ class VideoManager
 
 		if (entry == null)
 		{
-			// Outside of any rango → hide if había algo visible
+			// Fuera de cualquier rango → ocultar si había algo visible
 			if (_srtCurrentText != '')
 			{
 				SubtitleManager.instance.hide();
@@ -176,14 +176,14 @@ class VideoManager
 			return;
 		}
 
-		// Same entry → no do nothing (already is is showing)
+		// Misma entrada → no hacer nada (ya se está mostrando)
 		if (entry.index == _srtLastIndex) return;
 
 		// Nueva entrada → mostrar con duration=0 (control manual por SRT)
 		_srtLastIndex   = entry.index;
 		_srtCurrentText = entry.text;
 
-		// Duration actual of the subtitle in segundos
+		// Duración real del subtítulo en segundos
 		var durationSec:Float = (entry.endMs - entry.startMs) / 1000.0;
 
 		SubtitleManager.instance.show(entry.text, durationSec);
@@ -191,7 +191,7 @@ class VideoManager
 
 	/**
 	 * Detiene y limpia el reproductor SRT activo.
-	 * Calldo automatically in _cleanup() to the terminar/stop the video.
+	 * Llamado automáticamente en _cleanup() al terminar/detener el video.
 	 */
 	static function _stopSrt():Void
 	{
@@ -235,7 +235,7 @@ class VideoManager
 		handler.playMP4(path, true, false, null, false, false);
 		handler.finishCallback = _buildFinish();
 
-		// ── SRT subtitles ────────────────────────────────────────────────────
+		// ── SRT subtítulos ────────────────────────────────────────────────────
 		_setupSrt(handler, path);
 
 		onVideoStarted.dispatch();
@@ -282,7 +282,7 @@ class VideoManager
 			_buildFinish()();
 		};
 
-		// ── SRT subtitles ────────────────────────────────────────────────────
+		// ── SRT subtítulos ────────────────────────────────────────────────────
 		_setupSrt(handler, path);
 
 		onVideoStarted.dispatch();
@@ -328,7 +328,7 @@ class VideoManager
 		handler.playMP4(path, true, false, sprite, false, false);
 		handler.finishCallback = _buildFinish();
 
-		// ── SRT subtitles ────────────────────────────────────────────────────
+		// ── SRT subtítulos ────────────────────────────────────────────────────
 		_setupSrt(handler, path);
 
 		onVideoStarted.dispatch();
@@ -337,20 +337,20 @@ class VideoManager
 	// ── Shader / Filter API ───────────────────────────────────────────────────
 
 	/**
-	 * Applies a ShaderFilter to the video in playback usando the ShaderManager.
+	 * Aplica un ShaderFilter al video en reproducción usando el ShaderManager.
 	 * Seguro llamar desde HScript:
 	 *
 	 *   VideoManager.applyShader('chromaKey');
 	 *   VideoManager.setVideoShaderParam('chromaKey', 'threshold', 0.3);
 	 *
 	 * @param shaderName  Nombre del shader (sin .frag)
-	 * @return The ShaderFilter creado, or null if the video no is active or the shader no exists.
+	 * @return El ShaderFilter creado, o null si el video no está activo o el shader no existe.
 	 */
 	public static function applyShader(shaderName:String):Null<openfl.filters.ShaderFilter>
 	{
 		if (current == null)
 		{
-			trace('[VideoManager] applyShader: no video active.');
+			trace('[VideoManager] applyShader: ningún video activo.');
 			return null;
 		}
 
@@ -384,7 +384,7 @@ class VideoManager
 	}
 
 	/**
-	 * Updates a uniform of the shader of the video in playback.
+	 * Actualiza un uniform del shader del video en reproducción.
 	 * Usa la misma API que ShaderManager.setShaderParam():
 	 *
 	 *   VideoManager.setVideoShaderParam('chromaKey', 'threshold', 0.25);

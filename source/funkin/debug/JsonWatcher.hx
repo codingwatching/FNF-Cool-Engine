@@ -6,13 +6,13 @@ import funkin.gameplay.objects.character.Character;
 import funkin.gameplay.objects.stages.Stage;
 
 /**
- * JsonWatcher — Watcher of files JSON with hot-reload automatic.
+ * JsonWatcher — Watcher de archivos JSON con hot-reload automático.
  *
  * Funcionamiento:
  *  • Registra paths de archivos JSON junto al nombre del recurso y su tipo.
  *  • Cada POLL_INTERVAL segundos, compara el mtime actual de cada archivo
  *    con el mtime registrado en el momento de `watch()`.
- *  • If the mtime changed → invalida the cache (Character or Stage) and fires
+ *  • Si el mtime cambió → invalida el caché (Character o Stage) y dispara
  *    el callback `onChange`.
  *
  * Uso:
@@ -27,7 +27,7 @@ import funkin.gameplay.objects.stages.Stage;
  *
  * El callback global `onChange` se llama con (resourceType, resourceName, path)
  * cuando se detecta un cambio. MusicBeatState lo usa para notificar al usuario
- * and, if is in PlayState + developerMode, reset automatically.
+ * y, si está en PlayState + developerMode, reiniciar automáticamente.
  */
 class JsonWatcher
 {
@@ -49,7 +49,7 @@ class JsonWatcher
      */
     public static var onChange : (String, String, String) -> Void = null;
 
-    // ── API public ───────────────────────────────────────────────────────────
+    // ── API pública ───────────────────────────────────────────────────────────
 
     /**
      * Registra un archivo para ser vigilado.
@@ -103,8 +103,8 @@ class JsonWatcher
     }
 
     /**
-     * Elimina the log of a file specific.
-     * Useful if a recurso is unloads but the state sigue active.
+     * Elimina el registro de un archivo específico.
+     * Útil si un recurso se descarga pero el state sigue activo.
      */
     public static function unwatch(path:String):Void
         _entries.remove(path);
@@ -127,8 +127,8 @@ class JsonWatcher
     }
 
     /**
-     * Invalida the cache of the recurso and dispara the callback onChange.
-     * Here is where is conecta with the systems of Character and Stage.
+     * Invalida el caché del recurso y dispara el callback onChange.
+     * Aquí es donde se conecta con los sistemas de Character y Stage.
      */
     private static function _invalidate(entry:WatchEntry):Void
     {
@@ -143,7 +143,7 @@ class JsonWatcher
                 Stage.invalidateStageCache(entry.name);
 
             case 'chart':
-                // Without cache static — MusicBeatState.onChange resets the state.
+                // Sin caché estático — MusicBeatState.onChange reinicia el state.
 
             default:
                 // Tipo desconocido — solo notificar

@@ -3,22 +3,22 @@ package;
 /**
  * CrashHandler — Cool Engine (v2)
  *
- * ── Why the previous handler showed nothing ─────────────────────────────
+ * ── Por qué el handler anterior no mostraba nada ─────────────────────────────
  *
  *  PROBLEMA 1 — GC en estado corrupto:
- *    _onCriticalError() created StringBuf, called Date.now(), accessed FlxG…
+ *    _onCriticalError() creaba StringBuf, llamaba Date.now(), accedía a FlxG…
  *    todo requiere el heap de Haxe sano. Con un NULL OBJECT REF en C++ el heap
  *    puede estar corrupto → el handler crasheaba de nuevo, sin mostrar nada.
  *
  *  PROBLEMA 2 — Deadlock en el render thread:
  *    FlxDrawQuadsItem::render corre en el render thread. window.alert() postea
  *    al event loop principal, que espera al render thread → deadlock.
- *    The window froze and disappeared without showing anything.
+ *    La ventana se congelaba y desaparecía sin mostrar nada.
  *
  *  PROBLEMA 3 — Sin fallback nativo:
- *    If Lime failed, the catch only did Sys.println() — invisible in release.
+ *    Si Lime fallaba, el catch solo hacía Sys.println() — invisible en release.
  *
- * ── Solution ─────────────────────────────────────────────────────────────────
+ * ── Solución ─────────────────────────────────────────────────────────────────
  *
  *  Hook 1 → UncaughtErrorEvent  : errores Haxe/OpenFL normales
  *  Hook 2 → hxcpp critical hook : null ptr, stack overflow (CPP only)
@@ -26,7 +26,7 @@ package;
  *  Para Hook 2:
  *   - Timestamp via Sys.time() (Float, tipo valor, sin GC)
  *   - Log via sys.io.File (try/catch independiente)
- *   - Dialogue via process separated (PowerShell/osascript/zenity) → without deadlock
+ *   - Diálogo via proceso separado (PowerShell/osascript/zenity) → sin deadlock
  *   - Info del sistema pre-construida en init() cuando el runtime estaba sano
  *
  * ── Uso ──────────────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ using StringTools;
 
 class CrashHandler
 {
-	// ── Configuration ──────────────────────────────────────────────────────────
+	// ── Configuración ──────────────────────────────────────────────────────────
 
 	private static var   CRASH_DIR         : String = _resolveCrashDir();
 	private static inline final LOG_PREFIX  : String = "CoolEngine_";
@@ -66,13 +66,13 @@ class CrashHandler
 	private static var _initialized : Bool = false;
 
 	/**
-	 * Info of the system pre-construida in init() when the runtime is sano.
-	 * Is use in _onCriticalError without necesidad of create no object Haxe.
+	 * Info del sistema pre-construida en init() cuando el runtime está sano.
+	 * Se usa en _onCriticalError sin necesidad de crear ningún objeto Haxe.
 	 */
 	private static var _staticInfo : String = "";
 
 	// =========================================================================
-	//  API public
+	//  API PÚBLICA
 	// =========================================================================
 
 	public static function init() : Void
@@ -97,7 +97,7 @@ class CrashHandler
 	}
 
 	/**
-	 * Reporta a error manualmente (useful in try/catch for loguear and continuar).
+	 * Reporta un error manualmente (útil en try/catch para loguear y continuar).
 	 */
 	public static function report(error:Dynamic, ?context:String, fatal:Bool = false) : Void
 	{
@@ -139,13 +139,13 @@ class CrashHandler
 	}
 
 	/**
-	 * Calldo from hxcpp when there is a error C++ critical (null ptr, etc.).
+	 * Llamado desde hxcpp cuando hay un error C++ crítico (null ptr, etc.).
 	 *
 	 * Reglas:
 	 *  - Sys.time() para el timestamp (Float, tipo valor, sin GC)
 	 *  - sys.io.File para escribir el log (try/catch independiente)
-	 *  - Sys.command() for the dialogue (process separated → without deadlock)
-	 *  - _staticInfo already is pre-construido, is a String existente
+	 *  - Sys.command() para el diálogo (proceso separado → sin deadlock)
+	 *  - _staticInfo ya está pre-construido, es un String existente
 	 */
 	#if cpp
 	private static function _onCriticalError(cppMessage:String) : Void
@@ -183,7 +183,7 @@ class CrashHandler
 		catch (_) {}
 		#end
 
-		// ── 3. Dialogue nativo ─────────────────────────────────────────────────
+		// ── 3. Diálogo nativo ─────────────────────────────────────────────────
 		var dialogMessage = _truncate(report, 2000);
 		if (logPath != "") dialogMessage += '\n\nLog guardado en:\n$logPath';
 		_nativeDialog(dialogMessage, "Cool Engine — Error Fatal");
@@ -196,19 +196,19 @@ class CrashHandler
 	#end
 
 	// =========================================================================
-	//  dialogues NATIVOS (process separated → without deadlock)
+	//  DIÁLOGOS NATIVOS (proceso separado → sin deadlock)
 	// =========================================================================
 
 	/**
-	 * Muestra a dialogue modal usando the SO, without pasar by Lime/OpenFL.
+	 * Muestra un diálogo modal usando el SO, sin pasar por Lime/OpenFL.
 	 * Cada plataforma lanza un proceso separado → no hay deadlock posible
-	 * although the render thread is bloqueado.
+	 * aunque el render thread esté bloqueado.
 	 *
 	 * Windows → PowerShell + Windows.Forms.MessageBox
 	 * macOS   → osascript
 	 * Linux   → zenity → kdialog → xmessage
 	 * Fallback → lime.app.Application (si lo anterior falla)
-	 * Last recurso → stderr
+	 * Último recurso → stderr
 	 */
 	private static function _nativeDialog(message:String, title:String) : Void
 	{
@@ -286,7 +286,7 @@ class CrashHandler
 			catch (_) {}
 		}
 
-		// Last recurso: stderr
+		// Último recurso: stderr
 		if (!shown)
 		{
 			try { Sys.stderr().writeString("=== FATAL CRASH ===\n" + message + "\n"); } catch (_) {}
@@ -294,7 +294,7 @@ class CrashHandler
 	}
 
 	// =========================================================================
-	//  build of the REPORTE
+	//  CONSTRUCCIÓN DEL REPORTE
 	// =========================================================================
 
 	private static function _buildReport(error:String, ?context:String, stack:Array<StackItem>) : String
@@ -311,12 +311,12 @@ class CrashHandler
 		return sb.toString();
 	}
 
-	/** Pre-construye the info of the system in init(), when the runtime is sano. */
+	/** Pre-construye la info del sistema en init(), cuando el runtime está sano. */
 	private static function _buildStaticInfo() : String
 	{
 		var sb = new StringBuf();
 
-		sb.add('Version  : $ENGINE_VERSION\n');
+		sb.add('Versión  : $ENGINE_VERSION\n');
 		sb.add('Fecha    : ${Date.now().toString()}\n');
 		sb.add('Sistema  : ${_systemName()}\n');
 

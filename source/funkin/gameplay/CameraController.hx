@@ -13,11 +13,11 @@ import funkin.gameplay.objects.character.Character;
 using StringTools;
 
 /**
- * CameraController — Control of camera basado in events.
+ * CameraController — Control de cámara basado en eventos.
  * 
- * The camera sigue to the character definido by `currentTarget`,
- * that changes EXCLUSIVELY through the event "Camera Follow"
- * of the EventManager. There is no mustHitSection logic here.
+ * La cámara sigue al personaje definido por `currentTarget`,
+ * que se cambia EXCLUSIVAMENTE a través del evento "Camera Follow"
+ * del EventManager. No hay ninguna lógica de mustHitSection aquí.
  */
 class CameraController
 {
@@ -65,14 +65,14 @@ class CameraController
 
 	// === STAGE CAMERA OFFSETS ===
 	// Definidos en el stage JSON como cameraBoyfriend / cameraDad / cameraGirlfriend.
-	// Defaults reproducen the comportamiento classic of the engine:
-	//   player   → -100 X, -100 and  (camera ligeramente to the izquierda/arriba of BF)
-	//   opponent → +150 X, -100 and  (camera more to the derecha for the oponente)
+	// Defaults reproducen el comportamiento clásico del engine:
+	//   player   → -100 X, -100 Y  (cámara ligeramente a la izquierda/arriba de BF)
+	//   opponent → +150 X, -100 Y  (cámara más a la derecha para el oponente)
 	//   gf       →    0 X,  -80 Y
 	// Los stages que definen cameraBoyfriend/cameraDad en su JSON sobreescriben estos valores.
 	public var stageOffsetBf:FlxPoint  = new FlxPoint(-100, -100);
 	public var stageOffsetDad:FlxPoint = new FlxPoint(150, -100);
-	/** Offset of camera for GF (camera_girlfriend in Psych). */
+	/** Offset de cámara para GF (camera_girlfriend en Psych). */
 	public var stageOffsetGf:FlxPoint  = new FlxPoint(0, -80);
 
 	/** Offset adicional pasado por el evento (campo x/y de FocusCamera en V-Slice). */
@@ -81,16 +81,16 @@ class CameraController
 
 	// === CONFIG ===
 	/**
-	 * When `true`, the follow of the camera is bloqueado: `updateFollowPosition`
-	 * is a no-op and camFollow is queda where is (or in _lockedPos if is usó lock()).
+	 * Cuando `true`, el follow de la cámara está bloqueado: `updateFollowPosition`
+	 * es un no-op y camFollow se queda donde está (o en _lockedPos si se usó lock()).
 	 * Cambiar con lock() / unlock().
 	 */
 	public var locked:Bool = false;
 
-	/** Position of mundo to the that is bloqueó the camera (only valid when locked=true). */
+	/** Posición de mundo a la que se bloqueó la cámara (solo válida cuando locked=true). */
 	private var _lockedPos:FlxPoint = new FlxPoint(0, 0);
 	/**
-	 * Velocidad of the lerp of camera. Equivalente to camera_speed in Psych.
+	 * Velocidad del lerp de cámara. Equivalente a camera_speed en Psych.
 	 * Se inicializa a 2.4 (default de Cool Engine). PlayState lo sobreescribe
 	 * con currentStage.cameraSpeed * BASE_LERP_SPEED tras cargar el stage.
 	 */
@@ -112,10 +112,10 @@ class CameraController
 		camFollow = new FlxObject(0, 0, 1, 1);
 		camPos    = new FlxPoint();
 
-		// Scale defaultZoom according to resolution (fix 1080p: 1280/1920 = 1.5×)
+		// Escalar defaultZoom según resolución (fix 1080p: 1280/1920 = 1.5×)
 		defaultZoom *= Main.resolutionScale();
 
-		// Start the camera siguiendo the object of follow with lerp suave.
+		// Iniciar la cámara siguiendo el objeto de follow con lerp suave.
 		camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, followLerp);
 		camGame.zoom = defaultZoom;
 
@@ -124,23 +124,23 @@ class CameraController
 		_initialZoom   = defaultZoom;
 		_initialLerp   = followLerp;
 
-		// Position inicial: over the oponente (target by default).
+		// Posición inicial: sobre el oponente (target por defecto).
 		_snapToTarget();
 	}
 
 	// ─────────────────────────────────────────────────────────────
-	//  API public
+	//  API PÚBLICA
 	// ─────────────────────────────────────────────────────────────
 
 	/**
-	 * Change the character to the that sigue the camera.
+	 * Cambiar el personaje al que sigue la cámara.
 	 * Llamar desde EventManager al procesar el evento "Camera Follow".
 	 *
 	 * @param target    "player" | "opponent" | "gf" | "position"
-	 *                  (also acepta aliases bf/dad/boyfriend/girlfriend)
+	 *                  (también acepta aliases bf/dad/boyfriend/girlfriend)
 	 * @param extraOffX Offset X adicional del evento (campo "x" en FocusCamera V-Slice).
 	 * @param extraOffY Offset Y adicional del evento (campo "y" en FocusCamera V-Slice).
-	 * @param snap      If true, moves camFollow instantly (without lerp of follow point).
+	 * @param snap      Si true, mueve camFollow instantáneamente (sin lerp de follow point).
 	 *                  Para CLASSIC de V-Slice usar snap=true: el follow point salta
 	 *                  al nuevo target y solo camGame.follow() hace el lerp suave.
 	 */
@@ -151,10 +151,10 @@ class CameraController
 		_extraOffsetY  = extraOffY;
 		trace('[CameraController] Target → $currentTarget (extraOff=${extraOffX},${extraOffY} snap=$snap)');
 
-		// Always snapear camFollow to the new target — the transition suave the
+		// Siempre snapear camFollow al nuevo target — la transición suave la
 		// hace camGame.follow(camFollow, LOCKON, followLerp), igual que V-Slice.
-		// The lerpSpeed of updateFollowPosition añadiría a segundo lerp encadenado
-		// that ralentiza and suaviza in exceso the transition.
+		// El lerpSpeed de updateFollowPosition añadiría un segundo lerp encadenado
+		// que ralentiza y suaviza en exceso la transición.
 		_snapToTarget();
 	}
 
@@ -173,12 +173,12 @@ class CameraController
 	// ─────────────────────────────────────────────────────────────
 
 	/**
-	 * Bloquea the follow of the camera in its position current (or in x/and if is pasan).
-	 * While is bloqueada, the events of "Camera Follow" and the lerp normal
-	 * no mueven camFollow — the camera is queda quieta in that punto.
+	 * Bloquea el follow de la cámara en su posición actual (o en x/y si se pasan).
+	 * Mientras está bloqueada, los eventos de "Camera Follow" y el lerp normal
+	 * no mueven camFollow — la cámara se queda quieta en ese punto.
 	 *
-	 * @param x  Position X of mundo optional. If null use the position current of camFollow.
-	 * @param and  Position and of mundo optional. If null use the position current of camFollow.
+	 * @param x  Posición X de mundo opcional. Si null usa la posición actual de camFollow.
+	 * @param y  Posición Y de mundo opcional. Si null usa la posición actual de camFollow.
 	 */
 	public function lock(?x:Float, ?y:Float):Void
 	{
@@ -189,7 +189,7 @@ class CameraController
 	}
 
 	/**
-	 * Desbloquea the follow. The camera vuelve to lerpar towards the character
+	 * Desbloquea el follow. La cámara vuelve a lerpar hacia el personaje
 	 * definido por currentTarget desde la siguiente llamada a update().
 	 */
 	public function unlock():Void
@@ -198,11 +198,11 @@ class CameraController
 	}
 
 	/**
-	 * Moves camFollow instantly to a position of mundo (without tween).
-	 * No deshabilita the follow — if quieres that is quede ahí use lock() after.
+	 * Mueve camFollow instantáneamente a una posición de mundo (sin tween).
+	 * No deshabilita el follow — si quieres que se quede ahí usa lock() después.
 	 *
-	 * @param x  Position X of mundo.
-	 * @param and  Position and of mundo.
+	 * @param x  Posición X de mundo.
+	 * @param y  Posición Y de mundo.
 	 */
 	public function moveTo(x:Float, y:Float):Void
 	{
@@ -211,15 +211,15 @@ class CameraController
 
 	/**
 	 * Tweenea camFollow suavemente hacia (x, y) durante `duration` segundos.
-	 * Bloquea the follow automatically mientras dura the tween for that the
+	 * Bloquea el follow automáticamente mientras dura el tween para que el
 	 * lerp hacia el personaje no lo cancele; lo desbloquea al terminar salvo
 	 * que se pase keepLocked=true.
 	 *
-	 * @param x           Position X of mundo destino.
-	 * @param and           Position and of mundo destino.
-	 * @param duration    Duration of the tween in segundos (default 0.6).
-	 * @param ease        Function of ease (default FlxEase.sineInOut).
-	 * @param keepLocked  If true, the camera queda locked to the terminar (default false).
+	 * @param x           Posición X de mundo destino.
+	 * @param y           Posición Y de mundo destino.
+	 * @param duration    Duración del tween en segundos (default 0.6).
+	 * @param ease        Función de ease (default FlxEase.sineInOut).
+	 * @param keepLocked  Si true, la cámara queda locked al terminar (default false).
 	 * @param onComplete  Callback opcional al terminar el tween.
 	 */
 	public function panTo(x:Float, y:Float, ?duration:Float, ?ease:Float->Float,
@@ -248,8 +248,8 @@ class CameraController
 
 	/**
 	 * Tweenea camFollow al target actual (calculado en este momento) con
-	 * the duration and ease dados. Equivalente to panTo but calcula the destino
-	 * from the character active in lugar of a position fija.
+	 * la duración y ease dados. Equivalente a panTo pero calcula el destino
+	 * desde el personaje activo en lugar de una posición fija.
 	 * Usado por FocusCamera V-Slice con ease/duration.
 	 */
 	public function tweenToTarget(duration:Float, ?ease:Float->Float):Void
@@ -261,10 +261,10 @@ class CameraController
 	}
 
 	/**
-	 * Centra the camera in the punto medio between bf and dad.
-	 * Equivalente to setTarget('both') but instant or with snap.
+	 * Centra la cámara en el punto medio entre bf y dad.
+	 * Equivalente a setTarget('both') pero instantáneo o con snap.
 	 *
-	 * @param snap  If true (default) moves camFollow instantly.
+	 * @param snap  Si true (default) mueve camFollow instantáneamente.
 	 *              Si false aplica un panTo suave de 0.6s.
 	 */
 	public function centerBetweenChars(?snap:Bool):Void
@@ -284,10 +284,10 @@ class CameraController
 	}
 
 	/**
-	 * Restaura the state inicial of the camera (target, zoom, lerp).
+	 * Restaura el estado inicial de la cámara (target, zoom, lerp).
 	 * Llamar desde PlayState._finishRestart() y PlayStateEditorState._onRestart()
-	 * after of that EventManager.rewindToStart() haya marcado the events as
-	 * no disparados, for that the camera quede where estaba to the start of the song.
+	 * DESPUÉS de que EventManager.rewindToStart() haya marcado los eventos como
+	 * no disparados, para que la cámara quede donde estaba al inicio de la canción.
 	 */
 	public function resetToInitial():Void
 	{
@@ -315,7 +315,7 @@ class CameraController
 
 	/**
 	 * Toma una foto del estado actual como "estado inicial".
-	 * PlayState call this after of appliesr all the overrides of the stage
+	 * PlayState llama esto DESPUÉS de aplicar todos los overrides del stage
 	 * (defaultCamZoom, stageOffsets, lerpSpeed) para que resetToInitial()
 	 * vuelva al punto correcto tras un rewind.
 	 */
@@ -347,7 +347,7 @@ class CameraController
 
 	private function updateFollowPosition(elapsed:Float):Void
 	{
-		// If the camera is bloqueada, no move camFollow in absoluto.
+		// Si la cámara está bloqueada, no mover camFollow en absoluto.
 		if (locked) return;
 		// ── Target 'both': centrar entre bf y dad ─────────────────────────
 		if (currentTarget == 'both')
@@ -360,7 +360,7 @@ class CameraController
 			var midX = (bfMid.x + dadMid.x) * 0.5;
 			var midY = (bfMid.y + dadMid.y) * 0.5;
 
-			// Offset vertical generic for that no quede in the pies
+			// Offset vertical genérico para que no quede en los pies
 			midY -= 100;
 
 			camFollow.x = midX;
@@ -392,11 +392,11 @@ class CameraController
 		targetPos.x += stageOff.x + _extraOffsetX;
 		targetPos.y += stageOff.y + _extraOffsetY;
 
-		// Offsets of animation of note.
+		// Offsets de animación de nota.
 		var noteOffX = currentTarget == 'player' ? bfOffsetX : dadOffsetX;
 		var noteOffY = currentTarget == 'player' ? bfOffsetY : dadOffsetY;
 
-		// Setear camFollow directo to the destino. The transition suave the hace
+		// Setear camFollow directo al destino. La transición suave la hace
 		// camGame.follow(camFollow, LOCKON, followLerp) — sin doble lerp encadenado.
 		// El noteOffset se aplica directamente para el micro-movimiento de notas.
 		camFollow.x = targetPos.x + noteOffX;
@@ -406,7 +406,7 @@ class CameraController
 	}
 
 	/**
-	 * Calcula the position destino of the follow for the target current.
+	 * Calcula la posición destino del follow para el target actual.
 	 * Devuelve un FlxPoint pooled — el caller debe llamar .put().
 	 */
 	private function _computeTargetPos():Null<flixel.math.FlxPoint>
@@ -435,7 +435,7 @@ class CameraController
 		camHUD.zoom  = FlxMath.lerp(camHUD.zoom,  1.0,         lerpVal);
 	}
 
-	/** Moves camFollow instantly to the target current (without lerp). */
+	/** Mueve camFollow instantáneamente al target actual (sin lerp). */
 	private function _snapToTarget():Void
 	{
 		// ── Target 'both': snap al centro entre bf y dad ──────────────────
@@ -483,7 +483,7 @@ class CameraController
 		};
 	}
 
-	/** Normalizes aliases to the cuatro names canónicos. */
+	/** Normaliza aliases a los cuatro nombres canónicos. */
 	private function resolveTarget(raw:String):String
 	{
 		return switch (raw.toLowerCase().trim())
@@ -503,8 +503,8 @@ class CameraController
 	public function bumpZoom():Void
 	{
 		if (!zoomEnabled) return;
-		// The limit of bump is scales with the resolution for mantener
-		// the same "sensación" visual that in 720p.
+		// El límite de bump se escala con la resolución para mantener
+		// la misma "sensación" visual que en 720p.
 		var bumpLimit:Float = 1.35 * Main.resolutionScale();
 		if (camGame.zoom < bumpLimit)
 		{

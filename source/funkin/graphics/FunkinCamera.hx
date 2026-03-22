@@ -21,12 +21,12 @@ using funkin.graphics.framebuffer.BitmapDataUtil;
 /**
  * FlxCamera ampliada con soporte para blend modes avanzados mediante shaders.
  *
- * Blend modes soportados without extension KHR:
+ * Blend modes soportados sin extensión KHR:
  *   DARKEN, HARDLIGHT, LIGHTEN (no-desktop), OVERLAY, DIFFERENCE,
  *   INVERT, COLORDODGE, COLORBURN, SOFTLIGHT, EXCLUSION,
  *   HUE, SATURATION, COLOR, LUMINOSITY
  *
- * For activar in all the game, adds in Main.hx (setupGame):
+ * Para activar en todo el juego, añade en Main.hx (setupGame):
  *   untyped FlxG.cameras = new funkin.graphics.FunkinCameraFrontEnd();
  *
  * Portado de v-slice (FunkinCrew/Funkin).
@@ -43,25 +43,25 @@ using funkin.graphics.framebuffer.BitmapDataUtil;
 class FunkinCamera extends FlxCamera
 {
 	/**
-	 * If the dispositivo soporta the extension OpenGL KHR_blend_equation_advanced.
-	 * If false, a shader-based implementation will be used for certain blend modes.
+	 * Si el dispositivo soporta la extensión OpenGL KHR_blend_equation_advanced.
+	 * Si es false, se usará implementación por shader para ciertos blend modes.
 	 */
 	public static var hasKhronosExtension(get, never):Bool;
 
 	static inline function get_hasKhronosExtension():Bool
 	{
-		// This version of OpenFL no expone __complexBlendsSupported.
-		// Always usamos the camino of shader for maximum compatibility.
+		// Esta versión de OpenFL no expone __complexBlendsSupported.
+		// Siempre usamos el camino de shader para máxima compatibilidad.
 		return false;
 	}
 
 	/**
-	 * Blend modes that requieren the extension KHR or caen to shader if no is available.
+	 * Blend modes que requieren la extensión KHR o caen a shader si no está disponible.
 	 * LIGHTEN se excluye en desktop porque lo soporta nativamente.
 	 */
-	// Blend modes disponibles in this version of OpenFL that necesitan shader.
+	// Blend modes disponibles en esta versión de OpenFL que necesitan shader.
 	// COLORDODGE, COLORBURN, SOFTLIGHT, EXCLUSION, HUE, SATURATION, COLOR, LUMINOSITY
-	// do not exist in this version of OpenFL — will be added if it updates.
+	// no existen en esta versión de OpenFL — se añadirán si se actualiza.
 	static final KHR_BLEND_MODES:Array<BlendMode> = [
 		DARKEN, HARDLIGHT,
 		#if !desktop LIGHTEN, #end
@@ -73,8 +73,8 @@ class FunkinCamera extends FlxCamera
 
 	/**
 	 * Convierte un BlendMode nativo al entero que espera el shader GLSL.
-	 * BlendMode in this version of OpenFL is a abstract over String,
-	 * so that no is puede do cast directo to Int.
+	 * BlendMode en esta versión de OpenFL es un abstract sobre String,
+	 * así que no se puede hacer cast directo a Int.
 	 */
 	public static function blendModeToInt(blend:BlendMode):Int
 	{
@@ -94,12 +94,12 @@ class FunkinCamera extends FlxCamera
 		};
 	}
 
-	/** ID of this camera, for debug. */
+	/** ID de esta cámara, para debug. */
 	public var id:String;
 
 	/**
-	 * If true, the blend shader will attempt to blend with cameras below this one.
-	 * Useful for blend modes in strumlines that is mezclan with the fondo.
+	 * Si true, el blend shader intentará mezclar con las cámaras debajo de ésta.
+	 * Útil para blend modes en strumlines que se mezclan con el fondo.
 	 * Impacta el rendimiento — por defecto desactivado.
 	 */
 	public var crossCameraBlending:Bool;
@@ -125,7 +125,7 @@ class FunkinCamera extends FlxCamera
 
 		_blendShader = new RuntimeCustomBlendShader();
 
-		// FIX: Flixel asigna the dimensiones reales of the camera after of
+		// FIX: Flixel asigna las dimensiones reales de la cámara después de
 		// super(), pero en el constructor this.width/height pueden ser 0.
 		// RenderTexture(0, 0) no tiene la guarda que tiene FixedBitmapData y
 		// puede crashear en el driver OpenGL de Android. Usamos al menos 1×1.
@@ -211,7 +211,7 @@ class FunkinCamera extends FlxCamera
 			});
 			_backgroundRenderTexture.render();
 
-			// Draws the resultado final in the camera
+			// Dibuja el resultado final en la cámara
 			_cameraMatrix.identity();
 			_cameraMatrix.scale(
 				1 / (this.scaleX * Lib.current.stage.window.scale),

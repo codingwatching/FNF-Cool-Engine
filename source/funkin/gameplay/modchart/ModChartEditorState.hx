@@ -30,8 +30,8 @@ import funkin.data.Song;
  *    • Scrollbar horizontal dedicado en la timeline
  *    • Timeline con grupos visuales (headers, colores, separadores)
  *    • Soporte de scripts externos (importar JSON de eventos)
- *    • Previsualización of curva of easing (window separated)
- *    • Saved mejorado with backup automatic
+ *    • Previsualización de curva de easing (ventana separada)
+ *    • Guardado mejorado con backup automático
  *    • Collapsible grupos en timeline
  */
 
@@ -55,7 +55,7 @@ typedef WinData =
 	@:optional var contentGroup : FlxGroup;
 }
 
-// ─── Predefined rhythm pattern ──────────────────────────────────────────────
+// ─── Patrón de ritmo predefinido ──────────────────────────────────────────────
 typedef RhythmPattern =
 {
 	var name      : String;
@@ -66,7 +66,7 @@ typedef RhythmPattern =
 
 class ModChartEditorState extends FlxState
 {
-	// ── Datos transferidos from PlayState via statics ────────────────────────
+	// ── Datos transferidos desde PlayState vía statics ────────────────────────
 	public static var pendingManager    : ModChartManager       = null;
 	public static var pendingStrumsData : Array<StrumsGroupData> = null;
 
@@ -74,7 +74,7 @@ class ModChartEditorState extends FlxState
 	private var manager       : ModChartManager;
 	private var srcStrumsGrps : Array<StrumsGroupData>;
 
-	// ── Camera ────────────────────────────────────────────────────────────────
+	// ── Cámara ────────────────────────────────────────────────────────────────
 	private var editorCam : FlxCamera;
 
 	// ── Layout ────────────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ class ModChartEditorState extends FlxState
 	private var helpTxt     : FlxText;
 	private var showHelp    : Bool = false;
 
-	// ── Zoom of the area of game ────────────────────────────────────────────────
+	// ── Zoom del área de juego ────────────────────────────────────────────────
 	private var gameZoom  : Float = 1.0;
 	static inline var ZOOM_MIN = 0.5;
 	static inline var ZOOM_MAX = 2.5;
@@ -374,7 +374,7 @@ class ModChartEditorState extends FlxState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// FONDO of the area of game
+	// FONDO DEL ÁREA DE JUEGO
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function buildGameBackground(grp:FlxGroup):Void
@@ -447,7 +447,7 @@ class ModChartEditorState extends FlxState
 			var edGrp = new StrumsGroup(gdata);
 			editorGroups.push(edGrp);
 
-			// ── Igual that PlayState: add each StrumNote of the grupo ──────────
+			// ── Igual que PlayState: añadir cada StrumNote del grupo ──────────
 			// Multiplicamos el scale de la skin por fitFact en lugar de usar
 			// setGraphicSize(), que rompe las animaciones y no respeta el scale
 			// interno de la skin (ej. 0.7 del skin por defecto).
@@ -528,7 +528,7 @@ class ModChartEditorState extends FlxState
 	{
 		var pix = spr.pixels;
 		var c   = FlxColor.fromInt(color);
-		// fillRect is órdenes of magnitud more fast that setPixel32 in bucle.
+		// fillRect es órdenes de magnitud más rápido que setPixel32 en bucle.
 		// Un sprite de 1160×678 con bucle pixel-a-pixel bloquea create() durante
 		// varios segundos (>786 k iteraciones); con fillRect son 4 llamadas.
 		pix.fillRect(new openfl.geom.Rectangle(0,         0,         w,         thickness), c); // top
@@ -669,7 +669,7 @@ class ModChartEditorState extends FlxState
 		add(lblEase);
 		addSmBtn(px + pw - 28, py, "◄", function() { cycleEaseDir(-1); drawEasingCurve(newEase); });
 		addSmBtn(px + pw - 14, py, "►", function() { cycleEaseDir(1);  drawEasingCurve(newEase); });
-		// Mini button "👁" for preview of easing
+		// Mini botón "👁" para preview de easing
 		var eyeBg = mkBg(px, py, 48, 18, 0xFF0E0A20);
 		add(eyeBg);
 		var eyeTxt = mkTxt(px + 3, py + 2, "👁 Ease", 8, 0xFFBB88FF);
@@ -683,7 +683,7 @@ class ModChartEditorState extends FlxState
 		var addBg = mkBgRnd(px, py, pw, 28, C_ACCENT);
 		addBg.alpha = 0.9;
 		add(addBg);
-		var addTxt = mkTxt(px + pw / 2 - 40, py + 7, "+ add event", 12, 0xFFFFFFFF);
+		var addTxt = mkTxt(px + pw / 2 - 40, py + 7, "+ AÑADIR EVENTO", 12, 0xFFFFFFFF);
 		addTxt.bold = true;
 		add(addTxt);
 		hitBtns.push({ x: px, y: py, w: pw, h: 28, cb: onClickAdd });
@@ -692,7 +692,7 @@ class ModChartEditorState extends FlxState
 		var phBg = mkBgRnd(px, py, pw, 24, 0xFF224433);
 		phBg.alpha = 0.9;
 		add(phBg);
-		add(mkTxt(px + pw / 2 - 50, py + 5, "⊕ Add in Playhead", 10, 0xFFAAFFCC));
+		add(mkTxt(px + pw / 2 - 50, py + 5, "⊕ Añadir en Playhead", 10, 0xFFAAFFCC));
 		hitBtns.push({ x: px, y: py, w: pw, h: 24, cb: function() {
 			newBeat = snapBeat(playheadBeat);
 			fieldBufs.set("beat", fmt(newBeat));
@@ -700,7 +700,7 @@ class ModChartEditorState extends FlxState
 		}});
 		py += 30;
 
-		addSection(px, py, pw, "patterns fast"); py += 22;
+		addSection(px, py, pw, "PATRONES RÁPIDOS"); py += 22;
 		buildRhythmButtons(px, py, pw);
 		py += 24 * Std.int((rhythmPatterns.length + 1) / 2) + 6;
 
@@ -753,7 +753,7 @@ class ModChartEditorState extends FlxState
 
 		addSection(px, py, pw, "INSPECTOR"); py += 22;
 
-		inspTxt = mkTxt(px, py, "(without selection)", 9, C_DIM);
+		inspTxt = mkTxt(px, py, "(sin selección)", 9, C_DIM);
 		inspTxt.wordWrap  = true;
 		inspTxt.fieldWidth = pw;
 		add(inspTxt);
@@ -867,7 +867,7 @@ class ModChartEditorState extends FlxState
 		applyManagerToStrums();
 		refreshTimeline();
 		updateSnapLbl();
-		setStatus('Pattern "${pat.name}" appliesdo in beat ${fmt(baseBeat)}');
+		setStatus('Patrón "${pat.name}" aplicado en beat ${fmt(baseBeat)}');
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -1149,7 +1149,7 @@ class ModChartEditorState extends FlxState
 			}
 		}
 
-		// ── Lines of beat / step in the area of the timeline ──────────────────
+		// ── Líneas de beat / step en el área de la timeline ──────────────────
 		var startB = Std.int(tlScroll);
 		var endB   = Std.int(tlScroll + beatsVisible) + 2;
 		var trackH = TL_H - TL_RH - TL_SB_H - 4;
@@ -1286,7 +1286,7 @@ class ModChartEditorState extends FlxState
 		tlScrollbarThumb.x = thumbX;
 		tlScrollbarThumb.y = sbY + 2;
 
-		// Color of the thumb: more brillante when is arrastra
+		// Color del thumb: más brillante cuando se arrastra
 		var col = scrollbarDragging ? 0xFF4488FF : 0xFF2244BB;
 		tlScrollbarThumb.makeGraphic(Std.int(thumbW), TL_SB_H - 4, FlxColor.fromInt(col));
 	}
@@ -1375,7 +1375,7 @@ class ModChartEditorState extends FlxState
 		// Eje Y central (t=0.5 reference)
 		addC(mkRaw(Std.int(ox + cw / 2), Std.int(oy), 1, Std.int(ch), 0xFF151530));
 
-		// Edges of the graphic
+		// Bordes del gráfico
 		addC(mkRaw(Std.int(ox),           Std.int(oy),      Std.int(cw), 1, 0xFF1A3A8A));
 		addC(mkRaw(Std.int(ox),           Std.int(oy + ch), Std.int(cw), 1, 0xFF1A3A8A));
 		addC(mkRaw(Std.int(ox),           Std.int(oy),      1, Std.int(ch), 0xFF1A3A8A));
@@ -1462,14 +1462,14 @@ class ModChartEditorState extends FlxState
 		scriptWin.contentGroup.add(desc);
 		cy += 34;
 
-		// Button load
+		// Botón cargar
 		var lBg = mkRaw(cx, cy, cw, 26, 0xFF081828); scriptWin.contentGroup.add(lBg);
 		var lTxt = mkTxt(cx + cw/2 - 62, cy + 6, "📂  Cargar Script (.json)", 10, FlxColor.fromInt(C_ACCENT));
 		scriptWin.contentGroup.add(lTxt);
 		hitBtns.push({ x: cx, y: cy, w: cw, h: 26.0, cb: onLoadScript });
 		cy += 32;
 
-		// Button exportar
+		// Botón exportar
 		var eBg = mkRaw(cx, cy, cw, 26, 0xFF082820); scriptWin.contentGroup.add(eBg);
 		var eTxt = mkTxt(cx + cw/2 - 60, cy + 6, "💾  Exportar como Script", 10, FlxColor.fromInt(C_GREEN));
 		scriptWin.contentGroup.add(eTxt);
@@ -1533,7 +1533,7 @@ class ModChartEditorState extends FlxState
 		}
 
 		if (scriptStatusTxt != null)
-			scriptStatusTxt.text = 'not found for "${songName}".\nBuswhat in:\n${searchPaths.join("\n")}';
+			scriptStatusTxt.text = 'not found para "${songName}".\nBusqué en:\n${searchPaths.join("\n")}';
 		setStatus('Script not found para: ${songName}');
 		#else
 		// HTML5: usar FlxG.save
@@ -1598,7 +1598,7 @@ class ModChartEditorState extends FlxState
 		pushUndo();
 		var arr:Array<Dynamic> = haxe.Json.parse(json);
 		if (arr == null || !Std.isOfType(arr, Array))
-			throw "Invalid JSON: se esperaba un array";
+			throw "JSON inválido: se esperaba un array";
 
 		var count = 0;
 		for (raw in arr)
@@ -1638,7 +1638,7 @@ class ModChartEditorState extends FlxState
 
 		if (selectedGroupIdx < 0 || selectedStrumIdx < 0)
 		{
-			var t = mkTxt(px + 4, py, "Haz click over a arrow\ndel area of game.", 9, C_DIM);
+			var t = mkTxt(px + 4, py, "Haz click sobre una flecha\ndel área de juego.", 9, C_DIM);
 			t.wordWrap   = true;
 			t.fieldWidth = pw;
 			add(t);
@@ -1758,7 +1758,7 @@ class ModChartEditorState extends FlxState
 		refreshEvList();
 		updateAudioLabel();
 
-		// Update easing preview if changed the ease
+		// Actualizar easing preview si cambió el ease
 		if (easingPreviewOpen && lblEase != null && (newEase:String) != easingPrevEase)
 			drawEasingCurve(newEase);
 	}
@@ -2078,7 +2078,7 @@ class ModChartEditorState extends FlxState
 					var rawBeat = Math.max(0, tlScroll + (mx - PANEL_L) / ((SW - PANEL_L - PANEL_R) / beatsVisible));
 					seekToBeat(snapDiv > 1 ? snapBeat(rawBeat) : rawBeat);
 					selectedEv = null;
-					if (inspTxt != null) inspTxt.text = "(without selection)";
+					if (inspTxt != null) inspTxt.text = "(sin selección)";
 					refreshTimeline();
 				}
 			}
@@ -2207,7 +2207,7 @@ class ModChartEditorState extends FlxState
 
 		if (evs.length > max)
 		{
-			var more = mkTxt(cx, cy, '... +${evs.length - max} more', 9, C_DIM);
+			var more = mkTxt(cx, cy, '... +${evs.length - max} más', 9, C_DIM);
 			add(more); evListTxts.push(more);
 		}
 	}
@@ -2276,7 +2276,7 @@ class ModChartEditorState extends FlxState
 				var bkp     = '${backupDir}${songName}_${datePart}.json';
 				sys.io.File.copy(mainPath, bkp);
 
-				// Keep only the last 5 backups
+				// Mantener solo los últimos 5 backups
 				var bkpFiles = sys.FileSystem.readDirectory(backupDir)
 					.filter(f -> StringTools.startsWith(f, songName) && StringTools.endsWith(f, '.json'));
 				bkpFiles.sort((a, b) -> Reflect.compare(a, b));
@@ -2362,7 +2362,7 @@ class ModChartEditorState extends FlxState
 	{
 		pushUndo();
 		manager.data.events.remove(ev);
-		if (selectedEv == ev) { selectedEv = null; if (inspTxt != null) inspTxt.text = "(without selection)"; }
+		if (selectedEv == ev) { selectedEv = null; if (inspTxt != null) inspTxt.text = "(sin selección)"; }
 		manager.seekToBeat(playheadBeat);
 		applyManagerToStrums();
 		refreshTimeline();
@@ -2514,20 +2514,20 @@ class ModChartEditorState extends FlxState
 
 		helpTxt = new FlxText(80, 30, 1120,
 			"══════════════════  AYUDA EDITOR MODCHART v4  ══════════════════\n\n" +
-			"ATAJOS fast\n" +
+			"ATAJOS RÁPIDOS\n" +
 			"  Space          → Play / Pausa\n" +
 			"  Flechas ← →    → Navegar beats (con snap)\n" +
 			"  Flechas ↑ ↓    → Navegar 4 beats\n" +
 			"  Delete          → Eliminar evento seleccionado\n" +
 			"  Tab             → Modo Preview (oculta todo el UI)\n" +
 			"  H               → Ocultar/mostrar ventanas flotantes\n" +
-			"  F11             → Vista screen complete of the area of game\n" +
+			"  F11             → Vista pantalla completa del área de juego\n" +
 			"  1 / 2 / 3       → Snap: 1/4 | 1/8 | 1/16\n" +
 			"  Ctrl+Z          → Deshacer  |  Ctrl+Y → Rehacer\n" +
-			"  Ctrl+S          → Save (with backup automatic)\n" +
+			"  Ctrl+S          → Guardar (con backup automático)\n" +
 			"  F1              → Esta ayuda  |  ESC → Cerrar editor\n\n" +
 			"TIMELINE (v4 — con grupos y scrollbar)\n" +
-			"  LMB empty               → Move playhead to the beat clickeado\n" +
+			"  LMB vacío               → Mover playhead al beat clickeado\n" +
 			"  LMB sobre evento        → Seleccionar evento\n" +
 			"  RMB sobre evento        → Eliminar evento\n" +
 			"  LMB sobre header grupo  → Colapsar / expandir grupo\n" +
@@ -2535,19 +2535,19 @@ class ModChartEditorState extends FlxState
 			"  Ctrl+Rueda              → Zoom in/out\n" +
 			"  Scrollbar inferior      → Arrastrar thumb para navegar\n" +
 			"  ◀ / ▶ (extremos bar)   → Scroll fino\n" +
-			"  Button ALL               → Ver all the song\n\n" +
+			"  Botón ALL               → Ver toda la canción\n\n" +
 			"EASE PREVIEW\n" +
-			"  Button 'Ease〜' (timeline) or '〜 EASE PREVIEW' (panel derecho)\n" +
+			"  Botón 'Ease〜' (timeline) o '〜 EASE PREVIEW' (panel derecho)\n" +
 			"  → Abre ventana flotante con curva del easing actual\n" +
-			"  → Is updates automatically to the change the ease\n\n" +
+			"  → Se actualiza automáticamente al cambiar el ease\n\n" +
 			"SCRIPTS EXTERNOS\n" +
-			"  Button 'Scripts' (timeline) or '📜 scripts' (panel derecho)\n" +
+			"  Botón 'Scripts' (timeline) o '📜 SCRIPTS' (panel derecho)\n" +
 			"  → Importar eventos desde JSON externo\n" +
 			"  → Exportar eventos actuales como script JSON\n" +
-			"  → Path automatic: modcharts/scripts/<cancion>.json\n\n" +
+			"  → Ruta automática: modcharts/scripts/<cancion>.json\n\n" +
 			"GUARDAR (mejorado)\n" +
-			"  Ctrl+S or button save → Save + backup automatic\n" +
-			"  → Backup in modcharts/backup/ (last 5)\n\n" +
+			"  Ctrl+S o botón GUARDAR → Guarda + backup automático\n" +
+			"  → Backup en modcharts/backup/ (últimos 5)\n\n" +
 			"[F1 para cerrar esta ayuda]", 11);
 		helpTxt.color   = FlxColor.fromInt(C_TEXT);
 		helpTxt.cameras = [editorCam];

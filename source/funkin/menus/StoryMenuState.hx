@@ -68,10 +68,10 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 	public var curWeek:Int = 0;
 
-	/** Tween of transition suave of the color of fondo between weeks. */
+	/** Tween de transición suave del color de fondo entre semanas. */
 	var _bgColorTween:FlxTween = null;
 
-	/** Last week for the that is inició the tween (avoids relanzarlo each frame). */
+	/** Última semana para la que se inició el tween (evita relanzarlo cada frame). */
 	var _lastColoredWeek:Int = -1;
 
 	var bg:FlxSprite;
@@ -133,12 +133,12 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 		blackBarThingie = new FlxSprite().makeGraphic(FlxG.width, 56, FlxColor.BLACK);
 
-		// bg always oscuro — the color of the week is applies to yellowBG, no here.
-		// critical: Paths.image() always returns String (never null).
+		// bg siempre oscuro — el color de la week se aplica a yellowBG, no aquí.
+		// CRÍTICO: Paths.image() SIEMPRE devuelve String (nunca null).
 		// bg.frames == null tampoco es fiable — HaxeFlixel puede asignar un
-		// FlxFramesCollection with bitmap internal nulo without lanzar excepción,
-		// it that crashea in FlxDrawQuadsItem::render line 119.
-		// The single comprobación safe is verify if the fichero exists.
+		// FlxFramesCollection con bitmap interno nulo sin lanzar excepción,
+		// lo que crashea en FlxDrawQuadsItem::render línea 119.
+		// La única comprobación segura es verificar si el fichero existe.
 		bg = new FlxSprite();
 		#if sys
 		var _bgPath:String = Paths.image('menu/menuDesat');
@@ -181,7 +181,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		DiscordClient.changePresence("In the Story Mode", null);
 		#end
 
-		// validation: Only create items if there is weeks disponibles
+		// VALIDACIÓN: Solo crear items si hay semanas disponibles
 		if (weekData.length > 0)
 		{
 			for (i in 0...weekData.length)
@@ -197,7 +197,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 				// weekThing.updateHitbox();
 
 				// Needs an offset thingie
-				// CRITICAL: only create the lock if ui_tex exists.
+				// CRÍTICO: solo crear el lock si ui_tex existe.
 				// lock.frames = null crashea en FlxDrawQuadsItem::render.
 				if (i < weekUnlocked.length && !weekUnlocked[i])
 				{
@@ -259,8 +259,8 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			difficultySelectors.add(leftArrow);
 
 			// sprDifficulty y rightArrow empiezan en x=0.
-			// changeDifficulty() the reposicionará correctly a vez that
-			// ambas arrows and the sprite are creados.
+			// changeDifficulty() los reposicionará correctamente una vez que
+			// ambas flechas y el sprite estén creados.
 			sprDifficulty = new FlxSprite(0, leftArrow.y);
 			sprDifficulty.loadGraphic(Paths.image('menu/storymenu/difficulties/easy'));
 			difficultySelectors.add(sprDifficulty);
@@ -272,7 +272,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			rightArrow.animation.play('idle');
 			difficultySelectors.add(rightArrow);
 
-			// Now that all is creado, posicionar correctly.
+			// Ahora que todo está creado, posicionar correctamente.
 			changeDifficulty();
 		}
 		else
@@ -285,7 +285,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		add(yellowBG);
 		add(grpWeekCharacters);
 
-		// Paths.image() always returns String (never null), so that the check
+		// Paths.image() SIEMPRE devuelve String (nunca null), así que el check
 		// anterior "!= null" era siempre true. Hay que verificar con FileSystem.
 		var tracksMenuPath:String = Paths.image('menu/storymenu/tracksMenu');
 		tracksMenu = new FlxSprite(FlxG.width * 0.07, yellowBG.y + 435);
@@ -428,7 +428,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		bgcol = weekColors.length > 0 ? weekColors[0] : 0xFF0A0A0A;
 		trace('[StoryMenuState] ${weekData.length} weeks built.');
 	}
-	// === function of FALLBACK for load weeks by DEFECTO ===
+	// === FUNCIÓN DE FALLBACK PARA CARGAR SEMANAS POR DEFECTO ===
 	function loadDefaultWeeks():Void
 	{
 		weekData = [
@@ -480,7 +480,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		StateScriptHandler.callOnScripts('onUpdate', [elapsed]);
 		#end
 
-		// validation: Only update if there is weeks
+		// VALIDACIÓN: Solo actualizar si hay semanas
 		if (weekData.length > 0)
 		{
 			// Update score lerp
@@ -490,8 +490,8 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 			scoreText.text = "LEVEL SCORE:" + lerpScore;
 
-			// Update title of the week if is valid
-			// validation TRIPLE: curWeek, weekNames, and txtWeekTitle
+			// Actualizar título de la semana si es válido
+			// VALIDACIÓN TRIPLE: curWeek, weekNames, y txtWeekTitle
 			if (txtWeekTitle != null && curWeek >= 0 && curWeek < weekNames.length && weekNames[curWeek] != null)
 			{
 				try
@@ -505,7 +505,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 				}
 
 				// BUGFIX: Antes se asignaba yellowBG.color directamente cada frame,
-				// it that no produced transition smooth and podía verse as white/black
+				// lo que no producía transición suave y podía verse como blanco/negro
 				// si el color llegaba null o con un valor inesperado.
 				// Ahora solo se lanza un FlxTween.color cuando cambia la semana.
 				if (yellowBG != null && curWeek >= 0 && curWeek < weekColors.length && curWeek != _lastColoredWeek)
@@ -513,7 +513,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 					_lastColoredWeek = curWeek;
 					var targetColor:Null<FlxColor> = weekColors[curWeek];
 					if (targetColor == 0 || targetColor == null)
-						targetColor = 0xFFFFD900; // fallback if the parsed color is invalid
+						targetColor = 0xFFFFD900; // fallback si el color parseado es inválido
 					if (_bgColorTween != null)
 					{
 						_bgColorTween.cancel();
@@ -525,7 +525,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			}
 			else if (curWeek >= weekNames.length)
 			{
-				// CORRECTION: If curWeek is out of range, reset it
+				// CORRECCIÓN: Si curWeek está fuera de rango, resetear
 				trace("WARNING: curWeek (" + curWeek + ") >= weekNames.length (" + weekNames.length + "), resetting to 0");
 				curWeek = 0;
 			}
@@ -563,7 +563,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 						changeWeek(1);
 					}
 
-					// validation: Only interact with arrows if they exist and have valid frames
+					// VALIDACIÓN: Solo interactuar con arrows si existen Y tienen frames válidos
 					if (rightArrow != null && rightArrow.frames != null && rightArrow.animation != null)
 					{
 						try
@@ -608,7 +608,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		}
 		else
 		{
-			// new: If no there is weeks, only allow return back
+			// NUEVO: Si no hay semanas, solo permitir volver atrás
 			scoreText.text = "NO WEEKS AVAILABLE";
 			if (txtWeekTitle != null)
 				txtWeekTitle.text = "";
@@ -619,7 +619,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 			movedBack = true;
 			StateTransition.switchState(new MainMenuState());
-			return; // IMPORTANTE: Stop the execution here
+			return; // IMPORTANTE: Detener la ejecución aquí
 		}
 
 		super.update(elapsed);
@@ -641,14 +641,14 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			return;
 		#end
 
-		// validation: Verify that there is weeks disponibles
+		// VALIDACIÓN: Verificar que hay semanas disponibles
 		if (weekData.length == 0)
 		{
 			showError("No weeks available!");
 			return;
 		}
 
-		// Validate index before of acceder
+		// Validar índice antes de acceder
 		if (curWeek < 0 || curWeek >= weekUnlocked.length || curWeek >= weekData.length)
 			return;
 
@@ -698,11 +698,11 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 	function changeDifficulty(change:Int = 0):Void
 	{
-		// validation: Only change difficulty if sprDifficulty exists
+		// VALIDACIÓN: Solo cambiar dificultad si sprDifficulty existe
 		if (sprDifficulty == null)
 			return;
 
-		// validation ADICIONAL: Verify that sprDifficulty tiene frames valid
+		// VALIDACIÓN ADICIONAL: Verificar que sprDifficulty tiene frames válidos
 		if (sprDifficulty.frames == null)
 		{
 			trace("ERROR: sprDifficulty.frames is null, cannot change difficulty");
@@ -725,7 +725,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		// sprDifficulty.width refleje el ancho REAL de la nueva imagen.
 		try
 		{
-			// Intenta first with the label exacto, then fallback to easy/normal/hard classic
+			// Intenta primero con el label exacto, luego fallback a easy/normal/hard clásicos
 			var imgPath = 'menu/storymenu/difficulties/$diffLabel';
 			if (!openfl.Assets.exists(Paths.image(imgPath)))
 			{
@@ -745,7 +745,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		// Reposicionar todo el selector centrado respecto a leftArrow.
 		// Layout:   [leftArrow] [padding] [sprDifficulty] [padding] [rightArrow]
 		// Tanto sprDifficulty como rightArrow se recalculan con el ancho real
-		// of the image, so "EASY" (estrecha) and "NORMAL" (ancha) quedan well.
+		// de la imagen, así "EASY" (estrecha) y "NORMAL" (ancha) quedan bien.
 		if (leftArrow != null && rightArrow != null)
 		{
 			var padding:Float = 16;
@@ -756,11 +756,11 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			sprDifficulty.x = startX;
 			sprDifficulty.y = arrowY + (leftArrow.height - sprDifficulty.height) / 2;
 
-			// rightArrow justo after of the sprite of difficulty
+			// rightArrow justo después del sprite de dificultad
 			rightArrow.x = startX + sprDifficulty.width + padding;
 			rightArrow.y = arrowY;
 
-			// Animation of entry: baja from arriba with fade-in
+			// Animación de entrada: baja desde arriba con fade-in
 			sprDifficulty.alpha = 0;
 			var targetY:Float = sprDifficulty.y;
 			sprDifficulty.y = targetY - 15;
@@ -774,7 +774,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			FlxTween.tween(sprDifficulty, {alpha: 1}, 0.1);
 		}
 
-		// validation: Only get score if there is weeks
+		// VALIDACIÓN: Solo obtener score si hay semanas
 		if (weekData.length > 0 && curWeek >= 0 && curWeek < weekData.length)
 		{
 			#if !switch
@@ -788,13 +788,13 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 	function changeWeek(change:Int = 0):Void
 	{
-		// validation: No do nada if no there is weeks
+		// VALIDACIÓN: No hacer nada si no hay semanas
 		if (weekData.length == 0)
 			return;
 
 		curWeek += change;
 
-		// Validation mejorada with protection extra and clamp
+		// Validación mejorada con protección extra y clamp
 		if (curWeek >= weekData.length)
 		{
 			curWeek = 0;
@@ -806,7 +806,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			trace("Wrapped to last week");
 		}
 
-		// validation critical: Asegurar that curWeek is in rango valid
+		// VALIDACIÓN CRÍTICA: Asegurar que curWeek está en rango válido
 		// para TODOS los arrays antes de continuar
 		if (curWeek >= weekData.length || curWeek < 0)
 		{
@@ -825,7 +825,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 				{
 					item.targetY = bullShit - curWeek;
 
-					// Validate indices before accessing weekUnlocked
+					// Validar índices antes de acceder a weekUnlocked
 					if (item.targetY == Std.int(0) && curWeek >= 0 && curWeek < weekUnlocked.length && weekUnlocked[curWeek])
 						item.alpha = 1;
 					else
@@ -837,7 +837,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 		FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 
-		// Asegurar that curWeek is valid justo before of updateText
+		// Asegurar que curWeek es válido justo antes de updateText
 		if (curWeek >= 0 && curWeek < weekData.length)
 		{
 			updateText();
@@ -854,11 +854,11 @@ class StoryMenuState extends funkin.states.MusicBeatState
 
 	function updateText()
 	{
-		// validation: Only update if there is weeks
+		// VALIDACIÓN: Solo actualizar si hay semanas
 		if (weekData.length == 0)
 			return;
 
-		// Validate that curWeek is inside of the rango before of do any cosa
+		// Validar que curWeek esté dentro del rango ANTES de hacer cualquier cosa
 		if (curWeek < 0 || curWeek >= weekData.length)
 		{
 			trace("WARNING: curWeek out of range in updateText: " + curWeek + " (weekData.length: " + weekData.length + ")");
@@ -867,7 +867,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 				return;
 		}
 
-		// Validation mejorada for prevenir indices fuera of rango
+		// Validación mejorada para prevenir índices fuera de rango
 		var weekArray:Array<String> = ['', 'bf', 'gf']; // Default seguro
 
 		if (curWeek >= 0 && curWeek < weekCharacters.length && weekCharacters[curWeek] != null)
@@ -883,7 +883,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			trace("WARNING: weekCharacters is empty or null, using defaults");
 		}
 
-		// Verify that grpWeekCharacters no sea null and tenga the size correct
+		// Verificar que grpWeekCharacters no sea null y tenga el tamaño correcto
 		if (grpWeekCharacters != null && grpWeekCharacters.members != null)
 		{
 			for (i in 0...grpWeekCharacters.length)
@@ -903,7 +903,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			}
 		}
 
-		// Doble validation of curWeek before of acceder to weekData
+		// Doble validación de curWeek antes de acceder a weekData
 		if (curWeek < 0 || curWeek >= weekData.length)
 		{
 			trace("WARNING: curWeek still out of range after validation: " + curWeek);

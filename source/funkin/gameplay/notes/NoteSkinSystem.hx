@@ -19,12 +19,12 @@ using StringTools;
 // ==================== TYPEDEFS ====================
 
 /**
- * Definition of texture of skin.
+ * Definición de textura de skin.
  *
  * Para type "sparrow": usa path.xml (Sparrow Atlas).
  * Para type "packer":  usa path.txt (TexturePacker).
- * For type "image":   use path.png dividido in frames of frameWidth×frameHeight pixels.
- *                      The number of filas/columnas is calcula automatically.
+ * Para type "image":   usa path.png dividido en frames de frameWidth×frameHeight píxeles.
+ *                      El número de filas/columnas se calcula automáticamente.
  */
 typedef NoteSkinTexture =
 {
@@ -45,7 +45,7 @@ typedef NoteSkinTexture =
 }
 
 /**
- * Definition of a animation individual.
+ * Definición de una animación individual.
  *
  * Formatos aceptados en el JSON:
  *   String shorthand:   "purple0"
@@ -62,9 +62,9 @@ typedef NoteAnimDef =
 	var ?framerate:Int;
 	var ?loop:Bool;
 	/**
-	 * Offset [x, and] appliesdo to the strum when this animation is active.
+	 * Offset [x, y] aplicado al strum cuando esta animación está activa.
 	 * Solo relevante para animaciones de strum (pressed / confirm).
-	 * Optional — if is ausente, is usan the defaults of the engine.
+	 * Opcional — si está ausente, se usan los defaults del engine.
 	 *
 	 * Ejemplo en skin.json:
 	 *   "strumLeftConfirm": { "prefix": "left confirm", "offset": [-13, -13] }
@@ -79,7 +79,7 @@ typedef NoteAnimDef =
  * Los campos son Dynamic para aceptar tanto el String shorthand como el
  * objeto NoteAnimDef completo. El helper addAnimToSprite() maneja ambos.
  *
- * Separation logic:
+ * Separación lógica:
  *   Notas (Scroll): left, down, up, right
  *   Hold pieces:    leftHold, downHold, upHold, rightHold
  *   Hold tails:     leftHoldEnd, downHoldEnd, upHoldEnd, rightHoldEnd
@@ -115,16 +115,16 @@ typedef NoteSkinAnims =
 	var ?strumRightConfirm:Dynamic;
 }
 
-// Compatibility alias — code that used NoteAnimations still compiles
+// Alias de compatibilidad — código que usaba NoteAnimations sigue compilando
 typedef NoteAnimations = NoteSkinAnims;
 
 /**
  * Datos completos de una skin de notas.
  *
  * La skin pixel y la skin normal son ENTIDADES COMPLETAMENTE INDEPENDIENTES.
- * No there is none logic hardcodeada of "school → pixel". In its lugar:
+ * No hay ninguna lógica hardcodeada de "school → pixel". En su lugar:
  *   - Crea una skin con isPixel:true y sus texturas/animaciones propias
- *   - Registra what stage the use with NoteSkinSystem.registerStageSkin(stage, skinName)
+ *   - Registra qué stage la usa con NoteSkinSystem.registerStageSkin(stage, skinName)
  *   - O llama NoteSkinSystem.setTemporarySkin(skinName) desde tu PlayState/Stage
  *
  * Campos clave:
@@ -180,7 +180,7 @@ typedef NoteSplashData =
 	var ?folder:String;
 	var assets:NoteSplashAssets;
 	var animations:SplashAnimations;
-	/** Configuration of the hold covers. Null = usar defaults hardcodeados. */
+	/** Configuración de los hold covers. Null = usar defaults hardcodeados. */
 	var ?holdCover:NoteHoldCoverData;
 }
 
@@ -204,7 +204,7 @@ typedef SplashAnimations =
 }
 
 /**
- * Datos of configuration for the hold covers (animations of splash largo).
+ * Datos de configuración para los hold covers (animaciones de splash largo).
  *
  * Viven dentro del splash.json en el campo "holdCover".
  * Todos los campos son opcionales — los valores por defecto reproducen
@@ -228,15 +228,15 @@ typedef SplashAnimations =
  * }
  *
  * Con perColorTextures:true (default), se carga {texturePrefix}{Color}.png
- * for each direction (e.g. holdCoverPurple.png, holdCoverBlue.png…).
+ * por cada dirección (e.g. holdCoverPurple.png, holdCoverBlue.png…).
  * Con perColorTextures:false, se carga {texturePrefix}.png — atlas compartido.
  *
- * The prefijos of animation always reciben the nombre of the color as suffix:
+ * Los prefijos de animación siempre reciben el nombre del color como sufijo:
  *   startPrefix="holdCoverStart" → "holdCoverStartPurple", "holdCoverStartBlue"…
  */
 typedef NoteHoldCoverData =
 {
-	/** true (default): a texture by color; false: atlas unique compartido. */
+	/** true (default): una textura por color; false: atlas único compartido. */
 	var ?perColorTextures:Bool;
 
 	/** Prefijo del archivo de textura. Default: "holdCover". */
@@ -254,22 +254,22 @@ typedef NoteHoldCoverData =
 	/** FPS de las animaciones de start y end. Default: 24. */
 	var ?framerate:Int;
 
-	/** FPS of the animation of loop continuo. Default: 48. */
+	/** FPS de la animación de loop continuo. Default: 48. */
 	var ?loopFramerate:Int;
 
 	/**
-	 * Offset [x, and] in pixels appliesdo to the sprite.
+	 * Offset [x, y] en píxeles aplicado al sprite.
 	 * Null = auto (width*0.3, height*0.3), igual que el comportamiento original.
 	 */
 	var ?offset:Array<Float>;
 
-	/** Prefix of the animation of start. Default: "holdCoverStart". */
+	/** Prefijo de la animación de inicio. Default: "holdCoverStart". */
 	var ?startPrefix:String;
 
-	/** Prefix of the animation of loop. Default: "holdCover". */
+	/** Prefijo de la animación de loop. Default: "holdCover". */
 	var ?loopPrefix:String;
 
-	/** Prefix of the animation of fin. Default: "holdCoverEnd". */
+	/** Prefijo de la animación de fin. Default: "holdCoverEnd". */
 	var ?endPrefix:String;
 }
 
@@ -294,7 +294,7 @@ class NoteSkinSystem
 	 * Skin/splash por defecto del MOD ACTIVO (desde global.json del mod).
 	 * Se usa como fallback en restoreGlobalSkin/Splash() cuando el jugador
 	 * no tiene preferencia guardada. Sin esto, applySkinForStage() en PlayState
-	 * ignoraba the global.json of the mod and volvía always to "Default".
+	 * ignoraba el global.json del mod y volvía siempre a "Default".
 	 */
 	private static var _modDefaultSkin:String = null;
 	private static var _modDefaultSplash:String = null;
@@ -304,7 +304,7 @@ class NoteSkinSystem
 
 	/**
 	 * Mapa stage-name → skin-name.
-	 * Defaults registered in init(). Editable via registerStageSkin().
+	 * Defaults registrados en init(). Editable vía registerStageSkin().
 	 */
 	private static var stageSkinMap:Map<String, String> = new Map();
 
@@ -312,23 +312,23 @@ class NoteSkinSystem
 
 	private static var initialized:Bool = false;
 
-	/** Last mod active durante the init — if changes, forzamos re-init. */
+	/** Último mod activo durante el init — si cambia, forzamos re-init. */
 	private static var _lastInitMod:Null<String> = null;
 
-	/** If the skin current applies the offset -13,-13 standard in confirm. */
+	/** Si la skin actual aplica el offset -13,-13 estándar en confirm. */
 	public static var offsetDefault:Bool = true;
 
-	// Paths calculados in init() according to the mod active
+	// Paths calculados en init() según el mod activo
 	private static var SKINS_PATH:String = "assets/notes/skins";
 	private static var SPLASHES_PATH:String = "assets/notes/splashes";
 
-	/** Previene re-entry in init() when setTemporarySkin/setModDefault are calldos durante the initialization. */
+	/** Previene re-entrada en init() cuando setTemporarySkin/setModDefault son llamados durante la inicialización. */
 	private static var _initializing:Bool = false;
 
 	/**
-	 * Forces a re-initialization complete of the system in the next acceso.
-	 * Úsalo when the mod active changes for that is descubran the skins of the new mod.
-	 * More seguro that acceder to `initialized` directamente (is private).
+	 * Fuerza una re-inicialización completa del sistema en el próximo acceso.
+	 * Úsalo cuando el mod activo cambia para que se descubran las skins del nuevo mod.
+	 * Más seguro que acceder a `initialized` directamente (es private).
 	 */
 	public static function forceReinit():Void
 	{
@@ -339,7 +339,7 @@ class NoteSkinSystem
 
 	public static function init():Void
 	{
-		// If the mod active changed from the last init, force re-initialization
+		// Si el mod activo cambió desde el último init, forzar re-inicialización
 		// para que se descubran las skins del nuevo mod.
 		final currentMod:Null<String> = mods.ModManager.activeMod;
 		if (initialized && currentMod == _lastInitMod)
@@ -362,7 +362,7 @@ class NoteSkinSystem
 
 		_initializing = true;
 
-		// Calculate paths in runtime according to the mod active
+		// Calcular paths en runtime según el mod activo
 		// SIEMPRE apuntamos a assets/ como base (los skins de mod se descubren
 		// adicionalmente en discoverSkins / discoverSplashes).
 		SKINS_PATH = "assets/notes/skins";
@@ -420,7 +420,7 @@ class NoteSkinSystem
 	 * Aplica temporalmente la skin asignada al stage.
 	 * Si el stage no tiene skin propia, restaura la skin global del jugador.
 	 *
-	 * Úsalo in PlayState to the load the stage:
+	 * Úsalo en PlayState al cargar el stage:
 	 *   NoteSkinSystem.applySkinForStage(PlayState.curStage);
 	 */
 	public static function applySkinForStage(stageName:String):Void
@@ -466,7 +466,7 @@ class NoteSkinSystem
 		#if sys
 		// Descubrir siempre desde assets/skins (base)
 		_discoverSkinsInPath(SKINS_PATH);
-		// Adicionalmente from the mod active (overrides and added)
+		// Adicionalmente desde el mod activo (overrides y añadidos)
 		final modRoot = mods.ModManager.modRoot();
 		if (modRoot != null)
 		{
@@ -597,7 +597,7 @@ class NoteSkinSystem
 	}
 	#end
 
-	// ==================== AUTO-detection ====================
+	// ==================== AUTO-DETECCIÓN ====================
 	#if sys
 	private static function autoDetectSkin(skinPath:String, folderName:String):NoteSkinData
 	{
@@ -671,7 +671,7 @@ class NoteSkinSystem
 	// ==================== DEFAULTS ====================
 
 	/**
-	 * Skin normal by default — NOTE_assets.xml, animations sparrow standard FNF.
+	 * Skin normal por defecto — NOTE_assets.xml, animaciones sparrow estándar FNF.
 	 */
 	private static function getDefaultSkin():NoteSkinData
 	{
@@ -717,7 +717,7 @@ class NoteSkinSystem
 	}
 
 	/**
-	 * Skin PIXEL by default — arrows-pixels.png + arrowEnds.png, animations by index.
+	 * Skin PIXEL por defecto — arrows-pixels.png + arrowEnds.png, animaciones por índice.
 	 *
 	 * Layout arrows-pixels.png (frameWidth=17, frameHeight=17):
 	 *   fila 0 (frames  0-3):  strums static
@@ -839,12 +839,12 @@ class NoteSkinSystem
 	private static function loadSavedSplash():Void
 	{
 		// Determinar el splash global del jugador a partir del save.
-		// SANITIZACIÓN: if the save tiene a splash that is specific of pixel
+		// SANITIZACIÓN: si el save tiene un splash que es específico de pixel
 		// (e.g. "PixelSplash") almacenado por el bug antiguo que llamaba setSplash()
 		// desde PlayState en cada cancion — lo reseteamos a "Default".
 		// Un jugador que QUIERA PixelSplash global lo tiene que elegir manualmente
-		// in the menu of options (that call setSplash() explicitly).
-		// The heuristic: if the save tiene "PixelSplash" but no there is skin Pixel active
+		// en el menú de opciones (que llama setSplash() explícitamente).
+		// La heurística: si el save tiene "PixelSplash" pero no hay skin Pixel activa
 		// global, revertir. Mas simple: los splash que contengan "pixel" en el nombre
 		// (case-insensitive) no deben ser el splash global por defecto.
 		var savedSplash:String = FlxG.save.data.noteSplash;
@@ -925,7 +925,7 @@ class NoteSkinSystem
 	public static function restoreGlobalSkin():Void
 	{
 		var saved = FlxG.save.data.noteSkin;
-		// If the player eligió a skin specific in Options, respetarla.
+		// Si el jugador eligió una skin específica en Opciones, respetarla.
 		if (saved != null && saved != 'Default' && availableSkins.exists(saved))
 		{
 			currentSkin = saved;
@@ -968,7 +968,7 @@ class NoteSkinSystem
 			init();
 		if (splashName == null || splashName == '' || splashName == 'default')
 		{
-			// Splash empty in meta = usar the global of the jugador
+			// Splash vacío en meta = usar el global del jugador
 			currentSplash = _globalSplash;
 			return;
 		}
@@ -1003,11 +1003,11 @@ class NoteSkinSystem
 
 	/**
 	 * Restaura currentSplash al valor elegido por el jugador (_globalSplash),
-	 * with fallback to the splash of the mod active (global.json) if the player no eligió nothing.
+	 * con fallback al splash del mod activo (global.json) si el jugador no eligió nada.
 	 */
 	public static function restoreGlobalSplash():Void
 	{
-		// If the player eligió a splash valid and no is pixel-only, respetarlo.
+		// Si el jugador eligió un splash válido y no es pixel-only, respetarlo.
 		if (_globalSplash != null && _globalSplash != 'Default' && availableSplashes.exists(_globalSplash))
 		{
 			currentSplash = _globalSplash;
@@ -1026,7 +1026,7 @@ class NoteSkinSystem
 
 	/**
 	 * Devuelve el NoteSkinData completo de la skin actual.
-	 * Úsalo in Note.hx / StrumNote.hx — contains texture, scales, anims, flags, all.
+	 * Úsalo en Note.hx / StrumNote.hx — contiene textura, escala, anims, flags, todo.
 	 */
 	public static function getCurrentSkinData(?skinName:String):NoteSkinData
 	{
@@ -1063,17 +1063,17 @@ class NoteSkinSystem
 	 * Construye un mapa animName → [offsetX, offsetY] a partir de los campos
 	 * `offset` definidos en cada NoteAnimDef de strum.
 	 *
-	 * Logic of priority (of mayor to menor):
-	 *   1. The field `offset` explicit in the def of the animation of the JSON.
-	 *   2. If the animation is a confirm and `confirmOffset:true` in the skin
+	 * Lógica de prioridad (de mayor a menor):
+	 *   1. El campo `offset` explícito en la def de la animación del JSON.
+	 *   2. Si la animación es un confirm Y `confirmOffset:true` en la skin
 	 *      (o no se define, que vale true por defecto para skins no-pixel),
 	 *      se usa el fallback [-13, -13] — comportamiento original del engine.
 	 *   3. Sin offset (sin entrada en el mapa).
 	 *
-	 * Parameter `noteID`: index of the arrow (0=left, 1=down, 2=up, 3=right).
-	 * Only is procesan the defs of the direction correct.
+	 * Parámetro `noteID`: índice de la flecha (0=left, 1=down, 2=up, 3=right).
+	 * Solo se procesan las defs de la dirección correcta.
 	 *
-	 * The mapa resultante tiene as keys the nombres internos of animation
+	 * El mapa resultante tiene como claves los nombres internos de animación
 	 * usados por StrumNote: 'static', 'pressed', 'confirm'.
 	 */
 	public static function buildStrumOffsets(skinData:NoteSkinData, noteID:Int):Map<String, Array<Float>>
@@ -1089,7 +1089,7 @@ class NoteSkinSystem
 		var pressDefs   = [anims.strumLeftPress,   anims.strumDownPress,  anims.strumUpPress,  anims.strumRightPress];
 		var confirmDefs = [anims.strumLeftConfirm, anims.strumDownConfirm,anims.strumUpConfirm,anims.strumRightConfirm];
 
-		// Helper: extrae offset of a def dynamic (String or NoteAnimDef)
+		// Helper: extrae offset de una def dinámica (String o NoteAnimDef)
 		inline function offsetOf(def:Dynamic):Array<Float>
 		{
 			if (def == null || Std.isOfType(def, String)) return null;
@@ -1131,18 +1131,18 @@ class NoteSkinSystem
 	 * Devuelve la textura correcta para las NOTAS SCROLL del skin dado.
 	 * Prioridad: notesTexture > texture
 	 * Construye un par [offsetX, offsetY] para las notas scroll/hold de una
-	 * direction concreta to partir of the field `offset` of the animations of note.
+	 * dirección concreta a partir del campo `offset` de las animaciones de nota.
 	 *
-	 * Logic of priority (of mayor to menor):
-	 *   1. offset of the animation scroll (left/down/up/right) — cabeza of note.
+	 * Lógica de prioridad (de mayor a menor):
+	 *   1. offset de la animación scroll (left/down/up/right) — cabeza de nota.
 	 *   2. Sin offset (devuelve [0.0, 0.0]).
 	 *
 	 * Los offsets de hold/holdEnd se resuelven por separado con las defs
-	 * leftHold downHold* etc., but if no are definidos usan the same offset
+	 * leftHold downHold* etc., pero si no están definidos usan el mismo offset
 	 * de la cabeza para mantener coherencia visual entre cabeza y cuerpo.
 	 *
 	 * @param skinData  Datos de la skin activa.
-	 * @param noteID    Direction (0=left, 1=down, 2=up, 3=right).
+	 * @param noteID    Dirección (0=left, 1=down, 2=up, 3=right).
 	 * @return  Array [offsetX, offsetY] listo para aplicar; nunca null.
 	*/
 	public static function buildNoteOffsets(skinData:NoteSkinData, noteID:Int):Array<Float>
@@ -1152,7 +1152,7 @@ class NoteSkinSystem
 		var anims = skinData.animations;
 		var i = Std.int(Math.abs(noteID)) % 4;
 
-		// Defs of animation of note scroll by direction
+		// Defs de animación de nota scroll por dirección
 		var scrollDefs:Array<Dynamic> = [anims.left, anims.down, anims.up, anims.right];
 		var def:Dynamic = scrollDefs[i];
 
@@ -1168,11 +1168,11 @@ class NoteSkinSystem
 	}
 
 	/**
-	 * Resuelve the offset for notes HOLD/HOLDEND of a direction.
+	 * Resuelve el offset para notas HOLD/HOLDEND de una dirección.
 	 * Prioridad: offset de la def hold > offset de la def scroll (coherencia) > [0,0].
 	 *
 	 * @param skinData  Datos de la skin activa.
-	 * @param noteID    Direction (0=left, 1=down, 2=up, 3=right).
+	 * @param noteID    Dirección (0=left, 1=down, 2=up, 3=right).
 	 * @return  Array [offsetX, offsetY] listo para aplicar; nunca null.
 	 */
 	public static function buildHoldNoteOffsets(skinData:NoteSkinData, noteID:Int):Array<Float>
@@ -1257,7 +1257,7 @@ class NoteSkinSystem
 		return (tex != null && tex.scale != null) ? tex.scale : funkin.gameplay.PlayStateConfig.PIXEL_ZOOM;
 	}
 
-	// ── Getters legacy (siguen working for code external) ──────────
+	// ── Getters legacy (siguen funcionando para código externo) ──────────
 
 	public static function getNoteSkin(?skinName:String):FlxAtlasFrames
 	{
@@ -1284,17 +1284,17 @@ class NoteSkinSystem
 		return d != null ? d.animations : null;
 	}
 
-	// ==================== HELPER: add animation ====================
+	// ==================== HELPER: AÑADIR ANIMACIÓN ====================
 
 	/**
-	 * Adds an animation to a FlxSprite from a field of animation of the JSON.
+	 * Añade una animación a un FlxSprite desde un campo de animación del JSON.
 	 *
 	 * Acepta:
 	 *   String:         "purple0"                     → addByPrefix("purple0")
 	 *   Objeto prefix:  {"prefix":"purple0"}           → addByPrefix("purple0")
 	 *   Objeto indices: {"indices":[4],"framerate":24} → animation.add([4], 24)
 	 *
-	 * If def is null no hace nada — the animation simplemente no is registra.
+	 * Si def es null no hace nada — la animación simplemente no se registra.
 	 *
 	 * @param overrideLoop  When non-null, forces the loop flag regardless of what
 	 *                      the JSON definition says.  Pass `false` for strum
@@ -1379,9 +1379,9 @@ class NoteSkinSystem
 	// ==================== HOLD COVERS ====================
 
 	/**
-	 * Returns the datos of configuration of the hold cover for the splash current.
-	 * If the splash.json no tiene section "holdCover", returns the defaults that
-	 * reproducen the comportamiento original (perColorTextures=true, prefijos standard).
+	 * Devuelve los datos de configuración del hold cover para el splash actual.
+	 * Si el splash.json no tiene sección "holdCover", devuelve los defaults que
+	 * reproducen el comportamiento original (perColorTextures=true, prefijos estándar).
 	 */
 	public static function getHoldCoverData(?splashName:String):NoteHoldCoverData
 	{
@@ -1412,7 +1412,7 @@ class NoteSkinSystem
 
 	/**
 	 * Comprueba si existen los assets de hold cover para el color y splash dados.
-	 * Use the configuration of the splash.json if is available.
+	 * Usa la configuración del splash.json si está disponible.
 	 */
 	public static function holdCoverExists(color:String, ?splashName:String):Bool
 	{
@@ -1432,7 +1432,7 @@ class NoteSkinSystem
 
 	/**
 	 * Carga el FlxAtlasFrames del hold cover para el color y splash dados.
-	 * Respeta the configuration of texturePrefix, perColorTextures and textureType
+	 * Respeta la configuración de texturePrefix, perColorTextures y textureType
 	 * del splash.json — sin nada hardcodeado.
 	 */
 	public static function getHoldCoverTexture(color:String, ?splashName:String):FlxAtlasFrames
@@ -1445,7 +1445,7 @@ class NoteSkinSystem
 		var folder = d != null && d.folder != null ? d.folder : "Default";
 		var hc = getHoldCoverData(splashName);
 
-		// Construir path according to modo (per-color or atlas unique)
+		// Construir path según modo (per-color o atlas único)
 		var texPath = hc.perColorTextures
 			? '${hc.texturePrefix}$color'
 			: hc.texturePrefix;
@@ -1523,7 +1523,7 @@ class NoteSkinSystem
 	{
 		if (tex == null || tex.path == null)
 		{
-			trace('[NoteSkinSystem] loadAtlas: texture invalid, usando Default');
+			trace('[NoteSkinSystem] loadAtlas: textura inválida, usando Default');
 			var fallback = Paths.skinSprite('Default/NOTE_assets');
 			if (fallback != null) return fallback;
 			return _makeFallbackFrames();
@@ -1564,15 +1564,15 @@ class NoteSkinSystem
 					if (graphic == null) throw 'PNG not found para image skin: $folder/$path';
 					// BUGFIX: FlxG.bitmap.add() deja persist=false y useCount=0.
 					// FunkinCache.clearSecondLayer() → clearUnused() destruye cualquier
-					// graphic with persist=false + useCount=0 at the end of postStateSwitch,
+					// gráfico con persist=false + useCount=0 al final de postStateSwitch,
 					// ANTES de que los StrumNotes/Notes hayan dibujado su primer frame.
 					// Resultado: frame.parent.bitmap = null → FlxDrawQuadsItem::render crash.
-					// Solution: mark persist=true and register in PathsCache so that the
-					// cache system manages it correctly between sessions.
+					// Solución: marcar persist=true y registrar en PathsCache para que el
+					// sistema de caché lo gestione correctamente entre sesiones.
 					graphic.persist = true;
 					graphic.destroyOnNoUse = false;
 					funkin.cache.PathsCache.instance.trackGraphic('assets/notes/skins/$folder/$path.png', graphic);
-					// Frame dimensions read from JSON — no hardcoding by filename
+					// Dimensiones de frame leídas del JSON — sin hardcodeo por nombre de archivo
 					var fw:Int = tex.frameWidth != null ? Std.int(tex.frameWidth) : 17;
 					var fh:Int = tex.frameHeight != null ? Std.int(tex.frameHeight) : 17;
 					trace('[NoteSkinSystem] image atlas $folder/$path — frame: ${fw}×${fh}px');
@@ -1601,7 +1601,7 @@ class NoteSkinSystem
 	}
 
 	/**
-	 * Last recurso: creates a FlxAtlasFrames of 1×1 pixel for that the sprites
+	 * Último recurso: crea un FlxAtlasFrames de 1×1 píxel para que los sprites
 	 * nunca tengan frames=null. Sin esto, cualquier StrumNote/Note con skin rota
 	 * causa FlxDrawQuadsItem::render crash en el primer frame de PlayState.
 	 */
@@ -1612,7 +1612,7 @@ class NoteSkinSystem
 		var g = FlxG.bitmap.add(bmp, false, 'note_skin_fallback_${Math.random()}');
 		if (g == null)
 		{
-			// Last last recurso: create FlxGraphic directamente
+			// Último último recurso: crear FlxGraphic directamente
 			g = flixel.graphics.FlxGraphic.fromBitmapData(bmp, false, null, false);
 		}
 		// fromGraphic con frames 1×1 → atlas de 1 frame, 1×1 px
@@ -1640,7 +1640,7 @@ class NoteSkinSystem
 					var g = FlxG.bitmap.add('assets/notes/splashes/$folder/$path.png');
 					if (g == null) throw 'PNG not found para image splash: $folder/$path';
 					// BUGFIX: igual que loadAtlas "image" — persist=true para evitar que
-					// clearSecondLayer() → clearUnused() destroys the graphic before the first render.
+					// clearSecondLayer() → clearUnused() destruya el gráfico antes del primer render.
 					g.persist = true;
 					g.destroyOnNoUse = false;
 					funkin.cache.PathsCache.instance.trackGraphic('assets/notes/splashes/$folder/$path.png', g);
@@ -1673,7 +1673,7 @@ class NoteSkinSystem
 	private static function splashAssetExists(path:String, folder:String):Bool
 	{
 		#if sys
-		// Same logic that assetExists: check mod first.
+		// Misma lógica que assetExists: comprobar mod primero.
 		final modRoot = mods.ModManager.modRoot();
 		if (modRoot != null && sys.FileSystem.exists('$modRoot/notes/splashes/$folder/$path.png'))
 			return true;
@@ -1687,7 +1687,7 @@ class NoteSkinSystem
 
 	/**
 	 * Genera un JSON de ejemplo para una skin normal.
-	 * Colócalo in:  assets/notes/skins/MiSkin/skin.json
+	 * Colócalo en:  assets/notes/skins/MiSkin/skin.json
 	 */
 	public static function exportSkinExample():String
 	{
@@ -1738,7 +1738,7 @@ class NoteSkinSystem
 
 	/**
 	 * Genera un JSON de ejemplo para una skin PIXEL.
-	 * Colócalo in:  assets/notes/skins/MiSkinPixel/skin.json
+	 * Colócalo en:  assets/notes/skins/MiSkinPixel/skin.json
 	 *
 	 * Para asociarlo a un stage:
 	 *   NoteSkinSystem.registerStageSkin("miStage", "MiSkinPixel");
@@ -1821,7 +1821,7 @@ class NoteSkinSystem
 				framerate: 24,
 				randomFramerateRange: 3
 			},
-			// Section holdCover optional — omitirla use the defaults of the engine.
+			// Sección holdCover opcional — omitirla usa los defaults del engine.
 			// Copia y personaliza para modificar el cover visual de notas largas.
 			holdCover: {
 				perColorTextures: true,
@@ -1840,8 +1840,8 @@ class NoteSkinSystem
 	}
 
 	/**
-	 * Generates a JSON of ejemplo of splash.json with section holdCover personalizada.
-	 * Useful as punto of partida for a splash with atlas unique compartido.
+	 * Genera un JSON de ejemplo de splash.json con sección holdCover personalizada.
+	 * Útil como punto de partida para un splash con atlas único compartido.
 	 *
 	 * Coloca el JSON en: assets/notes/splashes/MySplash/splash.json
 	 * Y los assets en:   assets/notes/splashes/MySplash/holdCoverAll.png  (+ .xml)
@@ -1866,7 +1866,7 @@ class NoteSkinSystem
 				framerate: 24
 			},
 			holdCover: {
-				// Atlas unique: holdCoverAll.png contains all the colores
+				// Atlas único: holdCoverAll.png contiene todos los colores
 				perColorTextures: false,
 				texturePrefix: "holdCoverAll",
 				textureType: "sparrow",
@@ -1875,7 +1875,7 @@ class NoteSkinSystem
 				framerate: 24,
 				loopFramerate: 48,
 				// offset null = auto (width*0.3, height*0.3)
-				// The prefijos of animation reciben the color as suffix:
+				// Los prefijos de animación reciben el color como sufijo:
 				// "myStart" → "myStartPurple", "myStartBlue"...
 				startPrefix: "holdCoverStart",
 				loopPrefix: "holdCover",

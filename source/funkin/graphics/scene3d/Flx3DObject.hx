@@ -6,11 +6,11 @@ import openfl.display3D.textures.RectangleTexture;
  * Flx3DObject — Nodo de la escena 3D.
  *
  * Combina transform (TRS), mesh y material opcional.
- * The model matrix is only recalculated when some field changes.
+ * La matriz de modelo se recalcula solo cuando algún campo cambia.
  */
 class Flx3DObject
 {
-	// ── Identification ──────────────────────────────────────────────────────
+	// ── Identificación ──────────────────────────────────────────────────────
 
 	public var name   :String  = 'object';
 	public var visible:Bool    = true;
@@ -22,7 +22,7 @@ class Flx3DObject
 	public var y      :Float = 0;
 	public var z      :Float = 0;
 
-	/** Rotation in radianes (orden XYZ). */
+	/** Rotación en radianes (orden XYZ). */
 	public var rotX   :Float = 0;
 	public var rotY   :Float = 0;
 	public var rotZ   :Float = 0;
@@ -35,12 +35,12 @@ class Flx3DObject
 
 	/** Mesh asignado a este objeto. */
 	public var mesh    :Null<Flx3DMesh>          = null;
-	/** Texture difusa (if is null, is use the color of the vertex). */
+	/** Textura difusa (si es null, se usa el color del vértice). */
 	public var texture :Null<RectangleTexture>   = null;
 	/** Multiplicador de color base [r,g,b,a]. */
 	public var tint    :Array<Float>             = [1,1,1,1];
 
-	/** If true, receives lighting. If false, rendered without lighting (unlit). */
+	/** Si true, recibe iluminación. Si false, se renderiza sin iluminación (unlit). */
 	public var lit     :Bool = true;
 	/** Factor de brillo especular (0=mate, 1=brillante). */
 	public var shininess:Float = 32.0;
@@ -55,14 +55,14 @@ class Flx3DObject
 
 	/**
 	 * Recalcula la matriz de modelo a partir de position/rotation/scale.
-	 * Callr before of each render (Flx3DScene it hace automatically).
+	 * Llamar antes de cada render (Flx3DScene lo hace automáticamente).
 	 */
 	public function updateMatrix():Void
 	{
 		modelMatrix.setTRS(x, y, z, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
 	}
 
-	/** Helpers of position fast. */
+	/** Helpers de posición rápida. */
 	public inline function setPosition(px:Float, py:Float, pz:Float):Void
 		{ x = px; y = py; z = pz; }
 

@@ -30,8 +30,8 @@ class MenuItem extends FlxSpriteGroup
 		if (customWeekPath != null && customWeekPath != '')
 		{
 			// Si el weekPath del JSON ya incluye carpetas (contiene '/') se usa tal cual.
-			// If is only a name as "tutorial" or "weekend1", is le adds the prefix
-			// standard for that Paths.image() it encuentre in the lugar correct.
+			// Si es solo un nombre como "tutorial" o "weekend1", se le añade el prefijo
+			// estándar para que Paths.image() lo encuentre en el lugar correcto.
 			weekPath = customWeekPath.contains('/')
 				? customWeekPath
 				: 'menu/storymenu/titles/' + customWeekPath;

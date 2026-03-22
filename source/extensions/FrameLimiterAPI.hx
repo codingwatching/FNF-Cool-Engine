@@ -1,18 +1,18 @@
 package extensions;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FrameLimiterAPI — Improves OS timer precision for high FPS.
+// FrameLimiterAPI — Mejora la precisión del timer del OS para FPS altos.
 //
 // El problema con FPS altos en Windows:
-//   • The timer multimedia of Windows tiene resolution ~15.6ms by default.
+//   • El timer multimedia de Windows tiene resolución ~15.6ms por defecto.
 //   • Lime/OpenFL usa Sleep() internamente para limitar el framerate.
-//   • With 15.6ms of resolution, Sleep(1) puede dormir until 15ms reales
+//   • Con 15.6ms de resolución, Sleep(1) puede dormir hasta 15ms reales
 //     → el engine nunca supera ~64fps aunque stage.frameRate sea 240+.
 //
-// Solution: call timeBeginPeriod(1) once at startup.
-//   • Sube the resolution of the timer to 1ms in all the process.
+// Solución: llamar timeBeginPeriod(1) una sola vez al arrancar.
+//   • Sube la resolución del timer a 1ms en todo el proceso.
 //   • Con 1ms, stage.frameRate funciona correctamente hasta ~1000fps.
-//   • No requiere change nada more in the loop of Lime/OpenFL.
+//   • No requiere cambiar nada más en el loop de Lime/OpenFL.
 //
 // Uso:
 //   FrameLimiterAPI.init();                  // UNA vez al arrancar (en Main)

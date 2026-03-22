@@ -3,7 +3,7 @@ package funkin.gameplay;
 import flixel.FlxG;
 
 /**
- * GameState - Management centralizada of the state of the game.
+ * GameState - Gestión centralizada del estado del juego.
  * Ahora usa RatingManager para soportar ratings softcodeados.
  */
 class GameState
@@ -32,7 +32,7 @@ class GameState
 	public var misses:Int = 0;
 
 	/**
-	 * Contador generic by nombre of rating.
+	 * Contador genérico por nombre de rating.
 	 * Incluye los 4 legacy + cualquier rating custom del mod.
 	 * Example: ratingCounts['perfect'], ratingCounts['sick'], etc.
 	 */
@@ -86,11 +86,11 @@ class GameState
 		if (isSustain)
 		{
 			// Los sustains no afectan al combo ni al rating visual.
-			// Is puntúan as the rating more under that no rompe combo.
+			// Se puntúan como el rating más bajo que no rompe combo.
 			totalNotesHit += 1.0;
 			totalNotesPlayed++;
 			updateAccuracy();
-			score += 50; // puntuación fija for sustains (ajustable)
+			score += 50; // puntuación fija para sustains (ajustable)
 			return RatingManager.topRatingName; // devolver 'sick' / top rating para compatibilidad
 		}
 
@@ -98,7 +98,7 @@ class GameState
 		if (ratingData == null)
 		{
 			// noteDiff > missWindow — debería haberlo capturado NoteManager,
-			// but if llega here it tratamos as the peor rating.
+			// pero si llega aquí lo tratamos como el peor rating.
 			ratingData = RatingManager.ratings[RatingManager.ratings.length - 1];
 		}
 
@@ -107,7 +107,7 @@ class GameState
 		// ── Counters ──────────────────────────────────────────────────────────
 		ratingCounts.set(name, (ratingCounts.get(name) ?? 0) + 1);
 
-		// Legacy compat (only the 4 standard of FNF)
+		// Legacy compat (solo los 4 estándar de FNF)
 		switch (name)
 		{
 			case 'sick':  sicks++;
@@ -169,7 +169,7 @@ class GameState
 	// ─── FC / Sick detection ─────────────────────────────────────────────────
 
 	/**
-	 * Full Combo: without misses and without no rating that rompa combo.
+	 * Full Combo: sin misses y sin ningún rating que rompa combo.
 	 * Funciona con ratings custom que tengan breakCombo:true.
 	 */
 	public function isFullCombo():Bool
@@ -182,7 +182,7 @@ class GameState
 	}
 
 	/**
-	 * Sick/Perfect: only hits of the rating more estricto (menor window).
+	 * Sick/Perfect: solo hits del rating más estricto (menor window).
 	 * Con un ratings.json custom que tenga "perfect" antes de "sick",
 	 * isSickMode() devuelve true solo si TODOS son "perfect".
 	 */

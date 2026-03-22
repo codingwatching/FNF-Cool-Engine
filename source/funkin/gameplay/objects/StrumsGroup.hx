@@ -12,12 +12,12 @@ import funkin.gameplay.notes.StrumNote;
  * 
  * Cada grupo tiene:
  * - 4 StrumNotes (LEFT, DOWN, UP, RIGHT)
- * - Position X/and configurable
+ * - Posición X/Y configurable
  * - Visibilidad configurable
  * - Flag de CPU/Player
  * - Espaciado entre flechas configurable
  * 
- * This allows have multiple grupos of strums by song
+ * Esto permite tener múltiples grupos de strums por canción
  * Ejemplo: 2 grupos para CPU (dad_strums_1, dad_strums_2), 1 para jugador
  */
 class StrumsGroup
@@ -28,7 +28,7 @@ class StrumsGroup
 	public var isCPU:Bool;
 	public var isVisible:Bool;
 	
-	// Individual strums (for acceso fast)
+	// Individual strums (para acceso rápido)
 	public var leftStrum:FlxSprite;
 	public var downStrum:FlxSprite;
 	public var upStrum:FlxSprite;
@@ -42,9 +42,9 @@ class StrumsGroup
 		this.data = groupData;
 		this.id = groupData.id;
 		this.isCPU = groupData.cpu;
-		// BUGFIX: if the field "visible" no is in the JSON, groupData.visible
+		// BUGFIX: si el campo "visible" no está en el JSON, groupData.visible
 		// llega como null (Haxe no inicializa campos de typedef desde JSON).
-		// Normalize to Bool explicit for that the logic of visibility in
+		// Normalizar a Bool explícito para que la lógica de visibilidad en
 		// _finishRestart (isVisible == true) funcione correctamente en todos
 		// los targets. GF (id empieza con 'gf_') oculto si no se dice otra cosa.
 		this.isVisible = (groupData.visible == true);
@@ -78,7 +78,7 @@ class StrumsGroup
 			{
 				strum.scale.set(scale, scale);
 				strum.updateHitbox();
-				// FIX: after of change the scale there is that volver to centrar and re-appliesr
+				// FIX: después de cambiar el scale hay que volver a centrar Y re-aplicar
 				// los offsets de la skin para la anim 'static'. centerOffsets() solo no
 				// basta porque no recalcula los _animOffsets del JSON de skin.
 				strum.playAnim('static', true);
@@ -102,7 +102,7 @@ class StrumsGroup
 	}
 	
 	/**
-	 * Get strum by direction
+	 * Obtener strum por dirección
 	 */
 	public function getStrum(direction:Int):FlxSprite
 	{
@@ -171,7 +171,7 @@ class StrumsGroup
 	}
 
 	/**
-	 * Tocar animation of confirm in a strum
+	 * Tocar animación de confirm en un strum
 	 */
 	public function playConfirm(direction:Int):Void
 	{
@@ -184,7 +184,7 @@ class StrumsGroup
 	}
 	
 	/**
-	 * Tocar animation of pressed in a strum
+	 * Tocar animación de pressed en un strum
 	 */
 	public function playPressed(direction:Int):Void
 	{
@@ -219,8 +219,8 @@ class StrumsGroup
 			if (Std.isOfType(spr, StrumNote))
 			{
 				var strumNote:StrumNote = cast(spr, StrumNote);
-				// The auto-reset ahora it handles the method update() of StrumNote
-				// No necesitamos do nada here
+				// El auto-reset ahora lo maneja el método update() de StrumNote
+				// No necesitamos hacer nada aquí
 			}
 		});
 	}
@@ -233,7 +233,7 @@ class StrumsGroup
 		isVisible = visible;
 		data.visible = visible;
 		
-		// Iteration directa — without closure
+		// Iteración directa — sin closure
 		{
 			final m = strums.members; final l = m.length;
 			for (i in 0...l) { final s = m[i]; if (s != null) s.visible = visible; }
@@ -241,7 +241,7 @@ class StrumsGroup
 	}
 	
 	/**
-	 * Move grupo to new position
+	 * Mover grupo a nueva posición
 	 */
 	public function setPosition(x:Float, y:Float):Void
 	{
@@ -249,7 +249,7 @@ class StrumsGroup
 		data.y = y;
 		
 		var i:Int = 0;
-		// Iteration directa — without closure
+		// Iteración directa — sin closure
 		{
 			final m = strums.members; final l = m.length;
 			for (j in 0...l) { final s = m[j]; if (s != null) { s.x = x + (j * spacing); s.y = y; } }

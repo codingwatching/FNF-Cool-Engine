@@ -17,11 +17,11 @@ using StringTools;
 /**
  * MediaTransportBar v1.0
  *
- * Barra of playback estilo YouTube in screen complete.
+ * Barra de reproducción estilo YouTube en pantalla completa.
  * Sin control de volumen (lo maneja SoundTray).
- * Diseñada for reutilizarse in any editor of the engine.
+ * Diseñada para reutilizarse en cualquier editor del engine.
  *
- * ─── Uso minimum ───────────────────────────────────────────────────────────────
+ * ─── Uso mínimo ───────────────────────────────────────────────────────────────
  *
  *   // En create():
  *   var bar = new MediaTransportBar(0, FlxG.height - MediaTransportBar.BAR_H, FlxG.width, camHUD);
@@ -52,7 +52,7 @@ using StringTools;
  */
 class MediaTransportBar extends FlxGroup
 {
-    // ── Dimensiones public ──────────────────────────────────────────────────
+    // ── Dimensiones públicas ──────────────────────────────────────────────────
     /** Altura total de la barra — usar para posicionarla en el estado padre. */
     public static inline final BAR_H         : Int = 56;
 
@@ -75,27 +75,27 @@ class MediaTransportBar extends FlxGroup
     static inline final C_ACCENT      : Int = 0xFF00D9FF;
     static inline final C_SPEED_LBL   : Int = 0xFF44446A;
 
-    // ── API public ───────────────────────────────────────────────────────────
+    // ── API pública ───────────────────────────────────────────────────────────
 
-    /** Duration total of the pista in ms. Asignar tras load the audio. */
+    /** Duración total de la pista en ms. Asignar tras cargar el audio. */
     public var songLength : Float = 1;
 
     /**
-     * Position current of playback in ms.
+     * Posición actual de reproducción en ms.
      * Actualizar cada frame: `bar.songPosition = Conductor.songPosition;`
-     * The setter ignora the assignment while the usuario arrastra the scrubber.
+     * El setter ignora la asignación mientras el usuario arrastra el scrubber.
      */
     public var songPosition(get, set) : Float;
 
-    /** State of playback — refleja the toggle internal of the barra. */
+    /** Estado de reproducción — refleja el toggle interno de la barra. */
     public var isPlaying : Bool = false;
 
-    /** Velocidad of playback actualmente seleccionada. */
+    /** Velocidad de reproducción actualmente seleccionada. */
     public var playbackRate : Float = 1.0;
 
     // ── Callbacks ─────────────────────────────────────────────────────────────
 
-    /** Seek solicitado by the usuario. Parameter: time in ms. */
+    /** Seek solicitado por el usuario. Parámetro: tiempo en ms. */
     public var onSeek        : Float -> Void = null;
 
     /** Toggle play/pause. `true` = reproduciendo. */
@@ -104,7 +104,7 @@ class MediaTransportBar extends FlxGroup
     /** Stop y regreso al inicio. */
     public var onStop        : Void  -> Void = null;
 
-    /** Cambio of speed. Parameter: multiplier (0.25 – 2.0). */
+    /** Cambio de velocidad. Parámetro: multiplicador (0.25 – 2.0). */
     public var onSpeedChange : Float -> Void = null;
 
     // ── Estado interno ────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ class MediaTransportBar extends FlxGroup
      * @param x     X del borde izquierdo (normalmente 0).
      * @param y     Y del borde superior (normalmente `FlxG.height - BAR_H`).
      * @param width Ancho total (normalmente `FlxG.width`).
-     * @param cam   Camera HUD of the state padre.
+     * @param cam   Cámara HUD del estado padre.
      */
     public function new(x:Float, y:Float, width:Int, cam:FlxCamera)
     {
@@ -176,7 +176,7 @@ class MediaTransportBar extends FlxGroup
         _reg(bg);
         add(bg);
 
-        // Line of separation superior
+        // Línea de separación superior
         var sep = new FlxSprite(_bx, _by).makeGraphic(_bw, 1, 0xFF1E1E38);
         _reg(sep);
         add(sep);
@@ -200,7 +200,7 @@ class MediaTransportBar extends FlxGroup
         _progDot.visible = false;
         add(_progDot);
 
-        // Zona of hit invisible that covers all the area of the scrubber
+        // Zona de hit invisible que cubre todo el área del scrubber
         _progZone = new FlxSprite(_bx, _by).makeGraphic(_bw, PROG_ZONE_H + 4, 0x00000000);
         _reg(_progZone);
         add(_progZone);
@@ -209,11 +209,11 @@ class MediaTransportBar extends FlxGroup
     function _buildControls():Void
     {
         final cy  = _by + PROG_ZONE_H;   // Y de la fila de controles
-        final bh  = 26;                  // height of button
+        final bh  = 26;                  // alto de botón
         final by2 = cy + Std.int((CTRL_H - bh) / 2);
 
         // ── Botones de transporte ─────────────────────────────────────────────
-        // Anchos: transporte small = 28, play = 36
+        // Anchos: transporte pequeño = 28, play = 36
         var bx : Float = _bx + 10;
 
         _btnToStart = _mkBtn(bx, by2, 28, bh, '⏮', _onToStart);   bx += 30;
@@ -251,7 +251,7 @@ class MediaTransportBar extends FlxGroup
             rx += sbw + sgap;
         }
 
-        // Etiqueta "SPEED" justo to the izquierda of the primer button of velocidad
+        // Etiqueta "SPEED" justo a la izquierda del primer botón de velocidad
         final speedLblX = _bx + _bw - 10 - totalSpeedW - 54;
         var speedLbl = new FlxText(speedLblX, by2 + 6, 50, 'SPEED', 10);
         speedLbl.setFormat(Paths.font('vcr.ttf'), 10, C_TEXT_DIM, RIGHT);
@@ -292,7 +292,7 @@ class MediaTransportBar extends FlxGroup
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    //  Update of visuales
+    //  Actualización de visuales
     // ═════════════════════════════════════════════════════════════════════════
 
     function _updateProgress():Void
@@ -302,7 +302,7 @@ class MediaTransportBar extends FlxGroup
         final py    = _by + Std.int((PROG_ZONE_H - ph) / 2);
         final fw    = Std.int(Math.max(1, ratio * _bw));
 
-        // Fondo of pista — only redibuja if changed the grosor
+        // Fondo de pista — solo redibuja si cambió el grosor
         if (_prevFillH != ph)
         {
             _progBg.makeGraphic(_bw, ph, C_PROG_TRACK);
@@ -310,7 +310,7 @@ class MediaTransportBar extends FlxGroup
         }
         _progBg.y = py;
 
-        // Filled — redibuja if changed the anchura or the grosor
+        // Relleno — redibuja si cambió la anchura o el grosor
         if (_prevFillW != fw || _prevFillH != ph)
         {
             _progFill.makeGraphic(fw, ph, C_PROG_FILL);
@@ -395,7 +395,7 @@ class MediaTransportBar extends FlxGroup
     //  Helpers
     // ═════════════════════════════════════════════════════════════════════════
 
-    /** Registra scrollFactor and camera in a FlxSprite/FlxText. */
+    /** Registra scrollFactor y cámara en un FlxSprite/FlxText. */
     inline function _reg(s:flixel.FlxBasic):Void
     {
         if (Std.isOfType(s, FlxSprite))
@@ -405,7 +405,7 @@ class MediaTransportBar extends FlxGroup
         s.cameras = [_cam];
     }
 
-    /** Creates and registra a button of transporte. */
+    /** Crea y registra un botón de transporte. */
     function _mkBtn(x:Float, y:Float, w:Int, h:Int, lbl:String, cb:Void->Void):_MTBtn
     {
         var btn = new _MTBtn(x, y, w, h, lbl, C_BTN, C_TEXT, cb);
@@ -438,12 +438,12 @@ class MediaTransportBar extends FlxGroup
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  _MTBtn — button minimalista without dependencias of FlxUI
+//  _MTBtn — botón minimalista sin dependencias de FlxUI
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Button of transporte for MediaTransportBar.
- * Idéntico in funcionamiento to MiniBtn2 of the PlayStateEditorState
+ * Botón de transporte para MediaTransportBar.
+ * Idéntico en funcionamiento a MiniBtn2 del PlayStateEditorState
  * pero con soporte de estado "activo" para los botones de velocidad.
  */
 private class _MTBtn extends FlxSprite
@@ -471,7 +471,7 @@ private class _MTBtn extends FlxSprite
         label.scrollFactor.set(0, 0);
     }
 
-    // Propaga the assignment of camera to the label automatically
+    // Propaga la asignación de cámara al label automáticamente
     override private function set_cameras(value:Array<flixel.FlxCamera>):Array<flixel.FlxCamera>
     {
         if (label != null) label.cameras = value;
@@ -492,7 +492,7 @@ private class _MTBtn extends FlxSprite
             _redraw();
         }
 
-        // Mantener the label centrado over the button
+        // Mantener el label centrado sobre el botón
         label.x = x;
         label.y = y + (height - label.height) * 0.5;
 
@@ -500,7 +500,7 @@ private class _MTBtn extends FlxSprite
             onClick();
     }
 
-    /** Marca the button as active/inactive (for buttons of velocidad). */
+    /** Marca el botón como activo/inactivo (para botones de velocidad). */
     public function setActive(v:Bool):Void
     {
         if (v == _isAct) return;

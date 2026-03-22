@@ -3,16 +3,16 @@ package funkin.gameplay.objects.hud;
 import flixel.FlxG;
 
 /**
- * ScoreManager v2 — management of puntuación and estadísticas.
+ * ScoreManager v2 — gestión de puntuación y estadísticas.
  *
- * ─── Critical fix vs v1 ────────────────────────────────────────────────────────
+ * ─── Fix crítico vs v1 ────────────────────────────────────────────────────────
  *
  *  v1: Las constantes de scoring estaban marcadas como `static inline`.
  *  Problema: `inline` hace que el compilador REEMPLACE cada referencia con el
- *  value literal in tiempo of compilation — `Reflect.setField()` never the toca
+ *  valor literal en tiempo de compilación — `Reflect.setField()` nunca las toca
  *  porque no existen como campo en el binario.
  *
- *  v2: Is eliminó `inline` of the variables of configuration (SICK_WINDOW, etc.)
+ *  v2: Se eliminó `inline` de las variables de configuración (SICK_WINDOW, etc.)
  *  para que `score.setWindow()` y `score.setPoints()` del ScriptAPI funcionen.
  *
  * @author Cool Engine Team
@@ -21,7 +21,7 @@ import flixel.FlxG;
 @:keep // Evitar que DCE elimine campos no referenciados directamente
 class ScoreManager
 {
-	// ── Estadísticas of jugabilidad ────────────────────────────────────────────
+	// ── Estadísticas de jugabilidad ────────────────────────────────────────────
 
 	public var score      : Int   = 0;
 	public var combo      : Int   = 0;
@@ -40,8 +40,8 @@ class ScoreManager
 	public var fullCombo : Bool = true;
 	public var sickCombo : Bool = true;
 
-	// ── Configuration of scoring ──────────────────────────────────────────────
-	// IMPORTANTE! no usar `inline` here — the scripts the modifican via Reflect.
+	// ── Configuración de scoring ──────────────────────────────────────────────
+	// ¡IMPORTANTE! NO usar `inline` aquí — los scripts los modifican via Reflect.
 	// `inline` = el compilador incrusta el valor en cada callsite → Reflect no ve el campo.
 
 	public static var SICK_SCORE  : Int = 350;
@@ -50,14 +50,14 @@ class ScoreManager
 	public static var SHIT_SCORE  : Int = 50;
 	public static var MISS_PENALTY: Int = -10;
 
-	// Timing windows (ms) — also without inline for allow override from scripts
+	// Timing windows (ms) — también sin inline para permitir override desde scripts
 	public static var SICK_WINDOW  : Float = 45;
 	public static var GOOD_WINDOW  : Float = 90;
 	public static var BAD_WINDOW   : Float = 135;
 	public static var SHIT_WINDOW  : Float = 166;
 
 	// ── Multiplicadores de combo ──────────────────────────────────────────────
-	// Itself pueden be inline porque the scripts no the modifican directly
+	// Sí pueden ser inline porque los scripts no los modifican directamente
 	static inline var COMBO_1 : Float = 1.0;
 	static inline var COMBO_2 : Float = 1.1; // 10 combo
 	static inline var COMBO_3 : Float = 1.2; // 25 combo
@@ -70,9 +70,9 @@ class ScoreManager
 		reset();
 	}
 
-	// ── Management ───────────────────────────────────────────────────────────────
+	// ── Gestión ───────────────────────────────────────────────────────────────
 
-	/** Resets all the estadísticas for a new partida. */
+	/** Reinicia todas las estadísticas para una nueva partida. */
 	public function reset():Void
 	{
 		score           = 0;
@@ -207,14 +207,14 @@ class ScoreManager
 	{
 		// Fix: leer FC/SC desde GameState, no desde los campos locales del ScoreManager.
 		// El ScoreManager del script nunca recibe processNoteHit/processMiss,
-		// so that this.fullCombo / this.sickCombo always would be `true`.
+		// así que this.fullCombo / this.sickCombo siempre serían `true`.
 		var fcText = gameState.isFullCombo() ? ' [FC]' : '';
 		var scText = gameState.isSickMode()  ? ' [SC]' : '';
 		
 		return 'Score: ${gameState.score} - Misses: ${gameState.misses}$fcText$scText - Accuracy: ${gameState.accuracy}%';
 	}
 
-	/** Resumen of estadísticas for debug. */
+	/** Resumen de estadísticas para debug. */
 	public function getSummary():String
 	{
 		return 'Score=$score  Combo=$combo  MaxCombo=$maxCombo  '

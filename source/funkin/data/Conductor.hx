@@ -3,18 +3,18 @@ package funkin.data;
 import funkin.data.Song.SwagSong;
 
 /**
- * Conductor v3 — management of BPM, time and sincronía musical.
+ * Conductor v3 — gestión de BPM, tiempo y sincronía musical.
  *
  * ─── Optimizaciones v3 ────────────────────────────────────────────────────────
  *
- *  v2: getStepAtTime() and getBPMFromTime() hacían search lineal or(n).
+ *  v2: getStepAtTime() y getBPMFromTime() hacían búsqueda lineal O(n).
  *      En canciones con 30+ cambios de BPM, se llamaban cientos de veces
  *      por frame (una vez por nota en spawn/cull), causando microstutters.
  *
- *  v3: Search binaria or(log n) for getBPMFromTime() and getStepAtTime().
+ *  v3: Búsqueda binaria O(log n) para getBPMFromTime() y getStepAtTime().
  *      Para canciones con 64 cambios de BPM: 64 → 6 comparaciones por nota.
  *
- *  Furthermore:
+ *  Además:
  *  • bpmChangeMap ahora es read-only externamente (no se puede corromper).
  *  • Constante precomputada MS_PER_STEP para evitar divisiones en hot-path.
  *  • positionAtBeat() nueva para pasar de beats a ms.
@@ -25,9 +25,9 @@ import funkin.data.Song.SwagSong;
 class Conductor
 {
 	public static var bpm         : Float = 100;
-	/** Duration of a beat in ms  (60 000 / bpm). */
+	/** Duración de un beat en ms  (60 000 / bpm). */
 	public static var crochet     : Float = 600;
-	/** Duration of a step in ms  (crochet / 4). */
+	/** Duración de un step en ms  (crochet / 4). */
 	public static var stepCrochet : Float = 150;
 
 	public static var songPosition : Float = 0;
@@ -36,7 +36,7 @@ class Conductor
 
 	public static var safeFrames : Int = 10;
 
-	/** Margen in ms — calculado without inicializador static. */
+	/** Margen en ms — calculado sin inicializador estático. */
 	public static var safeZoneOffset(get, never) : Float;
 	static inline function get_safeZoneOffset():Float return (safeFrames / 60.0) * 1000.0;
 
@@ -44,7 +44,7 @@ class Conductor
 	public static var timeScale(get, never) : Float;
 	static inline function get_timeScale():Float return safeZoneOffset / 166.0;
 
-	/** Mapa of cambios of BPM — only reading public. */
+	/** Mapa de cambios de BPM — solo lectura pública. */
 	public static var bpmChangeMap(default, null) : Array<BPMChangeEvent> = [];
 
 	// ─── API ──────────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ class Conductor
 		stepCrochet  = crochet * 0.25;
 	}
 
-	/** Construye the mapa of cambios of BPM from the datos of the song. */
+	/** Construye el mapa de cambios de BPM desde los datos de la canción. */
 	public static function mapBPMChanges(song:SwagSong):Void
 	{
 		bpmChangeMap = [];
@@ -76,16 +76,16 @@ class Conductor
 			totalSteps += delta;
 			totalPos   += (60000.0 / curBPM / 4.0) * delta;
 		}
-		trace('[Conductor v3] ${bpmChangeMap.length} cambios of BPM — search binaria active.');
+		trace('[Conductor v3] ${bpmChangeMap.length} cambios de BPM — búsqueda binaria activa.');
 	}
 
-	// ─── Search binaria or(log n) ────────────────────────────────────────────
+	// ─── Búsqueda binaria O(log n) ────────────────────────────────────────────
 
 	/**
-	 * Returns the index of the last BPMChangeEvent cuyo `songTime` ≤ `time`.
+	 * Devuelve el índice del último BPMChangeEvent cuyo `songTime` ≤ `time`.
 	 * Retorna -1 si ninguno aplica.
 	 *
-	 * @param time  Position in ms.
+	 * @param time  Posición en ms.
 	 */
 	static function _binarySearchByTime(time:Float):Int
 	{
@@ -114,7 +114,7 @@ class Conductor
 	}
 
 	/**
-	 * Returns the index of the last BPMChangeEvent cuyo `stepTime` ≤ `step`.
+	 * Devuelve el índice del último BPMChangeEvent cuyo `stepTime` ≤ `step`.
 	 */
 	static function _binarySearchByStep(step:Float):Int
 	{
@@ -146,7 +146,7 @@ class Conductor
 
 	/**
 	 * Convierte ms a steps, respetando cambios de BPM.
-	 * Complejidad: or(log n) gracias to the search binaria.
+	 * Complejidad: O(log n) gracias a la búsqueda binaria.
 	 */
 	public static function getStepAtTime(time:Float):Float
 	{
@@ -225,7 +225,7 @@ class Conductor
 		return getTimeAtStep(beat * 4.0);
 
 	/**
-	 * Duration of a step in ms in the position `time`.
+	 * Duración de un step en ms en la posición `time`.
 	 */
 	public static inline function stepDurationAt(time:Float):Float
 		return 60000.0 / getBPMFromTime(time) / 4.0;

@@ -1,7 +1,7 @@
 package extensions;
 
 /**
- * Mathf — functions matemáticas of conveniencia.
+ * Mathf — funciones matemáticas de conveniencia.
  *
  * Todas las funciones son `static inline` — el compilador las elimina
  * y las reemplaza directamente por el cuerpo en el call site.
@@ -11,7 +11,7 @@ class Mathf
 	static inline var DEG_TO_RAD : Float = Math.PI / 180.0;
 	static inline var RAD_TO_DEG : Float = 180.0 / Math.PI;
 
-	// ─── Precision ────────────────────────────────────────────────────────────
+	// ─── Precisión ────────────────────────────────────────────────────────────
 
 	/**
 	 * Redondea `number` a `decimals` cifras decimales.
@@ -40,7 +40,7 @@ class Mathf
 		return value;
 	}
 
-	/** Clamp for enteros — without conversion Float. */
+	/** Clamp para enteros — sin conversión Float. */
 	public static inline function clampInt(value:Int, min:Int, max:Int):Int
 	{
 		if (value < min) return min;
@@ -53,7 +53,7 @@ class Mathf
 	                                     outMin:Float, outMax:Float):Float
 		return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
 
-	// ─── Conversion angular ───────────────────────────────────────────────────
+	// ─── Conversión angular ───────────────────────────────────────────────────
 
 	public static inline function toRadians(degrees:Float):Float return degrees * DEG_TO_RAD;
 	public static inline function toDegrees(radians:Float):Float return radians * RAD_TO_DEG;
@@ -66,18 +66,18 @@ class Mathf
 	/** `Math.ceil` como Int. */
 	public static inline function ceilInt(value:Float):Int  return Std.int(Math.ceil(value));
 
-	/** Value absoluto entero without conversion Float. */
+	/** Valor absoluto entero sin conversión Float. */
 	public static inline function absInt(value:Int):Int return value < 0 ? -value : value;
 
-	/** Interpolation lineal between `to` and `b`. */
+	/** Interpolación lineal entre `a` y `b`. */
 	public static inline function lerp(a:Float, b:Float, t:Float):Float
 		return a + (b - a) * t;
 
 	/**
-	 * Generates a value senoidal continuo for a object specific.
+	 * Genera un valor senoidal continuo para un objeto específico.
 	 *
-	 * to diferencia of the version previous (static var sineShit compartida between
-	 * all the callers), here the acumulador is external — each object mantiene
+	 * A diferencia de la versión anterior (static var sineShit compartida entre
+	 * todos los callers), aquí el acumulador es externo — cada objeto mantiene
 	 * el suyo.
 	 *
 	 * Uso:

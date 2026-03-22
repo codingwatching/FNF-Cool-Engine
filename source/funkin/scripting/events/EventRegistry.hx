@@ -20,8 +20,8 @@ using StringTools;
  * Reemplaza y extiende EventInfoSystem con:
  *  • Estructura de carpetas por contexto (chart, cutscene, playstate, modchart, global)
  *  • Soporte de carpeta-por-evento y archivos planos
- *  • Description and aliases by event
- *  • Descubrimiento automatic of handlers .hx and .lua
+ *  • Descripción y aliases por evento
+ *  • Descubrimiento automático de handlers .hx y .lua
  *  • Acceso filtrado por contexto para cada editor
  *
  * ─── Estructura de carpetas soportada ────────────────────────────────────────
@@ -43,7 +43,7 @@ using StringTools;
  *      ...
  *    global/
  *      ...
- *    (root)                   ← backward compat: tratados as contexto "chart"
+ *    (raíz)                   ← backward compat: tratados como contexto "chart"
  *      OldEvent.json
  *      OldEvent.hx
  *
@@ -52,7 +52,7 @@ using StringTools;
  *  1. Built-ins del engine (hardcodeados en EventInfoSystem._builtins)
  *  2. assets/data/events/  (engine base)
  *  3. mods/shared/data/events/  (si existe, shared entre mods)
- *  4. mods/{activeMod}/data/events/  (mod active, maximum priority)
+ *  4. mods/{activeMod}/data/events/  (mod activo, máxima prioridad)
  *
  * ─── Contextos ────────────────────────────────────────────────────────────────
  *
@@ -66,16 +66,16 @@ class EventRegistry
 {
 	// ── Storage ───────────────────────────────────────────────────────────────
 
-	/** All the definiciones indexadas by name canónico. */
+	/** Todas las definiciones indexadas por nombre canónico. */
 	static var _defs:Map<String, EventDefinition> = new Map();
 
-	/** Mapa alias → name canónico. */
+	/** Mapa alias → nombre canónico. */
 	static var _aliasMap:Map<String, String> = new Map();
 
 	/** Nombres ordenados para UI. */
 	static var _ordered:Array<String> = [];
 
-	// ── Contextos valid ────────────────────────────────────────────────────
+	// ── Contextos válidos ────────────────────────────────────────────────────
 
 	public static final CONTEXTS = ['chart', 'cutscene', 'playstate', 'modchart', 'global'];
 
@@ -84,7 +84,7 @@ class EventRegistry
 	/**
 	 * Recarga todas las definiciones desde los JSONs + built-ins.
 	 * Llamar al inicio o al cambiar de mod.
-	 * Also sincroniza EventInfoSystem for compatibility with the ChartEditor.
+	 * También sincroniza EventInfoSystem para compatibilidad con el ChartEditor.
 	 */
 	public static function reload():Void
 	{
@@ -121,7 +121,7 @@ class EventRegistry
 			final r = ModManager.modRoot();
 			if (r != null) _loadRoot('$r/data/events');
 		}
-		// Also search in all the mods instalados habilitados
+		// También buscar en todos los mods instalados habilitados
 		for (mod in ModManager.installedMods)
 		{
 			if (!ModManager.isEnabled(mod.id)) continue;
@@ -133,7 +133,7 @@ class EventRegistry
 		// 4. Sincronizar de vuelta a EventInfoSystem para que el ChartEditor lo vea
 		_syncToEventInfoSystem();
 
-		trace('[EventRegistry] ${_ordered.length} events registered (${_defs.keys().hasNext() ? Lambda.count(_defs) : 0} unique).');
+		trace('[EventRegistry] ${_ordered.length} eventos registrados (${_defs.keys().hasNext() ? Lambda.count(_defs) : 0} únicos).');
 	}
 
 	/**
@@ -157,7 +157,7 @@ class EventRegistry
 	public static function getNamesForContext(context:String):Array<String>
 		return getByContext(context).map(d -> d.name);
 
-	/** Returns the definition of a event by name or alias. */
+	/** Devuelve la definición de un evento por nombre o alias. */
 	public static function get(name:String):Null<EventDefinition>
 	{
 		if (_defs.exists(name)) return _defs.get(name);
@@ -165,14 +165,14 @@ class EventRegistry
 		return canonical != null ? _defs.get(canonical) : null;
 	}
 
-	/** Resuelve a alias/name to the name canónico. Null if no exists. */
+	/** Resuelve un alias/nombre al nombre canónico. Null si no existe. */
 	public static function resolveAlias(name:String):Null<String>
 	{
 		if (_defs.exists(name)) return name;
 		return _aliasMap.get(name.toLowerCase());
 	}
 
-	/** Registra a event manualmente (useful from scripts). */
+	/** Registra un evento manualmente (útil desde scripts). */
 	public static function register(def:EventDefinition):Void
 	{
 		_register(def);
@@ -186,9 +186,9 @@ class EventRegistry
 	// ── Carga de carpetas ─────────────────────────────────────────────────────
 
 	/**
-	 * Load the árbol complete of a root of events:
+	 * Carga el árbol completo de una raíz de eventos:
 	 *   root/chart/, root/cutscene/, root/playstate/, root/modchart/, root/global/
-	 *   root/ (root, backward-compat → contexto "chart")
+	 *   root/ (raíz, backward-compat → contexto "chart")
 	 */
 	static function _loadRoot(root:String):Void
 	{
@@ -203,7 +203,7 @@ class EventRegistry
 				_loadContextDir(dir, ctx);
 		}
 
-		// Root directa (backward compat → "chart")
+		// Raíz directa (backward compat → "chart")
 		_loadContextDir(root, 'chart', true);
 		#end
 	}
@@ -214,7 +214,7 @@ class EventRegistry
 	 *
 	 * @param dir          Carpeta a escanear.
 	 * @param context      Contexto de los eventos encontrados.
-	 * @param skipSubdirs  If true, ignorar subdirectorios (for avoid recursión).
+	 * @param skipSubdirs  Si true, ignorar subdirectorios (para evitar recursión).
 	 */
 	static function _loadContextDir(dir:String, context:String, skipSubdirs:Bool = false):Void
 	{
@@ -237,7 +237,7 @@ class EventRegistry
 		}
 
 		// ── Segundo: archivos planos (Formato A) ──────────────────────────────
-		// Agrupar by name base (without extension)
+		// Agrupar por nombre base (sin extensión)
 		final byBase:Map<String, { json:Null<String>, hx:Null<String>, lua:Null<String> }> = new Map();
 
 		for (entry in entries)
@@ -251,7 +251,7 @@ class EventRegistry
 				&& !entryLow.endsWith('.hscript') && !entryLow.endsWith('.lua'))
 				continue;
 
-			// Name base without extension
+			// Nombre base sin extensión
 			final base = _stripExt(entry);
 
 			// Ignorar archivos con nombre reservado (no son eventos)
@@ -270,7 +270,7 @@ class EventRegistry
 				group.lua = fullPath;
 		}
 
-		// Create definition for each grupo of files encontrado
+		// Crear definición para cada grupo de archivos encontrado
 		for (eventName => group in byBase)
 		{
 			// Al menos debe haber un JSON o un script para registrar el evento
@@ -281,7 +281,7 @@ class EventRegistry
 			def.luaPath     = group.lua;
 			def.sourceDir   = dir;
 
-			// Add the context of the folder if the JSON no especificó none
+			// Añadir el contexto de la carpeta si el JSON no especificó ninguno
 			if (def.contexts.length == 0) def.contexts = [context];
 
 			_register(def);
@@ -420,7 +420,7 @@ class EventRegistry
 			final existing = _defs.get(name);
 			def.hscriptPath = def.hscriptPath ?? existing.hscriptPath;
 			def.luaPath     = def.luaPath     ?? existing.luaPath;
-			// Add contextos without duplicar
+			// Añadir contextos sin duplicar
 			for (ctx in existing.contexts)
 				if (!def.contexts.contains(ctx)) def.contexts.push(ctx);
 		}
@@ -431,7 +431,7 @@ class EventRegistry
 
 		_defs.set(name, def);
 
-		// Register aliases (in lowercase for search case-insensitive)
+		// Registrar aliases (en lowercase para búsqueda case-insensitive)
 		_aliasMap.set(name.toLowerCase(), name);
 		for (alias in def.aliases)
 			_aliasMap.set(alias.toLowerCase(), name);

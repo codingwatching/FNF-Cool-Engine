@@ -22,12 +22,12 @@ import funkin.data.Song;
 using StringTools;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Modos of the menu of pausa
+// Modos del menú de pausa
 // ─────────────────────────────────────────────────────────────────────────────
 enum PauseMode
 {
 	Standard;   // Gameplay normal
-	Difficulty; // Submenú of cambio of difficulty
+	Difficulty; // Submenú de cambio de dificultad
 	Cutscene;   // Pausado durante cutscene de video
 }
 
@@ -47,19 +47,19 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	var curSelected:Int         = 0;
 	var currentMode:PauseMode   = Standard;
 
-	/** true if is abrió during a cutscene of video. */
+	/** true si se abrió durante una cutscene de video. */
 	var isCutsceneMode:Bool = false;
 
 	/**
-	 * Guard contra spam of ACCEPT: a vez that is eligió a option
-	 * no is procesa none otra pulsación until that the substate is destruya.
+	 * Guard contra spam de ACCEPT: una vez que se eligió una opción
+	 * no se procesa ninguna otra pulsación hasta que el substate se destruya.
 	 */
 	var _acted:Bool = false;
 
 	/**
-	 * When some path of output already gestionó the audio (resume or deja that
-	 * the transition it maneje) is pone to true for that destroy() no llame
-	 * FlxG.sound.resume() of more and arranque the vocales in medio of the transition.
+	 * Cuando alguna ruta de salida ya gestionó el audio (resume o deja que
+	 * la transición lo maneje) se pone a true para que destroy() no llame
+	 * FlxG.sound.resume() de más y arranque las vocales en medio de la transición.
 	 */
 	var _soundHandled:Bool = false;
 
@@ -93,18 +93,18 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		isCutsceneMode = cutsceneMode;
 
-		// ── Camera ────────────────────────────────────────────────────────────
-		// FIX: Always creamos a camera propia for the pause menu.
+		// ── Cámara ────────────────────────────────────────────────────────────
+		// FIX: Siempre creamos una cámara propia para el pause menu.
 		//
-		// Before is reutilizaba the last camera of the stack, it that causaba dos bugs:
-		//  1. Durante a SpriteCutscene, the last camera is _camCutscene with
-		//     zoom variable (ej. 0.66) → the menu aparecía deformado/small.
+		// Antes se reutilizaba la última cámara del stack, lo que causaba dos bugs:
+		//  1. Durante una SpriteCutscene, la última cámara es _camCutscene con
+		//     zoom variable (ej. 0.66) → el menú aparecía deformado/pequeño.
 		//  2. El makeGraphic(1,1) del bg se escala con setGraphicSize(FlxG.width,
-		//     FlxG.height), but if the camera tiene zoom != 1 the rect is encoge.
+		//     FlxG.height), pero si la cámara tiene zoom != 1 el rect se encoge.
 		//
-		// With a camera propia forzada to zoom=1 ambos bugs desaparecen.
-		// In cutscene-of-video still necesitamos insertarla after of the bitmap
-		// of the video (that is outside of Flixel), of ahí the if especial.
+		// Con una cámara propia forzada a zoom=1 ambos bugs desaparecen.
+		// En cutscene-de-video aún necesitamos insertarla DESPUÉS del bitmap
+		// del video (que está fuera de Flixel), de ahí el if especial.
 		if (isCutsceneMode && VideoManager.isPlaying)
 		{
 			_pauseCam  = new flixel.FlxCamera();
@@ -115,7 +115,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		}
 		else
 		{
-			// Normal mode: camera propia for guarantee zoom=1 always.
+			// Normal mode: cámara propia para garantizar zoom=1 siempre.
 			_pauseCam  = new flixel.FlxCamera();
 			_pauseCam.bgColor = flixel.util.FlxColor.TRANSPARENT;
 			_pauseCam.zoom    = 1.0;
@@ -126,7 +126,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		_cleanSoundList();
 
-		// Music of pausa
+		// Música de pausa
 		pauseMusic = new FlxSound().loadEmbedded(Paths.music('breakfast'), true, true);
 		pauseMusic.volume = 0;
 		pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
@@ -141,7 +141,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		bg.cameras = [_pauseCam];
 		add(bg);
 
-		// Info of the song (esquina superior derecha)
+		// Info de la canción (esquina superior derecha)
 		levelInfo = new FlxText(FlxG.width - 400, 20, 380, PlayState.SONG.song, 32);
 		levelInfo.scrollFactor.set();
 		levelInfo.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
@@ -187,7 +187,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		FlxTween.tween(levelDeaths,     {alpha: 1, x: levelDeaths.x + 10},     0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
 		FlxTween.tween(levelAuthor,     {alpha: 1, x: levelAuthor.x + 10},     0.4, {ease: FlxEase.quartInOut, startDelay: 0.6});
 
-		// Grupo of items of the menu
+		// Grupo de ítems del menú
 		grpMenuShit = new FlxTypedGroup<Alphabet>();
 		grpMenuShit.cameras = [_pauseCam];
 		add(grpMenuShit);
@@ -222,7 +222,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		if (controls.UP_P)   changeSelection(-1);
 		if (controls.DOWN_P) changeSelection(1);
 
-		// ESC / BACK: volver to the menu padre or do resume
+		// ESC / BACK: volver al menú padre o hacer resume
 		if (FlxG.keys.justPressed.ESCAPE || controls.BACK)
 		{
 			if (currentMode == Difficulty)
@@ -234,7 +234,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		if (controls.ACCEPT && !OptionsMenuState.isOpenOptions)
 		{
-			// Guard contra spam: ignorar if already is eligió a option
+			// Guard contra spam: ignorar si ya se eligió una opción
 			if (_acted) return;
 			_acted = true;
 
@@ -267,7 +267,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 					_soundHandled = true;
 
 				case "Change Difficulty":
-					_acted = false; // allow ACCEPT within the difficulty submenu
+					_acted = false; // permitir ACCEPT dentro del submenú de dificultad
 					switchMode(Difficulty);
 
 				case "Options":
@@ -278,13 +278,13 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 				case "Exit to menu":
 					PlayState.isPlaying = false;
 					PlayState.isBotPlay = false;
-					// BUGFIX: Poner paused=false before of the transition for that
+					// BUGFIX: Poner paused=false ANTES de la transición para que
 					// PlayState.closeSubState() no llame a resyncVocals() durante el
 					// destroy del estado, lo que provocaba un crash al intentar
-					// play music in an invalid state.
+					// reproducir música en un estado inválido.
 					if (PlayState.instance != null)
 						PlayState.instance.paused = false;
-					_soundHandled = true; // the transition manages the audio, no queremos resume here
+					_soundHandled = true; // la transición gestiona el audio, no queremos resume aquí
 					if (StickerTransition.enabled){
 						if (PlayState.isStoryMode){
 							StickerTransition.setCurrentContext(PlayState.storyWeek, PlayState.storyPlaylist[0]);
@@ -307,7 +307,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 					_soundHandled = true;
 
 				case "Back":
-					_acted = false; // volver to the menu previous → allow more acciones
+					_acted = false; // volver al menú anterior → permitir más acciones
 					switchMode(Standard);
 
 				default:
@@ -315,13 +315,13 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 					if (daSelected.startsWith("BotPlay"))
 					{
 						PlayState.isBotPlay = !PlayState.isBotPlay;
-						// Update label in the menu
+						// Actualizar label en el menú
 						menuItems[curSelected] = PlayState.isBotPlay ? "BotPlay ON" : "BotPlay OFF";
 						_rebuildMenu();
-						_acted = false; // allow more actions in this menu
+						_acted = false; // permitir más acciones en este menú
 						return;
 					}
-					// Dynamically generated difficulty selection
+					// Selección de dificultad generada dinámicamente
 					if (currentMode == Difficulty)
 					{
 						_soundHandled = true; // FlxG.resetState() o close() gestionan el audio
@@ -344,10 +344,10 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		{
 			case Standard:
 				menuItems = ENTRIES_STANDARD.copy();
-				// Add "Skip Song" in modo historia with playlist > 1
+				// Añadir "Skip Song" en modo historia con playlist > 1
 				if (PlayState.storyPlaylist.length > 1 && PlayState.isStoryMode)
 					menuItems.insert(2, "Skip Song");
-				// Add "Bot Play" if Developer Mode is active
+				// Añadir "Bot Play" si el Developer Mode está activo
 				if (mods.ModManager.developerMode)
 				{
 					var botLabel = PlayState.isBotPlay ? "BotPlay ON" : "BotPlay OFF";
@@ -359,7 +359,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 			case Difficulty:
 				menuItems = [];
-				// Usar the difficulties reales of the song current (detectadas by
+				// Usar las dificultades reales de la canción actual (detectadas por
 				// FreeplayState/Song.getAvailableDifficulties), no las 3 hardcodeadas.
 				final diffs = funkin.menus.FreeplayState.difficultyStuff;
 				for (i in 0...diffs.length)
@@ -410,7 +410,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	/**
 	 * Resume: si hay video pausado, lo reanuda.
 	 * Solo llama FlxG.sound.resume() si la pausa vino de gameplay normal
-	 * (no of a video), for no arrancar the music in medio of a cutscene.
+	 * (no de un video), para no arrancar la música en medio de una cutscene.
 	 */
 	function _doResume():Void
 	{
@@ -418,7 +418,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		if (isCutsceneMode && VideoManager.isPlaying)
 		{
 			// Volvemos a un video: solo reanudar el video.
-			// FlxG.sound.pause/resume no is callron, so that no there is nada that restaurar.
+			// FlxG.sound.pause/resume NO se llamaron, así que no hay nada que restaurar.
 			VideoManager.resume();
 		}
 		else
@@ -435,7 +435,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 	/**
 	 * Skip cutscene: para el video y reanuda el gameplay.
-	 * The music empezará when the countdown termine normally.
+	 * La música empezará cuando el countdown termine normalmente.
 	 */
 	function _skipCutscene():Void
 	{
@@ -456,7 +456,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	}
 
 	/**
-	 * Applies the difficulty elegida of the submenú and resets the song.
+	 * Aplica la dificultad elegida del submenú y reinicia la canción.
 	 */
 	function _applyDifficulty(label:String):Void
 	{
@@ -556,9 +556,9 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 			_ownedCam = false;
 		}
 
-		// Seguridad: if the substate is destruyó without pasar by Resume/Exit
+		// Seguridad: si el substate se destruyó sin pasar por Resume/Exit
 		// Solo restaurar sonido si no fue gestionado ya por alguna ruta de salida
-		// ni there is a video active (the music the manages VideoManager/startSong).
+		// ni hay un video activo (la música la gestiona VideoManager/startSong).
 		if (!_soundHandled && !VideoManager.isPlaying)
 			FlxG.sound.resume();
 	}

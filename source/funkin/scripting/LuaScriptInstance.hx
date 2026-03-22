@@ -18,7 +18,7 @@ import llua.LuaL;
 import llua.State;
 #end
 
-// Alias so the rest of the code uses a single flag
+// Alias para que el resto del código use un único flag
 #if (LUA_ALLOWED && linc_luajit)
 @:noCompletion private typedef _LuaState = State;
 #end
@@ -30,8 +30,8 @@ import llua.State;
  * ─── Object Registry ─────────────────────────────────────────────────────────
  *
  *  Lua no puede guardar referencias a objetos Haxe directamente.
- *  Solution: each object is registra in a Map<Int, Dynamic> and Lua receives
- *  a entero (handle). With that handle puede callr methods and leer/escribir
+ *  Solución: cada objeto se registra en un Map<Int, Dynamic> y Lua recibe
+ *  un entero (handle). Con ese handle puede llamar métodos y leer/escribir
  *  cualquier propiedad del objeto real en Haxe.
  *
  *    local spr = newObject('FlxSprite', 0, 0)    -- handle
@@ -72,7 +72,7 @@ import llua.State;
  *    setStrumPosition(0, 100, 50)     -- mover strumline
  *    setStrumScale(1, 0.8)
  *
- * ─── Menu/UI complete ────────────────────────────────────────────────────────
+ * ─── Menú/UI completo ────────────────────────────────────────────────────────
  *
  *    local title = makeText(0, 0, 1280, 'Mi Mod', 64)
  *    setTextAlign(title, 'center')
@@ -84,14 +84,14 @@ import llua.State;
  *    local bg = newObject('FlxSprite', 0, 0)
  *    loadImage(bg, 'menuBg')
  *    setSpriteScrollFactor(bg, 0, 0)
- *    addToState(bg, false)     -- back of the all
+ *    addToState(bg, false)     -- atrás del todo
  *
  * ─── Tweens y Timers ──────────────────────────────────────────────────────────
  *
  *    tweenProp(spr, 'alpha', 0, 1.0, Ease.quadOut)
  *    tweenProp(spr, 'x',    500, 0.5, Ease.sineOut)
  *    tweenColor(spr, 0.5, Color.RED, Color.WHITE)
- *    timer(2.0, 'myCallback')    -- call the function global myCallback()
+ *    timer(2.0, 'myCallback')    -- llama la función global myCallback()
  *
  * ─── Input ────────────────────────────────────────────────────────────────────
  *
@@ -396,7 +396,7 @@ class LuaScriptInstance implements IScript
 		r('setTextBorder',  _fnTextBorder);
 		r('setTextColor',   _fnTextColor);
 
-		// Camera
+		// Cámara
 		r('setCamZoom',       _fnCamZoom);
 		r('setCamZoomTween',  _fnCamZoomTween);
 		r('cameraFlash',      _fnCamFlash);
@@ -476,7 +476,7 @@ class LuaScriptInstance implements IScript
 		r('setShared',    _fnSetShared);  r('getShared',   _fnGetShared);
 		r('deleteShared', _fnDelShared);
 
-		// ── Comunicación with otros scripts ───────────────────────────────────
+		// ── Comunicación con otros scripts ───────────────────────────────────
 		r('broadcast',      _fnBroadcast);
 		r('callOnScripts',  _fnCallScripts);
 		r('setScriptVar',   _fnSetScriptVar);
@@ -521,7 +521,7 @@ class LuaScriptInstance implements IScript
 		r('skipNote',      _fnSkipNote);
 		r('setNoteSkin',   _fnNoteSkin);
 
-		// ── Notes: generación dynamic ───────────────────────────────────────
+		// ── Notas: generación dinámica ───────────────────────────────────────
 		r('forEachNote',   _fnForNote);
 
 		// ── Modchart ─────────────────────────────────────────────────────────
@@ -543,7 +543,7 @@ class LuaScriptInstance implements IScript
 		r('getEventDef',    _fnGetEventDef);
 		// listEvents(?context)           → tabla de nombres de eventos
 		r('listEvents',     _fnListEvents);
-		// registerEventDef(table)        → registra a new definition in EventRegistry
+		// registerEventDef(table)        → registra una nueva definición en EventRegistry
 		r('registerEventDef', _fnRegisterEventDef);
 
 		// ── Tweens extendidos ────────────────────────────────────────────────
@@ -573,7 +573,7 @@ class LuaScriptInstance implements IScript
 		r('setAnimFPS',        _fnSetAnimFPS);
 		r('addSpriteToCamera', _fnSprCam);
 
-		// ── Camera: control fino ──────────────────────────────────────────────
+		// ── Cámara: control fino ──────────────────────────────────────────────
 		r('setCamTarget',     _fnCamTarget);
 		r('setCamFollowStyle',_fnCamFollow);
 		r('setCamLerp',       _fnCamLerp);
@@ -587,7 +587,7 @@ class LuaScriptInstance implements IScript
 		r('removeShader',    _fnRemoveShader);
 		r('setShaderProp',   _fnShaderProp);
 
-		// ── UI / Dialogues (use ScriptDialog — same class that HScript) ───────
+		// ── UI / Diálogos (usa ScriptDialog — misma clase que HScript) ───────
 		r('showNotification', _fnNotif);
 		r('newDialog',        _fnNewDialog);
 		r('dialogAddLine',    _fnDialogAddLine);
@@ -602,8 +602,8 @@ class LuaScriptInstance implements IScript
 		r('dialogShow',       _fnDialogShow);
 		r('dialogClose',      _fnDialogClose);
 		r('dialogSkipAll',    _fnDialogSkipAll);
-		r('showDialog',       _fnDialogQuick);     // atajo: a line
-		r('dialogSequence',   _fnDialogSequence);  // atajo: various lines
+		r('showDialog',       _fnDialogQuick);     // atajo: una línea
+		r('dialogSequence',   _fnDialogSequence);  // atajo: varias líneas
 		r('closeDialog',      _fnCloseAllDialogs);
 
 		// ── Datos persistentes (JSON por mod) ─────────────────────────────────
@@ -637,14 +637,14 @@ class LuaScriptInstance implements IScript
 		r('fadeIn',   _fnFadeIn);
 		r('fadeOut',  _fnFadeOut);
 
-		// ── Subtitles ────────────────────────────────────────────────────────
+		// ── Subtítulos ────────────────────────────────────────────────────────
 		// showSubtitle(text, duration, ?optsTable)
 		// showSubtitle("Hello", 3.0)
 		// showSubtitle("Hello", 2.0, { size=28, color=0xFFFF00, bgAlpha=0.7 })
 		r('showSubtitle',        _fnSubShow);
-		// hideSubtitle(?instant)   -- without args = fade suave, true = instant
+		// hideSubtitle(?instant)   -- sin args = fade suave, true = instantáneo
 		r('hideSubtitle',        _fnSubHide);
-		// clearSubtitles()         -- hide + empty the cola
+		// clearSubtitles()         -- hide + vacía la cola
 		r('clearSubtitles',      _fnSubClear);
 		// queueSubtitle(table)     -- tabla de { text, duration[, size, color...] }
 		r('queueSubtitle',       _fnSubQueue);
@@ -655,7 +655,7 @@ class LuaScriptInstance implements IScript
 
 		// ── import(className) ────────────────────────────────────────────────
 		// Resuelve una clase o enum Haxe por nombre completo y la devuelve
-		// as value Lua (object Dynamic). Allows acceder to constants static
+		// como valor Lua (objeto Dynamic). Permite acceder a constantes estáticas
 		// y constructores sin necesidad de newObject().
 		//
 		// Uso:
@@ -666,7 +666,7 @@ class LuaScriptInstance implements IScript
 		//   local FlxAxes = import('flixel.util.FlxAxes')
 		//   local axes = FlxAxes.XY
 		//
-		// Note: returns nil if the class no is available in the build.
+		// Nota: devuelve nil si la clase no está disponible en el build.
 		r('import', function(l) {
 			final fullName = Lua.tostring(l, 1);
 			Lua.pop(l, 1);
@@ -742,7 +742,7 @@ removeLuaSprite= removeSprite
 makeGraphic    = makeSprite
 luaTrace       = trace
 
-\' + \'-- ── Direction keys ─────────────────────────────────────────────────────────
+\' + \'-- ── Keys de dirección ─────────────────────────────────────────────────────────
 Key = {
     LEFT  = "LEFT",  DOWN  = "DOWN",  UP     = "UP",    RIGHT = "RIGHT",
     ENTER = "ENTER", ESCAPE= "ESCAPE",SPACE  = "SPACE",
@@ -753,7 +753,7 @@ Key = {
     F1="F1", F2="F2", F3="F3", F4="F4", F5="F5",
 }
 
--- ── Atajos of camera ──────────────────────────────────────────────────────────
+-- ── Atajos de cámara ──────────────────────────────────────────────────────────
 camGame = "game"
 camHUD  = "hud"
 camUI   = "ui"
@@ -798,7 +798,7 @@ function bfDance()   characterDance("bf")  end
 function dadDance()  characterDance("dad") end
 function gfDance()   characterDance("gf")  end
 
--- ── Camera: atajos ────────────────────────────────────────────────────────────
+-- ── Cámara: atajos ────────────────────────────────────────────────────────────
 function zoomCamera(z, dur, ease)  if dur then setCamZoomTween(z, dur, ease or "linear") else setCamZoom(z) end end
 function flashCamera(col, dur)     cameraFlash(col or "WHITE", dur or 0.5) end
 function shakeCamera(i, dur)       cameraShake(i or 0.03, dur or 0.2) end
@@ -817,7 +817,7 @@ end
 
 -- ── Sistema de estados ────────────────────────────────────────────────────────
 ';
-	static inline function _stdlib4():String return '-- Máquina of states liviana for logic of cutscenes or jefes
+	static inline function _stdlib4():String return '-- Máquina de estados liviana para lógica de cutscenes o jefes
 StateMachine = Class {
     init = function(self, states)
 \' + \'        self.states  = states or {}
@@ -839,11 +839,11 @@ StateMachine = Class {
     end
 }
 
--- ── System of dialogues: API fluida ──────────────────────────────────────────
--- Allows encadenar configuration as object:
+-- ── Sistema de diálogos: API fluida ──────────────────────────────────────────
+-- Permite encadenar configuración como objeto:
 --
 --   Dialog.new()
---     :line("Boyfriend", "Hello!")
+--     :line("Boyfriend", "¡Hola!")
 --     :line("Daddy Dearest", "...", Color.RED)
 --     :typeSpeed(0.03)
 --     :onFinish("miCallback")
@@ -1359,7 +1359,7 @@ BossBar = Class {
 		try resolve(h).color = c catch(_) {}; return 0;
 	}
 
-	// ── Camera ────────────────────────────────────────────────────────────────
+	// ── Cámara ────────────────────────────────────────────────────────────────
 
 	static function _cam(l:State, idx:Int):flixel.FlxCamera
 	{
@@ -1464,7 +1464,7 @@ BossBar = Class {
 	}
 
 	// ── Timers ────────────────────────────────────────────────────────────────
-	// The timers with callback Lua is resuelven pasando the nombre of function global.
+	// Los timers con callback Lua se resuelven pasando el nombre de función global.
 
 	static function _fnTimer(l:Dynamic):Int
 	{
@@ -1666,7 +1666,7 @@ BossBar = Class {
 		funkin.scripting.StateScriptHandler.deleteShared(k); return 0;
 	}
 
-	// ── Comunicación with otros scripts ────────────────────────────────────────
+	// ── Comunicación con otros scripts ────────────────────────────────────────
 
 	static function _fnBroadcast(l:Dynamic):Int
 	{
@@ -2166,7 +2166,7 @@ BossBar = Class {
 		if(s!=null) try s.cameras=[c] catch(_){}; return 0;
 	}
 
-	// ── Camera: control fino ──────────────────────────────────────────────────
+	// ── Cámara: control fino ──────────────────────────────────────────────────
 
 	static function _fnCamTarget(l:Dynamic):Int
 	{
@@ -2254,7 +2254,7 @@ BossBar = Class {
 		catch(_){} return 0;
 	}
 
-	// ── UI / Dialogues ─────────────────────────────────────────────────────────
+	// ── UI / Diálogos ─────────────────────────────────────────────────────────
 	// Usa ScriptDialog — misma clase que HScript
 
 	static function _fnNotif(l:Dynamic):Int
@@ -2266,7 +2266,7 @@ BossBar = Class {
 		Lua.pushnumber(l, register(d)); return 1;
 	}
 
-	/** newDialog() → handle of ScriptDialog empty listo for configure. */
+	/** newDialog() → handle de ScriptDialog vacío listo para configurar. */
 	static function _fnNewDialog(l:Dynamic):Int
 	{
 		Lua.settop(l, 0);
@@ -2377,7 +2377,7 @@ BossBar = Class {
 		return 0;
 	}
 
-	/** dialogShow(handle) — muestra the dialogue */
+	/** dialogShow(handle) — muestra el diálogo */
 	static function _fnDialogShow(l:Dynamic):Int
 	{
 		final h = Std.int(Lua.tonumber(l, 1)); Lua.settop(l, 0);
@@ -2399,7 +2399,7 @@ BossBar = Class {
 		final d = resolve(h); if (d != null) try d.skipAll() catch(_) {}; return 0;
 	}
 
-	/** dialogQuick(speaker, text, ?duration, ?callbackName) — atajo of a line */
+	/** dialogQuick(speaker, text, ?duration, ?callbackName) — atajo de una línea */
 	static function _fnDialogQuick(l:Dynamic):Int
 	{
 		final sp = Lua.tostring(l, 1);
@@ -2572,7 +2572,7 @@ BossBar = Class {
 		flixel.FlxG.camera.fade(flixel.util.FlxColor.fromString(col),dur,false); return 0;
 	}
 
-	// ── Subtitles ─────────────────────────────────────────────────────────────
+	// ── Subtítulos ─────────────────────────────────────────────────────────────
 	//
 	//  showSubtitle(text, ?duration, ?optsTable)
 	//    showSubtitle("Hello", 3.0)
@@ -2616,7 +2616,7 @@ BossBar = Class {
 	 * queueSubtitle(entries_table)
 	 * entries_table es un array Lua de tablas:
 	 *   { { text="Line 1", duration=2.0 }, { text="Line 2", duration=1.5 } }
-	 * Each entry puede have furthermore any field of estilo (size, color, etc.).
+	 * Cada entrada puede tener además cualquier campo de estilo (size, color, etc.).
 	 */
 	static function _fnSubQueue(l:Dynamic):Int
 	{
@@ -2661,9 +2661,9 @@ BossBar = Class {
 	}
 
 	/**
-	 * Lee a tabla Lua in the index dado and returns a object Dynamic
-	 * with its fields string/number/bool. Useful for options of subtitle.
-	 * Only lee keys string (ignorando indices numéricos of the array).
+	 * Lee una tabla Lua en el índice dado y devuelve un objeto Dynamic
+	 * con sus campos string/number/bool. Útil para opciones de subtítulo.
+	 * Solo lee claves string (ignorando índices numéricos del array).
 	 */
 	static function _luaTableToOpts(l:Dynamic, idx:Int):Dynamic
 	{

@@ -149,7 +149,7 @@ class ModPathResolver
 		{
 			// Cool / Psych flat: songs/name/hard.json
 			candidates.push('$base/songs/$v/$d.json');
-			// Psych: data/name/name-hard.json  ← most common layout in Psych mods
+			// Psych: data/name/name-hard.json  ← layout más común en mods Psych
 			candidates.push('$base/data/$v/$v-$d.json');
 			candidates.push('$base/data/$v/$d.json');
 			// Codename: songs/name/chart.json
@@ -157,9 +157,9 @@ class ModPathResolver
 			candidates.push('$base/songs/$v/$v-$d.json');
 			candidates.push('$base/songs/$v/$v.json');
 			// V-Slice: data/charts/{song}/{song}-chart.json  ←── NEW
-			// V-Slice use "data/charts/" as folder root of charts and the file
+			// V-Slice usa "data/charts/" como carpeta raíz de charts y el archivo
 			// se llama "{song}-chart.json" para la dificultad por defecto, o
-			// "{song}-{diff}.json" for specific difficulties.
+			// "{song}-{diff}.json" para dificultades específicas.
 			candidates.push('$base/data/charts/$v/$v-chart.json');
 			candidates.push('$base/data/charts/$v/$v-$d.json');
 			candidates.push('$base/data/charts/$v/$d.json');
@@ -203,7 +203,7 @@ class ModPathResolver
 	 *   • Voices.ogg          (combinadas — Psych ≤0.6 y fallback)
 	 *
 	 * Si el mod usa voces divididas, se devuelve la combinada como primera
-	 * option. The caller debe usar `voicesPlayer()` and `voicesOpponent()` if
+	 * opción. El caller debe usar `voicesPlayer()` y `voicesOpponent()` si
 	 * quiere las voces separadas para mezcla individual.
 	 */
 	public static function voices(song:String):Null<String>

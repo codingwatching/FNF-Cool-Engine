@@ -53,7 +53,7 @@ class ColorPickerWheel extends FlxSubState
 
 	var initialColor:FlxColor;
 
-	// ── Geometry ─────────────────────────────────────────────────────────────
+	// ── Geometría ─────────────────────────────────────────────────────────────
 	var panelX:Float;
 	var panelY:Float;
 	var wheelCX:Float;
@@ -100,7 +100,7 @@ class ColorPickerWheel extends FlxSubState
 		topBorder.scrollFactor.set();
 		add(topBorder);
 
-		// Title
+		// Título
 		var title = new FlxText(panelX, panelY + 8, PANEL_W, "HEALTH BAR COLOR", 14);
 		title.alignment = CENTER;
 		title.color = ACCENT;
@@ -108,7 +108,7 @@ class ColorPickerWheel extends FlxSubState
 		title.scrollFactor.set();
 		add(title);
 
-		// Separador under the title
+		// Separador bajo el título
 		var sep = new FlxSprite(panelX + 10, panelY + 28);
 		sep.makeGraphic(PANEL_W - 20, 1, 0x33FFFFFF);
 		sep.scrollFactor.set();
@@ -119,7 +119,7 @@ class ColorPickerWheel extends FlxSubState
 		wheelCX = panelX + PANEL_W / 2;
 		wheelCY = panelY + wheelOffY + WHEEL_SIZE / 2;
 		outerR  = WHEEL_SIZE / 2 - 2;
-		innerR  = outerR * 0.22; // anillo — the centro queda empty (BG)
+		innerR  = outerR * 0.22; // anillo — el centro queda vacío (BG)
 
 		wheelSprite = new FlxSprite(panelX + (PANEL_W - WHEEL_SIZE) / 2, panelY + wheelOffY);
 		wheelSprite.scrollFactor.set();
@@ -159,7 +159,7 @@ class ColorPickerWheel extends FlxSubState
 		briHandle.scrollFactor.set();
 		add(briHandle);
 
-		// ── Section of preview ────────────────────────────────────────────────
+		// ── Sección de preview ────────────────────────────────────────────────
 		var previewY = sliderY + 34;
 
 		var previewLabel = new FlxText(Std.int(sliderX), Std.int(previewY - 14), 120, "Preview:", 10);
@@ -209,23 +209,23 @@ class ColorPickerWheel extends FlxSubState
 		styleButton(cancelBtn, 0xFFFF4466, BG_DARK);
 		add(cancelBtn);
 
-		// ── Generate graphics iniciales ────────────────────────────────────────
+		// ── Generar gráficos iniciales ────────────────────────────────────────
 		rebuildWheelBitmap();
 		updateBrightnessSlider();
 		updateSelectorPosition();
 		updatePreviews();
 
-		// ── Animation of entry ──────────────────────────────────────────────
+		// ── Animación de entrada ──────────────────────────────────────────────
 		panel.y = panelY - 30;
 		panel.alpha = 0;
 		FlxTween.tween(panel, {y: panelY, alpha: 1}, 0.3, {ease: FlxEase.backOut});
 	}
 
-	// ── Generación of bitmaps ─────────────────────────────────────────────────
+	// ── Generación de bitmaps ─────────────────────────────────────────────────
 
 	/**
 	 * Genera la rueda HSB completa.
-	 * Angulo = Hue (0-360), Radio = Saturación (0=centro, 1=edge), Brillo = currentBri.
+	 * Angulo = Hue (0-360), Radio = Saturación (0=centro, 1=borde), Brillo = currentBri.
 	 * Solo se regenera cuando cambia el brillo.
 	 */
 	function rebuildWheelBitmap():Void
@@ -346,14 +346,14 @@ class ColorPickerWheel extends FlxSubState
 		// ── Inicio de drag ────────────────────────────────────────────────────
 		if (FlxG.mouse.justPressed)
 		{
-			// Inside of the wheel?
+			// ¿Dentro de la rueda?
 			var dx   = mx - wheelCX;
 			var dy   = my - wheelCY;
 			var dist = Math.sqrt(dx * dx + dy * dy);
 			if (dist <= outerR)
 				isDraggingWheel = true;
 
-			// Over the slider of brillo?
+			// ¿Sobre el slider de brillo?
 			if (mx >= sliderX && mx <= sliderX + sliderW
 				&& my >= sliderY - 4 && my <= sliderY + 20)
 				isDraggingBri = true;
@@ -378,7 +378,7 @@ class ColorPickerWheel extends FlxSubState
 			if (newHue < 0) newHue += 360;
 			hue = newHue;
 
-			// Saturación: clampar to the anillo
+			// Saturación: clampar al anillo
 			var rawSat = (Math.min(dist, outerR) - innerR) / (outerR - innerR);
 			sat   = Math.max(0.0, Math.min(1.0, rawSat));
 			dirty = true;

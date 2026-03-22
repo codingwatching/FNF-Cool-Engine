@@ -5,8 +5,8 @@ import sys.io.File;
 import sys.FileSystem;
 #end
 
-// ChartNote and ChartBPMChange are sub-types of the module ChartData.hx;
-// in Haxe require explicit import even if they're in the same package.
+// ChartNote y ChartBPMChange son sub-tipos del módulo ChartData.hx;
+// en Haxe requieren import explícito aunque estén en el mismo package.
 import funkin.data.charts.ChartData.ChartNote;
 import funkin.data.charts.ChartData.ChartBPMChange;
 
@@ -18,7 +18,7 @@ using StringTools;
  * Soporta:
  *  • Formato .sm  (StepMania 3/4/5 legacy)
  *  • Formato .ssc (StepMania 5 extendido)
- *  • Multiple difficulties in the mismo file
+ *  • Múltiples dificultades en el mismo archivo
  *  • Modos: dance-single (4), dance-double (8), pump-single (5), pump-double (10)
  *  • BPM changes y stops
  *  • Notas normales, holds, rolls, mines y lifts
@@ -32,15 +32,15 @@ using StringTools;
  *   #OFFSET:-0.009;          ← offset en segundos (negativo = notas antes)
  *   #BPMS:0.000=120.000,     ← beat=BPM, beat=BPM, ...
  *         64.000=140.000;
- *   #STOPS:;                 ← pausas (beat=duration in segundos)
+ *   #STOPS:;                 ← pausas (beat=duración en segundos)
  *
  *   #NOTES:
  *     dance-single:          ← tipo de modo
- *     :                      ← description (empty normally)
+ *     :                      ← descripción (vacío normalmente)
  *     Hard:                  ← dificultad
- *     10:                    ← meter (difficulty numérica)
+ *     10:                    ← meter (dificultad numérica)
  *     0.000,0.000,...:       ← groove radar
- *     0000                   ← medida (4 lines = 1 beat in 4ths)
+ *     0000                   ← medida (4 líneas = 1 beat en 4ths)
  *     0100
  *     0000
  *     0010
@@ -50,7 +50,7 @@ using StringTools;
  *
  * ─── Tipos de nota en .sm ────────────────────────────────────────────────────
  *
- *   0  → empty
+ *   0  → vacío
  *   1  → nota normal (tap)
  *   2  → inicio de hold
  *   3  → fin de hold
@@ -72,7 +72,7 @@ using StringTools;
  */
 class StepManiaParser
 {
-	// ── API public ────────────────────────────────────────────────────────
+	// ── API pública ────────────────────────────────────────────────────────
 
 	/**
 	 * Parsea un archivo .sm o .ssc desde el sistema de archivos.
@@ -165,7 +165,7 @@ class StepManiaParser
 
 		var activeNotes = difficulties.get(activeDiff) ?? [];
 
-		// Detect keyCount from the notes (maximum column + 1)
+		// Detectar keyCount desde las notas (máximo column + 1)
 		var keyCount = 4;
 		for (n in activeNotes)
 			if (n.column + 1 > keyCount) keyCount = n.column + 1;
@@ -233,7 +233,7 @@ class StepManiaParser
 		var keyCount = _keyCountFromType(noteType);
 		var notes    = _parseNoteData(noteData, keyCount, bpmChanges, stops);
 
-		// If already exists that difficulty, add suffix for no perderla
+		// Si ya existe esa dificultad, añadir sufijo para no perderla
 		var diffKey = difficulty;
 		var i = 2;
 		while (out.exists(diffKey)) diffKey = '$difficulty$i';
@@ -281,7 +281,7 @@ class StepManiaParser
 	 * a un array de ChartNote en ms.
 	 *
 	 * @param data        Bloque de texto con medidas (measures).
-	 * @param keyCount    Number of columnas.
+	 * @param keyCount    Número de columnas.
 	 * @param bpmChanges  Cambios de BPM ya con tiempo en ms.
 	 * @param stops       Paradas del nivel.
 	 */
@@ -345,7 +345,7 @@ class StepManiaParser
 						case 'L', 'l': // lift
 							notes.push({ time: timeMs, column: col, duration: 0.0, type: 'lift' });
 
-						// end of roll (also marked with '3' in SM)
+						// fin de roll (también marcado con '3' en SM)
 						// si hay un rollStart activo, lo cerramos
 						default:
 							if (ch == '3')
@@ -374,14 +374,14 @@ class StepManiaParser
 		return notes;
 	}
 
-	/** Clears a medida: quita espacios/lines vacías and returns the filas. */
+	/** Limpia una medida: quita espacios/líneas vacías y devuelve las filas. */
 	static function _cleanRows(measure:String, keyCount:Int):Array<String>
 	{
 		var rows:Array<String> = [];
 		for (line in measure.split('\n'))
 		{
 			var l = line.trim();
-			// A fila valid tiene exactly keyCount caracteres of note
+			// Una fila válida tiene exactamente keyCount caracteres de nota
 			if (l.length >= keyCount && ~/^[0-9A-Za-z]+$/.match(l))
 				rows.push(l);
 		}
@@ -434,7 +434,7 @@ class StepManiaParser
 
 	/**
 	 * Convierte los tiempos de bpmChanges de beats a ms (in-place).
-	 * The primer cambio always is in beat=0 → ms=0.
+	 * El primer cambio siempre está en beat=0 → ms=0.
 	 */
 	static function _bpmChangesBeatsToMs(changes:Array<ChartBPMChange>):Void
 	{
@@ -447,7 +447,7 @@ class StepManiaParser
 		for (i in 0...changes.length)
 		{
 			var ch   = changes[i];
-			var beat = ch.time; // still in beats
+			var beat = ch.time; // aún en beats
 
 			msAccum  += (beat - lastBeat) * (60000.0 / lastBpm);
 			ch.time   = msAccum;         // reemplazar beat por ms
@@ -478,7 +478,7 @@ class StepManiaParser
 		return lastMs + (beat - lastBeat) * (60000.0 / lastBpm);
 	}
 
-	/** Version raw (before of convert) that trabaja with beats as tiempo. */
+	/** Versión raw (antes de convertir) que trabaja con beats como tiempo. */
 	static function _beatToMsRaw(beat:Float, changes:Array<ChartBPMChange>):Float
 	{
 		if (changes.length == 0) return beat * 500.0;
@@ -487,7 +487,7 @@ class StepManiaParser
 		var lastBpm  = changes[0].bpm;
 		for (ch in changes)
 		{
-			var chBeat = ch.time; // still in beats in this fase
+			var chBeat = ch.time; // aún en beats en esta fase
 			if (chBeat > beat) break;
 			msAccum  += (chBeat - lastBeat) * (60000.0 / lastBpm);
 			lastBeat  = chBeat;
@@ -532,7 +532,7 @@ class StepManiaParser
 		return null;
 	}
 
-	/** Number of columnas according to the type of paso. */
+	/** Número de columnas según el tipo de paso. */
 	static function _keyCountFromType(noteType:String):Int
 	{
 		return switch (noteType)
@@ -546,7 +546,7 @@ class StepManiaParser
 			case 'ez2-single':     5;
 			case 'para-single':    5;
 			default:
-				// Try to extract number from the type (e.g. "kb7-single" → 7)
+				// Intentar extraer número del tipo (e.g. "kb7-single" → 7)
 				var rx = ~/(\d+)/;
 				if (rx.match(noteType)) Std.parseInt(rx.matched(1)) ?? 4 else 4;
 		};

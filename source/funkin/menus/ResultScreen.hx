@@ -255,13 +255,13 @@ class ResultScreen extends FlxSubState
 
 	function _buildBg():Void
 	{
-		// Solid color base — always is creates first to size complete.
+		// Solid color base — SIEMPRE se crea primero a tamaño completo.
 		// BUGFIX fondo negro: en cpp/desktop, loadGraphic() con un archivo
-		// inexistente or inaccesible no lanza excepción Haxe — OpenFL loguea
+		// inexistente o inaccesible NO lanza excepción Haxe — OpenFL loguea
 		// [ERROR] silenciosamente y puede dejar el sprite con textura nula.
-		// The try/catch of abajo no atrapa eso. Solution: verify existencia
+		// El try/catch de abajo no atrapa eso. Solución: verificar existencia
 		// con Paths.exists() ANTES de llamar loadGraphic(), y si carga bien,
-		// redimensionar to the size of screen with setGraphicSize + updateHitbox.
+		// redimensionar al tamaño de pantalla con setGraphicSize + updateHitbox.
 		bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, _getBgColor());
 		bg.scrollFactor.set(0, 0); // sin parallax para evitar bordes negros
 		bg.alpha = 0;
@@ -278,8 +278,8 @@ class ResultScreen extends FlxSubState
 			try
 			{
 				bg.loadGraphic(Paths.image('menu/menuBGBlue'));
-				// Force to size of screen — loadGraphic changes dimensiones
-				// to the size of the image, that puede no coincidir with the screen.
+				// Forzar a tamaño de pantalla — loadGraphic cambia dimensiones
+				// al tamaño de la imagen, que puede no coincidir con la pantalla.
 				bg.setGraphicSize(FlxG.width, FlxG.height);
 				bg.updateHitbox();
 				bg.color = _getBgColor();
@@ -287,7 +287,7 @@ class ResultScreen extends FlxSubState
 			}
 			catch (_)
 			{
-				// Load failed — return to safe solid color
+				// Falló la carga — volver al solid color seguro
 				bg.makeGraphic(FlxG.width, FlxG.height, _getBgColor());
 			}
 		}
@@ -786,7 +786,7 @@ class ResultScreen extends FlxSubState
 	function _buildRankBackdrop():Void
 	{
 		// BUGFIX: en cpp/desktop, FlxBackdrop con imagen inexistente loguea [ERROR]
-		// without lanzar excepción Haxe → try/catch no ayuda. Verify existencia first.
+		// sin lanzar excepción Haxe → try/catch NO ayuda. Verificar existencia primero.
 		final _vertKey  = 'images/menu/ratings/rankScrollVert_${currentRank}.png';
 		final _horzKey  = 'images/menu/ratings/rankScroll${currentRank}.png';
 
@@ -1036,8 +1036,8 @@ class ResultScreen extends FlxSubState
 		var e = currentRankEntry;
 		if (e?.bgColor != null && e.bgColor.length > 0)
 		{
-			// BUGFIX: FlxColor.fromString('#0xFF${and.bgColor}') produced black porque
-			// the string '#0xFF112233' tiene a prefix invalid — fromString it parsea
+			// BUGFIX: FlxColor.fromString('#0xFF${e.bgColor}') producía negro porque
+			// el string '#0xFF112233' tiene un prefijo inválido — fromString lo parsea
 			// como 9+ chars y falla, devolviendo null/0 (negro).
 			// Correcto: pasar solo el valor hex con el prefijo 0xFF para opacidad total.
 			var parsed = Std.parseInt('0xFF' + e.bgColor.replace('#', '').replace('0x', '').replace('0X', ''));

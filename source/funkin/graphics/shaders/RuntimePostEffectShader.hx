@@ -6,7 +6,7 @@ import flixel.graphics.frames.FlxFrame;
 import funkin.graphics.shaders.FunkinRuntimeShader;
 /**
  * Shader base para efectos de post-proceso.
- * Expone coordenadas of screen, camera and frame as uniforms.
+ * Expone coordenadas de pantalla, cámara y frame como uniforms.
  *
  * Portado de v-slice (FunkinCrew/Funkin).
  */
@@ -27,13 +27,13 @@ class RuntimePostEffectShader extends FunkinRuntimeShader
 	@:glFragmentHeader('
 		varying vec2 screenCoord;
 
-		// Resolution of screen (FlxG.width, FlxG.height)
+		// Resolución de pantalla (FlxG.width, FlxG.height)
 		uniform vec2 uScreenResolution;
 
-		// Limits of the camera (left, top, right, bottom)
+		// Límites de la cámara (left, top, right, bottom)
 		uniform vec4 uCameraBounds;
 
-		// Limits of the frame (left, top, right, bottom)
+		// Límites del frame (left, top, right, bottom)
 		uniform vec4 uFrameBounds;
 
 		// Convierte coord de pantalla a coord de mundo (px)
@@ -91,26 +91,26 @@ class RuntimePostEffectShader extends FunkinRuntimeShader
 	{
 		// Pasa vertex shader opcional al FunkinRuntimeShader base
 		super(fragmentSource, vertexSource);
-		// The uniforms pueden be null if the contexto GL still no is listo.
+		// Los uniforms pueden ser null si el contexto GL aún no está listo.
 		try { uScreenResolution.value = [FlxG.width, FlxG.height]; } catch (_:Dynamic) {}
 		try { uCameraBounds.value     = [0, 0, FlxG.width, FlxG.height]; } catch (_:Dynamic) {}
 		try { uFrameBounds.value      = [0, 0, FlxG.width, FlxG.height]; } catch (_:Dynamic) {}
 	}
 
 	/**
-	 * Updates the uniforms of resolution and limits of camera.
-	 * Call this when the camera or the size of screen changes.
+	 * Actualiza los uniforms de resolución y límites de cámara.
+	 * Llama esto cuando la cámara o el tamaño de pantalla cambia.
 	 */
 	public function updateViewInfo(screenWidth:Float, screenHeight:Float, camera:FlxCamera):Void
 	{
-		// Null-guard: the uniforms pueden be null if the GL program no compiló correctly
+		// Null-guard: los uniforms pueden ser null si el GL program no compiló correctamente
 		if (uScreenResolution != null) uScreenResolution.value = [screenWidth, screenHeight];
 		if (uCameraBounds != null && camera != null)
 			uCameraBounds.value = [camera.viewLeft, camera.viewTop, camera.viewRight, camera.viewBottom];
 	}
 
 	/**
-	 * Updates the uniforms of limits of frame.
+	 * Actualiza los uniforms de límites de frame.
 	 */
 	public function updateFrameInfo(frame:FlxFrame):Void
 	{
@@ -118,5 +118,5 @@ class RuntimePostEffectShader extends FunkinRuntimeShader
 			uFrameBounds.value = [frame.uv.left, frame.uv.top, frame.uv.right, frame.uv.bottom];
 	}
 
-	// __createGLProgram already is manejado in FunkinRuntimeShader with Log.warn()
+	// __createGLProgram ya está manejado en FunkinRuntimeShader con Log.warn()
 }

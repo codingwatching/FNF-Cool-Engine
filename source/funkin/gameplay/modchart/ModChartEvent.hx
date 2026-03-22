@@ -10,27 +10,27 @@ package funkin.gameplay.modchart;
  *       + fix de DRUNK_Y / NOTE_OFFSET_Y / BUMPY en NoteManager
  *
  *  MODIFICADORES DE STRUM:
- *    MOVE_X / MOVE_Y / SET_ABS_X / SET_ABS_Y   position
- *    ANGLE / SPIN                               rotation of the strum
+ *    MOVE_X / MOVE_Y / SET_ABS_X / SET_ABS_Y   posición
+ *    ANGLE / SPIN                               rotación del strum
  *    ALPHA / SCALE / SCALE_X / SCALE_Y          apariencia
  *    VISIBLE / RESET
  *
  *  MODIFICADORES PER-NOTA (EXISTENTES):
- *    DRUNK_X / DRUNK_Y  — onda senoidal in X/and according to strumTime of each note
+ *    DRUNK_X / DRUNK_Y  — onda senoidal en X/Y según strumTime de cada nota
  *    DRUNK_FREQ         — frecuencia de las ondas drunk (default 1.0)
- *    TORNADO            — rotation in onda according to strumTime (carrusel)
- *    CONFUSION          — rotation plana extra in each note
+ *    TORNADO            — rotación en onda según strumTime (carrusel)
+ *    CONFUSION          — rotación plana extra en cada nota
  *    SCROLL_MULT        — multiplicador de scroll speed (1.0 = normal, -1 = invertido)
- *    FLIP_X             — invierte position X of notes (0=normal, 1=espejo)
+ *    FLIP_X             — invierte posición X de notas (0=normal, 1=espejo)
  *    NOTE_OFFSET_X/Y    — offset plano para todas las notas
  *    BUMPY              — ola Y global por songPosition
  *    BUMPY_SPEED        — velocidad de bumpy (default 2.0)
  *
  *  MODIFICADORES PER-NOTA (NUEVOS v3):
- *    TIPSY              — ola X global by songPosition (vaivén horizontal)
+ *    TIPSY              — ola X global por songPosition (vaivén horizontal)
  *    TIPSY_SPEED        — velocidad de tipsy (default 1.0)
  *    INVERT             — scroll invertido local por strum (sin afectar downscroll global)
- *    ZIGZAG             — pattern X escalonado to/-to/to/-to basado in strumTime
+ *    ZIGZAG             — patrón X escalonado A/-A/A/-A basado en strumTime
  *    ZIGZAG_FREQ        — frecuencia del zigzag (default 1.0)
  *    WAVE               — ola Y viajante (desfase por strumTime, velocidad por songPos)
  *    WAVE_SPEED         — velocidad de wave (default 1.5)
@@ -38,19 +38,19 @@ package funkin.gameplay.modchart;
  *    STEALTH            — notas invisibles pero hiteables (1=stealth, 0=visible)
  *    NOTE_ALPHA         — alpha multiplicador per-nota independiente del strum
  *
- *  CONTROL of camera:
+ *  CONTROL DE CÁMARA:
  *    CAM_ZOOM / CAM_MOVE_X / CAM_MOVE_Y / CAM_ANGLE
  */
 
 enum abstract ModEventType(String) from String to String
 {
-    // ── Strum – Position ──────────────────────────────────────────────────
+    // ── Strum – Posición ──────────────────────────────────────────────────
     var MOVE_X        = "moveX";
     var MOVE_Y        = "moveY";
     var SET_ABS_X     = "setAbsX";
     var SET_ABS_Y     = "setAbsY";
 
-    // ── Strum – Rotation / apariencia ─────────────────────────────────────
+    // ── Strum – Rotación / apariencia ─────────────────────────────────────
     var ANGLE         = "angle";
     var SPIN          = "spin";
     var ALPHA         = "alpha";
@@ -65,11 +65,11 @@ enum abstract ModEventType(String) from String to String
     var DRUNK_Y       = "drunkY";
     var DRUNK_FREQ    = "drunkFreq";
 
-    // ── Per-note – Rotation ───────────────────────────────────────────────
+    // ── Per-nota – Rotación ───────────────────────────────────────────────
     var TORNADO       = "tornado";
     var CONFUSION     = "confusion";
 
-    // ── Per-note – Scroll / Position ──────────────────────────────────────
+    // ── Per-nota – Scroll / Posición ──────────────────────────────────────
     var SCROLL_MULT   = "scrollMult";
     var FLIP_X        = "flipX";
     var NOTE_OFFSET_X = "noteOffsetX";
@@ -80,7 +80,7 @@ enum abstract ModEventType(String) from String to String
     var BUMPY_SPEED   = "bumpySpeed";
 
     // ── Per-nota – Tipsy (ola X global por songPosition) — NUEVO ─────────
-    /** Ondulación X sincronizada by songPosition (all the notes of the strum
+    /** Ondulación X sincronizada por songPosition (todas las notas del strum
      *  oscilan juntas en X). Complementario a bumpy.
      *  offsetX += tipsy * sin(songPos * 0.001 * tipsySpeed) */
     var TIPSY         = "tipsy";
@@ -89,15 +89,15 @@ enum abstract ModEventType(String) from String to String
 
     // ── Per-nota – Invert (scroll invertido local) — NUEVO ────────────────
     /** Invierte el eje de scroll solo para este strum (1=invertido, 0=normal).
-     *  Allows have notes "to the revés" without change the downscroll global. */
+     *  Permite tener notas "al revés" sin cambiar el downscroll global. */
     var INVERT        = "invert";
 
-    // ── Per-note – Zigzag (pattern escalonado in X) — new ───────────────
-    /** Desplaza notes in X alternando +amp/-amp/+amp/-amp according to strumTime.
-     *  Produce a pattern escalonado type "zigzag".
+    // ── Per-nota – Zigzag (patrón escalonado en X) — NUEVO ───────────────
+    /** Desplaza notas en X alternando +amp/-amp/+amp/-amp según strumTime.
+     *  Produce un patrón escalonado tipo "zigzag".
      *  offsetX += zigzag * sign(sin(strumTime * 0.001 * zigzagFreq * PI)) */
     var ZIGZAG        = "zigzag";
-    /** Frecuencia of the pattern zigzag (default 1.0). */
+    /** Frecuencia del patrón zigzag (default 1.0). */
     var ZIGZAG_FREQ   = "zigzagFreq";
 
     // ── Per-nota – Wave (ola Y viajante por strumTime) — NUEVO ───────────
@@ -120,7 +120,7 @@ enum abstract ModEventType(String) from String to String
      *  Alpha final de la nota = noteAlpha * strum.alpha */
     var NOTE_ALPHA    = "noteAlpha";
 
-    // ── Camera ────────────────────────────────────────────────────────────
+    // ── Cámara ────────────────────────────────────────────────────────────
     var CAM_ZOOM      = "camZoom";
     var CAM_MOVE_X    = "camMoveX";
     var CAM_MOVE_Y    = "camMoveY";
@@ -156,15 +156,15 @@ typedef ModChartEvent =
     var id        : String;
     var beat      : Float;
     /**
-     * "player" | "cpu" | "all" | id-of-grupo specific
-     * For CAM_* this field is ignora (always afecta the camera global).
+     * "player" | "cpu" | "all" | id-de-grupo específico
+     * Para CAM_* este campo se ignora (siempre afecta la cámara global).
      */
     var target    : String;
     /** -1 = todos los strums del grupo, 0-3 = individual. */
     var strumIdx  : Int;
     var type      : ModEventType;
     var value     : Float;
-    /** Duration in beats. 0 or negativo = instant. */
+    /** Duración en beats. 0 o negativo = instantáneo. */
     var duration  : Float;
     var ease      : ModEase;
     var label     : String;

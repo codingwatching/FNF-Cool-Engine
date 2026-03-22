@@ -2,7 +2,7 @@ package funkin.data.charts;
 
 import funkin.data.Song;
 
-// ChartBPMChange is a sub-type of the ChartData.hx module; requires explicit import.
+// ChartBPMChange es sub-tipo del módulo ChartData.hx; requiere import explícito.
 import funkin.data.charts.ChartData.ChartBPMChange;
 
 /**
@@ -17,7 +17,7 @@ import funkin.data.charts.ChartData.ChartBPMChange;
  *   PlayState.SONG = song;
  *   FlxG.switchState(new PlayState());
  *
- *   // From StepMania with difficulty specific
+ *   // Desde StepMania con dificultad específica
  *   var data = StepManiaParser.fromFile('charts/song.sm', 'Hard');
  *   var song = ChartConverter.toSwagSong(data, { playerLane: 'left' });
  *   PlayState.SONG = song;
@@ -34,19 +34,19 @@ import funkin.data.charts.ChartData.ChartBPMChange;
  *
  * ─── Limitaciones ────────────────────────────────────────────────────────────
  *
- *   • Charts with more of 8 carriles is recortan to 8.
+ *   • Charts con más de 8 carriles se recortan a 8.
  *   • Los tipos 'mine', 'lift' y 'roll' se mapean a notas normales
  *     (FNF no tiene esos tipos de nota por defecto).
  *   • Las secciones se crean de 4 beats (16 steps) — el BPM de cada
- *     section is toma of the primer cambio of BPM that ocurre in ella.
+ *     sección se toma del primer cambio de BPM que ocurre en ella.
  */
 class ChartConverter
 {
 	// ── Constantes ─────────────────────────────────────────────────────────
 
-	/** Steps by section in FNF. */
+	/** Steps por sección en FNF. */
 	static inline final STEPS_PER_SECTION = 16;
-	/** Beats by section in FNF. */
+	/** Beats por sección en FNF. */
 	static inline final BEATS_PER_SECTION = 4;
 
 	// ── API principal ──────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ class ChartConverter
 	 * Convierte un ChartData al SwagSong esperado por PlayState.
 	 *
 	 * @param data     ChartData devuelto por OsuManiaParser o StepManiaParser.
-	 * @param options  Options opcionales of conversion.
+	 * @param options  Opciones opcionales de conversión.
 	 * @return         SwagSong listo para asignar a PlayState.SONG.
 	 */
 	public static function toSwagSong(data:ChartData,
@@ -66,7 +66,7 @@ class ChartConverter
 		var opts = options ?? {};
 		var swapLanes = (opts.playerLane ?? 'left') == 'right';
 
-		// ── Calculate duration total of the song ──────────────────────────
+		// ── Calcular duración total de la canción ──────────────────────────
 		var totalMs = 0.0;
 		for (n in data.notes)
 		{
@@ -82,7 +82,7 @@ class ChartConverter
 
 		var numSections = Math.ceil(totalMs / sectionMs) + 1;
 
-		// Precalcular BPM by section usando bpmChanges
+		// Precalcular BPM por sección usando bpmChanges
 		var sectionBpms:Array<Float> = [];
 		for (s in 0...numSections)
 		{
@@ -90,7 +90,7 @@ class ChartConverter
 			sectionBpms.push(_getBpmAtTime(sectionStartMs, data.bpmChanges, data.bpm));
 		}
 
-		// Create sections vacías
+		// Crear secciones vacías
 		for (s in 0...numSections)
 		{
 			var secBpm    = sectionBpms[s];
@@ -117,7 +117,7 @@ class ChartConverter
 			var noteTime   = note.time + data.offset;
 			var noteColumn = note.column;
 
-			// Limitar to 8 carriles maximum
+			// Limitar a 8 carriles máximo
 			if (noteColumn >= 8) continue;
 
 			// Determinar si es nota del jugador o del oponente
@@ -129,7 +129,7 @@ class ChartConverter
 			else
 				fnfColumn = swapLanes ? noteColumn - 4 : noteColumn;
 
-			// Hallar the section correct
+			// Hallar la sección correcta
 			var secIdx = _sectionForTime(noteTime, sectionBpms, data.bpm);
 			if (secIdx >= sections.length) secIdx = sections.length - 1;
 
@@ -139,7 +139,7 @@ class ChartConverter
 		}
 
 		// ── Ajustar mustHitSection ─────────────────────────────────────────
-		// A section is "mustHit" if the majority of notes are of the player (0–3)
+		// Una sección es "mustHit" si la mayoría de notas son del jugador (0–3)
 		for (sec in sections)
 		{
 			var playerNotes = 0;
@@ -183,7 +183,7 @@ class ChartConverter
 		return bpm;
 	}
 
-	/** Returns the index of section for a tiempo ms dado. */
+	/** Devuelve el índice de sección para un tiempo ms dado. */
 	static function _sectionForTime(ms:Float, sectionBpms:Array<Float>,
 		defaultBpm:Float):Int
 	{
@@ -198,7 +198,7 @@ class ChartConverter
 	}
 }
 
-// ── Options of conversion ─────────────────────────────────────────────────────
+// ── Opciones de conversión ─────────────────────────────────────────────────────
 
 typedef ConvertOptions =
 {
@@ -210,14 +210,14 @@ typedef ConvertOptions =
 	var ?player1:String;
 	/** Skin de player 2. Default: 'dad'. */
 	var ?player2:String;
-	/** Version of GF. Default: 'gf'. */
+	/** Versión de GF. Default: 'gf'. */
 	var ?gf:String;
 	/** Stage. Default: 'stage'. */
 	var ?stage:String;
 }
 
 // ── Tipos FNF ──────────────────────────────────────────────────────────────────
-// Local redefinition to avoid depending on Song.hx on all targets.
+// Redefinición local para no depender de Song.hx en todos los targets.
 
 typedef SwagSection =
 {

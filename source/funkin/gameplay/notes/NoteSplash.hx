@@ -8,20 +8,20 @@ import funkin.gameplay.notes.NoteSkinSystem.NoteSplashData;
 /**
  * Splash visual que aparece al golpear una nota normal.
  *
- * Basado in the pattern limpio of v-slice (NoteSplash.hx):
- * - Responsabilidad single: splashes of hit, without no code of hold
+ * Basado en el patrón limpio de v-slice (NoteSplash.hx):
+ * - Responsabilidad única: splashes de hit, sin ningún código de hold
  * - Object pooling con kill()/revive()
  * - Animaciones registradas una sola vez; se reaprovechan entre reciclajes
- * - Skin soportada via NoteSkinSystem
+ * - Skin soportada vía NoteSkinSystem
  *
  * Para splashes de hold notes, ver NoteHoldCover.hx
  */
 class NoteSplash extends FlxSprite
 {
-	/** Direction of the note (0=left 1=down 2=up 3=right). */
+	/** Dirección de la nota (0=left 1=down 2=up 3=right). */
 	public var noteData:Int = 0;
 
-	/** true while the splash is in uso (no in the pool). */
+	/** true mientras el splash está en uso (no en el pool). */
 	public var inUse:Bool = false;
 
 	/** Nombre del splash skin con el que se cargaron los frames actuales. */
@@ -39,21 +39,21 @@ class NoteSplash extends FlxSprite
 		kill();
 	}
 
-	// ─────────────── API public ──────────────────────────────────────────────
+	// ─────────────── API pública ──────────────────────────────────────────────
 
 	/**
 	 * Inicializar/reciclar el splash para una nota.
 	 *
-	 * @param x          Position X
-	 * @param and          Position and
+	 * @param x          Posición X
+	 * @param y          Posición Y
 	 * @param noteData   Columna de la nota (0-3)
 	 * @param splashName Skin de splash (null = currentSplash)
 	 */
 	public function setup(x:Float, y:Float, noteData:Int = 0, ?splashName:String):Void
 	{
 		this.noteData = noteData;
-		// The offset is applies after of load frames (ver _loadFrames).
-		// Saved in _splashOffsetX/and and re-appliesdo here in each reuse.
+		// El offset se aplica después de cargar frames (ver _loadFrames).
+		// Guardado en _splashOffsetX/Y y re-aplicado aquí en cada reuse.
 		this.x = x + _splashOffsetX;
 		this.y = y + _splashOffsetY;
 		inUse = true;
@@ -68,7 +68,7 @@ class NoteSplash extends FlxSprite
 			return;
 		}
 
-		// Only reload atlas if the skin changed or the bitmap was destruido
+		// Solo recargar atlas si el skin cambió o el bitmap fue destruido
 		@:privateAccess
 		var needsReload = (_loadedSplash != targetSplash)
 			|| frames == null
@@ -77,7 +77,7 @@ class NoteSplash extends FlxSprite
 
 		if (needsReload)
 		{
-			// Reset offset before of load — _loadFrames it recalculará
+			// Reset offset antes de cargar — _loadFrames lo recalculará
 			_splashOffsetX = 0.0;
 			_splashOffsetY = 0.0;
 			if (!_loadFrames(splashData, targetSplash))
@@ -86,7 +86,7 @@ class NoteSplash extends FlxSprite
 				return;
 			}
 			_loadedSplash = targetSplash;
-			// Re-appliesr the offset now that _loadFrames it calculó
+			// Re-aplicar el offset ahora que _loadFrames lo calculó
 			this.x = x + _splashOffsetX;
 			this.y = y + _splashOffsetY;
 		}
@@ -117,7 +117,7 @@ class NoteSplash extends FlxSprite
 
 	/**
 	 * Cargar el atlas y registrar todas las animaciones.
-	 * Only is call when the skin realmente changed.
+	 * Solo se llama cuando el skin realmente cambió.
 	 */
 	private function _loadFrames(splashData:NoteSplashData, splashName:String):Bool
 	{
@@ -163,7 +163,7 @@ class NoteSplash extends FlxSprite
 	}
 
 	/**
-	 * Play a variante aleatoria of the direction indicada.
+	 * Reproducir una variante aleatoria de la dirección indicada.
 	 */
 	private function _playRandomAnim(splashData:NoteSplashData, noteData:Int):Void
 	{

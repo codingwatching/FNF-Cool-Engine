@@ -6,7 +6,7 @@ import sys.FileSystem;
 import Paths;
 
 /**
- * Types of estilos of dialogue
+ * Tipos de estilos de diálogo
  */
 enum DialogueStyle {
     PIXEL;
@@ -15,7 +15,7 @@ enum DialogueStyle {
 }
 
 /**
- * Types of burbujas of dialogue
+ * Tipos de burbujas de diálogo
  */
 enum BubbleType {
     NORMAL;
@@ -26,48 +26,48 @@ enum BubbleType {
 }
 
 /**
- * Configuration of a portrait personalizado
+ * Configuración de un portrait personalizado
  */
 typedef PortraitConfig = {
     var name:String;              // Nombre del portrait
     var fileName:String;          // Nombre del archivo (sin ruta)
-    var ?x:Float;                 // Position X
-    var ?and:Float;                 // Position and
+    var ?x:Float;                 // Posición X
+    var ?y:Float;                 // Posición Y
     var ?scaleX:Float;            // Escala X
     var ?scaleY:Float;            // Escala Y
     var ?flipX:Bool;              // Voltear horizontalmente
-    var ?animation:String;        // Nombre of the animation
+    var ?animation:String;        // Nombre de la animación
 }
 
 /**
- * Configuration of a caja of dialogue personalizada
+ * Configuración de una caja de diálogo personalizada
  */
 typedef BoxConfig = {
     var name:String;              // Nombre de la caja
     var fileName:String;          // Nombre del archivo (sin ruta)
-    var ?x:Float;                 // Position X
-    var ?and:Float;                 // Position and
+    var ?x:Float;                 // Posición X
+    var ?y:Float;                 // Posición Y
     var ?width:Int;               // Ancho
     var ?height:Int;              // Alto
     var ?scaleX:Float;            // Escala X
     var ?scaleY:Float;            // Escala Y
-    var ?animation:String;        // Animation to usar
+    var ?animation:String;        // Animación a usar
 }
 
 /**
- * Configuration of position of the text
+ * Configuración de posición del texto
  */
 typedef TextConfig = {
-    var ?x:Float;                 // Position X of the text
-    var ?and:Float;                 // Position and of the text
-    var ?width:Int;               // Width of the area of text
-    var ?size:Int;                // Size of font
+    var ?x:Float;                 // Posición X del texto
+    var ?y:Float;                 // Posición Y del texto
+    var ?width:Int;               // Ancho del área de texto
+    var ?size:Int;                // Tamaño de fuente
     var ?font:String;             // Fuente
     var ?color:String;            // Color del texto (hex)
 }
 
 /**
- * Configuration complete of a skin of dialogue
+ * Configuración completa de una skin de diálogo
  */
 typedef DialogueSkin = {
     var name:String;                              // Nombre de la skin
@@ -76,34 +76,34 @@ typedef DialogueSkin = {
     var ?fadeTime:Float;                          // Tiempo de fade (default: 0.83)
     var portraits:Map<String, PortraitConfig>;    // Portraits de la skin
     var boxes:Map<String, BoxConfig>;             // Cajas de la skin
-    var ?textConfig:TextConfig;                   // Configuration of the text
+    var ?textConfig:TextConfig;                   // Configuración del texto
 }
 
 /**
- * Datos of a mensaje individual of dialogue
+ * Datos de un mensaje individual de diálogo
  */
 typedef DialogueMessage = {
     var character:String;           // 'dad' o 'bf' o nombre personalizado
-    var text:String;               // Text of the dialogue
+    var text:String;               // Texto del diálogo
     var ?bubbleType:String;        // 'normal', 'loud', 'angry', 'evil'
     var ?speed:Float;              // Velocidad del texto (default: 0.04)
     var ?portrait:String;          // Nombre del portrait a usar
     var ?boxSprite:String;         // Nombre de la caja a usar
-    var ?music:String;             // Music of fondo (optional)
+    var ?music:String;             // Música de fondo (opcional)
     var ?sound:String;             // Sonido del texto (opcional)
 }
 
 /**
- * Datos of a conversation (only mensajes + reference to skin)
+ * Datos de una conversación (solo mensajes + referencia a skin)
  */
 typedef DialogueConversation = {
-    var name:String;                // Name of the conversation
+    var name:String;                // Nombre de la conversación
     var skinName:String;            // Nombre de la skin a usar
     var messages:Array<DialogueMessage>;
 }
 
 /**
- * Class for handle datos of dialogues and skins
+ * Clase para manejar datos de diálogos y skins
  */
 class DialogueData {
     /**
@@ -181,9 +181,9 @@ class DialogueData {
     }
     
     /**
-     * Get path of a dialogue of a song
-     * @param songName Nombre of the song
-     * @param dialogueType Type of dialogue: 'intro' or 'outro' (default: 'intro')
+     * Obtener ruta de un diálogo de una canción
+     * @param songName Nombre de la canción
+     * @param dialogueType Tipo de diálogo: 'intro' o 'outro' (default: 'intro')
      */
     public static function getSongDialoguePath(songName:String, ?dialogueType:String = 'intro'):String {
         return Paths.resolve('songs/${songName.toLowerCase()}/${dialogueType}.json');
@@ -218,7 +218,7 @@ class DialogueData {
     }
     
     /**
-     * Load configuration of a skin
+     * Cargar configuración de una skin
      */
     public static function loadSkin(skinName:String):DialogueSkin {
         var path = getSkinConfigPath(skinName);
@@ -245,7 +245,7 @@ class DialogueData {
         }
         
         try {
-            // Parsear JSON to object dynamic first
+            // Parsear JSON a objeto dinámico primero
             var jsonData:Dynamic = Json.parse(jsonContent);
             
             // Convertir objetos JSON a Maps
@@ -286,7 +286,7 @@ class DialogueData {
     }
     
     /**
-     * Save configuration of a skin
+     * Guardar configuración de una skin
      */
     public static function saveSkin(skinName:String, skin:DialogueSkin):Bool {
         #if sys
@@ -335,9 +335,9 @@ class DialogueData {
     }
     
     /**
-     * Load conversation of dialogue
-     * @param songName Nombre of the song
-     * @param dialogueType Type of dialogue: 'intro' or 'outro' (default: 'intro')
+     * Cargar conversación de diálogo
+     * @param songName Nombre de la canción
+     * @param dialogueType Tipo de diálogo: 'intro' o 'outro' (default: 'intro')
      */
     public static function loadConversation(songName:String, ?dialogueType:String = 'intro'):DialogueConversation {
         var path = getSongDialoguePath(songName, dialogueType);
@@ -388,10 +388,10 @@ class DialogueData {
     }
     
     /**
-     * Save conversation of dialogue
-     * @param songName Nombre of the song
-     * @param conversation Datos of the conversation
-     * @param dialogueType Type of dialogue: 'intro' or 'outro' (default: 'intro')
+     * Guardar conversación de diálogo
+     * @param songName Nombre de la canción
+     * @param conversation Datos de la conversación
+     * @param dialogueType Tipo de diálogo: 'intro' o 'outro' (default: 'intro')
      */
     public static function saveConversation(songName:String, conversation:DialogueConversation, ?dialogueType:String = 'intro'):Bool {
         #if sys
@@ -464,7 +464,7 @@ class DialogueData {
         try {
             var skins:Array<String> = [];
 
-            // Function internal: escanear a folder base and add skins to the array
+            // Función interna: escanear una carpeta base y añadir skins al array
             function scanBase(basePath:String):Void {
                 if (basePath == null || !FileSystem.exists(basePath)) return;
                 for (item in FileSystem.readDirectory(basePath)) {
@@ -496,7 +496,7 @@ class DialogueData {
     }
     
     /**
-     * Create a skin empty
+     * Crear una skin vacía
      */
     public static function createEmptySkin(skinName:String, style:String = 'pixel'):DialogueSkin {
         return {
@@ -518,7 +518,7 @@ class DialogueData {
     }
     
     /**
-     * Create conversation empty
+     * Crear conversación vacía
      */
     public static function createEmptyConversation(name:String, skinName:String):DialogueConversation {
         return {
@@ -529,7 +529,7 @@ class DialogueData {
     }
     
     /**
-     * Get color of fondo by default according to the estilo
+     * Obtener color de fondo por defecto según el estilo
      */
     public static function getDefaultBackgroundColor(style:String):String {
         return switch(style.toLowerCase()) {
@@ -540,7 +540,7 @@ class DialogueData {
     }
     
     /**
-     * Create configuration of portrait
+     * Crear configuración de portrait
      */
     public static function createPortraitConfig(name:String, fileName:String):PortraitConfig {
         return {
@@ -556,7 +556,7 @@ class DialogueData {
     }
     
     /**
-     * Create configuration of caja
+     * Crear configuración de caja
      */
     public static function createBoxConfig(name:String, fileName:String):BoxConfig {
         return {

@@ -11,17 +11,17 @@ import funkin.transitions.StateTransition;
 import funkin.states.MusicBeatState;
 
 /**
- * EditorHubState — Menu central of editores of the engine.
+ * EditorHubState — Menú central de editores del engine.
  *
  * Acceso desde MainMenuState pulsando [3] en Developer Mode.
  *
  * Editores disponibles:
- *   • Animation Debug  — editor of characters and offsets of animation
+ *   • Animation Debug  — editor de personajes y offsets de animación
  *   • Story Menu       — editor visual de semanas del Story Mode
- *   • Menu Editor      — editor of menus personalizados
+ *   • Menu Editor      — editor de menús personalizados
  *   • Stage Editor     — editor de stages
  *   • Chart Editor     — editor de notas / charting
- *   • Dialogue Editor  — editor of dialogues/cutscenes
+ *   • Dialogue Editor  — editor de diálogos/cutscenes
  */
 class EditorHubState extends MusicBeatState
 {
@@ -74,13 +74,13 @@ class EditorHubState extends MusicBeatState
 		bg.scrollFactor.set();
 		add(bg);
 
-		// Lines of cuadrícula decorativas
+		// Líneas de cuadrícula decorativas
 		_buildGrid();
 
 		// Glow central
 		_glow = new FlxSprite(0, 0);
 		_glow.makeGraphic(800, 800, FlxColor.TRANSPARENT);
-		// Effect radial manual with círculos concéntricos
+		// Efecto radial manual con círculos concéntricos
 		for (r in [400, 300, 200, 100])
 		{
 			var c:FlxColor = FlxColor.fromInt(C_ACCENT);
@@ -91,7 +91,7 @@ class EditorHubState extends MusicBeatState
 			add(dot);
 		}
 
-		// ── Title
+		// ── Título
 		_title = new FlxText(0, 28, FlxG.width, "EDITOR HUB", 32);
 		_title.alignment = CENTER;
 		_title.color = C_ACCENT;
@@ -106,7 +106,7 @@ class EditorHubState extends MusicBeatState
 		sub.scrollFactor.set();
 		add(sub);
 
-		// Line accent under the title
+		// Línea accent bajo el título
 		var line = new FlxSprite(0, sub.y + sub.height + 10);
 		line.makeGraphic(FlxG.width, 1, C_ACCENT);
 		line.alpha = 0.18;
@@ -116,7 +116,7 @@ class EditorHubState extends MusicBeatState
 		// ── Cards de editores (2 columnas × 3 filas)
 		_buildCards();
 
-		// ── Hints of navigation
+		// ── Hints de navegación
 		_hint = new FlxText(0, FlxG.height - 28, FlxG.width, "UP/DOWN/LEFT/RIGHT Browse   ENTER Open   ESC Main Menu", 11);
 		_hint.alignment = CENTER;
 		_hint.color = C_SUBTEXT;
@@ -142,7 +142,7 @@ class EditorHubState extends MusicBeatState
 		FlxG.camera.fade(FlxColor.BLACK, 0.25, true);
 	}
 
-	// ── Build of grid decorativo ──────────────────────────────────────
+	// ── Construcción de grid decorativo ──────────────────────────────────────
 
 	function _buildGrid():Void
 	{
@@ -166,7 +166,7 @@ class EditorHubState extends MusicBeatState
 		}
 	}
 
-	// ── Build of cards ─────────────────────────────────────────────────
+	// ── Construcción de cards ─────────────────────────────────────────────────
 
 	function _buildCards():Void
 	{
@@ -242,7 +242,7 @@ class EditorHubState extends MusicBeatState
 		}
 	}
 
-	// ── Selection visual ──────────────────────────────────────────────────────
+	// ── Selección visual ──────────────────────────────────────────────────────
 
 	function _updateSelection(idx:Int, instant:Bool = false):Void
 	{
@@ -309,7 +309,7 @@ class EditorCard extends flixel.group.FlxSpriteGroup
 		_border.makeGraphic(3, ch, accent);
 		add(_border);
 
-		// Icon
+		// Ícono
 		_icon = new FlxText(14, 12, 0, icon, 28);
 		_icon.color = FlxColor.fromInt(accent);
 		_icon.font = Paths.font("vcr.ttf");
@@ -321,7 +321,7 @@ class EditorCard extends flixel.group.FlxSpriteGroup
 		_name.font = Paths.font("vcr.ttf");
 		add(_name);
 
-		// Description
+		// Descripción
 		_desc = new FlxText(14, _name.y + _name.height + 5, cw - 20, desc, 10);
 		_desc.color = 0xFF8888AA;
 		_desc.font = Paths.font("vcr.ttf");

@@ -28,10 +28,10 @@ class MusicBeatSubstate extends FlxSubState
 	private var curBeat:Int = 0;
 	private var controls(get, never):Controls;
 
-	// Cache for search incremental in bpmChangeMap (misma optimization that MusicBeatState)
+	// Cache para búsqueda incremental en bpmChangeMap (misma optimización que MusicBeatState)
 	private var _bpmIdx:Int = 0;
 
-	/** If true, load automatically scripts from assets/states/{ClassName}/
+	/** Si true, carga automáticamente scripts desde assets/states/{ClassName}/
 	 *  y rutas de mods al crear el substate. */
 	public var autoScriptLoad:Bool = true;
 
@@ -116,9 +116,9 @@ class MusicBeatSubstate extends FlxSubState
 	 * Carga scripts para este substate desde todas las rutas posibles.
 	 * Igual que MusicBeatState pero para substates (PauseSubState, GameOverSubstate…).
 	 *
-	 * note: StateScriptHandler is static. If the state padre also tiene
-	 * scripts active, abrirlos here the reemplazará. This is intencional —
-	 * the substates tienen its own contexto of scripting while are abiertos.
+	 * NOTA: StateScriptHandler es estático. Si el state padre también tiene
+	 * scripts activos, abrirlos aquí los reemplazará. Esto es intencional —
+	 * los substates tienen su propio contexto de scripting mientras están abiertos.
 	 */
 	function _autoLoadSubScripts():Void
 	{
@@ -151,7 +151,7 @@ class MusicBeatSubstate extends FlxSubState
 	// ─── BPM / Beat ───────────────────────────────────────────────────────────
 
 	/**
-	 * Search incremental or(1) amortizado — igual that MusicBeatState.
+	 * Búsqueda incremental O(1) amortizado — igual que MusicBeatState.
 	 */
 	private function updateCurStep():Void
 	{

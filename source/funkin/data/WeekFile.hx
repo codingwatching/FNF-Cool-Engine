@@ -19,7 +19,7 @@ using StringTools;
  *     week2.json
  *     ...
  *
- *   mods/{mod}/data/storymenu/weeks/      ← mod override / extension
+ *   mods/{mod}/data/storymenu/weeks/      ← mod override / extensión
  *     myWeek.json
  *
  * ─── Formato de cada week JSON ───────────────────────────────────────────────
@@ -35,17 +35,17 @@ using StringTools;
  *   "order":          1
  * }
  *
- * ─── Backwards compatibility ───────────────────────────────────────────────
+ * ─── Compatibilidad hacia atrás ───────────────────────────────────────────────
  *
  * Si la carpeta weeks/ no existe, se lee el antiguo songList.json y se
- * extract the weeks that had weekName or story mode data.
+ * extraen las semanas que tenían weekName o datos de story mode.
  * Los archivos legacy NO se modifican.
  *
  * @version 1.0.0
  */
 typedef WeekData =
 {
-	/** Identificador unique (name of the file without extension). */
+	/** Identificador único (nombre del archivo sin extensión). */
 	@:optional var id             : String;
 	var weekName        : String;
 	@:optional var weekPath       : String;
@@ -55,7 +55,7 @@ typedef WeekData =
 	/** Color hex de la barra amarilla, ej: "0xFFAF66CE" */
 	@:optional var color          : String;
 	@:optional var locked         : Bool;
-	/** Orden of aparición. If no is especifica is use the orden of reading. */
+	/** Orden de aparición. Si no se especifica se usa el orden de lectura. */
 	@:optional var order          : Int;
 }
 
@@ -68,7 +68,7 @@ class WeekFile
 
 	/**
 	 * Carga TODAS las semanas en orden (base + mod).
-	 * The mod puede add weeks nuevas or sobreescribir the base by id.
+	 * El mod puede añadir semanas nuevas o sobreescribir las base por id.
 	 * Las semanas se ordenan por `order` (si existe) o por orden de lectura.
 	 */
 	public static function loadAll():Array<WeekData>
@@ -80,7 +80,7 @@ class WeekFile
 		// ── 1. Base game weeks ────────────────────────────────────────────────
 		_readFolder(WEEKS_DIR_BASE, byId, order);
 
-		// ── 2. Mod weeks (adds or sobreescribe by id) ────────────────────────
+		// ── 2. Mod weeks (añade o sobreescribe por id) ────────────────────────
 		if (mods.ModManager.isActive())
 			_readFolder('${mods.ModManager.modRoot()}/$WEEKS_DIR_MOD', byId, order);
 
@@ -92,7 +92,7 @@ class WeekFile
 		// Construir array final ordenado
 		var weeks:Array<WeekData> = [for (id in order) if (byId.exists(id)) byId.get(id)];
 
-		// Ordenar by field `order` if is presente in alguna week
+		// Ordenar por campo `order` si está presente en alguna semana
 		final hasOrder = Lambda.exists(weeks, w -> w.order != null);
 		if (hasOrder)
 			weeks.sort((a, b) -> (a.order ?? 999) - (b.order ?? 999));
@@ -102,7 +102,7 @@ class WeekFile
 	}
 
 	/**
-	 * Load a week specific by id (nombre of file without .json).
+	 * Carga una semana específica por id (nombre de archivo sin .json).
 	 */
 	public static function loadById(id:String):Null<WeekData>
 	{
@@ -188,7 +188,7 @@ class WeekFile
 
 	/**
 	 * Fallback: construye semanas desde el antiguo songList.json.
-	 * Only is incluyen entries that tenían `weekName` or datos of characters/story.
+	 * Solo se incluyen entradas que tenían `weekName` o datos de personajes/story.
 	 */
 	static function _fromLegacy():Array<WeekData>
 	{

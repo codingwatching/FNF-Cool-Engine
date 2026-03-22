@@ -15,15 +15,15 @@ import flixel.math.FlxPoint;
 /**
  * MobileControlsEditor — Editor drag-and-drop para el layout personalizado del VirtualPad.
  *
- * Load the layout saved in FlxG.save.data.mobilePadLayout (Array of {x,and} by button).
- * The jugador puede arrastrar each button to cualquier position of the screen.
- * To the salir with the button Save, save the positions. Discard descarta the cambios.
+ * Carga el layout guardado en FlxG.save.data.mobilePadLayout (Array de {x,y} por botón).
+ * El jugador puede arrastrar cada botón a cualquier posición de la pantalla.
+ * Al salir con el botón Save, guarda las posiciones. Discard descarta los cambios.
  *
  * Orden de los botones: LEFT, DOWN, UP, RIGHT (mismo que FlxVirtualPad en modo FULL).
  */
 class MobileControlsEditor extends FlxSubState
 {
-	// ── Buttons of the pad (the 4 of direction) ─────────────────────────────
+	// ── Botones del pad (los 4 de dirección) ─────────────────────────────
 	private var _buttons:Array<DragButton> = [];
 	private static final BUTTON_LABELS:Array<String>  = ["L", "D", "U", "R"];
 	private static final BUTTON_COLORS:Array<FlxColor> = [
@@ -33,7 +33,7 @@ class MobileControlsEditor extends FlxSubState
 		FlxColor.fromRGB(249, 57,  63)   // right — red
 	];
 
-	// Default positions (centro of the button) if no there is layout saved
+	// Default positions (centro del botón) si no hay layout guardado
 	// Columna derecha a la altura media-baja de la pantalla, igual que VirtualPad FULL
 	private static final DEFAULT_X:Array<Float> = [
 		FlxG.width - 390,  // LEFT
@@ -64,7 +64,7 @@ class MobileControlsEditor extends FlxSubState
 	/** true si hay cambios sin guardar */
 	private var _dirty:Bool = false;
 
-	// ── Currently "highlighted" pad button (touch feedback) ──────────
+	// ── Botón del pad actualmente "resaltado" (feedback táctil) ──────────
 	private var _prevHighlight:Int = -1;
 
 	override function create():Void
@@ -77,7 +77,7 @@ class MobileControlsEditor extends FlxSubState
 		bg.scrollFactor.set();
 		add(bg);
 
-		// Title
+		// Título
 		_titleTxt = new FlxText(0, 10, FlxG.width, "CUSTOM PAD LAYOUT", 32);
 		_titleTxt.setFormat("assets/fonts/Funkin.otf", 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		_titleTxt.borderSize = 2;
@@ -142,7 +142,7 @@ class MobileControlsEditor extends FlxSubState
 		_handleKeyboard();
 	}
 
-	// ── Touch input handling ────────────────────────────────────────────
+	// ── Manejo de input táctil ────────────────────────────────────────────
 
 	private function _handleTouch():Void
 	{
@@ -151,7 +151,7 @@ class MobileControlsEditor extends FlxSubState
 
 		if (touches.length == 0)
 		{
-			// Without dedos: soltar the button that is arrastraba
+			// Sin dedos: soltar el botón que se arrastraba
 			if (_dragging != null)
 			{
 				_dragging.isHeld = false;
@@ -177,7 +177,7 @@ class MobileControlsEditor extends FlxSubState
 				return;
 			}
 
-			// Revisar buttons of the pad (of back towards adelante for priorizar the of above)
+			// Revisar botones del pad (de atrás hacia adelante para priorizar el de encima)
 			var i = _buttons.length - 1;
 			while (i >= 0)
 			{
@@ -199,7 +199,7 @@ class MobileControlsEditor extends FlxSubState
 		}
 		else if (touch.pressed && _dragging != null)
 		{
-			// Arrastrar — clampear to the area visible
+			// Arrastrar — clampear al área visible
 			var newX = touch.screenX - _dragOffX;
 			var newY = touch.screenY - _dragOffY;
 			newX = Math.max(0, Math.min(FlxG.width  - _dragging.width,  newX));
@@ -213,7 +213,7 @@ class MobileControlsEditor extends FlxSubState
 			_dragging = null;
 		}
 		#else
-		// Fallback: mouse (useful for debug in desktop with -Dmobile)
+		// Fallback: mouse (útil para debug en desktop con -Dmobile)
 		var mx = FlxG.mouse.screenX;
 		var my = FlxG.mouse.screenY;
 
@@ -283,7 +283,7 @@ class MobileControlsEditor extends FlxSubState
 		FlxG.save.data.mobilePadLayout = layout;
 		FlxG.save.flush();
 
-		// Also save in Config for that Mobilecontrols.hx it use
+		// También guardar en Config para que Mobilecontrols.hx lo use
 		var cfg = new data.Config();
 		cfg.setcontrolmode(3); // Asegurar que el modo quede en VIRTUALPAD_CUSTOM
 
@@ -307,8 +307,8 @@ class MobileControlsEditor extends FlxSubState
 }
 
 /**
- * DragButton — button circular arrastrable with label of text central.
- * Changes of color when is siendo arrastrado.
+ * DragButton — botón circular arrastrable con label de texto central.
+ * Cambia de color cuando está siendo arrastrado.
  */
 class DragButton extends FlxSpriteGroup
 {

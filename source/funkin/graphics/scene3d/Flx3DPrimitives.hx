@@ -1,7 +1,7 @@
 package funkin.graphics.scene3d;
 
 /**
- * Flx3DPrimitives — constructores of geometry basic 3D.
+ * Flx3DPrimitives — constructores de geometría básica 3D.
  * Todos devuelven un Flx3DMesh listo para usar.
  */
 class Flx3DPrimitives
@@ -13,14 +13,14 @@ class Flx3DPrimitives
 	 * @param w   ancho   (X)
 	 * @param h   alto    (Y)
 	 * @param d   profundidad (Z)
-	 * @param r,g,b,a color by default de todos los vertices
+	 * @param r,g,b,a color por defecto de todos los vértices
 	 */
 	public static function cube(w:Float=1, h:Float=1, d:Float=1,
 	                            r:Float=1, g:Float=1, b:Float=1, a:Float=1):Flx3DMesh
 	{
 		final hx = w*0.5; final hy = h*0.5; final hz = d*0.5;
 
-		// Cada cara tiene 4 vertices (no compartidos para normales correctas)
+		// Cada cara tiene 4 vértices (no compartidos para normales correctas)
 		// stride: x,y,z, nx,ny,nz, u,v, r,g,b,a  = 12 floats
 		final v:Array<Float> = [
 			// Frente (+Z)
@@ -28,7 +28,7 @@ class Flx3DPrimitives
 			 hx,-hy, hz,  0,0,1,  1,1,  r,g,b,a,
 			 hx, hy, hz,  0,0,1,  1,0,  r,g,b,a,
 			-hx, hy, hz,  0,0,1,  0,0,  r,g,b,a,
-			// Back (-Z)
+			// Atrás (-Z)
 			 hx,-hy,-hz,  0,0,-1, 0,1,  r,g,b,a,
 			-hx,-hy,-hz,  0,0,-1, 1,1,  r,g,b,a,
 			-hx, hy,-hz,  0,0,-1, 1,0,  r,g,b,a,
@@ -74,7 +74,7 @@ class Flx3DPrimitives
 	/**
 	 * Plano XZ centrado en el origen, subdividido.
 	 * @param w,d        dimensiones
-	 * @param segW,segD  subdivisiones in X and Z (minimum 1)
+	 * @param segW,segD  subdivisiones en X y Z (mínimo 1)
 	 */
 	public static function plane(w:Float=1, d:Float=1, segW:Int=1, segD:Int=1,
 	                             r:Float=1, g:Float=1, b:Float=1, a:Float=1):Flx3DMesh
@@ -203,7 +203,7 @@ class Flx3DPrimitives
 		final TAU = 2.0 * PI;
 
 		// ── Cuerpo lateral ──────────────────────────────────────────────────
-		// Dos anillos: bottom (y=-hy) y top (y=+hy), con vertices duplicados
+		// Dos anillos: bottom (y=-hy) y top (y=+hy), con vértices duplicados
 		// para normales apuntando radialmente hacia fuera.
 		for (i in 0...(segments+1))
 		{
@@ -237,7 +237,7 @@ class Flx3DPrimitives
 		}
 
 		// ── Tapa inferior ─────────────────────────────────────────────────
-		end capBaseBot = Std.int(v.length / 12); // vertex index of the centro
+		final capBaseBot = Std.int(v.length / 12); // vértice índice del centro
 		v.push(0); v.push(-hy); v.push(0);
 		v.push(0); v.push(-1); v.push(0);
 		v.push(0.5); v.push(0.5);

@@ -14,10 +14,10 @@ using StringTools;
 //  NATIVE CPP — hxvlc.flixel.FlxVideo  (desktop + Android + iOS)
 //
 //  API real de hxvlc 2.x:
-//    • hxvlc.flixel.FlxVideo   — Bitmap-based, added to the stage with addChildBelowMouse
+//    • hxvlc.flixel.FlxVideo   — Bitmap-based, se añade al stage con addChildBelowMouse
 //    • Callbacks son signals:  onEndReached.add() / onEncounteredError.add()
-//    • onFormatSetup.add()     — resolution list, here is dimensiona and is quita the cover
-//    • load(path) + play()     — in dos pasos, with small timer between ellos
+//    • onFormatSetup.add()     — resolución lista, aquí se dimensiona y se quita el cover
+//    • load(path) + play()     — en dos pasos, con pequeño timer entre ellos
 //    • volume                  — Int 0-200 (100 = normal, 200 = boost)
 //    • width/height            — read-only en Bitmap, se ajustan via scaleX/scaleY
 // =============================================================================
@@ -34,7 +34,7 @@ class MP4Handler
 	public var sprite:Null<FlxSprite> = null;
 
 	/**
-	 * Tiempo current of playback of the video in milisegundos.
+	 * Tiempo actual de reproducción del video en milisegundos.
 	 * Devuelve -1 si no hay video activo.
 	 */
 	public var currentTimeMs(get, never):Int;
@@ -46,7 +46,7 @@ class MP4Handler
 
 	/**
 	 * Callback llamado cada ENTER_FRAME con el tiempo actual en ms.
-	 * Úsalo for sincronizar subtitles SRT without necesitar subclasificar.
+	 * Úsalo para sincronizar subtítulos SRT sin necesitar subclasificar.
 	 *
 	 *   handler.onTick = function(ms:Int) { trace(ms); };
 	 */
@@ -104,7 +104,7 @@ class MP4Handler
 
 		sprite = outputTo;
 
-		// onFormatSetup — resolution list, dimensionar the video
+		// onFormatSetup — resolución lista, dimensionar el video
 		_video.onFormatSetup.add(function()
 		{
 			if (_video == null || _killed) return;
@@ -129,7 +129,7 @@ class MP4Handler
 			if (sprite != null && _video.bitmapData != null)
 				try sprite.loadGraphic(_video.bitmapData) catch (_:Dynamic) {}
 
-			// Quitar cover — in hxvlc the first frame already is rendering in onFormatSetup
+			// Quitar cover — en hxvlc el primer frame ya está renderizado en onFormatSetup
 			_removeCover();
 
 			// Aplicar filtros pendientes
@@ -155,11 +155,11 @@ class MP4Handler
 		// Sincronizar volumen cada frame
 		FlxG.stage.addEventListener(Event.ENTER_FRAME, _update);
 
-		// If is outputTo, no add to the stage (render in the sprite)
+		// Si es outputTo, no añadir al stage (renderizar en el sprite)
 		if (outputTo == null)
 			try FlxG.addChildBelowMouse(_video) catch (_:Dynamic) {}
 
-		// Load and play — wait 3 frames for that stage.frameRate=60 is active
+		// Cargar y reproducir — esperar 3 frames para que stage.frameRate=60 esté activo
 		// antes de que hxvlc registre su SampleDataEvent listener.
 		new FlxTimer().start(0.1, function(_)
 		{

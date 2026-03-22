@@ -59,13 +59,13 @@ import haxe.Json;
  */
 class PsychChartParser
 {
-	// ── API public ────────────────────────────────────────────────────────
+	// ── API pública ────────────────────────────────────────────────────────
 
 	/**
 	 * Carga un archivo JSON de Psych Engine.
 	 *
 	 * @param path        Ruta al .json.
-	 * @param difficulty  Name to asignar (default = name of the file without extension).
+	 * @param difficulty  Nombre a asignar (default = nombre del archivo sin extensión).
 	 * @return            ChartData, o null si falla.
 	 */
 	public static function fromFile(path:String, ?difficulty:String):Null<ChartData>
@@ -89,10 +89,10 @@ class PsychChartParser
 	}
 
 	/**
-	 * Load all the difficulties of a directorio of song Psych.
-	 * Detecta automatically easy.json, normal.json, hard.json (and its variantes).
+	 * Carga todas las dificultades de un directorio de canción Psych.
+	 * Detecta automáticamente easy.json, normal.json, hard.json (y sus variantes).
 	 *
-	 * @param dir   Ruta to the directorio of the song (and.g. "songs/bopeebo/").
+	 * @param dir   Ruta al directorio de la canción (e.g. "songs/bopeebo/").
 	 * @return      ChartData con todas las dificultades cargadas, o null.
 	 */
 	public static function fromDirectory(dir:String):Null<ChartData>
@@ -133,7 +133,7 @@ class PsychChartParser
 
 		var parsed:Dynamic;
 		try { parsed = Json.parse(content); }
-		catch (e:Dynamic) { trace('[Psych] Invalid JSON: $e'); return null; }
+		catch (e:Dynamic) { trace('[Psych] JSON inválido: $e'); return null; }
 
 		// Psych wrappea todo en { "song": { ... } }
 		var song:Dynamic = Reflect.field(parsed, 'song') ?? parsed;
@@ -192,7 +192,7 @@ class PsychChartParser
 				var rawCol   = Std.int(_dynFloat(arr[1]) ?? 0);
 				var holdLen  = _dynFloat(arr[2]) ?? 0.0;
 
-				// Psych: col 0-3 = based on mustHitSection, 4-7 = opposite
+				// Psych: col 0-3 = según mustHitSection, 4-7 = opuesto
 				// Normalizar a col absoluto: 0-3 = player, 4-7 = opponent
 				var absCol:Int;
 				if (mustHit)

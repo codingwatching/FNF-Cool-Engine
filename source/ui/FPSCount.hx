@@ -14,7 +14,7 @@ import openfl.display._internal.stats.DrawCallContext;
  * FPSCount — muestra FPS + Memoria.
  *
  * v2: Ring buffer O(1) en vez de Array + shift() O(n).
- *   before: times.push() + while(shift()) moved the entire array each frame.
+ *   ANTES: times.push() + while(shift()) movía el array entero cada frame.
  *   AHORA: escritura circular, sin alocaciones ni copies en el game loop.
  */
 #if !openfl_debug
@@ -34,8 +34,8 @@ class FPSCount extends TextField
 	// ── Ring buffer: 2000 slots (cubre hasta 2000fps en 1 segundo) ──
 	static inline var RING_CAP:Int = 2000;
 	@:noCompletion private var _ring:Array<Float>;
-	@:noCompletion private var _ringHead:Int = 0;   // next position of writing
-	@:noCompletion private var _ringFill:Int = 0;   // how many valid entries there are
+	@:noCompletion private var _ringHead:Int = 0;   // siguiente posición de escritura
+	@:noCompletion private var _ringFill:Int = 0;   // cuántas entradas válidas hay
 
 	public function new(x:Float = 10, y:Float = 10, color:Int = 0xFFFFFF)
 	{
@@ -71,13 +71,13 @@ class FPSCount extends TextField
 		var dt:Float  = now - currentTime;
 		currentTime   = now;
 
-		// ── Write to the ring buffer (O(1), no allocation) ─────────────────
+		// ── Escribir en el ring buffer (O(1), sin alocación) ─────────────────
 		_ring[_ringHead] = now;
 		_ringHead = (_ringHead + 1) % RING_CAP;
 		if (_ringFill < RING_CAP) _ringFill++;
 
-		// ── Contar frames dentro of the last segundo ───────────────────────────
-		// Leemos from the entry more reciente towards back until that a
+		// ── Contar frames dentro del último segundo ───────────────────────────
+		// Leemos desde la entrada más reciente hacia atrás hasta que un
 		// timestamp quede fuera de la ventana de 1000 ms.
 		var cutoff:Float = now - 1000.0;
 		var validCount:Int = 0;
@@ -97,9 +97,9 @@ class FPSCount extends TextField
 		if (validCount != cacheCount && visible)
 		{
 			// OPTIMIZADO: usar cpp.vm.Gc.stats().totalUsed en vez de System.totalMemory.
-			// System.totalMemory = totalAllocated = historical heap maximum (only decreases with compact()).
-			// totalUsed = bytes of live objects right now → reflects actual RAM release.
-			// This hace that the counter baje correctamente after of the flushGPUCache + compact().
+			// System.totalMemory = totalAllocated = heap máximo histórico (solo baja con compact()).
+			// totalUsed = bytes de objetos vivos ahora mismo → refleja la liberación real de RAM.
+			// Esto hace que el counter baje correctamente después del flushGPUCache + compact().
 			var mem:Float;
 			#if cpp
 			mem = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE) / (byteValue * byteValue));

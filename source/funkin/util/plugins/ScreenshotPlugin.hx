@@ -19,20 +19,20 @@ import openfl.events.MouseEvent;
  *
  * ─── Uso ───────────────────────────────────────────────────────────────────
  *  • Pulsa F12 (o la tecla asignada en controles) para capturar la pantalla.
- *  • Aparece a flash white + sound of confirmación.
+ *  • Aparece un flash blanco + sonido de confirmación.
  *  • Una miniatura de la captura aparece en la esquina inferior-derecha
  *    durante ~1.5 s y se puede clicar para abrir la carpeta de capturas.
  *  • Las capturas se guardan en screenshots/ como PNG con timestamp.
  *
  * ─── Fix: capturas al primer frame ─────────────────────────────────────────
- *  The button SCREENSHOT is mapeado in gamepad to BACK / SELECT, that in algunas
+ *  El botón SCREENSHOT está mapeado en gamepad a BACK / SELECT, que en algunas
  *  plataformas reporta "justPressed" en el frame 0 de un state nuevo.
- *  Solution: _inputCooldown bloquea cualquier captura durante the primeros
+ *  Solución: _inputCooldown bloquea cualquier captura durante los primeros
  *  COOLDOWN_ON_INIT segundos al inicializar, y COOLDOWN_ON_STATE_SWITCH
- *  segundos adicionales after of each cambio of state.
+ *  segundos adicionales después de cada cambio de estado.
  *
- * ─── Integration ───────────────────────────────────────────────────────────
- *  Call to ScreenshotPlugin.initialize() in Main.setupGame(), after of
+ * ─── Integración ───────────────────────────────────────────────────────────
+ *  Llama a ScreenshotPlugin.initialize() en Main.setupGame(), después de
  *  createGame() (necesita FlxG disponible). Ejemplo:
  *
  *      funkin.util.plugins.ScreenshotPlugin.initialize();
@@ -45,7 +45,7 @@ class ScreenshotPlugin extends FlxBasic
     // ── Ruta de capturas ──────────────────────────────────────────────────────
     public static final SCREENSHOT_FOLDER:String = 'screenshots';
 
-    // ── Tiempos of animation (segundos) ───────────────────────────────────────
+    // ── Tiempos de animación (segundos) ───────────────────────────────────────
     static final FLASH_FADE_DURATION:Float       = 0.20;
     static final PREVIEW_INITIAL_DELAY:Float     = 0.25;
     static final PREVIEW_FADE_IN_DURATION:Float  = 0.30;
@@ -56,13 +56,13 @@ class ScreenshotPlugin extends FlxBasic
     // ── FIX: Cooldown para evitar capturas accidentales ───────────────────────
     /**
      * Tiempo de espera al inicializar el plugin antes de aceptar capturas.
-     * Avoids the falso "justPressed" of the button BACK in the first frame.
+     * Evita el falso "justPressed" del botón BACK en el primer frame.
      */
     static final COOLDOWN_ON_INIT:Float         = 1.5;
 
     /**
      * Tiempo de espera tras cada cambio de estado.
-     * The button BACK/SELECT puede dispararse of new durante the transition.
+     * El botón BACK/SELECT puede dispararse de nuevo durante la transición.
      */
     static final COOLDOWN_ON_STATE_SWITCH:Float = 0.15;
 
@@ -80,17 +80,17 @@ class ScreenshotPlugin extends FlxBasic
     // ── Estado ────────────────────────────────────────────────────────────────
 
     /**
-     * Frames from that is pressed the key of captura.
+     * Frames desde que se pulsó la tecla de captura.
      * Necesitamos saltar 1 frame para capturar sin el UI flash visible.
      */
     var screenshotTakenFrame:Int = 0;
 
-    /** true while the state is cambiando → cancelar feedback visual. */
+    /** true mientras el state está cambiando → cancelar feedback visual. */
     var stateChanging:Bool = false;
 
     /**
      * Tiempo restante de cooldown.
-     * While sea > 0 any pulsación of captura is ignora.
+     * Mientras sea > 0 cualquier pulsación de captura se ignora.
      * Se inicializa con COOLDOWN_ON_INIT y se recarga tras cada state switch.
      */
     var _inputCooldown:Float = COOLDOWN_ON_INIT;
@@ -131,7 +131,7 @@ class ScreenshotPlugin extends FlxBasic
 
         FlxG.stage.addChild(flashSprite);
 
-        // ── Signals ────────────────────────────────────────────────────────────
+        // ── Señales ────────────────────────────────────────────────────────────
         FlxG.signals.gameResized.add(_onResize);
         FlxG.signals.preStateSwitch.add(_onPreStateSwitch);
         FlxG.signals.postStateSwitch.add(_onPostStateSwitch);
@@ -139,11 +139,11 @@ class ScreenshotPlugin extends FlxBasic
         trace('[ScreenshotPlugin] Listo. Pulsa F12 para capturar la pantalla.');
     }
 
-    // ── Initialization public ────────────────────────────────────────────────
+    // ── Inicialización pública ────────────────────────────────────────────────
 
     /**
      * Inicializa el plugin. Llama UNA SOLA VEZ desde Main.setupGame()
-     * after of createGame().
+     * después de createGame().
      */
     public static function initialize():Void
     {
@@ -158,7 +158,7 @@ class ScreenshotPlugin extends FlxBasic
     {
         super.update(elapsed);
 
-        // Tick down of the cooldown — while sea > 0, no is procesa no input
+        // Tick down del cooldown — mientras sea > 0, no se procesa ningún input
         if (_inputCooldown > 0)
         {
             _inputCooldown -= elapsed;
@@ -179,7 +179,7 @@ class ScreenshotPlugin extends FlxBasic
         // Fallback: F12 siempre funciona independientemente de los controles
         if (FlxG.keys.justPressed.F12) justPressedScreenshot = true;
 
-        // Esperamos a frame extra tras the pulsación for that the flash
+        // Esperamos un frame extra tras la pulsación para que el flash
         // haya desaparecido antes de leer los pixels de la pantalla.
         if (justPressedScreenshot && screenshotTakenFrame == 0)
         {
@@ -254,7 +254,7 @@ class ScreenshotPlugin extends FlxBasic
         previewSprite.addEventListener(MouseEvent.MOUSE_OVER, onOver);
         previewSprite.addEventListener(MouseEvent.MOUSE_OUT,  onOut);
 
-        // Position inicial: ligeramente by debajo for the slide-up
+        // Posición inicial: ligeramente por debajo para el slide-up
         previewSprite.y += 10;
         FlxG.stage.addChild(previewSprite);
         previewSprite.alpha = 0;
@@ -403,7 +403,7 @@ class ScreenshotPlugin extends FlxBasic
         stateChanging = false;
 
         // FIX: recargar cooldown tras el cambio de estado.
-        // Avoids that the button BACK / SELECT, that puede seguir reportando
+        // Evita que el botón BACK / SELECT, que puede seguir reportando
         // "justPressed" durante los primeros frames del nuevo state,
         // dispare una captura accidental.
         _inputCooldown = COOLDOWN_ON_STATE_SWITCH;

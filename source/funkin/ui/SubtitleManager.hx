@@ -9,16 +9,16 @@ import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 
 /**
- * SubtitleManager — System of subtitles in screen.
+ * SubtitleManager — Sistema de subtítulos en pantalla.
  *
  * Singleton global que muestra texto con fondo semitransparente sobre el HUD.
  * Funciona en gameplay, cutscenes y cualquier estado del engine.
- * Lee automatically the configuration guardada (size, color, position,
- * opacity, bold, fade) and can translate the text via MyMemory / Lingva.
+ * Lee automáticamente la configuración guardada (tamaño, color, posición,
+ * opacidad, negrita, fade) y puede traducir el texto vía MyMemory / Lingva.
  *
  * ─── Uso desde HScript ─────────────────────────────────────────────────────
  *
- *   // Show subtitle during 3 segundos
+ *   // Mostrar subtítulo durante 3 segundos
  *   subtitle.show("Hello World", 3.0);
  *
  *   // Con opciones de estilo (sobreescriben los globales guardados)
@@ -30,7 +30,7 @@ import flixel.util.FlxTimer;
  *   // Ocultar manualmente
  *   subtitle.hide();
  *
- *   // Cola of subtitles (uno tras otro)
+ *   // Cola de subtítulos (uno tras otro)
  *   subtitle.queue([
  *     { text: "Line 1", duration: 2.0 },
  *     { text: "Line 2", duration: 1.5, options: { color: 0xFFFF00 } }
@@ -48,8 +48,8 @@ import flixel.util.FlxTimer;
  *   showSubtitle("Hello World", 3.0)
  *   showSubtitle("Hello", 2.0, { size=28, color=0xFFFF00, bgAlpha=0.7 })
  *   hideSubtitle()                   -- fade-out suave
- *   hideSubtitle(true)               -- instant
- *   clearSubtitles()                 -- hide + empty the cola
+ *   hideSubtitle(true)               -- instantáneo
+ *   clearSubtitles()                 -- hide + vacía la cola
  *   queueSubtitle({                  -- cola secuencial
  *     { text="Line 1", duration=2 },
  *     { text="Line 2", duration=1.5 }
@@ -61,7 +61,7 @@ import flixel.util.FlxTimer;
  *
  *   Nombre del evento: "Subtitle"
  *   value1 = texto a mostrar
- *   value2 = duration in segundos (empty = 3.0)
+ *   value2 = duración en segundos (vacío = 3.0)
  *
  *   Nombre del evento: "Subtitle Hide" o "Hide Subtitle"
  *   (sin value)
@@ -84,20 +84,20 @@ import flixel.util.FlxTimer;
  *   { "action": "subtitleClear" }
  *   { "action": "subtitleStyle", "size": 28, "color": "0xFFFFFF" }
  *
- * ─── Options parameters ─────────────────────────────────────────────────
+ * ─── Parámetros de opciones ─────────────────────────────────────────────────
  *
- *   text      → text of the subtitle (soporta \n)
+ *   text      → texto del subtítulo (soporta \n)
  *   duration  → segundos de visibilidad; 0 = manual (default: 3.0)
- *   size      → size of font (default: 26)
+ *   size      → tamaño de fuente (default: 26)
  *   color     → color del texto como Int (default: 0xFFFFFFFF)
  *   bgColor   → color del fondo (default: 0xFF000000)
  *   bgAlpha   → opacidad del fondo 0.0-1.0 (default: 0.6)
  *   align     → "center" | "left" | "right" (default: "center")
- *   and         → position and in px; -1 = auto abajo (default: -1)
+ *   y         → posición Y en px; -1 = auto abajo (default: -1)
  *   bold      → negrita (default: true)
  *   font      → nombre del font en assets/fonts/ (default: "vcr.ttf")
- *   fadeIn    → duration fade-in in segundos (default: 0.2)
- *   fadeOut   → duration fade-out in segundos (default: 0.3)
+ *   fadeIn    → duración fade-in en segundos (default: 0.2)
+ *   fadeOut   → duración fade-out en segundos (default: 0.3)
  *   padX      → padding horizontal del fondo (default: 16)
  *   padY      → padding vertical del fondo (default: 10)
  *   instant   → si true, no aplica fade (solo en hide)
@@ -108,7 +108,7 @@ class SubtitleManager
 
 	static var _inst:SubtitleManager = null;
 
-	/** Instancia global. Is creates automatically to the primer acceso. */
+	/** Instancia global. Se crea automáticamente al primer acceso. */
 	public static var instance(get, never):SubtitleManager;
 	static inline function get_instance():SubtitleManager
 	{
@@ -120,7 +120,7 @@ class SubtitleManager
 
 	var _bg:FlxSprite;
 	var _text:FlxText;
-	/** State to the that are added the sprites currently. */
+	/** Estado al que están añadidos los sprites actualmente. */
 	var _attachedState:flixel.FlxState = null;
 
 	// ── Tweens / Timers ───────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ class SubtitleManager
 	var _autoTimer:FlxTimer = null;
 	var _fadeActive:Bool    = false;
 
-	// ── Cola of subtitles ────────────────────────────────────────────────────
+	// ── Cola de subtítulos ────────────────────────────────────────────────────
 
 	var _queue:Array<_QueueEntry> = [];
 	var _playing:Bool = false;
@@ -144,12 +144,12 @@ class SubtitleManager
 	public var defaultFadeOut:Float = 0.3;
 	public var defaultFont:String   = 'vcr.ttf';
 	public var defaultBold:Bool     = true;
-	/** Position and; -1 = automatic (cerca of the fondo), -2 = centrado vertical. */
+	/** Posición Y; -1 = automático (cerca del fondo), -2 = centrado vertical. */
 	public var defaultY:Float       = -1;
 	public var defaultPadX:Float    = 16;
 	public var defaultPadY:Float    = 10;
 
-	// ── Translation ────────────────────────────────────────────────────────────
+	// ── Traducción ────────────────────────────────────────────────────────────
 
 	/**
 	 * Backend primario: MyMemory (GET, sin clave, 5000 chars/dia gratis).
@@ -165,7 +165,7 @@ class SubtitleManager
 	public static var translateFallbackUrl:String =
 		"https://lingva.ml/api/v1/auto";
 
-	/** If true, there is a request of translation in curso. */
+	/** Si true, hay una petición de traducción en curso. */
 	var _translating:Bool = false;
 
 	// ── Constructor ───────────────────────────────────────────────────────────
@@ -184,21 +184,21 @@ class SubtitleManager
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  API public
+	//  API pública
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Muestra a subtitle. Cancela any subtitle or cola active.
-	 * Applies automatically the configuration guardada in FlxG.save.data
+	 * Muestra un subtítulo. Cancela cualquier subtítulo o cola activa.
+	 * Aplica automáticamente la configuración guardada en FlxG.save.data
 	 * y traduce el texto si el usuario lo ha configurado.
 	 *
-	 * @param text      Text to mostrar (soporta \n for various lines).
+	 * @param text      Texto a mostrar (soporta \n para varias líneas).
 	 * @param duration  Segundos de visibilidad. 0 = sin auto-hide.
 	 * @param options   Objeto con opciones de estilo (sobreescriben los globales).
 	 */
 	public function show(text:String, duration:Float = 3.0, ?options:Dynamic):Void
 	{
-		// If subtitles desactivados in options, ignorar
+		// Si subtítulos desactivados en opciones, ignorar
 		if (FlxG.save.data.subtitlesEnabled == false) return;
 
 		_cancelTimer();
@@ -208,7 +208,7 @@ class SubtitleManager
 		// Aplicar preferencias guardadas al estilo global antes de mostrar
 		_loadSavedSettings();
 
-		// Translate if is configurado
+		// Traducir si está configurado
 		var targetLang:String = FlxG.save.data.subtitleTranslateLang != null
 			? FlxG.save.data.subtitleTranslateLang : '';
 
@@ -220,7 +220,7 @@ class SubtitleManager
 
 			_translateAsync(text, targetLang, function(translated:String) {
 				_translating = false;
-				// Replace the text with the translation
+				// Reemplazar el texto con la traducción
 				_cancelTimer();
 				_cancelFade();
 				_doShow(translated, duration, options);
@@ -239,8 +239,8 @@ class SubtitleManager
 	}
 
 	/**
-	 * Hides the subtitle with fade-out (by default suave).
-	 * @param instant  If true, oculta without animation.
+	 * Oculta el subtítulo con fade-out (por defecto suave).
+	 * @param instant  Si true, oculta sin animación.
 	 */
 	public function hide(instant:Bool = false):Void
 	{
@@ -266,8 +266,8 @@ class SubtitleManager
 	}
 
 	/**
-	 * Adds subtitles to the cola. Is muestran uno tras otro when
-	 * the subtitle current termina.
+	 * Añade subtítulos a la cola. Se muestran uno tras otro cuando
+	 * el subtítulo actual termina.
 	 *
 	 * @param entries  Array de objetos { text, duration, ?options }.
 	 */
@@ -285,7 +285,7 @@ class SubtitleManager
 	}
 
 	/**
-	 * Cancela all: hides the subtitle current and empty the cola.
+	 * Cancela todo: oculta el subtítulo actual y vacía la cola.
 	 */
 	public function clear():Void
 	{
@@ -341,9 +341,9 @@ class SubtitleManager
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Lee the preferencias of subtitles of the save and the applies to the estilo global.
-	 * Is call automatically in show() for respetar always the settings
-	 * more recientes of the usuario.
+	 * Lee las preferencias de subtítulos del save y las aplica al estilo global.
+	 * Se llama automáticamente en show() para respetar siempre los ajustes
+	 * más recientes del usuario.
 	 */
 	function _loadSavedSettings():Void
 	{
@@ -357,20 +357,20 @@ class SubtitleManager
 		if (sd.subtitleFadeIn  != null)
 		{
 			defaultFadeIn  = sd.subtitleFadeIn;
-			defaultFadeOut = sd.subtitleFadeIn; // usar same value for simetría
+			defaultFadeOut = sd.subtitleFadeIn; // usar mismo valor para simetría
 		}
 
-		// Position vertical
+		// Posición vertical
 		var pos:String = sd.subtitlePosition != null ? sd.subtitlePosition : 'bottom';
 		defaultY = switch (pos) {
 			case 'top':    60.0;
 			case 'center': -2.0;  // -2 = centrado vertical (tratado en _doShow)
-			default:       -1.0;  // -1 = automatic (cerca of the fondo)
+			default:       -1.0;  // -1 = automático (cerca del fondo)
 		};
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	//  Translation asynchronous — MyMemory (primary) + Lingva (fallback)
+	//  Traducción asíncrona — MyMemory (primario) + Lingva (fallback)
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
@@ -389,12 +389,12 @@ class SubtitleManager
 	{
 		_tryMyMemory(text, targetLang, onSuccess, function()
 		{
-			// MyMemory failed → intentar Lingva as fallback
+			// MyMemory falló → intentar Lingva como fallback
 			_tryLingva(text, targetLang, onSuccess, onError);
 		});
 	}
 
-	/** Intenta translate with MyMemory (GET, without key, ~5000 chars/día gratis). */
+	/** Intenta traducir con MyMemory (GET, sin clave, ~5000 chars/día gratis). */
 	function _tryMyMemory(text:String, targetLang:String,
 		onSuccess:String->Void, onError:Void->Void):Void
 	{
@@ -508,8 +508,8 @@ class SubtitleManager
 			flixel.text.FlxText.FlxTextBorderStyle.OUTLINE,
 			FlxColor.BLACK, 2);
 
-		// ── Position ──────────────────────────────────────────────────────────
-		// Force recálculo of height tras change the text
+		// ── Posición ──────────────────────────────────────────────────────────
+		// Forzar recálculo de height tras cambiar el texto
 		_text.updateHitbox();
 
 		final bgW  = Std.int(_text.width  + padX * 2);
@@ -538,7 +538,7 @@ class SubtitleManager
 		_bg.alpha   = 0;
 		_text.alpha = 0;
 
-		// ── Add to the state / camera ─────────────────────────────────────────
+		// ── Añadir al estado / cámara ─────────────────────────────────────────
 		_mountSprites();
 
 		// ── Fade in ───────────────────────────────────────────────────────────
@@ -603,7 +603,7 @@ class SubtitleManager
 		}
 	}
 
-	// ── Montaje of sprites in the state / camera ──────────────────────────────
+	// ── Montaje de sprites en el estado / cámara ──────────────────────────────
 
 	function _mountSprites():Void
 	{
@@ -624,7 +624,7 @@ class SubtitleManager
 			state.add(_text);
 		}
 
-		// Asignar camera: preferir camHUD of the PlayState
+		// Asignar cámara: preferir camHUD del PlayState
 		final cam = _resolveCamera();
 		_bg.cameras   = [cam];
 		_text.cameras = [cam];
@@ -649,10 +649,10 @@ class SubtitleManager
 			final hudCam:Dynamic = Reflect.field(ps, 'camHUD');
 			if (hudCam != null) return cast hudCam;
 		}
-		// 2. Multiple cameras → last (habitualmente the of UI)
+		// 2. Múltiples cámaras → última (habitualmente la de UI)
 		final cams = FlxG.cameras.list;
 		if (cams.length > 1) return cams[cams.length - 1];
-		// 3. Camera by default
+		// 3. Cámara por defecto
 		return FlxG.camera;
 	}
 
@@ -670,7 +670,7 @@ class SubtitleManager
 		_fadeActive = false;
 	}
 
-	// ── Helpers static ─────────────────────────────────────────────────────
+	// ── Helpers estáticos ─────────────────────────────────────────────────────
 
 	static inline function _f(v:Dynamic, def:Float):Float
 	{

@@ -12,12 +12,12 @@ import mods.compat.ModFormat;
 using StringTools;
 
 /**
- * List dynamic of characters and stages
- * Detecta automatically the files .json in the folders
+ * Lista dinámica de personajes y stages
+ * Detecta automáticamente los archivos .json en las carpetas
  */
 class CharacterList
 {
-    // Lists that is llenan automatically
+    // Listas que se llenan automáticamente
     public static var boyfriends:Array<String> = [];
     public static var opponents:Array<String> = [];
     public static var girlfriends:Array<String> = [];
@@ -27,7 +27,7 @@ class CharacterList
     public static var characterNames:Map<String, String> = new Map<String, String>();
     public static var stageNames:Map<String, String> = new Map<String, String>();
     
-    // Flag of initialization
+    // Flag de inicialización
     private static var initialized:Bool = false;
     
     /**
@@ -232,7 +232,7 @@ class CharacterList
         }
         #end
 
-        // If no is encontraron stages, usar detection by nombre of file
+        // Si no se encontraron stages, usar detección por nombre de archivo
         if (stages.length == 0)
         {
             trace("No stage JSONs found, using fallback detection...");
@@ -241,7 +241,7 @@ class CharacterList
     }
     
     /**
-     * Agrega a character to the list correct basándose in its JSON
+     * Agrega un personaje a la lista correcta basándose en su JSON
      */
     private static function addCharacterToList(charName:String, charData:Dynamic):Void
     {
@@ -265,13 +265,13 @@ class CharacterList
                 if (!opponents.contains(charName))
                     opponents.push(charName);
             default:
-                // If no is especificado, usar detection by name
+                // Si no está especificado, usar detección por nombre
                 addCharacterToListByName(charName);
         }
     }
     
     /**
-     * Agrega a character basándose only in its name
+     * Agrega un personaje basándose solo en su nombre
      */
     private static function addCharacterToListByName(charName:String):Void
     {
@@ -383,7 +383,7 @@ class CharacterList
                 stageNames.set(stage, formatName(stage));
         }
         
-        // Ordenar alphabetically
+        // Ordenar alfabéticamente
         boyfriends.sort((a, b) -> a.toLowerCase() < b.toLowerCase() ? -1 : 1);
         opponents.sort((a, b) -> a.toLowerCase() < b.toLowerCase() ? -1 : 1);
         girlfriends.sort((a, b) -> a.toLowerCase() < b.toLowerCase() ? -1 : 1);
@@ -441,19 +441,19 @@ class CharacterList
     }
     
     /**
-     * Gets the stage by default for a song (basado in nombres comunes)
+     * Obtiene el stage por defecto para una canción (basado en nombres comunes)
      */
     public static function getDefaultStageForSong(songName:String):String
     {
         if (!initialized) init();
 
         // El stage correcto debe venir del metadata del chart (campo "stage"
-        // in the JSON of the song). This method is only the last recurso
-        // when no system already it resolvió.
+        // en el JSON de la canción). Este método es solo el último recurso
+        // cuando ningún sistema ya lo resolvió.
         // El antiguo mapa hardcodeado (bopeebo→stage_week1, senpai→school…)
-        // was removed: era frágil frente to mods with songs of the same name.
+        // fue eliminado: era frágil frente a mods con canciones del mismo nombre.
 
-        // Intentar leer stage from the stage JSON of the song if exists
+        // Intentar leer stage desde el stage JSON de la canción si existe
         #if sys
         final key = songName.toLowerCase();
         for (modBase in _getModBases())
@@ -538,7 +538,7 @@ class CharacterList
     
     /**
      * Devuelve TODOS los personajes (bf + opponents + gf) en una sola lista ordenada.
-     * Useful for dropdowns that no distinguen by type (ej. AnimationDebug).
+     * Útil para dropdowns que no distinguen por tipo (ej. AnimationDebug).
      */
     public static function getAllCharacters():Array<String>
     {
@@ -558,7 +558,7 @@ class CharacterList
     }
 
     /**
-     * Recarga the lists (useful if is agregan characters in runtime)
+     * Recarga las listas (útil si se agregan personajes en runtime)
      */
     public static function reload():Void
     {

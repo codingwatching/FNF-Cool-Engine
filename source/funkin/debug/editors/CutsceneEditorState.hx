@@ -31,7 +31,7 @@ using StringTools;
 //   • PlayState cinematicMode de fondo  (stage + chars, sin HUD, sin notas)
 //   • MediaTransportBar controlando el TIEMPO DE LA CUTSCENE (no el audio)
 //   • Toggle INTRO / OUTRO  (TAB para cambiar)
-//   • Visual seek: highlights what step you'd be at at time T
+//   • Seek visual: resalta en qué step estarías en el tiempo T
 //   • Preview: avanza el tiempo de cutscene en tiempo real
 //
 //  Controles:
@@ -87,7 +87,7 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 	static inline final C_OUTRO:Int = 0xFF330044;
 	static inline final C_PLAY:Int = 0xFF003A00;
 
-	// step row colors by category
+	// step row colors por categoría
 	static inline final CR_WAIT:Int = 0xFF1A2A1A;
 	static inline final CR_CAM:Int = 0xFF1A2A44;
 	static inline final CR_ANIM:Int = 0xFF2A1A44;
@@ -114,16 +114,16 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 	var pathIntro:String = '';
 	var pathOutro:String = '';
 
-	// ── Selection ─────────────────────────────────────────────────────────────
+	// ── Selección ─────────────────────────────────────────────────────────────
 	var selSpr:String = null;
 	var selStep:Int = -1;
 
 	// ── Tiempo de cutscene ────────────────────────────────────────────────────
 
-	/** Position current in segundos dentro of the cutscene */
+	/** Posición actual en segundos dentro de la cutscene */
 	var cutTime:Float = 0.0;
 
-	/** Duration total calculada sumando steps bloqueantes */
+	/** Duración total calculada sumando steps bloqueantes */
 	var cutDuration:Float = 1.0;
 
 	var playing:Bool = false;
@@ -527,7 +527,7 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 	//  Transport callbacks
 	// ═════════════════════════════════════════════════════════════════════════
 
-	/** Seek: usuario arrastró the bar → saltar to the time T of the cutscene */
+	/** Seek: usuario arrastró la barra → saltar al tiempo T de la cutscene */
 	function _onSeek(t:Float):Void
 	{
 		cutTime = FlxMath.bound(t, 0, cutDuration);
@@ -583,7 +583,7 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 			_infotxt.text = '${isIntro ? "INTRO" : "OUTRO"}  ${_fmt(cutTime)} / ${_fmt(cutDuration)}';
 	}
 
-	/** Index of the step active in the tiempo t */
+	/** Índice del step activo en el tiempo t */
 	function _stepAtTime(t:Float):Int
 	{
 		var acc:Float = 0;
@@ -967,7 +967,7 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	//  Duration
+	//  Duración
 	// ═════════════════════════════════════════════════════════════════════════
 	function _recalcDuration():Void
 	{

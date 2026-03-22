@@ -11,7 +11,7 @@ import openfl.display.BitmapData;
  */
 class RuntimeCustomBlendShader extends RuntimePostEffectShader
 {
-	/** The texture font (the sprite that is is dibujando). */
+	/** La textura fuente (el sprite que se está dibujando). */
 	public var sourceSwag(default, set):BitmapData;
 
 	function set_sourceSwag(value:BitmapData):BitmapData
@@ -33,7 +33,7 @@ class RuntimeCustomBlendShader extends RuntimePostEffectShader
 		return sourceSwag = value;
 	}
 
-	/** The texture of fondo (it that había before in screen). */
+	/** La textura de fondo (lo que había antes en pantalla). */
 	public var backgroundSwag(default, set):BitmapData;
 
 	function set_backgroundSwag(value:BitmapData):BitmapData

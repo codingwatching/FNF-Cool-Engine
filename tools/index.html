@@ -220,7 +220,7 @@
     <!-- Estado de carga inicial -->
     <div id="loading">
       <div class="spinner"></div>
-      <span>Checking for updates…</span>
+      <span>Comprobando actualizaciones…</span>
     </div>
 
     <!-- Se rellena por JS cuando llegan los datos -->
@@ -229,16 +229,16 @@
       <div id="header">
         <div class="icon">🎮</div>
         <div>
-          <h1 id="header-title">Available updates</h1>
-          <p id="header-sub">Review the changes before continuing</p>
+          <h1 id="header-title">Actualizaciones disponibles</h1>
+          <p id="header-sub">Revisa los cambios antes de continuar</p>
         </div>
       </div>
 
       <div id="cards"></div>
 
       <div id="actions">
-        <button class="btn btn-secondary" id="btn-skip">Ignore and play</button>
-        <button class="btn btn-primary"   id="btn-download">Download updates</button>
+        <button class="btn btn-secondary" id="btn-skip">Ignorar y jugar</button>
+        <button class="btn btn-primary"   id="btn-download">Descargar actualizaciones</button>
       </div>
 
     </div>
@@ -247,11 +247,11 @@
   <script>
     const L = window.launcher;
 
-    // Window control buttons
+    // Botones de control de ventana
     document.getElementById('btn-close').onclick = () => L.close();
     document.getElementById('btn-skip').onclick  = () => { L.launchGame(); L.close(); };
 
-    // Receives information from the main process
+    // Recibe la info del proceso principal
     L.onUpdateInfo((info) => {
       document.getElementById('loading').style.display  = 'none';
       document.getElementById('content').style.display  = 'flex';
@@ -259,13 +259,13 @@
       renderCards(info);
     });
 
-    // ── Render the cards ────────────────────────────────────────────────
+    // ── Renderiza las cards ────────────────────────────────────────────────
 
     function renderCards(info) {
       const cards = document.getElementById('cards');
       cards.innerHTML = '';
 
-      // Engine card
+      // Card del engine
       if (info.engineUpdate) {
         const eu = info.engineUpdate;
         cards.appendChild(makeEngineCard(eu));
@@ -274,22 +274,22 @@
         };
       }
 
-      // Cards mods
+      // Cards de mods
       for (const mu of info.modUpdates) {
         cards.appendChild(makeModCard(mu));
       }
 
-      // If there are multiple updates, the button opens the first one.
+      // Si hay múltiples updates, el botón abre la primera
       if (!info.engineUpdate && info.modUpdates.length > 0) {
         document.getElementById('btn-download').onclick = () => {
           L.openUrl(info.modUpdates[0].downloadUrl);
         };
       }
 
-      // Update header
+      // Actualizar header
       const total = (info.engineUpdate ? 1 : 0) + info.modUpdates.length;
       document.getElementById('header-title').textContent =
-        total === 1 ? '1 Update available' : `${total} Updates available`;
+        total === 1 ? '1 actualización disponible' : `${total} actualizaciones disponibles`;
     }
 
     function makeEngineCard(eu) {
@@ -309,7 +309,7 @@
             <div class="ver arrow">→</div>
           </div>
           <div class="version-item">
-            <label>Latest Version</label>
+            <label>Última versión</label>
             <div class="ver new">v${eu.latestVersion}</div>
           </div>
         </div>
@@ -335,7 +335,7 @@
             <div class="ver arrow">→</div>
           </div>
           <div class="version-item">
-            <label>Latest Version</label>
+            <label>Última versión</label>
             <div class="ver new">v${escHtml(mu.latestVersion)}</div>
           </div>
         </div>

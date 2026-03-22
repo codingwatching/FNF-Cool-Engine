@@ -22,7 +22,7 @@ class StrumNote extends FlxSprite
 	/**
 	 * Mapa animName → [offsetX, offsetY] construido desde la skin activa.
 	 * Puede tener entradas para 'pressed' y/o 'confirm'.
-	 * If no there is entry for a animation, no is applies no offset extra.
+	 * Si no hay entrada para una animación, no se aplica ningún offset extra.
 	 */
 	private var _animOffsets:Map<String, Array<Float>> = new Map();
 
@@ -40,7 +40,7 @@ class StrumNote extends FlxSprite
 		// FIX: usar playAnim() en lugar de animation.play() para que los
 		// _animOffsets de la skin (centerOffsets + offset de la anim 'static')
 		// se apliquen desde el primer frame. Sin esto los strums aparecen
-		// desplazados until that is reproduce otra animation and vuelven to 'static'.
+		// desplazados hasta que se reproduce otra animación y vuelven a 'static'.
 		playAnim('static');
 		// Los strums NO llevan NoteGlowShader — el glow de proximidad va en las notas entrantes
 	}
@@ -51,7 +51,7 @@ class StrumNote extends FlxSprite
 	 * Carga la textura y las animaciones de strum desde un NoteSkinData.
 	 *
 	 * Sin ninguna referencia a PlayState.curStage.
-	 * The index noteID determina what animations load (left/down/up/right).
+	 * El índice noteID determina qué animaciones cargar (left/down/up/right).
 	 */
 	function loadSkin(skinData:NoteSkinSystem.NoteSkinData):Void
 	{
@@ -60,7 +60,7 @@ class StrumNote extends FlxSprite
 
 		_isPixelSkin = skinData.isPixel == true;
 
-		// Construir the mapa of offsets by animation from the skin.
+		// Construir el mapa de offsets por animación desde la skin.
 		// buildStrumOffsets() aplica la prioridad: offset del JSON > confirmOffset global > sin offset.
 		_animOffsets = NoteSkinSystem.buildStrumOffsets(skinData, noteID);
 
@@ -76,11 +76,11 @@ class StrumNote extends FlxSprite
 		}
 		frames = NoteSkinSystem.loadSkinFrames(tex, skinData.folder);
 
-		// BUGFIX critical: if frames sigue siendo null here (asset faltante, XML roto, etc.)
-		// the sprite is renderizará in the first frame of PlayState with frame=null
+		// BUGFIX CRÍTICO: si frames sigue siendo null aquí (asset faltante, XML roto, etc.)
+		// el sprite se renderizará en el primer frame de PlayState con frame=null
 		// → FlxDrawQuadsItem::render line 119 crash.
 		// makeGraphic() crea un BitmapData de 1x1 garantizado que evita el crash.
-		// The sprite quedará invisible (scale 0.7 → 0.7×0.7 px) but the game no crashea.
+		// El sprite quedará invisible (scale 0.7 → 0.7×0.7 px) pero el juego no crashea.
 		if (frames == null)
 		{
 			trace('[StrumNote] WARN: frames null para skin "${skinData.name}" noteID=$noteID — usando placeholder para evitar crash');
@@ -89,7 +89,7 @@ class StrumNote extends FlxSprite
 
 		var noteScale = tex.scale != null ? tex.scale : 1.0;
 		// BUGFIX: usar scale.set() directo en lugar de setGraphicSize(width*scale)
-		// that usaría the hitbox stale if loadSkin() is callra of new (recarga of skin).
+		// que usaría el hitbox stale si loadSkin() se llamara de nuevo (recarga de skin).
 		scale.set(noteScale, noteScale);
 		updateHitbox();
 
@@ -128,7 +128,7 @@ class StrumNote extends FlxSprite
 		NoteSkinSystem.addAnimToSprite(this, 'pressed', pressDefs[i], false);
 		NoteSkinSystem.addAnimToSprite(this, 'confirm', confirmDefs[i], false);
 
-		// Fallback if no is definió animation static
+		// Fallback si no se definió animación estática
 		if (!animation.exists('static'))
 		{
 			trace('[StrumNote] "static" no encontrada en skin "${skinData.name}" para noteID $noteID — cargando defaults');
@@ -136,7 +136,7 @@ class StrumNote extends FlxSprite
 		}
 	}
 
-	/** Recarga the skin in a strum existente (useful in rewind for corregir scale). */
+	/** Recarga la skin en un strum existente (útil en rewind para corregir scale). */
 	public function reloadSkin(skinData:NoteSkinSystem.NoteSkinData):Void
 	{
 		loadSkin(skinData);
@@ -152,13 +152,13 @@ class StrumNote extends FlxSprite
 		animation.addByPrefix('confirm', animArrow[i].toLowerCase() + ' confirm', 24, false);
 	}
 
-	// ==================== animation ====================
+	// ==================== ANIMACIÓN ====================
 
 	/**
-	 * Plays an animation de forma segura.
+	 * Reproduce una animación de forma segura.
 	 * Aplica el offset -13,-13 al confirm si la skin lo requiere (confirmOffset:true).
 	 * centerOffsets() siempre resetea el offset, por lo que el ajuste se re-aplica
-	 * in each callda to confirm for mantener the position correct.
+	 * en cada llamada a confirm para mantener la posición correcta.
 	 */
 	public function playAnim(animName:String, force:Bool = false):Void
 	{
@@ -168,7 +168,7 @@ class StrumNote extends FlxSprite
 		animation.play(animName, force);
 		centerOffsets();
 
-		// Appliesr offset of the skin for this animation (pressed / confirm), if exists.
+		// Aplicar offset de la skin para esta animación (pressed / confirm), si existe.
 		var off = _animOffsets.get(animName);
 		if (off != null)
 		{
@@ -181,7 +181,7 @@ class StrumNote extends FlxSprite
 	{
 		super.update(elapsed);
 
-		// Auto-reset confirm → static when termina the animation
+		// Auto-reset confirm → static cuando termina la animación
 		if (animation.curAnim != null && animation.curAnim.name == 'confirm' && animation.curAnim.finished)
 		{
 			playAnim('static');

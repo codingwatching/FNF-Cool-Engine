@@ -16,10 +16,10 @@ import openfl.Assets as OpenFlAssets;
 
 typedef MenuCharacterAnimData =
 {
-	var name:String;        // nombre internal of the animation (ej: "idle")
+	var name:String;        // nombre interno de la animación (ej: "idle")
 	var prefix:String;      // prefijo del atlas (ej: "M BF Idle")
 	var fps:Int;            // fotogramas por segundo
-	var looped:Bool;        // is repite?
+	var looped:Bool;        // ¿se repite?
 }
 
 typedef MenuCharacterData =
@@ -40,7 +40,7 @@ typedef MenuCharacterData =
  *   assets/data/storymenu/chars/<nombre>.json
  *
  * Si el JSON no existe, usa defaults seguros (visible=false).
- * For add a character new no hace falta tocar the code:
+ * Para añadir un personaje nuevo NO hace falta tocar el código:
  * solo crea el atlas en  assets/images/menu/storymenu/props/<nombre>.png/.xml
  * y su JSON en          assets/data/storymenu/chars/<nombre>.json
  */
@@ -54,7 +54,7 @@ class MenuCharacter extends FlxSprite
 	public function new(x:Float, character:String = 'bf')
 	{
 		super(x);
-		// Graphic inicial valid — guarantees that _frame never is null
+		// Gráfico inicial válido — garantiza que _frame nunca es null
 		// antes de que el primer changeCharacter corra.
 		makeGraphic(1, 1, 0x00000000);
 		this.character = null;
@@ -63,7 +63,7 @@ class MenuCharacter extends FlxSprite
 
 	/**
 	 * Intercepta el pipeline de render ANTES de que llegue a FlxDrawQuadsItem.
-	 * If graphic or bitmap are invalid, simply no dibujamos.
+	 * Si graphic o bitmap son inválidos, simplemente no dibujamos.
 	 */
 	override function draw():Void
 	{
@@ -76,7 +76,7 @@ class MenuCharacter extends FlxSprite
 		if (character == this.character) return;
 		this.character = character;
 
-		// Slot empty — ocultar without tocar frames (avoids useCount-- → cache corrupta)
+		// Slot vacío — ocultar sin tocar frames (evita useCount-- → cache corrupta)
 		if (character == null || character == '')
 		{
 			visible = false;
@@ -93,7 +93,7 @@ class MenuCharacter extends FlxSprite
 		}
 		frames = atlas;
 
-		// Guard post-assignment
+		// Guard post-asignación
 		if (graphic == null || graphic.bitmap == null)
 		{
 			visible = false;
@@ -121,7 +121,7 @@ class MenuCharacter extends FlxSprite
 		}
 		else
 		{
-			// Fallback minimum if the JSON no tiene animations
+			// Fallback mínimo si el JSON no tiene animaciones
 			animation.addByPrefix('idle', 'idle', 24, true);
 		}
 
@@ -145,9 +145,9 @@ class MenuCharacter extends FlxSprite
 
 	/**
 	 * Carga el JSON del personaje.
-	 * First busca in the mod active (to través of Paths.json),
-	 * luego in assets base. If no exists returns a object empty
-	 * for that the defaults of the code sean appliesdos without crashear.
+	 * Primero busca en el mod activo (a través de Paths.json),
+	 * luego en assets base. Si no existe devuelve un objeto vacío
+	 * para que los defaults del código sean aplicados sin crashear.
 	 */
 	private static function loadData(character:String):MenuCharacterData
 	{

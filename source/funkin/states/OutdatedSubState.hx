@@ -12,12 +12,12 @@ import funkin.menus.MainMenuState;
 import funkin.transitions.StateTransition;
 
 /**
- * OutdatedSubState — Screen that is muestra when the version local
- * of the engine is outdated.
+ * OutdatedSubState — Pantalla que se muestra cuando la versión local
+ * del engine está desactualizada.
  *
- * ─── Integration with the Launcher ────────────────────────────────────────────
- *  If the usuario llegó to the game to través of the launcher of Electron and there is a
- *  update, it more howdo is reabrirlo for that gestione the unloads.
+ * ─── Integración con el Launcher ────────────────────────────────────────────
+ *  Si el usuario llegó al juego a través del launcher de Electron y hay una
+ *  actualización, lo más cómodo es reabrirlo para que gestione la descarga.
  *  Esta clase busca el ejecutable del launcher en rutas relativas comunes:
  *
  *    ../launcher/CoolEngineLauncher.exe   (Windows — estructura recomendada)
@@ -32,13 +32,13 @@ import funkin.transitions.StateTransition;
  */
 class OutdatedSubState extends funkin.states.MusicBeatState
 {
-    /** true if the usuario already eligió "ignorar this update". */
+    /** true si el usuario ya eligió "ignorar esta actualización". */
     public static var leftState:Bool = false;
 
-    /** Version more reciente available (rellenada by TitleState). */
+    /** Versión más reciente disponible (rellenada por TitleState). */
     public static var daVersionNeeded:String = '???';
 
-    /** Changelog of the new version (rellenado by TitleState). */
+    /** Changelog de la nueva versión (rellenado por TitleState). */
     public static var daChangelogNeeded:String = '';
 
     /** URL a la que ir si no se puede abrir el launcher. */
@@ -52,7 +52,7 @@ class OutdatedSubState extends funkin.states.MusicBeatState
     {
         super.create();
 
-        // Fondo black solid
+        // Fondo negro sólido
         var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         add(bg);
 
@@ -65,7 +65,7 @@ class OutdatedSubState extends funkin.states.MusicBeatState
         header.alpha = 0;
         add(header);
 
-        // ── Info of version ──────────────────────────────────────────────────
+        // ── Info de versión ──────────────────────────────────────────────────
         var versionInfo:FlxText = new FlxText(MARGIN, 130, FlxG.width - MARGIN * 2,
             'Your version:  $currentVer\nLatest version:  $daVersionNeeded', 26);
         versionInfo.setFormat('VCR OSD Mono', 26, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
@@ -162,7 +162,7 @@ class OutdatedSubState extends funkin.states.MusicBeatState
 
     /**
      * Intenta abrir el launcher.
-     * @return true if is encontró and is lanzó correctly.
+     * @return true si se encontró y se lanzó correctamente.
      */
     static function _openLauncher():Bool
     {

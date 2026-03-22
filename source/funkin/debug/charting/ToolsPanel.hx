@@ -14,12 +14,12 @@ import funkin.data.Song.SwagSong;
 using StringTools;
 
 // ============================================================================
-//  ToolsPanel — side tools panel that doesn't interact with the grid.
+//  ToolsPanel — panel lateral de herramientas que NO interactúa con el grid.
 //
-//  Features:
+//  Características:
 //    · Se abre/cierra con toolsPanel.toggle() (llamado desde toolbar)
-//    · Consumes clicks and mouse scroll when open
-//    · Has its own internal scroll (mouse wheel without affecting the grid)
+//    · Consume clicks y scroll de ratón cuando está abierto
+//    · Tiene su propio scroll interno (rueda del ratón sin afectar el grid)
 //    · Secciones: PREVIEW (oponente, jugador, GF), OPCIONES (snap, hitsound…)
 //
 //  Uso en ChartingState:
@@ -59,7 +59,7 @@ class ToolsPanel extends FlxGroup
 	var previewPanel:PreviewPanel;
 	var camHUD:FlxCamera;
 
-	// Position X of the panel (animada to the abrir/cerrar)
+	// Posición X del panel (animada al abrir/cerrar)
 	var _panelX:Float;
 	var _targetX:Float;
 	var _panelY:Float = TOP_Y;
@@ -79,9 +79,9 @@ class ToolsPanel extends FlxGroup
 	// Rows (visibles)
 	var _rows:Array<PanelRow> = [];
 
-	// Mask sprite (hides contenido outside of the area of the panel)
-	// Note: FlxG no tiene a ClipRect native easy, usamos a overlay semi-transparente
-	// in the top part/inferior of the area of contenido.
+	// Mask sprite (oculta contenido fuera del área del panel)
+	// Note: FlxG no tiene un ClipRect nativo fácil, usamos un overlay semi-transparente
+	// en la parte superior/inferior del área de contenido.
 	// ── Constructor ───────────────────────────────────────────────────────────
 	public function new(parent:ChartingState, song:SwagSong, preview:PreviewPanel, camHUD:FlxCamera)
 	{
@@ -106,47 +106,47 @@ class ToolsPanel extends FlxGroup
 		_border = _spr(_panelX - 1, _panelY - 1, PANEL_W + 2, PANEL_H + 2, C_BORDER);
 		_bg = _spr(_panelX, _panelY, PANEL_W, PANEL_H, C_BG);
 
-		// Bar of title
+		// Barra de título
 		_titleBar = _spr(_panelX, _panelY, PANEL_W, TITLE_H, C_TITLE_BAR);
 
-		// Line of acento in the parte superior
+		// Línea de acento en la parte superior
 		var accentLine = _spr(_panelX, _panelY, PANEL_W, 3, C_ACCENT);
 
-		// Title
+		// Título
 		_titleTxt = _txt(_panelX + 10, _panelY + 8, PANEL_W - 50, "TOOLS", 12);
 		_titleTxt.color = C_ACCENT;
 
-		// Button cerrar [X]
+		// Botón cerrar [X]
 		_closeBtnBg = _spr(_panelX + PANEL_W - 28, _panelY + 5, 22, 20, C_CLOSE);
 		_closeBtnTxt = _txt(_panelX + PANEL_W - 28, _panelY + 6, 22, "X", 11);
 		_closeBtnTxt.color = 0xFFFF4455;
 
-		// Edge inferior of the title
+		// Borde inferior del título
 		var titleBorder = _spr(_panelX, _panelY + TITLE_H, PANEL_W, 1, 0xFF223344);
 
-		// ── Section PREVIEW of characters ──────────────────────────────────
+		// ── Sección PREVIEW DE PERSONAJES ──────────────────────────────────
 		_addSectionHeader("CHARACTER PREVIEW");
 
 		_addPreviewRow(0, "Opponent Preview");
 		_addPreviewRow(1, "Player Preview");
 		_addPreviewRow(2, "GF Preview");
 
-		// ── Section options ───────────────────────────────────────────────
+		// ── Sección OPCIONES ───────────────────────────────────────────────
 		_addSectionHeader("OPTIONS");
 
 		_addToggleRow("Hitsounds", "T", _getHitsounds, _setHitsounds);
 		_addToggleRow("Metronome", "M", _getMetronome, _setMetronome);
 		_addToggleRow("Waveform", "BTN", _getWaveform, _setWaveform);
 
-		// ── Section SNAP ───────────────────────────────────────────────────
+		// ── Sección SNAP ───────────────────────────────────────────────────
 		_addSectionHeader("NOTE SNAP");
 
 		_addSnapRow();
 
 		// ── Clip superior/inferior para "enmascarar" el scroll ─────────────
-		// A sprite solid above of the contenido (below of the title bar)
+		// Un sprite sólido encima del contenido (debajo de la barra de título)
 		var clipTop = _spr(_panelX, _panelY, PANEL_W, TITLE_H + 1, C_BG);
-		clipTop.alpha = 0; // transparente — the title already covers this area
+		clipTop.alpha = 0; // transparente — el título ya cubre esta área
 		// Borde inferior del panel (tapa la zona fuera del clip)
 		var clipBot = _spr(_panelX, _panelY + PANEL_H - 4, PANEL_W, 4, C_BG);
 		clipBot.alpha = 0.95;
@@ -411,7 +411,7 @@ class ToolsPanel extends FlxGroup
 		if (!isOpen)
 			return;
 
-		// Consumir events of the mouse when is over the panel
+		// Consumir eventos del ratón cuando está sobre el panel
 		if (_mouseOnPanel())
 		{
 			parent.clickConsumed = true;

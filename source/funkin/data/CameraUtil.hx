@@ -10,10 +10,10 @@ import openfl.filters.ShaderFilter;
  * CameraUtil — helpers para manipular FlxCamera de forma segura y consistente.
  *
  * Usa `@:access(flixel.FlxCamera)` a nivel de clase en vez de esparcir
- * `@:privateAccess` by all the code base — pattern tomado of NightmareVision.
- * This also is it that causaba the error of compilation:
+ * `@:privateAccess` por todo el código base — patrón tomado de NightmareVision.
+ * Esto también es lo que causaba el error de compilación:
  *   "flixel.FlxCamera has no field filters (Suggestion: _filters)"
- * The API public of FlxCamera in Flixel git expone `filters` (already no `_filters`).
+ * La API pública de FlxCamera en Flixel git expone `filters` (ya no `_filters`).
  * Esta clase centraliza todos los accesos a ese campo.
  *
  * @author  Cool Engine Team
@@ -21,12 +21,12 @@ import openfl.filters.ShaderFilter;
  */
 class CameraUtil
 {
-	// ── Creation ──────────────────────────────────────────────────────────────
+	// ── Creación ──────────────────────────────────────────────────────────────
 
 	/**
-	 * Creates a camera new with bgColor transparente and opcionalmente the adds
+	 * Crea una cámara nueva con bgColor transparente y opcionalmente la añade
 	 * al stack de FlxG.cameras.
-	 * @param addToStack  If true (default), the adds as camera no-default.
+	 * @param addToStack  Si true (default), la añade como cámara NO-default.
 	 */
 	public static function create(addToStack:Bool = true):FlxCamera
 	{
@@ -40,8 +40,8 @@ class CameraUtil
 	// ── Filtros / Shaders ─────────────────────────────────────────────────────
 
 	/**
-	 * Returns the array of filtros of the camera, creándolo if no exists.
-	 * Use the field public `filters` of FlxCamera.
+	 * Devuelve el array de filtros de la cámara, creándolo si no existe.
+	 * Usa el campo público `filters` de FlxCamera.
 	 */
 	public static inline function getFilters(cam:FlxCamera):Array<BitmapFilter>
 	{
@@ -50,8 +50,8 @@ class CameraUtil
 	}
 
 	/**
-	 * Reemplaza all the filtros of the camera of a vez.
-	 * Pasa null or array empty for quitar all the filtros
+	 * Reemplaza TODOS los filtros de la cámara de una vez.
+	 * Pasa null o array vacío para quitar todos los filtros
 	 * (evita el render-pass off-screen innecesario).
 	 */
 	public static inline function setFilters(cam:FlxCamera, filters:Array<BitmapFilter>):Void
@@ -60,10 +60,10 @@ class CameraUtil
 	}
 
 	/**
-	 * Adds a shader to the camera.
+	 * Añade un shader a la cámara.
 	 * @param shader  Shader a aplicar.
-	 * @param cam     Camera destino. Default: FlxG.camera.
-	 * @return The ShaderFilter creado (for poder quitarlo after).
+	 * @param cam     Cámara destino. Default: FlxG.camera.
+	 * @return El ShaderFilter creado (para poder quitarlo después).
 	 */
 	// NOTE: cam.filters es propiedad con setter en Flixel git.
 	// .push() modifica el array SIN llamar al setter → pipeline no se
@@ -102,7 +102,7 @@ class CameraUtil
 	}
 
 	/**
-	 * Elimina all the filtros of the camera.
+	 * Elimina todos los filtros de la cámara.
 	 */
 	public static inline function clearFilters(?cam:FlxCamera):Void
 	{
@@ -111,8 +111,8 @@ class CameraUtil
 	}
 
 	/**
-	 * Elimina filtros empty or nulos of the array internal.
-	 * Useful for clear without quitar filtros activos.
+	 * Elimina filtros vacíos o nulos del array interno.
+	 * Útil para limpiar sin quitar filtros activos.
 	 */
 	public static function pruneEmptyFilters(?cam:FlxCamera):Void
 	{
@@ -122,14 +122,14 @@ class CameraUtil
 		if (cam.filters.length == 0) cam.filters = null;
 	}
 
-	// ── Optimization ──────────────────────────────────────────────────────────
+	// ── Optimización ──────────────────────────────────────────────────────────
 
 	/**
-	 * Applies configuration of rendering óptima to a camera of gameplay.
-	 * - Without filtros empty (avoids the off-screen render pass).
-	 * - bgColor transparente (avoids fill-rect if there is otra camera of fondo).
+	 * Aplica configuración de renderizado óptima a una cámara de gameplay.
+	 * - Sin filtros vacíos (evita el off-screen render pass).
+	 * - bgColor transparente (evita fill-rect si hay otra cámara de fondo).
 	 *
-	 * No callr in the camera main if this is the single — necesita clear.
+	 * No llamar en la cámara principal si ésta es la única — necesita clear.
 	 */
 	public static function optimizeForGameplay(cam:FlxCamera):Void
 	{
@@ -138,7 +138,7 @@ class CameraUtil
 	}
 
 	/**
-	 * Returns the last camera of the stack (the of the HUD normalmente).
+	 * Devuelve la última cámara del stack (la del HUD normalmente).
 	 */
 	public static var lastCamera(get, never):FlxCamera;
 	static inline function get_lastCamera():FlxCamera

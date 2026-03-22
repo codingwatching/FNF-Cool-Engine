@@ -9,32 +9,32 @@ using StringTools;
 /**
  * CoreAudio — API de audio totalmente independiente de FlxG.sound.
  *
- * ─── Why ─────────────────────────────────────────────────────────────────
+ * ─── Por qué ─────────────────────────────────────────────────────────────────
  * FlxG.sound.volume / FlxG.sound.muted son irrecuperablemente rotos:
- *   • set_volume itera FlxG.sound.list, but music is in defaultMusicGroup.
- *   • set_muted no dispara onVolumeChange, so that cualquier listener that
- *     dependa of that signal never is entera of the mute.
+ *   • set_volume itera FlxG.sound.list, pero music está en defaultMusicGroup.
+ *   • set_muted no dispara onVolumeChange, así que cualquier listener que
+ *     dependa de esa señal nunca se entera del mute.
  *   • FlxSoundGroup multiplica volumenes de forma que un sound en dos grupos
  *     puede recibir el cambio dos veces o ninguna.
  *
- * ─── Solution ────────────────────────────────────────────────────────────────
+ * ─── Solución ────────────────────────────────────────────────────────────────
  * CoreAudio gestiona su propio `masterVolume` y `muted`. El volumen se aplica
  * en dos capas:
  *
  *   1. FlxG.sound.volume = masterVolume
- *      → Flixel applies this to all the sounds (SFX, UI, menu) via
- *        updateTransform() automatically.
+ *      → Flixel aplica esto a TODOS los sounds (SFX, UI, menú) vía
+ *        updateTransform() automáticamente.
  *
  *   2. _applyTo(snd): snd.volume = baseVolume
- *      → Only for music/vocales (in defaultMusicGroup, fuera of list).
+ *      → Solo para música/vocales (en defaultMusicGroup, fuera de list).
  *        El volumen efectivo final es:
  *          transform = FlxG.sound.volume × group.volume × snd._volume
  *                    = masterVolume × 1.0 × baseVolume
  *
  * ANTES (bug): FlxG.sound.volume se fijaba a 1.0 siempre → todos los sounds
- * fuera of the registry (SFX, UI) sonaban to the maximum ignorando masterVolume.
+ * fuera del registry (SFX, UI) sonaban al máximo ignorando masterVolume.
  *
- * ─── Basic usage ───────────────────────────────────────────────────────────────
+ * ─── Uso básico ───────────────────────────────────────────────────────────────
  *
  *   // Main.setupGame():
  *   CoreAudio.initialize();
@@ -72,7 +72,7 @@ class CoreAudio extends FlxBasic
 		// para que masterVolume ya tenga el valor correcto desde el primer frame.
 		loadVolume();
 		// Sincronizar FlxG.sound.volume con masterVolume para que TODOS los
-		// sounds (SFX, UI, music of menu) respeten the volumen maestro.
+		// sonidos (SFX, UI, música de menú) respeten el volumen maestro.
 		// Flixel aplica FlxG.sound.volume como multiplicador global a cada
 		// FlxSound.updateTransform(), por lo que basta con mantenerlo en sync.
 		FlxG.sound.volume = muted ? 0.0 : masterVolume;
@@ -103,7 +103,7 @@ class CoreAudio extends FlxBasic
 	public static function setMasterVolume(v:Float):Void
 	{
 		masterVolume = Math.round(Math.max(0.0, Math.min(1.0, v)) * 10) / 10;
-		// Auto-mute implicit when the volumen llega to 0 (bajando with '-').
+		// Auto-mute implícito cuando el volumen llega a 0 (bajando con '-').
 		// Sin esto, SoundTray.isMuted y CoreAudio.muted quedan desincronizados
 		// → la tecla 0 deja de funcionar correctamente.
 		if (masterVolume <= 0 && !muted)
@@ -111,7 +111,7 @@ class CoreAudio extends FlxBasic
 			muted = true;
 			// NO tocar _explicitMute: esto es mute por volumen, no por toggle.
 		}
-		// Auto-unmute when is sube from 0 (only if no era mute explicit).
+		// Auto-unmute cuando se sube desde 0 (solo si no era mute explícito).
 		else if (masterVolume > 0 && muted && !_explicitMute)
 		{
 			muted = false;
@@ -133,8 +133,8 @@ class CoreAudio extends FlxBasic
 		// Sincronizar FlxG.sound.volume → SFX/UI en FlxG.sound.list
 		FlxG.sound.volume = muted ? 0.0 : masterVolume;
 		FlxG.sound.muted  = false;
-		// Sincronizar sounds registrados (music/vocales in defaultMusicGroup
-		// that no reciben the update of FlxG.sound.volume automatically).
+		// Sincronizar sounds registrados (música/vocales en defaultMusicGroup
+		// que NO reciben el update de FlxG.sound.volume automáticamente).
 		_applyAll();
 		if (_sig != null) _sig.dispatch(muted ? 0.0 : masterVolume);
 	}
@@ -151,7 +151,7 @@ class CoreAudio extends FlxBasic
 	private static inline function get_effectiveVolume():Float
 		return muted ? 0.0 : masterVolume;
 
-	// ── Signal public ─────────────────────────────────────────────────────────
+	// ── Señal pública ─────────────────────────────────────────────────────────
 
 	/** Se dispara en cada cambio de volumen/mute. Valor = volumen efectivo. */
 	public static var onVolumeChanged(get, never):FlxTypedSignal<Float->Void>;
@@ -164,15 +164,15 @@ class CoreAudio extends FlxBasic
 
 	// ── Estado de gameplay ────────────────────────────────────────────────────
 
-	/** Instrumental active (null if no there is song). */
+	/** Instrumental activo (null si no hay canción). */
 	public static var inst(default, null):Null<FlxSound> = null;
 
 	/** Vocales por nombre de personaje. */
 	public static var vocals(default, null):Map<String, FlxSound> = [];
 
-	// ── State of menu ────────────────────────────────────────────────────────
+	// ── Estado de menú ────────────────────────────────────────────────────────
 
-	/** Track of menu active. '' if no there is. */
+	/** Track de menú activa. '' si no hay. */
 	public static var menuTrack(default, null):String = '';
 
 	// ── Registro interno de sounds + baseVolume ───────────────────────────────
@@ -184,7 +184,7 @@ class CoreAudio extends FlxBasic
 	 */
 	private static var _registry:Map<FlxSound, Float> = [];
 
-	/** true if the mute was activado explicitly by toggleMute/setMuted(true). */
+	/** true si el mute fue activado explícitamente por toggleMute/setMuted(true). */
 	private static var _explicitMute:Bool = false;
 
 	// ── Constructor ───────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ class CoreAudio extends FlxBasic
 		_applyTo(snd);
 	}
 
-	/** Returns the baseVolume of a sound registered (1.0 if no is in the registry). */
+	/** Devuelve el baseVolume de un sound registrado (1.0 si no está en el registry). */
 	public static function getBaseVolume(snd:FlxSound):Float
 	{
 		if (snd == null) return 0.0;
@@ -237,9 +237,9 @@ class CoreAudio extends FlxBasic
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Registra the instrumental of the song.
+	 * Registra el instrumental de la canción.
 	 * Asigna el sound a FlxG.sound.music (Flixel lo gestiona fuera de la list).
-	 * no it adds to FlxG.sound.list for avoid that Flixel it procese dos veces.
+	 * NO lo añade a FlxG.sound.list para evitar que Flixel lo procese dos veces.
 	 * @param snd  FlxSound cargado y pausado (null → no-op).
 	 */
 	public static function setInst(snd:Null<FlxSound>):Void
@@ -249,11 +249,11 @@ class CoreAudio extends FlxBasic
 
 		inst = snd;
 		FlxG.sound.music = snd;
-		register(snd, 1.0); // baseVolume 1.0 — _applyTo it pondrá to masterVolume×1.0
+		register(snd, 1.0); // baseVolume 1.0 — _applyTo lo pondrá a masterVolume×1.0
 	}
 
 	/**
-	 * Adds a track of vocales.
+	 * Añade un track de vocales.
 	 * @param key  Nombre del personaje ('bf', 'dad', etc.)
 	 * @param snd  FlxSound cargado y pausado.
 	 */
@@ -303,11 +303,11 @@ class CoreAudio extends FlxBasic
 		// Parar y limpiar voces
 		clearVocals();
 
-		// Parar music of menu
+		// Parar música de menú
 		_stopMenuInternal();
 		menuTrack = '';
 
-		// Vaciar the registry — any FlxSound that siga ahí is of the previous session
+		// Vaciar el registry — cualquier FlxSound que siga ahí es de la sesión anterior
 		for (snd => _ in _registry)
 		{
 			try { if (snd != null && snd.alive) snd.stop(); } catch (_) {}
@@ -406,10 +406,10 @@ class CoreAudio extends FlxBasic
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// API — Menu
+	// API — Menú
 	// ══════════════════════════════════════════════════════════════════════════
 
-	/** Reproduce a track of menu. */
+	/** Reproduce una track de menú. */
 	public static function playMenu(track:String, volume:Float = 1.0,
 		forceRestart:Bool = false, loop:Bool = true):Void
 	{
@@ -431,7 +431,7 @@ class CoreAudio extends FlxBasic
 		{
 			FlxG.sound.music.persist = true;
 			_ensureInList(FlxG.sound.music);
-			register(FlxG.sound.music, volume);   // baseVolume = the "volumen of menu"
+			register(FlxG.sound.music, volume);   // baseVolume = el "volumen de menú"
 		}
 	}
 
@@ -472,26 +472,26 @@ class CoreAudio extends FlxBasic
 		}
 	}
 
-	/** For the music of menu. */
+	/** Para la música de menú. */
 	public static function stopMenu():Void
 	{
 		_stopMenuInternal();
 		menuTrack = '';
 	}
 
-	/** true if the track of menu indicada is sonando. */
+	/** true si la track de menú indicada está sonando. */
 	public static inline function isMenuPlaying(track:String):Bool
 		return menuTrack == track && FlxG.sound.music != null && FlxG.sound.music.playing;
 
 	/**
-	 * Reproduce a FlxSound already loaded as music active (for previews in Freeplay
+	 * Reproduce un FlxSound ya cargado como música activa (para previews en Freeplay
 	 * u otros casos donde el caller ya tiene el FlxSound listo).
-	 * Stops the music previous, registra the new sound in CoreAudio and it
-	 * adds to FlxG.sound.list for that Flixel it pause/reanude automatically.
+	 * Detiene la música anterior, registra el nuevo sound en CoreAudio y lo
+	 * añade a FlxG.sound.list para que Flixel lo pause/reanude automáticamente.
 	 *
-	 * @param snd         FlxSound already loaded. If is null, only for the music previous.
-	 * @param baseVolume  Volumen local (0.0–1.0). The volumen efectivo will be masterVolume×baseVolume.
-	 * @param loop        If true, the music hace loop.
+	 * @param snd         FlxSound ya cargado. Si es null, solo para la música anterior.
+	 * @param baseVolume  Volumen local (0.0–1.0). El volumen efectivo será masterVolume×baseVolume.
+	 * @param loop        Si true, la música hace loop.
 	 */
 	public static function playPreloadedMusic(snd:Null<FlxSound>, baseVolume:Float = 1.0, loop:Bool = true):Void
 	{
@@ -508,7 +508,7 @@ class CoreAudio extends FlxBasic
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// play() public — without FPS drop in targets nativos
+	// play() público — sin FPS drop en targets nativos
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
@@ -548,7 +548,7 @@ class CoreAudio extends FlxBasic
 		masterVolume  = Math.max(0, Math.min(1, savedVol));
 		_explicitMute = (FlxG.save.data.coreMuted == true);
 		muted         = _explicitMute || (masterVolume <= 0.0);
-		// No callr _applyAll() here: still no there is sounds registered in the boot.
+		// No llamar _applyAll() aquí: aún no hay sounds registrados en el boot.
 		trace('[CoreAudio] Loaded: vol=${masterVolume} muted=${muted}');
 	}
 
@@ -562,21 +562,21 @@ class CoreAudio extends FlxBasic
 	 * Flixel calcula el volumen efectivo como:
 	 *   transform = FlxG.sound.volume × group.volume × snd._volume
 	 *
-	 * As ahora FlxG.sound.volume = masterVolume (no 1.0), here only
+	 * Como ahora FlxG.sound.volume = masterVolume (no 1.0), aquí solo
 	 * necesitamos fijar snd._volume = base. El resultado final es:
 	 *   transform = masterVolume × 1.0 × base = masterVolume × base  ✓
 	 *
-	 * This is applies to music and vocales (that no are in FlxG.sound.list
-	 * and by tanto no reciben the update of FlxG.sound.volume automatically).
+	 * Esto se aplica a música y vocales (que no están en FlxG.sound.list
+	 * y por tanto no reciben el update de FlxG.sound.volume automáticamente).
 	 */
 	private static function _applyTo(snd:FlxSound):Void
 	{
 		if (snd == null) return;
 		final base = _registry.exists(snd) ? _registry.get(snd) : 1.0;
 
-		// FIX: doble-volumen in music / mute roto
+		// FIX: doble-volumen en música / mute roto
 		// ─────────────────────────────────────────────────────────────────────
-		// The music vive in defaultMusicGroup (FlxG.sound.music), that Flixel
+		// La música vive en defaultMusicGroup (FlxG.sound.music), que Flixel
 		// gestiona con su propio FlxSoundGroup.  El volumen efectivo de
 		// cualquier FlxSound se calcula en updateTransform():
 		//
@@ -586,12 +586,12 @@ class CoreAudio extends FlxBasic
 		//
 		// ANTES: snd.volume = masterVolume × base
 		//   → effective = masterVolume × 1.0 × (masterVolume × base)
-		//               = masterVolume²  × base   ← DOBLE appliesción
-		//   to vol=0.7 the music sonaba to 0.49 in lugar of 0.70.
+		//               = masterVolume²  × base   ← DOBLE aplicación
+		//   A vol=0.7 la música sonaba a 0.49 en lugar de 0.70.
 		//   Con muted=true, FlxG.sound.volume = 0, pero snd.volume
-		//   is seteaba to 0 also → to the desmutear snd.volume seguía in 0
-		//   until the next _applyAll() → is oía a frame of silencio
-		//   extra and in race conditions the music no arrancaba.
+		//   se seteaba a 0 también → al desmutear snd.volume seguía en 0
+		//   hasta el siguiente _applyAll() → se oía un frame de silencio
+		//   extra y en race conditions la música no arrancaba.
 		//
 		// AHORA: snd.volume = base  (solo baseVolume, sin masterVolume)
 		//   → effective = masterVolume × 1.0 × base   ← correcto
@@ -599,12 +599,12 @@ class CoreAudio extends FlxBasic
 		//   sin necesidad de tocar snd.volume individualmente.
 		// ─────────────────────────────────────────────────────────────────────
 		if (muted)
-			snd.volume = 0.0;  // silencio explicit by if defaultMusicGroup ignora FlxG.sound.volume
+			snd.volume = 0.0;  // silencio explícito por si defaultMusicGroup ignora FlxG.sound.volume
 		else
-			snd.volume = base; // FlxG.sound.volume = masterVolume already actúa of multiplier
+			snd.volume = base; // FlxG.sound.volume = masterVolume ya actúa de multiplicador
 
-		// Force appliesción inmediata to the backend OpenAL/SDL.
-		// Without this, FlxSound.updateTransform() only is call in the next frame
+		// Forzar aplicación inmediata al backend OpenAL/SDL.
+		// Sin esto, FlxSound.updateTransform() solo se llama en el próximo frame
 		// de audio → hay un delay audible al mutear o bajar el volumen a 0.
 		@:privateAccess snd.updateTransform();
 	}
@@ -637,7 +637,7 @@ class CoreAudio extends FlxBasic
 		}
 	}
 
-	/** Guarantees that the sound is in FlxG.sound.list (for pause/resume of Flixel). */
+	/** Garantiza que el sound esté en FlxG.sound.list (para pause/resume de Flixel). */
 	private static inline function _ensureInList(snd:FlxSound):Void
 	{
 		if (snd != null && !FlxG.sound.list.members.contains(snd))
@@ -650,7 +650,7 @@ class CoreAudio extends FlxBasic
 		try snd.play() catch (e:Dynamic) trace('[CoreAudio] _play error: $e');
 	}
 
-	// ── Fade manual over baseVolume (for menu fade-in) ─────────────────────
+	// ── Fade manual sobre baseVolume (para menú fade-in) ─────────────────────
 
 	private static var _fadeSound:Null<FlxSound>   = null;
 	private static var _fadeTarget:Float            = 0.0;
@@ -696,10 +696,10 @@ class CoreAudio extends FlxBasic
 	override public function update(elapsed:Float):Void
 	{
 		super.update(elapsed);
-		// Tick of fade-in manual (menu).
+		// Tick de fade-in manual (menú).
 		_tickFade(elapsed);
 		// Mantener FlxG.sound.volume sincronizado con masterVolume.
-		// Some code external (FlxGame, addons) podría cambiarlo.
+		// Algún código externo (FlxGame, addons) podría cambiarlo.
 		final expectedVol:Float = muted ? 0.0 : masterVolume;
 		if (FlxG.sound.volume != expectedVol) FlxG.sound.volume = expectedVol;
 		if (FlxG.sound.muted)                 FlxG.sound.muted  = false;

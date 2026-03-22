@@ -6,15 +6,14 @@ import sys.io.File;
 import mods.ModManager;
 
 using StringTools;
-
 /**
- * MetaData — Metadata by song.
+ * MetaData — Metadata por canción.
  *
- * File: assets/songs/{songName}/meta.json
+ * Archivo: assets/songs/{songName}/meta.json
  *
- * Hierarchy of priority: meta.json > global.json > stage override > preference global
+ * Jerarquía de prioridad: meta.json > global.json > stage override > preferencia global
  *
- * Example complete meta.json:
+ * Ejemplo completo de meta.json:
  * {
  *   "ui":              "default",
  *   "noteSkin":        "MyPixelSkin",
@@ -40,13 +39,13 @@ using StringTools;
  *   "midSongVideo": false
  * }
  *
- * Atlas formats supported in holdCoverFormat:
+ * Formatos de atlas soportados en holdCoverFormat:
  *   "sparrow" — TextureAtlas XML (ej: pixelNoteHoldCover.xml). DEFAULT.
- *               PNG + XML with "loop" and "explode" animations.
+ *               PNG + XML con animaciones "loop" y "explode".
  *   "packer"  — Starling/Packer TXT. PNG + TXT.
- *   "grid"    — Spritesheet in uniform grid. PNG only.
- *               Requires holdCoverFrameW + holdCoverFrameH.
- *               First N frames = "loop", subsequent N = "explode".
+ *   "grid"    — Spritesheet en grilla uniforme. Solo PNG.
+ *               Requiere holdCoverFrameW + holdCoverFrameH.
+ *               Primeras N frames = "loop", siguientes N = "explode".
  */
 typedef SongMetaData =
 {
@@ -56,18 +55,18 @@ typedef SongMetaData =
 	@:optional var stageSkins:Null<Dynamic>;
 
 	/**
-	 * Overrides by difficulty. The key is the suffix of difficulty without the dash
-	 * (ej: "erect", "hard", "nightmare"). The fields present in the object
-	 * They have priority over the base values ​​of the meta.json for that difficulty.
+	 * Overrides por dificultad. La clave es el sufijo de dificultad SIN el guión
+	 * (ej: "erect", "hard", "nightmare"). Los campos presentes en el objeto
+	 * tienen prioridad sobre los valores base del meta.json para esa dificultad.
 	 *
-	 * Example:
+	 * Ejemplo:
 	 *   "difficultyOverrides": {
 	 *     "erect":     { "artist": "NyaWithMe" },
 	 *     "nightmare": { "artist": "NyaWithMe" }
 	 *   }
 	 *
-	 * Currently supported fields: artist.
-	 * (Easy of extender to other fields in MetaData.load)
+	 * Campos soportados actualmente: artist.
+	 * (Fácil de extender a otros campos en MetaData.load)
 	 */
 	@:optional var difficultyOverrides:Null<Dynamic>;
 
@@ -92,16 +91,16 @@ typedef SongMetaData =
 	@:optional var artist:Null<String>;
 
 	/**
-	 * List of suffixes of difficulty that this song expone to the player.
-	 * If null or empty → is show all the difficulties detected (behavior legacy).
-	 * If is especifica → only is show the diffs whose sufijos are in this list.
+	 * Lista de sufijos de dificultad que esta canción expone al jugador.
+	 * Si null o vacío → se muestran todas las dificultades detectadas (comportamiento legacy).
+	 * Si se especifica → solo se muestran las diffs cuyos sufijos estén en esta lista.
 	 *
 	 * Ejemplo:
 	 *   "difficulties": ["-easy", "-hard"]
 	 *   → Solo aparecen Easy y Hard aunque exista un chart "-nightmare".
 	 *
 	 *   "difficulties": ["", "-hard"]
-	 *   → Normal (suffix empty) and Hard.
+	 *   → Normal (sufijo vacío) y Hard.
 	 */
 	@:optional var difficulties:Null<Array<String>>;
 }
@@ -114,19 +113,14 @@ class MetaData
 	public var stageSkins:Null<Map<String, String>> = null;
 
 	// ── Hold Cover ──────────────────────────────────────────────────────────
-
-	/** null = use GlobalConfig.holdCoverEnabled */
+	/** null = usar GlobalConfig.holdCoverEnabled */
 	public var holdCoverEnabled:Null<Bool> = null;
-
-	/** null = use GlobalConfig.holdCoverSkin o el builtin */
+	/** null = usar GlobalConfig.holdCoverSkin o el builtin */
 	public var holdCoverSkin:Null<String> = null;
-
 	/** "sparrow" | "packer" | "grid" */
 	public var holdCoverFormat:String = 'sparrow';
-
 	/** Ancho de frame para formato "grid" */
 	public var holdCoverFrameW:Int = 0;
-
 	/** Alto de frame para formato "grid" */
 	public var holdCoverFrameH:Int = 0;
 
@@ -135,29 +129,24 @@ class MetaData
 	public var hudVisible:Bool = true;
 	public var introVideo:Null<String> = null;
 	public var outroVideo:Null<String> = null;
-
-	/** Sprite cutscene key for the intro (assets/data/cutscenes/{key}.json). */
+	/** Clave de cutscene de sprites para el intro (assets/data/cutscenes/{key}.json). */
 	public var introCutscene:Null<String> = null;
-
-	/** Sprite cutscene key for the outro. */
+	/** Clave de cutscene de sprites para el outro. */
 	public var outroCutscene:Null<String> = null;
-
 	public var midSongVideo:Bool = false;
 	public var disableCameraZoom:Bool = false;
 	public var artist:Null<String> = null;
 
 	/**
-	 * Suffixes of difficulty that is show for this song.
-	 * null = without restriction (show all the detected).
-	 * Array empty = equal that null (without restriction).
+	 * Sufijos de dificultad que se muestran para esta canción.
+	 * null = sin restricción (mostrar todas las detectadas).
+	 * Array vacío = igual que null (sin restricción).
 	 */
 	public var allowedDifficulties:Null<Array<String>> = null;
 
 	public var raw:SongMetaData;
 
-	public function new()
-	{
-	}
+	public function new() {}
 
 	public static function load(songName:String, ?difficulty:String):MetaData
 	{
@@ -169,7 +158,7 @@ class MetaData
 		#if sys
 		final songKey = songName.toLowerCase();
 
-		// ── Priority 1: meta block of the file .level ───────────────────
+		// ── Prioridad 1: bloque meta del archivo .level ───────────────────
 		final levelMeta = funkin.data.LevelFile.loadMeta(songKey);
 		if (levelMeta != null)
 		{
@@ -178,18 +167,16 @@ class MetaData
 			trace('[MetaData] Cargado desde .level: $songKey');
 		}
 
-		// ── Priority 2: meta.json legacy ──────────────────────────────────
+		// ── Prioridad 2: meta.json legacy ──────────────────────────────────
 		if (rawData == null)
 		{
 			var path:String = null;
 			final modPath = ModManager.resolveInMod('songs/$songKey/meta.json');
-			if (modPath != null)
-				path = modPath;
+			if (modPath != null) path = modPath;
 			else
 			{
 				final basePath = 'assets/songs/$songKey/meta.json';
-				if (FileSystem.exists(basePath))
-					path = basePath;
+				if (FileSystem.exists(basePath)) path = basePath;
 			}
 
 			if (path != null && FileSystem.exists(path))
@@ -198,32 +185,27 @@ class MetaData
 				{
 					rawData = cast Json.parse(File.getContent(path));
 					meta.raw = rawData;
-					trace('[MetaData] Loaded meta.json: $path');
+					trace('[MetaData] Cargado meta.json: $path');
 				}
 				catch (e)
 				{
-					trace('[MetaData] Error parsing meta.json of "$songName": $e');
+					trace('[MetaData] Error al parsear meta.json de "$songName": $e');
 				}
 			}
 			else
 			{
-				trace('[MetaData]No meta tag for "$songName", using GlobalConfig');
+				trace('[MetaData] Sin meta para "$songName", usando GlobalConfig');
 			}
 		}
 		#else
 		final legacyPath = 'assets/songs/${songName.toLowerCase()}/meta.json';
-		try
-		{
-			rawData = cast Json.parse(lime.utils.Assets.getText(legacyPath));
-		}
-		catch (_)
-		{
-		}
+		try { rawData = cast Json.parse(lime.utils.Assets.getText(legacyPath)); } catch (_) {}
 		#end
 
-		meta.ui = resolveStr(rawData?.ui, global.ui, 'default');
-		meta.noteSkin = resolveStr(rawData?.noteSkin, global.noteSkin, 'default');
-		meta.noteSplash = (rawData?.noteSplash != null && rawData.noteSplash != '') ? rawData.noteSplash : null;
+		meta.ui        = resolveStr(rawData?.ui,       global.ui,       'default');
+		meta.noteSkin  = resolveStr(rawData?.noteSkin, global.noteSkin, 'default');
+		meta.noteSplash = (rawData?.noteSplash != null && rawData.noteSplash != '')
+			? rawData.noteSplash : null;
 
 		if (rawData?.stageSkins != null)
 		{
@@ -232,15 +214,13 @@ class MetaData
 			for (field in Reflect.fields(obj))
 			{
 				var val = Std.string(Reflect.field(obj, field));
-				if (val != null && val != '')
-					meta.stageSkins.set(field, val);
+				if (val != null && val != '') meta.stageSkins.set(field, val);
 			}
-			if (!meta.stageSkins.iterator().hasNext())
-				meta.stageSkins = null;
+			if (!meta.stageSkins.iterator().hasNext()) meta.stageSkins = null;
 		}
 
 		// ── Hold Cover ───────────────────────────────────────────────────────
-		// holdCoverEnabled: meta have priority; null = Let GlobalConfig decide
+		// holdCoverEnabled: meta tiene prioridad; null = deja que GlobalConfig decida
 		meta.holdCoverEnabled = (rawData?.holdCoverEnabled != null) ? rawData.holdCoverEnabled : null;
 
 		// holdCoverSkin: meta > global
@@ -256,20 +236,20 @@ class MetaData
 		meta.holdCoverFrameW = (rawData?.holdCoverFrameW != null) ? rawData.holdCoverFrameW : 0;
 		meta.holdCoverFrameH = (rawData?.holdCoverFrameH != null) ? rawData.holdCoverFrameH : 0;
 
-		meta.hideCombo = resolveBool(rawData?.hideCombo, false);
+		meta.hideCombo   = resolveBool(rawData?.hideCombo,   false);
 		meta.hideRatings = resolveBool(rawData?.hideRatings, false);
-		meta.hudVisible = resolveBool(rawData?.hudVisible, true);
-		meta.introVideo = rawData?.introVideo ?? null;
-		meta.outroVideo = rawData?.outroVideo ?? null;
-		meta.introCutscene = rawData?.introCutscene ?? null;
-		meta.outroCutscene = rawData?.outroCutscene ?? null;
-		meta.midSongVideo = resolveBool(rawData?.midSongVideo, false);
+		meta.hudVisible  = resolveBool(rawData?.hudVisible,  true);
+		meta.introVideo        = rawData?.introVideo  ?? null;
+		meta.outroVideo        = rawData?.outroVideo  ?? null;
+		meta.introCutscene     = rawData?.introCutscene ?? null;
+		meta.outroCutscene     = rawData?.outroCutscene ?? null;
+		meta.midSongVideo      = resolveBool(rawData?.midSongVideo,      false);
 		meta.disableCameraZoom = resolveBool(rawData?.disableCameraZoom, false);
 		meta.artist = (rawData?.artist != null && rawData.artist != '') ? rawData.artist : null;
 
-		// ── Difficulties allowed ──────────────────────────────────────────
-		// If the meta.json has "difficulties": ["-easy", "-hard"], only those
-		// Difficulties are exposed to the player (the rest are hidden even if they exist).
+		// ── Dificultades permitidas ──────────────────────────────────────────
+		// Si el meta.json tiene "difficulties": ["-easy", "-hard"], solo esas
+		// dificultades se exponen al jugador (el resto se ocultan aunque existan).
 		if (rawData?.difficulties != null && Std.isOfType(rawData.difficulties, Array))
 		{
 			final arr:Array<Dynamic> = cast rawData.difficulties;
@@ -278,8 +258,8 @@ class MetaData
 		}
 
 		// ── Difficulty overrides ─────────────────────────────────────────────
-		// Normalize difficulty: remove leading dash if comes with it ("-erect" → "erect").
-		// The key in the JSON no lleva dash for that sea more legible.
+		// Normalizar dificultad: quitar guión inicial si viene con él ("-erect" → "erect").
+		// La clave en el JSON no lleva guión para que sea más legible.
 		if (difficulty != null && rawData?.difficultyOverrides != null)
 		{
 			final diffKey = difficulty.startsWith('-') ? difficulty.substr(1) : difficulty;
@@ -288,34 +268,40 @@ class MetaData
 			{
 				// artist
 				final ovArtist:Null<String> = Reflect.field(ov, 'artist');
-				if (ovArtist != null && ovArtist != '')
-					meta.artist = ovArtist;
+				if (ovArtist != null && ovArtist != '') meta.artist = ovArtist;
 
-				// Add more fields here in the future following the same pattern:
+				// Añadir aquí más campos en el futuro siguiendo el mismo patrón:
 				// final ovXxx = Reflect.field(ov, 'xxx');
 				// if (ovXxx != null) meta.xxx = ovXxx;
 
-				trace('[MetaData] difficultyOverrides["$diffKey"] applied');
+				trace('[MetaData] difficultyOverrides["$diffKey"] aplicado');
 			}
 		}
 
-		trace('[MetaData] Resolved — noteSkin="${meta.noteSkin}" holdCoverEnabled=${meta.holdCoverEnabled} holdCoverSkin="${meta.holdCoverSkin}" holdCoverFormat="${meta.holdCoverFormat}"');
+		trace('[MetaData] Resuelto — noteSkin="${meta.noteSkin}" holdCoverEnabled=${meta.holdCoverEnabled} holdCoverSkin="${meta.holdCoverSkin}" holdCoverFormat="${meta.holdCoverFormat}"');
 		return meta;
 	}
 
 	/**
-	 * Save the values actuales as meta.json in the folder of the song.
+	 * Guarda los valores actuales como meta.json en la carpeta de la canción.
 	 */
-	public static function save(songName:String, ui:String, noteSkin:String, ?noteSplash:String = null, ?stageSkins:Map<String, String> = null,
-			?holdCoverEnabled:Null<Bool> = null, ?holdCoverSkin:Null<String> = null, ?holdCoverFormat:String = 'sparrow', ?holdCoverFrameW:Int = 0,
-			?holdCoverFrameH:Int = 0, ?hideCombo:Bool = false, ?hideRatings:Bool = false, ?hudVisible:Bool = true):Void
+	public static function save(songName:String, ui:String, noteSkin:String,
+	                            ?noteSplash:String = null,
+	                            ?stageSkins:Map<String,String> = null,
+	                            ?holdCoverEnabled:Null<Bool> = null,
+	                            ?holdCoverSkin:Null<String> = null,
+	                            ?holdCoverFormat:String = 'sparrow',
+	                            ?holdCoverFrameW:Int = 0,
+	                            ?holdCoverFrameH:Int = 0,
+	                            ?hideCombo:Bool = false,
+	                            ?hideRatings:Bool = false,
+	                            ?hudVisible:Bool = true):Void
 	{
 		#if sys
 		try
 		{
 			var dir = 'assets/songs/${songName.toLowerCase()}';
-			if (!FileSystem.exists(dir))
-				FileSystem.createDirectory(dir);
+			if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
 
 			var stageSkinsObj:Dynamic = null;
 			if (stageSkins != null)
@@ -326,36 +312,34 @@ class MetaData
 			}
 
 			var data:SongMetaData = {
-				ui: (ui != null && ui != '') ? ui : null,
-				noteSkin: (noteSkin != null && noteSkin != '') ? noteSkin : null,
+				ui:         (ui != null && ui != '') ? ui : null,
+				noteSkin:   (noteSkin != null && noteSkin != '') ? noteSkin : null,
 				noteSplash: (noteSplash != null && noteSplash != '') ? noteSplash : null,
 				stageSkins: stageSkinsObj,
 				holdCoverEnabled: holdCoverEnabled,
-				holdCoverSkin: (holdCoverSkin != null && holdCoverSkin != '') ? holdCoverSkin : null,
+				holdCoverSkin:   (holdCoverSkin != null && holdCoverSkin != '') ? holdCoverSkin : null,
 				holdCoverFormat: (holdCoverFormat != null && holdCoverFormat != 'sparrow') ? holdCoverFormat : null,
 				holdCoverFrameW: (holdCoverFrameW > 0) ? holdCoverFrameW : null,
 				holdCoverFrameH: (holdCoverFrameH > 0) ? holdCoverFrameH : null,
-				hideCombo: hideCombo,
+				hideCombo:   hideCombo,
 				hideRatings: hideRatings,
-				hudVisible: hudVisible
+				hudVisible:  hudVisible
 			};
 
 			File.saveContent('$dir/meta.json', Json.stringify(data, null, '\t'));
-			trace('[MetaData] Saved: $dir/meta.json');
+			trace('[MetaData] Guardado: $dir/meta.json');
 		}
 		catch (e)
 		{
-			trace('[MetaData] Error to save meta.json: $e');
+			trace('[MetaData] Error al guardar meta.json: $e');
 		}
 		#end
 	}
 
 	static inline function resolveStr(metaVal:Null<String>, globalVal:Null<String>, fallback:String):String
 	{
-		if (metaVal != null && metaVal.length > 0)
-			return metaVal;
-		if (globalVal != null && globalVal.length > 0)
-			return globalVal;
+		if (metaVal != null && metaVal.length > 0) return metaVal;
+		if (globalVal != null && globalVal.length > 0) return globalVal;
 		return fallback;
 	}
 

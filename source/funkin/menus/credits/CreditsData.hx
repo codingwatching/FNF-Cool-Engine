@@ -1,7 +1,7 @@
 package funkin.menus.credits;
 
 /**
- * Structure root of the JSON of credits.
+ * Estructura raíz del JSON de créditos.
  * Compatible con el formato de v-slice (entries con header + body).
  *
  * Formato JSON de ejemplo (assets/data/credits.json):
@@ -10,15 +10,15 @@ package funkin.menus.credits;
  *     {
  *       "header": "Directores",
  *       "body": [
- *         { "line": "ninjamuffin99 — Programming" },
- *         { "line": "PhantomArcade — Animation" }
+ *         { "line": "ninjamuffin99 — Programación" },
+ *         { "line": "PhantomArcade — Animación" }
  *       ]
  *     }
  *   ]
  * }
  *
  * Para mods, colocar en: mods/<mod>/data/credits.json
- * The entries of the mod is añaden to the end of the entries base.
+ * Las entradas del mod se añaden AL FINAL de las entradas base.
  */
 typedef CreditsData =
 {
@@ -26,19 +26,19 @@ typedef CreditsData =
 }
 
 /**
- * A section of the credits (rol, category, etc.).
+ * Una sección de los créditos (rol, categoría, etc.).
  */
 typedef CreditsEntry =
 {
 	/**
-	 * Title of the section in bold (p.ej. "Directores", "Arte").
+	 * Título de la sección en negrita (p.ej. "Directores", "Arte").
 	 * Opcional: si es null, no se muestra cabecera.
 	 */
 	@:optional
 	var header:Null<String>;
 
 	/**
-	 * Lines of text under the header.
+	 * Líneas de texto bajo el header.
 	 */
 	@:optional
 	var body:Array<CreditsLine>;
@@ -59,7 +59,7 @@ typedef CreditsEntry =
 }
 
 /**
- * A line of text in the body of a entry.
+ * Una línea de texto en el body de una entrada.
  */
 typedef CreditsLine =
 {

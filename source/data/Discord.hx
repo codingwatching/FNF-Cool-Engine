@@ -88,12 +88,12 @@ class DiscordClient
 	}
 
 	/**
-	 * Applies the configuration of Discord of a mod.
+	 * Aplica la configuración de Discord de un mod.
 	 * Si info es null, restaura los valores por defecto del engine.
 	 *
 	 * Si el mod define un clientId distinto al actual, reinicia el RPC
-	 * with the new application ID (requires that the mod has its own
-	 * app in the Discord Developer Portal with the images subidas).
+	 * con el nuevo ID de aplicación (requiere que el mod tenga su propia
+	 * app en el Discord Developer Portal con las imágenes subidas).
 	 *
 	 * Llamar desde Main.hx en onModChanged y al arrancar.
 	 */
@@ -116,7 +116,7 @@ class DiscordClient
 		{
 			// clientId distinto → hay que reiniciar RPC con el nuevo app ID
 			activeClientId = newClientId;
-			trace('[Discord] clientId changed → restarting RPC with "$newClientId"');
+			trace('[Discord] clientId cambió → reiniciando RPC con "$newClientId"');
 			if (_running)
 			{
 				DiscordRpc.shutdown();

@@ -23,7 +23,7 @@ using StringTools;
  *   │  exposeAll(map)            → bulk                                   │
  *   ├─────────────────────────────────────────────────────────────────────┤
  *   │ HOOKS CUSTOM                                                        │
- *   │  registerHook(name, fn)    → engancha logic Haxe nativa           │
+ *   │  registerHook(name, fn)    → engancha lógica Haxe nativa           │
  *   │  callHook(name, args)      → llama hook + scripts                  │
  *   │  fireRaw(name, args)       → solo scripts, sin hooks Haxe          │
  *   ├─────────────────────────────────────────────────────────────────────┤
@@ -37,10 +37,10 @@ using StringTools;
  *   │ OTROS                                                               │
  *   │  hotReloadAll()            → recarga todos los scripts del state   │
  *   │  getByTag(tag)             → obtiene scripts por tag               │
- *   │  callOnBool(fn, args)      → version cancelable                    │
+ *   │  callOnBool(fn, args)      → versión cancelable                    │
  *   └─────────────────────────────────────────────────────────────────────┘
  *
- * ─── Basic usage ──────────────────────────────────────────────────────────────
+ * ─── Uso básico ──────────────────────────────────────────────────────────────
  *   StateScriptHandler.init();
  *   StateScriptHandler.loadStateScripts('MainMenuState', this);
  *   StateScriptHandler.exposeElement('menuItems', menuItemGroup);
@@ -209,7 +209,7 @@ class StateScriptHandler
 	 * nativo y luego propaga a los scripts.
 	 *
 	 *   StateScriptHandler.registerHook('onExit', function(args) {
-	 *       // logic Haxe nativa before of that the scripts it vean
+	 *       // lógica Haxe nativa antes de que los scripts lo vean
 	 *   });
 	 */
 	public static function registerHook(hookName:String, callback:Dynamic->Void):Void
@@ -228,7 +228,7 @@ class StateScriptHandler
 
 	/**
 	 * Llama hooks nativos + scripts.
-	 * @return true if some script canceló the event.
+	 * @return true si algún script canceló el evento.
 	 */
 	public static function callHook(hookName:String, args:Array<Dynamic> = null):Bool
 	{
@@ -246,7 +246,7 @@ class StateScriptHandler
 
 	/**
 	 * Llama solo en scripts (sin hooks nativos), y NO cancela.
-	 * For events of "notification pura".
+	 * Para eventos de "notificación pura".
 	 */
 	public static function fireRaw(hookName:String, args:Array<Dynamic> = null):Void
 	{
@@ -273,7 +273,7 @@ class StateScriptHandler
 
 	/**
 	 * Lanza un evento a TODOS los sistemas de scripts (state + gameplay).
-	 * Useful for comunicación inter-system (ej. a menu le dice to the gameplay algo).
+	 * Útil para comunicación inter-sistema (ej. un menú le dice al gameplay algo).
 	 */
 	public static function broadcast(eventName:String, args:Array<Dynamic> = null):Void
 	{
@@ -305,12 +305,12 @@ class StateScriptHandler
 
 	/**
 	 * Re-sincroniza TODOS los campos del state hacia los scripts activos.
-	 * Useful when the state creates objects after of load the scripts
+	 * Útil cuando el state crea objetos DESPUÉS de cargar los scripts
 	 * (ej: TitleState crea logoBl en startIntro(), no en create()).
 	 * Llamar justo antes de 'postCreate' en esos casos.
 	 *
 	 * IMPORTANTE: a diferencia de _reflectStateFields (que respeta variables ya
-	 * existentes for no sobreescribir the API of the engine), this function itself
+	 * existentes para no sobreescribir el API del engine), esta función SÍ
 	 * actualiza todos los campos del state — excepto las variables fijas del API.
 	 */
 	public static function refreshStateFields(state:FlxState):Void
@@ -326,7 +326,7 @@ class StateScriptHandler
 
 	/**
 	 * Llama `funcName` en orden de prioridad.
-	 * If some script returns `true` → cancela (returns true).
+	 * Si algún script devuelve `true` → cancela (devuelve true).
 	 */
 	public static function callOnScripts(funcName:String, args:Array<Dynamic> = null):Bool
 	{
@@ -380,7 +380,7 @@ class StateScriptHandler
 		return defaultValue;
 	}
 
-	/** Call in all without cancelación (always continúa). */
+	/** Llama en todos SIN cancelación (siempre continúa). */
 	public static function callOnAll(funcName:String, args:Array<Dynamic> = null):Void
 	{
 		if (args == null) args = [];
@@ -578,12 +578,12 @@ class StateScriptHandler
 
 	#if HSCRIPT_ALLOWED
 	/**
-	 * Expone automatically all the fields of instance of the state to the script,
+	 * Expone AUTOMÁTICAMENTE todos los campos de instancia del state al script,
 	 * igual que hace Codename Engine — sin necesidad de llamar exposeElement()
 	 * manualmente para cada sprite/variable.
 	 *
 	 * Funcionamiento:
-	 *  • Type.getInstanceFields() recorre all the jerarquía of classes of the state
+	 *  • Type.getInstanceFields() recorre toda la jerarquía de clases del state
 	 *    y devuelve los nombres de todos los campos de instancia.
 	 *  • Reflect.getProperty() lee el valor actual de cada campo.
 	 *  • Los objetos (FlxSprite, FlxGroup…) se pasan por referencia — el script
@@ -607,7 +607,7 @@ class StateScriptHandler
 
 		// ── 3. Leer/escribir campos primitivos del state desde el script ──────
 		//    Para objetos no hace falta porque son referencias, pero para
-		//    Bool/Int/Float/String the assignment directa no escribe of vuelta.
+		//    Bool/Int/Float/String la asignación directa no escribe de vuelta.
 		interp.variables.set('getField', (name:String) -> {
 			try   { return Reflect.getProperty(state, name); }
 			catch (e:Dynamic) { trace('[StateScript] getField("$name") failed: $e'); return null; }
@@ -617,7 +617,7 @@ class StateScriptHandler
 			catch (e:Dynamic) { trace('[StateScript] setField("$name") failed: $e'); }
 		});
 
-		// ── 4. Callr methods of the state by nombre ────────────────────────────
+		// ── 4. Llamar métodos del state por nombre ────────────────────────────
 		//    callMethod('skipIntro')  →  state.skipIntro()
 		interp.variables.set('callMethod', (name:String, ?args:Array<Dynamic>) -> {
 			try
@@ -631,15 +631,15 @@ class StateScriptHandler
 		});
 
 		// ── 5. Re-sincronizar campos del state HACIA el script ─────────────────
-		//    Useful for refrescar values primitivos that cambiaron from Haxe.
+		//    Útil para refrescar valores primitivos que cambiaron desde Haxe.
 		//    Llamar desde el script cuando sea necesario: refreshFields()
 		interp.variables.set('refreshFields', () -> _reflectStateFields(interp, state, true));
 
-		// ── 6. Control of cancelación ─────────────────────────────────────────
+		// ── 6. Control de cancelación ─────────────────────────────────────────
 		interp.variables.set('cancelEvent',   () -> true);
 		interp.variables.set('continueEvent', () -> false);
 
-		// ── 7. Prioridad dynamic ─────────────────────────────────────────────
+		// ── 7. Prioridad dinámica ─────────────────────────────────────────────
 		interp.variables.set('setPriority', (p:Int) -> {
 			script.priority = p;
 			_cacheDirty = true;
@@ -673,7 +673,7 @@ class StateScriptHandler
 		interp.variables.set('getScript',    (name:String) -> getByName(name));
 		interp.variables.set('getScriptTag', (tag:String)  -> getByTag(tag));
 
-		// ── 13. Helper create options of menu ─────────────────────────────────
+		// ── 13. Helper crear opciones de menú ─────────────────────────────────
 		interp.variables.set('createOption',
 			(name:String, getValue:Void->String, onPress:Void->Bool) -> ({
 				name:     name,
@@ -687,8 +687,8 @@ class StateScriptHandler
 
 		// ── 15. Funciones de stage directas (add/remove) ──────────────────────
 		// IMPORTANTE: add() viene de FlxGroup (padre de FlxState) y NO se refleja
-		// automatically by _reflectStateFields porque the bucle for in FlxState.
-		// Is exponen here explicitly for that the scripts puedan callr
+		// automáticamente por _reflectStateFields porque el bucle para en FlxState.
+		// Se exponen aquí explícitamente para que los scripts puedan llamar
 		// add(sprite) y remove(sprite) igual que en Codename Engine.
 		if (!interp.variables.exists('add'))
 			interp.variables.set('add', function(obj:Dynamic) { state.add(obj); return obj; });
@@ -701,7 +701,7 @@ class StateScriptHandler
 
 	/**
 	 * Itera TODOS los campos de instancia del state (y sus superclases)
-	 * and the inyecta in the interpreter of the script by reflection.
+	 * y los inyecta en el intérprete del script por reflexión.
 	 *
 	 * @param refresh  Si true (modo refresh), sobreescribe campos existentes del
 	 *                 state EXCEPTO las variables fijas del API del engine.
@@ -711,7 +711,7 @@ class StateScriptHandler
 	 * Uso:
 	 *   • Modo init   → llamado desde _exposeStateAPI al cargar el script por primera vez.
 	 *   • Modo refresh → llamado desde refreshStateFields() / refreshFields()
-	 *                    when the state creates objects after of load the scripts.
+	 *                    cuando el state crea objetos DESPUÉS de cargar los scripts.
 	 */
 	static final _API_VARS:Array<String> = [
 		'state','save','getField','setField','callMethod','refreshFields',
@@ -724,9 +724,9 @@ class StateScriptHandler
 
 	static function _reflectStateFields(interp:Interp, state:FlxState, refresh:Bool = false):Void
 	{
-		// Get all the fields of instance recorriendo the jerarquía complete.
-		// Type.getSuperClass() returns Class<Dynamic>, no Class<FlxState>, so that
-		// usamos Dynamic for the variable of iteration and evitamos the error of types.
+		// Obtener todos los campos de instancia recorriendo la jerarquía completa.
+		// Type.getSuperClass() devuelve Class<Dynamic>, no Class<FlxState>, así que
+		// usamos Dynamic para la variable de iteración y evitamos el error de tipos.
 		var fields:Array<String> = [];
 		var cls:Dynamic = Type.getClass(state);
 		while (cls != null)

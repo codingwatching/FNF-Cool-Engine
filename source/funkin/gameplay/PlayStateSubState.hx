@@ -20,19 +20,19 @@ import funkin.scripting.events.EventManager;
 import funkin.scripting.ScriptHandler;
 
 /**
- * FlxSubState wrapper that executes PlayState in modo cinemático:
- * stage + characters + audio + scripts + events + camera with follow.
+ * FlxSubState wrapper que ejecuta PlayState en modo cinemático:
+ * stage + personajes + audio + scripts + eventos + cámara con follow.
  *
  * Replica fielmente el pipeline de create() / update() / beatHit() / stepHit()
  * de PlayState limitado al modo cinematicMode (sin notas, sin HUD de juego).
  *
  * Usado por CutsceneEditorState para poder llamar openSubState() con un
- * FlxSubState actual (PlayState extiende FlxState and no puede usarse ahí).
+ * FlxSubState real (PlayState extiende FlxState y no puede usarse ahí).
  */
 class PlayStateSubState extends funkin.states.MusicBeatSubstate
 {
-	// ── Cameras ───────────────────────────────────────────────────────────────
-	/** Camera of the mundo of game, renderizada under the overlay of the editor. */
+	// ── Cámaras ───────────────────────────────────────────────────────────────
+	/** Cámara del mundo de juego, renderizada bajo el overlay del editor. */
 	public var camGame:FlxCamera;
 
 	// ── Escena ────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 
 	// ── Autoplay ──────────────────────────────────────────────────────────────
 	// Lista plana de todas las notas del chart, ordenadas por strumTime.
-	// Is generates a sola vez in create() and is consume with a index incremental
+	// Se genera una sola vez en create() y se consume con un índice incremental
 	// → O(1) por frame en lugar de iterar todo el array.
 	var _autoplayNotes:Array<{strumTime:Float, noteData:Int, mustPress:Bool,
 	                           isSustain:Bool, gfSing:Bool, altAnim:Bool}> = [];
@@ -84,15 +84,15 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 		var SONG = PlayState.SONG;
 		if (SONG == null) { super.create(); return; }
 
-		// ── Camera ────────────────────────────────────────────────────────────
-		// camGame is adds before of construir the stage for that _defaultCameras
-		// apunte to it during the adds (igual that PlayState.setupCameras).
+		// ── Cámara ────────────────────────────────────────────────────────────
+		// camGame se añade ANTES de construir el stage para que _defaultCameras
+		// apunte a él durante los adds (igual que PlayState.setupCameras).
 		camGame = new FlxCamera();
 		camGame.bgColor = 0xFF000000;
 		FlxG.cameras.add(camGame, false);
 		@:privateAccess FlxCamera._defaultCameras = [camGame];
 
-		// ── Scripts — fase 1: song (before of the stage, igual that PlayState) ──
+		// ── Scripts — fase 1: canción (antes del stage, igual que PlayState) ──
 		#if HSCRIPT_ALLOWED
 		ScriptHandler.init();
 		ScriptHandler.loadSongScripts(SONG.song);
@@ -296,7 +296,7 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 
 	override function update(elapsed:Float):Void
 	{
-		// Sincronizar Conductor with the music (igual that PlayState)
+		// Sincronizar Conductor con la música (igual que PlayState)
 		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 			Conductor.songPosition = FlxG.sound.music.time;
 
@@ -308,7 +308,7 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 		if (cameraController != null)
 			cameraController.update(elapsed);
 
-		// Autoplay: fire animations of canto according to the chart
+		// Autoplay: disparar animaciones de canto según el chart
 		_tickAutoplay();
 
 		#if HSCRIPT_ALLOWED
@@ -384,8 +384,8 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 	/**
 	 * Parsea SONG.notes una sola vez y construye una lista plana de notas
 	 * ordenadas por strumTime, anotando si son del jugador u oponente,
-	 * if are sustain (is omiten — no disparan animation extra), and the altAnim
-	 * of the section to the that pertenecen.
+	 * si son sustain (se omiten — no disparan animación extra), y el altAnim
+	 * de la sección a la que pertenecen.
 	 */
 	function _buildAutoplayNotes(SONG:SwagSong):Void
 	{
@@ -414,7 +414,7 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 					mustPress = !mustHit;
 				}
 
-				// Only the note head dispara the animation, no the sustain ticks
+				// Solo la nota head dispara la animación, no los sustain ticks
 				_autoplayNotes.push({
 					strumTime : strumTime,
 					noteData  : noteData % 4,
@@ -426,14 +426,14 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 			}
 		}
 
-		// Ordenar by strumTime for that the index incremental funcione
+		// Ordenar por strumTime para que el índice incremental funcione
 		_autoplayNotes.sort((a, b) -> a.strumTime < b.strumTime ? -1 : (a.strumTime > b.strumTime ? 1 : 0));
 	}
 
 	/**
 	 * Llamado cada frame. Dispara las animaciones de canto de los personajes
 	 * cuando Conductor.songPosition alcanza el strumTime de cada nota.
-	 * Use a index incremental (_autoplayIdx) → or(1) amortizado.
+	 * Usa un índice incremental (_autoplayIdx) → O(1) amortizado.
 	 */
 	function _tickAutoplay():Void
 	{
@@ -451,12 +451,12 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 
 			if (note.gfSing)
 			{
-				// Section with gfSing: the GF canta
+				// Sección con gfSing: la GF canta
 				characterController.singGF(dir, altSuffix);
 			}
 			else if (note.mustPress)
 			{
-				// Note of the jugador → boyfriend (index Player)
+				// Nota del jugador → boyfriend (índice Player)
 				final bfIdx = characterController.findPlayerIndex();
 				if (bfIdx >= 0)
 				{
@@ -520,7 +520,7 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 		}
 	}
 
-	// ── Fin of song ────────────────────────────────────────────────────────
+	// ── Fin de canción ────────────────────────────────────────────────────────
 
 	function _onSongEnd():Void
 	{
@@ -636,7 +636,7 @@ class PlayStateSubState extends funkin.states.MusicBeatSubstate
 		if (characterController != null) { characterController.destroy(); characterController = null; }
 		cameraController = null;
 
-		// Camera
+		// Cámara
 		if (camGame != null) { FlxG.cameras.remove(camGame, true); camGame = null; }
 
 		super.destroy();

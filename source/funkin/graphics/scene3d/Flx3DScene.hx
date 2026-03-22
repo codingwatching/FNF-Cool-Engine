@@ -26,7 +26,7 @@ import flixel.FlxG;
  *       └─ copyToTexture → BitmapData
  *          └─ FlxSprite.loadGraphic() ← visible en pantalla 2D
  *
- * ─── Basic usage ──────────────────────────────────────────────────────────────
+ * ─── Uso básico ──────────────────────────────────────────────────────────────
  *
  *   var scene = new Flx3DScene(640, 480);
  *   scene.init();                              // llama una sola vez
@@ -39,17 +39,17 @@ import flixel.FlxG;
  *   scene.render();                            // actualiza bitmap
  *   sprite.loadGraphic(scene.output);          // muestra en pantalla
  *
- * ─── Lighting ─────────────────────────────────────────────────────────────
+ * ─── Iluminación ─────────────────────────────────────────────────────────────
  *  Phong shading: luz direccional + ambiente + especular.
- *  Configurable via lightDir, lightColor, ambientColor.
+ *  Configurable vía lightDir, lightColor, ambientColor.
  *
  * ─── Optimizaciones ──────────────────────────────────────────────────────────
  *  • Render off-screen (RectangleTexture) — sin artefactos de compositing
- *  • Depth buffer enabled — z-culling automatic in GPU
- *  • Back-face culling — FRONT (normal standard = outside)
+ *  • Depth buffer habilitado — z-culling automático en GPU
+ *  • Back-face culling — FRONT (normal estándar = fuera)
  *  • Matrices enviadas como constantes de programa (no recompila shaders)
  *  • Shader GLSL simple: 1 draw call por objeto, sin over-draw
- *  • Buffers de vertices en GPU (upload-once, draw-many)
+ *  • Buffers de vértices en GPU (upload-once, draw-many)
  */
 class Flx3DScene
 {
@@ -58,15 +58,15 @@ class Flx3DScene
 	/** BitmapData resultado del render. Asigna a FlxSprite.loadGraphic(). */
 	public var output(default, null):Null<BitmapData> = null;
 
-	/** Camera 3D. */
+	/** Cámara 3D. */
 	public var camera:Flx3DCamera = new Flx3DCamera();
 
 	/** Objetos en la escena. */
 	public var objects(default, null):Array<Flx3DObject> = [];
 
-	// ── Lighting ────────────────────────────────────────────────────────
+	// ── Iluminación ────────────────────────────────────────────────────────
 
-	/** Direction of the luz (vector normalizado). */
+	/** Dirección de la luz (vector normalizado). */
 	public var lightDir:Vec3   = new Vec3(0.5, 1.0, 0.8).normalizeSelf();
 	/** Color de la luz difusa [r,g,b,1]. */
 	public var lightColor:Array<Float>   = [1.0, 1.0, 1.0, 1.0];
@@ -108,12 +108,12 @@ class Flx3DScene
 		output = new BitmapData(width, height, true, 0x00000000);
 	}
 
-	// ── Initialization ──────────────────────────────────────────────────────
+	// ── Inicialización ──────────────────────────────────────────────────────
 
 	/**
-	 * Starts the asynchronous Context3D request.
-	 * When the context is ready, `ready` will be true.
-	 * @param onReady  Callback optional when Context3D is available.
+	 * Inicia la petición de Context3D asíncrona.
+	 * Cuando el contexto esté listo, `ready` será true.
+	 * @param onReady  Callback opcional cuando Context3D esté disponible.
 	 */
 	public function init(?onReady:Void->Void):Void
 	{
@@ -142,7 +142,7 @@ class Flx3DScene
 		_stage3D.requestContext3D(Context3DRenderMode.AUTO, Context3DProfile.BASELINE);
 	}
 
-	// ── Management of objects ─────────────────────────────────────────────────
+	// ── Gestión de objetos ─────────────────────────────────────────────────
 
 	public function add(obj:Flx3DObject):Flx3DObject
 		{ objects.push(obj); return obj; }
@@ -178,7 +178,7 @@ class Flx3DScene
 		// Culling
 		_ctx.setCulling(Context3DTriangleFace.FRONT);
 
-		// Update camera
+		// Actualizar cámara
 		camera.update();
 
 		// ── Uniforms globales de luz ───────────────────────────────────────
@@ -188,7 +188,7 @@ class Flx3DScene
 		_setVec4Const(21, lightColor[0], lightColor[1], lightColor[2], lightColor[3]);
 		// vc[22] = ambientColor
 		_setVec4Const(22, ambientColor[0], ambientColor[1], ambientColor[2], ambientColor[3]);
-		// vc[23] = camera position (for especular)
+		// vc[23] = cámara posición (para especular)
 		_setVec4Const(23, camera.position.x, camera.position.y, camera.position.z, 1);
 
 		// ── Dibujar objetos ────────────────────────────────────────────────
@@ -241,7 +241,7 @@ class Flx3DScene
 
 	// ── Resize ─────────────────────────────────────────────────────────────
 
-	/** Changes the resolution of the render target. */
+	/** Cambia la resolución del render target. */
 	public function resize(w:Int, h:Int):Void
 	{
 		if (w == width && h == height) return;
@@ -298,7 +298,7 @@ class Flx3DScene
 		if (_ctx == null) return;
 
 		// ── Vertex Shader GLSL ─────────────────────────────────────────────
-		// Constants of vertex (vc):
+		// Constantes de vértice (vc):
 		//   vc[0..3]  MVP matrix (4 registros = 4×vec4 = mat4)
 		//   vc[4..7]  Normal matrix (transpose-inverse model)
 		//   vc[8]     tint (r,g,b,a)
@@ -370,7 +370,7 @@ uniform vec4 fc5;   // (hasTexture, 0, 0, 0)
 uniform sampler2D fs0;  // diffuse texture
 
 void main() {
-    // Color base: texture or color of vertex
+    // Color base: textura o color de vértice
     vec4 baseColor = v_color;
     if (fc5.x > 0.5) {
         baseColor *= texture2D(fs0, v_uv);
@@ -404,19 +404,19 @@ void main() {
 
 		// Copiar vc→fc para los uniforms de fragmento
 		// (OpenFL Context3D usa registros separados para vertex/fragment)
-		// Fragment constants are sent separately in render()
+		// Las constantes de fragmento se envían aparte en render()
 		// — ver notas en _bindFragmentUniforms()
 	}
 
 	/**
 	 * Nota: OpenFL Context3D requiere separar VERTEX vs FRAGMENT constants.
-	 * In render(), light/material constants are sent to both
+	 * En render(), las constantes de luz/material se envían a ambos
 	 * program types usando setProgramConstantsFromByteArray(FRAGMENT, ...).
 	 */
 	function _bindFragmentUniforms():Void
 	{
-		// This function is call from render() usando Context3DProgramType.FRAGMENT
+		// Esta función se llama desde render() usando Context3DProgramType.FRAGMENT
 		// para los mismos datos que ya enviamos a VERTEX.
-		// No duplicamos code here — is hace inline in render() with the type correct.
+		// No duplicamos código aquí — se hace inline en render() con el tipo correcto.
 	}
 }

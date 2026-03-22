@@ -8,34 +8,34 @@ import lime.utils.Float32Array;
 import lime.utils.UInt16Array;
 
 /**
- * Flx3DMesh — Geometry 3D almacenada in GPU.
+ * Flx3DMesh — Geometría 3D almacenada en GPU.
  *
- * Format of vertex (10 floats by vertex, stride = 40 bytes):
+ * Formato de vértice (10 floats por vértice, stride = 40 bytes):
  *   [0..2]  position  (x, y, z)
  *   [3..5]  normal    (nx, ny, nz)
  *   [6..7]  uv        (u, v)
  *   [8..9]  color     (r, g)   ← usamos 2 floats para pack RGBA (b en color.b, a en color.a del shader)
  *
- * Optimization: the VBO/IBO is suben a sola vez to GPU and is reusan.
- * For meshes dynamic, call rebuild() when cambie the geometry.
+ * Optimización: los VBO/IBO se suben una sola vez a GPU y se reusan.
+ * Para meshes dinámicas, llama rebuild() cuando cambie la geometría.
  */
 class Flx3DMesh
 {
 	// Stride: position(3) + normal(3) + uv(2) + color(4) = 12 floats = 48 bytes
 	// pero usamos 10 para mantenerlo alineado en 4 floats/registro de Context3D
-	static inline end STRIDE   = 12; // floats by vertex
+	static inline final STRIDE   = 12; // floats por vértice
 	static inline final FLOATS_P = 3;  // position offset
 	static inline final FLOATS_N = 3;  // normal offset
 	static inline final FLOATS_U = 2;  // uv offset
 	static inline final FLOATS_C = 4;  // color offset (r,g,b,a)
 
-	/** Datos de vertices en CPU (Float32Array para carga directa a GPU). */
+	/** Datos de vértices en CPU (Float32Array para carga directa a GPU). */
 	public var vertices(default, null):Float32Array;
-	/** Indices of triangles in CPU. */
+	/** Índices de triángulos en CPU. */
 	public var indices(default, null):UInt16Array;
-	/** Number of triangles = indices.length / 3. */
+	/** Número de triángulos = indices.length / 3. */
 	public var triangleCount(default, null):Int = 0;
-	/** Number of vertices. */
+	/** Número de vértices. */
 	public var vertexCount(default, null):Int = 0;
 
 	/** Nombre para debug. */
@@ -47,12 +47,12 @@ class Flx3DMesh
 
 	public function new() {}
 
-	// ── Build of geometry ──────────────────────────────────────────
+	// ── Construcción de geometría ──────────────────────────────────────────
 
 	/**
-	 * Load geometry cruda.
-	 * @param verts   Array plano of floats: [x,and,z, nx,ny,nz, u,v, r,g,b,to, ...] by vertex
-	 * @param idxs    Array of indices (triangles, without strip)
+	 * Carga geometría cruda.
+	 * @param verts   Array plano de floats: [x,y,z, nx,ny,nz, u,v, r,g,b,a, ...] por vértice
+	 * @param idxs    Array de índices (triángulos, sin strip)
 	 */
 	public function setGeometry(verts:Array<Float>, idxs:Array<Int>):Void
 	{
@@ -71,8 +71,8 @@ class Flx3DMesh
 	// ── Upload / bind ──────────────────────────────────────────────────────
 
 	/**
-	 * Sube the geometry to GPU if is marcada as dirty.
-	 * Calldo automatically by Flx3DScene before of each draw.
+	 * Sube la geometría a GPU si está marcada como dirty.
+	 * Llamado automáticamente por Flx3DScene antes de cada draw.
 	 */
 	public function upload(ctx:Context3D):Void
 	{
@@ -93,7 +93,7 @@ class Flx3DMesh
 	}
 
 	/**
-	 * Registra the attributes of vertex in Context3D and draws the mesh.
+	 * Registra los atributos de vértice en Context3D y dibuja el mesh.
 	 * Slots de atributo:
 	 *   0 = position (va_position en GLSL)
 	 *   1 = normal   (va_normal)
@@ -112,7 +112,7 @@ class Flx3DMesh
 		ctx.drawTriangles(_ibo, 0, triangleCount);
 	}
 
-	/** Marcar geometry as sucia for re-subir in the next draw. */
+	/** Marcar geometría como sucia para re-subir en el próximo draw. */
 	public inline function markDirty():Void _dirty = true;
 
 	/** Liberar recursos de GPU. */

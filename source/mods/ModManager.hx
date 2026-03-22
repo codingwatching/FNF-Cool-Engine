@@ -10,7 +10,7 @@ import mods.ModEngineOverride;
 using StringTools;
 
 /**
- * ModManager — Manages installed mods, activation and previews.
+ * ModManager — Gestiona mods instalados, activación y previews.
  *
  * ─── Estructura esperada de un mod ─────────────────────────────────────────
  *
@@ -33,7 +33,7 @@ using StringTools;
  * ─── Campos de mod.json ──────────────────────────────────────────────────────
  *   {
  *     "name":           "My Mod",
- *     "description":    "Description of the mod",
+ *     "description":    "Descripción del mod",
  *     "author":         "NombreAutor",
  *     "version":        "1.0.0",
  *     "priority":       0,
@@ -41,13 +41,13 @@ using StringTools;
  *     "website":        "https://…",
  *     "enabled":        true,
  *     "startupDefault": false,   ← true = arranca siempre con este mod
- *     "appTitle":       "Mi Mod — FNF",  ← title of window (optional)
- *     "appIcon":        "icon",           ← PNG in root of the mod, without extension (optional)
+ *     "appTitle":       "Mi Mod — FNF",  ← título de ventana (opcional)
+ *     "appIcon":        "icon",           ← PNG en raíz del mod, sin extensión (opcional)
  *     "discord": {                        ← config de Discord Rich Presence (opcional)
  *       "clientId":      "123456789",       ← app ID propio del mod
  *       "largeImageKey": "mymod_icon",      ← key de imagen en Discord Dev Portal
  *       "largeImageText": "Mi Mod",         ← tooltip de imagen grande
- *       "menuDetails":   "Jugando Mi Mod"   ← text in the menu
+ *       "menuDetails":   "Jugando Mi Mod"   ← texto en el menú
  *     }
  *   }
  */
@@ -57,7 +57,7 @@ class ModManager
 	public static var activeMod(default, null):String = null;
 
 	/**
-	 * Mod that arranca by default although no haya session guardada.
+	 * Mod que arranca por defecto aunque no haya sesión guardada.
 	 * Se detecta desde mod.json startupDefault:true (mayor priority gana).
 	 */
 	public static var startupMod(default, null):Null<String> = null;
@@ -68,9 +68,9 @@ class ModManager
 	/** Callback que se llama cuando cambia el mod activo. */
 	public static var onModChanged:Null<String->Void> = null;
 
-	/** Folder root where viven the mods.
+	/** Carpeta raíz donde viven los mods.
 	 *  En Android usa el almacenamiento externo para que el usuario
-	 *  pueda add mods without necesidad of root ni recompilar the APK.
+	 *  pueda añadir mods sin necesidad de root ni recompilar el APK.
 	 *  Ruta: /sdcard/Android/data/com.coolTeam.coolEngine/files/mods/
 	 *  (o lime.system.System.documentsDirectory + "/mods" en Lime) */
 	public static var MODS_FOLDER(get, never):String;
@@ -92,7 +92,7 @@ class ModManager
 		return _modsFolder;
 	}
 
-	/** Sub-folders standard that is crean to the create a mod new. */
+	/** Sub-carpetas estándar que se crean al crear un mod nuevo. */
 	static var STD_FOLDERS = [
 		'characters', 'cutscenes', 'data', 'fonts', 'images',
 		'music', 'noteType', 'shaders', 'skins', 'songs',
@@ -123,7 +123,7 @@ class ModManager
 
 		final extracted = ModExtractor.extractAll();
 		if (extracted.length > 0)
-			trace('[ModManager] Mods extracted from archive: ' + extracted.join(', '));
+			trace('[ModManager] Mods extraídos de archivo: ' + extracted.join(', '));
 
 		_loadEnabledState();
 
@@ -160,7 +160,7 @@ class ModManager
 		#end
 	}
 
-	// ─── Activation ───────────────────────────────────────────────────────────
+	// ─── Activación ───────────────────────────────────────────────────────────
 
 	public static function setActive(modId:Null<String>):Void
 	{
@@ -226,7 +226,7 @@ class ModManager
 	// ─── Startup Mod ──────────────────────────────────────────────────────────
 
 	/**
-	 * Sets `modId` as startup mod (arranca always with it).
+	 * Establece `modId` como startup mod (arranca siempre con él).
 	 * Pasa null para limpiar el startup mod actual.
 	 * Persiste el cambio en el mod.json correspondiente.
 	 */
@@ -255,7 +255,7 @@ class ModManager
 	}
 
 	/**
-	 * Applies the startup mod if no there is session guardada.
+	 * Aplica el startup mod si no hay sesión guardada.
 	 * Llamar tras init() en el arranque del juego.
 	 */
 	public static function applyStartupMod():Void
@@ -272,10 +272,10 @@ class ModManager
 		}
 	}
 
-	// ─── Creation / Edition of mods ───────────────────────────────────────────
+	// ─── Creación / Edición de mods ───────────────────────────────────────────
 
 	/**
-	 * Creates a new mod with the structure of folders standard.
+	 * Crea un nuevo mod con la estructura de carpetas estándar.
 	 * @param id    Identificador/carpeta (ej: "my-cool-mod")
 	 * @param info  Campos del mod.json
 	 * @return El ModInfo creado o null si hubo error
@@ -324,7 +324,7 @@ class ModManager
 		#end
 	}
 
-	// ─── Resolution of paths ──────────────────────────────────────────────────
+	// ─── Resolución de paths ──────────────────────────────────────────────────
 
 	public static function resolveInMod(file:String):Null<String>
 	{
@@ -395,8 +395,8 @@ class ModManager
 
 	/** Developer Mode — controla el acceso a editores (Chart, Stage, Dialogue, AnimDebug, etc.).
 	 *  Se lee y escribe en mod.json del mod activo ("developerMode": true).
-	 *  If no there is mod active or the field no is presente returns FALSE.
-	 *  By defecto is FALSE; debe activarse explicitly in mod.json. */
+	 *  Si no hay mod activo o el campo no está presente devuelve FALSE.
+	 *  Por defecto es FALSE; debe activarse explícitamente en mod.json. */
 	public static var developerMode(get, set):Bool;
 
 	static function get_developerMode():Bool
@@ -475,7 +475,7 @@ class ModManager
 					}
 					catch (_) {}
 				}
-				// Applies engineOverrides on the fly if the mod is being activated now
+				// Aplicar engineOverrides al vuelo si el mod está siendo activado ahora
 				if (d.engineOverrides != null && activeMod == id)
 					ModEngineOverride.applyFromRaw(d.engineOverrides, id);
 			}
@@ -502,7 +502,7 @@ class ModManager
 						if (contribs.length > 0 && contribs[0].name != null)
 							author = Std.string(contribs[0].name);
 					}
-					// mod_version is the version
+					// mod_version es la versión
 					if (d.mod_version != null) version = Std.string(d.mod_version);
 					// V-Slice mods no tienen enabled/priority en _polymod_meta → defaults
 					// Nota: no hay mod.json → no hay engineOverrides para V-Slice
@@ -539,7 +539,7 @@ class ModManager
 				startupDefault: info.startupDefault,
 				developerMode:  info.developerMode != false // null/true → true, false → false
 			};
-			// Only serializar if are definidos, for no ensuciar mod.json without those fields
+			// Solo serializar si están definidos, para no ensuciar mod.json sin esos campos
 			if (info.appTitle     != null) Reflect.setField(obj, 'appTitle',     info.appTitle);
 			if (info.appIcon      != null) Reflect.setField(obj, 'appIcon',      info.appIcon);
 			if (info.gamebananaid != null) Reflect.setField(obj, 'gamebananaid', info.gamebananaid);
@@ -622,7 +622,7 @@ class ModManager
 		// We run the copy on a background thread so the game loop stays alive.
 		// The mods folder won't be available on this first launch, but that's
 		// acceptable — they will be there from the second launch onward.
-		trace('[ModManager] First run — copying base mods to $dest (background thread)');
+		trace('[ModManager] Primera ejecución — copiando mods base a $dest (background thread)');
 
 		sys.thread.Thread.create(function()
 		{
@@ -666,18 +666,18 @@ class ModManager
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Configuration of Discord Rich Presence by mod.
+ * Configuración de Discord Rich Presence por mod.
  * Todos los campos son opcionales — si no se definen, el engine usa sus valores por defecto.
  */
 typedef ModDiscordConfig =
 {
-	/** Discord application ID of the mod. If defined, resets RPC with this clientId. */
+	/** ID de aplicación Discord del mod. Si se define, reinicia RPC con este clientId. */
 	var ?clientId:Null<String>;
 	/** Key de imagen grande en el portal de Discord Developer. Default: "icon". */
 	var ?largeImageKey:Null<String>;
 	/** Texto tooltip de la imagen grande. Default: "FNF\' Cool Engine". */
 	var ?largeImageText:Null<String>;
-	/** Text of "details" that aparece in the menu. Default: "In the Menu". */
+	/** Texto de "details" que aparece en el menú. Default: "In the Menu". */
 	var ?menuDetails:Null<String>;
 }
 
@@ -698,19 +698,19 @@ typedef ModInfo =
 	 * Activa/desactiva el modo desarrollador para este mod.
 	 * null/true (default) = acceso a editores (Chart, Stage, Dialogue, AnimDebug).
 	 * false = modo jugador normal sin herramientas de desarrollo.
-	 * To disable it in a distribution mod: "developerMode": false in mod.json.
+	 * Para desactivarlo en un mod de distribución: "developerMode": false en mod.json.
 	 */
 	var ?developerMode:Null<Bool>;
-	/** Title of window personalizado. null = usar the default of the engine. */
+	/** Título de ventana personalizado. null = usar el default del engine. */
 	var ?appTitle:Null<String>;
-	/** Name of the file PNG of icono in the root of the mod, without extension. null = icono default. */
+	/** Nombre del archivo PNG de icono en la raíz del mod, sin extensión. null = icono default. */
 	var ?appIcon:Null<String>;
-	/** Configuration of Discord Rich Presence. null = usar values by default of the engine. */
+	/** Configuración de Discord Rich Presence. null = usar valores por defecto del engine. */
 	var ?discord:Null<ModDiscordConfig>;
 	/**
-	 * ID of the mod in GameBanana (the number of the URL: gamebanana.com/mods/XXXXX).
-	 * The launcher use this for check if there is update available.
-	 * null = no is checks update in GameBanana for this mod.
+	 * ID del mod en GameBanana (el número de la URL: gamebanana.com/mods/XXXXX).
+	 * El launcher usa esto para comprobar si hay actualización disponible.
+	 * null = no se comprueba actualización en GameBanana para este mod.
 	 */
 	var ?gamebananaid:Null<Int>;
 }

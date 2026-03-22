@@ -12,18 +12,18 @@ import openfl.utils.Assets;
  * DropShadowShader — Portado de V-Slice (Funkin') para Cool Engine.
  *
  * Recrea el drop shadow / rim-light de Adobe Animate/Flash.
- * Includes also the filtro Adjust Color (hue, saturation, brightness, contrast).
+ * Incluye también el filtro Adjust Color (hue, saturation, brightness, contrast).
  *
  * Propiedades:
  *   color         — color del drop shadow (FlxColor)
- *   angle         — angle in grados (0=right, 90=up, 180=left, 270=down)
- *   distance      — distancia in pixels of texture
+ *   angle         — ángulo en grados (0=derecha, 90=arriba, 180=izquierda, 270=abajo)
+ *   distance      — distancia en píxeles de textura
  *   strength      — multiplicador de alfa del shadow
- *   threshold     — threshold of brillo: pixels by below no reciben shadow (useful for outlines)
+ *   threshold     — umbral de brillo: píxeles por debajo NO reciben shadow (útil para outlines)
  *   antialiasAmt  — muestras AA para suavizar bordes del threshold (0 = sin AA, default 2)
- *   useAltMask    — activar the mask alternativa
- *   altMaskImage  — BitmapData of the mask alternativa (canal azul = zona of mask)
- *   maskThreshold — threshold alternativo appliesdo inside of the mask
+ *   useAltMask    — activar la máscara alternativa
+ *   altMaskImage  — BitmapData de la máscara alternativa (canal azul = zona de máscara)
+ *   maskThreshold — umbral alternativo aplicado dentro de la máscara
  *   attachedSprite — sprite cuya info de frame se usa para las bounds del shadow
  *   baseHue / baseSaturation / baseBrightness / baseContrast — Adjust Color
  */
@@ -145,7 +145,7 @@ class DropShadowShader extends FlxShader
 	}
 
 	/**
-	 * Load the image of the mask alternativa.
+	 * Carga la imagen de la máscara alternativa.
 	 * Funciona tanto en HTML5 como en targets nativos.
 	 * @param path Path devuelto por Paths.image() o similar
 	 */
@@ -162,13 +162,13 @@ class DropShadowShader extends FlxShader
 	}
 
 	/**
-	 * Updates the bounds and the offset of rotation of the frame current.
+	 * Actualiza las bounds y el offset de rotación del frame actual.
 	 * Llamar en cada cambio de frame (p.ej. en onUpdate del stage script).
 	 * @param frame Frame actual del sprite adjunto
 	 */
 	public function updateFrameInfo(frame:FlxFrame):Void
 	{
-		// uv.right/bottom are the position derecha/inferior, no the size
+		// uv.right/bottom son la posición derecha/inferior, no el tamaño
 		uFrameBounds.value = [frame.uv.left, frame.uv.top, frame.uv.right, frame.uv.bottom];
 		// Compensar frames rotados en el atlas
 		angOffset.value = [frame.angle * FlxAngle.TO_RAD];
@@ -200,11 +200,11 @@ class DropShadowShader extends FlxShader
 		#pragma header
 
 		// Drop Shadow / Rim-Light shader.
-		// Includes recreation of the Adjust Color filter from Adobe Animate/Flash.
+		// Incluye recreación del filtro Adjust Color de Adobe Animate/Flash.
 		// Adjust Color por Rozebud (https://github.com/ThatRozebudDude)
 		// Adaptado del shader de Andrey-Postelzhuk:
 		//   https://forum.unity.com/threads/hue-saturation-brightness-contrast-shader.260649/
-		// Rotation of matiz: https://www.w3.org/TR/filter-effects/#feColorMatrixElement
+		// Rotación de matiz: https://www.w3.org/TR/filter-effects/#feColorMatrixElement
 
 		// (frame.left, frame.top, frame.right, frame.bottom) en UV
 		uniform vec4 uFrameBounds;
@@ -214,7 +214,7 @@ class DropShadowShader extends FlxShader
 		uniform float str;
 		uniform float thr;
 
-		// Compensation for rotated frames in the atlas
+		// Compensación de frames rotados en el atlas
 		uniform float angOffset;
 
 		uniform sampler2D altMask;

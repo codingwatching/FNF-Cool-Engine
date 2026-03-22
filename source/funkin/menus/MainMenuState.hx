@@ -60,7 +60,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#end
 
 		#if !MAINMENU
-		// MusicManager only call playMusic if freakyMenu no is already sonando
+		// MusicManager solo llama playMusic si freakyMenu no está ya sonando
 		MusicManager.play('freakyMenu', 0.7);
 		#end
 
@@ -121,7 +121,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		}
 
 		#if mobileC
-		// In mobile: text "[ mods ]" tappable in lugar of "Press Shift"
+		// En móvil: texto "[ MODS ]" tappable en lugar de "Press Shift"
 		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, '[ MODS ]', 12);
 		#else
 		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, 'Press Shift - Menu Mods - API v0.4.0B', 12);
@@ -184,8 +184,8 @@ class MainMenuState extends funkin.states.MusicBeatState
 		StateScriptHandler.callOnScripts('onUpdate', [elapsed]);
 		#end
 
-		// The volumen of the music of menu it manages CoreAudio._applyAll() each frame.
-		// No manipular FlxG.sound.music.volume here — pelea with the system of volumen.
+		// El volumen de la música de menú lo gestiona CoreAudio._applyAll() cada frame.
+		// No manipular FlxG.sound.music.volume aquí — pelea con el sistema de volumen.
 
 		// ── Teclas de editor (solo en developer mode) ──────────────────────────
 		if (mods.ModManager.developerMode)

@@ -17,12 +17,12 @@ using StringTools;
  * ─── Flujo ────────────────────────────────── ────────────────────────────────── 
  * 1. ModManager.init() llama extractAll() ANTES de escanear carpetas. 
  * 2. Se buscan archivos .zip / .rar en mods/. 
- * 3. Each file is extrae to mods/{name}/ (without extension). 
- * 4. A marcador .extracted_info avoids return to extraer if the file no changed. 
+ * 3. Cada archivo se extrae a mods/{nombre}/ (sin extensión). 
+ * 4. Un marcador .extracted_info evita volver a extraer si el archivo no cambió. 
  * 
  * ─── Soporte RAR ────────────────────────────── ─────────────────────────────── 
  * RAR no tiene analizador puro en Haxe. Se intenta descomprimir y luego 7z. 
- * If none is instalado, is recomienda convert the mod to .zip.
+ * Si ninguno está instalado, se recomienda convertir el mod a .zip.
  */
 class ModExtractor
 {

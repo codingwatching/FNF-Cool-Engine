@@ -14,7 +14,7 @@ import funkin.audio.AudioConfig;
 /**
  * DataInfoUI — overlay de debug/stats superpuesto sobre el juego.
  *
- * ─── Information layers ────────────────────────────────────────────────────
+ * ─── Capas de información ────────────────────────────────────────────────────
  *  • FPSCount    — FPS + RAM usada + RAM pico  (siempre visible si showFps=true)
  *  • SystemPanel — OS, CPU, GPU, VRAM, RAM total  (toggle con F3)
  *  • StatsPanel  — GPU renderer, draw calls, cache, audio config  (toggle con F3)
@@ -32,7 +32,7 @@ class DataInfoUI extends Sprite
 	public var systemPanel:SystemPanel;
 	public var statsPanel:StatsPanel;
 
-	/** @deprecated Mantener compatibility with code that lee .gpuEnabled */
+	/** @deprecated Mantener compatibilidad con código que lee .gpuEnabled */
 	public static var gpuEnabled:Bool = true;
 	public static var saveData:Dynamic = null;
 
@@ -112,7 +112,7 @@ class DataInfoUI extends Sprite
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SystemPanel — info static of the hardware (no changes each frame)
+// SystemPanel — info estática del hardware (no cambia cada frame)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -137,13 +137,13 @@ class SystemPanel extends TextField
 		this.multiline   = true;
 		this.wordWrap    = false;
 
-		// Fill when SystemInfo is listo (puede no estarlo still)
+		// Rellenar cuando SystemInfo esté listo (puede no estarlo aún)
 		if (SystemInfo.initialized)
 			_fill();
 		else
 			this.text = "System Info cargando...";
 
-		// Fill in the first frame if still no is listo
+		// Rellenar en el primer frame si aún no está listo
 		addEventListener(Event.ENTER_FRAME, _onEnter);
 	}
 
@@ -186,12 +186,12 @@ class SystemPanel extends TextField
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// StatsPanel — dynamic performance stats (updated every 0.5s)
+// StatsPanel — stats de rendimiento dinámicas (actualizadas cada 0.5s)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Muestra: resolution of window, modo of scales, draw calls, cache, audio config.
- * Periodic update to avoid consuming CPU on every frame.
+ * Muestra: resolución de ventana, modo de escala, draw calls, cache, audio config.
+ * Actualización periódica para no consumir CPU en cada frame.
  */
 class StatsPanel extends TextField
 {
@@ -236,7 +236,7 @@ class StatsPanel extends TextField
 		var mode = WindowManager.scaleMode;
 		lines.push('Win: ${ww}×${wh}  Scale: $mode${WindowManager.isFullscreen ? " [FS]" : ""}');
 
-		// ── Logic of the game ──
+		// ── Lógica del juego ──
 		lines.push('Game: ${FlxG.width}×${FlxG.height}  FPS target: ${FlxG.updateFramerate}');
 
 		// ── Draw calls y GPU renderer (desde PlayState si disponible) ──
@@ -282,9 +282,9 @@ class StatsPanel extends TextField
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GPUStatsText — legacy alias (avoids breaking existing code)
+// GPUStatsText — alias legacy (evita romper código existente)
 // ─────────────────────────────────────────────────────────────────────────────
-@:deprecated("Use StatsPanel. GPUStatsText will be kept as an empty alias.")
+@:deprecated("Usa StatsPanel. GPUStatsText se mantendrá como alias vacío.")
 class GPUStatsText extends TextField
 {
 	public static function getSaveData():Dynamic

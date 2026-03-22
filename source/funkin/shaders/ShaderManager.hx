@@ -1,8 +1,8 @@
 package funkin.shaders;
 
 /**
- * Alias of compatibility — all the logic live in shaders.ShaderManager.
- * Maintaining this typedef allows imported files
- * `funkin.shaders.ShaderManager` Keep compiling without change.
+ * Alias de compatibilidad — toda la lógica vive en shaders.ShaderManager.
+ * Mantener este typedef permite que los archivos que importen
+ * `funkin.shaders.ShaderManager` sigan compilando sin ningún cambio.
  */
 typedef ShaderManager = shaders.ShaderManager;

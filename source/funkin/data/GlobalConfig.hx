@@ -8,7 +8,7 @@ import mods.ModManager;
 using StringTools;
 
 /**
- * GlobalConfig — Configuration global of UI, noteskin and hold cover.
+ * GlobalConfig — Configuración global de UI, noteskin y hold cover.
  *
  * Archivo: assets/data/config/global.json  (base)
  *          mods/{activeMod}/data/config/global.json  (override por mod)
@@ -22,7 +22,7 @@ using StringTools;
  *   "holdCoverSkin":    "noteHoldCover"
  * }
  *
- * Jerarquía of priority:
+ * Jerarquía de prioridad:
  *   meta.json  >  global.json del mod activo  >  global.json base  >  hardcoded
  */
 class GlobalConfig
@@ -34,7 +34,7 @@ class GlobalConfig
 	private static var _hooked:Bool = false;
 
 	// ─── Runtime overrides (seteados desde script, no desde global.json) ────────
-	// Permiten that a script of mod cambie configuration without tocar the JSON in disco.
+	// Permiten que un script de mod cambie configuración sin tocar el JSON en disco.
 	// Se limpian en reload() para que el JSON tenga prioridad al recargar.
 	private static var _runtimeOverrides:Map<String, Dynamic> = new Map();
 
@@ -45,7 +45,7 @@ class GlobalConfig
 		if (_instance == null || _loadedForMod != curMod)
 		{
 			if (_instance != null)
-				trace('[GlobalConfig] Mod changed ("$_loadedForMod" → "$curMod"), recargando...');
+				trace('[GlobalConfig] Mod cambió ("$_loadedForMod" → "$curMod"), recargando...');
 			_instance     = _load(curMod);
 			_loadedForMod = curMod;
 		}
@@ -84,7 +84,7 @@ class GlobalConfig
 	public var holdCoverEnabled:Bool = true;
 
 	/**
-	 * Skin global of the hold cover (name of atlas without extension).
+	 * Skin global del hold cover (nombre de atlas sin extensión).
 	 * Se busca en assets/images/holdCovers/{holdCoverSkin}.
 	 * Las canciones pueden sobreescribirlo con su propio holdCoverSkin.
 	 */
@@ -93,8 +93,8 @@ class GlobalConfig
 	// ─── Ventana ────────────────────────────────────────────────────────────────
 
 	/**
-	 * Title personalizado of the window of the OS.
-	 * null = use the title by default of the engine or of mod.json.
+	 * Título personalizado de la ventana del OS.
+	 * null = usa el título por defecto del engine o de mod.json.
 	 * Tiene prioridad sobre mod.json appTitle cuando se setea desde script.
 	 */
 	public var windowTitle:Null<String> = null;
@@ -102,7 +102,7 @@ class GlobalConfig
 	// ─── Discord Rich Presence ───────────────────────────────────────────────────
 
 	/**
-	 * Client ID of the appliesción Discord of the mod.
+	 * Client ID de la aplicación Discord del mod.
 	 * null = usa el clientId de mod.json > default del engine.
 	 */
 	public var discordClientId:Null<String> = null;
@@ -113,7 +113,7 @@ class GlobalConfig
 	/** Tooltip de la imagen grande. null = default del engine. */
 	public var discordLargeImageText:Null<String> = null;
 
-	/** Text of "details" in the menu main. null = default of the engine. */
+	/** Texto de "details" en el menú principal. null = default del engine. */
 	public var discordMenuDetails:Null<String> = null;
 
 	// ─── Gameplay ────────────────────────────────────────────────────────────────
@@ -121,11 +121,11 @@ class GlobalConfig
 	/**
 	 * Velocidad de scroll global de las notas (multiplier).
 	 * 0 o negativo = usa la velocidad del chart.
-	 * The scripts of song pueden sobreescribirlo per-song.
+	 * Los scripts de song pueden sobreescribirlo per-canción.
 	 */
 	public var scrollSpeed:Float = 0.0;
 
-	/** Zoom of camera by default in gameplay. 0 = use the of the stage. */
+	/** Zoom de cámara por defecto en gameplay. 0 = usa el del stage. */
 	public var defaultZoom:Float = 0.0;
 
 	/** Activa ghost tap globalmente. true = no penaliza al presionar sin nota. */
@@ -145,7 +145,7 @@ class GlobalConfig
 
 	// ─── Audio ───────────────────────────────────────────────────────────────────
 
-	/** Volumen of the music of the menu of freeplay (0.0-1.0). -1 = usar default. */
+	/** Volumen de la música del menú de freeplay (0.0-1.0). -1 = usar default. */
 	public var freeplayMusicVolume:Float = -1.0;
 
 	// ─── Carga interna ───────────────────────────────────────────────────────────
@@ -247,7 +247,7 @@ class GlobalConfig
 		}
 		catch (e)
 		{
-			trace('[GlobalConfig] _applyToSkinSystem failed (posiblemente demasiado temprano): $and');
+			trace('[GlobalConfig] _applyToSkinSystem falló (posiblemente demasiado temprano): $e');
 		}
 	}
 
@@ -264,7 +264,7 @@ class GlobalConfig
 			if (prevCallback != null) prevCallback(newMod);
 
 			final label = newMod != null ? '"$newMod"' : '(ninguno)';
-			trace('[GlobalConfig] Mod changed to $label — invalidando singleton...');
+			trace('[GlobalConfig] Mod cambió a $label — invalidando singleton...');
 
 			final curMod  = newMod != null ? newMod : '__NONE__';
 			_instance     = null;
@@ -336,7 +336,7 @@ class GlobalConfig
 
 	// ─── Runtime setters (usados desde scripts) ──────────────────────────────────
 	// Modifican la instancia en memoria sin tocar el JSON en disco.
-	// Is appliesn automatically to the subsistemas correspondientes.
+	// Se aplican automáticamente a los subsistemas correspondientes.
 
 	/**
 	 * Setea cualquier campo del GlobalConfig en runtime desde un script.
@@ -353,7 +353,7 @@ class GlobalConfig
 		Reflect.setField(cfg, field, value);
 		_runtimeOverrides.set(field, value);
 
-		// Appliesr side-effects according to the field
+		// Aplicar side-effects según el campo
 		switch (field)
 		{
 			case 'noteSkin', 'noteSplash':
@@ -379,8 +379,8 @@ class GlobalConfig
 	}
 
 	/**
-	 * Applies the configuration Discord of the GlobalConfig to the DiscordClient active.
-	 * Only sobreescribe the fields that are definidos (non-null).
+	 * Aplica la configuración Discord del GlobalConfig al DiscordClient activo.
+	 * Solo sobreescribe los campos que están definidos (non-null).
 	 */
 	public static function applyDiscord():Void
 	{

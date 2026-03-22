@@ -22,46 +22,46 @@ using StringTools;
 /**
  * AssetOptimizer — Optimiza assets de mods y del engine SIN perder calidad.
  *
- * ─── Techniques used (all lossless) ────────────────────────────────────────
+ * ─── Técnicas usadas (todas lossless) ────────────────────────────────────────
  *
  *  PNG
- *    • Re-compression with level DEFLATE maximum (level 9).
- *    • Removal of chunks auxiliares (tEXt, zTXt, iTXt, tIME, bKGD, etc.)
- *      that aumentan the size without afectar the image.
- *    • Detection and removal of padding transparente alrededor of the sprite
+ *    • Re-compresión con nivel DEFLATE máximo (nivel 9).
+ *    • Eliminación de chunks auxiliares (tEXt, zTXt, iTXt, tIME, bKGD, etc.)
+ *      que aumentan el tamaño sin afectar la imagen.
+ *    • Detección y eliminación de padding transparente alrededor del sprite
  *      (trimming), actualizando el atlas XML/JSON para mantener coordenadas.
- *    • Conversion RGBA→RGB when no there is canal alpha (reduce 25% of the espacio).
+ *    • Conversión RGBA→RGB cuando no hay canal alpha (reduce 25% del espacio).
  *
  *  ATLAS (Sparrow XML / Packer TXT)
- *    • Re-generación of the atlas with sprites ordenados by area (packing óptimo).
- *    • Merge of multiple atlas pequeños in uno only (reduce draw calls).
- *    • Compactación of the XML: elimina espacios extra, attributes redundantes.
+ *    • Re-generación del atlas con sprites ordenados por área (packing óptimo).
+ *    • Fusión de múltiples atlas pequeños en uno solo (reduce draw calls).
+ *    • Compactación del XML: elimina espacios extra, atributos redundantes.
  *
  *  OGG / Audio
  *    • Trim de silencio inicial/final (sin recodificar el audio).
- *    • Normalización of metadatos (elimina tags innecesarios).
+ *    • Normalización de metadatos (elimina tags innecesarios).
  *    • Solo recorta el contenedor; no re-encoda samples → 100% lossless.
  *
  *  BitmapData (runtime)
  *    • disposeImage() tras subir a GPU (libera RAM CPU, ya en VRAM).
- *    • Detection of regiones transparentes for skip of draw calls.
- *    • Mipmap pre-generación for textures of UI escaladas with frecuencia.
+ *    • Detección de regiones transparentes para skip de draw calls.
+ *    • Mipmap pre-generación para texturas de UI escaladas con frecuencia.
  *
  * ─── Uso ─────────────────────────────────────────────────────────────────────
  *
  *  // Optimizar todos los assets de un mod:
  *  AssetOptimizer.optimizeMod("mods/mi_mod");
  *
- *  // Optimizar only the images of a directorio:
+ *  // Optimizar solo las imágenes de un directorio:
  *  AssetOptimizer.optimizeImages("mods/mi_mod/images");
  *
- *  // Optimizar a PNG specific in-place:
+ *  // Optimizar un PNG específico in-place:
  *  AssetOptimizer.optimizePNG("mods/mi_mod/images/personaje.png");
  *
  *  // Optimizar assets base del engine:
  *  AssetOptimizer.optimizeBaseAssets("assets/images");
  *
- *  // Get estadísticas of the last execution:
+ *  // Obtener estadísticas de la última ejecución:
  *  trace(AssetOptimizer.lastRunStats());
  *
  * @author Cool Engine Team
@@ -69,13 +69,13 @@ using StringTools;
  */
 class AssetOptimizer
 {
-	// ── Stats of the last execution ──────────────────────────────────────────
+	// ── Stats de la última ejecución ──────────────────────────────────────────
 	public static var lastStats(default, null):OptimizerStats = new OptimizerStats();
 
 	// ── Constantes PNG ────────────────────────────────────────────────────────
 	static final PNG_SIGNATURE = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
-	// Chunks to preservar (críticos for the image):
+	// Chunks a preservar (críticos para la imagen):
 	static final PNG_KEEP_CHUNKS = ['IHDR', 'PLTE', 'IDAT', 'IEND', 'tRNS', 'gAMA', 'cHRM', 'sRGB', 'sBIT', 'pHYs'];
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -84,11 +84,11 @@ class AssetOptimizer
 
 	/**
 	 * Optimiza TODOS los assets de un directorio de mod.
-	 * Procesa images PNG, atlas XML and files OGG of forma recursiva.
+	 * Procesa imágenes PNG, atlas XML y archivos OGG de forma recursiva.
 	 *
-	 * @param modPath    Ruta root of the mod (ej: "mods/mi_mod").
+	 * @param modPath    Ruta raíz del mod (ej: "mods/mi_mod").
 	 * @param recursive  Si true, busca en subcarpetas.
-	 * @return           Stats of the optimization.
+	 * @return           Stats de la optimización.
 	 */
 	public static function optimizeMod(modPath:String, recursive:Bool = true):OptimizerStats
 	{
@@ -104,7 +104,7 @@ class AssetOptimizer
 
 		trace('[AssetOptimizer] ── Optimizando mod: $modPath ──');
 
-		// Images
+		// Imágenes
 		final imagesPath = '$modPath/images';
 		if (FileSystem.exists(imagesPath))
 			_walkDirectory(imagesPath, _processFile, recursive);
@@ -158,10 +158,10 @@ class AssetOptimizer
 	}
 
 	/**
-	 * Optimiza a unique PNG in-place (no re-encoda pixels, only mejora compression).
+	 * Optimiza un único PNG in-place (no re-encoda pixels, solo mejora compresión).
 	 *
 	 * @param path  Ruta absoluta o relativa al PNG.
-	 * @return      Bytes ahorrados (positivo = redujo size, 0 = already era óptimo).
+	 * @return      Bytes ahorrados (positivo = redujo tamaño, 0 = ya era óptimo).
 	 */
 	public static function optimizePNG(path:String):Int
 	{
@@ -174,11 +174,11 @@ class AssetOptimizer
 	}
 
 	/**
-	 * Recorta the márgenes transparentes of a PNG and returns the BitmapData recortado.
-	 * No modifica the file in disco — useful for optimization in runtime.
+	 * Recorta los márgenes transparentes de un PNG y devuelve el BitmapData recortado.
+	 * No modifica el archivo en disco — útil para optimización en runtime.
 	 *
 	 * @param bitmap  BitmapData fuente.
-	 * @param outRect Rectangle recortado (puedes usarlo for update the atlas).
+	 * @param outRect Rectángulo recortado (puedes usarlo para actualizar el atlas).
 	 * @return        Nuevo BitmapData sin bordes transparentes, o el original si no se puede recortar.
 	 */
 	public static function trimTransparent(bitmap:BitmapData, ?outRect:Rectangle):BitmapData
@@ -224,9 +224,9 @@ class AssetOptimizer
 
 	/**
 	 * Optimiza un atlas Sparrow (XML + PNG) en disco:
-	 *   1. Re-empaqueta the PNG with compression maximum.
+	 *   1. Re-empaqueta el PNG con compresión máxima.
 	 *   2. Compacta el XML (elimina espacios innecesarios).
-	 *   3. Opcionalmente, une various atlas pequeños in uno.
+	 *   3. Opcionalmente, une varios atlas pequeños en uno.
 	 *
 	 * @param atlasPath  Ruta al PNG del atlas (el XML debe tener el mismo nombre).
 	 */
@@ -253,8 +253,8 @@ class AssetOptimizer
 	/**
 	 * Optimiza un PNG en disco:
 	 *   1. Lee todos los chunks del PNG.
-	 *   2. Descarta chunks no críticos (metadatos, comentarios, time, etc.).
-	 *   3. Re-comprime the chunk IDAT with DEFLATE level 9 (maximum compression).
+	 *   2. Descarta chunks no críticos (metadatos, comentarios, tiempo, etc.).
+	 *   3. Re-comprime el chunk IDAT con DEFLATE nivel 9 (máxima compresión).
 	 *   4. Escribe el PNG optimizado en el mismo path.
 	 *
 	 * @return Bytes ahorrados (puede ser negativo si el original era mejor).
@@ -269,7 +269,7 @@ class AssetOptimizer
 			// Validar firma PNG
 			if (!_isPNG(original))
 			{
-				trace('[AssetOptimizer] No is a PNG valid: $path');
+				trace('[AssetOptimizer] No es un PNG válido: $path');
 				return 0;
 			}
 
@@ -286,7 +286,7 @@ class AssetOptimizer
 
 			final savedBytes = originalSize - optimized.length;
 
-			// Only escribir if realmente ahorramos espacio (or igual = also save by chunks limpios)
+			// Solo escribir si realmente ahorramos espacio (o igual = también guardar por chunks limpios)
 			if (optimized.length <= originalSize)
 			{
 				File.saveBytes(path, optimized);
@@ -327,7 +327,7 @@ class AssetOptimizer
 			final length = bytes.getInt32(offset);
 			final name   = bytes.getString(offset + 4, 4);
 			final data   = bytes.sub(offset + 8, length);
-			// CRC (4 bytes) it recalculamos to the escribir, no it leemos here
+			// CRC (4 bytes) lo recalculamos al escribir, no lo leemos aquí
 			offset += 12 + length;
 
 			// Guardar solo chunks importantes
@@ -378,7 +378,7 @@ class AssetOptimizer
 			return chunks; // devolver original sin cambios
 		}
 
-		// Re-comprimir with nivel maximum (9)
+		// Re-comprimir con nivel máximo (9)
 		var recompressed:Bytes = null;
 		try
 		{
@@ -390,7 +390,7 @@ class AssetOptimizer
 			return chunks;
 		}
 
-		// If the re-compression no ayuda, usar original
+		// Si la re-compresión no ayuda, usar original
 		if (recompressed.length >= compressedData.length)
 			recompressed = compressedData;
 
@@ -402,14 +402,14 @@ class AssetOptimizer
 			if (c.name == 'IHDR')
 				result.push({ name: 'IDAT', data: recompressed });
 		}
-		// If IEND no is to the end, añadirlo
+		// Si IEND no está al final, añadirlo
 		if (result.length == 0 || result[result.length - 1].name != 'IEND')
 			result.push({ name: 'IEND', data: Bytes.alloc(0) });
 
 		return result;
 	}
 
-	/** Escribe the list of chunks as a PNG valid (with CRC recalculado). */
+	/** Escribe la lista de chunks como un PNG válido (con CRC recalculado). */
 	static function _writePNG(chunks:Array<PNGChunk>):Null<Bytes>
 	{
 		final out = new BytesOutput();
@@ -460,7 +460,7 @@ class AssetOptimizer
 
 	/**
 	 * Compacta el XML de un atlas Sparrow eliminando espacios innecesarios
-	 * and normalizando the formato for reducir the size of the file.
+	 * y normalizando el formato para reducir el tamaño del archivo.
 	 */
 	static function _optimizeXML(path:String):Int
 	{
@@ -471,11 +471,11 @@ class AssetOptimizer
 
 			// Eliminar comentarios XML
 			var optimized = ~/<!\-\-[\s\S]*?\-\->/g.replace(original, '');
-			// Reducir espacios multiple in a line
+			// Reducir espacios múltiples en una línea
 			optimized = ~/\s{2,}/g.replace(optimized, ' ');
-			// Remove lines vacías
+			// Eliminar líneas vacías
 			optimized = ~/\n\s*\n/g.replace(optimized, '\n');
-			// Trim of each line
+			// Trim de cada línea
 			final lines = optimized.split('\n');
 			final trimmed = [for (l in lines) l.trim()].filter(l -> l.length > 0);
 			optimized = trimmed.join('\n');
@@ -502,13 +502,13 @@ class AssetOptimizer
 
 	/**
 	 * Optimiza un OGG recortando el silencio inicial y final del contenedor.
-	 * No re-encoda the audio — opera over the level of página OGG directly.
+	 * No re-encoda el audio — opera sobre el nivel de página OGG directamente.
 	 * Esto es completamente lossless para el contenido de audio.
 	 */
 	static function _optimizeOGG(path:String):Int
 	{
-		// The trimming of silencio in OGG requiere parse páginas OGG and
-		// ajustar granule positions — complejidad alta without libraries externas.
+		// El trimming de silencio en OGG requiere parsear páginas OGG y
+		// ajustar granule positions — complejidad alta sin librerías externas.
 		// Por ahora: verificar y reportar sin modificar.
 		// TODO: implementar OGG page parser para trim de silencio.
 		lastStats.oggSkipped++;
@@ -619,7 +619,7 @@ private typedef PNGChunk = {
 }
 
 /**
- * Estadísticas of a execution of the optimizador.
+ * Estadísticas de una ejecución del optimizador.
  */
 class OptimizerStats
 {
@@ -636,7 +636,7 @@ class OptimizerStats
 	public function summary():String
 	{
 		final saved = bytesSaved > 0 ? _hb(bytesSaved) : '0 B';
-		return '[AssetOptimizer] Root: $rootPath\n'
+		return '[AssetOptimizer] Raíz: $rootPath\n'
 			 + '  PNGs optimizados:  $pngOptimized  (saltados: $pngSkipped)\n'
 			 + '  XMLs optimizados:  $xmlOptimized\n'
 			 + '  OGGs (pendiente):  $oggSkipped\n'

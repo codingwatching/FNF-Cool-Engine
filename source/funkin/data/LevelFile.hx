@@ -13,12 +13,12 @@ import sys.io.File;
 using StringTools;
 
 /**
- * LevelFile — Formato of nivel unique (.level) estilo osu!
+ * LevelFile — Formato de nivel único (.level) estilo osu!
  * =========================================================
  *
  * OBJETIVO
  * --------
- * A unique file `mysong.level` reemplaza all these files:
+ * Un único archivo `mysong.level` reemplaza todos estos archivos:
  *
  *   mysong/
  *     mysong.json        ← chart normal
@@ -56,19 +56,19 @@ using StringTools;
  * La clave de dificultad es el SUFIJO CON guion incluido ('' = normal).
  * Los scripts .hx siguen siendo archivos independientes.
  *
- * backwards compatibility
+ * COMPATIBILIDAD HACIA ATRÁS
  * --------------------------
- * If no exists a .level but itself the .json viejos, `loadDiff` the load
- * automatically. `Song.findChart` and `Song.getAvailableDifficulties`
+ * Si NO existe un .level pero SÍ los .json viejos, `loadDiff` los carga
+ * automáticamente. `Song.findChart` y `Song.getAvailableDifficulties`
  * NO necesitan cambios — siguen funcionando con los .json legacy.
  *
- * INTEGRACIÓN with the CHARTING EDITOR
+ * INTEGRACIÓN CON EL CHARTING EDITOR
  * ------------------------------------
  * ChartingState debe llamar:
  *   LevelFile.saveDiff(songName, curDiffSuffix, _song, metaData);
  *
  * Esto actualiza solo la dificultad indicada en el .level existente
- * (or creates uno new). The autosave use the mismo method.
+ * (o crea uno nuevo). El autosave usa el mismo método.
  *
  * @version 3.0.0
  */
@@ -103,16 +103,16 @@ class LevelFile
 	// ──────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Save a difficulty dentro of the .level of the song.
+	 * Guarda UNA dificultad dentro del .level de la canción.
 	 *
 	 * ── Comportamiento en el PRIMER guardado ─────────────────────────────────
-	 * If the .level no exists still, before of escribir the difficulty new is
-	 * importan automatically all the files legacy that existan:
+	 * Si el .level no existe todavía, antes de escribir la dificultad nueva se
+	 * importan automáticamente todos los archivos legacy que existan:
 	 *   • mysong.json, mysong-hard.json, mysong-easy.json, … → bloque difficulties
 	 *   • meta.json                                          → bloque meta
 	 *   • mysong-playstate.json                              → bloque pse
 	 *
-	 * After is sobreescribe the difficulty indicada with the datos recién
+	 * Después se sobreescribe la dificultad indicada con los datos recién
 	 * guardados (para que el guardado actual tenga prioridad sobre el legacy).
 	 *
 	 * ── Guardados posteriores ─────────────────────────────────────────────────
@@ -139,7 +139,7 @@ class LevelFile
 			final path = _targetPath(key);
 			_ensureDir(path);
 
-			// If the .level no exists still, migrate the files legacy first
+			// Si el .level no existe aún, migrar los archivos legacy primero
 			var level : LevelData;
 			if (FileSystem.exists(path))
 			{
@@ -225,7 +225,7 @@ class LevelFile
 	 * Guarda los datos del PlayState Editor (eventos PSE + scripts) dentro
 	 * del bloque `pse` del archivo .level.
 	 *
-	 * If the .level no exists still, first migra all the files legacy
+	 * Si el .level no existe aún, primero migra todos los archivos legacy
 	 * (charts .json, meta.json) antes de escribir el bloque pse.
 	 */
 	public static function savePSE(songName:String, pseData:Dynamic) : Bool
@@ -372,7 +372,7 @@ class LevelFile
 			{
 				final raw = File.getContent(legacyPath).trim();
 				// BUGFIX: pasar legacyName (sin guion: 'hard') en vez de diff ('-hard').
-				// VSliceConverter normalizes by prefix of song, no by guion inicial.
+				// VSliceConverter normaliza por prefijo de canción, no por guion inicial.
 				// '-hard' no empieza por 'darnell-' → se queda como '-hard' → miss en
 				// notes['-hard'] → fallback a first key = easy. Con 'hard' matchea directo.
 				return Song.parseJSONshit(raw, legacyPath, legacyName);
@@ -397,7 +397,7 @@ class LevelFile
 
 	/**
 	 * Carga el bloque meta del .level.
-	 * Returns null if no there is .level (MetaData.load will use meta.json legacy).
+	 * Devuelve null si no hay .level (MetaData.load usará meta.json legacy).
 	 */
 	public static function loadMeta(songName:String) : Null<SongMetaData>
 	{
@@ -467,14 +467,14 @@ class LevelFile
 	}
 
 	// ──────────────────────────────────────────────────────────────────────────
-	//  migration: JSON viejos → .level
+	//  MIGRACIÓN: JSON viejos → .level
 	// ──────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Converts the .json of difficulties + meta.json in a unique .level.
+	 * Convierte los .json de dificultades + meta.json en un único .level.
 	 * Los archivos originales NO se borran (compatibilidad garantizada).
 	 *
-	 * @return true if is generó the .level correctly
+	 * @return true si se generó el .level correctamente
 	 */
 	public static function migrateFromJson(songName:String) : Bool
 	{
@@ -530,7 +530,7 @@ class LevelFile
 	//  QUERY HELPERS
 	// ──────────────────────────────────────────────────────────────────────────
 
-	/** Exists a .level for this song? */
+	/** ¿Existe un .level para esta canción? */
 	public static function exists(songName:String) : Bool
 		return resolvePath(songName.toLowerCase()) != null;
 
@@ -608,8 +608,8 @@ class LevelFile
 	 *   • meta.json                        → meta
 	 *   • mysong-playstate.json            → pse
 	 *
-	 * Returns null if no is encuentra no file legacy (song new).
-	 * no escribe nothing to disco — the caller decide when save.
+	 * Devuelve null si no se encuentra ningún archivo legacy (canción nueva).
+	 * NO escribe nada a disco — el caller decide cuándo guardar.
 	 */
 	static function _buildLevelFromLegacy(key:String) : Null<LevelData>
 	{
@@ -734,12 +734,12 @@ class LevelFile
 		return suffix.startsWith('-') ? suffix.substr(1) : suffix;
 	}
 
-	/** Migration in-place of versiones anteriores of the formato. */
+	/** Migración in-place de versiones anteriores del formato. */
 	static function _migrate(data:LevelData) : Void
 	{
 		if (data.version != null && data.version >= FORMAT_VERSION) return;
 
-		// v1 / v2: tenía a field "song" directo in lugar of "difficulties"
+		// v1 / v2: tenía un campo "song" directo en lugar de "difficulties"
 		if (Reflect.hasField(data, 'song') && data.difficulties == null)
 		{
 			data.difficulties = {};

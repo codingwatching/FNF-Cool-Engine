@@ -10,19 +10,19 @@ using StringTools;
 /**
  * AudioConfig — lee `alsoft.ini` en runtime y expone sus valores al juego.
  *
- * ─── Why? ───────────────────────────────────────────────────────────────
- * OpenAL Soft load `alsoft.ini` before of initialize the device, so that already
+ * ─── ¿Por qué? ───────────────────────────────────────────────────────────────
+ * OpenAL Soft carga `alsoft.ini` antes de inicializar el device, así que ya
  * ajusta period_size, frequency, etc. por su cuenta. Sin embargo, el juego
  * puede necesitar saber esos valores para:
- *   • ajustar the size of the buffers of streaming (Vorbis/OGG) for that
+ *   • ajustar el tamaño de los buffers de streaming (Vorbis/OGG) para que
  *     coincidan con period_size → evita underruns (glitches de audio).
  *   • mostrar la latencia calculada en el panel de debug.
  *   • forzar que el sample-rate de Flixel coincida con el de OpenAL.
  *
  * ─── Funcionamiento ──────────────────────────────────────────────────────────
  * 1. Busca alsoft.ini junto al ejecutable y en el directorio de trabajo.
- * 2. Parsea the sections [general] and [decoder] with a parser INI minimum.
- * 3. Expone the values as properties static tipadas.
+ * 2. Parsea las secciones [general] y [decoder] con un parser INI mínimo.
+ * 3. Expone los valores como propiedades estáticas tipadas.
  * 4. Si no encuentra el archivo usa valores por defecto seguros.
  *
  * @author  Cool Engine Team
@@ -35,13 +35,13 @@ class AudioConfig
 	/** Sample rate del device OpenAL. Default: 44100 */
 	public static var frequency(default, null):Int  = 44100;
 
-	/** Frames by período of hardware. Default: 512 */
+	/** Frames por período de hardware. Default: 512 */
 	public static var periodSize(default, null):Int = 512;
 
-	/** Number of períodos in the buffer of hardware. Default: 3 */
+	/** Número de períodos en el buffer de hardware. Default: 3 */
 	public static var periods(default, null):Int    = 3;
 
-	/** Is enabled HRTF? */
+	/** ¿Está habilitado HRTF? */
 	public static var hrtf(default, null):Bool = false;
 
 	/** Tipo de resampler configurado. */
@@ -54,15 +54,15 @@ class AudioConfig
 
 	/**
 	 * Latencia total en milisegundos: (periodSize * periods / frequency) * 1000.
-	 * Useful for the debug overlay and for ajustar the offset of sincronía.
+	 * Útil para el debug overlay y para ajustar el offset de sincronía.
 	 */
 	public static var latencyMs(get, never):Float;
 	static inline function get_latencyMs():Float
 		return (periodSize * periods / frequency) * 1000.0;
 
 	/**
-	 * Size of buffer OGG recomendado for streaming without underruns.
-	 * Usamos the doble of the period_size for have a margen howdo.
+	 * Tamaño de buffer OGG recomendado para streaming sin underruns.
+	 * Usamos el doble del period_size para tener un margen cómodo.
 	 * Redondeo a la siguiente potencia de 2 para compatibilidad con ALSA/WASAPI.
 	 */
 	public static var streamingBufferSize(get, never):Int;
@@ -76,20 +76,20 @@ class AudioConfig
 
 	// ── Estado interno ────────────────────────────────────────────────────────
 
-	/** true if the file was found and parsed with success. */
+	/** true si el archivo fue encontrado y parseado con éxito. */
 	public static var loaded(default, null):Bool = false;
 
-	/** Path from the that is cargó the file (or null if is usaron defaults). */
+	/** Ruta desde la que se cargó el archivo (o null si se usaron defaults). */
 	public static var sourcePath(default, null):Null<String> = null;
 
-	// ── API public ───────────────────────────────────────────────────────────
+	// ── API pública ───────────────────────────────────────────────────────────
 
 	/**
 	 * Carga y parsea alsoft.ini.
 	 * Llamar UNA VEZ en Main.setupGame() antes de inicializar el audio.
 	 *
 	 * @param customPath  Ruta alternativa. Si es null, busca en ubicaciones
-	 *                    standard (junto to the exe, directorio of trabajo).
+	 *                    estándar (junto al exe, directorio de trabajo).
 	 */
 	public static function load(?customPath:String):Void
 	{
@@ -147,14 +147,14 @@ class AudioConfig
 
 	/**
 	 * Aplica el sample-rate a FlxG.sound si difiere del actual.
-	 * Callr after of load() and after of that FlxGame is in escena.
+	 * Llamar después de load() y después de que FlxGame esté en escena.
 	 */
 	public static function applyToFlixel():Void
 	{
 		#if FLX_SOUND_SYSTEM
 		// FlxSound no expone el sample-rate directamente, pero podemos
-		// force the context of OpenAL to través of the device if is necessary.
-		// It that itself podemos do is ajustar the drawFramerate for compensar
+		// forzar el context de OpenAL a través del device si es necesario.
+		// Lo que sí podemos hacer es ajustar el drawFramerate para compensar
 		// cualquier drift si la frecuencia real difiere de 44100.
 		// Por ahora simplemente logeamos — extensible en el futuro.
 		trace('[AudioConfig] Flixel audio @ ${frequency}Hz  buffer=${streamingBufferSize} samples');
@@ -181,8 +181,8 @@ class AudioConfig
 	}
 
 	/**
-	 * Parser INI minimum: soporta sections [name], key=value and ; / # comentarios.
-	 * Ignora lines vacías and espacios alrededor of = and of the values.
+	 * Parser INI mínimo: soporta secciones [name], key=value y ; / # comentarios.
+	 * Ignora líneas vacías y espacios alrededor de = y de los valores.
 	 */
 	static function _parseIni(content:String):Void
 	{
@@ -192,11 +192,11 @@ class AudioConfig
 		{
 			var line:String = rawLine.trim();
 
-			// Ignorar vacías and comentarios
+			// Ignorar vacías y comentarios
 			if (line.length == 0 || line.charAt(0) == ";" || line.charAt(0) == "#")
 				continue;
 
-			// Section
+			// Sección
 			if (line.charAt(0) == "[")
 			{
 				final end:Int = line.indexOf("]");
@@ -252,8 +252,8 @@ class AudioConfig
 				}
 
 			case "decoder":
-				// Reserved for future integration (hq-mode, distance-comp…)
-				// Not needed in standard gameplay but remain available.
+				// Reservado para futura integración (hq-mode, distance-comp…)
+				// No se necesitan en gameplay estándar pero quedan disponibles.
 		}
 	}
 }

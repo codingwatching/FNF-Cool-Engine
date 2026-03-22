@@ -31,31 +31,31 @@ using StringTools;
 /**
  * ScriptAPI v6 — API COMPLETA expuesta a los scripts HScript.
  *
- * ─── New categories in v6 ─────────────────────────────────────────────────
- *  `Mathf`         — proxy of funkin.data.Mathf (all the functions matemáticas)
+ * ─── Nuevas categorías en v6 ─────────────────────────────────────────────────
+ *  `Mathf`         — proxy de funkin.data.Mathf (todas las funciones matemáticas)
  *  `CoolUtil`      — utilidades generales (texto, arrays, dificultad)
- *  `CameraUtil`    — control avanzado of cameras and filtros/shaders in camera
- *  `add` / `remove`— add/quitar sprites of the game directamente
+ *  `CameraUtil`    — control avanzado de cámaras y filtros/shaders en cámara
+ *  `add` / `remove`— añadir/quitar sprites del juego directamente
  *  `stage`         — acceso completo al stage actual (elementos, grupos, sonidos)
  *  `noteManager`   — acceso al NoteManager del PlayState
  *  `input`         — acceso al InputHandler (teclas presionadas, held, etc.)
- *  `VideoManager`  — playback of videos/cutscenes from script
+ *  `VideoManager`  — reproducción de vídeos/cutscenes desde script
  *  `Highscore`     — guardar y leer scores desde script
  *  `Ranking`       — letra de ranking del run actual
  *  `CharacterList` — listas de personajes y stages disponibles
  *  `PlayStateConfig` — constantes de timing, zoom, health, etc.
  *  `FlxAnimate`    — soporte de Texture Atlas animados
  *  `FlxSound`      — clase de sonido de Flixel
- *  `FlxCamera`     — class of camera of Flixel
+ *  `FlxCamera`     — clase de cámara de Flixel
  *  `FlxObject`     — objeto base de Flixel
  *  `FlxBackdrop`   — fondo de scroll infinito
  *  `transition`    — control de transiciones de pantalla
- *  `MetaData`      — metadatos of the song current
- *  `GlobalConfig`  — configuration global of the engine
+ *  `MetaData`      — metadatos de la canción actual
+ *  `GlobalConfig`  — configuración global del engine
  *  `ScriptHandler` — acceso a scripts desde scripts (callOnScripts, etc.)
  *  `EventManager`  — sistema de eventos del chart
  *  `CharacterController` — controller de personajes del PlayState
- *  `CameraController`    — controller of camera of the PlayState
+ *  `CameraController`    — controller de cámara del PlayState
  *
  * ─── Compatibilidad total con v4/v5 ──────────────────────────────────────────
  *  Todos los objetos y funciones previos siguen disponibles sin cambios.
@@ -95,7 +95,7 @@ class ScriptAPI
 		// ── NUEVO v6 ──────────────────────────────────────────────────────────
 		exposeMathf(interp);          // proxy completo de funkin.data.Mathf
 		exposeCoolUtil(interp);       // utilidades generales
-		exposeCameraUtil(interp);     // control avanzado of cameras
+		exposeCameraUtil(interp);     // control avanzado de cámaras
 		exposeAddRemove(interp);      // add() / remove() directos
 		exposeStageAccess(interp);    // stage.getElement(), stage.getGroup(), etc.
 		exposeNoteManagerAccess(interp); // noteManager completo
@@ -107,7 +107,7 @@ class ScriptAPI
 		exposePlayStateConfig(interp); // constantes de timing/zoom/health
 		exposeTransition(interp);     // control de transiciones
 		exposeControllers(interp);    // CharacterController y CameraController
-		exposeMetaData(interp);       // MetaData of the song
+		exposeMetaData(interp);       // MetaData de la canción
 		exposeGlobalConfig(interp);   // GlobalConfig del engine
 		exposeScriptHandler(interp);  // ScriptHandler (callOnScripts, etc.)
 		exposeCountdown(interp);      // Countdown del PlayState
@@ -119,7 +119,7 @@ class ScriptAPI
 		// ── v9: Sistema 3D y AddonManager ─────────────────────────────────────
 		expose3D(interp);             // Flx3DSprite, Flx3DScene, primitivas GPU, etc.
 		exposeAddonManager(interp);   // AddonManager + sistemas registrados por addons
-		// ── v10: Subtitles ────────────────────────────────────────────────────
+		// ── v10: Subtítulos ────────────────────────────────────────────────────
 		exposeSubtitles(interp);      // subtitle.show(), subtitle.hide(), etc.
 	}
 
@@ -191,9 +191,9 @@ class ScriptAPI
 		interp.variables.set('RuntimeRainShader', funkin.graphics.shaders.RuntimeRainShader);
 		interp.variables.set('ShaderFilter', openfl.filters.ShaderFilter);
 
-		// BlendMode — expuesto as proxy with the constantes more usadas.
-		// In HScript the conversion abstracta `from String` of BlendMode no is
-		// applies automatically to the asignar sp.blend = "add", by it that the
+		// BlendMode — expuesto como proxy con las constantes más usadas.
+		// En HScript la conversión abstracta `from String` de BlendMode no se
+		// aplica automáticamente al asignar sp.blend = "add", por lo que los
 		// scripts deben usar BlendMode.ADD, BlendMode.MULTIPLY, etc.
 		interp.variables.set('BlendMode', {
 			NORMAL   : (openfl.display.BlendMode.NORMAL   : openfl.display.BlendMode),
@@ -437,7 +437,7 @@ class ScriptAPI
 		});
 	}
 
-	// ─── Import dynamic ──────────────────────────────────────────────────────
+	// ─── Import dinámico ──────────────────────────────────────────────────────
 
 	static function exposeImport(interp:Interp):Void
 	{
@@ -507,7 +507,7 @@ class ScriptAPI
 			'BlendMode'         => interp.variables.get('BlendMode'),
 		];
 
-		// Register classes opcionales (only if are in the build)
+		// Registrar clases opcionales (solo si están en el build)
 		try {
 			final flxAnimate = Type.resolveClass('flxanimate.FlxAnimate');
 			if (flxAnimate != null) _classRegistry.set('FlxAnimate', flxAnimate);
@@ -579,15 +579,15 @@ class ScriptAPI
 				trace('[Script] newClass: "$name" no encontrada.');
 				return null;
 			}
-			// 1. method 'new'
+			// 1. método 'new'
 			var ctor:Dynamic = Reflect.field(proto, 'new');
 			if (ctor != null && Reflect.isFunction(ctor))
 				return Reflect.callMethod(proto, ctor, args ?? []);
-			// 2. method 'create'
+			// 2. método 'create'
 			ctor = Reflect.field(proto, 'create');
 			if (ctor != null && Reflect.isFunction(ctor))
 				return Reflect.callMethod(proto, ctor, args ?? []);
-			// 3. the class misma is a function constructora
+			// 3. la clase misma es una función constructora
 			if (Reflect.isFunction(proto))
 				return Reflect.callMethod(null, proto, args ?? []);
 			trace('[Script] newClass: "$name" no tiene constructor.');
@@ -608,7 +608,7 @@ class ScriptAPI
 	static function exposeMath(interp:Interp):Void
 	{
 		interp.variables.set('math', {
-			// Interpolation
+			// Interpolación
 			lerp:       function(a:Float, b:Float, t:Float):Float return a + (b - a) * t,
 			lerpSnap:   function(a:Float, b:Float, t:Float, snap:Float):Float {
 				final r = a + (b - a) * t;
@@ -638,7 +638,7 @@ class ScriptAPI
 			rnd:     function(min:Int, max:Int):Int return FlxG.random.int(min, max),
 			rndf:    function(min:Float, max:Float):Float return FlxG.random.float(min, max),
 			chance:  function(pct:Float):Bool return FlxG.random.float() < pct,
-			// Geometry
+			// Geometría
 			dist:    function(x1:Float, y1:Float, x2:Float, y2:Float):Float {
 				final dx = x2 - x1; final dy = y2 - y1;
 				return Math.sqrt(dx * dx + dy * dy);
@@ -906,9 +906,9 @@ class ScriptAPI
 				final ps = funkin.gameplay.PlayState.instance;
 				if (ps != null && ps.cameraController != null) ps.cameraController.bumpZoom();
 			},
-			// Add shader to a camera specific.
+			// Añadir shader a una cámara específica.
 			// FIX: usar ShaderManager.applyShaderToCamera() en lugar del camino manual
-			// that bypaseaba _liveInstances → setShaderParam no podía update uniforms
+			// que bypaseaba _liveInstances → setShaderParam no podía actualizar uniforms
 			// (uTime, etc.) porque la instancia no estaba registrada → sin efecto visual.
 			addShader: function(shaderName:String, ?camTarget:Dynamic) {
 				final ps = funkin.gameplay.PlayState.instance;
@@ -991,7 +991,7 @@ class ScriptAPI
 		interp.variables.set('OverlayShader',    shaders.OverlayShader);
 		interp.variables.set('DropShadowShader', shaders.DropShadowShader);
 
-		// WiggleEffect — object wrapper for usar in scripts fácilmente
+		// WiggleEffect — object wrapper para usar en scripts fácilmente
 		interp.variables.set('wiggleEffect', {
 			create: function():shaders.WiggleEffect { return new shaders.WiggleEffect(); },
 			DREAMY:     'DREAMY',
@@ -1003,7 +1003,7 @@ class ScriptAPI
 
 		// ── FlxRuntimeShader directo ──────────────────────────────────────────
 		// Permite crear shaders inline desde scripts sin pasar por ShaderManager.
-		// The constructor acepta the GLSL code of the fragment shader directly.
+		// El constructor acepta el código GLSL del fragment shader directamente.
 		//
 		// Uso en HScript:
 		//   var s = new FlxRuntimeShader(fragCode);
@@ -1014,10 +1014,10 @@ class ScriptAPI
 		// Para quitar el shader:
 		//   clearFilters(camGame);
 		//
-		// IMPORTANTE: call to setFloat() after of haber added the shader
+		// IMPORTANTE: llama a setFloat() DESPUÉS de haber añadido el shader
 		// como filtro y de que se haya renderizado al menos 1 frame, porque
 		// FlxRuntimeShader compila el GLSL la primera vez que se renderiza.
-		// If the uniform still no is bound, setFloat() falla silenciosamente
+		// Si el uniform aún no está bound, setFloat() falla silenciosamente
 		// pero puede reintentarse el frame siguiente.
 		interp.variables.set('FlxRuntimeShader', {
 			function(fragCode:String, ?vertCode:String):flixel.addons.display.FlxRuntimeShader
@@ -1035,8 +1035,8 @@ class ScriptAPI
 				}
 			}
 		});
-		// Creates a shader from GLSL code inline and returns a object with methods
-		// for appliesrlo fácilmente to sprites, cameras or to the video active.
+		// Crea un shader desde código GLSL inline y devuelve un objeto con métodos
+		// para aplicarlo fácilmente a sprites, cámaras o al video activo.
 		//
 		// MODO 1 — desde archivo .frag (ya existe con ShaderManager.applyShader):
 		//   ShaderManager.applyShader(sprite, 'chromaKey');
@@ -1055,9 +1055,9 @@ class ScriptAPI
 		//     s.set('uTime', elapsed);
 		//   }
 		//
-		// Methods of the object devuelto:
+		// Métodos del objeto devuelto:
 		//   s.applyTo(sprite)          — aplica el shader a un sprite
-		//   s.applyToCamera(?cam)      — applies the shader as filtro of camera
+		//   s.applyToCamera(?cam)      — aplica el shader como filtro de cámara
 		//   s.applyToVideo()           — aplica el shader al video activo
 		//   s.set(param, value)        — setea un uniform float/bool/array
 		//   s.setInt(param, value)     — setea un uniform int
@@ -1067,7 +1067,7 @@ class ScriptAPI
 		{
 			if (name == null || name.trim() == '')
 			{
-				trace('[ScriptAPI] createShader: nombre empty.');
+				trace('[ScriptAPI] createShader: nombre vacío.');
 				return null;
 			}
 
@@ -1087,7 +1087,7 @@ class ScriptAPI
 				applyTo: function(sprite:Dynamic, ?cam:Dynamic):Bool
 					return shaders.ShaderManager.applyShader(sprite, name, cam),
 
-				/** Applies the shader as filtro of camera (default: FlxG.camera). */
+				/** Aplica el shader como filtro de cámara (default: FlxG.camera). */
 				applyToCamera: function(?cam:Dynamic):Dynamic
 					return shaders.ShaderManager.applyShaderToCamera(name, cam),
 
@@ -1115,7 +1115,7 @@ class ScriptAPI
 					}
 				},
 
-				/** Reloads the shader with new GLSL code (useful for hot-reload in debug). */
+				/** Recarga el shader con nuevo código GLSL (útil para hot-reload en debug). */
 				reload: function(newFragCode:String):Void
 					shaders.ShaderManager.registerInline(name, newFragCode)
 			};
@@ -1138,7 +1138,7 @@ class ScriptAPI
 		// CppAPI — control de la ventana a nivel OS (Windows only, no-op en otros)
 		interp.variables.set('CppAPI', extensions.CppAPI);
 		interp.variables.set('nativeWindow', {
-			// Colores of the title bar (Windows 11 DWM)
+			// Colores de la barra de título (Windows 11 DWM)
 			setBorderColor:  function(r:Int, g:Int, b:Int) { extensions.CppAPI.changeColor(r, g, b); },
 			setCaptionColor: function(r:Int, g:Int, b:Int) { extensions.CppAPI.changeCaptionColor(r, g, b); },
 			// Dark mode (Windows 10 1809+)
@@ -1148,7 +1148,7 @@ class ScriptAPI
 			setDPIAware:     function() { extensions.CppAPI.registerDPIAware(); },
 			// Opacidad de la ventana
 			setOpacity:      function(alpha:Float) { extensions.CppAPI.setWindowOpacity(alpha); },
-			// Title (alias of Window.setTitle)
+			// Título (alias de Window.setTitle)
 			setTitle:        function(t:String) { extensions.CppAPI.setWindowTitle(t); },
 			getTitle:        function():String  { return extensions.CppAPI.windowTitle; }
 		});
@@ -1166,8 +1166,8 @@ class ScriptAPI
 		});
 
 		// ── Velocity helpers ──────────────────────────────────────────────────
-		// hscript no soporta well the assignment encadenada obj.velocity.x = v
-		// (puede lanzar "Null Function Pointer" according to the version of the interpreter).
+		// hscript no soporta bien la asignación encadenada obj.velocity.x = v
+		// (puede lanzar "Null Function Pointer" según la versión del intérprete).
 		// Usar estas funciones desde los scripts de stage es la forma segura.
 
 		/** Establece la velocidad (vx, vy) de cualquier FlxObject. */
@@ -1182,7 +1182,7 @@ class ScriptAPI
 			} catch(_) {}
 		});
 
-		/** Sets only the velocidad horizontal. */
+		/** Establece sólo la velocidad horizontal. */
 		interp.variables.set('setVelocityX', function(spr:Dynamic, vx:Float):Void {
 			if (spr == null) return;
 			try {
@@ -1191,7 +1191,7 @@ class ScriptAPI
 			} catch(_) {}
 		});
 
-		/** Sets only the velocidad vertical. */
+		/** Establece sólo la velocidad vertical. */
 		interp.variables.set('setVelocityY', function(spr:Dynamic, vy:Float):Void {
 			if (spr == null) return;
 			try {
@@ -1399,7 +1399,7 @@ class ScriptAPI
 				return funkin.scripting.events.EventRegistry.eventList;
 			},
 			/**
-			 * Definition complete of a event (params, color, description, etc.)
+			 * Definición completa de un evento (params, color, descripción, etc.)
 			 *   var def = events.get("Camera Follow")
 			 *   trace(def.description)
 			 *   trace(def.params.length)
@@ -1408,7 +1408,7 @@ class ScriptAPI
 				return funkin.scripting.events.EventRegistry.get(name);
 			},
 			/**
-			 * Registra a new event with its definition complete.
+			 * Registra un nuevo evento con su definición completa.
 			 * Si tiene scriptPath, lo carga como handler.
 			 *   events.register({
 			 *     name: "My Event",
@@ -1593,8 +1593,8 @@ class ScriptAPI
 
 	// ─── Mathf proxy completo ─────────────────────────────────────────────────
 	// Todas las funciones de funkin.data.Mathf + las de extensions.Mathf,
-	// expuestas as lambdas porque the majority are static inline (invisible
-	// by reflection in targets compilados).
+	// expuestas como lambdas porque la mayoría son static inline (invisibles
+	// por reflexión en targets compilados).
 	static function exposeMathf(interp:Interp):Void
 	{
 		interp.variables.set('Mathf', {
@@ -1626,7 +1626,7 @@ class ScriptAPI
 			sine:         function(acc:Float, speed:Float = 1.0):Float return Math.sin(acc * speed),
 			// ── extensions.Mathf ──────────────────────────────────────────────
 			// Equivalente a sineByTime pero sin la static var compartida.
-			// Mantén tu own acumulador in the script:
+			// Mantén tu propio acumulador en el script:
 			//   var t = 0.0; // en onUpdate: t += elapsed; sprite.y += Mathf.sineAcc(t);
 			sineAcc:      function(acc:Float, ?multi:Float):Float {
 				return Math.sin(Math.abs(acc * (multi != null ? multi : 1.0)));
@@ -1653,11 +1653,11 @@ class ScriptAPI
 		interp.variables.set('CoolUtil', {
 			// Nombre de la dificultad actual
 			difficultyString: function():String return funkin.data.CoolUtil.difficultyString(),
-			// Leer a file of text and dividir in lines
+			// Leer un archivo de texto y dividir en líneas
 			coolTextFile:     function(path:String):Array<String> {
 				return funkin.data.CoolUtil.coolTextFile(path);
 			},
-			// Dividir a string in lines
+			// Dividir un string en líneas
 			coolStringFile:   function(content:String):Array<String> {
 				return funkin.data.CoolUtil.coolStringFile(content);
 			},
@@ -1717,7 +1717,7 @@ class ScriptAPI
 		});
 
 		// ── Helpers de z-orden para scripts de personaje ──────────────────────
-		// addBehindChar(sprite, character) → inserta before of the character (queda behind)
+		// addBehindChar(sprite, character) → inserta ANTES del personaje (queda detrás)
 		interp.variables.set('addBehindChar', function(obj:Dynamic, charObj:Dynamic):Dynamic {
 			final ps = funkin.gameplay.PlayState.instance;
 			if (ps == null || obj == null) return null;
@@ -1726,7 +1726,7 @@ class ScriptAPI
 			if (idx < 0) return ps.add(obj);
 			return ps.insert(idx, cast obj);
 		});
-		// addInFrontOfChar(sprite, character) → inserta after of the character (queda encima)
+		// addInFrontOfChar(sprite, character) → inserta DESPUÉS del personaje (queda encima)
 		interp.variables.set('addInFrontOfChar', function(obj:Dynamic, charObj:Dynamic):Dynamic {
 			final ps = funkin.gameplay.PlayState.instance;
 			if (ps == null || obj == null) return null;
@@ -1735,7 +1735,7 @@ class ScriptAPI
 			if (idx < 0) return ps.add(obj);
 			return ps.insert(idx + 1, cast obj);
 		});
-		// insertAt(sprite, index) → inserta in a index concreto
+		// insertAt(sprite, index) → inserta en un índice concreto
 		interp.variables.set('insertAt', function(obj:Dynamic, index:Int):Dynamic {
 			final ps = funkin.gameplay.PlayState.instance;
 			if (ps == null || obj == null) return null;
@@ -1743,7 +1743,7 @@ class ScriptAPI
 		});
 		// setFilters / clearFilters / makeShaderFilter
 		// HScript no puede acceder a .filters en cpp (propiedad nativa OpenFL).
-		// These helpers it hacen from Haxe compiled where itself works.
+		// Estos helpers lo hacen desde Haxe compilado donde sí funciona.
 		//
 		// BUGFIX: FlxCamera en Flixel 5 extiende FlxBasic, NO DisplayObject.
 		// El cast inseguro a DisplayObject + .filters = null crasheaba en C++/HL.
@@ -1774,7 +1774,7 @@ class ScriptAPI
 			return new openfl.filters.ShaderFilter(cast shader);
 		});
 
-		// addToHUD(sprite) → adds to camHUD
+		// addToHUD(sprite) → añade a camHUD
 		interp.variables.set('addToHUD', function(obj:Dynamic) {
 			final ps = funkin.gameplay.PlayState.instance;
 			if (ps == null || obj == null) return;
@@ -1938,7 +1938,7 @@ class ScriptAPI
 				final ih = Reflect.field(ps, 'inputHandler');
 				if (ih != null) ih.ghostTapping = v;
 			},
-			// Acceso to the FlxKey — useful for binds personalizados
+			// Acceso al FlxKey — útil para binds personalizados
 			isKeyDown:  function(keyName:String):Bool {
 				try {
 					final key = flixel.input.keyboard.FlxKey.fromString(keyName);
@@ -1975,7 +1975,7 @@ class ScriptAPI
 			},
 
 			// ── Shaders en video ──────────────────────────────────────────────
-			// Allows appliesr shaders to the video in playback from scripts HScript.
+			// Permite aplicar shaders al video en reproducción desde scripts HScript.
 			//
 			// Ejemplo de uso en un script:
 			//   video.applyShader('chromaKey');
@@ -1985,14 +1985,14 @@ class ScriptAPI
 
 			/**
 			 * Aplica un shader del ShaderManager al video activo.
-			 * Returns true if is aplicó correctly.
+			 * Devuelve true si se aplicó correctamente.
 			 */
 			applyShader: function(shaderName:String):Bool {
 				return funkin.cutscenes.VideoManager.applyShader(shaderName) != null;
 			},
 
 			/**
-			 * Updates a parameter/uniform of the shader of the video.
+			 * Actualiza un parámetro/uniform del shader del video.
 			 *   video.setShaderParam('wave', 'amplitude', 0.05);
 			 */
 			setShaderParam: function(shaderName:String, paramName:String, value:Dynamic):Bool {
@@ -2000,7 +2000,7 @@ class ScriptAPI
 			},
 
 			/**
-			 * Quita a shader specific of the video.
+			 * Quita un shader específico del video.
 			 */
 			removeShader: function(shaderName:String):Void {
 				funkin.cutscenes.VideoManager.removeShader(shaderName);
@@ -2015,7 +2015,7 @@ class ScriptAPI
 
 			/**
 			 * Aplica un BitmapFilter/ShaderFilter OpenFL directamente al video.
-			 * Useful for shaders creados in the script without pasar by ShaderManager:
+			 * Útil para shaders creados en el script sin pasar por ShaderManager:
 			 *
 			 *   var shader = new flixel.addons.display.FlxRuntimeShader(fragCode);
 			 *   var filter = new openfl.filters.ShaderFilter(shader);
@@ -2041,7 +2041,7 @@ class ScriptAPI
 		interp.variables.set('Highscore', funkin.gameplay.objects.hud.Highscore);
 		interp.variables.set('highscore', {
 			// suffix = sufijo de dificultad como string: "-hard", "-erect", "" (normal)
-			// If no is pasa suffix, use the difficulty current automatically.
+			// Si no se pasa suffix, usa la dificultad actual automáticamente.
 			saveScore:  function(song:String, score:Int, ?suffix:String) {
 				funkin.gameplay.objects.hud.Highscore.saveScore(song, score, suffix ?? funkin.data.CoolUtil.difficultySuffix());
 			},
@@ -2084,17 +2084,17 @@ class ScriptAPI
 
 	static function exposeCharacterList(interp:Interp):Void
 	{
-		// FIX: HScript no puede acceder to fields/methods static of a class
+		// FIX: HScript no puede acceder a campos/métodos estáticos de una clase
 		// Haxe expuesta directamente (Reflect.getProperty falla en static fields).
 		//
-		// Problema with a object anónimo simple:
+		// Problema con un objeto anónimo simple:
 		//   CharacterList.reload() reemplaza los arrays con nuevas instancias
-		//   (boyfriends = []), so that a field capturado to the start quedaría obsoleto.
+		//   (boyfriends = []), así que un campo capturado al inicio quedaría obsoleto.
 		//
-		// Solution: create the wrapper first, luego asignar 'reload' and 'init' as
+		// Solución: crear el wrapper primero, luego asignar 'reload' e 'init' como
 		// lambdas que llaman a CL.reload/init Y actualizan los campos del propio
-		// wrapper via Reflect.setField. So CharacterList.boyfriends always
-		// refleja the state current after of each reload.
+		// wrapper via Reflect.setField. Así CharacterList.boyfriends siempre
+		// refleja el estado actual después de cada reload.
 		final CL = funkin.gameplay.objects.character.CharacterList;
 		final w:Dynamic = {
 			boyfriends:  CL.boyfriends,
@@ -2140,7 +2140,7 @@ class ScriptAPI
 	static function exposePlayStateConfig(interp:Interp):Void
 	{
 		interp.variables.set('PlayStateConfig', funkin.gameplay.PlayStateConfig);
-		// Constantes inline — there is that leerlas in tiempo of compilation
+		// Constantes inline — hay que leerlas en tiempo de compilación
 		interp.variables.set('PSC', {
 			DEFAULT_ZOOM     : 1.05,
 			PIXEL_ZOOM       : 6.0,
@@ -2189,13 +2189,13 @@ class ScriptAPI
 			stickerActive: function():Bool { return funkin.transitions.StickerTransition.isActive(); }
 		});
 
-		// ── Auto-resize: mantener the transition cubriendo all the window ─────────
+		// ── Auto-resize: mantener la transición cubriendo toda la ventana ─────────
 		// FlxG.width/height son las dimensiones VIRTUALES del juego (p.ej. 1280x720).
 		// Cuando el usuario redimensiona la ventana, el stage de OpenFL escala el
 		// contenido, pero cualquier overlay que haya creado StateTransition con
-		// makeGraphic(FlxG.width, FlxG.height) queda more small that the screen actual.
-		// Solution: escuchar the event RESIZE of the stage and pedir to StateTransition
-		// that actualice its size usando the dimensiones reales of the window.
+		// makeGraphic(FlxG.width, FlxG.height) queda más pequeño que la pantalla real.
+		// Solución: escuchar el evento RESIZE del stage y pedir a StateTransition
+		// que actualice su tamaño usando las dimensiones reales de la ventana.
 		try {
 			var stage = openfl.Lib.current.stage;
 			if (stage != null) {
@@ -2208,9 +2208,9 @@ class ScriptAPI
 
 	/**
 	 * Escala el overlay de StateTransition para que tape toda la ventana real,
-	 * independientemente of the zoom/resolution virtual of the game.
+	 * independientemente del zoom/resolución virtual del juego.
 	 *
-	 * StateTransition suele have a FlxSprite u overlay as field static.
+	 * StateTransition suele tener un FlxSprite u overlay como campo estático.
 	 * Usamos Reflect para accederlo sin depender de la API interna.
 	 */
 	static function _fitTransitionToStage():Void
@@ -2224,20 +2224,20 @@ class ScriptAPI
 			var ratioX   = stageW / FlxG.width;
 			var ratioY   = stageH / FlxG.height;
 
-			// Intentar with the name of field more common: 'overlay', 'bg', 'transition'
+			// Intentar con el nombre de campo más común: 'overlay', 'bg', 'transition'
 			for (fieldName in ['overlay', 'bg', 'background', 'transitionSprite', 'blackOverlay']) {
 				var overlay:Dynamic = Reflect.field(funkin.transitions.StateTransition, fieldName);
 				if (overlay == null) continue;
 
-				// If the sprite was creado with makeGraphic, the manera more clears of
-				// cubrirlo all is to través of scale, no recreando the bitmap.
+				// Si el sprite fue creado con makeGraphic, la manera más limpia de
+				// cubrirlo todo es a través de scale, no recreando el bitmap.
 				overlay.scale.x = ratioX;
 				overlay.scale.y = ratioY;
 				overlay.updateHitbox();
 				overlay.screenCenter();
 			}
 
-			// Also callr to a posible method resize() if exists
+			// También llamar a un posible método resize() si existe
 			var resizeFn:Dynamic = Reflect.field(funkin.transitions.StateTransition, 'resize');
 			if (resizeFn != null)
 				Reflect.callMethod(null, resizeFn, [stageW, stageH]);
@@ -2386,7 +2386,7 @@ class ScriptAPI
 		 * `config` — proxy de lectura/escritura sobre GlobalConfig.
 		 *
 		 * Equivalente a Codename Engine's `PlayState.instance.xxx` pero para
-		 * configuration global of the mod. Changes surten effect inmediatamente.
+		 * configuración global del mod. Cambia surten efecto inmediatamente.
 		 *
 		 * LECTURA:   config.noteSkin()          → String
 		 * ESCRITURA: config.set('noteSkin', 'Pixel')
@@ -2428,7 +2428,7 @@ class ScriptAPI
 			},
 
 			// ── Escritura bulk ────────────────────────────────────────────────
-			// Acepta a object anónimo with various fields to the vez.
+			// Acepta un objeto anónimo con varios campos a la vez.
 			// Ejemplo: config.apply({ noteSkin:'Pixel', downscroll:true })
 			apply: function(obj:Dynamic) {
 				if (obj == null) return;
@@ -2480,12 +2480,12 @@ class ScriptAPI
 				funkin.system.WindowManager.applyModBranding(mods.ModManager.activeInfo());
 			},
 
-			// ── Cursor of the mouse ──────────────────────────────────────────────
+			// ── Cursor del ratón ──────────────────────────────────────────────
 			/**
-			 * Changes the image of the cursor of the mouse by a asset of the mod.
+			 * Cambia la imagen del cursor del ratón por un asset del mod.
 			 *
 			 * @param key     Clave del asset de imagen (igual que Paths.image),
-			 *                without extension. Ej: 'ui/cursors/cursor-pixel'
+			 *                sin extensión. Ej: 'ui/cursors/cursor-pixel'
 			 * @param hotX    Offset X del punto activo del cursor (default 0)
 			 * @param hotY    Offset Y del punto activo del cursor (default 0)
 			 *
@@ -2535,7 +2535,7 @@ class ScriptAPI
 		 * Ejemplo:
 		 *   discord.setClientId('123456789012345678');
 		 *   discord.setLargeImage('myicon', 'Mi Mod — FNF Cool Engine');
-		 *   discord.setMenuDetails('Explorando the menu main');
+		 *   discord.setMenuDetails('Explorando el menú principal');
 		 */
 		interp.variables.set('discord', {
 			setClientId: function(id:String) {
@@ -2568,7 +2568,7 @@ class ScriptAPI
 	{
 		interp.variables.set('ScriptHandler', funkin.scripting.ScriptHandler);
 		interp.variables.set('scripts', {
-			// Callr to a function in all the scripts activos
+			// Llamar a una función en TODOS los scripts activos
 			call:     function(funcName:String, ?args:Array<Dynamic>) {
 				funkin.scripting.ScriptHandler.callOnScripts(funcName, args ?? []);
 			},
@@ -2576,7 +2576,7 @@ class ScriptAPI
 			setVar:   function(name:String, value:Dynamic) {
 				funkin.scripting.ScriptHandler.setOnScripts(name, value);
 			},
-			// Get a script specific by nombre
+			// Obtener un script específico por nombre
 			getStage: function(name:String):Dynamic {
 				return funkin.scripting.ScriptHandler.stageScripts.get(name);
 			},
@@ -2607,7 +2607,7 @@ class ScriptAPI
 				final cd = Reflect.field(ps, 'countdown');
 				if (cd != null) cd.cancel();
 			},
-			// If the countdown ended
+			// Si el countdown terminó
 			finished: function():Bool {
 				final ps = funkin.gameplay.PlayState.instance;
 				if (ps == null) return false;
@@ -2632,7 +2632,7 @@ class ScriptAPI
 	{
 		interp.variables.set('ModPaths', mods.ModPaths);
 		// Alias conveniente — todas las funciones de ModPaths como lambdas
-		// (ModPaths tiene functions static inline that no are accesibles by reflection)
+		// (ModPaths tiene funciones static inline que no son accesibles por reflexión)
 		interp.variables.set('modpaths', {
 			resolve:        function(file:String, ?mod:String):String {
 				return mods.ModPaths.resolve(file, mod);
@@ -2662,7 +2662,7 @@ class ScriptAPI
 	 * y sus constructores, para que los scripts HScript puedan instanciarlas
 	 * o extenderlas por referencia.
 	 *
-	 * Also inyecta helpers of contexto for that the scripts of song/stage
+	 * También inyecta helpers de contexto para que los scripts de canción/stage
 	 * tengan acceso directo a todas las variables del PlayState.
 	 */
 	static function exposeScriptTemplates(interp:Interp):Void
@@ -2671,7 +2671,7 @@ class ScriptAPI
 		interp.variables.set('CharacterScript',  funkin.scripting.CharacterScript);
 		interp.variables.set('StateScript',      funkin.scripting.StateScript);
 
-		// ── Injection directa of variables of the PlayState ─────────────────────
+		// ── Inyección directa de variables del PlayState ─────────────────────
 		// Scripts pueden usar `bf`, `dad`, `gf`, `stage`, `camGame`, `camHUD`
 		// directamente sin necesitar `game.boyfriend`, etc.
 		final ps = funkin.gameplay.PlayState.instance;
@@ -2743,14 +2743,14 @@ class ScriptAPI
 	//
 	// Permite escribir en scripts exactamente igual que en Haxe normal:
 	//
-	//   FreeplayState.songInfo          → field static directo
-	//   MainMenuState.firstStart = true → writing static
+	//   FreeplayState.songInfo          → campo estático directo
+	//   MainMenuState.firstStart = true → escritura estática
 	//   PlayState.instance.health       → instancia del gameplay
 	//
 	//   var fs = getState()             → estado actual ya casteado al tipo correcto
 	//   fs.curSong                      → campo de instancia sin Reflect
 	//
-	//   var ps = getState('PlayState')  → igual but pides the type explicit
+	//   var ps = getState('PlayState')  → igual pero pides el tipo explícito
 	//   var ms = getState('FreeplayState')
 	//
 	// Si el state actual no es del tipo pedido, devuelve null en lugar de crashear.
@@ -2758,7 +2758,7 @@ class ScriptAPI
 	static function exposeStatesAndCasting(interp:Interp):Void
 	{
 		// ── Clases de state expuestas directamente ────────────────────────────
-		// Scripts pueden acceder to fields static igual that in Haxe:
+		// Scripts pueden acceder a campos estáticos igual que en Haxe:
 		//   FreeplayState.songInfo
 		//   FreeplayState.difficultyStuff[0]
 		//   MainMenuState.firstStart
@@ -2789,7 +2789,7 @@ class ScriptAPI
 			return FlxG.state;
 		});
 
-		// ── getState(name?): cast automatic to the type correct ───────────────
+		// ── getState(nombre?): cast automático al tipo correcto ───────────────
 		//
 		// Sin argumento → devuelve el state actual, sea lo que sea.
 		// Con nombre    → devuelve el state si es de ese tipo, null si no.
@@ -2827,14 +2827,14 @@ class ScriptAPI
 			if (FlxG.state != null && Std.isOfType(FlxG.state, cls))
 				return FlxG.state;
 
-			// PlayState by singleton (avoid cast inútil if already is the same)
+			// PlayState por singleton (evitar cast inútil si ya es el mismo)
 			final ps = funkin.gameplay.PlayState.instance;
 			if (ps != null && Std.isOfType(ps, cls)) return ps;
 
 			return null;
 		});
 
-		// ── isState(name): saber in what state estás ────────────────────────
+		// ── isState(nombre): saber en qué state estás ────────────────────────
 		//
 		//   if (isState('FreeplayState')) { ... }
 		//   if (isState('PauseSubState')) { ... }
@@ -2922,10 +2922,10 @@ class ScriptAPI
 	// ─── Sistema 3D ───────────────────────────────────────────────────────────
 	//
 	// Expone las clases del sistema de escena 3D GPU-acelerada a HScript.
-	// Allows to mods and addons create sprites with geometry 3D renderizada
+	// Permite a mods y addons crear sprites con geometría 3D renderizada
 	// sobre Stage3D/Context3D directamente desde scripts.
 	//
-	// Basic usage in HScript:
+	// Uso básico en HScript:
 	//   var sp = new Flx3DSprite(0, 0, 640, 480);
 	//   add(sp);
 	//   var cube = Flx3DPrimitives.cube();
@@ -2933,7 +2933,7 @@ class ScriptAPI
 	//   obj.mesh = cube;
 	//   sp.scene.add(obj);
 	//
-	//   // Controlar the camera
+	//   // Controlar la cámara
 	//   sp.scene.camera.z = -5;
 	//
 	//   // En onUpdate:
@@ -2952,15 +2952,15 @@ class ScriptAPI
 		interp.variables.set('Vec3',            Vec3);
 		interp.variables.set('Mat4',            Mat4);
 
-		// ── Proxy of fábrica for uso ergonómico from scripts ───────────────
-		// The methods static of Flx3DPrimitives no are reflectables in C++.
+		// ── Proxy de fábrica para uso ergonómico desde scripts ───────────────
+		// Los métodos estáticos de Flx3DPrimitives no son reflectables en C++.
 		// Este proxy los envuelve en lambdas exactamente igual que _shaderManagerProxy().
 		interp.variables.set('scene3d', {
 			// Crear un sprite 3D listo para usar
 			createSprite: function(x:Float, y:Float, w:Int, h:Int):Flx3DSprite
 				return new Flx3DSprite(x, y, w, h),
 
-			// Create a object 3D empty (without malla)
+			// Crear un objeto 3D vacío (sin malla)
 			createObject: function():Flx3DObject
 				return new Flx3DObject(),
 
@@ -2974,8 +2974,8 @@ class ScriptAPI
 			cylinder:     function(?r:Float, ?height:Float, ?segs:Int):Flx3DMesh
 				return Flx3DPrimitives.cylinder(r ?? 0.5, height ?? 1.0, segs ?? 16),
 
-			// ── Helpers of camera ─────────────────────────────────────────────
-			// Gets the camera 3D of a Flx3DSprite
+			// ── Helpers de cámara ─────────────────────────────────────────────
+			// Obtiene la cámara 3D de un Flx3DSprite
 			getCamera:    function(sprite:Flx3DSprite):Flx3DCamera {
 				return sprite?.scene?.camera;
 			},
@@ -2992,16 +2992,16 @@ class ScriptAPI
 
 	// ─── AddonManager ─────────────────────────────────────────────────────────
 	//
-	// Expone AddonManager to the interpreter HScript and call to the hook 'exposeAPI'
+	// Expone AddonManager al intérprete HScript y llama al hook 'exposeAPI'
 	// de cada addon cargado para que registren sus propias variables.
 	//
 	// Variables inyectadas:
-	//   AddonManager          → class static complete
+	//   AddonManager          → clase estática completa
 	//   addon_<id>            → API de cada sistema registrado (por registerSystem)
 	//   addons                → objeto proxy con helpers de alto nivel
 	//
 	// Uso en HScript:
-	//   // Check if a system is available
+	//   // Comprobar si un sistema está disponible
 	//   if (AddonManager.hasSystem('myParticles')) {
 	//     var api = AddonManager.getSystem('myParticles');
 	//     api.burst(x, y, 20);
@@ -3020,7 +3020,7 @@ class ScriptAPI
 		//  3. Llama el hook 'exposeAPI' en todos los addons cargados
 		AddonManager.exposeToScript(interp);
 
-		// Proxy of height level for uso ergonómico in scripts
+		// Proxy de alto nivel para uso ergonómico en scripts
 		interp.variables.set('addons', {
 			// ── Query de sistemas ─────────────────────────────────────────────
 			getSystem:   function(id:String):Dynamic
@@ -3160,14 +3160,14 @@ class ScriptAPI
 		};
 	}
 
-	// ── Subtitles ────────────────────────────────────────────────────────────
+	// ── Subtítulos ────────────────────────────────────────────────────────────
 
 	static function exposeSubtitles(interp:Interp):Void
 	{
 		final sm = funkin.ui.SubtitleManager.instance;
 		interp.variables.set('subtitle', {
 			/**
-			 * Muestra a subtitle.
+			 * Muestra un subtítulo.
 			 *   subtitle.show("Hola", 3.0)
 			 *   subtitle.show("Hola", 2.0, { size: 28, color: 0xFFFF00 })
 			 */
@@ -3175,24 +3175,24 @@ class ScriptAPI
 				sm.show(text, duration ?? 3.0, options);
 			},
 			/**
-			 * Hides the subtitle active with fade-out.
+			 * Oculta el subtítulo activo con fade-out.
 			 *   subtitle.hide()       -- suave
-			 *   subtitle.hide(true)   -- instant
+			 *   subtitle.hide(true)   -- instantáneo
 			 */
 			hide: function(?instant:Bool) {
 				sm.hide(instant == true);
 			},
 			/**
-			 * Empty the cola and hides the subtitle current.
+			 * Vacía la cola y oculta el subtítulo actual.
 			 */
 			clear: function() {
 				sm.clear();
 			},
 			/**
-			 * Encola a list of subtitles. Is muestran secuencialmente.
+			 * Encola una lista de subtítulos. Se muestran secuencialmente.
 			 *   subtitle.queue([
-			 *     { text: "Line 1", duration: 2.0 },
-			 *     { text: "Line 2", duration: 1.5, options: { color: 0xFFFF00 } }
+			 *     { text: "Línea 1", duration: 2.0 },
+			 *     { text: "Línea 2", duration: 1.5, options: { color: 0xFFFF00 } }
 			 *   ])
 			 */
 			queue: function(entries:Array<Dynamic>) {
@@ -3214,7 +3214,7 @@ class ScriptAPI
 			/** Referencia directa a la instancia (para acceso a propiedades). */
 			manager: sm
 		});
-		// Also exponer the class complete for acceso avanzado
+		// También exponer la clase completa para acceso avanzado
 		interp.variables.set('SubtitleManager', funkin.ui.SubtitleManager);
 	}
 }

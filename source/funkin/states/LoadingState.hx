@@ -27,18 +27,18 @@ import sys.io.File;
 
 using StringTools;
 
-// Management of cache
+// Gestión de caché
 import Paths;
 
 class LoadingState extends funkin.states.MusicBeatState
 {
-	// ── Tiempo minimum in screen ────────────────────────────────────────────
+	// ── Tiempo mínimo en pantalla ────────────────────────────────────────────
 	inline static var MIN_TIME:Float = 1.0;
 
-	// ── Position of the slot of the barra dentro of menuLoadChar.png ─────────────
-	// The rectangle oscuro ("pila") that there is behind of the text "Loading..."
+	// ── Posición del slot de la barra dentro de menuLoadChar.png ─────────────
+	// El rectángulo oscuro ("pila") que hay DETRÁS del texto "Loading..."
 	// Valores en porcentaje sobre las dimensiones del sprite ya escalado.
-	// If the barra no encaja exactamente, ajusta here.
+	// Si la barra no encaja exactamente, ajusta aquí.
 	inline static var BAR_X_PCT:Float  = 0.496; // borde izquierdo del slot
 	inline static var BAR_Y_PCT:Float  = 0.528; // borde superior del slot
 	inline static var BAR_W_PCT:Float  = 0.434; // ancho del slot
@@ -59,8 +59,8 @@ class LoadingState extends funkin.states.MusicBeatState
 
 	// Sprites
 	var bgArt:FlxSprite;     // menuLoading.png  — fondo artístico
-	var barBg:FlxSprite;     // fondo solid of the slot of the bar
-	var barFill:FlxSprite;   // filled of progreso  (behind of charImage)
+	var barBg:FlxSprite;     // fondo sólido del slot de la barra
+	var barFill:FlxSprite;   // relleno de progreso  (DETRÁS de charImage)
 	var charImage:FlxSprite; // menuLoadChar.png — personajes + "Loading..." (ENCIMA)
 
 	// Estado
@@ -83,9 +83,9 @@ class LoadingState extends funkin.states.MusicBeatState
 
 	override function create()
 	{
-		// note: PathsCache.beginSession() is calldo automatically by the signal
-		// preStateSwitch in FunkinCache.init(). Callrlo here of new causa that the
-		// assets of the state previous queden orphaned (ni rescatables ni destruibles).
+		// NOTA: PathsCache.beginSession() es llamado automáticamente por la señal
+		// preStateSwitch en FunkinCache.init(). Llamarlo aquí de nuevo causa que los
+		// assets del state anterior queden huérfanos (ni rescatables ni destruibles).
 
 		super.create();
 		FlxG.camera.bgColor = FlxColor.BLACK;
@@ -104,7 +104,7 @@ class LoadingState extends funkin.states.MusicBeatState
 		bgArt.alpha = 0;
 		add(bgArt);
 
-		// ── 2. Calculate size/position of menuLoadChar (fit height) ─────────
+		// ── 2. Calcular tamaño/posición de menuLoadChar (fit height) ─────────
 		// La imagen original es 1270×952.
 		// Escalamos para que la altura ocupe toda la pantalla y centramos X.
 		final SRC_W:Float = 1270;
@@ -121,7 +121,7 @@ class LoadingState extends funkin.states.MusicBeatState
 		final slotW:Float = BAR_W_PCT * dispW;
 		final slotH:Float = BAR_H_PCT * dispH;
 
-		// ── 4. Fondo of the slot (va behind of the fill and of the charImage) ───────────
+		// ── 4. Fondo del slot (va DETRÁS del fill y del charImage) ───────────
 		barBg = new FlxSprite(slotX, slotY);
 		barBg.makeGraphic(Std.int(slotW), Std.int(slotH), 0xFF0A0A0A);
 		barBg.scrollFactor.set();
@@ -129,12 +129,12 @@ class LoadingState extends funkin.states.MusicBeatState
 		add(barBg);
 
 		// ── 5. Fill de progreso ───────────────────────────────────────────────
-		// Empieza to the size complete and it recortamos with clipRect.
+		// Empieza al tamaño completo y lo recortamos con clipRect.
 		barFullWidth = slotW - BAR_PADDING * 2;
 		barFill = new FlxSprite(slotX + BAR_PADDING, slotY + BAR_PADDING);
 		barFill.makeGraphic(Std.int(barFullWidth), Std.int(slotH - BAR_PADDING * 2), COLOR_START);
 		barFill.scrollFactor.set();
-		barFill.clipRect = new FlxRect(0, 0, 0, slotH - BAR_PADDING * 2); // empieza empty
+		barFill.clipRect = new FlxRect(0, 0, 0, slotH - BAR_PADDING * 2); // empieza vacío
 		barFill.alpha = 0;
 		add(barFill);
 
@@ -163,13 +163,13 @@ class LoadingState extends funkin.states.MusicBeatState
 			checkLoadSong(getSongPath());
 			if (PlayState.SONG.needsVoices)
 				checkLoadSong(getVocalPath());
-			// ── no load libraries "characters" and "stages" completas ──────────
+			// ── NO cargar librerías "characters" y "stages" completas ──────────
 			// Codename Engine NO hace Assets.loadLibrary("characters/stages").
-			// Load those libraries sube all the characters and stages to RAM of
+			// Cargar esas librerías sube TODOS los personajes y stages a RAM de
 			// golpe (~100-150 MB). Los assets de personajes/stage se cargan
 			// on-demand por FunkinSprite/Stage cuando los sprites los piden.
 
-			// Fade from negro + tiempo minimum
+			// Fade desde negro + tiempo mínimo
 			var fadeTime:Float = 0.4;
 			FlxG.camera.fade(FlxG.camera.bgColor, fadeTime, true);
 			new FlxTimer().start(fadeTime + MIN_TIME, function(_) introComplete());
@@ -187,7 +187,7 @@ class LoadingState extends funkin.states.MusicBeatState
 		if (callbacks != null && callbacks.length > 0)
 			loadProgress = (callbacks.length - callbacks.numRemaining) / callbacks.length;
 
-		// ── Suavizar progreso visual (lerp fast) ───────────────────────────
+		// ── Suavizar progreso visual (lerp rápido) ───────────────────────────
 		visualProgress = FlxMath.lerp(visualProgress, loadProgress, Math.min(elapsed * 9.0, 1.0));
 		if (Math.abs(visualProgress - loadProgress) < 0.001)
 			visualProgress = loadProgress;
@@ -201,10 +201,10 @@ class LoadingState extends funkin.states.MusicBeatState
 			barFill.clipRect = _barClipRect;
 		}
 
-		// ── Color dynamic of the barra ────────────────────────────────────────
+		// ── Color dinámico de la barra ────────────────────────────────────────
 		barFill.color = _barColor(visualProgress);
 
-		// ── Small "respiro" in charImage ───────────────────────────────────
+		// ── Pequeño "respiro" en charImage ───────────────────────────────────
 		var pulse:Float = 1.0 + Math.sin(totalTime * 2.8) * 0.004;
 		charImage.scale.set(pulse, pulse);
 		charImage.updateHitbox();
@@ -230,18 +230,18 @@ class LoadingState extends funkin.states.MusicBeatState
 	// ─────────────────────────────────────────────────────────────────────────
 	//  FILESYSTEM SCANNING  (solo en plataformas #if sys)
 	//
-	//  Allows load assets added to the directorio of the build after of
+	//  Permite cargar assets añadidos al directorio de la build después de
 	//  compilar: nuevas canciones, personajes, stages, etc.
 	// ─────────────────────────────────────────────────────────────────────────
 
 	#if sys
 
 	/**
-	 * Returns the directorio of filesystem that corresponde to a library.
-	 * Prueba the convenciones of layout more comunes.
+	 * Devuelve el directorio de filesystem que corresponde a una librería.
+	 * Prueba las convenciones de layout más comunes.
 	 */
-	// Cache of directorios of libraries — avoids multiple FileSystem.exists()
-	// by the same libraryId in a session of load.
+	// Caché de directorios de librerías — evita múltiples FileSystem.exists()
+	// por el mismo libraryId en una sesión de carga.
 	// PERF FIX: getLibraryDir() era llamado N veces (una por cada pista de audio)
 	// haciendo FileSystem.exists() repetido para el mismo directorio.
 	static var _libraryDirCache:Map<String, String> = new Map();
@@ -268,8 +268,8 @@ class LoadingState extends funkin.states.MusicBeatState
 	}
 
 	/**
-	 * Recorre `currentDir` recursivamente and adds to `out` a entry of
-	 * manifiesto by each file encontrado cuyo ID no is already in `known`.
+	 * Recorre `currentDir` recursivamente y añade a `out` una entrada de
+	 * manifiesto por cada archivo encontrado cuyo ID no esté ya en `known`.
 	 * `rootDir` se usa para calcular rutas relativas.
 	 */
 	static function scanDirForEntries(
@@ -293,7 +293,7 @@ class LoadingState extends funkin.states.MusicBeatState
 			var relativePath = fullPath.substring(rootDir.length);
 			var assetId      = Path.withoutExtension(relativePath);
 
-			if (known.exists(assetId)) continue; // already is in the manifiesto
+			if (known.exists(assetId)) continue; // ya está en el manifiesto
 
 			var ext       = Path.extension(entry).toLowerCase();
 			var assetType = switch (ext)
@@ -315,7 +315,7 @@ class LoadingState extends funkin.states.MusicBeatState
 	/**
 	 * Construye una AssetLibrary leyendo todos los archivos del directorio
 	 * `dir` y la registra en LimeAssets bajo `libraryId`.
-	 * Returns true if succeeded.
+	 * Devuelve true si tuvo éxito.
 	 */
 	static function buildAndRegisterLibraryFromFs(libraryId:String, dir:String):Bool
 	{
@@ -343,7 +343,7 @@ class LoadingState extends funkin.states.MusicBeatState
 		LimeAssets.libraries.set(libraryId, lib);
 		lib.onChange.add(LimeAssets.onChange.dispatch);
 
-		trace('[LoadingState] Library "$libraryId" construida of the filesystem: '
+		trace('[LoadingState] Librería "$libraryId" construida del filesystem: '
 		      + dir + ' (${entries.length} assets)');
 		return true;
 	}
@@ -391,7 +391,7 @@ class LoadingState extends funkin.states.MusicBeatState
 			#if sys
 			// ── Fallback filesystem (hilo separado) ──────────────────────────
 			// Si el audio no figura en el manifiesto compilado pero existe
-			// in disco (song added post-compilation), it load in a
+			// en disco (canción añadida post-compilación), lo cargamos en un
 			// hilo de fondo para NO bloquear el hilo principal.
 			// PERF FIX: Sound.fromFile() en el hilo principal bloqueaba la barra
 			// de carga varios segundos en canciones de mods grandes (>10 MB).
@@ -407,7 +407,7 @@ class LoadingState extends funkin.states.MusicBeatState
 				{
 					var sound:openfl.media.Sound = null;
 					try { sound = openfl.media.Sound.fromFile(fsPath); }
-					catch (and:Dynamic) { trace('[LoadingState] Async load failed ($fsPath): $and'); }
+					catch (e:Dynamic) { trace('[LoadingState] Carga async falló ($fsPath): $e'); }
 
 					// Volver al hilo principal via ENTER_FRAME one-shot.
 					var stage = openfl.Lib.current.stage;
@@ -426,7 +426,7 @@ class LoadingState extends funkin.states.MusicBeatState
 				});
 				return;
 				#else
-				// On targets without threads, synchronous load
+				// En targets sin hilos, carga síncrona
 				try
 				{
 					var sound = openfl.media.Sound.fromFile(fsPath);
@@ -440,7 +440,7 @@ class LoadingState extends funkin.states.MusicBeatState
 				}
 				catch (e:Dynamic)
 				{
-					trace('[LoadingState] Direct load failed ($fsPath): $and');
+					trace('[LoadingState] Carga directa falló ($fsPath): $e');
 				}
 				#end
 			}
@@ -462,7 +462,7 @@ class LoadingState extends funkin.states.MusicBeatState
 			{
 				#if sys
 				// ── Fallback filesystem ──────────────────────────────────────
-				// The library no is in the paths compilados — the construimos
+				// La librería no está en los paths compilados — la construimos
 				// escaneando el directorio correspondiente en disco.
 				var dir = getLibraryDir(library);
 				if (buildAndRegisterLibraryFromFs(library, dir))
@@ -492,7 +492,7 @@ class LoadingState extends funkin.states.MusicBeatState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	//  API static (no changes respecto to the original)
+	//  API ESTÁTICA (sin cambios respecto al original)
 	// ─────────────────────────────────────────────────────────────────────────
 
 	static function getSongPath()  return Paths.inst(PlayState.SONG.song);
@@ -530,7 +530,7 @@ class LoadingState extends funkin.states.MusicBeatState
 	{
 		// Liberar assets de LoadingState que no pasen a PlayState
 		Paths.clearUnusedMemory();
-		// Clear cache of directorios of libraries
+		// Limpiar caché de directorios de librerías
 		_libraryDirCache.clear();
 		super.destroy();
 		callbacks = null;
@@ -584,15 +584,15 @@ class LoadingState extends funkin.states.MusicBeatState
 
 			#if sys
 			// ── Mezclar archivos nuevos del filesystem en el manifiesto ────────
-			// Any file that is in assets/songs/ but no in
-			// library.json (added after of compile) is agrega here.
+			// Cualquier archivo que esté en assets/songs/ pero NO en
+			// library.json (añadido después de compilar) se agrega aquí.
 			// `manifest.assets` es readable externally; push() funciona sin
 			// @:privateAccess porque no reemplazamos la referencia.
 			var songsDir = (rootPath != null && rootPath != "")
 				? (StringTools.endsWith(rootPath, "/") ? rootPath : rootPath + "/")
 				: Paths.resolve("songs/");
 
-			// Index of IDs already conocidos for avoid duplicados
+			// Índice de IDs ya conocidos para evitar duplicados
 			var knownIds = new Map<String, Bool>();
 			for (a in manifest.assets)
 			{

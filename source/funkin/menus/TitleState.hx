@@ -83,7 +83,7 @@ class TitleState extends funkin.states.MusicBeatState
 	var titleData:TitleScreenData = null;
 	/** Lista de pares de strings aleatorios (del JSON). */
 	var _randomLines:Array<Array<String>> = [];
-	/** Index of the line random elegida this ciclo. */
+	/** Índice de la línea random elegida este ciclo. */
 	var _randomIdx:Int = 0;
 
 	static function _loadTitleData():TitleScreenData
@@ -109,7 +109,7 @@ class TitleState extends funkin.states.MusicBeatState
 
 	override public function create():Void
 	{
-		super.create(); // DEBE ir first: inicializa cameras and grupos of Flixel
+		super.create(); // DEBE ir primero: inicializa cámaras y grupos de Flixel
 
 		PlayerSettings.init();
 		
@@ -146,7 +146,7 @@ class TitleState extends funkin.states.MusicBeatState
 		StateTransition.switchState(new MainMenuState());
 		#else
 		titleData = _loadTitleData();
-		// Load lines aleatorias of the JSON (if existen) or usar the defaults of the engine
+		// Cargar líneas aleatorias del JSON (si existen) o usar los defaults del engine
 		if (titleData != null && titleData.randomLines != null && titleData.randomLines.length > 0)
 			_randomLines = titleData.randomLines;
 		else
@@ -242,8 +242,8 @@ class TitleState extends funkin.states.MusicBeatState
 		}
 
 		#if HSCRIPT_ALLOWED
-		// The sprites is crearon in startIntro() after of loadStateScripts(),
-		// so that there is that re-sincronizar the fields of the state ahora that already existen.
+		// Los sprites se crearon en startIntro() DESPUÉS de loadStateScripts(),
+		// así que hay que re-sincronizar los campos del state ahora que ya existen.
 		StateScriptHandler.refreshStateFields(this);
 		StateScriptHandler.callOnScripts('postCreate', []);
 		#end
@@ -303,10 +303,10 @@ class TitleState extends funkin.states.MusicBeatState
 
 			new FlxTimer().start(2, function(tmr:FlxTimer)
 			{
-				// ── Check if the version is desactualizada ────────────────
+				// ── Comprobar si la versión está desactualizada ────────────────
 				// Formato de ver.thing:
-				//   Line 1:  <version>-
-				//   Resto:    changelog (puede have multiple lines)
+				//   Línea 1:  <versión>-
+				//   Resto:    changelog (puede tener múltiples líneas)
 				// Ejemplo:
 				//   0.6.0B-
 				//   - Stage Editor Fixed
@@ -317,10 +317,10 @@ class TitleState extends funkin.states.MusicBeatState
 
 				http.onData = function(data:String)
 				{
-					// Normalize line breaks (the file may have \r\n on Windows)
+					// Normalizar saltos de línea (el archivo puede tener \r\n en Windows)
 					var normalized:String = data.replace('\r\n', '\n').replace('\r', '\n');
 
-					// The first line contains the version; ends with '-' by format
+					// La primera línea contiene la versión; termina con '-' por formato
 					var firstNewline:Int = normalized.indexOf('\n');
 					var versionRaw:String = firstNewline >= 0
 						? normalized.substring(0, firstNewline)
@@ -329,7 +329,7 @@ class TitleState extends funkin.states.MusicBeatState
 					// Quitar el '-' final y espacios
 					var latestVersion:String = versionRaw.replace('-', '').trim();
 
-					// The changelog is everything from the second line onwards
+					// El changelog es todo lo que hay a partir de la segunda línea
 					var changelog:String = firstNewline >= 0
 						? normalized.substring(firstNewline + 1).trim()
 						: '';
@@ -338,7 +338,7 @@ class TitleState extends funkin.states.MusicBeatState
 						&& !version.contains(latestVersion)
 						&& !OutdatedSubState.leftState)
 					{
-						trace('[TitleState] Version desactualizada: local=$version latest=$latestVersion');
+						trace('[TitleState] Versión desactualizada: local=$version latest=$latestVersion');
 						OutdatedSubState.daVersionNeeded    = latestVersion;
 						OutdatedSubState.daChangelogNeeded  = changelog;
 						OutdatedSubState.downloadUrl        = 'https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/releases/latest';
@@ -352,7 +352,7 @@ class TitleState extends funkin.states.MusicBeatState
 
 				http.onError = function(error)
 				{
-					trace('[TitleState] Error to the check version: $error');
+					trace('[TitleState] Error al comprobar versión: $error');
 					StateTransition.switchState(new MainMenuState()); // fallo suave
 				}
 
@@ -457,7 +457,7 @@ class TitleState extends funkin.states.MusicBeatState
 						}
 						if (entry.texts != null)
 						{
-							// If there's already visible text, use addMoreText for each line;
+							// Si ya hay texto visible, usar addMoreText para cada línea;
 							// si no hay, usar createCoolText para la primera y addMoreText para el resto.
 							if (textGroup.length == 0)
 							{

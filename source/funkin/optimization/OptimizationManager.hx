@@ -10,10 +10,10 @@ import funkin.gameplay.notes.Note;
  *
  * ─── Optimizaciones ──────────────────────────────────────────────────────────
  * • FPS medido con un acumulador de elapsed en vez de `1.0/FlxG.elapsed`
- *   (more estable and without division flotante by frame).
- * • `haxe.Timer.stamp()` is only called when `trackTiming` is active.
+ *   (más estable y sin división flotante por frame).
+ * • `haxe.Timer.stamp()` solo se llama cuando `trackTiming` está activo.
  * • Wrappers `spawnNote/recycleNote` eliminados — callers acceden a NotePool directamente.
- * • Adaptive quality uses current hysteresis (doesn't reset counters until stabilized).
+ * • Adaptive quality usa histéresis real (no resetea contadores al estabilizarse).
  */
 class OptimizationManager
 {
@@ -70,7 +70,7 @@ class OptimizationManager
 		if (!_initialized)
 			return;
 
-		// Acumular FPS suavizado (more preciso that 1/elapsed)
+		// Acumular FPS suavizado (más preciso que 1/elapsed)
 		_fpsAccum += elapsed;
 		_fpsFrames += 1;
 
@@ -106,7 +106,7 @@ class OptimizationManager
 				_highFrames = 0;
 			}
 		}
-		// No resetear contadores to the be in rango — hysteresis actual
+		// No resetear contadores al estar en rango — histéresis real
 	}
 
 	public function addSpriteToRenderer(sprite:flixel.FlxSprite):Void
@@ -156,7 +156,7 @@ class OptimizationManager
 			case MEDIUM:
 				setQuality(LOW);
 			case LOW:
-				trace('[OptimizationManager] Calidad minimal alcanzada.');
+				trace('[OptimizationManager] Calidad mínima alcanzada.');
 		}
 	}
 
@@ -171,7 +171,7 @@ class OptimizationManager
 			case HIGH:
 				setQuality(ULTRA);
 			case ULTRA:
-				trace('[OptimizationManager] Calidad maximum alcanzada.');
+				trace('[OptimizationManager] Calidad máxima alcanzada.');
 		}
 	}
 

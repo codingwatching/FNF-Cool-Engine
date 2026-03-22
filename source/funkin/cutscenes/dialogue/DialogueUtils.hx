@@ -4,11 +4,11 @@ import flixel.util.FlxColor;
 import funkin.cutscenes.DialogueData;
 
 /**
- * Utilidades and helpers for the system of dialogues
+ * Utilidades y helpers para el sistema de diálogos
  */
 class DialogueUtils {
     /**
-     * Convert dialogue legacy to format JSON
+     * Convertir diálogo legacy a formato JSON
      */
     public static function convertLegacyToJSON(
         dialogueList:Array<String>, 
@@ -42,7 +42,7 @@ class DialogueUtils {
     }
     
     /**
-     * Get color of fondo by default according to the estilo
+     * Obtener color de fondo por defecto según el estilo
      */
     public static function getDefaultBackgroundColor(style:String):String {
         return switch(style.toLowerCase()) {
@@ -53,7 +53,7 @@ class DialogueUtils {
     }
     
     /**
-     * Validate structure of dialogue
+     * Validar estructura de diálogo
      */
     public static function validateDialogue(dialogue:DialogueConversation):Array<String> {
         var errors:Array<String> = [];
@@ -95,14 +95,14 @@ class DialogueUtils {
     }
     
     /**
-     * Previsualizar a mensaje specific (for debug)
+     * Previsualizar un mensaje específico (para debug)
      */
     public static function previewMessage(msg:DialogueMessage):String {
         return '${msg.character}: ${msg.text.substr(0, 50)}${msg.text.length > 50 ? "..." : ""}';
     }
     
     /**
-     * Get duration estimada of the dialogue (in segundos)
+     * Obtener duración estimada del diálogo (en segundos)
      */
     public static function getEstimatedDuration(dialogue:DialogueConversation):Float {
         var totalTime:Float = 0;
@@ -110,7 +110,7 @@ class DialogueUtils {
         for (msg in dialogue.messages) {
             var speed = msg.speed ?? 0.04;
             var charTime = msg.text.length * speed;
-            var readTime = 1.0; // Tiempo for leer after of escribir
+            var readTime = 1.0; // Tiempo para leer después de escribir
             totalTime += charTime + readTime;
         }
         
@@ -127,7 +127,7 @@ class DialogueUtils {
     }
     
     /**
-     * Create dialogue empty
+     * Crear diálogo vacío
      */
     public static function createEmpty(name:String, style:String = 'pixel'):DialogueConversation {
         return {
@@ -172,7 +172,7 @@ class DialogueUtils {
     }
     
     /**
-     * Intercambiar dos mensajes of position
+     * Intercambiar dos mensajes de posición
      */
     public static function swapMessages(
         dialogue:DialogueConversation,
@@ -230,7 +230,7 @@ class DialogueUtils {
     }
     
     /**
-     * Get estadísticas of the dialogue
+     * Obtener estadísticas del diálogo
      */
     public static function getStats(dialogue:DialogueConversation):String {
         var totalMessages = dialogue.messages.length;
@@ -261,7 +261,7 @@ class DialogueUtils {
     }
     
     /**
-     * Exportar to CSV (for translation)
+     * Exportar a CSV (para traducción)
      */
     public static function exportToCSV(dialogue:DialogueConversation):String {
         var csv = 'Index,Character,Text,BubbleType,Speed\n';

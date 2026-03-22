@@ -46,7 +46,7 @@ using StringTools;
 /**
  * Main — punto de entrada de Cool Engine.
  *
- * ─── Initialization order ─────────────────────────────────────────────────
+ * ─── Orden de inicialización ─────────────────────────────────────────────────
  *  1. DPI-awareness + dark mode (antes de cualquier ventana)
  *  2. GC tuning (antes de cargar nada)
  *  3. Stage config
@@ -54,17 +54,17 @@ using StringTools;
  *  5. CrashHandler, DebugConsole
  *  6. createGame() → FlxG disponible
  *  7. AudioConfig.applyToFlixel()
- *  8. WindowManager.init() → resize subscription, scale mode
+ *  8. WindowManager.init() → suscripción a resize, scale mode
  *  9. Sistemas que dependen de FlxG (save, keybinds, nota skins…)
  * 10. UI overlays
- * 11. SystemInfo.init() (necesita context3D → after of the first frame)
+ * 11. SystemInfo.init() (necesita context3D → después del primer frame)
  *
  * @author Cool Engine Team
  * @version 0.6.0
  */
 class Main extends Sprite
 {
-	// ── Game configuration ────────────────────────────────────────────────
+	// ── Configuración del juego ────────────────────────────────────────────────
 	private static inline var GAME_WIDTH:Int = 1280;
 	private static inline var GAME_HEIGHT:Int = 720;
 	private static inline var BASE_FPS:Int = 2000; // FlxGame construye con este valor para no bloquear FPS reales
@@ -87,7 +87,7 @@ class Main extends Sprite
 	/** Factor de escala para compensar resoluciones mayores a 720p.
 	 *  En 720p  → 1.0   (sin cambio)
 	 *  En 1080p → 1.5   (1920/1280)
-	 *  Use it to scale defaultZoom and absolute positions in the HUD. */
+	 *  Úsalo para escalar defaultZoom y posiciones absolutas en HUD. */
 	public static inline var BASE_WIDTH:Int = 1280;
 	public static function resolutionScale():Float
 		return (FlxG.width > 0) ? FlxG.width / BASE_WIDTH : 1.0;
@@ -175,9 +175,9 @@ class Main extends Sprite
 		// ── WindowManager ──────────────────────────────────────────────────────
 		WindowManager.init(/* mode    */ LETTERBOX, /* minW    */ 960, /* minH    */ 540, /* baseW   */ GAME_WIDTH, /* baseH   */ GAME_HEIGHT);
 
-		// ── FIX: Larger initial window size (desktop only) ──────────
+		// ── FIX: Tamaño inicial de ventana más grande (solo desktop) ──────────
 		// En Android window.resize() interfiere con la superficie SDL y puede
-		// causing the EGL context to be in an invalid state.
+		// provocar que el contexto EGL quede en estado inválido.
 		#if (desktop && !html5)
 		if (lime.app.Application.current?.window != null)
 		{
@@ -189,8 +189,8 @@ class Main extends Sprite
 		// ── Sistemas que dependen de FlxG ─────────────────────────────────────
 		initializeSaveSystem();
 		initializeGameSystems();
-		// Screenshots — MUST come after initializeGameSystems() so
-		// that save and keybinds are already loaded before the plugin
+		// Capturas de pantalla — DEBE ir después de initializeGameSystems() para
+		// que el save y los keybinds ya estén cargados antes de que el plugin
 		// empiece a leer controles (evita capturas en el frame 0 por null key).
 		funkin.util.plugins.ScreenshotPlugin.initialize();
 		initializeFramerate();
@@ -209,7 +209,7 @@ class Main extends Sprite
 
 		// ── BUGFIX (Flixel git): forzar curva de volumen lineal ───────────────
 		// CoreAudio gestiona su propio volumen directamente sobre FlxSound.volume,
-		// but we leave the linear curve in case any SFX uses FlxG.sound.play().
+		// pero dejamos la curva lineal por si algún SFX usa FlxG.sound.play().
 		FlxG.sound.applySoundCurve  = function(v:Float) return v;
 		FlxG.sound.reverseSoundCurve = function(v:Float) return v;
 
@@ -220,13 +220,13 @@ class Main extends Sprite
 		_requestAndroidStoragePermission(function() {
 			mods.ModManager.init();
 			mods.ModManager.applyStartupMod();
-			// ── Addons (after mods so they can read the active folder) ──
+			// ── Addons (después de mods para que puedan leer la carpeta activa) ──
 			AddonManager.init();
 		});
 		#else
 		mods.ModManager.init();
 		mods.ModManager.applyStartupMod();
-		// ── Addons (after mods so they can read the active folder) ────
+		// ── Addons (después de mods para que puedan leer la carpeta activa) ────
 		AddonManager.init();
 		#end
 		WindowManager.applyModBranding(mods.ModManager.activeInfo());
@@ -251,14 +251,14 @@ class Main extends Sprite
 		#end
 
 		// ── FunkinCamera frontend ─────────────────────────────────────────────
-		// MUST be done here, AFTER createGame() but BEFORE the first
+		// DEBE hacerse aquí, DESPUÉS de createGame() pero ANTES del primer
 		// ENTER_FRAME. Reemplazar FlxG.cameras dentro del ENTER_FRAME provoca
 		// un null pointer en el pipeline nativo de Lime/SDL en Android porque
-		// the renderer is already iterating the camera list at that point.
+		// el renderer ya está iterando la lista de cámaras en ese momento.
 		// FixedBitmapData ya tiene guarda contra context3D == null (usa
-		// software bitmap as fallback), so this is safe on Android.
+		// software bitmap como fallback), así que esto es seguro en Android.
 		// FunkinCamera usa RenderTexture de flixel-animate que crea texturas GPU.
-		// On Android that context isn't ready here and crashes the OpenGL driver.
+		// En Android ese contexto no está listo aquí y crashea el driver OpenGL.
 		// Los blend modes avanzados tampoco son necesarios en mobile.
 		#if (cpp && !mobileC)
 		untyped FlxG.cameras = new funkin.graphics.FunkinCameraFrontEnd();
@@ -282,9 +282,9 @@ class Main extends Sprite
 	{
 		stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _initSystemInfoDeferred);
 
-		// context3D.gl is available from the first rendered frame.
-		// FunkinCameraFrontEnd was already initialized in setupGame() with the guard
-		// of FixedBitmapData — this method only needs SystemInfo.
+		// context3D.gl está disponible a partir del primer frame renderizado.
+		// FunkinCameraFrontEnd ya se inicializó en setupGame() con la guarda
+		// de FixedBitmapData — este método solo necesita SystemInfo.
 		SystemInfo.init();
 	}
 
@@ -297,11 +297,11 @@ class Main extends Sprite
 	}
 	#end
 
-	// ── Initialization helpers ─────────────────────────────────────────────
+	// ── Helpers de inicialización ─────────────────────────────────────────────
 
 	private function calculateZoom():Void
 	{
-		// ── Saved resolution: 720p (default) or 1080p ───────────────────────
+		// ── Resolución guardada: 720p (default) o 1080p ───────────────────────
 		var tempSave = new flixel.util.FlxSave();
 		tempSave.bind('coolengine', 'CoolTeam');
 		var use1080p = (tempSave.data != null && tempSave.data.renderResolution == '1080p');
@@ -324,7 +324,7 @@ class Main extends Sprite
 			var rawW:Int = Lib.current.stage.stageWidth;
 			var rawH:Int = Lib.current.stage.stageHeight;
 			// En Android el stage puede reportar dimensiones en portrait antes de aplicar
-			// landscape orientation, which causes SDL to send a buffer with transform
+			// la orientación landscape, lo que provoca que SDL envíe un buffer con transform
 			// incorrecto → BLASTBufferQueue lo rechaza → Null Object Reference → crash.
 			// Forzamos landscape: el lado mayor siempre es el ancho.
 			#if android
@@ -363,8 +363,8 @@ class Main extends Sprite
 		FlxG.fullscreen = false;
 
 		// FIX: drawFramerate y updateFramerate se asignan solo en initializeFramerate()
-		// to avoid the "Invalid field" error when calling them before FlxG is ready.
-		// NOT duplicated here.
+		// para evitar el error "Invalid field" al llamarlos antes de que FlxG esté listo.
+		// NO se duplican aquí.
 
 		FlxSprite.defaultAntialiasing = false;
 	}
@@ -409,7 +409,7 @@ class Main extends Sprite
 	private function initializeFramerate():Void
 	{
 		// Inicializar el limitador nativo UNA VEZ (timeBeginPeriod + waitable timer).
-		// This also improves Lime's loop precision as a side effect.
+		// Esto también mejora la precisión del loop de Lime como efecto colateral.
 		FrameLimiterAPI.init();
 
 		// FIX: was `!androidC` — that define never existed; `mobileC` is the correct one.
@@ -489,7 +489,7 @@ class Main extends Sprite
 		#end
 	}
 
-	/** Applies the state of VSync saved in save via extension nativa. */
+	/** Aplica el estado de VSync guardado en save via extensión nativa. */
 	public static function applyVSync():Void
 	{
 		#if cpp
@@ -498,16 +498,16 @@ class Main extends Sprite
 	}
 
 	#if android
-	/** Solicita READ/WRITE_EXTERNAL_STORAGE in Android 6+ and call onGranted() when is listo. */
+	/** Solicita READ/WRITE_EXTERNAL_STORAGE en Android 6+ y llama onGranted() cuando esté listo. */
 	static function _requestAndroidStoragePermission(onGranted:Void->Void):Void
 	{
 		#if (android && cpp)
 		// Android 10+ (API 29+): /Android/data/<package>/files/ es accesible sin permisos
-		// of almacenamiento external. READ/WRITE_EXTERNAL_STORAGE are deprecados in
+		// de almacenamiento externo. READ/WRITE_EXTERNAL_STORAGE están deprecados en
 		// Android 13+ (API 33) y el sistema los deniega silenciosamente.
 		// El JNI a HaxeObject::requestPermissions no existe en Lime y puede lanzar
-		// a native exception that crashes the app before the first frame.
-		// Simply esperamos a tick for that the FileSystem is listo and continuamos.
+		// una excepción nativa que crashea la app antes del primer frame.
+		// Simplemente esperamos un tick para que el FileSystem esté listo y continuamos.
 		new flixel.util.FlxTimer().start(0.1, function(_) onGranted());
 		#else
 		onGranted();

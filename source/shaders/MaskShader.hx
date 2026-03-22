@@ -7,46 +7,46 @@ import flixel.system.FlxAssets.FlxShader;
 import flixel.util.FlxColor;
 
 /**
- * Types of mask available.
+ * Tipos de máscara disponibles.
  */
 enum abstract MaskType(Int) to Int
 {
 	/** Recorte rectangular: oculta fuera de (x, y, w, h) en UV [0..1] */
 	var RECT       = 0;
-	/** Recorte by the lado izquierdo — all it that is to the left of maskX is hides */
+	/** Recorte por el lado izquierdo — todo lo que esté a la IZQUIERDA de maskX se oculta */
 	var LEFT       = 1;
-	/** Recorte by the lado derecho — all it that is to the right of maskX is hides */
+	/** Recorte por el lado derecho — todo lo que esté a la DERECHA de maskX se oculta */
 	var RIGHT      = 2;
-	/** Recorte by up — all it that is above of maskY is hides */
+	/** Recorte por arriba — todo lo que esté ENCIMA de maskY se oculta */
 	var TOP        = 3;
-	/** Recorte by down — all it that is below of maskY is hides */
+	/** Recorte por abajo — todo lo que esté DEBAJO de maskY se oculta */
 	var BOTTOM     = 4;
-	/** Circular / elliptical mask, centered at (cx, cy) with radii (rx, ry) in UV */
+	/** Máscara circular / elíptica, centrada en (cx, cy) con radios (rx, ry) en UV */
 	var CIRCLE     = 5;
-	/** Mask angular: hides pixels outside of the angle from the esquina superior-left (port of V-Slice AngleMask) */
+	/** Máscara angular: oculta píxeles fuera del ángulo desde la esquina superior-izquierda (port de V-Slice AngleMask) */
 	var ANGLE      = 6;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  MaskShader  —  A single FlxShader that covers all mask types
+//  MaskShader  —  Un único FlxShader que cubre todos los tipos de máscara
 // ─────────────────────────────────────────────────────────────────────────────
 //
-//  How it works:
+//  Cómo funciona:
 //    • uniform int uMaskType  selecciona la rama en el fragmento.
 //    • uniform vec4 uMaskRect  → [x0, y0, x1, y1] en UV (0..1) para RECT.
-//    • uniform float uMaskEdge → [value] position of the borde for LEFT/RIGHT/TOP/BOTTOM.
+//    • uniform float uMaskEdge → [valor] posición del borde para LEFT/RIGHT/TOP/BOTTOM.
 //    • uniform vec4 uMaskCircle → [cx, cy, rx, ry] en UV para CIRCLE.
 //    • uniform vec2 uMaskAngle  → [endX, endY] en pixels para ANGLE.
 //    • uniform float uSoftness  → suavizado del borde (0 = duro, 0.01..0.05 = suave).
-//    • uniform bool  uInvert    → inverts the mask.
+//    • uniform bool  uInvert    → invierte la máscara.
 //
 //  Todos los valores por defecto muestran el sprite completo sin recortar.
 
 class MaskShader extends FlxShader
 {
-	// ── Public properties with safe setters ──────────────────────────────
+	// ── Propiedades públicas con setters seguros ──────────────────────────────
 
-	/** Type of mask active (default RECT that muestra all). */
+	/** Tipo de máscara activo (default RECT que muestra todo). */
 	public var maskType(default, set):MaskType = RECT;
 
 	/** Borde de recorte para LEFT/RIGHT/TOP/BOTTOM en pixels del sprite. */
@@ -59,13 +59,13 @@ class MaskShader extends FlxShader
 	public var circleCenterPx(default, set):FlxPoint = new FlxPoint(0, 0);
 	public var circleRadiusPx(default, set):FlxPoint = new FlxPoint(50, 50);
 
-	/** Punto end of the angle (in pixels of the sprite) for ANGLE. */
+	/** Punto final del ángulo (en pixels del sprite) para ANGLE. */
 	public var angleEndPx(default, set):FlxPoint = new FlxPoint(90, 100);
 
 	/** Suavizado de borde [0..0.05 aprox]. 0 = hard. */
 	public var softness(default, set):Float = 0.0;
 
-	/** Inverts the mask. */
+	/** Invierte la máscara. */
 	public var inverted(default, set):Bool = false;
 
 	// ── GLSL ─────────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ class MaskShader extends FlxShader
 		// ── Uniforms ──────────────────────────────────────────────────────────
 		uniform int   uMaskType;    // 0=RECT 1=LEFT 2=RIGHT 3=TOP 4=BOTTOM 5=CIRCLE 6=ANGLE
 		uniform vec4  uMaskRect;    // [x0,y0,x1,y1] UV
-		uniform float uMaskEdge;    // position of borde UV for L/R/T/B
+		uniform float uMaskEdge;    // posición de borde UV para L/R/T/B
 		uniform vec4  uMaskCircle;  // [cx,cy,rx,ry] UV
 		uniform vec2  uMaskAngle;   // [endX,endY] UV
 		uniform float uSoftness;    // suavizado del borde
@@ -90,7 +90,7 @@ class MaskShader extends FlxShader
 			return fract((p3.xx + p3.yz) * p3.zy);
 		}
 
-		// ── Calculation of the alpha of mask for each type ───────────────────────
+		// ── Cálculo del alpha de máscara para cada tipo ───────────────────────
 		float rectMask(vec2 uv)
 		{
 			float xOk = smoothstep(uMaskRect.x - uSoftness, uMaskRect.x + uSoftness, uv.x)
@@ -138,7 +138,7 @@ class MaskShader extends FlxShader
 
 		float angleMask(vec2 uv)
 		{
-			// Same AA technique as V-Slice AngleMask
+			// Misma técnica AA de V-Slice AngleMask
 			// FIX: loop vars deben ser int en GLSL, no float
 			const int   AA_STAGES_I = 2;
 			const float AA_STAGES   = 2.0;
@@ -203,7 +203,7 @@ class MaskShader extends FlxShader
 		return v;
 	}
 
-	/** Receives position in pixels of the sprite; the converts to UV internamente. */
+	/** Recibe posición en pixels del sprite; la convierte a UV internamente. */
 	function set_maskEdgePx(px:Float):Float
 	{
 		maskEdgePx = px;

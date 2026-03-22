@@ -4,13 +4,13 @@ import flixel.FlxG;
 import funkin.audio.SoundTray;
 
 /**
- * VolumePlugin — Management of volumen V-Slice style.
+ * VolumePlugin — Gestión de volumen al estilo V-Slice.
  *
- * ─── Cambio respecto to the version previous ───────────────────────────────────
+ * ─── Cambio respecto a la versión anterior ───────────────────────────────────
  * Antes usaba FlxG.plugins.addPlugin() esperando que Flixel llamase update()
- * automatically. In Flixel 5, addPlugin() requires IFlxPlugin; FlxBasic
+ * automáticamente. En Flixel 5, addPlugin() requiere IFlxPlugin; FlxBasic
  * no implementa esa interfaz → el update nunca se ejecutaba → las teclas
- * +/-/0 no hacían nothing.
+ * +/-/0 no hacían nada.
  *
  * Ahora se conecta directamente a FlxG.signals.preUpdate, igual que
  * SoundTrayContainer, garantizando que _onPreUpdate() se llame cada frame
@@ -30,19 +30,19 @@ class VolumePlugin
 	static inline final REPEAT_DELAY:Float   = 0.5;
 	/** Intervalo entre repeats (seg). */
 	static inline final REPEAT_INTERVAL:Float = 0.08;
-	/** How much sube/baja the volumen by paso. */
+	/** Cuánto sube/baja el volumen por paso. */
 	static inline final VOLUME_STEP:Float     = 0.1;
 
 	/** Referencia al singleton activo. */
 	private static var _instance:Null<VolumePlugin> = null;
 
-	// ── Initialization ────────────────────────────────────────────────────────
+	// ── Inicialización ────────────────────────────────────────────────────────
 
 	private function new() {}
 
 	/**
 	 * Registra el plugin. Llamar UNA VEZ desde Main.setupGame()
-	 * after of disableDefaultSoundTray().
+	 * DESPUÉS de disableDefaultSoundTray().
 	 */
 	public static function initialize():Void
 	{
@@ -52,7 +52,7 @@ class VolumePlugin
 		trace('[VolumePlugin] Conectado a FlxG.signals.preUpdate');
 	}
 
-	/** Desconecta the plugin (useful for tests or reinicios). */
+	/** Desconecta el plugin (útil para tests o reinicios). */
 	public static function destroy():Void
 	{
 		if (_instance == null) return;
@@ -80,7 +80,7 @@ class VolumePlugin
 
 		// ── Volume up ─────────────────────────────────────────────────────────
 		// PLUS  = tecla = / + del teclado principal
-		// NUMPADPLUS = key + of the teclado numeric
+		// NUMPADPLUS = tecla + del teclado numérico
 		final upJust    = FlxG.keys.justPressed.PLUS    || FlxG.keys.justPressed.NUMPADPLUS    || isGamepadVolumeUpJustPressed();
 		final upHeld    = FlxG.keys.pressed.PLUS         || FlxG.keys.pressed.NUMPADPLUS         || isGamepadVolumeUpPressed();
 		final upRelease = FlxG.keys.justReleased.PLUS    || FlxG.keys.justReleased.NUMPADPLUS    || isGamepadVolumeUpJustReleased();

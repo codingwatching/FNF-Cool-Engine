@@ -15,24 +15,24 @@ import sys.io.File;
  *
  * Mejoras sobre FlxRuntimeShader puro:
  *   • Soporte de vertex shader opcional: si existe `myFx.vert` junto a `myFx.frag`,
- *     is load automatically (as hace V-Slice).
+ *     se carga automáticamente (como hace V-Slice).
  *   • API uniforms ampliada y segura:
  *       setFloat2 / setFloat3 / setFloat4  — escribe vec2/3/4 de una llamada
  *       setColor(FlxColor)                 — escribe vec4 de color normalizado
- *       writeUniform(name, Dynamic)        — dispatch automatic by type
+ *       writeUniform(name, Dynamic)        — dispatch automático por tipo
  *       safeSetInt / safeSetIntArray       — fallback a Float en addons antiguos
  *       safeSetBoolArray                   — fallback a Float en addons < 2.12
- *   • `fromFile(path)` / `fromAsset(key)` — factories with .vert detection
- *   • `reload()` — hot-reload from the file original (useful in debug)
+ *   • `fromFile(path)` / `fromAsset(key)` — factorías con detección de .vert
+ *   • `reload()` — hot-reload desde el archivo original (útil en debug)
  *   • `recompile(frag, vert)` — recompila en caliente sin crear nueva instancia
- *   • Preprocesado GLSL: normalizes saltos of line, save fonts for debug
+ *   • Preprocesado GLSL: normaliza saltos de línea, guarda fuentes para debug
  *   • Error handling robusto: __createGLProgram captura excepciones GL
- *   • Compatible with flixel-addons 2.11.0 – versiones more recientes
+ *   • Compatible con flixel-addons 2.11.0 – versiones más recientes
  *   • Compatible con Haxe 4.2+ (sin ??= ni operadores 4.3-exclusivos)
  *
- * Uso fast:
+ * Uso rápido:
  * ```haxe
- * // From file in disco (.vert hermano loaded automatically if exists):
+ * // Desde archivo en disco (.vert hermano cargado automáticamente si existe):
  * var fx = FunkinRuntimeShader.fromFile('assets/shaders/wave.frag');
  *
  * // Inline / desde string:
@@ -45,7 +45,7 @@ import sys.io.File;
  *   }
  * ');
  *
- * // Appliesr to sprite / camera:
+ * // Aplicar a sprite / cámara:
  * sprite.shader   = fx;
  * camera.filters  = [new ShaderFilter(fx)];
  *
@@ -59,25 +59,25 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 {
 	// ── Estado ────────────────────────────────────────────────────────────────
 
-	/** Path of the source .frag (only when `fromFile` was used). */
+	/** Ruta del .frag de origen (solo cuando se usó `fromFile`). */
 	public var fragmentPath(default, null):Null<String> = null;
 
-	/** Code font of the fragment shader currently compiled. */
+	/** Código fuente del fragment shader actualmente compilado. */
 	public var fragmentSource(default, null):Null<String> = null;
 
-	/** Code font of the vertex shader currently compiled (null = default of Flixel). */
+	/** Código fuente del vertex shader actualmente compilado (null = default de Flixel). */
 	public var vertexSource(default, null):Null<String> = null;
 
-	// ── Factories ─────────────────────────────────────────────────────────────
+	// ── Factorías ─────────────────────────────────────────────────────────────
 
 	/**
 	 * Crea un FunkinRuntimeShader desde un archivo .frag en disco.
 	 *
 	 * Si existe un archivo `.vert` con el mismo nombre en la misma carpeta,
-	 * is load as vertex shader automatically (pattern V-Slice).
+	 * se carga como vertex shader automáticamente (patrón V-Slice).
 	 *
 	 * @param fragPath     Ruta al archivo .frag
-	 * @param glslVersion  Version GLSL (0 = auto-detect according to target)
+	 * @param glslVersion  Versión GLSL (0 = auto-detect según target)
 	 * @return             La instancia creada, o null si el archivo no existe
 	 */
 	#if sys
@@ -108,10 +108,10 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 	/**
 	 * Crea un FunkinRuntimeShader desde assets embebidos de OpenFL.
 	 *
-	 * Busca also a `.vert` with the mismo key base.
+	 * Busca también un `.vert` con el mismo key base.
 	 *
 	 * @param fragKey      Clave del asset .frag (ej: "assets/shaders/bloom.frag")
-	 * @param glslVersion  Version GLSL (0 = auto-detect)
+	 * @param glslVersion  Versión GLSL (0 = auto-detect)
 	 * @return             La instancia creada, o null si el asset no existe
 	 */
 	public static function fromAsset(fragKey:String, glslVersion:Int = 0):Null<FunkinRuntimeShader>
@@ -121,7 +121,7 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 			final fragCode = Assets.getText(fragKey);
 			if (fragCode == null || fragCode.length == 0)
 			{
-				Log.warn('[FunkinRuntimeShader] Asset empty or no encontrado: $fragKey');
+				Log.warn('[FunkinRuntimeShader] Asset vacío o no encontrado: $fragKey');
 				return null;
 			}
 			final vertKey  = _swapExt(fragKey, '.vert');
@@ -138,10 +138,10 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 	// ── Constructor ───────────────────────────────────────────────────────────
 
 	/**
-	 * @param fragmentSource  Code GLSL of the fragment shader.
+	 * @param fragmentSource  Código GLSL del fragment shader.
 	 *                        Soporta `openfl_TextureCoordv`, `flixel_texture2D`, etc.
-	 * @param vertexSource    Code GLSL of the vertex shader (null = usar the of Flixel).
-	 * @param glslVersion     Version GLSL for the compilador.
+	 * @param vertexSource    Código GLSL del vertex shader (null = usar el de Flixel).
+	 * @param glslVersion     Versión GLSL para el compilador.
 	 *                        0 = auto (100 en mobile/html5, 120 en desktop).
 	 */
 	public function new(?fragmentSource:String, ?vertexSource:String, glslVersion:Int = 0)
@@ -161,7 +161,7 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 	 * Recarga el shader desde el archivo original en disco.
 	 * Solo funciona si fue creado con `fromFile()`.
 	 *
-	 * @return true if reloaded successfully
+	 * @return true si se recargó con éxito
 	 */
 	#if sys
 	public function reload():Bool
@@ -182,18 +182,18 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 		}
 		catch (e:Dynamic)
 		{
-			Log.warn('[FunkinRuntimeShader] reload() failed: $and');
+			Log.warn('[FunkinRuntimeShader] reload() falló: $e');
 			return false;
 		}
 	}
 	#end
 
 	/**
-	 * Recompila the shader with new code font without create a new instance.
-	 * Useful for live-edit of shaders in the editor of debug.
+	 * Recompila el shader con nuevo código fuente sin crear una nueva instancia.
+	 * Útil para live-edit de shaders en el editor de debug.
 	 *
-	 * @param newFrag  New code of fragment shader
-	 * @param newVert  New code of vertex shader (null = mantener the current)
+	 * @param newFrag  Nuevo código de fragment shader
+	 * @param newVert  Nuevo código de vertex shader (null = mantener el actual)
 	 */
 	public function recompile(newFrag:String, ?newVert:String):Void
 	{
@@ -209,7 +209,7 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 		}
 		catch (e:Dynamic)
 		{
-			Log.warn('[FunkinRuntimeShader] recompile() failed: $and');
+			Log.warn('[FunkinRuntimeShader] recompile() falló: $e');
 		}
 	}
 
@@ -244,7 +244,7 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 	/**
 	 * Escribe un uniform `int` con fallback a `float` si falla.
 	 * En C++/Dynamic los literales enteros a veces llegan como TInt aunque el
-	 * uniform is `float`; this method tests both ways safely.
+	 * uniform sea `float`; este método prueba ambas vías de forma segura.
 	 */
 	public function safeSetInt(name:String, value:Int):Void
 	{
@@ -257,8 +257,8 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 
 	/**
 	 * Escribe un array de `int` con fallback a `float[]`.
-	 * `setIntArray` was added in flixel-addons after of 2.11.0;
-	 * if no is available is converts to floats automatically.
+	 * `setIntArray` fue añadido en flixel-addons después de 2.11.0;
+	 * si no está disponible se convierte a floats automáticamente.
 	 */
 	public function safeSetIntArray(name:String, values:Array<Int>):Void
 	{
@@ -270,7 +270,7 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 
 	/**
 	 * Escribe un array de `bool` con fallback a `float[]` (0.0 / 1.0).
-	 * `setBoolArray` was added in flixel-addons after of 2.11.0.
+	 * `setBoolArray` fue añadido en flixel-addons después de 2.11.0.
 	 */
 	public function safeSetBoolArray(name:String, values:Array<Bool>):Void
 	{
@@ -281,8 +281,8 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 	}
 
 	/**
-	 * Escribe a uniform with detection automatic of type.
-	 * Is the method that use `ShaderManager._writeParam` internamente.
+	 * Escribe un uniform con detección automática de tipo.
+	 * Es el método que usa `ShaderManager._writeParam` internamente.
 	 *
 	 * Tipos soportados: Float, Int, Bool y Arrays de cualquiera de ellos.
 	 *
@@ -301,7 +301,7 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 				if (Std.isOfType(first, Bool))
 					safeSetBoolArray(name, cast arr);
 				else if (Type.typeof(first) == TInt)
-					// TInt-but-really-float is common in cpp; prefer floats
+					// TInt-pero-realmente-float es común en cpp; preferir floats
 					try { setFloatArray(name, [for (v in arr) cast(v, Float)]); }
 					catch (_:Dynamic) { safeSetIntArray(name, [for (v in arr) Std.int(v)]); }
 				else
@@ -314,7 +314,7 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 			else if (Type.typeof(value) == TInt)
 			{
 				// Bugfix: en C++/Dynamic, floats con valor entero (0.0, 8.0…)
-				// is tipan as TInt. setInt() over a uniform float only imprime
+				// se tipan como TInt. setInt() sobre un uniform float sólo imprime
 				// un warning silencioso sin actualizar el valor. Usar setFloat primero.
 				try { setFloat(name, cast(value, Float)); }
 				catch (_:Dynamic) { safeSetInt(name, cast value); }
@@ -331,43 +331,43 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 	// ── Post-process (ShaderFilter) ──────────────────────────────────────────
 
 	/**
-	 * Prepara the shader for uso as `ShaderFilter` of camera (post-process actual).
-	 * Callr a VEZ justo after of create the instancia, before of pasarla to
+	 * Prepara el shader para uso como `ShaderFilter` de cámara (post-proceso real).
+	 * Llamar UNA VEZ justo después de crear la instancia, antes de pasarla a
 	 * `ShaderFilter` o `CameraUtil.addShader`.
 	 *
-	 * ── by what is NECESARIO ─────────────────────────────────────────────────
+	 * ── POR QUÉ ES NECESARIO ─────────────────────────────────────────────────
 	 * `FlxRuntimeShader` crea el `ShaderInput<BitmapData>` de `bitmap` de forma
-	 * dynamic in `__init()`. OpenFL's `ShaderFilter` accede to it via
+	 * dinámica en `__init()`. OpenFL's `ShaderFilter` accede a él via
 	 * `Reflect.field(shader, "__bitmap")`. En algunas versiones de flixel-addons
-	 * the field dynamic no is accesible via reflection porque is almacena in a
+	 * el campo dinámico no es accesible vía reflexión porque se almacena en un
 	 * Map interno en vez de como field de clase — forzar `__init()` de nuevo
-	 * after of that the programa GL is compiled resuelve the majority of the casos.
+	 * después de que el programa GL esté compilado resuelve la mayoría de los casos.
 	 *
-	 * ── GUARANTEES ────────────────────────────────────────────────────────────
+	 * ── GARANTÍAS ────────────────────────────────────────────────────────────
 	 * El .frag DEBE tener `#pragma header` (para que se declare `bitmap` y los
 	 * varyings) y samplear con `flixel_texture2D(bitmap, openfl_TextureCoordv)`.
-	 * If your shader uses `texture2D(bitmap, sc)` directly, ensure that `sc`
-	 * is in [0..1] — in algunos builds `openfl_TextureCoordv` llega in pixels.
+	 * Si tu shader usa `texture2D(bitmap, sc)` directo, asegúrate de que `sc`
+	 * esté en [0..1] — en algunos builds `openfl_TextureCoordv` llega en píxeles.
 	 */
 	public function setupForPostProcess():Void
 	{
 		try
 		{
-			// Forces reinitialization of the GL program.
+			// Fuerza la reinicialización del programa GL.
 			// Esto recrea todos los ShaderInput/ShaderParameter, incluyendo
 			// __bitmap, con los uniform locations correctas del programa compilado.
 			@:privateAccess this.__init();
 		}
 		catch (e:Dynamic)
 		{
-			trace('[FunkinRuntimeShader] setupForPostProcess() failed: $and');
+			trace('[FunkinRuntimeShader] setupForPostProcess() falló: $e');
 		}
 	}
 
 
 
 	/**
-	 * Captura errors of compilation GL without crashear the game.
+	 * Captura errores de compilación GL sin crashear el juego.
 	 * Igual que hace V-Slice en sus shaders base.
 	 */
 	override function __createGLProgram(vertexSource:String, fragmentSource:String):GLProgram
@@ -386,13 +386,13 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 	// ── Internals ─────────────────────────────────────────────────────────────
 
 	/**
-	 * Pre-procesa the GLSL code:
-	 * - Normalizes saltos of line CRLF → LF
+	 * Pre-procesa el código GLSL:
+	 * - Normaliza saltos de línea CRLF → LF
 	 * - En mobile (OpenGL ES 2.0), inyecta "precision mediump float;" si no existe,
-	 *   for avoid errors of compilation in GPUs estrictos with is 2.0.
+	 *   para evitar errores de compilación en GPUs estrictos con ES 2.0.
 	 * - Sustituye "texture()" por "texture2D()" si se usa GLSL > 1.30 targeting ES.
 	 *
-	 * Returns null if the source is empty or null.
+	 * Devuelve null si el source es vacío o null.
 	 */
 	static function _preprocessGLSL(source:Null<String>):Null<String>
 	{
@@ -406,26 +406,26 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 		result     = StringTools.replace(result,  '\r',   '\n');
 
 		#if (mobile || html5)
-		// ── OpenGL is 2.0: inject precision declaration if not present ──
+		// ── OpenGL ES 2.0: inyectar declaración de precisión si no está presente ──
 		// "precision mediump float;" es obligatorio en GLSL ES 1.00.
 		// FlxRuntimeShader inyecta esto en #pragma header, pero si el shader no usa
 		// #pragma header o lo omite accidentalmente, el compilador falla silenciosamente.
-		// Inyectamos before of the primer "void" or "uniform" (but after of cualquier
-		// #pragma header or #version that already is presente).
+		// Inyectamos ANTES del primer "void" o "uniform" (pero DESPUÉS de cualquier
+		// #pragma header o #version que ya esté presente).
 		final hasPrecision  = result.indexOf('precision ') >= 0;
 		final hasPragma     = result.indexOf('#pragma header') >= 0;
-		// Only inject if there's no precision declaration and no #pragma header
-		// (if there's a #pragma header, Flixel already injects precision for us).
+		// Solo inyectar si no hay declaración de precisión y no hay #pragma header
+		// (si hay #pragma header, Flixel ya inyecta la precisión por nosotros).
 		if (!hasPrecision && !hasPragma)
 		{
 			result = '#ifdef GL_ES\nprecision mediump float;\n#endif\n' + result;
 		}
 
 		// ── Sustituir "texture(" (GLSL 1.30+) por "texture2D(" (GLSL ES 1.00) ──
-		// Algunos shaders usan the function texture() of GLSL moderno, that no exists
+		// Algunos shaders usan la función texture() de GLSL moderno, que no existe
 		// en OpenGL ES 2.0. La sustituimos por texture2D() que es el equivalente ES.
 		// Solo si la cadena "texture(" aparece sin estar precedida de "2D", "Cube", etc.
-		// We use a simple approximation that covers 99% of real cases.
+		// Usamos una aproximación simple que cubre el 99% de los casos reales.
 		if (result.indexOf('texture(') >= 0)
 		{
 			result = result.split('texture(').join('texture2D(');
@@ -435,17 +435,17 @@ class FunkinRuntimeShader extends FlxRuntimeShader
 		return result;
 	}
 
-	/** Detects the minimum appropriate GLSL version for the target. */
+	/** Detecta la versión GLSL mínima adecuada para el target. */
 	static inline function _autoGLSLVersion():Int
 	{
 		#if (mobile || html5)
-		return 100; // OpenGL is 2.0 — maximum compat mobile/web
+		return 100; // OpenGL ES 2.0 — máxima compat mobile/web
 		#else
-		return 120; // OpenGL 2.1 — maximum compat desktop
+		return 120; // OpenGL 2.1 — máxima compat desktop
 		#end
 	}
 
-	/** Reemplaza the extension of a path of file. */
+	/** Reemplaza la extensión de una ruta de archivo. */
 	static inline function _swapExt(path:String, newExt:String):String
 	{
 		final dot = path.lastIndexOf('.');

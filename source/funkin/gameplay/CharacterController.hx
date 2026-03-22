@@ -10,38 +10,38 @@ using StringTools;
 /**
  * CharacterController — Gestiona todos los personajes de la partida.
  *
- * ── Mejoras respecto to the version previous ──────────────────────────────────
+ * ── Mejoras respecto a la versión anterior ──────────────────────────────────
  *
  *  BUG FIX 1  `initFromSlots` ya NO asume [0]=GF, [1]=DAD, [2]=BF.
  *             Las refs legacy (boyfriend / dad / gf) se resuelven buscando
  *             por `slot.charType`, por lo que funcionan aunque los personajes
- *             are in any position of the array.
+ *             estén en cualquier posición del array.
  *
  *  BUG FIX 2  `danceOnBeat` ya NO usa `slot.index == 0` para identificar GF.
  *             Usa `slot.isGFSlot` (que lee `charType` y el flag `isGF`).
  *
  *  BUG FIX 3  `sing()` legacy ya NO suprime altAnim para BF.
- *             The supresión silenciosa (`if (char == boyfriend) altAnim = ""`)
- *             hacía that cartas with -alt never is mostraran for the player.
+ *             La supresión silenciosa (`if (char == boyfriend) altAnim = ""`)
+ *             hacía que cartas con -alt nunca se mostraran para el jugador.
  *
  *  BUG FIX 4  `singByType()` nuevo: anima TODOS los chars de un tipo dado
- *             (useful when there is 2 oponentes activos to the vez).
+ *             (útil cuando hay 2 oponentes activos a la vez).
  *
  *  BUG FIX 5  `findPlayerIndex()` / `findOpponentIndex()` / `findGFIndex()`
- *             buscan by type, no by index hardcodeado. PlayState the use
+ *             buscan por tipo, no por índice hardcodeado. PlayState los usa
  *             en lugar de las constantes 2 / 1 / 0.
  *
  *  BUG FIX 6  `findByStrumsGroup(id)` devuelve el PRIMER slot vinculado a
  *             un StrumsGroup dado. Usado por PlayState para mapear notas CPU
- *             → character correct when there is multiple grupos CPU.
+ *             → personaje correcto cuando hay múltiples grupos CPU.
  *
  *  BUG FIX 7  `singGF(noteData)` — llama a `sing(..., forceSing:true)` en
  *             todos los slots GF. Llamado desde PlayState cuando gfSing=true.
  *
  *  BUG FIX 8  `updateLegacyAnimations` removida del path normal.
- *             The chars are add()-eados to the FlxState and Flixel already call its
- *             `update()` automatically. Ejecutar logic of idle here
- *             also causaba flickering. The bloque legacy only is active
+ *             Los chars están add()-eados al FlxState y Flixel ya llama su
+ *             `update()` automáticamente. Ejecutar lógica de idle aquí
+ *             también causaba flickering. El bloque legacy solo se activa
  *             cuando `characterSlots.length == 0` (modo 100% legacy).
  */
 class CharacterController
@@ -49,7 +49,7 @@ class CharacterController
 	// ── Array principal ───────────────────────────────────────────────────────
 	public var characterSlots:Array<CharacterSlot> = [];
 
-	// ── References legacy (for scripts and code old) ───────────────────
+	// ── Referencias legacy (para scripts y código antiguo) ───────────────────
 	public var boyfriend:Character;
 	public var dad:Character;
 	public var gf:Character;
@@ -69,7 +69,7 @@ class CharacterController
 
 	/**
 	 * Constructor legacy: acepta refs directas para compatibilidad con
-	 * code that creates CharacterController(bf, dad, gf) directly.
+	 * código que crea CharacterController(bf, dad, gf) directamente.
 	 */
 	public function new(?boyfriend:Character, ?dad:Character, ?gf:Character)
 	{
@@ -82,14 +82,14 @@ class CharacterController
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Initialization
+	// Inicialización
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
 	 * Inicializa el controlador desde un array de CharacterSlots ya creados.
-	 * Callr from PlayState.loadCharacters() after of create all the slots.
+	 * Llamar desde PlayState.loadCharacters() después de crear todos los slots.
 	 *
-	 * BUG FIX 1: The refs legacy is resuelven by type, no by index.
+	 * BUG FIX 1: Las refs legacy se resuelven por tipo, no por índice.
 	 */
 	public function initFromSlots(slots:Array<CharacterSlot>):Void
 	{
@@ -99,11 +99,11 @@ class CharacterController
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Search by type (BUG FIX 5, 6)
+	// Búsqueda por tipo (BUG FIX 5, 6)
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Returns the index of the PRIMER slot of type Player.
+	 * Devuelve el índice del PRIMER slot de tipo Player.
 	 * Retorna -1 si no hay ninguno.
 	 */
 	public function findPlayerIndex():Int
@@ -115,7 +115,7 @@ class CharacterController
 	}
 
 	/**
-	 * Returns the index of the PRIMER slot of type Opponent.
+	 * Devuelve el índice del PRIMER slot de tipo Opponent.
 	 * Retorna -1 si no hay ninguno.
 	 */
 	public function findOpponentIndex():Int
@@ -127,7 +127,7 @@ class CharacterController
 	}
 
 	/**
-	 * Returns the index of the PRIMER slot of type Girlfriend.
+	 * Devuelve el índice del PRIMER slot de tipo Girlfriend.
 	 * Retorna -1 si no hay ninguno.
 	 */
 	public function findGFIndex():Int
@@ -139,8 +139,8 @@ class CharacterController
 	}
 
 	/**
-	 * Returns all the indices of slots with the type indicado.
-	 * Useful when there is multiple characters of the same rol.
+	 * Devuelve todos los índices de slots con el tipo indicado.
+	 * Útil cuando hay múltiples personajes del mismo rol.
 	 */
 	public function findAllByType(type:String):Array<Int>
 	{
@@ -157,10 +157,10 @@ class CharacterController
 
 	/**
 	 * Devuelve el PRIMER slot vinculado a un StrumsGroup por su ID.
-	 * BUG FIX 6: Allows to PlayState saber what character animar for a
-	 * grupo CPU that no is the first (ej: cpu_strums_1 → character index 3).
+	 * BUG FIX 6: Permite a PlayState saber qué personaje animar para un
+	 * grupo CPU que no es el primero (ej: cpu_strums_1 → personaje índice 3).
 	 *
-	 * @return index of the slot, or -1 if no is encontró.
+	 * @return índice del slot, o -1 si no se encontró.
 	 */
 	public function findByStrumsGroup(strumsGroupId:String):Int
 	{
@@ -197,7 +197,7 @@ class CharacterController
 
 	/**
 	 * Hace cantar a TODOS los personajes de un tipo dado.
-	 * BUG FIX 4: Useful for charts with 2 opponents active simultáneos.
+	 * BUG FIX 4: Útil para charts con 2 oponentes activos simultáneos.
 	 *
 	 * Ejemplo: `singByType('Opponent', 2)` hace cantar a dad Y a un 2.º enemigo.
 	 */
@@ -209,7 +209,7 @@ class CharacterController
 
 	/**
 	 * Hace cantar a la GF forzando el guard (para secciones gfSing=true).
-	 * BUG FIX 7: Without this method, GF never recibía animations of canto.
+	 * BUG FIX 7: Sin este método, GF nunca recibía animaciones de canto.
 	 */
 	public function singGF(noteData:Int, ?altAnim:String = ''):Void
 	{
@@ -233,8 +233,8 @@ class CharacterController
 	/**
 	 * Hace cantar al personaje usando referencia directa (API legacy).
 	 *
-	 * BUG FIX 3: Already no suprime altAnim for the player. The supresión silenciosa
-	 * previous hacía that animations -alt never is mostraran for BF.
+	 * BUG FIX 3: Ya NO suprime altAnim para el jugador. La supresión silenciosa
+	 * anterior hacía que animaciones -alt nunca se mostraran para BF.
 	 */
 	public function sing(char:Character, noteData:Int, ?altAnim:String = ''):Void
 	{
@@ -274,7 +274,7 @@ class CharacterController
 	 * Dance en beat.
 	 *
 	 * BUG FIX 2: GF se identifica por `slot.isGFSlot`, no por `slot.index == 0`.
-	 * With the system previous, if GF estaba in index != 0, never bailaba to the ritmo
+	 * Con el sistema anterior, si GF estaba en índice != 0, nunca bailaba al ritmo
 	 * correcto (usaba gfSpeed solo cuando index==0).
 	 */
 	public function danceOnBeat(curBeat:Int):Void
@@ -305,15 +305,15 @@ class CharacterController
 	 * Update por frame.
 	 *
 	 * BUG FIX 8: El update de animaciones (hold timer → idle) lo gestiona
-	 * Character.update() internamente, porque Character is add()-eado to the
-	 * FlxState and Flixel it call only. Ejecutarlo here also causaba
+	 * Character.update() internamente, porque Character está add()-eado al
+	 * FlxState y Flixel lo llama solo. Ejecutarlo aquí también causaba
 	 * flickering entre animaciones de canto e idle.
 	 *
 	 * Solo se mantiene el bloque legacy para cuando no hay slots.
 	 */
 	public function update(elapsed:Float):Void
 	{
-		// Slots: slot.update() is empty by diseño (ver CharacterSlot.update)
+		// Slots: slot.update() está vacío por diseño (ver CharacterSlot.update)
 		for (slot in characterSlots)
 			if (slot != null && slot.isActive)
 				slot.update(elapsed);
@@ -327,7 +327,7 @@ class CharacterController
 	// Special anims
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/** Plays an animation especial en el personaje del slot `charIndex`. */
+	/** Reproduce una animación especial en el personaje del slot `charIndex`. */
 	public function playSpecialAnimByIndex(charIndex:Int, animName:String):Void
 	{
 		if (charIndex < 0 || charIndex >= characterSlots.length) return;
@@ -336,7 +336,7 @@ class CharacterController
 			slot.playSpecialAnim(animName);
 	}
 
-	/** Plays an animation especial usando ref directa (API legacy). */
+	/** Reproduce una animación especial usando ref directa (API legacy). */
 	public function playSpecialAnim(char:Character, animName:String):Void
 	{
 		if (char == null) return;
@@ -363,7 +363,7 @@ class CharacterController
 		return characterSlots[index];
 	}
 
-	/** Number total of slots. */
+	/** Número total de slots. */
 	public function getCharacterCount():Int return characterSlots.length;
 
 	/** Activa o desactiva un slot. */
@@ -378,7 +378,7 @@ class CharacterController
 	// Misc
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/** GF speed: each how many beats baila the GF. Default 1. */
+	/** GF speed: cada cuántos beats baila la GF. Default 1. */
 	public function setGFSpeed(speed:Int):Void gfSpeed = speed;
 
 	/** Fuerza idle a todos los personajes. */
@@ -415,7 +415,7 @@ class CharacterController
 
 	/**
 	 * Sincroniza las referencias legacy (boyfriend/dad/gf) buscando por tipo.
-	 * BUG FIX 1: already no asume indices fijos 0/1/2.
+	 * BUG FIX 1: ya no asume índices fijos 0/1/2.
 	 */
 	private function _syncLegacyRefs():Void
 	{

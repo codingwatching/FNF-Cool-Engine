@@ -45,7 +45,7 @@ using StringTools;
  *  ├──────────────────────────────────────────────────────────────────────────┤
  *  │ [Lista  │    camGame: preview EXACTO del StoryMenu        │ Panel tabs   │
  *  │ 220px   │    yellowBG + 3×MenuCharacter + tracksMenu      │ 340px        │
- *  │         │    viewport recortado = only that franja         │              │
+ *  │         │    viewport recortado = sólo esa franja         │              │
  *  ├─────────┴──────────────────────────────────────────────────┴─────────────┤
  *  │ [statusBar 26px]                                                         │
  *  └──────────────────────────────────────────────────────────────────────────┘
@@ -62,7 +62,7 @@ using StringTools;
  *    datos  → assets/data/storymenu/chars/<nombre>.json  (offsetX/Y, scale, flipX, anims)
  *
  *  Los offsets EDITABLES en el tab CHARS se suman encima de los del JSON,
- *  permitiendo ajustar the position without tocar the JSON of the character.
+ *  permitiendo ajustar la posición sin tocar el JSON del personaje.
  *  Se guardan en campos extendidos del WeekData (wceOffX, wceOffY, wceScale, wceFlip).
  *
  * ── Atajos ────────────────────────────────────────────────────────────────────
@@ -103,10 +103,10 @@ class StoryMenuEditor extends MusicBeatState
 	static inline var CHAR_Y       : Int = 126;   // 56 + 70
 	static inline var TRACKS_Y     : Int = 491;   // 56 + 435
 
-	// ── Cameras ──────────────────────────────────────────────────────────────
-	/** Single camera — all is renders here (no there is camGame separada). */
+	// ── Cámaras ──────────────────────────────────────────────────────────────
+	/** Única cámara — todo se renderiza aquí (no hay camGame separada). */
 	var camHUD  : FlxCamera;
-	/** X where empieza the area of preview. */
+	/** X donde empieza el área de preview. */
 	var _pvX    : Int = 0;
 	/** Escala para mapear coordenadas 1280→pvW. */
 	var _pvScale : Float = 1.0;
@@ -116,7 +116,7 @@ class StoryMenuEditor extends MusicBeatState
 	var _curWeek : Int  = 0;
 	var _dirty   : Bool = false;
 
-	// ── Elementos of the preview (idénticos to the StoryMenuState) ──────────────────
+	// ── Elementos del preview (idénticos al StoryMenuState) ──────────────────
 	var _blackBar   : FlxSprite;
 	var _yellowBG   : FlxSprite;
 	var _grpChars   : FlxTypedGroup<MenuCharacter>;
@@ -148,7 +148,7 @@ class StoryMenuEditor extends MusicBeatState
 	var _wOrder   : FlxUINumericStepper;
 	var _wSongIn  : FlxUIInputText;
 	var _wSongs   : Array<SongRow> = [];
-	/** Tab WEEK for poder add/quitar filas dynamically. */
+	/** Tab WEEK para poder añadir/quitar filas dinámicamente. */
 	var _weekTab  : FlxUI = null;
 	var _colPrev  : FlxSprite;
 
@@ -175,8 +175,8 @@ class StoryMenuEditor extends MusicBeatState
 
 		funkin.system.CursorManager.show();
 
-		// ── A sola camera for all ────────────────────────────────────────────
-		// Usar a single camHUD avoids the problemas of FlxUI with multiple cameras.
+		// ── Una sola cámara para todo ────────────────────────────────────────────
+		// Usar una única camHUD evita los problemas de FlxUI con múltiples cámaras.
 		// Los elementos del preview se posicionan y escalan manualmente.
 		var pvX = LIST_W + 1;
 		var pvW = FlxG.width - LIST_W - PANEL_W - 2;
@@ -267,19 +267,19 @@ class StoryMenuEditor extends MusicBeatState
 	}
 
 	// ============================================================
-	// PREVIEW — idéntico to the StoryMenuState
+	// PREVIEW — idéntico al StoryMenuState
 	// ============================================================
 
 	function _buildPreview():Void
 	{
-		// Preview background (area oscura behind of the StoryMenu simulado)
+		// Preview background (área oscura detrás del StoryMenu simulado)
 		var pvBg = new FlxSprite(_pvX, TOP_H);
 		pvBg.makeGraphic(FlxG.width - LIST_W - PANEL_W - 2, FlxG.height - TOP_H - BOT_H, 0xFF0A0A0A);
 		pvBg.scrollFactor.set();
 		add(pvBg);
 
 		// Todos los elementos del preview se posicionan con _pvX offset
-		// and is escalan with _pvScale for simular the StoryMenu inside of the area central.
+		// y se escalan con _pvScale para simular el StoryMenu dentro del área central.
 		var sc = _pvScale;
 		var ox = _pvX;
 
@@ -416,9 +416,9 @@ class StoryMenuEditor extends MusicBeatState
 		_buildTabWeek();
 		_buildTabChars();
 
-		// camHUD is the camera by default (FlxG.cameras.reset), no asignar explicitly
+		// camHUD es la cámara por defecto (FlxG.cameras.reset), no asignar explícitamente
 		add(_tabMenu);
-		_tabMenu.selected_tab_id = 'week'; // show the first pestaña
+		_tabMenu.selected_tab_id = 'week'; // mostrar la primera pestaña
 	}
 
 	// ── Tab WEEK ─────────────────────────────────────────────────────────────
@@ -443,7 +443,7 @@ class StoryMenuEditor extends MusicBeatState
 		lbl(y0 + sH,       "Nombre de la semana");
 		_wName = new FlxUIInputText(xL, y0 + sH + 13,      lW, '', 11); tab.add(_wName);
 
-		lbl(y0 + sH * 2,   "Path of the title (weekPath)");
+		lbl(y0 + sH * 2,   "Ruta del título (weekPath)");
 		_wPath = new FlxUIInputText(xL, y0 + sH * 2 + 13,  lW, '', 11); tab.add(_wPath);
 
 		lbl(y0 + sH * 3,   "Color (hex)");
@@ -463,7 +463,7 @@ class StoryMenuEditor extends MusicBeatState
 		_wOrder = new FlxUINumericStepper(xL + 165, y0 + sH * 4 + 6, 1, 0, 0, 99, 0);
 		tab.add(_wOrder);
 
-		// ── Section songs
+		// ── Sección canciones
 		var sepY = y0 + sH * 5 + 4;
 		var div  = new FlxSprite(xL, sepY);
 		div.makeGraphic(lW, 1, C_ACCENT);
@@ -596,7 +596,7 @@ class StoryMenuEditor extends MusicBeatState
 	}
 
 	// ============================================================
-	// logic — load / update week
+	// LÓGICA — cargar / actualizar week
 	// ============================================================
 
 	function _loadWeek(idx:Int, instant:Bool = false):Void
@@ -691,7 +691,7 @@ class StoryMenuEditor extends MusicBeatState
 			var mc = _grpChars.members[i];
 			if (mc == null) continue;
 
-			// Position scaled to the area of preview
+			// Posición escalada al área de preview
 			var bx = (FlxG.width * 0.25) * (1 + i) - 150;
 			mc.x   = _pvX + Std.int((bx + _editOffX[i]) * _pvScale);
 			mc.y   = TOP_H + Std.int((CHAR_Y + _editOffY[i]) * _pvScale);
@@ -741,7 +741,7 @@ class StoryMenuEditor extends MusicBeatState
 		Reflect.setField(w, 'wceFlip',  _editFlip.copy());
 	}
 
-	// ── Management of weeks ─────────────────────────────────────────────────────
+	// ── Gestión de weeks ─────────────────────────────────────────────────────
 
 	function _onNewWeek():Void
 	{

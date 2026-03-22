@@ -4,18 +4,18 @@ import flixel.system.FlxAssets.FlxShader;
 
 /**
  * NoteHoldShader — desvanece los bordes superior e inferior de cada pieza
- * of long note to hide the joints when segments are rotated.
+ * de nota larga para ocultar las juntas cuando los segmentos están rotados.
  *
- * ── Why this works ───────────────────────────────────────────────────
+ * ── Por qué esto funciona ───────────────────────────────────────────────────
  * Cada pieza de sustain es un sprite rectangular. Al rotar las piezas para
- * follow a curve (NightmareVision style), the corners of the rectangles
+ * seguir una curva (NightmareVision style), las esquinas de los rectángulos
  * se asoman en las juntas, creando seams visibles.
  *
- * Solution: desvanecer uFadeZone fracción of the altura in the top edge
+ * Solución: desvanecer uFadeZone fracción de la altura en el borde superior
  * e inferior de cada pieza. Como las piezas se solapan ligeramente (scale.y
- * compensado by 1/cos(angle)), the zona of fade of a piece always queda
+ * compensado por 1/cos(ángulo)), la zona de fade de una pieza siempre queda
  * cubierta por la zona opaca de la siguiente. El resultado es una cadena
- * visually continuous regardless of the deformation angle.
+ * visualmente continua sin importar el ángulo de deformación.
  *
  * ── Premultiplied alpha ────────────────────────────────────────────────────
  * OpenFL usa texturas con alpha premultiplicado (rgb = color × alpha).
@@ -26,17 +26,17 @@ import flixel.system.FlxAssets.FlxShader;
  *
  * ── Uso ───────────────────────────────────────────────────────────────────
  *   note.shader = new NoteHoldShader();
- *   // The fade by default (0.18) is suficiente for the majority of mods.
- *   // Aumentar if the angles are very extremos.
+ *   // El fade por defecto (0.18) es suficiente para la mayoría de mods.
+ *   // Aumentar si los ángulos son muy extremos.
  */
 class NoteHoldShader extends FlxShader
 {
 	@:glFragmentSource("
 		#pragma header
 
-		// Fracción of the altura UV to desvanecer in each extremo (0.0 - 0.5).
+		// Fracción de la altura UV a desvanecer en cada extremo (0.0 - 0.5).
 		// 0.18 = 18% del alto de la pieza → suficiente para ocultar seams a
-		// angles moderados. to angles very extremos is puede subir to 0.30.
+		// ángulos moderados. A ángulos muy extremos se puede subir a 0.30.
 		uniform float uFadeZone;
 
 		// 1.0 si este es un segmento TAIL (holdend) — no desvanecer el
@@ -45,14 +45,14 @@ class NoteHoldShader extends FlxShader
 		uniform float uIsTail;
 
 		// 1.0 si el sprite tiene flipY activo (downscroll).
-		// Necesario for saber what extremo is the 'libre' in espacio UV.
+		// Necesario para saber qué extremo es el 'libre' en espacio UV.
 		uniform float uFlipY;
 
 		void main()
 		{
 			vec4 base = flixel_texture2D(bitmap, openfl_TextureCoordv);
 
-			// Descartar pixels totalmente transparentes — optimization and avoids div/0
+			// Descartar píxeles totalmente transparentes — optimización y evita div/0
 			if (base.a <= 0.001)
 			{
 				gl_FragColor = vec4(0.0);
@@ -67,7 +67,7 @@ class NoteHoldShader extends FlxShader
 				// Borde A = extremo 'conectado' (une con la pieza anterior / el strum)
 				// Borde B = extremo 'libre'     (apunta hacia donde viene la nota)
 				//
-				// In upscroll (flipY=0): edge A is at y=0 (top UV), B at y=1
+				// En upscroll (flipY=0): borde A está en y=0 (top UV), B en y=1
 				// En downscroll (flipY=1): flipY invierte UVs → borde A en y=1, B en y=0
 				float borderA = (uFlipY < 0.5) ? y : (1.0 - y);
 				float borderB = 1.0 - borderA;

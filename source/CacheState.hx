@@ -31,9 +31,9 @@ class CacheState extends funkin.states.MusicBeatState
 
     override function create()
     {
-        // note: PathsCache.beginSession() is calldo automatically by the signal
-        // preStateSwitch in FunkinCache.init(). No callrlo here for avoid doble
-        // beginSession() that would cause assets from the previous state to be orphaned.
+        // NOTA: PathsCache.beginSession() es llamado automáticamente por la señal
+        // preStateSwitch en FunkinCache.init(). No llamarlo aquí para evitar doble
+        // beginSession() que causaría que los assets del state anterior queden huérfanos.
 
         funkin.system.CursorManager.hide();
 
@@ -44,8 +44,8 @@ class CacheState extends funkin.states.MusicBeatState
 
         // FIX: 'FPSCap' es un campo obsoleto — el engine ya usa 'fpsTarget'.
         // CacheState no debe sobreescribir el framerate que Main.initializeFramerate()
-        // configured correctly (60fps on Android, 120fps on desktop).
-        // The previous block set 240fps by default when FPSCap was null.
+        // configuró correctamente (60fps en Android, 120fps en desktop).
+        // El bloque anterior ponía 240fps por defecto cuando FPSCap era null.
 
         // ── UI ─────────────────────────────────────────────────────────────
         var barBG:FlxSprite = new FlxSprite(0, 500).makeGraphic(FlxG.width - 100, 40, 0xFF333333);
@@ -65,7 +65,7 @@ class CacheState extends funkin.states.MusicBeatState
         loadingPercentage.setFormat(Paths.font("Funkin.otf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         add(loadingPercentage);
 
-        // ── Minimal list of essential assets ──────────────────────────────
+        // ── Lista mínima de assets esenciales ──────────────────────────────
         buildEssentialList();
 
         totalAssets = assetsToCache.length;
@@ -74,11 +74,11 @@ class CacheState extends funkin.states.MusicBeatState
 
     /**
      * Solo cargamos lo que el juego necesita ANTES de llegar al TitleState.
-     * Everything else (stages, characters, songs) is loaded on-demand.
+     * Todo lo demás (stages, personajes, canciones) se carga on-demand.
      */
     function buildEssentialList():Void
     {
-        // Sounds of UI — is usan in all the menus
+        // Sonidos de UI — se usan en TODOS los menús
         final sounds:Array<String> = [
             "menus/confirmMenu", "menus/cancelMenu", "menus/scrollMenu",
             "intro3", "intro2", "intro1", "introGo",
@@ -87,7 +87,7 @@ class CacheState extends funkin.states.MusicBeatState
         for (s in sounds)
             assetsToCache.push({ type: SOUND, path: s });
 
-        // Images of UI esenciales
+        // Imágenes de UI esenciales
         final images:Array<String> = [
             "UI/alphabet",
             "soundtray/volumebox",
@@ -107,7 +107,7 @@ class CacheState extends funkin.states.MusicBeatState
 
         if (loadingComplete) return;
 
-        // Process until 8 assets by frame (list corta → termina fast)
+        // Procesar hasta 8 assets por frame (lista corta → termina rápido)
         var processed = 0;
         while (processed < 8 && currentAssetIndex < totalAssets)
         {
@@ -166,19 +166,19 @@ class CacheState extends funkin.states.MusicBeatState
 
     function goToTitle():Void
     {
-        // FIX (music to the minimizar): autoPause = false
+        // FIX (música al minimizar): autoPause = false
         FlxG.autoPause = false;
 
         // Aplicar FPS guardado
         funkin.data.EngineSettings.applyFPS();
 
-        // FIX (window small): force size 1080p
+        // FIX (ventana pequeña): forzar tamaño 1080p
         funkin.data.EngineSettings.ensureWindowSize();
 
         // ── Shaders ────────────────────────────────────────────────────────
         // init() lee FlxG.save.data.shadersEnabled, crea los shaders y se
         // engancha a postStateSwitch para re-aplicarse en cada estado
-        // automatically. Only necesitas this line — no more setup in otros states.
+        // automáticamente. Solo necesitas esta línea — no más setup en otros states.
         ShaderManager.init();
         ShaderManager.applyMenuPreset();
 

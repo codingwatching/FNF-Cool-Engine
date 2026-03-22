@@ -26,8 +26,8 @@ typedef ChartEvent =
 /**
  * Sidebar izquierdo para el sistema de eventos.
  *
- * v3 — New: double click on a pill opens EventStackPopup,
- * that muestra all the events in that step and allows editar/borrar/add.
+ * v3 — Nuevo: doble click sobre una píldora abre EventStackPopup,
+ * que muestra TODOS los eventos en ese step y permite editar/borrar/añadir.
  */
 class EventsSidebar extends FlxGroup
 {
@@ -70,7 +70,7 @@ class EventsSidebar extends FlxGroup
 	static inline var MAX_EVT_HIST:Int = 50;
 
 	static inline var SIDEBAR_WIDTH:Int = 130;
-	static inline var EVENT_H:Int       = 28;  // 2 lines of text
+	static inline var EVENT_H:Int       = 28;  // 2 líneas de texto
 	static inline var GRID_TOP:Int      = 118;
 
 	public function new(parent:ChartingState, song:SwagSong, camGame:FlxCamera, camHUD:FlxCamera, gridX:Float, gridY:Float)
@@ -153,7 +153,7 @@ class EventsSidebar extends FlxGroup
 
 		if (_song.events == null) return;
 
-		// FIX: rastrear how many events there is in each step for desplazarlos verticalmente
+		// FIX: rastrear cuántos eventos hay en cada step para desplazarlos verticalmente
 		// si se solapan. Mapa stepTime→stackIndex.
 		var stepStack:Map<String, Int> = new Map();
 
@@ -198,7 +198,7 @@ class EventsSidebar extends FlxGroup
 			con.cameras = [camHUD];
 			eventSprites.add(con);
 
-			// ── Type of the event (line 1) ──────────────────────────────────────
+			// ── Tipo del evento (línea 1) ──────────────────────────────────────
 			var typeStr = evt.type.length > 15 ? evt.type.substr(0, 13) + ".." : evt.type;
 			var typeLbl = new FlxText(gridX - SIDEBAR_WIDTH - 2, drawY + 2, SIDEBAR_WIDTH - 6, typeStr, 9);
 			typeLbl.setFormat(Paths.font("vcr.ttf"), 9, 0xFFFFFFFF, LEFT);
@@ -207,7 +207,7 @@ class EventsSidebar extends FlxGroup
 			typeLbl.cameras = [camHUD];
 			eventLabels.add(typeLbl);
 
-			// ── Value of the event (line 2, if there is espacio) ────────────────────
+			// ── Valor del evento (línea 2, si hay espacio) ────────────────────
 			if (evt.value != null && evt.value != "" && EVENT_H >= 24)
 			{
 				var maxValChars = Std.int((SIDEBAR_WIDTH - 8) / 5); // aprox 5px por char
@@ -221,7 +221,7 @@ class EventsSidebar extends FlxGroup
 		}
 	}
 
-	/** Oscurece a color mezclándolo with black. factor=0 → black, factor=1 → color original. */
+	/** Oscurece un color mezclándolo con negro. factor=0 → negro, factor=1 → color original. */
 	static function _darkenColor(color:Int, factor:Float):Int
 	{
 		var r = Std.int(((color >> 16) & 0xFF) * factor);
@@ -280,7 +280,7 @@ class EventsSidebar extends FlxGroup
 			return;
 		}
 
-		// ── Hover borde izq → button "+" ───────────────────────────────────────
+		// ── Hover borde izq → botón "+" ───────────────────────────────────────
 		var isHoveringBorder = (mx >= gridX - 20 && mx <= gridX && my >= GRID_TOP && my <= FlxG.height - 30);
 
 		if (isHoveringBorder)
@@ -327,7 +327,7 @@ class EventsSidebar extends FlxGroup
 			FlxTween.tween(addEventBtnText, {alpha: 0}, 0.10, {ease: FlxEase.quadIn, onComplete: function(_) { addEventBtnText.visible = false; }});
 		}
 
-		// ── Click izquierdo: register posible click over pill ─────────────
+		// ── Click izquierdo: registrar posible click sobre píldora ─────────────
 		if (FlxG.mouse.justPressed && !FlxG.mouse.overlaps(addEventBtn, camHUD))
 			_handlePillClick(mx, my);
 
@@ -355,7 +355,7 @@ class EventsSidebar extends FlxGroup
 	}
 
 	/**
-	 * Manages click over pill with detection of double click.
+	 * Gestiona click sobre píldora con detección de doble click.
 	 * - Primer click  → inicia drag normalmente.
 		 *   → cancela el drag y abre el EventStackPopup.
 	 */
@@ -455,7 +455,7 @@ class EventsSidebar extends FlxGroup
 
 	function _undoEvt():Void
 	{
-		if (_evtHistIdx <= 0) { parent.showMessage('No there is more acciones that deshacer', 0xFFFFAA00); return; }
+		if (_evtHistIdx <= 0) { parent.showMessage('No hay más acciones que deshacer', 0xFFFFAA00); return; }
 		_evtHistIdx--;
 		_song.events = haxe.Json.parse(_evtHistory[_evtHistIdx]);
 		refreshEvents();
@@ -482,7 +482,7 @@ class EventsSidebar extends FlxGroup
 		_song.events.push({ stepTime: stepTime, type: type, value: value });
 		_song.events.sort(function(a, b) return Std.int(a.stepTime - b.stepTime));
 		refreshEvents();
-		parent.showMessage('Event "${type}" added in step ${stepTime}', 0xFF00FF88);
+		parent.showMessage('Evento "${type}" añadido en step ${stepTime}', 0xFF00FF88);
 	}
 
 	public function removeEvent(evt:ChartEvent):Void
@@ -505,7 +505,7 @@ class EventsSidebar extends FlxGroup
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Popup of "pila of events" — is abre with double click over a pill.
+ * Popup de "pila de eventos" — se abre con doble click sobre una píldora.
  *
  * Muestra una tabla con TODOS los eventos del mismo step:
  *   ┌─────────────────────────────────────────┐
@@ -529,7 +529,7 @@ class EventStackPopup extends FlxGroup
 	public var isOpen:Bool = false;
 	var _step:Float = 0;
 
-	// Elementos static of the panel
+	// Elementos estáticos del panel
 	var _overlay:FlxSprite;
 	var _panel:FlxSprite;
 	var _title:FlxText;
@@ -539,7 +539,7 @@ class EventStackPopup extends FlxGroup
 	var _closeBtn:FlxSprite;
 	var _closeBtnTxt:FlxText;
 
-	// Filas dynamic (recreadas in each apertura)
+	// Filas dinámicas (recreadas en cada apertura)
 	var _rowGroup:FlxGroup;
 
 	// Hitboxes por fila: borrar (X) y editar (click en la fila)
@@ -650,14 +650,14 @@ class EventStackPopup extends FlxGroup
 		topBar.scrollFactor.set(); topBar.cameras = [camHUD];
 		_rowGroup.add(topBar);
 
-		// Title
+		// Título
 		var stepLabel = Std.int(_step);
 		_title = new FlxText(px + PAD, py + 7, PW - 50, 'Events at Step $stepLabel   (${events.length} event${events.length == 1 ? "" : "s"})', 13);
 		_title.setFormat(Paths.font("vcr.ttf"), 13, C_BORDER, LEFT);
 		_title.scrollFactor.set(); _title.cameras = [camHUD];
 		_rowGroup.add(_title);
 
-		// Button cerrar [×]
+		// Botón cerrar [×]
 		_closeBtn = new FlxSprite(px + PW - 28, py + 5).makeGraphic(22, 20, 0xFF331111);
 		_closeBtn.scrollFactor.set(); _closeBtn.cameras = [camHUD];
 		_rowGroup.add(_closeBtn);
@@ -717,7 +717,7 @@ class EventStackPopup extends FlxGroup
 			valTxt.scrollFactor.set(); valTxt.cameras = [camHUD];
 			_rowGroup.add(valTxt);
 
-			// Button borrar
+			// Botón borrar
 			var delW  = 28;
 			var delX  = px + PW - PAD - delW;
 			var delBg = new FlxSprite(delX, ry + 5).makeGraphic(delW, 18, C_DEL);
@@ -732,13 +732,13 @@ class EventStackPopup extends FlxGroup
 			// Hitbox de borrar
 			_deleteHitboxes.push({ spr: delBg, evt: evt });
 
-			// Hitbox of editar (all the fila excepto the button X)
+			// Hitbox de editar (toda la fila excepto el botón X)
 			_editHitboxes.push({ spr: rowBg, evt: evt });
 
 			ry += ROW_H;
 		}
 
-		// Mensaje empty if no there is events
+		// Mensaje vacío si no hay eventos
 		if (events.length == 0)
 		{
 			var emptyTxt = new FlxText(px + PAD, ry + 8, PW - PAD * 2, "No events at this step yet.", 10);
@@ -753,7 +753,7 @@ class EventStackPopup extends FlxGroup
 		sep.scrollFactor.set(); sep.cameras = [camHUD];
 		_rowGroup.add(sep);
 
-		// Button "+ Add Event at Step X"
+		// Botón "+ Add Event at Step X"
 		var addBg = new FlxSprite(px + PAD, ry + 8).makeGraphic(PW - PAD * 2, 26, C_ADD);
 		addBg.scrollFactor.set(); addBg.cameras = [camHUD];
 		_rowGroup.add(addBg);
@@ -763,7 +763,7 @@ class EventStackPopup extends FlxGroup
 		addTxt.scrollFactor.set(); addTxt.cameras = [camHUD];
 		_rowGroup.add(addTxt);
 
-		// Save referencia to the button add for hit-test
+		// Guardar referencia al botón add para hit-test
 		// Usamos _addBtn como sprite invisible de hitbox reutilizable
 		// (no FlxButton para evitar overhead de FlxUI)
 		if (_addBtn == null)
@@ -772,7 +772,7 @@ class EventStackPopup extends FlxGroup
 			_addBtn = new FlxButton(0, 0, "", function()
 			{
 				close();
-				// Small delay for that the popup cierre before of abrir EventPopup
+				// Pequeño delay para que el popup cierre antes de abrir EventPopup
 				new flixel.util.FlxTimer().start(0.05, function(_)
 					sidebar.eventPopup.openAtStep(_step)
 				);
@@ -804,14 +804,14 @@ class EventStackPopup extends FlxGroup
 
 		if (FlxG.mouse.justPressed)
 		{
-			// Button ×
+			// Botón ×
 			if (_closeBtn != null && _mouseOver(_closeBtn, mx, my))
 			{
 				close();
 				return;
 			}
 
-			// Button borrar (X) — tiene prioridad over editar
+			// Botón borrar (X) — tiene prioridad sobre editar
 			for (entry in _deleteHitboxes)
 			{
 				if (_mouseOver(entry.spr, mx, my))
@@ -893,7 +893,7 @@ class EventPopup extends FlxGroup
 
 	public var isOpen:Bool = false;
 	var targetStep:Float   = 0;
-	/** Event that is is editando (null = add new). */
+	/** Evento que se está editando (null = añadir nuevo). */
 	var _editingEvt:ChartEvent = null;
 
 	var overlay:FlxSprite;
@@ -1078,7 +1078,7 @@ class EventPopup extends FlxGroup
 		if (_selectedType == "" || _selectedType == "(no events)") return;
 		if (_editingEvt != null)
 		{
-			// Modo edition: if the type changed, borrar the old and add the new
+			// Modo edición: si el tipo cambió, borrar el viejo y añadir el nuevo
 			if (_editingEvt.type != _selectedType)
 				sidebar.removeEvent(_editingEvt);
 			_editingEvt = null;
@@ -1115,7 +1115,7 @@ class EventPopup extends FlxGroup
 
 	/**
 	 * Abre el popup pre-rellenado con los datos de un evento existente para editarlo.
-	 * To the save: if the type changed is borra the old; if no, updates the value.
+	 * Al guardar: si el tipo cambió se borra el viejo; si no, actualiza el valor.
 	 */
 	public function openForEdit(evt:ChartEvent):Void
 	{

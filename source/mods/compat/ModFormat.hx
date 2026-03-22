@@ -187,7 +187,7 @@ class ModFormatDetector
 				if (generatedBy.contains('friday night funkin'))
 					return VSLICE_ENGINE;
 
-				// Check version semver in root (ej: "2.0.0", "2.2.0")
+				// Comprobar versión semver en raíz (ej: "2.0.0", "2.2.0")
 				final versionStr:String = Std.string(root.version ?? '');
 				if (_isSemverChartVersion(versionStr))
 					return VSLICE_ENGINE;
@@ -205,7 +205,7 @@ class ModFormatDetector
 					}
 				}
 
-				// If no V-Slice signal, it's Codename
+				// Si ninguna señal V-Slice, es Codename
 				return CODENAME_ENGINE;
 			}
 
@@ -219,12 +219,12 @@ class ModFormatDetector
 					// sectionBeats es un campo exclusivo de Psych
 					if (firstSec.sectionBeats != null)
 						return PSYCH_ENGINE;
-					// mustHitSection without bpm at root level → also Psych
+					// mustHitSection sin bpm a nivel raíz → también Psych
 					if (firstSec.mustHitSection != null && root.bpm == null)
 						return PSYCH_ENGINE;
 				}
 			}
-			// player1 without bpm to root → Psych plano (Cool nativo always tiene bpm)
+			// player1 sin bpm a raíz → Psych plano (Cool nativo siempre tiene bpm)
 			if (root.player1 != null && root.bpm == null && root.events == null)
 				return PSYCH_ENGINE;
 		}
@@ -329,7 +329,7 @@ class ModFormatDetector
 					|| Reflect.hasField(root, 'hide_girlfriend')
 					|| Reflect.hasField(root, 'camera_boyfriend');
 
-				// If it has Psych-characteristic fields → Psych
+				// Si tiene campos característicos de Psych → Psych
 				if (hasPsychFields)
 					return PSYCH_ENGINE;
 
@@ -337,7 +337,7 @@ class ModFormatDetector
 				if (Reflect.hasField(root, 'characters'))
 					return CODENAME_ENGINE;
 
-				// objects only, without more context → assume Psych (most common in mods)
+				// objects solo, sin más contexto → asumir Psych (más común en mods)
 				return PSYCH_ENGINE;
 			}
 
@@ -369,7 +369,7 @@ class ModFormatDetector
 	}
 
 	/**
-	 * Returns true if the cadena parece a version semver of chart V-Slice.
+	 * Devuelve true si la cadena parece una versión semver de chart V-Slice.
 	 * Ejemplo: "2.0.0", "2.1.0", "2.2.0"  → true
 	 */
 	static function _isSemverChartVersion(v:String):Bool

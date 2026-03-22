@@ -12,16 +12,16 @@ using StringTools;
 /**
  * AddonManager — Gestor de addons del engine.
  *
- * ─── What is an addon vs a mod ───────────────────────────────────────────────
+ * ─── Qué es un addon vs un mod ───────────────────────────────────────────────
  *
- *  mod:    adds contenido (songs, characters, stages, skins, scripts).
+ *  MOD:    añade contenido (canciones, personajes, stages, skins, scripts).
  *          Vive en mods/<id>/. No puede cambiar el comportamiento del engine.
  *
  *  ADDON:  extiende el engine mismo. Puede:
  *          • Registrar nuevos sistemas accesibles desde scripts de mods.
  *          • Interceptar hooks del gameplay (onNoteHit, onBeat, onUpdate…).
  *          • Exponer nuevas APIs al ScriptAPI de HScript.
- *          • Change mechanics of game globales.
+ *          • Cambiar mecánicas de juego globales.
  *          • Ser activados/desactivados independientemente de los mods.
  *
  *  Vive en addons/<id>/addon.json.
@@ -30,7 +30,7 @@ using StringTools;
  *
  *   addons/
  *   └── my-addon/
- *       ├── addon.json        ← metadatos and declaration of hooks/systems
+ *       ├── addon.json        ← metadatos y declaración de hooks/sistemas
  *       ├── scripts/
  *       │   ├── onNoteHit.hx  ← script llamado en cada nota acertada
  *       │   ├── onMissNote.hx
@@ -68,7 +68,7 @@ class AddonManager
 	/** Sistemas registrados por los addons. Clave = id de sistema. */
 	public static var registeredSystems(default, null):Map<String, Dynamic> = new Map();
 
-	/** If init() already is ejecutó. */
+	/** Si init() ya se ejecutó. */
 	public static var initialized(default, null):Bool = false;
 
 	// ── Init ───────────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ class AddonManager
 	 *
 	 * @param hookName   nombre del hook ("onNoteHit", "onBeat", etc.)
 	 * @param args       argumentos a pasar al script
-	 * @return           primer value no-null returned by some addon, or null
+	 * @return           primer valor no-null retornado por algún addon, o null
 	 */
 	public static function callHook(hookName:String, args:Array<Dynamic> = null):Dynamic
 	{
@@ -146,8 +146,8 @@ class AddonManager
 	}
 
 	/**
-	 * Version "broadcast": call the hook in all the addons without early-exit.
-	 * Useful for hooks where multiple addons deben responder (onUpdate, onBeat).
+	 * Versión "broadcast": llama el hook en todos los addons sin early-exit.
+	 * Útil para hooks donde múltiples addons deben responder (onUpdate, onBeat).
 	 */
 	public static function broadcastHook(hookName:String, args:Array<Dynamic> = null):Void
 	{
@@ -161,7 +161,7 @@ class AddonManager
 	/**
 	 * Registra un sistema bajo un ID.
 	 * Los addons llaman esto desde su script exposeAPI.hx para
-	 * poner to disposición of mods new classes/functions/states.
+	 * poner a disposición de mods nuevas clases/funciones/estados.
 	 *
 	 *   // En exposeAPI.hx de un addon:
 	 *   AddonManager.registerSystem('my3dSystem', {
@@ -181,14 +181,14 @@ class AddonManager
 	public static inline function getSystem(id:String):Dynamic
 		return registeredSystems.get(id);
 
-	/** Is available the system `id`? */
+	/** ¿Está disponible el sistema `id`? */
 	public static inline function hasSystem(id:String):Bool
 		return registeredSystems.exists(id);
 
 	// ── Exponer API a HScript ──────────────────────────────────────────────
 
 	/**
-	 * Expone AddonManager and all the systems registered to the interpreter
+	 * Expone AddonManager y todos los sistemas registrados al intérprete
 	 * HScript. Llamar desde ScriptAPI.expose(interp).
 	 */
 	#if HSCRIPT_ALLOWED

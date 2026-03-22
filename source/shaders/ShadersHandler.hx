@@ -105,8 +105,8 @@ class ShadersHandler
 
 	/**
 	 * Escribe en un ShaderParameter de forma segura.
-	 * ShaderData.__get lanza "Invalid field:X" if the uniform no is registered
-	 * still → the try-catch of Reflect.field is separated of the of .value.
+	 * ShaderData.__get lanza "Invalid field:X" si el uniform no está registrado
+	 * todavía → el try-catch de Reflect.field está SEPARADO del de .value.
 	 */
 	static function _safeSet(data:Dynamic, paramName:String, val:Array<Dynamic>):Void
 	{

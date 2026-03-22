@@ -22,7 +22,7 @@ import lime.ui.FileDialog;
 using StringTools;
 
 /**
- * Editor visual of dialogues with system of skins
+ * Editor visual de diálogos con sistema de skins
  */
 class DialogueEditor extends FlxState
 {
@@ -38,7 +38,7 @@ class DialogueEditor extends FlxState
 	var boxList:FlxTypedGroup<FlxText>;
 	var boxButtons:FlxTypedGroup<FlxButton>;
 
-	// === LABELS and TÍTULOS (for hide/show) ===
+	// === LABELS Y TÍTULOS (para ocultar/mostrar) ===
 	// Conversation tab
 	var convPanelTitle:FlxText;
 	var convNameLabel:FlxText;
@@ -96,7 +96,7 @@ class DialogueEditor extends FlxState
 	var portraitsGroup:FlxSpriteGroup;
 	var boxesGroup:FlxSpriteGroup;
 
-	// === INPUTS (Conversation) ===
+	// === INPUTS (Conversación) ===
 	var conversationNameInput:FlxInputText;
 	var skinNameDisplay:FlxText;
 	var characterText:FlxInputText;
@@ -192,10 +192,10 @@ class DialogueEditor extends FlxState
 		createBoxesTab();
 		createInstructions();
 
-		// Show pestaña inicial
+		// Mostrar pestaña inicial
 		switchTab(CONVERSATION);
 
-		// ✨ Button of tema (esquina superior derecha)
+		// ✨ Botón de tema (esquina superior derecha)
 		var _themeBtn = new flixel.ui.FlxButton(FlxG.width - 80, 4, "\u2728 Theme", function()
 		{
 			openSubState(new funkin.debug.themes.ThemePickerSubState());
@@ -232,7 +232,7 @@ class DialogueEditor extends FlxState
 			currentSkin = DialogueData.loadSkin(currentSkinName);
 		}
 
-		// Initialize conversation empty
+		// Inicializar conversación vacía
 		conversation = DialogueData.createEmptyConversation("new_dialogue", currentSkinName);
 	}
 
@@ -429,7 +429,7 @@ class DialogueEditor extends FlxState
 	// ========================================
 
 	/**
-	 * Create tab of conversation
+	 * Crear tab de conversación
 	 */
 	function createConversationTab():Void
 	{
@@ -443,7 +443,7 @@ class DialogueEditor extends FlxState
 		add(convPanelTitle);
 		startY += 30;
 
-		// Name conversation
+		// Nombre conversación
 		convNameLabel = new FlxText(leftX, startY, PANEL_WIDTH, "Conversation Name:", 14);
 		add(convNameLabel);
 		startY += 18;
@@ -604,7 +604,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Show tab of conversation
+	 * Mostrar tab de conversación
 	 */
 	function showConversationTab():Void
 	{
@@ -669,7 +669,7 @@ class DialogueEditor extends FlxState
 		createSkinBtn.label.color = FlxColor.BLACK;
 		add(createSkinBtn);
 
-		// === PANEL DERECHO: configuration of SKIN ===
+		// === PANEL DERECHO: CONFIGURACIÓN DE SKIN ===
 		startY = 100;
 		var rightX = PANEL_WIDTH + PADDING * 2;
 		var rightWidth = FlxG.width - rightX - PADDING;
@@ -852,7 +852,7 @@ class DialogueEditor extends FlxState
 		addPortraitBtn.label.color = FlxColor.BLACK;
 		add(addPortraitBtn);
 
-		// === PANEL DERECHO: configuration of PORTRAIT ===
+		// === PANEL DERECHO: CONFIGURACIÓN DE PORTRAIT ===
 		startY = 100;
 		var rightX = PANEL_WIDTH + PADDING * 2;
 		var rightWidth = FlxG.width - rightX - PADDING;
@@ -979,7 +979,7 @@ class DialogueEditor extends FlxState
 		addBoxBtn.label.color = FlxColor.BLACK;
 		add(addBoxBtn);
 
-		// === PANEL DERECHO: configuration of BOX ===
+		// === PANEL DERECHO: CONFIGURACIÓN DE BOX ===
 		startY = 100;
 		var rightX = PANEL_WIDTH + PADDING * 2;
 		var rightWidth = FlxG.width - rightX - PADDING;
@@ -1073,7 +1073,7 @@ class DialogueEditor extends FlxState
 	}
 
 	// ========================================
-	// functions of conversation
+	// FUNCIONES DE CONVERSACIÓN
 	// ========================================
 
 	/**
@@ -1210,7 +1210,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Save conversation
+	 * Guardar conversación
 	 */
 	function saveConversation():Void
 	{
@@ -1228,7 +1228,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Load conversation
+	 * Cargar conversación
 	 */
 	function loadConversation():Void
 	{
@@ -1256,7 +1256,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Probar dialogue
+	 * Probar diálogo
 	 */
 	function testDialogue():Void
 	{
@@ -1264,7 +1264,7 @@ class DialogueEditor extends FlxState
 		conversation.name = conversationNameInput.text;
 		conversation.skinName = currentSkinName;
 
-		// Save skin and conversation
+		// Guardar skin y conversación
 		DialogueData.saveSkin(currentSkinName, currentSkin);
 		DialogueData.saveConversation(PlayState.SONG.song, conversation);
 
@@ -1371,7 +1371,7 @@ class DialogueEditor extends FlxState
 		if (currentSkin == null)
 			return;
 
-		// Update configuration from inputs
+		// Actualizar configuración desde inputs
 		currentSkin.name = skinNameInput.text;
 		currentSkin.style = styleText.text;
 		currentSkin.backgroundColor = bgColorText.text;
@@ -1517,7 +1517,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Agregar configuration of portrait
+	 * Agregar configuración de portrait
 	 */
 	function addPortraitConfig():Void
 	{
@@ -1531,7 +1531,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Update configuration of portrait
+	 * Actualizar configuración de portrait
 	 */
 	function updatePortraitConfig():Void
 	{
@@ -1548,7 +1548,7 @@ class DialogueEditor extends FlxState
 		config.scaleY = Std.parseFloat(portraitScaleYInput.text);
 		config.animation = portraitAnimInput.text;
 
-		// If changed the name, update key in the Map
+		// Si cambió el nombre, actualizar key en el Map
 		var newName = portraitConfigNameInput.text;
 		if (newName != selectedPortraitName)
 		{
@@ -1563,7 +1563,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Remove configuration of portrait
+	 * Eliminar configuración de portrait
 	 */
 	function removePortraitConfig():Void
 	{
@@ -1682,7 +1682,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Agregar configuration of box
+	 * Agregar configuración de box
 	 */
 	function addBoxConfig():Void
 	{
@@ -1696,7 +1696,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Update configuration of box
+	 * Actualizar configuración de box
 	 */
 	function updateBoxConfig():Void
 	{
@@ -1713,7 +1713,7 @@ class DialogueEditor extends FlxState
 		config.scaleY = Std.parseFloat(boxScaleYInput.text);
 		config.animation = boxAnimInput.text;
 
-		// If changed the name, update key in the Map
+		// Si cambió el nombre, actualizar key en el Map
 		var newName = boxConfigNameInput.text;
 		if (newName != selectedBoxName)
 		{
@@ -1728,7 +1728,7 @@ class DialogueEditor extends FlxState
 	}
 
 	/**
-	 * Remove configuration of box
+	 * Eliminar configuración de box
 	 */
 	function removeBoxConfig():Void
 	{

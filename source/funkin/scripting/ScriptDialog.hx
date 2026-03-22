@@ -10,43 +10,43 @@ import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 
 /**
- * ScriptDialog — dialogue of text accesible from scripts Lua and HScript.
+ * ScriptDialog — diálogo de texto accesible desde scripts Lua y HScript.
  *
  * ─── Uso desde Lua ────────────────────────────────────────────────────────────
  *
- *   -- Notification fast
- *   notif("Level completado!", 3.0)
+ *   -- Notificación rápida
+ *   notif("¡Nivel completado!", 3.0)
  *
- *   -- Dialogue with a only mensaje
- *   local d = quickDialog("Character", "Hello! Soy a character.", 4.0, "onDialogDone")
+ *   -- Diálogo con un solo mensaje
+ *   local d = quickDialog("Personaje", "¡Hola! Soy un personaje.", 4.0, "onDialogDone")
  *
- *   -- Secuencia of dialogues
+ *   -- Secuencia de diálogos
  *   dialogSequence(
- *     { {speaker="BF", text="Oye!"}, {speaker="GF", text="What pasa?"} },
+ *     { {speaker="BF", text="¡Oye!"}, {speaker="GF", text="¿Qué pasa?"} },
  *     "onDialogDone"
  *   )
  *
  *   function onDialogDone()
- *     log("Dialogue terminado")
+ *     log("Diálogo terminado")
  *   end
  *
  * ─── Uso desde HScript ────────────────────────────────────────────────────────
  *
- *   var d = ScriptDialog.quick("BF", "Hola mundo!", 3.0);
+ *   var d = ScriptDialog.quick("BF", "¡Hola mundo!", 3.0);
  *   d.onFinish = function() { trace("Hecho"); };
  *   var d2 = ScriptDialog.sequence([
- *     { speaker: "BF", text: "Line 1" },
- *     { speaker: "GF", text: "Line 2" }
+ *     { speaker: "BF", text: "Línea 1" },
+ *     { speaker: "GF", text: "Línea 2" }
  *   ], function() { trace("Secuencia completa"); });
  */
 class ScriptDialog extends FlxSprite
 {
-	// ── Configuration ─────────────────────────────────────────────────────────
+	// ── Configuración ─────────────────────────────────────────────────────────
 
-	/** Callback calldo to the terminar or cerrar the dialogue. */
+	/** Callback llamado al terminar o cerrar el diálogo. */
 	public var onFinish:Null<Void->Void> = null;
 
-	/** If the jugador puede saltar lines with ENTER/SPACE. */
+	/** Si el jugador puede saltar líneas con ENTER/SPACE. */
 	public var allowSkipLine:Bool = true;
 
 	// ── Estado ────────────────────────────────────────────────────────────────
@@ -94,13 +94,13 @@ class ScriptDialog extends FlxSprite
 		scrollFactor.set(0, 0);
 	}
 
-	// ── API static ──────────────────────────────────────────────────────────
+	// ── API estática ──────────────────────────────────────────────────────────
 
 	/**
-	 * Creates a dialogue of a sola line and it adds to the state current.
-	 * @param speaker  Nombre of the hablante (empty = only mensaje).
+	 * Crea un diálogo de una sola línea y lo añade al estado actual.
+	 * @param speaker  Nombre del hablante (vacío = solo mensaje).
 	 * @param text     Texto del mensaje.
-	 * @param duration Segundos before of cerrar automatically (0 = without cierre auto).
+	 * @param duration Segundos antes de cerrar automáticamente (0 = sin cierre auto).
 	 * @param onDone   Callback al cerrar.
 	 */
 	public static function quick(speaker:String, text:String,
@@ -114,7 +114,7 @@ class ScriptDialog extends FlxSprite
 	}
 
 	/**
-	 * Creates a secuencia of dialogues and the adds to the state current.
+	 * Crea una secuencia de diálogos y la añade al estado actual.
 	 * @param lines   Array de { speaker, text } o { speaker, text, duration }.
 	 * @param onDone  Callback al terminar toda la secuencia.
 	 */
@@ -130,13 +130,13 @@ class ScriptDialog extends FlxSprite
 
 	// ── API de instancia ──────────────────────────────────────────────────────
 
-	/** Adds a line to the cola of dialogue. */
+	/** Añade una línea a la cola de diálogo. */
 	public function addLine(speaker:String, text:String, autoAdvance:Float = 0.0):Void
 	{
 		_lines.push({ speaker: speaker, text: text, autoAdvance: autoAdvance });
 	}
 
-	/** Cierra the dialogue inmediatamente. */
+	/** Cierra el diálogo inmediatamente. */
 	public function close():Void
 	{
 		if (_finished) return;
@@ -146,7 +146,7 @@ class ScriptDialog extends FlxSprite
 		if (onFinish != null) { var cb = onFinish; onFinish = null; try cb() catch (_) {}; }
 	}
 
-	/** Avanza to the next line. */
+	/** Avanza a la siguiente línea. */
 	public function advance():Void
 	{
 		if (_finished) return;

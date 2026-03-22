@@ -47,13 +47,13 @@ class NoteManager
 	// Datos crudos — solo primitivas, cero FlxSprites hasta spawnNotes()
 	private var unspawnNotes:Array<NoteRawData> = [];
 	private var _unspawnIdx:Int = 0;
-	// BUGFIX: trackeado by direction for avoid cross-chain in holds simultáneos
+	// BUGFIX: trackeado por dirección para evitar cross-chain en holds simultáneos
 	private var _prevSpawnedNote:Map<Int, Note> = new Map();
 
-	/** Calcula the key of the mapa _prevSpawnedNote combinando direction and grupo of strums.
-	 *  noteData 0-3, strumsGroupIndex 0-N → key single by grupo of strums.
+	/** Calcula la clave del mapa _prevSpawnedNote combinando dirección y grupo de strums.
+	 *  noteData 0-3, strumsGroupIndex 0-N → clave única por grupo de strums.
 	 *  Necesario para que notas de distintos personajes/grupos en la misma
-	 *  direction no compartan entry and corrompan the cadena prevNote of the sustains. */
+	 *  dirección no compartan entrada y corrompan la cadena prevNote de los sustains. */
 	private inline function _prevNoteKey(noteData:Int, strumsGroupIndex:Int):Int
 		return noteData + strumsGroupIndex * 4;
 
@@ -64,7 +64,7 @@ class NoteManager
 	private var cpuStrumsGroup:StrumsGroup;
 	private var allStrumsGroups:Array<StrumsGroup>;
 
-	// optimization: Cache of strums by direction — avoids forEach or(n) by note by frame.
+	// OPTIMIZACIÓN: Caché de strums por dirección — evita forEach O(n) por nota por frame.
 	// Antes: 20 notas × 1 forEach × 4 iteraciones = 80 iteraciones+closures/frame.
 	// Ahora: lookup O(1) directo en el Map.
 	private var _playerStrumCache:Map<Int, FlxSprite> = [];
@@ -83,7 +83,7 @@ class NoteManager
 
 	/**
 	 * Referencia al ModChartManager activo (si hay modchart cargado).
-	 * PlayState the asigna in create() after of create the ModChartManager.
+	 * PlayState la asigna en create() después de crear el ModChartManager.
 	 * NoteManager la usa en updateNotePosition() para aplicar modificadores per-nota.
 	 */
 	public var modManager:Null<ModChartManager> = null;
@@ -91,18 +91,18 @@ class NoteManager
 	private static inline var CULL_DISTANCE:Float = 2000;
 
 	private var _scrollSpeed:Float = 0.45;
-	/** Last value of _scrollSpeed with the that is calcularon the sustainBaseScaleY.
+	/** Último valor de _scrollSpeed con el que se calcularon los sustainBaseScaleY.
 	 *  Si cambia (modchart o evento de velocidad), recalculamos todos los sustains activos. */
 	private var _lastSustainSpeed:Float = -1.0;
 
 
 	// === SAVE.DATA CACHE (evita acceso Dynamic en hot loop) ===
-	// Is actualizan in generateNotes() and when changes the configuration.
+	// Se actualizan en generateNotes() y cuando cambia la configuración.
 	private var _cachedNoteSplashes:Bool = false;
 
 	private var _cachedMiddlescroll:Bool = false;
 
-	/** Updates the cache of options of the jugador. Callr if the jugador changes config. */
+	/** Actualiza el caché de opciones del jugador. Llamar si el jugador cambia config. */
 	public function refreshSaveDataCache():Void {
 		_cachedNoteSplashes  = FlxG.save.data.notesplashes == true;
 		_cachedMiddlescroll  = FlxG.save.data.middlescroll == true;
@@ -117,20 +117,20 @@ class NoteManager
 	private var heldNotes:Map<Int, Note> = new Map();
 	private var holdStartTimes:Map<Int, Float> = new Map();
 	/**
-	 * Time exacto in that termina each hold by direction.
+	 * Tiempo exacto en que termina cada hold por dirección.
 	 * Calculado al golpear el head note: headNote.strumTime + headNote.sustainLength.
 	 * Comparar con songPosition cada frame para disparar playEnd() puntualmente.
 	 */
 	private var holdEndTimes:Map<Int, Float> = new Map();
-	/** Same for CPU (by direction 0-3). */
+	/** Mismo para CPU (por dirección 0-3). */
 	private var cpuHoldEndTimes:Array<Float> = [-1, -1, -1, -1];
 
-	/** strumsGroupIndex of the hold cover active of the CPU by direction. */
+	/** strumsGroupIndex del hold cover activo del CPU por dirección. */
 	private var _cpuHoldGroupIdx:Array<Int> = [0, 0, 0, 0];
 
 	/**
 	 * Estado de teclas presionadas — actualizado desde PlayState cada frame
-	 * (inputHandler.held[0..3]).  Usado for distinguir if a sustain is
+	 * (inputHandler.held[0..3]).  Usado para distinguir si un sustain está
 	 * siendo mantenido o fue soltado antes de tiempo.
 	 */
 	public var playerHeld:Array<Bool> = [false, false, false, false];
@@ -138,8 +138,8 @@ class NoteManager
 	/**
 	 * Direcciones (0-3) cuyos sustains ya contaron un miss este ciclo.
 	 * OPTIMIZADO: Bool[4] en lugar de Map<Int,Bool> — elimina allocs de Map.clear()
-	 * that ocurrían 60 veces/seg. Map.clear() in Haxe/C++ resetea the hashmap internal
-	 * and puede do pequeñas allocations. Array fijo is or(1) set and or(1) clear.
+	 * que ocurrían 60 veces/seg. Map.clear() en Haxe/C++ resetea el hashmap interno
+	 * y puede hacer pequeñas allocations. Array fijo es O(1) set y O(1) clear.
 	 */
 	private var _missedHoldDir:Array<Bool> = [false, false, false, false];
 
@@ -147,16 +147,16 @@ class NoteManager
 	private var _autoReleaseBuffer:Array<Int> = [];
 
 	/**
-	 * Tracking of what directions is "manteniendo" the CPU (for hold covers).
+	 * Tracking de qué direcciones está "manteniendo" el CPU (para hold covers).
 	 * OPTIMIZADO: Bool[4] en lugar de Map<Int,Bool> — mismo razonamiento que _missedHoldDir.
 	 */
 	private var _cpuHeldDirs:Array<Bool> = [false, false, false, false];
 
 	/**
-	 * Set of NoteHoldCovers already added to the grupo holdCovers.
+	 * Set de NoteHoldCovers ya añadidos al grupo holdCovers.
 	 * OPTIMIZADO: reemplaza holdCovers.members.indexOf(cover) O(n) con lookup O(1).
 	 * indexOf se llamaba en cada nota de hold activa (cada frame CPU hit) — con
-	 * songs densas this is sum rápidamente.
+	 * canciones densas esto se suma rápidamente.
 	 */
 	private var _holdCoverSet:haxe.ds.ObjectMap<NoteHoldCover, Bool> = new haxe.ds.ObjectMap();
 
@@ -182,8 +182,8 @@ class NoteManager
 	}
 
 	/**
-	 * Reconstruye the cache of strums by direction.
-	 * Callr after of cualquier cambio in the grupos of strums.
+	 * Reconstruye el caché de strums por dirección.
+	 * Llamar después de cualquier cambio en los grupos de strums.
 	 */
 	public function _rebuildStrumCache():Void
 	{
@@ -210,7 +210,7 @@ class NoteManager
 				if (grp == null)
 					continue;
 				var map:Map<Int, FlxSprite> = [];
-				// StrumsGroup has getStrum(dir) — we iterate the 4 standard directions
+				// StrumsGroup tiene getStrum(dir) — iteramos las 4 direcciones estándar
 				for (dir in 0...4)
 				{
 					var s = grp.getStrum(dir);
@@ -238,7 +238,7 @@ class NoteManager
 
 		// ── v2: pre-calcular capacidad total para evitar resizes del array ────
 		// Cada push() que supera la capacidad interna copia el array completo.
-		// In songs with 800+ notes this causaba ~12 copias during the generación.
+		// En canciones con 800+ notas esto causaba ~12 copias durante la generación.
 		var noteCount:Int = 0;
 		for (section in SONG.notes)
 			for (songNotes in section.sectionNotes)
@@ -331,7 +331,7 @@ class NoteManager
 	 * Libera holds cuyas piezas de sustain ya se consumieron.
 	 * IMPORTANTE: revisa tanto notes.members (spawneadas) como unspawnNotes
 	 * (futuras). Sin el check de unspawnNotes, holds largos se liberaban
-	 * prematuramente porque the pieces futuras still no estaban in the grupo.
+	 * prematuramente porque las piezas futuras aún no estaban en el grupo.
 	 */
 	/**
 	 * Libera holds cuyo tiempo de fin (strumTime + sustainLength del head note)
@@ -351,7 +351,7 @@ class NoteManager
 			_autoReleaseBuffer.resize(0);
 			for (dir in heldNotes.keys())
 			{
-				// Usar holdEndTime if is available; fallback to _hasPendingSustain
+				// Usar holdEndTime si está disponible; fallback a _hasPendingSustain
 				var shouldRelease:Bool;
 				if (holdEndTimes.exists(dir))
 					shouldRelease = songPos >= holdEndTimes.get(dir);
@@ -391,21 +391,21 @@ class NoteManager
 	}
 
 	/**
-	 * Returns true if quedan pieces of sustain pending for a direction,
+	 * Devuelve true si quedan piezas de sustain pendientes para una dirección,
 	 * buscando tanto en las notas ya spawneadas como en las futuras (unspawnNotes).
 	 * Sin revisar unspawnNotes, los holds largos se liberaban prematuramente.
 	 */
 	/**
-	 * Returns true if quedan pieces of sustain still no COMPLETADAS for this direction.
+	 * Devuelve true si quedan piezas de sustain AÚN NO COMPLETADAS para esta dirección.
 	 *
 	 * FIX: antes comprobaba `n.alive` y esperaba a que los sustains se salieran de pantalla.
-	 * Ahora checks `!n.wasGoodHit && !n.tooLate` — the hold termina in cuanto the last
+	 * Ahora comprueba `!n.wasGoodHit && !n.tooLate` — la hold termina en cuanto la última
 	 * pieza de sustain cruza la ventana de hit (wasGoodHit=true), no cuando sale de pantalla.
-	 * This dispara the animation of fin of the hold cover in the momento correct.
+	 * Esto dispara la animación de fin del hold cover en el momento correcto.
 	 */
 	private function _hasPendingSustain(dir:Int, isPlayer:Bool, members:Array<Note>, len:Int):Bool
 	{
-		// 1. Notes spawneadas: pending = vivas, still no golpeadas and no perdidas
+		// 1. Notas spawneadas: pendientes = vivas, aún no golpeadas y no perdidas
 		for (i in 0...len)
 		{
 			final n = members[i];
@@ -413,7 +413,7 @@ class NoteManager
 				&& n.mustPress == isPlayer && !n.wasGoodHit && !n.tooLate)
 				return true;
 		}
-		// 2. Notes futuras still no spawneadas — critical for holds largos
+		// 2. Notas futuras aún no spawneadas — CRÍTICO para holds largos
 		for (i in _unspawnIdx...unspawnNotes.length)
 		{
 			final raw = unspawnNotes[i];
@@ -447,7 +447,7 @@ class NoteManager
 			else
 				notes.add(note);
 			// Sin splice: el array NoteRawData es ~50 bytes/nota (trivial en RAM).
-			// The splice or(n) causaba a hiccup visible to the 75% of the song.
+			// El splice O(n) causaba un hiccup visible al 75% de la canción.
 		}
 	}
 
@@ -455,7 +455,7 @@ class NoteManager
 	{
 		final hitWindow:Float = Conductor.safeZoneOffset;
 
-		// V-Slice: if the scroll speed changed (event of speed or modchart),
+		// V-Slice: si el scroll speed cambió (evento de velocidad o modchart),
 		// recalcular sustainBaseScaleY de todos los sustains activos para que
 		// no queden gaps ni solapamientos a velocidades muy altas/bajas.
 		if (_scrollSpeed != _lastSustainSpeed)
@@ -465,7 +465,7 @@ class NoteManager
 		}
 
 		// Limpiar el set de miss-por-hold al inicio de cada frame
-		// OPTIMIZADO: assignment directa × 4 vs Map.clear() that rehashea internamente
+		// OPTIMIZADO: asignación directa × 4 vs Map.clear() que rehashea internamente
 		_missedHoldDir[0] = false;
 		_missedHoldDir[1] = false;
 		_missedHoldDir[2] = false;
@@ -473,20 +473,20 @@ class NoteManager
 
 		// Iterar ambos grupos: primero sustains, luego notas normales
 		_updateNoteGroup(sustainNotes.members, sustainNotes.members.length, songPosition, hitWindow);
-		// Avoid doble-iteration if sustainNotes apunta to the same object that notes (fallback)
+		// Evitar doble-iteración si sustainNotes apunta al mismo objeto que notes (fallback)
 		if (sustainNotes != notes)
 			_updateNoteGroup(notes.members, notes.members.length, songPosition, hitWindow);
 	}
 
 	private inline function _updateNoteGroup(members:Array<Note>, len:Int, songPosition:Float, hitWindow:Float):Void
 	{
-		// BUGFIX: iterar towards back for avoid that removeNote() corrompa the iteration.
+		// BUGFIX: iterar hacia ATRÁS para evitar que removeNote() corrompa la iteración.
 		// removeNote() llama sustainNotes.remove(note, splice=true), que desplaza todos
-		// the elementos posteriores a index towards the left. With iteration towards adelante
-		// (for i in 0...len), the note in i+1 pasa to i justo after of procesarlo → is SALTA.
-		// With various notes largas active simultáneamente is saltan various each frame:
+		// los elementos posteriores un índice hacia la izquierda. Con iteración hacia adelante
+		// (for i in 0...len), la nota en i+1 pasa a i justo después de procesarlo → se SALTA.
+		// Con varias notas largas activas simultáneamente se saltan varias cada frame:
 		// sus posiciones y clipRects no se actualizan → glitches visuales en los holds.
-		// Iterando towards back (len-1 → 0), the splice only afecta indices ≥ i (already processed).
+		// Iterando hacia atrás (len-1 → 0), el splice solo afecta índices ≥ i (ya procesados).
 		var i:Int = len;
 		while (i > 0)
 		{
@@ -507,14 +507,14 @@ class NoteManager
 			// ── Notas del jugador ──────────────────────────────────────────
 			if (note.mustPress && !note.wasGoodHit)
 			{
-				// ── SUSTAIN NOTES: logic especial ─────────────────────────
+				// ── SUSTAIN NOTES: lógica especial ─────────────────────────
 				// Los sustains NO se eliminan por ventana de tiempo como las
 				// notas normales.  Solo se eliminan si:
-				//   a) The key is held → processed as hit in processSustains()
-				//   b) The key is not held and strumTime already passed → miss (fade)
+				//   a) La tecla está mantenida  → se procesan como hit en processSustains()
+				//   b) La tecla NO está mantenida Y el strumTime ya pasó → miss (fade)
 				//
 				// FIX del bug "notas largas se rompen al final":
-				//   The bug occurred because the player's sustains were entering the
+				//   El bug ocurría porque los sustains del jugador entraban en el
 				//   mismo bloque de miss que las notas normales y se eliminaban
 				//   pieza a pieza cuando el strumTime superaba hitWindow.
 				if (note.isSustainNote)
@@ -524,12 +524,12 @@ class NoteManager
 						var dir = note.noteData;
 						if (playerHeld[dir])
 						{
-							// Key held: mark as hit but don't remove yet.
+							// Tecla mantenida: marcar como golpeada pero NO eliminar todavía.
 							// Dejamos que el clipRect oculte la pieza suavemente mientras scrollea
-							// beyond the strum, avoiding the disappearing pieces effect.
-							// Will be removed by culling when completely off screen.
+							// más allá del strum, evitando el efecto de trozos que desaparecen.
+							// Se eliminará en culling cuando salga completamente de pantalla.
 							note.wasGoodHit = true;
-							// Start hold cover if not done yet (this piece passed
+							// Arrancar hold cover si todavía no se hizo (esta pieza pasó
 							// el hitWindow sin pasar por processSustains/hitNote).
 							handleSustainNoteHit(note);
 						}
@@ -547,11 +547,11 @@ class NoteManager
 								if (onNoteMiss != null)
 									onNoteMiss(note);
 							}
-							// Remove the faded piece after it goes off screen
+							// Eliminar la pieza desvanecida después de que pasa de pantalla
 							removeNote(note);
 						}
 					}
-					// If strumTime hasn't passed yet, do nothing — processSustains() handles it
+					// Si strumTime todavía no pasó, no hacer nada — processSustains() lo maneja
 					continue;
 				}
 
@@ -592,8 +592,8 @@ class NoteManager
 		handleStrumAnimation(note.noteData, note.strumsGroupIndex, false);
 		// Guardar tiempo de fin del hold para la CPU al golpear el HEAD note.
 		// FIX: usar Math.max en lugar de sobrescribir directamente. Si hay dos holds
-		// solapados in the same direction and the segundo termina before that the first,
-		// the assignment directa cortaba the loop of the cover of the primer hold prematuramente.
+		// solapados en la misma dirección y el segundo termina antes que el primero,
+		// la asignación directa cortaba el loop del cover del primer hold prematuramente.
 		if (!note.isSustainNote && note.sustainLength > 0)
 		{
 			var newEnd = note.strumTime + note.sustainLength;
@@ -660,7 +660,7 @@ class NoteManager
 
 	/**
 	 * V-Slice style: recalcula sustainBaseScaleY de todos los sustains activos
-	 * when the scroll speed changes in mitad of a song (events of velocidad,
+	 * cuando el scroll speed cambia en mitad de una canción (eventos de velocidad,
 	 * modcharts, etc.). Sin esto, al cambiar la velocidad quedan gaps o solapamientos
 	 * permanentes en los holds que ya estaban spawneados con el speed anterior.
 	 */
@@ -670,12 +670,12 @@ class NoteManager
 		if (conductor.stepCrochet <= 0) return;
 
 		// Calcular el scale.y correcto para el nuevo speed
-		// Fórmula igual that Note.setupSustainNote() with V-Slice approach
+		// Fórmula igual que Note.setupSustainNote() con V-Slice approach
 		inline function calcScaleY(note:funkin.gameplay.notes.Note):Float
 		{
 			if (note.frameHeight <= 0) return note.sustainBaseScaleY; // sin datos de frame
 			final _speed:Float = songSpeed;
-			final _stretch:Float = note._skinHoldStretch; // field public in Note
+			final _stretch:Float = note._skinHoldStretch; // campo público en Note
 			final _extra:Float = (_speed > 3.0) ? ((_speed - 3.0) * 0.02) : 0.0;
 			final targetH:Float = conductor.stepCrochet * 0.45 * _speed;
 			return (targetH * (_stretch + _extra)) / note.frameHeight;
@@ -713,9 +713,9 @@ class NoteManager
 	private function updateNotePosition(note:Note, songPosition:Float):Void
 	{
 		// ── Middlescroll: notas CPU completamente invisibles — no calcular nada ─
-		// Hacerlo here (before of cualquier calculation) avoids the flash of 1 frame
-		// that ocurría when updateNotePosition asignaba alpha=0.05 (floor of the
-		// FlxMath.bound) and the override to 0 llegaba a tick after.
+		// Hacerlo aquí (antes de cualquier cálculo) evita el flash de 1 frame
+		// que ocurría cuando updateNotePosition asignaba alpha=0.05 (floor del
+		// FlxMath.bound) y el override a 0 llegaba un tick después.
 		if (_cachedMiddlescroll && !note.mustPress)
 		{
 			note.visible = false;
@@ -723,12 +723,12 @@ class NoteManager
 			return;
 		}
 
-		// ── Get the strum first — its and is the referencia actual of position ──
-		// The notes already seguían the X of the strum (strum.x + centered).
-		// Ahora also siguen the and of the strum for that cualquier offset of strum
-		// (by script, by song with strums in positions distintas, etc.)
+		// ── Obtener el strum PRIMERO — su Y es la referencia real de posición ──
+		// Las notas ya seguían la X del strum (strum.x + centrado).
+		// Ahora también siguen la Y del strum para que cualquier offset de strum
+		// (por script, por canción con strums en posiciones distintas, etc.)
 		// se refleje correctamente en la trayectoria de la nota.
-		// FIX: if no there is strum (note huérfana, race condition to the spawn), usar
+		// FIX: si no hay strum (nota huérfana, race condition al spawn), usar
 		// strumLineY como fallback para no crashear y mantener comportamiento previo.
 		var strum = getStrumForDirection(note.noteData, note.strumsGroupIndex, note.mustPress);
 		final _refY:Float = (strum != null) ? strum.y : strumLineY;
@@ -751,11 +751,11 @@ class NoteManager
 
 		// INVERT: invierte el eje de scroll solo para este strum.
 		// Con invert=1, el signo del desplazamiento de tiempo se invierte,
-		// producing notes "to the revés" without tocar the downscroll global.
+		// produciendo notas "al revés" sin tocar el downscroll global.
 		final _invertSign:Float  = (_modState != null && _modState.invert > 0.5) ? -1.0 : 1.0;
 		final _effectiveSpeed:Float = _scrollSpeed * _scrollMult;
 
-		// ── Position and base (referenciada to the strum) ─────────────────────────────
+		// ── Posición Y base (referenciada al strum) ─────────────────────────────
 		var noteY:Float;
 		if (downscroll)
 			noteY = _refY + (songPosition - note.strumTime) * _effectiveSpeed * _invertSign;
@@ -769,19 +769,19 @@ class NoteManager
 			// NOTE_OFFSET_Y: offset plano en Y para todas las notas
 			_noteYOffset += _modState.noteOffsetY;
 
-			// DRUNK_Y: onda senoidal in and according to strumTime (espejo of drunkX in the eje and)
+			// DRUNK_Y: onda senoidal en Y según strumTime (espejo de drunkX en el eje Y)
 			if (_modState.drunkY != 0)
 				_noteYOffset += _modState.drunkY * Math.sin(
 					note.strumTime * 0.001 * _modState.drunkFreq
 					+ songPosition * 0.0008
 				);
 
-			// BUMPY: all the notes of the strum oscilan in and joints according to songPosition.
+			// BUMPY: todas las notas del strum oscilan en Y juntas según songPosition.
 			// Produce una ola "en bloque" que baja y sube todas las notas al mismo tiempo.
 			if (_modState.bumpy != 0)
 				_noteYOffset += _modState.bumpy * Math.sin(songPosition * 0.001 * _modState.bumpySpeed);
 
-			// WAVE: ola and viajante — each note tiene desfase according to its strumTime.
+			// WAVE: ola Y viajante — cada nota tiene desfase según su strumTime.
 			// Produce ondas que "viajan" de abajo hacia arriba por la columna de notas.
 			if (_modState.wave != 0)
 				_noteYOffset += _modState.wave * Math.sin(
@@ -797,15 +797,15 @@ class NoteManager
 
 		if (strum != null)
 		{
-			// ── Angle base of the strum ─────────────────────────────────────────
+			// ── Ángulo base del strum ─────────────────────────────────────────
 			var _finalAngle:Float = strum.angle;
 
 			if (_modState != null)
 			{
-				// CONFUSION: rotation plana extra in each note
+				// CONFUSION: rotación plana extra en cada nota
 				_finalAngle += _modState.confusion;
 
-				// TORNADO: each note rota according to its strumTime (effect carrusel).
+				// TORNADO: cada nota rota según su strumTime (efecto carrusel).
 				if (_modState.tornado != 0)
 					_finalAngle += _modState.tornado * Math.sin(
 						note.strumTime * 0.001 * _modState.drunkFreq
@@ -839,13 +839,13 @@ class NoteManager
 				// NOTE_ALPHA: multiplicador de alpha per-nota (independent del strum)
 				_baseAlpha *= FlxMath.bound(_modState.noteAlpha, 0.0, 1.0);
 
-				// STEALTH: completely invisible notes but still hittable
+				// STEALTH: notas completamente invisibles pero todavía hiteables
 				if (_modState.stealth > 0.5)
 					_baseAlpha = 0.0;
 			}
 			note.alpha = _baseAlpha;
 
-			// ── Position X base ───────────────────────────────────────────────
+			// ── Posición X base ───────────────────────────────────────────────
 			var _noteX:Float = strum.x + (strum.width - note.width) / 2;
 
 			if (_modState != null)
@@ -866,10 +866,10 @@ class NoteManager
 						songPosition * 0.001 * _modState.tipsySpeed
 					);
 
-				// ZIGZAG: pattern escalonado in X alternando +amp / -amp
+				// ZIGZAG: patrón escalonado en X alternando +amp / -amp
 				if (_modState.zigzag != 0)
 				{
-					// sign(sin(x)) gives exactly +1 or -1, producing the step
+					// sign(sin(x)) da exactamente +1 o -1, produciendo el escalón
 					var _zz = Math.sin(note.strumTime * 0.001 * _modState.zigzagFreq * Math.PI);
 					_noteX += _modState.zigzag * (_zz >= 0 ? 1.0 : -1.0);
 				}
@@ -884,8 +884,8 @@ class NoteManager
 
 			note.x = _noteX;
 
-			// ── Deformation dynamic of sustains ─────────────────────────────
-			// Orienta each pieza towards the position of the pieza previous (the more
+			// ── Deformación dinámica de sustains ─────────────────────────────
+			// Orienta cada pieza hacia la posición de la pieza anterior (la más
 			// cercana al strum). BUG FIX v3: _prevY ahora incluye TODOS los
 			// offsets Y (drunkY, bumpy, wave, noteOffsetY) evaluados en
 			// _prevStrumTime, igual que se hace para el X.
@@ -923,7 +923,7 @@ class NoteManager
 						);
 				}
 
-				// X of the piece previous (already existía, is mantiene)
+				// X de la pieza anterior (ya existía, se mantiene)
 				var _prevX:Float = strum.x + (strum.width - note.width) / 2;
 				if (_modState != null)
 				{
@@ -953,7 +953,7 @@ class NoteManager
 					}
 				}
 
-				// Vector towards the piece previous → angle of deformation
+				// Vector hacia la pieza anterior → ángulo de deformación
 				final _dX:Float = _prevX - note.x;
 				final _dY:Float = _prevY - note.y;
 
@@ -974,22 +974,22 @@ class NoteManager
 		// Solo aplica a notas del jugador que no fueron golpeadas
 		if (note.mustPress && !note.wasGoodHit && !note.isSustainNote)
 		{
-			// Distancia from the centro of the strum towards the direction "pasada"
+			// Distancia desde el centro del strum hacia la dirección "pasada"
 			// En upscroll: las notas vienen de abajo, pasan el strum hacia arriba (Y decrece)
 			// En downscroll: las notas vienen de arriba, pasan el strum hacia abajo (Y crece)
 			var distPast:Float;
 			if (downscroll)
-				distPast = note.and - strumLineY;   // positivo = below of the strum (passed)
+				distPast = note.y - strumLineY;   // positivo = debajo del strum (pasó)
 			else
-				distPast = strumLineY - note.and;    // positivo = above of the strum (passed)
+				distPast = strumLineY - note.y;    // positivo = encima del strum (pasó)
 
-			// Empezar to desvanecer to partir of 20px before of the strum, llegar to alpha 0 to 120px after
+			// Empezar a desvanecer a partir de 20px antes del strum, llegar a alpha 0 a 120px después
 			final FADE_START:Float = -20.0;
 			final FADE_END:Float   = 120.0;
 			if (distPast > FADE_START)
 			{
 				var t = FlxMath.bound((distPast - FADE_START) / (FADE_END - FADE_START), 0.0, 1.0);
-				// alpha va of 1.0 → 0.0, but mantenemos a minimum of 0.05 for that no sea invisible bruscamente
+				// alpha va de 1.0 → 0.0, pero mantenemos un mínimo de 0.05 para que no sea invisible bruscamente
 				note.alpha = FlxMath.lerp(1.0, 0.05, t);
 			}
 		}
@@ -1002,7 +1002,7 @@ class NoteManager
 				note.y += _modState.noteOffsetY;
 
 			// DRUNK_Y: onda senoidal en Y por strumTime.
-			// Fase ligeramente distinta to drunkX for that no sean idénticas.
+			// Fase ligeramente distinta a drunkX para que no sean idénticas.
 			if (_modState.drunkY != 0)
 				note.y += _modState.drunkY * Math.sin(
 					note.strumTime * 0.001 * _modState.drunkFreq
@@ -1015,10 +1015,10 @@ class NoteManager
 				note.y += _modState.bumpy * Math.sin(songPosition * 0.001 * _modState.bumpySpeed);
 		}
 
-		// Position and of sustains: noteY directo (fórmula original).
+		// Posición Y de sustains: noteY directo (fórmula original).
 		// scale.y fue calculado en setupSustainNote() para que la altura de cada pieza
 		// coincida con el espacio entre strumTimes adyacentes (stepCrochet * scrollSpeed).
-		// Any compensación of offset.and rompe that alineación cuerpo↔tail.
+		// Cualquier compensación de offset.y rompe esa alineación cuerpo↔tail.
 		if (note.isSustainNote)
 			note.y = noteY;
 
@@ -1026,7 +1026,7 @@ class NoteManager
 		// (jugador y CPU, upscroll y downscroll). Antes solo se aplicaba a
 		// CPU en downscroll, lo que causaba que los cuerpos de los holds
 		// se vieran "rotos" o solapados con el strum en el resto de casos.
-		// Furthermore, the clipRect never is limpiaba when dejaba of be necesario,
+		// Además, el clipRect nunca se limpiaba cuando dejaba de ser necesario,
 		// dejando el rect viejo de la nota anterior asignado a la nota actual.
 		if (note.isSustainNote)
 		{
@@ -1039,7 +1039,7 @@ class NoteManager
 			// el borde exacto o desaparecer demasiado pronto.
 			final halfStrum:Float = Note.swagWidth * 0.5;
 
-			// Threshold ajustado according to direction of scroll (same for player and CPU).
+			// Umbral ajustado según dirección de scroll (mismo para player y CPU).
 			var strumLineThreshold = downscroll
 				? strumLineY - halfStrum   // downscroll: threshold desplazado hacia arriba
 				: strumLineY + halfStrum;  // upscroll:   threshold desplazado hacia dentro del strum
@@ -1050,14 +1050,14 @@ class NoteManager
 				// Con flipY=true, el FRAME TOP = WORLD BOTTOM (parte que pasa el strum).
 				// Clipeamos siempre que el fondo de la nota cruce el threshold, sin
 				// esperar a wasGoodHit. Esto evita que el cuerpo del hold "sobresalga"
-				// visualmente by debajo of the line of strums mientras is acerca.
+				// visualmente por debajo de la línea de strums mientras se acerca.
 				//
-				// BUG FIX: the previous code used
+				// BUG FIX: el código anterior usaba
 				//   noteEndPos = note.y - note.offset.y * note.scale.y + note.height
-				// that multiplica the offset by scale a segunda vez (already is in px mundo).
+				// que multiplica el offset por scale una segunda vez (ya está en px mundo).
 				// Con hold notes de scale.y alto, noteEndPos era absurdamente grande →
 				// el clip siempre se activaba → clipRect.y negativo → artefactos visuales.
-				// Correction: simply use note.y + note.height (bottom of the hitbox).
+				// Corrección: usar simplemente note.y + note.height (fondo del hitbox).
 				final noteBottom:Float = note.y + note.height;
 				if (noteBottom >= strumLineThreshold)
 				{
@@ -1075,7 +1075,7 @@ class NoteManager
 					}
 					else
 					{
-						// clipH = frame pixels to show (frame bottom = world top = above the strum)
+						// clipH = píxeles de frame a mostrar (frame bottom = world top = por encima del strum)
 						_sustainClipRect.x      = 0;
 						_sustainClipRect.width  = note.frameWidth * 2;
 						_sustainClipRect.height = clipH;
@@ -1095,7 +1095,7 @@ class NoteManager
 			else
 			{
 				// Upscroll: la nota sube hacia el strum (Y decrece).
-				// We clip the top part that already passed above the strum.
+				// Clipeamos la parte superior que ya pasó por encima del strum.
 				if (note.y < strumLineThreshold)
 				{
 					var clipY:Float = (strumLineThreshold - note.y) / note.scale.y;
@@ -1113,7 +1113,7 @@ class NoteManager
 					else
 					{
 						// Nota completamente por encima del strum: ocultar si ya fue consumida
-						// and remove it from the group to stop processing it every frame.
+						// y eliminarla del grupo para no seguir procesándola cada frame.
 						if (note.isSustainNote && note.wasGoodHit)
 						{
 							note.visible = false;
@@ -1133,7 +1133,7 @@ class NoteManager
 	private function removeNote(note:Note):Void
 	{
 		note.kill();
-		// Remover of the grupo correct according to type of note
+		// Remover del grupo correcto según tipo de nota
 		if (note.isSustainNote && sustainNotes != notes)
 			sustainNotes.remove(note, true);
 		else
@@ -1149,9 +1149,9 @@ class NoteManager
 		note.wasGoodHit = true;
 		handleStrumAnimation(note.noteData, note.strumsGroupIndex, true);
 		// Guardar el tiempo de fin del hold al golpear el HEAD note.
-		// BUG FIX: no sobreescribir if already there is a hold active for this direction.
-		// FIX: usar Math.max for that holds solapados in the same direction no is
-		// corten mutuamente. If already exists a time of end more tardío, it respetamos.
+		// BUG FIX: no sobreescribir si ya hay un hold activo para esta dirección.
+		// FIX: usar Math.max para que holds solapados en la misma dirección no se
+		// corten mutuamente. Si ya existe un tiempo de fin más tardío, lo respetamos.
 		if (!note.isSustainNote && note.sustainLength > 0)
 		{
 			var newEnd = note.strumTime + note.sustainLength;
@@ -1167,9 +1167,9 @@ class NoteManager
 			else if (_cachedNoteSplashes && renderer != null)
 				createNormalSplash(note, true);
 		}
-		// BUGFIX: The notes sustain no is eliminan here — quedan in the grupo
+		// BUGFIX: Las notas sustain NO se eliminan aquí — quedan en el grupo
 		// para que el clipRect de updateNotePosition las vaya ocultando
-		// conforme cruzan the line of strums. Before is eliminaban of inmediato
+		// conforme cruzan la línea de strums. Antes se eliminaban de inmediato
 		// cuando canBeHit && playerHeld, haciendo que desaparecieran ~hitWindow
 		// ms (≈90px) antes de llegar visualmente al strum. Solo las notas normales
 		// (cabeza de hold y notas simples) se eliminan inmediatamente.
@@ -1187,7 +1187,7 @@ class NoteManager
 			heldNotes.set(direction, note);
 			holdStartTimes.set(direction, Conductor.songPosition);
 
-			// Hold covers only if the note splashes are activados in options
+			// Hold covers solo si los note splashes están activados en opciones
 			if (_cachedNoteSplashes && renderer != null)
 			{
 				var strum = getStrumForDirection(direction, note.strumsGroupIndex, true);
@@ -1196,7 +1196,7 @@ class NoteManager
 					var holdSplashPlayer = NoteTypeManager.getHoldSplashName(note.noteType);
 					var cover = renderer.startHoldCover(direction, strum.x - strum.offset.x + strum.frameWidth * 0.5, strum.y - strum.offset.y + strum.frameHeight * 0.5, true, note.strumsGroupIndex, holdSplashPlayer);
 					// BUGFIX: indexOf evita doble-add de covers pre-calentados que ya
-					// are in the group → double update/draw caused duplicated animation.
+					// están en el grupo → doble update/draw causaba animación duplicada.
 					if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0) {
 						_holdCoverSet.set(cover, true);
 						holdCovers.add(cover);
@@ -1204,7 +1204,7 @@ class NoteManager
 				}
 			}
 		}
-		// No callr removeNote here — hitNote() already it hace after
+		// No llamar removeNote aquí — hitNote() ya lo hace después
 	}
 
 	public function releaseHoldNote(direction:Int):Void
@@ -1233,14 +1233,14 @@ class NoteManager
 	}
 
 	/**
-	 * Gets the strum for a direction dada.
-	 * OPTIMIZADO: use cache Map<Int, FlxSprite> for or(1) in vez of forEach or(n).
+	 * Obtiene el strum para una dirección dada.
+	 * OPTIMIZADO: usa caché Map<Int, FlxSprite> para O(1) en vez de forEach O(n).
 	 * El forEach anterior creaba una closure nueva cada llamada — ahora es solo
 	 * un Map lookup. Con 20 notas en pantalla esto elimina ~80 closures por frame.
 	 */
 	private function getStrumForDirection(direction:Int, strumsGroupIndex:Int, isPlayer:Bool):FlxSprite
 	{
-		// Grupos adicionales (strumsGroupIndex >= 2) — cache by grupo
+		// Grupos adicionales (strumsGroupIndex >= 2) — caché por grupo
 		if (allStrumsGroups != null && allStrumsGroups.length > 0 && strumsGroupIndex >= 2)
 		{
 			var groupMap = _strumGroupCache.get(strumsGroupIndex);
@@ -1248,7 +1248,7 @@ class NoteManager
 				return groupMap.get(direction);
 		}
 
-		// Grupos 0 and 1 — cache by direction
+		// Grupos 0 y 1 — caché por dirección
 		return isPlayer ? _playerStrumCache.get(direction) : _cpuStrumCache.get(direction);
 	}
 
@@ -1256,7 +1256,7 @@ class NoteManager
 	{
 		if (note == null || note.wasGoodHit)
 			return;
-		// For sustains: already is contó the miss in updateActiveNotes, no return to contar
+		// Para sustains: ya se contó el miss en updateActiveNotes, no volver a contar
 		if (heldNotes.exists(note.noteData))
 			releaseHoldNote(note.noteData);
 		if (onNoteMiss != null && !note.isSustainNote)
@@ -1267,8 +1267,8 @@ class NoteManager
 	// ─── Rewind Restart (V-Slice style) ──────────────────────────────────────
 
 	/**
-	 * Updates only the position visual of the notes activas — without spawn ni kill.
-	 * Callr during the animation of rewind for that the notes deslicen towards back.
+	 * Actualiza SOLO la posición visual de las notas activas — sin spawn ni kill.
+	 * Llamar durante la animación de rewind para que las notas deslicen hacia atrás.
 	 */
 	public function updatePositionsForRewind(songPosition:Float):Void
 	{
@@ -1295,9 +1295,9 @@ class NoteManager
 	}
 
 	/**
-	 * Mata all the notes activas and retrocede the index of spawn
+	 * Mata todas las notas activas y retrocede el índice de spawn
 	 * al punto correcto para `targetTime` (generalmente inicio del countdown).
-	 * Callr to the finalizar the animation of rewind.
+	 * Llamar al finalizar la animación de rewind.
 	 */
 	public function rewindTo(targetTime:Float):Void
 	{
@@ -1335,18 +1335,18 @@ class NoteManager
 
 		// BUGFIX escala pixel: limpiar el pool de notas para que las nuevas se creen
 		// desde cero con la skin activa correcta. Sin esto, notas recicladas del pool
-		// pueden have _noteScale = 0.7 (Default) if the skin is corrompió during the game,
-		// causando that the notes pixel (scale 6.0) aparezcan in size of notes normales.
+		// pueden tener _noteScale = 0.7 (Default) si la skin se corrompió durante el juego,
+		// causando que las notas pixel (scale 6.0) aparezcan en tamaño de notas normales.
 		if (renderer != null)
 			renderer.clearPools();
 
-		// Retroceder the index of spawn:
+		// Retroceder el índice de spawn:
 		// queremos empezar a spawnear desde notas cuyo strumTime ≥ targetTime - spawnWindow
 		final spawnWindow:Float = 1800.0 / (songSpeed > 0 ? songSpeed : 1.0);
 		var cutoff:Float = targetTime - spawnWindow;
 
 		_unspawnIdx = 0;
-		// If targetTime is negativo (countdown), cutoff also is negativo → _unspawnIdx = 0 (correct)
+		// Si targetTime es negativo (countdown), cutoff también es negativo → _unspawnIdx = 0 (correcto)
 		if (cutoff > 0)
 		{
 			while (_unspawnIdx < unspawnNotes.length && unspawnNotes[_unspawnIdx].strumTime < cutoff)

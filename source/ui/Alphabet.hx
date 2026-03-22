@@ -119,7 +119,7 @@ class AlphabetConfig
 
 		var obj:Dynamic;
 		try   { obj = Json.parse(raw); }
-		catch (e) { FlxG.log.warn('[AlphabetConfig] Invalid JSON: $e'); return; }
+		catch (e) { FlxG.log.warn('[AlphabetConfig] JSON inválido: $e'); return; }
 
 		// campos escalares
 		if (obj.atlasKey           != null) atlasKey           = obj.atlasKey;
@@ -153,10 +153,10 @@ class AlphabetConfig
 // ═══════════════════════════════════════════════════════════════════════════
 class Alphabet extends FlxSpriteGroup
 {
-	// ── API public ───────────────────────────────────────────────────────────
+	// ── API pública ───────────────────────────────────────────────────────────
 	//
 	//  Cada propiedad con Null<T> toma el valor de AlphabetConfig si no se
-	//  assigns explicitly. Assign them before calling rebuild().
+	//  asigna explícitamente.  Asígnalas ANTES de llamar rebuild().
 
 	public var text:String        = "";
 	public var bold:Bool          = false;
@@ -170,7 +170,7 @@ class Alphabet extends FlxSpriteGroup
 	public var charFrameRate:Null<Int>    = null;
 	public var typedDelay:Null<Float>     = null;
 
-	// comportamiento menu
+	// comportamiento menú
 	public var isMenuItem:Bool  = false;
 	public var targetY:Float    = 0;
 
@@ -182,7 +182,7 @@ class Alphabet extends FlxSpriteGroup
 	var _splitWords:Array<String> = [];
 	var _yMulti:Float = 1;
 
-	// resolution instancia → config
+	// resolución instancia → config
 	inline function cfg() return AlphabetConfig.instance;
 	inline function _spacing()  return letterSpacing  != null ? letterSpacing  : cfg().letterSpacing;
 	inline function _lheight()  return lineHeight     != null ? lineHeight     : cfg().lineHeight;
@@ -222,7 +222,7 @@ class Alphabet extends FlxSpriteGroup
 		build();
 	}
 
-	// ── build internal ─────────────────────────────────────────────────
+	// ── construcción interna ─────────────────────────────────────────────────
 
 	function build():Void
 	{
@@ -334,7 +334,7 @@ class AlphaCharacter extends FlxSprite
 
 	public static var numbers:String  = "1234567890";
 
-	/** Symbols whose name in the atlas is the character itself. */
+	/** Símbolos cuyo nombre en el atlas es el propio carácter. */
 	public static var directSymbols:String = "#$%&*+-:;<=>@[]^_.!?{}()/\\|~\"',";
 
 	public var row:Int = 0;
@@ -351,7 +351,7 @@ class AlphaCharacter extends FlxSprite
 		antialiasing = true;
 	}
 
-	// ── static ────────────────────────────────────────────────────────────
+	// ── estáticos ────────────────────────────────────────────────────────────
 
 	public static function supportsChar(ch:String):Bool
 		return alphabet.indexOf(ch.toLowerCase()) != -1
@@ -382,15 +382,15 @@ class AlphaCharacter extends FlxSprite
 	 * "Could not parse frame number of ' instance NNNNN'".
 	 *
 	 * Flixel's addByPrefix intenta parsear el texto que sigue al prefijo como
-	 * number of frame. The atlases exportados by Adobe Animate CC nombran its
+	 * número de frame. Los atlases exportados por Adobe Animate CC nombran sus
 	 * frames como "a bold instance 10001", "a bold instance 10002", etc. — el
 	 * fragmento " instance 10001" no es un entero, por lo que Flixel imprime el
-	 * warning (although after adds the frame igualmente).
+	 * warning (aunque después añade el frame igualmente).
 	 *
-	 * This function recoge the nombres of frame directamente of the atlas, the filtra
-	 * by prefix and sorts alphabetically (matches the XML order),
-	 * then use addByNames — that no intenta parsear numbers — for register the
-	 * animation without warnings.
+	 * Esta función recoge los nombres de frame directamente del atlas, los filtra
+	 * por prefijo y los ordena alfabéticamente (coincide con el orden del XML),
+	 * luego usa addByNames — que no intenta parsear números — para registrar la
+	 * animación sin warnings.
 	 */
 	function _addByPrefixSafe(animName:String, prefix:String):Void
 	{
@@ -411,9 +411,9 @@ class AlphaCharacter extends FlxSprite
 		}
 		else
 		{
-			// Ordenar by name: the frames of Animate CC tienen suffix numeric
+			// Ordenar por nombre: los frames de Animate CC tienen sufijo numérico
 			// con padding uniforme ("instance 10001" < "instance 10002"), por lo
-			// that the lexicographic order matches the animation order.
+			// que el orden lexicográfico coincide con el orden de animación.
 			names.sort(function(a, b) return a < b ? -1 : a > b ? 1 : 0);
 			animation.addByNames(animName, names, _fps);
 		}
@@ -433,8 +433,8 @@ class AlphaCharacter extends FlxSprite
 
 		// Las letras en el atlas usan:
 		//   "a bold instance"       → bold
-		//   "to uppercase instance"  → normal uppercase  (ch != it)
-		//   "to lowercase instance"  → normal lowercase  (ch == it)
+		//   "a uppercase instance"  → normal mayúscula  (ch != lo)
+		//   "a lowercase instance"  → normal minúscula  (ch == lo)
 		//
 		// NO hay sufijo " bold"/" normal" adicional en las letras.
 		var prefix:String = if (_bold)

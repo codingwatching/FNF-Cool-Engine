@@ -12,7 +12,7 @@ import lime.utils.Assets as LimeAssets;
 #end
 
 /**
- * FunkinCache v2 — Optimized asset lifecycle management between states.
+ * FunkinCache v2 — Gestión optimizada del ciclo de vida de assets entre estados.
  *
  * ─── Mejoras v2 ──────────────────────────────────────────────────────────────
  *
@@ -26,17 +26,17 @@ import lime.utils.Assets as LimeAssets;
  *  SOPORTE DE MODS
  *    • Fallback mejorado: busca en el directorio del mod activo ANTES del disco.
  *    • markPermanentBitmap / markPermanentSound: assets que nunca se evictan.
- *    • onEvict callback: mods receive notification when an asset is destroyed.
+ *    • onEvict callback: mods reciben notificación al destruir un asset.
  *
- *  diagnostic
+ *  DIAGNÓSTICO
  *    • getStats() devuelve string compacto con contadores en tiempo real.
- *    • dumpKeys() lists all cached keys.
+ *    • dumpKeys() lista todas las claves en caché.
  *
  * ─── Arquitectura (3 capas) ───────────────────────────────────────────────────
  *
  *  PERMANENT  — UI esencial, fonts. Nunca se destruyen.
- *  CURRENT    — Active session assets. Moved to SECOND in preStateSwitch.
- *  SECOND     — Previous session assets. Destroyed in postStateSwitch
+ *  CURRENT    — Assets sesión activa. Se mueven a SECOND en preStateSwitch.
+ *  SECOND     — Assets sesión anterior. Se destruyen en postStateSwitch
  *               salvo que el nuevo estado los "rescate".
  *
  * @author Cool Engine Team
@@ -77,7 +77,7 @@ class FunkinCache extends AssetCache
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// INIT — signals of Flixel
+	// INIT — señales de Flixel
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function init():Void
@@ -99,7 +99,7 @@ class FunkinCache extends AssetCache
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// rotation of layers
+	// ROTACIÓN DE CAPAS
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public function moveToSecondLayer():Void
@@ -119,7 +119,7 @@ class FunkinCache extends AssetCache
 
 	/**
 	 * Destruye los assets de SECOND no rescatados.
-	 * optimization: batch eviction — acumula keys in a Array local
+	 * OPTIMIZACIÓN: batch eviction — acumula claves en un Array local
 	 * y ejecuta los removes en una sola pasada para evitar rehash del Map.
 	 */
 	public function clearSecondLayer():Void
@@ -134,7 +134,7 @@ class FunkinCache extends AssetCache
 			final graphic = FlxG.bitmap.get(k);
 			if (graphic != null && (graphic.useCount > 0 || graphic.persist))
 			{
-				// Still in use → rescue to CURRENT
+				// Aún en uso → rescatar a CURRENT
 				bitmapData.set(k, b);
 				_bitmapCount++;
 				bitmapData2.remove(k);
@@ -201,7 +201,7 @@ class FunkinCache extends AssetCache
 
 	public override function getBitmapData(id:String):BitmapData
 	{
-		// 1. CURRENT (hot path — hit more frecuente)
+		// 1. CURRENT (hot path — hit más frecuente)
 		var s = bitmapData.get(id);
 		if (s != null) return s;
 

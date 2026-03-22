@@ -65,7 +65,7 @@ class Mobilecontrols extends FlxSpriteGroup
 
 	/**
 	 * Aplica el layout personalizado guardado en FlxG.save.data.mobilePadLayout.
-	 * The layout is a Array of {x, and} with the positions of each button of the pad
+	 * El layout es un Array de {x, y} con las posiciones de cada botón del pad
 	 * en el mismo orden que FlxVirtualPad.FULL: UP, LEFT, RIGHT, DOWN.
 	 *
 	 * Si no hay layout guardado, usa las posiciones por defecto del VirtualPad.

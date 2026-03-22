@@ -37,21 +37,21 @@ typedef StageData =
 	@:optional var gfPosition:Array<Float>;
 	@:optional var cameraBoyfriend:Array<Float>;
 	@:optional var cameraDad:Array<Float>;
-	/** Offset of camera for the GF (field camera_girlfriend of Psych). */
+	/** Offset de cámara para la GF (campo camera_girlfriend de Psych). */
 	@:optional var cameraGirlfriend:Array<Float>;
-	/** Velocidad of the lerp of camera (camera_speed in Psych, multiplicador over the default). */
+	/** Velocidad del lerp de cámara (camera_speed en Psych, multiplicador sobre el default). */
 	@:optional var cameraSpeed:Float;
 	@:optional var hideGirlfriend:Bool;
 	@:optional var scripts:Array<String>;
 	@:optional var customProperties:Dynamic;
 	/**
-	 * Library of assets by default for all the elementos of this stage.
+	 * Librería de assets por defecto para todos los elementos de este stage.
 	 * Si se especifica, todos los elementos que no tengan su propio "assetLibrary"
-	 * buscarán its images in the folder of this otro stage.
+	 * buscarán sus imágenes en la carpeta de ESTE otro stage.
 	 *
 	 * Ejemplo: si tienes "spooky_night" que es igual que "spooky" pero de noche,
 	 * pon "assetLibrary": "spooky" y reutilizas todos sus assets sin copiarlos.
-	 * Only sobreescribe the assets that cambien añadiéndolos in the folder local.
+	 * Solo sobreescribe los assets que cambien añadiéndolos en la carpeta local.
 	 */
 	@:optional var assetLibrary:String;
 }
@@ -94,14 +94,14 @@ typedef StageElement =
 	@:optional var instances:Array<CustomClassInstance>;
 
 	/**
-	 * Library of assets for this elemento specific.
+	 * Librería de assets para ESTE elemento específico.
 	 * Tiene prioridad sobre el "assetLibrary" global del stage.
 	 *
-	 * Also puedes usar the sintaxis corta in the field "asset":
-	 *   "asset": "stage_week1:bg"   →  load "bg" from the library of "stage_week1"
+	 * También puedes usar la sintaxis corta en el campo "asset":
+	 *   "asset": "stage_week1:bg"   →  carga "bg" desde la librería de "stage_week1"
 	 *
 	 * El campo "assetLibrary" en el elemento sirve para el mismo efecto pero
-	 * of forma more explicit and without tocar the field "asset".
+	 * de forma más explícita y sin tocar el campo "asset".
 	 */
 	@:optional var assetLibrary:String;
 
@@ -135,32 +135,32 @@ typedef StageElement =
 	//   "renderEveryFrame": true
 	// }
 	//
-	// The field "asset" is the name of the .obj (without extension).
+	// El campo "asset" es el nombre del .obj (sin extensión).
 	// Se busca en stages/{stage}/models/{asset}.obj y stages/models/{asset}.obj.
 	// El elemento se registra en stage.elements con su nombre para que scripts
-	// puedan acceder to it as Flx3DSprite and animar its objects 3D.
+	// puedan acceder a él como Flx3DSprite y animar sus objetos 3D.
 	//
 	/** Escala del modelo 3D (unidades del mundo 3D). Default: 1.0. */
 	@:optional var modelScale:Float;
-	/** Rotation inicial in X (radianes). Default: 0. */
+	/** Rotación inicial en X (radianes). Default: 0. */
 	@:optional var modelRotX:Float;
-	/** Rotation inicial in and (radianes). Default: 0. */
+	/** Rotación inicial en Y (radianes). Default: 0. */
 	@:optional var modelRotY:Float;
-	/** Rotation inicial in Z (radianes). Default: 0. */
+	/** Rotación inicial en Z (radianes). Default: 0. */
 	@:optional var modelRotZ:Float;
-	/** Position X of the camera 3D internal. Default: 0. */
+	/** Posición X de la cámara 3D interna. Default: 0. */
 	@:optional var modelCamX:Float;
-	/** Position and of the camera 3D internal. Default: 1. */
+	/** Posición Y de la cámara 3D interna. Default: 1. */
 	@:optional var modelCamY:Float;
-	/** Position Z of the camera 3D internal (alejamiento). Default: 5. */
+	/** Posición Z de la cámara 3D interna (alejamiento). Default: 5. */
 	@:optional var modelCamZ:Float;
-	/** Width of the render 3D in pixels. Default: 256. */
+	/** Ancho del render 3D en píxeles. Default: 256. */
 	@:optional var sceneWidth:Int;
-	/** Height of the render 3D in pixels. Default: 256. */
+	/** Alto del render 3D en píxeles. Default: 256. */
 	@:optional var sceneHeight:Int;
 	/** Si false, el modelo NO se re-renderiza cada frame (ahorra GPU). Default: true. */
 	@:optional var renderEveryFrame:Bool;
-	/** Direction of the luz X,and,Z (normalizado). Default: [0.5, 1.0, 0.8]. */
+	/** Dirección de la luz X,Y,Z (normalizado). Default: [0.5, 1.0, 0.8]. */
 	@:optional var lightDir:Array<Float>;
 	/** Color de fondo de la escena 3D (hex string, ej "0x000000"). Default: transparente. */
 	@:optional var sceneBgColor:String;
@@ -183,17 +183,17 @@ typedef StageElement =
 	//   "alpha": 0.8
 	// }
 	//
-	// The field "asset" is the key of image (igual that in sprites static).
-	// velocityX/and defines the speed of desplazamiento automatic in px/s.
+	// El campo "asset" es la clave de imagen (igual que en sprites estáticos).
+	// velocityX/Y define la velocidad de desplazamiento automático en px/s.
 	// repeatX/Y controla si se repite en cada eje (default: true en ambos).
 
 	/** Si true, el backdrop se repite en el eje X. Default: true. */
 	@:optional var repeatX:Bool;
 	/** Si true, el backdrop se repite en el eje Y. Default: true. */
 	@:optional var repeatY:Bool;
-	/** Speed of desplazamiento automatic in X (px/s). Default: 0. */
+	/** Velocidad de desplazamiento automático en X (px/s). Default: 0. */
 	@:optional var velocityX:Float;
-	/** Speed of desplazamiento automatic in and (px/s). Default: 0. */
+	/** Velocidad de desplazamiento automático en Y (px/s). Default: 0. */
 	@:optional var velocityY:Float;
 }
 
@@ -230,7 +230,7 @@ typedef StageMember =
 class Stage extends FlxTypedGroup<FlxBasic>
 {
 	// ══════════════════════════════════════════════════════════════════════════
-	//  cache static of DATOS of STAGE
+	//  CACHÉ ESTÁTICO DE DATOS DE STAGE
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
@@ -239,33 +239,33 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	 * key   → nombre del stage (p. ej. "stage_week1", "spooky")
 	 * value → contenido del archivo como String (para re-parsear con loadStage)
 	 *
-	 * By what cachear the String and no the StageData already parsed:
+	 * Por qué cachear el String y no el StageData ya parseado:
 	 *  • StageData contiene Arrays de StageElement, que son objetos mutables.
-	 *    Compartir the same instance between multiple Stage causaría bugs.
+	 *    Compartir la misma instancia entre múltiples Stage causaría bugs.
 	 *  • Cachear el String permite hacer Json.parse() cada vez (muy barato,
-	 *    <0.5 ms for a JSON típico of 8 KB) without I/or of disco.
-	 *  • If the mod recarga the stage, basta invalidar the entry of the cache.
+	 *    <0.5 ms para un JSON típico de 8 KB) sin I/O de disco.
+	 *  • Si el mod recarga el stage, basta invalidar la entrada del caché.
 	 */
 	static var _dataCache:Map<String, String> = [];
 
-	/** Invalida the cache of datos of a stage specific (recarga of mod). */
+	/** Invalida el caché de datos de un stage específico (recarga de mod). */
 	public static function invalidateStageCache(stageName:String):Void
 	{
 		_dataCache.remove(stageName);
 		trace('[Stage] Cache invalidado para: $stageName');
 	}
 
-	/** Clears all the cache of datos of stages. */
+	/** Limpia todo el caché de datos de stages. */
 	public static function clearStageCache():Void
 	{
 		_dataCache.clear();
-		trace('[Stage] All the caches of Stage limpiados.');
+		trace('[Stage] Todos los cachés de Stage limpiados.');
 	}
 
 	/**
 	 * Carga y devuelve solo el StageData de un stage SIN construir sprites.
-	 * Use the mismo cache that Stage.new() — I/or of disco ocurre as maximum a vez.
-	 * Useful for leer fields as isPixelStage before of that currentStage exista.
+	 * Usa el mismo caché que Stage.new() — I/O de disco ocurre como máximo una vez.
+	 * Útil para leer campos como isPixelStage antes de que currentStage exista.
 	 */
 	public static function getStageData(stageName:String):Null<StageData>
 	{
@@ -290,7 +290,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	public var curStage:String;
 
 	/**
-	 * Library of assets active for this stage.
+	 * Librería de assets activa para este stage.
 	 * Se rellena desde stageData.assetLibrary al cargar el stage.
 	 * null → usa curStage (comportamiento original).
 	 */
@@ -303,7 +303,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	public var isEditorPreview:Bool = false;
 
 	// Los mapas siguen tipados como FlxSprite — FunkinSprite extiende FlxAnimate
-	// that to its vez extiende FlxSprite, so that the compatibility is garantizada.
+	// que a su vez extiende FlxSprite, así que la compatibilidad está garantizada.
 	public var elements:Map<String, FlxSprite> = new Map<String, FlxSprite>();
 	public var groups:Map<String, FlxTypedGroup<FlxSprite>> = new Map<String, FlxTypedGroup<FlxSprite>>();
 	public var customClasses:Map<String, FlxSprite> = new Map<String, FlxSprite>();
@@ -328,9 +328,9 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	// Camera offsets
 	public var cameraBoyfriend:FlxPoint = new FlxPoint(0, 0);
 	public var cameraDad:FlxPoint = new FlxPoint(0, 0);
-	/** Offset of camera for the GF. Equivalente to camera_girlfriend in Psych. */
+	/** Offset de cámara para la GF. Equivalente a camera_girlfriend en Psych. */
 	public var cameraGirlfriend:FlxPoint = new FlxPoint(0, 0);
-	/** Multiplicador of velocidad of the lerp of camera. 1.0 = default. */
+	/** Multiplicador de velocidad del lerp de cámara. 1.0 = default. */
 	public var cameraSpeed:Float = 1.0;
 
 	public var gfVersion:String = 'gf';
@@ -359,7 +359,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	{
 		try
 		{
-			// ── Cache hit: avoid I/or of disco ────────────────────────────────
+			// ── Caché hit: evitar I/O de disco ────────────────────────────────
 			var file:String;
 			if (_dataCache.exists(stageName))
 			{
@@ -371,7 +371,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				file = mods.compat.ModCompatLayer.readStageFile(stageName);
 				if (file != null)
 				{
-					_dataCache.set(stageName, file); // save in cache
+					_dataCache.set(stageName, file); // guardar en caché
 
 					// ── Hot-reload: registrar path en JsonWatcher ─────────────
 					#if sys
@@ -421,23 +421,23 @@ class Stage extends FlxTypedGroup<FlxBasic>
 
 	public function buildStage():Void
 	{
-		// FIX: apuntar Paths.currentStage to the stage current before of load images,
-		// of it contrario imageStage() buscará in the folder of the stage previous.
+		// FIX: apuntar Paths.currentStage al stage actual ANTES de cargar imágenes,
+		// de lo contrario imageStage() buscará en la carpeta del stage anterior.
 		if (curStage != null && curStage != '__fromData__')
 			Paths.currentStage = curStage;
 		else if (stageData != null && stageData.name != null)
 			Paths.currentStage = stageData.name;
 
 		// Load basic properties
-		// Scale the zoom of the stage according to resolution (fix 1080p)
+		// Escalar el zoom del stage según resolución (fix 1080p)
 		defaultCamZoom = stageData.defaultZoom;
 		isPixelStage = stageData.isPixelStage;
 
-		// Library of assets by default (puede be null → use curStage)
+		// Librería de assets por defecto (puede ser null → usa curStage)
 		assetLibrary = (stageData.assetLibrary != null && stageData.assetLibrary.trim() != '')
 			? stageData.assetLibrary.trim() : null;
 		if (assetLibrary != null)
-			trace('[Stage] assetLibrary global: $assetLibrary (the assets without library own vienen of here)');
+			trace('[Stage] assetLibrary global: $assetLibrary (los assets sin librería propia vienen de aquí)');
 
 		if (stageData.gfVersion != null)
 			gfVersion = stageData.gfVersion;
@@ -462,7 +462,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			cameraDad.set(stageData.cameraDad[0], stageData.cameraDad[1]);
 
 		// BUG FIX: cameraGirlfriend y cameraSpeed eran convertidos por PsychStageConverter
-		// but Stage never the leía — the fields is perdían silenciosamente.
+		// pero Stage nunca los leía — los campos se perdían silenciosamente.
 		if (stageData.cameraGirlfriend != null)
 			cameraGirlfriend.set(stageData.cameraGirlfriend[0], stageData.cameraGirlfriend[1]);
 
@@ -621,25 +621,25 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			add(obj);
 	}
 
-	// ── Sprite static ───────────────────────────────────────────────────────
-	// For images without animation is sigue usando FlxSprite (more lightweight).
+	// ── Sprite estático ───────────────────────────────────────────────────────
+	// Para imágenes sin animación se sigue usando FlxSprite (más ligero).
 
 	function createSprite(element:StageElement):Void
 	{
 		// FIX: usar FunkinSprite en vez de FlxSprite puro.
-		// FunkinSprite.loadAsset() detecta automatically:
+		// FunkinSprite.loadAsset() detecta automáticamente:
 		//   • .xml  → Sparrow atlas   (animaciones por prefix)
-		//   • .txt  → Packer atlas    (animations by index)
+		//   • .txt  → Packer atlas    (animaciones por índice)
 		//   • Animation.json → Texture Atlas de Adobe Animate / FlxAnimate
-		//   • .png only → image static (comportamiento previous)
-		// So, elementos of type "sprite" in the JSON also soportan atlases
+		//   • .png solo → imagen estática (comportamiento anterior)
+		// Así, elementos de tipo "sprite" en el JSON también soportan atlases
 		// sin necesitar cambiarse a "animated" manualmente.
 		final res     = _resolveAssetLib(element);
 		final assetKey = res.key.endsWith('.txt') ? res.key.replace('.txt', '') : res.key;
 
 		var sprite:FunkinSprite = new FunkinSprite(element.position[0], element.position[1]);
 
-		// Intentar load with auto-detection of atlas
+		// Intentar carga con auto-detección de atlas
 		var loaded = false;
 
 		// 1. Sparrow (PNG + XML)
@@ -684,7 +684,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			}
 		}
 
-		// 4. Image static pura (PNG without atlas)
+		// 4. Imagen estática pura (PNG sin atlas)
 		if (!loaded)
 		{
 			final bmp = Paths.imageStage(assetKey, res.lib);
@@ -721,7 +721,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	/**
 	 * createAnimatedSprite — integración FunkinSprite
 	 *
-	 * FunkinSprite.loadStageSparrow() detecta automatically Sparrow vs Packer.
+	 * FunkinSprite.loadStageSparrow() detecta automáticamente Sparrow vs Packer.
 	 * FunkinSprite.addAnim()  / playAnim() funcionan igual para ambos formatos.
 	 *
 	 * El JSON del stage no necesita cambios — los campos "animations" y
@@ -762,7 +762,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			}
 		}
 
-		// Add animations with the API unificada
+		// Añadir animaciones con la API unificada
 		if (element.animations != null)
 		{
 			for (anim in element.animations)
@@ -771,7 +771,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 					(anim.indices != null && anim.indices.length > 0) ? anim.indices : null);
 			}
 
-			// Play the first animation
+			// Reproducir la primera animación
 			if (element.firstAnimation != null)
 				sprite.playAnim(element.firstAnimation);
 			else if (element.animations.length > 0)
@@ -795,11 +795,11 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		{
 			for (member in element.members)
 			{
-				// If the miembro tiene animations, usar FunkinSprite; if no, FlxSprite static
+				// Si el miembro tiene animaciones, usar FunkinSprite; si no, FlxSprite estático
 				var hasAnims = member.animations != null && member.animations.length > 0;
 
-				// Member's library: inherits from the parent element (that to its vez hereda the global)
-				// The StageMember no tienen assetLibrary own, but itself pueden usar "stage:key" syntax
+				// Librería del miembro: hereda la del elemento padre (que a su vez hereda la global)
+				// Los StageMember no tienen assetLibrary propio, pero sí pueden usar "stage:key" syntax
 				var memberLib:Null<String> = null;
 				var memberKey:String       = member.asset ?? '';
 				final mColonIdx = memberKey.indexOf(':');
@@ -835,7 +835,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 							(anim.indices != null && anim.indices.length > 0) ? anim.indices : null);
 					}
 
-					// Play the first animation
+					// Reproducir la primera animación
 					if (member.animations.length > 0)
 						spr.playAnim(member.animations[0].name);
 
@@ -853,7 +853,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				}
 				else
 				{
-					// No animations → FlxSprite static (more lightweight)
+					// Sin animaciones → FlxSprite estático (más ligero)
 					final _memberBmp = Paths.imageStage(memberKey, memberLib);
 					if (_memberBmp == null)
 					{
@@ -987,7 +987,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	/**
 	 * createModel3D — Crea un Flx3DSprite con un modelo OBJ cargado.
 	 *
-	 * The sprite 3D is coloca in the position of the elemento and is registra in
+	 * El sprite 3D se coloca en la posición del elemento y se registra en
 	 * `stage.elements` para que los scripts puedan animarlo en runtime.
 	 *
 	 * Ejemplo en JSON:
@@ -1001,7 +1001,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	 *   "modelCamZ": 4
 	 * }
 	 *
-	 * From HScript puedes entonces acceder to it:
+	 * Desde HScript puedes entonces acceder a él:
 	 *   var spr3d = stage.getElement("my_rock");      // Flx3DSprite
 	 *   spr3d.scene.objects[0].rotY += elapsed * 1.5; // animar
 	 */
@@ -1010,19 +1010,19 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		final modelName  = element.asset ?? '';
 		if (modelName == '')
 		{
-			trace('[Stage] createModel3D: field "asset" empty.');
+			trace('[Stage] createModel3D: campo "asset" vacío.');
 			return;
 		}
 
-		// Dimensiones of the escena 3D (in pixels of the render off-screen)
+		// Dimensiones de la escena 3D (en píxeles del render off-screen)
 		final sw = element.sceneWidth  != null ? element.sceneWidth  : 256;
 		final sh = element.sceneHeight != null ? element.sceneHeight : 256;
 
-		// Position 2D in the stage
+		// Posición 2D en el stage
 		final px = element.position != null && element.position.length > 0 ? element.position[0] : 0.0;
 		final py = element.position != null && element.position.length > 1 ? element.position[1] : 0.0;
 
-		// Create the Flx3DSprite centrado in the position
+		// Crear el Flx3DSprite centrado en la posición
 		final spr3d = new Flx3DSprite(px - sw * 0.5, py - sh * 0.5, sw, sh);
 
 		// Scroll factor
@@ -1035,17 +1035,17 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		if (element.alpha   != null) spr3d.alpha   = element.alpha;
 		if (element.visible != null) spr3d.visible = element.visible;
 
-		// Re-render each frame (puede desactivarse for models static)
+		// Re-render cada frame (puede desactivarse para modelos estáticos)
 		spr3d.renderEveryFrame = element.renderEveryFrame != false;
 
-		// Camera 3D internal
+		// Cámara 3D interna
 		spr3d.scene.camera.position.set(
 			element.modelCamX != null ? element.modelCamX : 0.0,
 			element.modelCamY != null ? element.modelCamY : 1.0,
 			element.modelCamZ != null ? element.modelCamZ : 5.0);
 		spr3d.scene.camera.target.set(0, 0, 0);
 
-		// Direction of luz
+		// Dirección de luz
 		if (element.lightDir != null && element.lightDir.length >= 3)
 			spr3d.scene.lightDir.set(element.lightDir[0], element.lightDir[1], element.lightDir[2]).normalizeSelf();
 
@@ -1060,10 +1060,10 @@ class Stage extends FlxTypedGroup<FlxBasic>
 			spr3d.scene.clearA = c.alphaFloat;
 		}
 
-		// Scales of the modelo and rotation inicial
+		// Escala del modelo y rotación inicial
 		final mscale = element.modelScale != null ? element.modelScale : 1.0;
 
-		// Load the mesh OBJ when the contexto 3D is listo
+		// Cargar el mesh OBJ cuando el contexto 3D esté listo
 		final _stageName = stageData != null ? stageData.name : '';
 		final _elemName  = element.name ?? modelName;
 
@@ -1091,7 +1091,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				if (element.modelRotY != null) obj.rotY = element.modelRotY;
 				if (element.modelRotZ != null) obj.rotZ = element.modelRotZ;
 				spr3d.scene.add(obj);
-				trace('[Stage] createModel3D: "$_elemName" listo — ${mesh.triangleCount} triangles.');
+				trace('[Stage] createModel3D: "$_elemName" listo — ${mesh.triangleCount} triángulos.');
 			}
 		};
 
@@ -1109,7 +1109,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	 * createBackdrop — Crea un FlxBackdrop (fondo infinito desplazable).
 	 *
 	 * Requiere flixel-addons (flixel.addons.display.FlxBackdrop).
-	 * If no is available, hace fallback to a sprite static normal.
+	 * Si no está disponible, hace fallback a un sprite estático normal.
 	 *
 	 * Ejemplo en JSON:
 	 * {
@@ -1142,7 +1142,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		final stageImg = Paths.imageStage(assetKey, res.lib);
 		if (stageImg != null) bitmapData = stageImg;
 
-		// Image generic if no is in the stage
+		// Imagen genérica si no está en el stage
 		if (bitmapData == null)
 		{
 			try { bitmapData = Paths.getGraphic(assetKey)?.bitmap; } catch(_) {}
@@ -1182,11 +1182,11 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		}
 		catch (e:Dynamic)
 		{
-			trace('[Stage] createBackdrop: error creando FlxBackdrop: $and — usando sprite static.');
+			trace('[Stage] createBackdrop: error creando FlxBackdrop: $e — usando sprite estático.');
 			backdrop = null;
 		}
 
-		// ── Fallback: FlxSprite static (if flixel-addons no available) ─────
+		// ── Fallback: FlxSprite estático (si flixel-addons no disponible) ─────
 		if (backdrop == null)
 		{
 			final spr = new FunkinSprite(px, py);
@@ -1206,7 +1206,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				spr.loadGraphic(tiled);
 			}
 			backdrop = spr;
-			trace('[Stage] createBackdrop: FlxBackdrop no available — sprite static for "${element.name ?? assetKey}".');
+			trace('[Stage] createBackdrop: FlxBackdrop no disponible — sprite estático para "${element.name ?? assetKey}".');
 		}
 
 		// ── Propiedades comunes ───────────────────────────────────────────────
@@ -1253,11 +1253,11 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		ScriptHandler.setOnStageScripts('currentStage', this);
 		ScriptHandler.setOnStageScripts('SONG', PlayState.SONG);
 
-		// BUGFIX: inyectar cameras before of onStageCreate.
+		// BUGFIX: inyectar cámaras ANTES de onStageCreate.
 		// PlayState.setOnScripts('camGame') se llama antes de loadStageAndCharacters(),
-		// but in that momento the stage scripts still no existen → no reciben camGame.
+		// pero en ese momento los stage scripts aún no existen → no reciben camGame.
 		// Sin esto, cualquier acceso a `camGame` en onStageCreate lanza
-		// EUnknownVariable in HScript, rompiendo all the function silenciosamente.
+		// EUnknownVariable en HScript, rompiendo toda la función silenciosamente.
 		var _ps = funkin.gameplay.PlayState.instance;
 		if (_ps != null)
 		{
@@ -1332,7 +1332,7 @@ class Stage extends FlxTypedGroup<FlxBasic>
 
 		if (element.active != null)
 			sprite.active = element.active;
-		else if (element.type == 'sprite') // sprites static without animation
+		else if (element.type == 'sprite') // sprites estáticos sin animación
 			sprite.active = false;         // no necesitan update() cada frame
 
 		if (element.alpha != null)
@@ -1370,15 +1370,15 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	}
 
 	/**
-	 * Generates a graphic of placeholder for the StageEditor when a asset no is encuentra.
-	 * Draws a pattern of cuadros magenta/black for that the elemento sea claramente visible
-	 * and seleccionable, with a scales minimal of 64×64 for that no sea invisible.
+	 * Genera un gráfico de placeholder para el StageEditor cuando un asset no se encuentra.
+	 * Dibuja un patrón de cuadros magenta/negro para que el elemento sea claramente visible
+	 * y seleccionable, con una escala mínima de 64×64 para que no sea invisible.
 	 */
 	private function _makePlaceholderGraphic(sprite:FlxSprite, label:String):Void
 	{
 		final SIZE = 64;
 		sprite.makeGraphic(SIZE, SIZE, 0xFFFF00FF); // magenta
-		// Draw cuadros negros in diagonal for the pattern checker
+		// Dibujar cuadros negros en diagonal para el patrón checker
 		final half = SIZE >> 1;
 		final tile = new openfl.display.BitmapData(half, half, false, 0xFF000000);
 		sprite.pixels.copyPixels(tile, tile.rect, new openfl.geom.Point(0, 0));
