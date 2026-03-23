@@ -1,11 +1,17 @@
 package funkin.debug;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+import coolui.CoolUIList;
+
 
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
-import flixel.addons.ui.*;
+
 import funkin.gameplay.objects.stages.Stage;
 import flixel.ui.FlxButton;
 
@@ -22,34 +28,34 @@ class ElementPropertiesDialog extends FlxTypedGroup<FlxSprite>
 	var isCustomClass:Bool = false;
 	
 	// Input fields
-	var nameInput:FlxUIInputText;
-	var assetInput:FlxUIInputText;
-	var posXStepper:FlxUINumericStepper;
-	var posYStepper:FlxUINumericStepper;
-	var scrollXStepper:FlxUINumericStepper;
-	var scrollYStepper:FlxUINumericStepper;
-	var scaleXStepper:FlxUINumericStepper;
-	var scaleYStepper:FlxUINumericStepper;
-	var alphaStepper:FlxUINumericStepper;
-	var zIndexStepper:FlxUINumericStepper;
-	var colorInput:FlxUIInputText;
-	var blendDropdown:FlxUIDropDownMenu;
-	var antialiasingCheckbox:FlxUICheckBox;
-	var activeCheckbox:FlxUICheckBox;
-	var visibleCheckbox:FlxUICheckBox;
-	var flipXCheckbox:FlxUICheckBox;
-	var flipYCheckbox:FlxUICheckBox;
+	var nameInput:CoolInputText;
+	var assetInput:CoolInputText;
+	var posXStepper:CoolNumericStepper;
+	var posYStepper:CoolNumericStepper;
+	var scrollXStepper:CoolNumericStepper;
+	var scrollYStepper:CoolNumericStepper;
+	var scaleXStepper:CoolNumericStepper;
+	var scaleYStepper:CoolNumericStepper;
+	var alphaStepper:CoolNumericStepper;
+	var zIndexStepper:CoolNumericStepper;
+	var colorInput:CoolInputText;
+	var blendDropdown:CoolDropDown;
+	var antialiasingCheckbox:CoolCheckBox;
+	var activeCheckbox:CoolCheckBox;
+	var visibleCheckbox:CoolCheckBox;
+	var flipXCheckbox:CoolCheckBox;
+	var flipYCheckbox:CoolCheckBox;
 	
 	// Animated sprite fields
-	var animationsList:FlxUIList;
-	var firstAnimInput:FlxUIInputText;
+	var animationsList:CoolUIList;
+	var firstAnimInput:CoolInputText;
 	
 	// Sound fields
-	var volumeStepper:FlxUINumericStepper;
-	var loopedCheckbox:FlxUICheckBox;
+	var volumeStepper:CoolNumericStepper;
+	var loopedCheckbox:CoolCheckBox;
 	
 	// Custom class fields
-	var classNameInput:FlxUIInputText;
+	var classNameInput:CoolInputText;
 	
 	var saveBtn:FlxButton;
 	var cancelBtn:FlxButton;
@@ -85,7 +91,7 @@ class ElementPropertiesDialog extends FlxTypedGroup<FlxSprite>
 		
 		// Name
 		add(new FlxText(220, yPos, 0, "Name:"));
-		nameInput = new FlxUIInputText(350, yPos, 300, element.name);
+		nameInput = new CoolInputText(350, yPos, 300, element.name);
 		add(nameInput);
 		yPos += 30;
 		
@@ -93,62 +99,62 @@ class ElementPropertiesDialog extends FlxTypedGroup<FlxSprite>
 		{
 			// Asset
 			add(new FlxText(220, yPos, 0, "Asset Path:"));
-			assetInput = new FlxUIInputText(350, yPos, 300, element.asset);
+			assetInput = new CoolInputText(350, yPos, 300, element.asset);
 			add(assetInput);
 			yPos += 30;
 			
 			// Position
 			add(new FlxText(220, yPos, 0, "Position X:"));
-			posXStepper = new FlxUINumericStepper(350, yPos, 10, element.position[0], -5000, 5000, 0);
+			posXStepper = new CoolNumericStepper(350, yPos, 10, element.position[0], -5000, 5000, 0);
 			add(posXStepper);
 			
 			add(new FlxText(520, yPos, 0, "Y:"));
-			posYStepper = new FlxUINumericStepper(550, yPos, 10, element.position[1], -5000, 5000, 0);
+			posYStepper = new CoolNumericStepper(550, yPos, 10, element.position[1], -5000, 5000, 0);
 			add(posYStepper);
 			yPos += 30;
 			
 			// Scroll Factor
 			add(new FlxText(220, yPos, 0, "Scroll Factor X:"));
-			scrollXStepper = new FlxUINumericStepper(350, yPos, 0.1, element.scrollFactor[0], 0, 2, 1);
+			scrollXStepper = new CoolNumericStepper(350, yPos, 0.1, element.scrollFactor[0], 0, 2, 1);
 			add(scrollXStepper);
 			
 			add(new FlxText(520, yPos, 0, "Y:"));
-			scrollYStepper = new FlxUINumericStepper(550, yPos, 0.1, element.scrollFactor[1], 0, 2, 1);
+			scrollYStepper = new CoolNumericStepper(550, yPos, 0.1, element.scrollFactor[1], 0, 2, 1);
 			add(scrollYStepper);
 			yPos += 30;
 			
 			// Scale
 			add(new FlxText(220, yPos, 0, "Scale X:"));
-			scaleXStepper = new FlxUINumericStepper(350, yPos, 0.1, element.scale[0], 0.1, 10, 1);
+			scaleXStepper = new CoolNumericStepper(350, yPos, 0.1, element.scale[0], 0.1, 10, 1);
 			add(scaleXStepper);
 			
 			add(new FlxText(520, yPos, 0, "Y:"));
-			scaleYStepper = new FlxUINumericStepper(550, yPos, 0.1, element.scale[1], 0.1, 10, 1);
+			scaleYStepper = new CoolNumericStepper(550, yPos, 0.1, element.scale[1], 0.1, 10, 1);
 			add(scaleYStepper);
 			yPos += 30;
 			
 			// Alpha
 			add(new FlxText(220, yPos, 0, "Alpha:"));
-			alphaStepper = new FlxUINumericStepper(350, yPos, 0.1, element.alpha, 0, 1, 1);
+			alphaStepper = new CoolNumericStepper(350, yPos, 0.1, element.alpha, 0, 1, 1);
 			add(alphaStepper);
 			yPos += 30;
 			
 			// Z Index
 			add(new FlxText(220, yPos, 0, "Z Index:"));
-			zIndexStepper = new FlxUINumericStepper(350, yPos, 1, element.zIndex != null ? element.zIndex : 0, -100, 100, 0);
+			zIndexStepper = new CoolNumericStepper(350, yPos, 1, element.zIndex != null ? element.zIndex : 0, -100, 100, 0);
 			add(zIndexStepper);
 			yPos += 30;
 			
 			// Color
 			add(new FlxText(220, yPos, 0, "Color (hex):"));
-			colorInput = new FlxUIInputText(350, yPos, 100, element.color);
+			colorInput = new CoolInputText(350, yPos, 100, element.color);
 			add(colorInput);
 			yPos += 30;
 			
 			// Blend Mode
 			add(new FlxText(220, yPos, 0, "Blend Mode:"));
-			blendDropdown = new FlxUIDropDownMenu(350, yPos, 
-				FlxUIDropDownMenu.makeStrIdLabelArray(["normal", "add", "multiply", "screen"]),
+			blendDropdown = new CoolDropDown(350, yPos, 
+				CoolDropDown.makeStrIdLabelArray(["normal", "add", "multiply", "screen"]),
 				function(blend:String) {
 					// callback
 				});
@@ -157,24 +163,24 @@ class ElementPropertiesDialog extends FlxTypedGroup<FlxSprite>
 			yPos += 30;
 			
 			// Checkboxes
-			antialiasingCheckbox = new FlxUICheckBox(220, yPos, null, null, "Antialiasing", 100);
+			antialiasingCheckbox = new CoolCheckBox(220, yPos, null, null, "Antialiasing", 100);
 			antialiasingCheckbox.checked = element.antialiasing;
 			add(antialiasingCheckbox);
 			
-			activeCheckbox = new FlxUICheckBox(340, yPos, null, null, "Active", 100);
+			activeCheckbox = new CoolCheckBox(340, yPos, null, null, "Active", 100);
 			activeCheckbox.checked = element.active;
 			add(activeCheckbox);
 			
-			visibleCheckbox = new FlxUICheckBox(440, yPos, null, null, "Visible", 100);
+			visibleCheckbox = new CoolCheckBox(440, yPos, null, null, "Visible", 100);
 			visibleCheckbox.checked = element.visible;
 			add(visibleCheckbox);
 			yPos += 30;
 			
-			flipXCheckbox = new FlxUICheckBox(220, yPos, null, null, "Flip X", 100);
+			flipXCheckbox = new CoolCheckBox(220, yPos, null, null, "Flip X", 100);
 			flipXCheckbox.checked = element.flipX;
 			add(flipXCheckbox);
 			
-			flipYCheckbox = new FlxUICheckBox(340, yPos, null, null, "Flip Y", 100);
+			flipYCheckbox = new CoolCheckBox(340, yPos, null, null, "Flip Y", 100);
 			flipYCheckbox.checked = element.flipY;
 			add(flipYCheckbox);
 			yPos += 30;
@@ -184,7 +190,7 @@ class ElementPropertiesDialog extends FlxTypedGroup<FlxSprite>
 		if (isAnimated)
 		{
 			add(new FlxText(220, yPos, 0, "First Animation:"));
-			firstAnimInput = new FlxUIInputText(350, yPos, 200, element.firstAnimation);
+			firstAnimInput = new CoolInputText(350, yPos, 200, element.firstAnimation);
 			add(firstAnimInput);
 			yPos += 30;
 			
@@ -196,16 +202,16 @@ class ElementPropertiesDialog extends FlxTypedGroup<FlxSprite>
 		if (isSound)
 		{
 			add(new FlxText(220, yPos, 0, "Sound Asset:"));
-			assetInput = new FlxUIInputText(350, yPos, 300, element.asset);
+			assetInput = new CoolInputText(350, yPos, 300, element.asset);
 			add(assetInput);
 			yPos += 30;
 			
 			add(new FlxText(220, yPos, 0, "Volume:"));
-			volumeStepper = new FlxUINumericStepper(350, yPos, 0.1, element.volume != null ? element.volume : 1, 0, 1, 1);
+			volumeStepper = new CoolNumericStepper(350, yPos, 0.1, element.volume != null ? element.volume : 1, 0, 1, 1);
 			add(volumeStepper);
 			yPos += 30;
 			
-			loopedCheckbox = new FlxUICheckBox(220, yPos, null, null, "Looped", 100);
+			loopedCheckbox = new CoolCheckBox(220, yPos, null, null, "Looped", 100);
 			loopedCheckbox.checked = element.looped != null ? element.looped : false;
 			add(loopedCheckbox);
 			yPos += 30;
@@ -215,7 +221,7 @@ class ElementPropertiesDialog extends FlxTypedGroup<FlxSprite>
 		if (isCustomClass)
 		{
 			add(new FlxText(220, yPos, 0, "Class Name:"));
-			classNameInput = new FlxUIInputText(350, yPos, 200, element.className);
+			classNameInput = new CoolInputText(350, yPos, 200, element.className);
 			add(classNameInput);
 			yPos += 30;
 			

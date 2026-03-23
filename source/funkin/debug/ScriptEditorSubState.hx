@@ -1,7 +1,9 @@
 package funkin.debug;
+import coolui.CoolDropDown;
+
 
 import flixel.*;
-import flixel.addons.ui.*;
+
 import flixel.group.FlxGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
@@ -220,8 +222,8 @@ class ScriptEditorSubState extends FlxSubState
 		_wt("Template:", bx + 4, tbY + 8, 0, 10, C_GRAY, LEFT);
 
 		var tNames = [for (k in TEMPLATES.keys()) k];
-		var dd = new FlxUIDropDownMenu(wx + bx + 68, wy + tbY + 4,
-			FlxUIDropDownMenu.makeStrIdLabelArray(tNames, true),
+		var dd = new CoolDropDown(wx + bx + 68, wy + tbY + 4,
+			CoolDropDown.makeStrIdLabelArray(tNames, true),
 			function(id:String) {
 				var i = Std.parseInt(id);
 				if (i != null && i >= 0 && i < tNames.length) _applyTemplate(tNames[i]);

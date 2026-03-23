@@ -1,10 +1,11 @@
 package funkin.states;
 
+import coolui.CoolUIState;
 import funkin.data.Conductor.BPMChangeEvent;
 import funkin.data.Conductor;
 import flixel.FlxG;
 import flixel.addons.transition.FlxTransitionableState;
-import flixel.addons.ui.FlxUIState;
+
 import flixel.math.FlxRect;
 import flixel.util.FlxTimer;
 import data.PlayerSettings;
@@ -34,7 +35,7 @@ import sys.FileSystem;
  *   • Hook onStateCreate/onStateDestroy para scripts globales.
  *   • autoScriptLoad: bool para deshabilitar si el state lo gestiona manualmente.
  */
-class MusicBeatState extends FlxUIState
+class MusicBeatState extends CoolUIState
 {
 	private var lastBeat : Float = 0;
 	private var lastStep : Float = 0;

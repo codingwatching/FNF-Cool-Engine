@@ -1,4 +1,6 @@
 package funkin.menus;
+import coolui.CoolInputText;
+
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -8,7 +10,7 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
-import flixel.addons.ui.FlxUIInputText;
+
 import funkin.gameplay.objects.character.Character.CharacterData;
 import funkin.gameplay.objects.character.Character.AnimData;
 import funkin.gameplay.objects.character.CharacterList;
@@ -74,7 +76,7 @@ class CharacterSelectorState extends MusicBeatState
 	// Paso 1 – nombre
 	private var step1Group:FlxTypedGroup<FlxSprite>;  // sprites del paso 1
 	private var step1Texts:Array<FlxText> = [];
-	private var nameInput:FlxUIInputText;
+	private var nameInput:CoolInputText;
 	private var nameHint:FlxText;
 
 	// Paso 2 – import
@@ -267,7 +269,7 @@ class CharacterSelectorState extends MusicBeatState
 		var t2 = makeWizTxt(px + 14, py + 38, PW - 28, "Enter a unique ID for the character (no spaces or special chars):", 11, FlxColor.WHITE);
 		step1Texts.push(t2); add(t2);
 
-		nameInput = new FlxUIInputText(Std.int(px) + 14, Std.int(py) + 62, PW - 28, "my-character", 14);
+		nameInput = new CoolInputText(Std.int(px) + 14, Std.int(py) + 62, PW - 28, "my-character", 14);
 		nameInput.scrollFactor.set();
 		nameInput.visible = false;
 		add(nameInput);

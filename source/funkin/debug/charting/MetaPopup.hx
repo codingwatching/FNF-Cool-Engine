@@ -1,4 +1,9 @@
 package funkin.debug.charting;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -7,7 +12,7 @@ import flixel.group.FlxGroup;
 import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
-import flixel.addons.ui.*;
+
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import funkin.data.Song.SwagSong;
@@ -56,20 +61,20 @@ class MetaPopup extends FlxGroup
 	var panel:FlxSprite;
 
 	// Song section
-	var titleInput:FlxUIInputText;
-	var artistInput:FlxUIInputText;
-	var charterInput:FlxUIInputText;
+	var titleInput:CoolInputText;
+	var artistInput:CoolInputText;
+	var charterInput:CoolInputText;
 
 	// Audio section
-	var bpmStepper:FlxUINumericStepper;
-	var speedStepper:FlxUINumericStepper;
-	var needsVoicesCheck:FlxUICheckBox;
+	var bpmStepper:CoolNumericStepper;
+	var speedStepper:CoolNumericStepper;
+	var needsVoicesCheck:CoolCheckBox;
 
 	// Stage section
-	var stageDropDown:FlxUIDropDownMenu;
+	var stageDropDown:CoolDropDown;
 
 	// Note style section
-	var noteStyleInput:FlxUIInputText;
+	var noteStyleInput:CoolInputText;
 
 	// Character buttons (V-Slice style)
 	var charBtnBF:FlxSprite;
@@ -160,15 +165,15 @@ class MetaPopup extends FlxGroup
 		_section(lx, y, "SONG"); y += 10;
 
 		_lbl(lx, y, "Title:"); y += 14;
-		titleInput = new FlxUIInputText(lx, y, 250, _song.song ?? "", 12);
+		titleInput = new CoolInputText(lx, y, 250, _song.song ?? "", 12);
 		titleInput.scrollFactor.set(); titleInput.cameras = [camHUD]; add(titleInput); y += 26;
 
 		_lbl(lx, y, "Artist:");
 		_lbl(lx + 165, y, "Charter:");
 		y += 14;
-		artistInput = new FlxUIInputText(lx, y, 155, _song.artist ?? "", 12);
+		artistInput = new CoolInputText(lx, y, 155, _song.artist ?? "", 12);
 		artistInput.scrollFactor.set(); artistInput.cameras = [camHUD]; add(artistInput);
-		charterInput = new FlxUIInputText(lx + 165, y, 155, "", 12);
+		charterInput = new CoolInputText(lx + 165, y, 155, "", 12);
 		charterInput.scrollFactor.set(); charterInput.cameras = [camHUD]; add(charterInput);
 		y += 30;
 
@@ -178,13 +183,13 @@ class MetaPopup extends FlxGroup
 		_lbl(lx, y, "BPM:");
 		_lbl(lx + 110, y, "Speed:");
 		y += 14;
-		bpmStepper = new FlxUINumericStepper(lx, y, 1, _song.bpm > 0 ? _song.bpm : 120, 1, 999, 0);
+		bpmStepper = new CoolNumericStepper(lx, y, 1, _song.bpm > 0 ? _song.bpm : 120, 1, 999, 0);
 		bpmStepper.scrollFactor.set(); bpmStepper.cameras = [camHUD]; add(bpmStepper);
-		speedStepper = new FlxUINumericStepper(lx + 110, y, 0.1, _song.speed > 0 ? _song.speed : 1.0, 0.1, 10.0, 1);
+		speedStepper = new CoolNumericStepper(lx + 110, y, 0.1, _song.speed > 0 ? _song.speed : 1.0, 0.1, 10.0, 1);
 		speedStepper.scrollFactor.set(); speedStepper.cameras = [camHUD]; add(speedStepper);
 		y += 30;
 
-		needsVoicesCheck = new FlxUICheckBox(lx, y, null, null, "Needs Voices (load vocals track)", 250);
+		needsVoicesCheck = new CoolCheckBox(lx, y, null, null, "Needs Voices (load vocals track)", 250);
 		needsVoicesCheck.checked = _song.needsVoices;
 		needsVoicesCheck.scrollFactor.set(); needsVoicesCheck.cameras = [camHUD]; add(needsVoicesCheck);
 		y += 28;
@@ -199,7 +204,7 @@ class MetaPopup extends FlxGroup
 		CharacterList.init();
 		var stageNames:Array<String> = CharacterList.stages.length > 0 ? CharacterList.stages : ["stage_week1"];
 		var stageLabels:Array<String> = stageNames.map(function(s) return CharacterList.getStageName(s) + ' [$s]');
-		stageDropDown = new FlxUIDropDownMenu(lx, y, FlxUIDropDownMenu.makeStrIdLabelArray(stageLabels, true), function(id:String)
+		stageDropDown = new CoolDropDown(lx, y, CoolDropDown.makeStrIdLabelArray(stageLabels, true), function(id:String)
 		{
 			var idx = Std.parseInt(id);
 			if (idx != null && idx >= 0 && idx < stageNames.length)
@@ -214,7 +219,7 @@ class MetaPopup extends FlxGroup
 		}
 		stageDropDown.scrollFactor.set(); stageDropDown.cameras = [camHUD]; add(stageDropDown);
 
-		noteStyleInput = new FlxUIInputText(lx + 210, y, 150, "", 12);
+		noteStyleInput = new CoolInputText(lx + 210, y, 150, "", 12);
 		noteStyleInput.scrollFactor.set(); noteStyleInput.cameras = [camHUD]; add(noteStyleInput);
 		y += 30;
 

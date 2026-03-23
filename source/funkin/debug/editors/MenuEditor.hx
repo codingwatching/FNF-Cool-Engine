@@ -1,7 +1,11 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+
 
 import flixel.*;
-import flixel.addons.ui.*;
+
 import flixel.group.FlxGroup;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
@@ -87,10 +91,10 @@ class MenuEditor extends funkin.states.MusicBeatState
 	var _tabTxts    : Map<String,FlxText>   = new Map();
 
 	// UI inputs
-	var _inputs  : Map<String,FlxUIInputText>    = new Map();
-	var _checks  : Map<String,FlxUICheckBox>     = new Map();
-	var _dds     : Map<String,FlxUIDropDownMenu> = new Map();
-	var _typeDD  : FlxUIDropDownMenu;
+	var _inputs  : Map<String,CoolInputText>    = new Map();
+	var _checks  : Map<String,CoolCheckBox>     = new Map();
+	var _dds     : Map<String,CoolDropDown> = new Map();
+	var _typeDD  : CoolDropDown;
 
 	// Item list group (rebuilt on refresh)
 	var _listGrp  : FlxGroup;
@@ -291,7 +295,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 		// Type DD
 		_mkL(g, px+8, y, "Type for new:", C_GRAY); y += 14;
 		var iTypes = ["Button","Alphabet","Image","AnimatedSprite","Text","Separator","Script"];
-		_typeDD = new FlxUIDropDownMenu(px+8, y, FlxUIDropDownMenu.makeStrIdLabelArray(iTypes, true), function(_){});
+		_typeDD = new CoolDropDown(px+8, y, CoolDropDown.makeStrIdLabelArray(iTypes, true), function(_){});
 		_typeDD.scrollFactor.set(); _typeDD.cameras = [camUI]; g.add(_typeDD); add(_typeDD); y += 28;
 
 		// Buttons row
@@ -407,7 +411,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 
 		var gnames = [for (gr in (_data.groups ?? [])) gr.name];
 		if (gnames.length == 0) gnames = ["main"];
-		var gdd = new FlxUIDropDownMenu(px+8, y, FlxUIDropDownMenu.makeStrIdLabelArray(gnames, true), function(_){});
+		var gdd = new CoolDropDown(px+8, y, CoolDropDown.makeStrIdLabelArray(gnames, true), function(_){});
 		gdd.scrollFactor.set(); gdd.cameras = [camUI]; g.add(gdd); add(gdd); _dds.set("groupAssign", gdd); y += 28;
 
 		_mkTBtn(g, px+8, y, cw, 24, "Assign to Group", C_SELECTED, C_YELLOW, "assign_group", "Groups");
@@ -443,7 +447,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 
 		_mkL(g, px+8, y, "Transition:", C_GRAY); y += 13;
 		var transitions = ["fade","slide_left","slide_right","zoom","instant","custom"];
-		var tdd = new FlxUIDropDownMenu(px+8, y, FlxUIDropDownMenu.makeStrIdLabelArray(transitions, true),
+		var tdd = new CoolDropDown(px+8, y, CoolDropDown.makeStrIdLabelArray(transitions, true),
 			function(id:String) { var idx = Std.parseInt(id) ?? 0; _data.transition = transitions[idx]; });
 		tdd.scrollFactor.set(); tdd.cameras = [camUI]; g.add(tdd); add(tdd); _dds.set("transition", tdd); y += 28;
 
@@ -1466,10 +1470,10 @@ class MenuEditor extends funkin.states.MusicBeatState
 		var s=new FlxSprite(x,y).makeGraphic(w,1,0xFF2A2A44); s.scrollFactor.set(); s.cameras=[camUI]; g.add(s);
 	}
 	function _addIn(g:FlxGroup,k:String,x:Float,y:Float,w:Int,def:String,sz:Int):Void {
-		var inp=new FlxUIInputText(x,y,w,def,sz); inp.scrollFactor.set(); inp.cameras=[camUI]; g.add(inp); _inputs.set(k,inp);
+		var inp=new CoolInputText(x,y,w,def,sz); inp.scrollFactor.set(); inp.cameras=[camUI]; g.add(inp); _inputs.set(k,inp);
 	}
 	function _addCB(g:FlxGroup,k:String,x:Float,y:Float,lbl:String,w:Int):Void {
-		var cb=new FlxUICheckBox(x,y,null,null,lbl,w); cb.scrollFactor.set(); cb.cameras=[camUI]; g.add(cb); _checks.set(k,cb);
+		var cb=new CoolCheckBox(x,y,null,null,lbl,w); cb.scrollFactor.set(); cb.cameras=[camUI]; g.add(cb); _checks.set(k,cb);
 	}
 	inline function _gi(k:String):String  return _inputs.exists(k)  ? (_inputs.get(k)?.text  ?? "") : "";
 	inline function _si(k:String,v:String):Void if (_inputs.exists(k) && _inputs.get(k) != null) _inputs.get(k).text = v;

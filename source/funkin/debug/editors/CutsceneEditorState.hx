@@ -1,4 +1,7 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+import coolui.CoolDropDown;
+
 
 import flixel.FlxCamera;
 import flixel.FlxG;
@@ -7,8 +10,8 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.util.FlxTimer;
-import flixel.addons.ui.FlxUIDropDownMenu;
-import flixel.addons.ui.FlxUIInputText;
+
+
 import funkin.data.Conductor;
 import funkin.debug.MediaTransportBar;
 import funkin.gameplay.PlayState;
@@ -160,9 +163,9 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 	var _playhead:FlxSprite;
 
 	// Inspector
-	var _actionDD:FlxUIDropDownMenu;
-	var _spriteDD:FlxUIDropDownMenu;
-	var _pInputs:Array<FlxUIInputText> = [];
+	var _actionDD:CoolDropDown;
+	var _spriteDD:CoolDropDown;
+	var _pInputs:Array<CoolInputText> = [];
 	var _pLabels:Array<FlxText> = [];
 
 	var _fileRef:FileReference;
@@ -409,14 +412,14 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 		add(bg);
 		_mkTxt(px + 8, py + 5, INSP_W - 16, 'INSPECTOR', 9, C_DIM);
 
-		_actionDD = new FlxUIDropDownMenu(px + 6, py + 18, FlxUIDropDownMenu.makeStrIdLabelArray(ACTIONS));
+		_actionDD = new CoolDropDown(px + 6, py + 18, CoolDropDown.makeStrIdLabelArray(ACTIONS));
 		_actionDD.cameras = [camHUD];
 		_actionDD.scrollFactor.set();
 		_actionDD.selectedLabel = ACTIONS[0];
 		_actionDD.callback = _onActionChanged;
 		add(_actionDD);
 
-		_spriteDD = new FlxUIDropDownMenu(px + 6, py + 44, FlxUIDropDownMenu.makeStrIdLabelArray(['(ninguno)']));
+		_spriteDD = new CoolDropDown(px + 6, py + 44, CoolDropDown.makeStrIdLabelArray(['(ninguno)']));
 		_spriteDD.cameras = [camHUD];
 		_spriteDD.scrollFactor.set();
 		add(_spriteDD);
@@ -902,13 +905,13 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 	{
 		if (_spriteDD == null)
 			return;
-		// FlxUIDropDownMenu has no setList() in the current flixel-ui version.
+		// CoolDropDown has no setList() in the current flixel-ui version.
 		// Recreate the widget in-place to update its item list.
 		final sx = _spriteDD.x;
 		final sy = _spriteDD.y;
 		final prev = _spriteDD.selectedLabel;
 		remove(_spriteDD);
-		_spriteDD = new FlxUIDropDownMenu(sx, sy, FlxUIDropDownMenu.makeStrIdLabelArray(['(ninguno)'].concat(_sprKeys())));
+		_spriteDD = new CoolDropDown(sx, sy, CoolDropDown.makeStrIdLabelArray(['(ninguno)'].concat(_sprKeys())));
 		_spriteDD.cameras = [camHUD];
 		_spriteDD.scrollFactor.set();
 		add(_spriteDD);
@@ -957,7 +960,7 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 				break;
 			var lbl = _mkTxt(px, iy, INSP_W - 12, '${p.l}:', 9, C_DIM);
 			_pLabels.push(lbl);
-			var inp = new FlxUIInputText(px, iy + 10, INSP_W - 14, '', 10);
+			var inp = new CoolInputText(px, iy + 10, INSP_W - 14, '', 10);
 			inp.scrollFactor.set();
 			inp.cameras = [camHUD];
 			add(inp);

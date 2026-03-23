@@ -1,10 +1,12 @@
 package funkin.debug;
+import coolui.CoolNumericStepper;
+
 
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.addons.ui.FlxUIInputText;
-import flixel.addons.ui.FlxUINumericStepper;
+
+
 import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
@@ -18,8 +20,8 @@ using StringTools;
  * and renders a live control panel for each one.
  *
  * Supported uniform types → control widget:
- *   float      → FlxUINumericStepper  (step 0.01, range -100..100)
- *   int        → FlxUINumericStepper  (step 1,    range -100..100)
+ *   float      → CoolNumericStepper  (step 0.01, range -100..100)
+ *   int        → CoolNumericStepper  (step 1,    range -100..100)
  *   bool       → toggle FlxButton
  *   vec2/vec3/vec4  → N steppers side-by-side
  *
@@ -182,14 +184,14 @@ class ShaderParamsSubState extends flixel.FlxSubState
 		{
 			case 'float':
 				var initVal:Float = _params.exists(uni.name) ? _params.get(uni.name) : 0.0;
-				var s = new FlxUINumericStepper(cx, cy, 0.01, initVal, -999, 999, 3);
+				var s = new CoolNumericStepper(cx, cy, 0.01, initVal, -999, 999, 3);
 				s.scrollFactor.set(); s.cameras = [_cam]; add(s);
 				uni.steppers = [s];
 				s.value = initVal; // ensure displayed
 
 			case 'int':
 				var initVal:Int = _params.exists(uni.name) ? Std.int(_params.get(uni.name)) : 0;
-				var s = new FlxUINumericStepper(cx, cy, 1, initVal, -999, 999, 0);
+				var s = new CoolNumericStepper(cx, cy, 1, initVal, -999, 999, 0);
 				s.scrollFactor.set(); s.cameras = [_cam]; add(s);
 				uni.steppers = [s];
 
@@ -214,7 +216,7 @@ class ShaderParamsSubState extends flixel.FlxSubState
 				uni.steppers = [];
 				for (i in 0...2)
 				{
-					var s = new FlxUINumericStepper(cx + sx[i], cy, 0.01, initArr[i], -999, 999, 3);
+					var s = new CoolNumericStepper(cx + sx[i], cy, 0.01, initArr[i], -999, 999, 3);
 					s.scrollFactor.set(); s.cameras = [_cam]; add(s);
 					uni.steppers.push(s);
 				}
@@ -225,7 +227,7 @@ class ShaderParamsSubState extends flixel.FlxSubState
 				uni.steppers = [];
 				for (i in 0...3)
 				{
-					var s = new FlxUINumericStepper(cx + i * (stepW + 2), cy, 0.01, initArr[i], -999, 999, 3);
+					var s = new CoolNumericStepper(cx + i * (stepW + 2), cy, 0.01, initArr[i], -999, 999, 3);
 					s.scrollFactor.set(); s.cameras = [_cam]; add(s);
 					uni.steppers.push(s);
 				}
@@ -236,7 +238,7 @@ class ShaderParamsSubState extends flixel.FlxSubState
 				uni.steppers = [];
 				for (i in 0...4)
 				{
-					var s = new FlxUINumericStepper(cx + i * (stepW + 2), cy, 0.01, initArr[i], -999, 999, 3);
+					var s = new CoolNumericStepper(cx + i * (stepW + 2), cy, 0.01, initArr[i], -999, 999, 3);
 					s.scrollFactor.set(); s.cameras = [_cam]; add(s);
 					uni.steppers.push(s);
 				}
@@ -389,6 +391,6 @@ private typedef UniformDef =
 {
 	var name:String;
 	var type:String; // "float" | "int" | "bool" | "vec2" | "vec3" | "vec4"
-	var steppers:Array<FlxUINumericStepper>;
+	var steppers:Array<CoolNumericStepper>;
 	var toggleBtn:FlxButton;
 }

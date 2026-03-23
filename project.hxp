@@ -229,7 +229,7 @@ class Project extends HXProject
     addLib("flixel");
     addLib("flixel-addons");
     addLib("linc_luajit");
-    addLib("flixel-ui");
+    addLib("coolui");
     addLib("hscript");
     addLib("flixel-animate");
     addLib("actuate");
@@ -335,6 +335,7 @@ class Project extends HXProject
     addHaxeFlag("--macro keep('funkin.gameplay')");
     addHaxeFlag("--macro keep('funkin.data')");
     addHaxeFlag("--macro keep('funkin.ui')");
+    addHaxeFlag("--macro keep('coolui')");
     addHaxeFlag("--macro keep('funkin.graphics')");
     addHaxeFlag("--macro keep('funkin.menus')");
     addHaxeFlag("--macro keep('funkin.states')");

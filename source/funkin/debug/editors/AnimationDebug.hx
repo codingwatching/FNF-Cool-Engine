@@ -1,4 +1,10 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+import coolui.CoolTabMenu;
+
 
 import flixel.math.FlxMath;
 import funkin.gameplay.objects.character.Character.AnimData;
@@ -15,16 +21,16 @@ import flixel.tweens.FlxEase;
 import flixel.util.FlxTimer;
 import flixel.addons.display.FlxGridOverlay;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.addons.ui.FlxInputText;
-import flixel.addons.ui.FlxUI9SliceSprite;
-import flixel.addons.ui.FlxUI;
-import flixel.addons.ui.FlxUIGroup;
-import flixel.addons.ui.FlxUICheckBox;
-import flixel.addons.ui.FlxUIDropDownMenu;
-import flixel.addons.ui.FlxUIInputText;
-import flixel.addons.ui.FlxUINumericStepper;
-import funkin.debug.CoolTabMenu;
-import flixel.addons.ui.FlxUITooltip.FlxUITooltipStyle;
+
+import coolui.Cool9Slice;
+
+
+
+
+
+
+
+
 import openfl.net.FileReference;
 import openfl.events.Event;
 import openfl.events.IOErrorEvent;
@@ -70,30 +76,30 @@ class AnimationDebug extends MusicBeatState
 	var ghostChar:Character;
 
 	// UI Elements — Character tab
-	var playerCheckbox:FlxUICheckBox;
+	var playerCheckbox:CoolCheckBox;
 
 	// UI Elements — Properties tab
-	var antialiasingCheckbox:FlxUICheckBox;
-	var scaleStepper:FlxUINumericStepper;
-	var pathInput:FlxUIInputText;
-	var spritemapNameInput:FlxUIInputText; // antes: animFileInput
-	var isTxtCheckbox:FlxUICheckBox;
-	var isSpritesheetCheckbox:FlxUICheckBox;
-	var isFlxAnimateCheckbox:FlxUICheckBox; // antes: isAdobeAnimateCheckbox
-	var healthIconInput:FlxUIInputText;
-	var healthBarColorInput:FlxUIInputText;
+	var antialiasingCheckbox:CoolCheckBox;
+	var scaleStepper:CoolNumericStepper;
+	var pathInput:CoolInputText;
+	var spritemapNameInput:CoolInputText; // antes: animFileInput
+	var isTxtCheckbox:CoolCheckBox;
+	var isSpritesheetCheckbox:CoolCheckBox;
+	var isFlxAnimateCheckbox:CoolCheckBox; // antes: isAdobeAnimateCheckbox
+	var healthIconInput:CoolInputText;
+	var healthBarColorInput:CoolInputText;
 
 	// UI Elements — Animation tab
-	var animNameInput:FlxUIInputText;
-	var animPrefixInput:FlxUIInputText;
-	var animFramerateStepper:FlxUINumericStepper;
-	var animLoopedCheckbox:FlxUICheckBox;
-	var animFlipXCheckbox:FlxUICheckBox;
+	var animNameInput:CoolInputText;
+	var animPrefixInput:CoolInputText;
+	var animFramerateStepper:CoolNumericStepper;
+	var animLoopedCheckbox:CoolCheckBox;
+	var animFlipXCheckbox:CoolCheckBox;
 	// Multi-atlas: campos de sub-atlas por animación
-	var animAssetPathInput:FlxUIInputText;
-	var animRenderTypeInput:FlxUIInputText;
-	var offsetXStepper:FlxUINumericStepper;
-	var offsetYStepper:FlxUINumericStepper;
+	var animAssetPathInput:CoolInputText;
+	var animRenderTypeInput:CoolInputText;
+	var offsetXStepper:CoolNumericStepper;
+	var offsetYStepper:CoolNumericStepper;
 
 	var velocityPlus:Float = 1;
 	var gridBG:FlxSprite;
@@ -145,19 +151,19 @@ class AnimationDebug extends MusicBeatState
 	// Preview de healthBar en el HUD (esquina inferior, debajo del ícono)
 	var hudHealthBar:FlxSprite;
 	var hudHealthBarLabel:FlxText;
-	var charDeathInput:FlxText;
+	var charDeathInput:coolui.CoolInputText;
 	// ── Game Over fields ──────────────────────────────────────────────────────
-	var gameOverSoundInput:FlxUIInputText;
-	var gameOverMusicInput:FlxUIInputText;
-	var gameOverEndInput:FlxUIInputText;
-	var gameOverBpmStepper:FlxUINumericStepper;
-	var gameOverCamFrameStepper:FlxUINumericStepper;
+	var gameOverSoundInput:CoolInputText;
+	var gameOverMusicInput:CoolInputText;
+	var gameOverEndInput:CoolInputText;
+	var gameOverBpmStepper:CoolNumericStepper;
+	var gameOverCamFrameStepper:CoolNumericStepper;
 	// Position offset steppers (campo "positionOffset" del CharacterData)
-	var posOffsetXStepper:FlxUINumericStepper;
-	var posOffsetYStepper:FlxUINumericStepper;
+	var posOffsetXStepper:CoolNumericStepper;
+	var posOffsetYStepper:CoolNumericStepper;
 	// Camera offset steppers (campo "cameraOffset" del CharacterData)
-	var camOffsetXStepper:FlxUINumericStepper;
-	var camOffsetYStepper:FlxUINumericStepper;
+	var camOffsetXStepper:CoolNumericStepper;
+	var camOffsetYStepper:CoolNumericStepper;
 	// Color actual seleccionado para la healthBar
 	var currentHealthBarColor:FlxColor = FlxColor.fromString("#31B0D1");
 
@@ -182,7 +188,7 @@ class AnimationDebug extends MusicBeatState
 		// camUI es una cámara completamente transparente y vacía que se pone
 		// en cameras[0] para que FlxG.mouse.x/y use siempre zoom=1.
 		// Sin esto, cuando camGame tiene zoom != 1, flixel-ui calcula mal
-		// las posiciones de click en FlxUIInputText y el HUD deja de responder.
+		// las posiciones de click en CoolInputText y el HUD deja de responder.
 		camUI = new FlxCamera();
 		camUI.bgColor.alpha = 0;
 
@@ -416,14 +422,14 @@ class AnimationDebug extends MusicBeatState
 
 	function addCharacterTab():Void
 	{
-		var tab = new FlxUI(null, UI_box);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = "Character";
 
 		var characters:Array<String> = funkin.gameplay.objects.character.CharacterList.getAllCharacters();
 
 		tab.add(new FlxText(10, 10, 0, "Select Character:", 12));
 
-		var charDropdown = new FlxUIDropDownMenu(10, 30, FlxUIDropDownMenu.makeStrIdLabelArray(characters, true), function(character:String)
+		var charDropdown = new CoolDropDown(10, 30, CoolDropDown.makeStrIdLabelArray(characters, true), function(character:String)
 		{
 			daAnim = characters[Std.parseInt(character)];
 			displayCharacter(daAnim);
@@ -431,9 +437,9 @@ class AnimationDebug extends MusicBeatState
 		});
 		charDropdown.selectedLabel = daAnim;
 
-		playerCheckbox = new FlxUICheckBox(10, 70, null, null, "Player Character (FlipX)", 180);
+		playerCheckbox = new CoolCheckBox(10, 70, null, null, "Player Character (FlipX)", 180);
 		playerCheckbox.checked = false;
-		playerCheckbox.callback = function()
+		playerCheckbox.callback = function(_:Bool)
 		{
 			if (char != null)
 				char.flipX = playerCheckbox.checked;
@@ -441,7 +447,7 @@ class AnimationDebug extends MusicBeatState
 		tab.add(playerCheckbox);
 
 		tab.add(new FlxText(10, 95, 0, "Death Character:", 10));
-		charDeathInput = new FlxUIInputText(10, 108, 200, '', 8);
+		charDeathInput = new CoolInputText(10, 108, 200, '', 8);
 		tab.add(charDeathInput);
 		var charDeathHint = new FlxText(10, 122, 280, "Ej: bf-dead  (empty = default)", 8);
 		charDeathHint.color = FlxColor.WHITE;
@@ -455,7 +461,7 @@ class AnimationDebug extends MusicBeatState
 		var yGO = 157;
 
 		tab.add(new FlxText(10, yGO, 0, "Death SFX  (Paths.sound):", 8));
-		gameOverSoundInput = new FlxUIInputText(10, yGO + 12, 200, '', 8);
+		gameOverSoundInput = new CoolInputText(10, yGO + 12, 200, '', 8);
 		var goSndHint = new FlxText(10, yGO + 26, 280, "Default: fnf_loss_sfx", 7);
 		goSndHint.color = FlxColor.WHITE;
 		tab.add(gameOverSoundInput);
@@ -463,7 +469,7 @@ class AnimationDebug extends MusicBeatState
 		yGO += 42;
 
 		tab.add(new FlxText(10, yGO, 0, "Loop Music  (Paths.music):", 8));
-		gameOverMusicInput = new FlxUIInputText(10, yGO + 12, 200, '', 8);
+		gameOverMusicInput = new CoolInputText(10, yGO + 12, 200, '', 8);
 		var goMusHint = new FlxText(10, yGO + 26, 280, "Default: gameplay/gameOver", 7);
 		goMusHint.color = FlxColor.WHITE;
 		tab.add(gameOverMusicInput);
@@ -471,7 +477,7 @@ class AnimationDebug extends MusicBeatState
 		yGO += 42;
 
 		tab.add(new FlxText(10, yGO, 0, "End/Retry SFX  (Paths.music):", 8));
-		gameOverEndInput = new FlxUIInputText(10, yGO + 12, 200, '', 8);
+		gameOverEndInput = new CoolInputText(10, yGO + 12, 200, '', 8);
 		var goEndHint = new FlxText(10, yGO + 26, 280, "Default: gameplay/gameOverEnd", 7);
 		goEndHint.color = FlxColor.WHITE;
 		tab.add(gameOverEndInput);
@@ -479,11 +485,11 @@ class AnimationDebug extends MusicBeatState
 		yGO += 42;
 
 		tab.add(new FlxText(10, yGO, 0, "BPM:", 8));
-		gameOverBpmStepper = new FlxUINumericStepper(60, yGO + 1, 1, 100, 1, 999, 1);
+		gameOverBpmStepper = new CoolNumericStepper(60, yGO + 1, 1, 100, 1, 999, 1);
 		tab.add(gameOverBpmStepper);
 
 		tab.add(new FlxText(130, yGO, 0, "Cam Frame:", 8));
-		gameOverCamFrameStepper = new FlxUINumericStepper(200, yGO + 1, 1, 12, 0, 60, 0);
+		gameOverCamFrameStepper = new CoolNumericStepper(200, yGO + 1, 1, 12, 0, 60, 0);
 		tab.add(gameOverCamFrameStepper);
 
 		yGO += 24;
@@ -509,7 +515,7 @@ class AnimationDebug extends MusicBeatState
 
 	function addAnimationTab():Void
 	{
-		var tab = new FlxUI(null, UI_box);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = "Animation";
 
 		var yPos = 10;
@@ -521,7 +527,7 @@ class AnimationDebug extends MusicBeatState
 
 		tab.add(new FlxText(10, yPos, 0, "Name:", 10));
 		yPos += 15;
-		animNameInput = new FlxUIInputText(10, yPos, 200, '', 8);
+		animNameInput = new CoolInputText(10, yPos, 200, '', 8);
 		tab.add(animNameInput);
 		yPos += 25;
 
@@ -529,7 +535,7 @@ class AnimationDebug extends MusicBeatState
 		// Para sprites normales: es el prefix del atlas XML
 		tab.add(new FlxText(10, yPos, 0, "Prefix / Symbol SN:", 10));
 		yPos += 15;
-		animPrefixInput = new FlxUIInputText(10, yPos, 200, '', 8);
+		animPrefixInput = new CoolInputText(10, yPos, 200, '', 8);
 		tab.add(animPrefixInput);
 
 		var prefixHint = new FlxText(10, yPos + 14, 280, "FlxAnimate: name exact of símbol (SN)", 8);
@@ -549,15 +555,15 @@ class AnimationDebug extends MusicBeatState
 
 		tab.add(new FlxText(10, yPos, 0, "Framerate:", 10));
 		yPos += 15;
-		animFramerateStepper = new FlxUINumericStepper(10, yPos, 1, 24, 1, 60, 0);
+		animFramerateStepper = new CoolNumericStepper(10, yPos, 1, 24, 1, 60, 0);
 		tab.add(animFramerateStepper);
 		yPos += 25;
 
-		animLoopedCheckbox = new FlxUICheckBox(10, yPos, null, null, "Looped", 100);
+		animLoopedCheckbox = new CoolCheckBox(10, yPos, null, null, "Looped", 100);
 		animLoopedCheckbox.checked = false;
 		tab.add(animLoopedCheckbox);
 
-		animFlipXCheckbox = new FlxUICheckBox(160, yPos, null, null, "FlipX (anim)", 120);
+		animFlipXCheckbox = new CoolCheckBox(160, yPos, null, null, "FlipX (anim)", 120);
 		animFlipXCheckbox.checked = false;
 		tab.add(animFlipXCheckbox);
 		yPos += 24;
@@ -570,7 +576,7 @@ class AnimationDebug extends MusicBeatState
 		atlasLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
 		tab.add(atlasLabel);
 		yPos += 14;
-		animAssetPathInput = new FlxUIInputText(10, yPos, 290, '', 8);
+		animAssetPathInput = new CoolInputText(10, yPos, 290, '', 8);
 		tab.add(animAssetPathInput);
 		yPos += 14;
 		var atlasHint = new FlxText(10, yPos, 290, "empty = main atlas  |  e.g: tankman/bloody", 8);
@@ -585,7 +591,7 @@ class AnimationDebug extends MusicBeatState
 		rtLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
 		tab.add(rtLabel);
 		yPos += 14;
-		animRenderTypeInput = new FlxUIInputText(10, yPos, 200, '', 8);
+		animRenderTypeInput = new CoolInputText(10, yPos, 200, '', 8);
 		tab.add(animRenderTypeInput);
 		yPos += 14;
 		var rtHint = new FlxText(10, yPos, 290, "animateatlas | sparrow | empty=auto", 8);
@@ -595,13 +601,13 @@ class AnimationDebug extends MusicBeatState
 
 		tab.add(new FlxText(10, yPos, 0, "Offset X:", 10));
 		yPos += 15;
-		offsetXStepper = new FlxUINumericStepper(10, yPos, 1, 0, -500, 500, 0);
+		offsetXStepper = new CoolNumericStepper(10, yPos, 1, 0, -500, 500, 0);
 		tab.add(offsetXStepper);
 		yPos += 25;
 
 		tab.add(new FlxText(10, yPos, 0, "Offset Y:", 10));
 		yPos += 15;
-		offsetYStepper = new FlxUINumericStepper(10, yPos, 1, 0, -500, 500, 0);
+		offsetYStepper = new CoolNumericStepper(10, yPos, 1, 0, -500, 500, 0);
 		tab.add(offsetYStepper);
 		yPos += 30;
 
@@ -653,7 +659,7 @@ class AnimationDebug extends MusicBeatState
 
 	function addPropertiesTab():Void
 	{
-		var tab = new FlxUI(null, UI_box);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = "Properties";
 
 		var yPos = 10;
@@ -666,7 +672,7 @@ class AnimationDebug extends MusicBeatState
 		// Path — para FlxAnimate es la carpeta completa, para sprites el nombre del atlas
 		tab.add(new FlxText(10, yPos, 0, "Sprite Path / Folder:", 10));
 		yPos += 15;
-		pathInput = new FlxUIInputText(10, yPos, 200, 'BOYFRIEND', 8);
+		pathInput = new CoolInputText(10, yPos, 200, 'BOYFRIEND', 8);
 		tab.add(pathInput);
 
 		var pathHint = new FlxText(10, yPos + 14, 280, "FlxAnimate: path to the character's folder", 8);
@@ -677,7 +683,7 @@ class AnimationDebug extends MusicBeatState
 		// Spritemap Name — solo relevante para FlxAnimate (por defecto "spritemap1")
 		tab.add(new FlxText(10, yPos, 0, "Spritemap Name:", 10));
 		yPos += 15;
-		spritemapNameInput = new FlxUIInputText(10, yPos, 200, 'spritemap1', 8);
+		spritemapNameInput = new CoolInputText(10, yPos, 200, 'spritemap1', 8);
 		tab.add(spritemapNameInput);
 
 		var smHint = new FlxText(10, yPos + 14, 280, "FlxAnimate only · Default: spritemap1", 8);
@@ -688,7 +694,7 @@ class AnimationDebug extends MusicBeatState
 		// Health Icon
 		tab.add(new FlxText(10, yPos, 0, "Health Icon:", 10));
 		yPos += 15;
-		healthIconInput = new FlxUIInputText(10, yPos, 200, 'bf', 8);
+		healthIconInput = new CoolInputText(10, yPos, 200, 'bf', 8);
 		healthIconInput.callback = function(text:String, action:String)
 		{
 			updateIconPreview(text);
@@ -699,7 +705,7 @@ class AnimationDebug extends MusicBeatState
 		// Health Bar Color — campo de texto + swatch clickeable que abre el picker
 		tab.add(new FlxText(10, yPos, 0, "Health Bar Color:", 10));
 		yPos += 15;
-		healthBarColorInput = new FlxUIInputText(10, yPos, 155, '#31B0D1', 8);
+		healthBarColorInput = new CoolInputText(10, yPos, 155, '#31B0D1', 8);
 		healthBarColorInput.callback = function(text:String, action:String)
 		{
 			try
@@ -788,20 +794,20 @@ class AnimationDebug extends MusicBeatState
 		// Scale
 		tab.add(new FlxText(10, yPos, 0, "Scale:", 10));
 		yPos += 15;
-		scaleStepper = new FlxUINumericStepper(10, yPos, 0.1, 1.0, 0.1, 10.0, 1);
+		scaleStepper = new CoolNumericStepper(10, yPos, 0.1, 1.0, 0.1, 10.0, 1);
 		scaleStepper.value = 1.0;
 		tab.add(scaleStepper);
 		yPos += 30;
 
-		antialiasingCheckbox = new FlxUICheckBox(10, yPos, null, null, "Antialiasing", 100);
+		antialiasingCheckbox = new CoolCheckBox(10, yPos, null, null, "Antialiasing", 100);
 		antialiasingCheckbox.checked = true;
 		tab.add(antialiasingCheckbox);
 		yPos += 25;
 
 		// Formato — los tres son mutuamente exclusivos
-		isTxtCheckbox = new FlxUICheckBox(10, yPos, null, null, "TXT Spritesheet", 150);
+		isTxtCheckbox = new CoolCheckBox(10, yPos, null, null, "TXT Spritesheet", 150);
 		isTxtCheckbox.checked = false;
-		isTxtCheckbox.callback = function()
+		isTxtCheckbox.callback = function(_:Bool)
 		{
 			if (isTxtCheckbox.checked)
 			{
@@ -812,9 +818,9 @@ class AnimationDebug extends MusicBeatState
 		tab.add(isTxtCheckbox);
 		yPos += 20;
 
-		isSpritesheetCheckbox = new FlxUICheckBox(10, yPos, null, null, "Spritesheet JSON", 150);
+		isSpritesheetCheckbox = new CoolCheckBox(10, yPos, null, null, "Spritesheet JSON", 150);
 		isSpritesheetCheckbox.checked = false;
-		isSpritesheetCheckbox.callback = function()
+		isSpritesheetCheckbox.callback = function(_:Bool)
 		{
 			if (isSpritesheetCheckbox.checked)
 			{
@@ -825,9 +831,9 @@ class AnimationDebug extends MusicBeatState
 		tab.add(isSpritesheetCheckbox);
 		yPos += 20;
 
-		isFlxAnimateCheckbox = new FlxUICheckBox(10, yPos, null, null, "FlxAnimate (Adobe Animate)", 200);
+		isFlxAnimateCheckbox = new CoolCheckBox(10, yPos, null, null, "FlxAnimate (Adobe Animate)", 200);
 		isFlxAnimateCheckbox.checked = false;
-		isFlxAnimateCheckbox.callback = function()
+		isFlxAnimateCheckbox.callback = function(_:Bool)
 		{
 			if (isFlxAnimateCheckbox.checked)
 			{
@@ -847,10 +853,10 @@ class AnimationDebug extends MusicBeatState
 		tab.add(posOffsetTitle);
 		yPos += 15;
 		tab.add(new FlxText(10, yPos + 4, 0, "X:", 9));
-		posOffsetXStepper = new FlxUINumericStepper(22, yPos, 1, 0, -2000, 2000, 0);
+		posOffsetXStepper = new CoolNumericStepper(22, yPos, 1, 0, -2000, 2000, 0);
 		tab.add(posOffsetXStepper);
 		tab.add(new FlxText(130, yPos + 4, 0, "Y:", 9));
-		posOffsetYStepper = new FlxUINumericStepper(142, yPos, 1, 0, -2000, 2000, 0);
+		posOffsetYStepper = new CoolNumericStepper(142, yPos, 1, 0, -2000, 2000, 0);
 		tab.add(posOffsetYStepper);
 		yPos += 28;
 
@@ -860,10 +866,10 @@ class AnimationDebug extends MusicBeatState
 		tab.add(camOffsetTitle);
 		yPos += 15;
 		tab.add(new FlxText(10, yPos + 4, 0, "X:", 9));
-		camOffsetXStepper = new FlxUINumericStepper(22, yPos, 1, 0, -2000, 2000, 0);
+		camOffsetXStepper = new CoolNumericStepper(22, yPos, 1, 0, -2000, 2000, 0);
 		tab.add(camOffsetXStepper);
 		tab.add(new FlxText(130, yPos + 4, 0, "Y:", 9));
-		camOffsetYStepper = new FlxUINumericStepper(142, yPos, 1, 0, -2000, 2000, 0);
+		camOffsetYStepper = new CoolNumericStepper(142, yPos, 1, 0, -2000, 2000, 0);
 		tab.add(camOffsetYStepper);
 		yPos += 28;
 
@@ -907,7 +913,7 @@ class AnimationDebug extends MusicBeatState
 
 	function addImportTab():Void
 	{
-		var tab = new FlxUI(null, UI_box);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = "Import";
 
 		var yPos = 10;
@@ -979,7 +985,7 @@ class AnimationDebug extends MusicBeatState
 
 	function addExportTab():Void
 	{
-		var tab = new FlxUI(null, UI_box);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = "Export";
 
 		var yPos = 10;
@@ -2235,7 +2241,7 @@ class AnimationDebug extends MusicBeatState
 	 */
 	function isTyping():Bool
 	{
-		// FlxUIInputText tiene hasFocus cuando está activo
+		// CoolInputText tiene hasFocus cuando está activo
 		if (animNameInput != null && animNameInput.hasFocus)
 			return true;
 		if (animPrefixInput != null && animPrefixInput.hasFocus)

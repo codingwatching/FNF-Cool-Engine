@@ -1,7 +1,7 @@
 package ui;
 
 import flixel.graphics.FlxGraphic;
-import flixel.addons.ui.FlxButtonPlus;
+
 import flixel.FlxSprite;
 import flixel.FlxG;
 import flixel.graphics.frames.FlxTileFrames;

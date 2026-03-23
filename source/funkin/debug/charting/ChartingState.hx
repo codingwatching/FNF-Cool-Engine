@@ -1,4 +1,10 @@
 package funkin.debug.charting;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+import coolui.CoolTabMenu;
+
 
 import funkin.data.Conductor.BPMChangeEvent;
 import funkin.data.Section.SwagSection;
@@ -10,8 +16,8 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxCamera;
 import flixel.addons.display.FlxGridOverlay;
-import flixel.addons.ui.*;
-import funkin.debug.CoolTabMenu;
+
+
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxGroup;
 import flixel.math.FlxMath;
@@ -174,11 +180,11 @@ class ChartingState extends funkin.states.MusicBeatState
 	var camHUD:FlxCamera;
 
 	// TABS
-	var tab_group_song:FlxUI;
-	var tab_group_section:FlxUI;
-	var tab_group_note:FlxUI;
+	var tab_group_song:coolui.CoolUIGroup;
+	var tab_group_section:coolui.CoolUIGroup;
+	var tab_group_note:coolui.CoolUIGroup;
 	// tab_group_characters fue REEMPLAZADO por CharacterIconRow
-	var tab_group_settings:FlxUI;
+	var tab_group_settings:coolui.CoolUIGroup;
 
 	// UI MODERNA
 	var titleBar:FlxSprite;
@@ -235,7 +241,7 @@ class ChartingState extends funkin.states.MusicBeatState
 	 */
 	var _strumConfirmUntil:Map<Int, Float> = new Map();
 
-	var noteTypeDropdown:FlxUIDropDownMenu;
+	var noteTypeDropdown:CoolDropDown;
 	var _noteTypesList:Array<String> = ['normal'];
 	var dummyArrow:FlxSprite;
 
@@ -342,15 +348,15 @@ class ChartingState extends funkin.states.MusicBeatState
 	// DROPDOWNS (characters dropdowns moved to CharacterIconRow extension)
 	// bfDropDown, dadDropDown, gfDropDown, stageDropDown -> removed
 	// STEPPERS
-	var stepperLength:FlxUINumericStepper;
-	var stepperBPM:FlxUINumericStepper;
-	var stepperSpeed:FlxUINumericStepper;
-	var stepperSusLength:FlxUINumericStepper;
+	var stepperLength:CoolNumericStepper;
+	var stepperBPM:CoolNumericStepper;
+	var stepperSpeed:CoolNumericStepper;
+	var stepperSusLength:CoolNumericStepper;
 
 	// CHECKBOXES
-	var check_mustHitSection:FlxUICheckBox;
-	var check_changeBPM:FlxUICheckBox;
-	var check_altAnim:FlxUICheckBox;
+	var check_mustHitSection:CoolCheckBox;
+	var check_changeBPM:CoolCheckBox;
+	var check_altAnim:CoolCheckBox;
 
 	// ===== NUEVAS EXTENSIONES =====
 	public var charIconRow:CharacterIconRow;
@@ -366,8 +372,8 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	// BPM y Section clickeables - indicadores en toolbar
 	var bpmClickable:Bool = false; // ¿Está en modo edición de BPM?
-	var bpmInputActive:FlxUIInputText;
-	var sectionInputActive:FlxUIInputText;
+	var bpmInputActive:CoolInputText;
+	var sectionInputActive:CoolInputText;
 
 	var openSectionNav:Bool = false;
 
@@ -1078,7 +1084,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function addSongUI():Void
 	{
-		tab_group_song = new FlxUI(null, UI_box);
+		tab_group_song = new coolui.CoolUIGroup();
 		tab_group_song.name = 'Song';
 
 		// Song name
@@ -1093,18 +1099,16 @@ class ChartingState extends funkin.states.MusicBeatState
 		var bpmLabel = new FlxText(10, 50, 0, 'BPM:', 10);
 		tab_group_song.add(bpmLabel);
 
-		stepperBPM = new FlxUINumericStepper(10, 65, 1, _song.bpm, 1, 999, 0);
+		stepperBPM = new CoolNumericStepper(10, 65, 1, _song.bpm, 1, 999, 0);
 		stepperBPM.value = _song.bpm;
-		stepperBPM.name = 'song_bpm';
 		tab_group_song.add(stepperBPM);
 
 		// Speed
 		var speedLabel = new FlxText(10, 100, 0, 'Speed:', 10);
 		tab_group_song.add(speedLabel);
 
-		stepperSpeed = new FlxUINumericStepper(10, 115, 0.1, _song.speed, 0.1, 10, 1);
+		stepperSpeed = new CoolNumericStepper(10, 115, 0.1, _song.speed, 0.1, 10, 1);
 		stepperSpeed.value = _song.speed;
-		stepperSpeed.name = 'song_speed';
 		tab_group_song.add(stepperSpeed);
 
 		// Player 1 & 2 info
@@ -1134,7 +1138,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function addSectionUI():Void
 	{
-		tab_group_section = new FlxUI(null, UI_box);
+		tab_group_section = new coolui.CoolUIGroup();
 		tab_group_section.name = 'Section';
 
 		// Section info
@@ -1142,15 +1146,15 @@ class ChartingState extends funkin.states.MusicBeatState
 		tab_group_section.add(secLabel);
 
 		// Checkboxes
-		check_mustHitSection = new FlxUICheckBox(10, 40, null, null, "Must Hit Section", 100);
+		check_mustHitSection = new CoolCheckBox(10, 40, null, null, "Must Hit Section", 100);
 		check_mustHitSection.checked = false;
 		tab_group_section.add(check_mustHitSection);
 
-		check_changeBPM = new FlxUICheckBox(10, 70, null, null, "Change BPM", 100);
+		check_changeBPM = new CoolCheckBox(10, 70, null, null, "Change BPM", 100);
 		check_changeBPM.checked = false;
 		tab_group_section.add(check_changeBPM);
 
-		check_altAnim = new FlxUICheckBox(10, 100, null, null, "Alt Animation", 100);
+		check_altAnim = new CoolCheckBox(10, 100, null, null, "Alt Animation", 100);
 		check_altAnim.checked = false;
 		tab_group_section.add(check_altAnim);
 
@@ -1158,9 +1162,8 @@ class ChartingState extends funkin.states.MusicBeatState
 		var lengthLabel = new FlxText(10, 135, 0, 'Section Length (steps):', 10);
 		tab_group_section.add(lengthLabel);
 
-		stepperLength = new FlxUINumericStepper(10, 150, 4, 0, 0, 999, 0);
+		stepperLength = new CoolNumericStepper(10, 150, 4, 0, 0, 999, 0);
 		stepperLength.value = 16;
-		stepperLength.name = 'section_length';
 		tab_group_section.add(stepperLength);
 
 		// Buttons
@@ -1179,16 +1182,15 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function addNoteUI():Void
 	{
-		tab_group_note = new FlxUI(null, UI_box);
+		tab_group_note = new coolui.CoolUIGroup();
 		tab_group_note.name = 'Note';
 
 		// Sustain length
 		var susLabel = new FlxText(10, 10, 0, 'Sustain Length:', 10);
 		tab_group_note.add(susLabel);
 
-		stepperSusLength = new FlxUINumericStepper(10, 25, Conductor.stepCrochet / 2, 0, 0, Conductor.stepCrochet * 16);
+		stepperSusLength = new CoolNumericStepper(10, 25, Conductor.stepCrochet / 2, 0, 0, Conductor.stepCrochet * 16);
 		stepperSusLength.value = 0;
-		stepperSusLength.name = 'note_susLength';
 		tab_group_note.add(stepperSusLength);
 
 		// Note Type dropdown
@@ -1199,7 +1201,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		for (i in 0..._noteTypesList.length)
 			ddItems.push('$i: ${_noteTypesList[i]}');
 
-		noteTypeDropdown = new FlxUIDropDownMenu(10, 68, FlxUIDropDownMenu.makeStrIdLabelArray(ddItems, true), function(chosen:String)
+		noteTypeDropdown = new CoolDropDown(10, 68, CoolDropDown.makeStrIdLabelArray(ddItems, true), function(chosen:String)
 		{
 			if (curSelectedNote == null)
 				return;
@@ -1223,7 +1225,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 	function addSettingsUI():Void
 	{
-		tab_group_settings = new FlxUI(null, UI_box);
+		tab_group_settings = new coolui.CoolUIGroup();
 		tab_group_settings.name = 'Settings';
 
 		// Separador
@@ -1280,7 +1282,7 @@ class ChartingState extends funkin.states.MusicBeatState
 				diffSuffixes.push(curDiffSuffix);
 			}
 		}
-		final diffDropdown = new FlxUIDropDownMenu(10, 107, FlxUIDropDownMenu.makeStrIdLabelArray(diffOptions, true), function(selected:String)
+		final diffDropdown = new CoolDropDown(10, 107, CoolDropDown.makeStrIdLabelArray(diffOptions, true), function(selected:String)
 		{
 			final idx = Std.parseInt(selected);
 			if (idx != null && idx >= 0 && idx < diffSuffixes.length)
@@ -3920,7 +3922,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		label.scrollFactor.set();
 		label.cameras = [camHUD];
 
-		var input = new FlxUIInputText(cx + panelW / 2 - 50, cy + 38, 100, '${curSection + 1}', 14);
+		var input = new CoolInputText(cx + panelW / 2 - 50, cy + 38, 100, '${curSection + 1}', 14);
 		input.scrollFactor.set();
 		input.cameras = [camHUD];
 
@@ -4412,55 +4414,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		}
 	}
 
-	override function getEvent(id:String, sender:Dynamic, data:Dynamic, ?params:Array<Dynamic>)
-	{
-		if (id == FlxUICheckBox.CLICK_EVENT)
-		{
-			var check:FlxUICheckBox = cast sender;
-			var label = check.getLabel().text;
 
-			switch (label)
-			{
-				case 'Must Hit Section':
-					_song.notes[curSection].mustHitSection = check.checked;
-
-				case 'Change BPM':
-					_song.notes[curSection].changeBPM = check.checked;
-
-				case 'Alt Animation':
-					_song.notes[curSection].altAnim = check.checked;
-			}
-		}
-		else if (id == FlxUINumericStepper.CHANGE_EVENT && (sender is FlxUINumericStepper))
-		{
-			var nums:FlxUINumericStepper = cast sender;
-			var wname = nums.name;
-
-			switch (wname)
-			{
-				case 'section_length':
-					_song.notes[curSection].lengthInSteps = Std.int(nums.value);
-					updateGrid();
-
-				case 'song_speed':
-					_song.speed = nums.value;
-
-				case 'song_bpm':
-					tempBpm = nums.value;
-					_song.bpm = tempBpm;
-					_sectionTimeCacheDirty = true; // ← BPM cambió, invalidar cache
-					Conductor.mapBPMChanges(_song);
-					Conductor.changeBPM(tempBpm);
-
-				case 'note_susLength':
-					if (curSelectedNote != null)
-					{
-						curSelectedNote[2] = nums.value;
-						updateGrid();
-					}
-			}
-		}
-	}
 
 	function copySection():Void
 	{

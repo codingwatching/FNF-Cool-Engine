@@ -25,7 +25,6 @@ echo ===============================================
 echo Cleaning conflicting libraries...
 echo ===============================================
 
-haxelib remove flixel-ui     >nul 2>&1
 haxelib remove flixel        >nul 2>&1
 haxelib remove openfl        >nul 2>&1
 haxelib remove lime          >nul 2>&1
@@ -50,7 +49,7 @@ echo ===============================================
 haxelib install flixel 6.1.2          --never
 haxelib install flixel-addons  4.0.1 --never
 haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis         --never
-haxelib install flixel-ui    --quiet --never
+haxelib git    coolui https://github.com/The-Cool-Engine-Crew/coolui --never
 haxelib install flixel-tools 1.5.1  --quiet --never
 
 cls
@@ -92,6 +91,7 @@ echo   OpenFL:         %OPENFL_VERSION%
 echo   Flixel:         6.1.2
 echo   flixel-addons:  4.0.1
 echo   flixel-animate: MaybeMaru/flixel-animate (git)
+echo   coolui:         The-Cool-Engine-Crew/coolui (git)
 echo   funkin.vis:     FunkinCrew/funkVis (git)
 echo   hxvlc:          MAJigsaw77/hxvlc (git)
 echo   discord_rpc:    Aidan63/linc_discord-rpc (git)

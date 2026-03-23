@@ -1,4 +1,6 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+
 
 #if desktop
 import lime.ui.FileDialog;
@@ -9,7 +11,7 @@ import flixel.FlxSubState;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.ui.FlxButton;
-import flixel.addons.ui.FlxInputText;
+
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.math.FlxMath;
@@ -37,7 +39,7 @@ typedef VocalSlot =
 	var loaded:Bool;
 	var btn:FlxButton;
 	var statusText:FlxText;
-	var nameInput:FlxInputText;
+	var nameInput:CoolInputText;
 	/** Icono de salud del personaje (visible en edit mode si existe). */
 	@:optional var charIcon:FlxSprite;
 	/** Texto con nombre de archivo y duración (visible en edit mode). */
@@ -64,7 +66,7 @@ typedef DiffEntry =
 	// UI refs
 	@:optional var enableBtn:FlxButton;
 	@:optional var enableTxt:FlxText;
-	@:optional var labelInput:FlxInputText;
+	@:optional var labelInput:CoolInputText;
 	@:optional var importBtn:FlxButton;
 	@:optional var statusTxt:FlxText;
 	@:optional var formatBadge:FlxText;
@@ -133,8 +135,8 @@ class AddSongSubState extends FlxSubState
 	var _stepOrigX:Array<Map<flixel.FlxObject, Float>> = [];
 
 	// ─── PASO 1: Archivos & BPM ───────────────────────────────────────────────
-	var songNameInput:FlxInputText;
-	var bpmInput:FlxInputText;
+	var songNameInput:CoolInputText;
+	var bpmInput:CoolInputText;
 	var loadInstBtn:FlxButton;
 	var loadVocalsBtn:FlxButton;
 	var loadIconBtn:FlxButton;
@@ -155,17 +157,17 @@ class AddSongSubState extends FlxSubState
 	var _diffListY:Float   = 0;   // Y absoluta donde empieza la lista
 
 	// ─── PASO 3: Metadatos ────────────────────────────────────────────────────
-	var iconNameInput:FlxInputText;
-	var uiInput:FlxInputText;
-	var noteSkinInput:FlxInputText;
-	var introVideoInput:FlxInputText;
-	var outroVideoInput:FlxInputText;
-	var artistInput:FlxInputText;
-	var albumInput:FlxInputText;
-	var albumTextInput:FlxInputText;
+	var iconNameInput:CoolInputText;
+	var uiInput:CoolInputText;
+	var noteSkinInput:CoolInputText;
+	var introVideoInput:CoolInputText;
+	var outroVideoInput:CoolInputText;
+	var artistInput:CoolInputText;
+	var albumInput:CoolInputText;
+	var albumTextInput:CoolInputText;
 
 	// ─── PASO 3: Story Menu ───────────────────────────────────────────────────
-	var weekInput:FlxInputText;
+	var weekInput:CoolInputText;
 	var selectedColor:String = "0xFFAF66CE";
 	// Swatch visual que muestra el color elegido
 	var colorSwatchBtn:FlxButton = null;
@@ -826,7 +828,7 @@ class AddSongSubState extends FlxSubState
 		entry.enableTxt = eTxt;
 
 		// ── Input: Label (ej. "Easy") ──────────────────────────────────────────
-		var labIn = new FlxInputText(cx + 96, rY + 8, 120, entry.label, 13);
+		var labIn = new CoolInputText(cx + 96, rY + 8, 120, entry.label, 13);
 		labIn.backgroundColor      = funkin.debug.themes.EditorTheme.current.bgHover;
 		labIn.fieldBorderColor     = funkin.debug.themes.EditorTheme.current.borderColor;
 		labIn.fieldBorderThickness = 2;
@@ -838,7 +840,7 @@ class AddSongSubState extends FlxSubState
 		entry.labelInput = labIn;
 
 		// ── Input: Sufijo (ej. "-easy") ────────────────────────────────────────
-		var sufIn = new FlxInputText(cx + 224, rY + 8, 90, entry.suffix, 13);
+		var sufIn = new CoolInputText(cx + 224, rY + 8, 90, entry.suffix, 13);
 		sufIn.backgroundColor      = funkin.debug.themes.EditorTheme.current.bgHover;
 		sufIn.fieldBorderColor     = funkin.debug.themes.EditorTheme.current.borderColor;
 		sufIn.fieldBorderThickness = 2;
@@ -2582,9 +2584,9 @@ class AddSongSubState extends FlxSubState
 		FlxTween.tween(l, {alpha: 1}, 0.3, {startDelay: delay});
 	}
 
-	function _inp(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, w:Int, def:String, maxLen:Int, delay:Float):FlxInputText
+	function _inp(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, w:Int, def:String, maxLen:Int, delay:Float):CoolInputText
 	{
-		var f = new FlxInputText(x, y, w, def, 15);
+		var f = new CoolInputText(x, y, w, def, 15);
 		f.backgroundColor      = funkin.debug.themes.EditorTheme.current.bgHover;
 		f.fieldBorderColor     = funkin.debug.themes.EditorTheme.current.borderColor;
 		f.fieldBorderThickness = 2;
@@ -2595,10 +2597,10 @@ class AddSongSubState extends FlxSubState
 		return f;
 	}
 
-	function _inpNum(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, w:Int, def:String, delay:Float):FlxInputText
+	function _inpNum(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, w:Int, def:String, delay:Float):CoolInputText
 	{
 		var f = _inp(g, x, y, w, def, 10, delay);
-		f.filterMode = FlxInputText.ONLY_NUMERIC;
+		f.filterMode = CoolInputText.ONLY_NUMERIC;
 		return f;
 	}
 

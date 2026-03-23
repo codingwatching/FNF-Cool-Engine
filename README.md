@@ -33,6 +33,9 @@
 
 ----------------------------------------------
 
+## Cool Engine WIKI
+- https://the-cool-engine-crew.github.io/FNF-Cool-Engine-Wiki/ - Link
+
 ## Cool Engine Build for Beta Testers
 - https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine-Build-Beta-Tester - Link
   

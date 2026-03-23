@@ -1,4 +1,6 @@
 package funkin.debug.themes;
+import coolui.CoolInputText;
+
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -6,7 +8,7 @@ import flixel.FlxSubState;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.ui.FlxButton;
-import flixel.addons.ui.FlxUIInputText;
+
 import funkin.transitions.StateTransition;
 import funkin.debug.themes.EditorTheme.ThemeData;
 
@@ -62,11 +64,11 @@ class ThemePickerSubState extends FlxSubState
 		{f:'rowOdd',        l:'Row Odd'},
 	];
 
-	var _colorInputs:Array<FlxUIInputText> = [];
+	var _colorInputs:Array<CoolInputText> = [];
 	var _colorSwatches:Array<FlxSprite>    = [];
 	var _previewSwatches:Array<FlxSprite>  = [];
 
-	var _nameInput:FlxUIInputText;
+	var _nameInput:CoolInputText;
 	var _statusTxt:FlxText;
 
 	var _onApply:Null<Void->Void> = null;
@@ -233,7 +235,7 @@ class ThemePickerSubState extends FlxSubState
 			var lbl = new FlxText(ox, oy + 2, 80, cf.l, 8);
 			lbl.color = T.textSecondary; lbl.scrollFactor.set(); add(lbl);
 
-			var inp = new FlxUIInputText(ox + 82, oy, COLOR_COL - 106, hex, 8);
+			var inp = new CoolInputText(ox + 82, oy, COLOR_COL - 106, hex, 8);
 			inp.scrollFactor.set(); add(inp);
 			_colorInputs.push(inp);
 
@@ -248,7 +250,7 @@ class ThemePickerSubState extends FlxSubState
 		var nameLbl = new FlxText(ox, oy + 5, 78, 'Theme name:', 8);
 		nameLbl.color = T.textSecondary; nameLbl.scrollFactor.set(); add(nameLbl);
 
-		_nameInput = new FlxUIInputText(ox + 80, oy + 2, COLOR_COL - 82, _preview.name, 8);
+		_nameInput = new CoolInputText(ox + 80, oy + 2, COLOR_COL - 82, _preview.name, 8);
 		_nameInput.scrollFactor.set(); add(_nameInput);
 	}
 

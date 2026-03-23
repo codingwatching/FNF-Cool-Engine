@@ -1,5 +1,7 @@
 package funkin.debug.themes;
 
+import coolui.CoolUITheme;
+
 import haxe.Json;
 #if sys
 import sys.FileSystem;
@@ -154,6 +156,7 @@ class EditorTheme
 		#else
 		current = _darkTheme();
 		#end
+		CoolUITheme.syncFromDynamic(current);
 	}
 
 	/** Guarda el tema actual en disco. */
@@ -216,6 +219,7 @@ class EditorTheme
 			default:          _darkTheme();
 		};
 		save();
+		CoolUITheme.syncFromDynamic(current);
 	}
 
 	/** Aplica un ThemeData personalizado y lo guarda. */
@@ -223,6 +227,7 @@ class EditorTheme
 	{
 		current = theme;
 		save();
+		CoolUITheme.syncFromDynamic(current);
 	}
 
 	/** Lista de nombres de presets disponibles. */

@@ -1,4 +1,9 @@
 package funkin.debug.charting;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -10,7 +15,7 @@ import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
-import flixel.addons.ui.*;
+
 import funkin.data.Song.SwagSong;
 import funkin.data.Song.CharacterSlotData;
 import funkin.data.Song.StrumsGroupData;
@@ -239,17 +244,17 @@ class CharacterIconRow extends FlxGroup
 		var nameLabel = new FlxText(cx + 10, cy + 38, 0, "Name:", 10);
 		nameLabel.setFormat(Paths.font("vcr.ttf"), 10, TEXT_GRAY, LEFT);
 		nameLabel.scrollFactor.set(); nameLabel.cameras = [camHUD];
-		var nameInput = new FlxUIInputText(cx + 10, cy + 52, 175, "bf", 12);
+		var nameInput = new CoolInputText(cx + 10, cy + 52, 175, "bf", 12);
 		nameInput.scrollFactor.set(); nameInput.cameras = [camHUD];
 
 		var typeLabel = new FlxText(cx + 210, cy + 38, 0, "Type:", 10);
 		typeLabel.setFormat(Paths.font("vcr.ttf"), 10, TEXT_GRAY, LEFT);
 		typeLabel.scrollFactor.set(); typeLabel.cameras = [camHUD];
-		var typeDropDown = new FlxUIDropDownMenu(cx + 210, cy + 52,
-			FlxUIDropDownMenu.makeStrIdLabelArray(CHAR_TYPES, true), function(_) {});
+		var typeDropDown = new CoolDropDown(cx + 210, cy + 52,
+			CoolDropDown.makeStrIdLabelArray(CHAR_TYPES, true), function(_) {});
 		typeDropDown.scrollFactor.set(); typeDropDown.cameras = [camHUD];
 
-		var strumsCheck = new FlxUICheckBox(cx + 10, cy + 95, null, null,
+		var strumsCheck = new CoolCheckBox(cx + 10, cy + 95, null, null,
 			"Create new StrumsGroup (adds 4 columns to grid)", 360);
 		strumsCheck.checked = true; strumsCheck.scrollFactor.set(); strumsCheck.cameras = [camHUD];
 
@@ -258,9 +263,9 @@ class CharacterIconRow extends FlxGroup
 		strumsIdLabel.scrollFactor.set(); strumsIdLabel.cameras = [camHUD];
 
 		var nextId = (_song.strumsGroups != null) ? _song.strumsGroups.length : 2;
-		var strumsIdInput = new FlxUIInputText(cx + 10, cy + 134, 180, "strums_" + nextId, 11);
+		var strumsIdInput = new CoolInputText(cx + 10, cy + 134, 180, "strums_" + nextId, 11);
 		strumsIdInput.scrollFactor.set(); strumsIdInput.cameras = [camHUD];
-		var cpuCheck = new FlxUICheckBox(cx + 210, cy + 134, null, null, "CPU", 100);
+		var cpuCheck = new CoolCheckBox(cx + 210, cy + 134, null, null, "CPU", 100);
 		cpuCheck.checked = true; cpuCheck.scrollFactor.set(); cpuCheck.cameras = [camHUD];
 
 		var hint = new FlxText(cx + 10, cy + 158, 380,
@@ -776,14 +781,14 @@ class CharacterPropertiesPanel extends FlxGroup
 	var overlay:FlxSprite;
 	var panel:FlxSprite;
 	var titleText:FlxText;
-	var nameInput:FlxUIInputText;
-	var typeDropDown:FlxUIDropDownMenu;
-	var posXStepper:FlxUINumericStepper;
-	var posYStepper:FlxUINumericStepper;
-	var scaleStepper:FlxUINumericStepper;
-	var visibleCheck:FlxUICheckBox;
-	var flipCheck:FlxUICheckBox;
-	var strumsGroupInput:FlxUIInputText;
+	var nameInput:CoolInputText;
+	var typeDropDown:CoolDropDown;
+	var posXStepper:CoolNumericStepper;
+	var posYStepper:CoolNumericStepper;
+	var scaleStepper:CoolNumericStepper;
+	var visibleCheck:CoolCheckBox;
+	var flipCheck:CoolCheckBox;
+	var strumsGroupInput:CoolInputText;
 	var applyBtn:FlxButton;
 	var deleteBtn:FlxButton;
 	var closeBtn:FlxButton;
@@ -825,16 +830,16 @@ class CharacterPropertiesPanel extends FlxGroup
 		titleText.scrollFactor.set(); titleText.cameras = [camHUD]; add(titleText);
 
 		_lbl(cx + 15, cy + 44, "Name:");
-		nameInput = new FlxUIInputText(cx + 15, cy + 58, 160, "bf", 12);
+		nameInput = new CoolInputText(cx + 15, cy + 58, 160, "bf", 12);
 		nameInput.scrollFactor.set(); nameInput.cameras = [camHUD]; add(nameInput);
 
 		_lbl(cx + 210, cy + 44, "Type:");
-		typeDropDown = new FlxUIDropDownMenu(cx + 210, cy + 58,
-			FlxUIDropDownMenu.makeStrIdLabelArray(CharacterIconRow.CHAR_TYPES, true), function(_) {});
+		typeDropDown = new CoolDropDown(cx + 210, cy + 58,
+			CoolDropDown.makeStrIdLabelArray(CharacterIconRow.CHAR_TYPES, true), function(_) {});
 		typeDropDown.scrollFactor.set(); typeDropDown.cameras = [camHUD];
 
 		_lbl(cx + 15, cy + 96, "Strums Group ID:");
-		strumsGroupInput = new FlxUIInputText(cx + 15, cy + 110, 200, "", 12);
+		strumsGroupInput = new CoolInputText(cx + 15, cy + 110, 200, "", 12);
 		strumsGroupInput.scrollFactor.set(); strumsGroupInput.cameras = [camHUD]; add(strumsGroupInput);
 
 		var hint = new FlxText(cx + 15, cy + 130, PANEL_W - 30,
@@ -845,22 +850,22 @@ class CharacterPropertiesPanel extends FlxGroup
 		add(typeDropDown);
 
 		_lbl(cx + 15,  cy + 154, "Pos X:");
-		posXStepper = new FlxUINumericStepper(cx + 15,  cy + 168, 10, 0, -3000, 3000, 0);
+		posXStepper = new CoolNumericStepper(cx + 15,  cy + 168, 10, 0, -3000, 3000, 0);
 		posXStepper.scrollFactor.set(); posXStepper.cameras = [camHUD]; add(posXStepper);
 
 		_lbl(cx + 150, cy + 154, "Pos Y:");
-		posYStepper = new FlxUINumericStepper(cx + 150, cy + 168, 10, 0, -3000, 3000, 0);
+		posYStepper = new CoolNumericStepper(cx + 150, cy + 168, 10, 0, -3000, 3000, 0);
 		posYStepper.scrollFactor.set(); posYStepper.cameras = [camHUD]; add(posYStepper);
 
 		_lbl(cx + 285, cy + 154, "Scale:");
-		scaleStepper = new FlxUINumericStepper(cx + 285, cy + 168, 0.1, 1.0, 0.1, 5.0, 1);
+		scaleStepper = new CoolNumericStepper(cx + 285, cy + 168, 0.1, 1.0, 0.1, 5.0, 1);
 		scaleStepper.scrollFactor.set(); scaleStepper.cameras = [camHUD]; add(scaleStepper);
 
-		visibleCheck = new FlxUICheckBox(cx + 15,  cy + 212, null, null, "Visible", 100);
+		visibleCheck = new CoolCheckBox(cx + 15,  cy + 212, null, null, "Visible", 100);
 		visibleCheck.checked = true;
 		visibleCheck.scrollFactor.set(); visibleCheck.cameras = [camHUD]; add(visibleCheck);
 
-		flipCheck = new FlxUICheckBox(cx + 120, cy + 212, null, null, "Flip X", 100);
+		flipCheck = new CoolCheckBox(cx + 120, cy + 212, null, null, "Flip X", 100);
 		flipCheck.checked = false;
 		flipCheck.scrollFactor.set(); flipCheck.cameras = [camHUD]; add(flipCheck);
 

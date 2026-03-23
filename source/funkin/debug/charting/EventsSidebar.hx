@@ -1,4 +1,7 @@
 package funkin.debug.charting;
+import coolui.CoolInputText;
+import coolui.CoolDropDown;
+
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -8,7 +11,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
-import flixel.addons.ui.*;
+
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import funkin.data.Song.SwagSong;
@@ -899,7 +902,7 @@ class EventPopup extends FlxGroup
 	var overlay:FlxSprite;
 	var panel:FlxSprite;
 	var titleText:FlxText;
-	var typeDropDown:FlxUIDropDownMenu;
+	var typeDropDown:CoolDropDown;
 	var descText:FlxText;
 
 	var _selectedType:String        = "";
@@ -955,7 +958,7 @@ class EventPopup extends FlxGroup
 		var typeNames = funkin.scripting.events.EventRegistry.getNamesForContext('chart');
 		if (typeNames.length == 0) typeNames.push("(no events)");
 
-		typeDropDown = new FlxUIDropDownMenu(cx + 15, cy + 53, FlxUIDropDownMenu.makeStrIdLabelArray(typeNames, true), function(id:String)
+		typeDropDown = new CoolDropDown(cx + 15, cy + 53, CoolDropDown.makeStrIdLabelArray(typeNames, true), function(id:String)
 		{
 			var idx = Std.parseInt(id);
 			if (idx != null && idx >= 0 && idx < typeNames.length)
@@ -1012,17 +1015,17 @@ class EventPopup extends FlxGroup
 			switch (p.type)
 			{
 				case PDBool:
-					var temp:FlxUIDropDownMenu = new FlxUIDropDownMenu(cx + 15, yOff, FlxUIDropDownMenu.makeStrIdLabelArray(["true","false"], true), function(_){});
+					var temp:CoolDropDown = new CoolDropDown(cx + 15, yOff, CoolDropDown.makeStrIdLabelArray(["true","false"], true), function(_){});
 					temp.cameras = [camHUD];
 					widget = temp;
 
 				case PDDropDown(opts):
-					var temp:FlxUIDropDownMenu = new FlxUIDropDownMenu(cx + 15, yOff, FlxUIDropDownMenu.makeStrIdLabelArray(opts, true), function(_){});
+					var temp:CoolDropDown = new CoolDropDown(cx + 15, yOff, CoolDropDown.makeStrIdLabelArray(opts, true), function(_){});
 					temp.cameras = [camHUD];
 					widget = temp;
 
 				default:
-					var inp = new FlxUIInputText(cx + 15, yOff, FIELD_W, p.defValue, 12);
+					var inp = new CoolInputText(cx + 15, yOff, FIELD_W, p.defValue, 12);
 					inp.scrollFactor.set(); inp.cameras = [camHUD];
 					widget = inp;
 			}
@@ -1051,11 +1054,11 @@ class EventPopup extends FlxGroup
 		{
 			var w = _paramWidgets[i];
 			var val:String = "";
-			if (Std.isOfType(w, FlxUIInputText))
-				val = cast(w, FlxUIInputText).text;
-			else if (Std.isOfType(w, FlxUIDropDownMenu))
+			if (Std.isOfType(w, CoolInputText))
+				val = cast(w, CoolInputText).text;
+			else if (Std.isOfType(w, CoolDropDown))
 			{
-				var dd  = cast(w, FlxUIDropDownMenu);
+				var dd  = cast(w, CoolDropDown);
 				var idx = Std.parseInt(dd.selectedId);
 				var p   = _paramDefs[i];
 				switch (p.type)
@@ -1134,11 +1137,11 @@ class EventPopup extends FlxGroup
 			if (i >= parts.length) break;
 			var w = _paramWidgets[i];
 			var v = parts[i];
-			if (Std.isOfType(w, FlxUIInputText))
-				cast(w, FlxUIInputText).text = v;
-			else if (Std.isOfType(w, FlxUIDropDownMenu))
+			if (Std.isOfType(w, CoolInputText))
+				cast(w, CoolInputText).text = v;
+			else if (Std.isOfType(w, CoolDropDown))
 			{
-				var dd  = cast(w, FlxUIDropDownMenu);
+				var dd  = cast(w, CoolDropDown);
 				var p   = _paramDefs[i];
 				switch (p.type)
 				{

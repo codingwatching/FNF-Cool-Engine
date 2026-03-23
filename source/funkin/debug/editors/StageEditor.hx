@@ -1,16 +1,22 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+import coolui.CoolTabMenu;
+
 
 import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
-import flixel.addons.ui.FlxUI;
-import flixel.addons.ui.FlxUICheckBox;
-import flixel.addons.ui.FlxUIDropDownMenu;
-import flixel.addons.ui.FlxUIInputText;
-import flixel.addons.ui.FlxUINumericStepper;
-import funkin.debug.CoolTabMenu;
+
+
+
+
+
+
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
@@ -90,7 +96,7 @@ class StageEditor extends funkin.states.MusicBeatState
 	// ── Cameras ───────────────────────────────────────────────────────────────
 	var camGame:FlxCamera;
 	var camHUD:FlxCamera;
-	var camUI:FlxCamera; // cámara invisible en cameras[0]: zoom siempre 1 → FlxUI calcula bien los clicks
+	var camUI:FlxCamera; // cámara invisible en cameras[0]: zoom siempre 1 → coolui.CoolUIGroup calcula bien los clicks
 	var camZoom:Float = 0.75;
 	var camTargetX:Float = 0;
 	var camTargetY:Float = 0;
@@ -154,69 +160,69 @@ class StageEditor extends funkin.states.MusicBeatState
 	var layerHitData:Array<LayerHit> = [];
 	var layerHoverIdx:Int = -1;
 
-	// ── HUD: right panel (FlxUITabMenu) ──────────────────────────────────────
+	// ── HUD: right panel (CoolTabMenu) ──────────────────────────────────────
 	var rightPanel:CoolTabMenu;
 
 	// Element tab widgets
-	var elemNameInput:FlxUIInputText;
-	var elemAssetInput:FlxUIInputText;
-	var elemTypeDropdown:FlxUIDropDownMenu;
-	var elemXStepper:FlxUINumericStepper;
-	var elemYStepper:FlxUINumericStepper;
-	var elemScaleXStepper:FlxUINumericStepper;
-	var elemScaleYStepper:FlxUINumericStepper;
-	var elemScrollXStepper:FlxUINumericStepper;
-	var elemScrollYStepper:FlxUINumericStepper;
-	var elemAlphaStepper:FlxUINumericStepper;
-	var elemZIndexStepper:FlxUINumericStepper;
-	var elemAngleStepper:FlxUINumericStepper;
-	var elemFlipXCheck:FlxUICheckBox;
-	var elemFlipYCheck:FlxUICheckBox;
-	var elemAntialiasingCheck:FlxUICheckBox;
-	var elemVisibleCheck:FlxUICheckBox;
-	var elemAboveCharsCheck:FlxUICheckBox;
-	var elemColorInput:FlxUIInputText;
+	var elemNameInput:CoolInputText;
+	var elemAssetInput:CoolInputText;
+	var elemTypeDropdown:CoolDropDown;
+	var elemXStepper:CoolNumericStepper;
+	var elemYStepper:CoolNumericStepper;
+	var elemScaleXStepper:CoolNumericStepper;
+	var elemScaleYStepper:CoolNumericStepper;
+	var elemScrollXStepper:CoolNumericStepper;
+	var elemScrollYStepper:CoolNumericStepper;
+	var elemAlphaStepper:CoolNumericStepper;
+	var elemZIndexStepper:CoolNumericStepper;
+	var elemAngleStepper:CoolNumericStepper;
+	var elemFlipXCheck:CoolCheckBox;
+	var elemFlipYCheck:CoolCheckBox;
+	var elemAntialiasingCheck:CoolCheckBox;
+	var elemVisibleCheck:CoolCheckBox;
+	var elemAboveCharsCheck:CoolCheckBox;
+	var elemColorInput:CoolInputText;
 
 	// Animations tab widgets
-	var animNameInput:FlxUIInputText;
-	var animPrefixInput:FlxUIInputText;
-	var animFPSStepper:FlxUINumericStepper;
-	var animLoopCheck:FlxUICheckBox;
-	var animIndicesInput:FlxUIInputText;
-	var animFirstInput:FlxUIInputText;
+	var animNameInput:CoolInputText;
+	var animPrefixInput:CoolInputText;
+	var animFPSStepper:CoolNumericStepper;
+	var animLoopCheck:CoolCheckBox;
+	var animIndicesInput:CoolInputText;
+	var animFirstInput:CoolInputText;
 	var animListBg:FlxTypedGroup<FlxSprite>;
 	var animListText:FlxTypedGroup<FlxText>;
 	var animHitData:Array<{y:Float, idx:Int}> = [];
 
 	// Stage tab widgets
-	var stageNameInput:FlxUIInputText;
-	var stageZoomStepper:FlxUINumericStepper;
-	var stagePixelCheck:FlxUICheckBox;
-	var stageHideGFCheck:FlxUICheckBox;
+	var stageNameInput:CoolInputText;
+	var stageZoomStepper:CoolNumericStepper;
+	var stagePixelCheck:CoolCheckBox;
+	var stageHideGFCheck:CoolCheckBox;
 
 	// Chars tab widgets
-	var bfXStepper:FlxUINumericStepper;
-	var bfYStepper:FlxUINumericStepper;
-	var gfXStepper:FlxUINumericStepper;
-	var gfYStepper:FlxUINumericStepper;
-	var dadXStepper:FlxUINumericStepper;
-	var dadYStepper:FlxUINumericStepper;
-	var camBFXStepper:FlxUINumericStepper;
-	var camBFYStepper:FlxUINumericStepper;
-	var camDadXStepper:FlxUINumericStepper;
-	var camDadYStepper:FlxUINumericStepper;
-	var gfVersionInput:FlxUIInputText;
+	var bfXStepper:CoolNumericStepper;
+	var bfYStepper:CoolNumericStepper;
+	var gfXStepper:CoolNumericStepper;
+	var gfYStepper:CoolNumericStepper;
+	var dadXStepper:CoolNumericStepper;
+	var dadYStepper:CoolNumericStepper;
+	var camBFXStepper:CoolNumericStepper;
+	var camBFYStepper:CoolNumericStepper;
+	var camDadXStepper:CoolNumericStepper;
+	var camDadYStepper:CoolNumericStepper;
+	var gfVersionInput:CoolInputText;
 
 	// Shaders tab widgets
-	var stageShaderDropdown:FlxUIDropDownMenu;
-	var elemShaderDropdown:FlxUIDropDownMenu;
+	var stageShaderDropdown:CoolDropDown;
+	var elemShaderDropdown:CoolDropDown;
 	var _shaderList:Array<String> = []; // cache de nombres escaneados
 
 	// Backdrop panel widgets (shown only when type == 'backdrop')
-	var backdropRepeatXCheck:FlxUICheckBox;
-	var backdropRepeatYCheck:FlxUICheckBox;
-	var backdropVelXStepper:FlxUINumericStepper;
-	var backdropVelYStepper:FlxUINumericStepper;
+	var backdropRepeatXCheck:CoolCheckBox;
+	var backdropRepeatYCheck:CoolCheckBox;
+	var backdropVelXStepper:CoolNumericStepper;
+	var backdropVelYStepper:CoolNumericStepper;
 	/** All backdrop-specific tab widgets; toggled as a group. */
 	var _backdropWidgets:Array<flixel.FlxBasic> = [];
 
@@ -234,7 +240,7 @@ class StageEditor extends funkin.states.MusicBeatState
 	var _fileRef:FileReference;
 	var _shaderFileRef:FileReference; // separado para no mezclar con _fileRef del asset browser
 
-	// ── Animation list visibility (managed at state level, not inside FlxUI tab) ──
+	// ── Animation list visibility (managed at state level, not inside coolui.CoolUIGroup tab) ──
 	var _animTabVisible:Bool = false;
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -259,7 +265,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		camHUD.bgColor.alpha = 0;
 
 		// Igual que AnimationDebug: camUI es una cámara transparente y vacía
-		// que ocupa cameras[0] (= FlxG.camera). FlxUI usa cameras[0] para
+		// que ocupa cameras[0] (= FlxG.camera). coolui.CoolUIGroup usa cameras[0] para
 		// calcular las posiciones de click. Al tener zoom=1 fijo, los inputs,
 		// steppers y checkboxes responden correctamente sin importar el zoom
 		// del canvas. camGame y camHUD renderizan encima de ella.
@@ -1179,7 +1185,7 @@ class StageEditor extends funkin.states.MusicBeatState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// RIGHT PANEL (FlxUITabMenu)
+	// RIGHT PANEL (CoolTabMenu)
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function buildRightPanel():Void
@@ -1222,7 +1228,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		buildCharsTab();
 		buildShadersTab();
 
-		// The animation list groups must be added to the state (not to FlxUI tab,
+		// The animation list groups must be added to the state (not to coolui.CoolUIGroup tab,
 		// which only accepts FlxSprite). Sprites inside use absolute screen coords + camHUD.
 		if (animListBg != null)
 		{
@@ -1240,7 +1246,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function buildElementTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Element';
 
 		var y = 8.0;
@@ -1260,12 +1266,12 @@ class StageEditor extends funkin.states.MusicBeatState
 		}
 
 		lbl('Name:', y);
-		elemNameInput = new FlxUIInputText(8, y + 12, 180, '', 10);
+		elemNameInput = new CoolInputText(8, y + 12, 180, '', 10);
 		tab.add(elemNameInput);
 
 		lbl('Type:', y + 32);
 		var types = ['sprite', 'animated', 'backdrop', 'group', 'custom_class', 'sound'];
-		elemTypeDropdown = new FlxUIDropDownMenu(8, y + 44, FlxUIDropDownMenu.makeStrIdLabelArray(types, true), function(sel:String)
+		elemTypeDropdown = new CoolDropDown(8, y + 44, CoolDropDown.makeStrIdLabelArray(types, true), function(sel:String)
 		{
 			var t = types[Std.parseInt(sel)];
 			if (selectedIdx >= 0 && selectedIdx < stageData.elements.length)
@@ -1276,7 +1282,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		y += 72;
 		lbl('Asset path:', y);
-		elemAssetInput = new FlxUIInputText(8, y + 12, RIGHT_W - 60, '', 10);
+		elemAssetInput = new CoolInputText(8, y + 12, RIGHT_W - 60, '', 10);
 		tab.add(elemAssetInput);
 		var browseBtn = new FlxButton(RIGHT_W - 48, y + 11, 'Browse', browseAsset);
 		tab.add(browseBtn);
@@ -1287,54 +1293,54 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		lbl('Position  X:', y);
 		lbl('Y:', y + 20);
-		elemXStepper = new FlxUINumericStepper(8, y + 12, 10, 0, -4000, 4000, 0);
-		elemYStepper = new FlxUINumericStepper(130, y + 12, 10, 0, -4000, 4000, 0);
+		elemXStepper = new CoolNumericStepper(8, y + 12, 10, 0, -4000, 4000, 0);
+		elemYStepper = new CoolNumericStepper(130, y + 12, 10, 0, -4000, 4000, 0);
 		tab.add(elemXStepper);
 		tab.add(elemYStepper);
 
 		y += 34;
 		lbl('Scale  X:', y);
 		lbl('Y:', y + 20);
-		elemScaleXStepper = new FlxUINumericStepper(8, y + 12, 0.1, 1, 0.01, 20, 2);
-		elemScaleYStepper = new FlxUINumericStepper(130, y + 12, 0.1, 1, 0.01, 20, 2);
+		elemScaleXStepper = new CoolNumericStepper(8, y + 12, 0.1, 1, 0.01, 20, 2);
+		elemScaleYStepper = new CoolNumericStepper(130, y + 12, 0.1, 1, 0.01, 20, 2);
 		tab.add(elemScaleXStepper);
 		tab.add(elemScaleYStepper);
 
 		y += 34;
 		lbl('Scroll Factor  X:', y);
 		lbl('Y:', y + 20);
-		elemScrollXStepper = new FlxUINumericStepper(8, y + 12, 0.1, 1, 0, 5, 2);
-		elemScrollYStepper = new FlxUINumericStepper(130, y + 12, 0.1, 1, 0, 5, 2);
+		elemScrollXStepper = new CoolNumericStepper(8, y + 12, 0.1, 1, 0, 5, 2);
+		elemScrollYStepper = new CoolNumericStepper(130, y + 12, 0.1, 1, 0, 5, 2);
 		tab.add(elemScrollXStepper);
 		tab.add(elemScrollYStepper);
 
 		y += 34;
 		lbl('Alpha:', y);
-		elemAlphaStepper = new FlxUINumericStepper(8, y + 12, 0.05, 1, 0, 1, 2);
+		elemAlphaStepper = new CoolNumericStepper(8, y + 12, 0.05, 1, 0, 1, 2);
 		tab.add(elemAlphaStepper);
 
 		lbl('Z-Index:', y + 0);
-		elemZIndexStepper = new FlxUINumericStepper(130, y + 12, 1, 0, -100, 100, 0);
+		elemZIndexStepper = new CoolNumericStepper(130, y + 12, 1, 0, -100, 100, 0);
 		tab.add(elemZIndexStepper);
 
 		y += 34;
 		lbl('Angle:', y);
-		elemAngleStepper = new FlxUINumericStepper(8, y + 12, 1, 0, -360, 360, 1);
+		elemAngleStepper = new CoolNumericStepper(8, y + 12, 1, 0, -360, 360, 1);
 		tab.add(elemAngleStepper);
 
 		y += 34;
 		lbl('Color (hex):', y);
-		elemColorInput = new FlxUIInputText(8, y + 12, 90, '#FFFFFF', 10);
+		elemColorInput = new CoolInputText(8, y + 12, 90, '#FFFFFF', 10);
 		tab.add(elemColorInput);
 
 		y += 34;
 		sep(y);
 		y += 6;
 
-		elemFlipXCheck = new FlxUICheckBox(8, y, null, null, 'Flip X', 70);
-		elemFlipYCheck = new FlxUICheckBox(90, y, null, null, 'Flip Y', 70);
-		elemAntialiasingCheck = new FlxUICheckBox(8, y + 22, null, null, 'Antialiasing', 110);
-		elemVisibleCheck = new FlxUICheckBox(130, y + 22, null, null, 'Visible', 80);
+		elemFlipXCheck = new CoolCheckBox(8, y, null, null, 'Flip X', 70);
+		elemFlipYCheck = new CoolCheckBox(90, y, null, null, 'Flip Y', 70);
+		elemAntialiasingCheck = new CoolCheckBox(8, y + 22, null, null, 'Antialiasing', 110);
+		elemVisibleCheck = new CoolCheckBox(130, y + 22, null, null, 'Visible', 80);
 
 		tab.add(elemFlipXCheck);
 		tab.add(elemFlipYCheck);
@@ -1348,7 +1354,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		// ── Above-characters layer ────────────────────────────────────────────
 		// When checked, this element renders ON TOP of characters (like a front
 		// camera, light shaft, or bokeh overlay — same as Codename Engine).
-		elemAboveCharsCheck = new FlxUICheckBox(8, y, null, null, 'Above Characters  (foreground layer)', RIGHT_W - 24);
+		elemAboveCharsCheck = new CoolCheckBox(8, y, null, null, 'Above Characters  (foreground layer)', RIGHT_W - 24);
 		elemAboveCharsCheck.color = 0xFFFFAA00;
 		tab.add(elemAboveCharsCheck);
 
@@ -1375,9 +1381,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		_backdropWidgets.push(bdHeader);
 		y += 18;
 
-		backdropRepeatXCheck = new FlxUICheckBox(8, y, null, null, 'Repeat X', 80);
+		backdropRepeatXCheck = new CoolCheckBox(8, y, null, null, 'Repeat X', 80);
 		backdropRepeatXCheck.checked = true;
-		backdropRepeatYCheck = new FlxUICheckBox(100, y, null, null, 'Repeat Y', 80);
+		backdropRepeatYCheck = new CoolCheckBox(100, y, null, null, 'Repeat Y', 80);
 		backdropRepeatYCheck.checked = true;
 		tab.add(backdropRepeatXCheck);
 		tab.add(backdropRepeatYCheck);
@@ -1396,8 +1402,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		_backdropWidgets.push(bdVelLblY);
 		y += 14;
 
-		backdropVelXStepper = new FlxUINumericStepper(8, y, 5, 0, -500, 500, 1);
-		backdropVelYStepper = new FlxUINumericStepper(130, y, 5, 0, -500, 500, 1);
+		backdropVelXStepper = new CoolNumericStepper(8, y, 5, 0, -500, 500, 1);
+		backdropVelYStepper = new CoolNumericStepper(130, y, 5, 0, -500, 500, 1);
 		tab.add(backdropVelXStepper);
 		tab.add(backdropVelYStepper);
 		_backdropWidgets.push(backdropVelXStepper);
@@ -1413,7 +1419,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function buildAnimsTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Anims';
 
 		var T = EditorTheme.current;
@@ -1425,7 +1431,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		animListBg = new FlxTypedGroup<FlxSprite>();
 		animListText = new FlxTypedGroup<FlxText>();
-		// Groups are added to the state directly in buildRightPanel (FlxUI.add only accepts FlxSprite)
+		// Groups are added to the state directly in buildRightPanel (coolui.CoolUIGroup.add only accepts FlxSprite)
 
 		var addAnimBtn = new FlxButton(4, y + 144, '+ Add Anim', addAnimation);
 		var delAnimBtn = new FlxButton(RIGHT_W - 86, y + 144, 'Remove', removeAnimation);
@@ -1446,30 +1452,30 @@ class StageEditor extends funkin.states.MusicBeatState
 		}
 
 		lbl('Animation Name:', y);
-		animNameInput = new FlxUIInputText(8, y + 12, 180, 'idle', 10);
+		animNameInput = new CoolInputText(8, y + 12, 180, 'idle', 10);
 		tab.add(animNameInput);
 
 		y += 32;
 		lbl('XML Prefix:', y);
-		animPrefixInput = new FlxUIInputText(8, y + 12, 180, 'idle0', 10);
+		animPrefixInput = new CoolInputText(8, y + 12, 180, 'idle0', 10);
 		tab.add(animPrefixInput);
 
 		y += 32;
 		lbl('FPS:', y);
-		animFPSStepper = new FlxUINumericStepper(8, y + 12, 1, 24, 1, 120, 0);
+		animFPSStepper = new CoolNumericStepper(8, y + 12, 1, 24, 1, 120, 0);
 		tab.add(animFPSStepper);
 
-		animLoopCheck = new FlxUICheckBox(90, y + 12, null, null, 'Looped', 80);
+		animLoopCheck = new CoolCheckBox(90, y + 12, null, null, 'Looped', 80);
 		tab.add(animLoopCheck);
 
 		y += 34;
 		lbl('Indices (e.g. 0,1,2):', y);
-		animIndicesInput = new FlxUIInputText(8, y + 12, 180, '', 10);
+		animIndicesInput = new CoolInputText(8, y + 12, 180, '', 10);
 		tab.add(animIndicesInput);
 
 		y += 32;
 		lbl('First Animation:', y);
-		animFirstInput = new FlxUIInputText(8, y + 12, 180, 'idle', 10);
+		animFirstInput = new CoolInputText(8, y + 12, 180, 'idle', 10);
 		tab.add(animFirstInput);
 
 		y += 32;
@@ -1483,7 +1489,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function buildStageTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Stage';
 
 		var T = EditorTheme.current;
@@ -1496,17 +1502,17 @@ class StageEditor extends funkin.states.MusicBeatState
 		}
 
 		lbl('Stage Name:', y);
-		stageNameInput = new FlxUIInputText(8, y + 12, 180, stageData.name, 10);
+		stageNameInput = new CoolInputText(8, y + 12, 180, stageData.name, 10);
 		tab.add(stageNameInput);
 
 		y += 32;
 		lbl('Default Zoom:', y);
-		stageZoomStepper = new FlxUINumericStepper(8, y + 12, 0.05, stageData.defaultZoom, 0.1, 5.0, 2);
+		stageZoomStepper = new CoolNumericStepper(8, y + 12, 0.05, stageData.defaultZoom, 0.1, 5.0, 2);
 		tab.add(stageZoomStepper);
 
 		y += 32;
-		stagePixelCheck = new FlxUICheckBox(8, y, null, null, 'Pixel Stage', 120);
-		stageHideGFCheck = new FlxUICheckBox(8, y + 22, null, null, 'Hide Girlfriend', 130);
+		stagePixelCheck = new CoolCheckBox(8, y, null, null, 'Pixel Stage', 120);
+		stageHideGFCheck = new CoolCheckBox(8, y + 22, null, null, 'Hide Girlfriend', 130);
 		stagePixelCheck.checked = stageData.isPixelStage;
 		stageHideGFCheck.checked = stageData.hideGirlfriend ?? false;
 		tab.add(stagePixelCheck);
@@ -1544,7 +1550,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function buildCharsTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Chars';
 
 		var T = EditorTheme.current;
@@ -1575,15 +1581,15 @@ class StageEditor extends funkin.states.MusicBeatState
 		y += 22;
 		lbl('X:', y);
 		lbl('Y:', y + 20);
-		bfXStepper = new FlxUINumericStepper(16, y + 12, 10, bfPos[0], -2000, 4000, 0);
-		bfYStepper = new FlxUINumericStepper(130, y + 12, 10, bfPos[1], -2000, 4000, 0);
+		bfXStepper = new CoolNumericStepper(16, y + 12, 10, bfPos[0], -2000, 4000, 0);
+		bfYStepper = new CoolNumericStepper(130, y + 12, 10, bfPos[1], -2000, 4000, 0);
 		tab.add(bfXStepper);
 		tab.add(bfYStepper);
 		y += 26;
 		lbl('Cam Offset X:', y);
 		lbl('Y:', y + 20);
-		camBFXStepper = new FlxUINumericStepper(80, y + 12, 10, camBF[0], -500, 500, 0);
-		camBFYStepper = new FlxUINumericStepper(165, y + 12, 10, camBF[1], -500, 500, 0);
+		camBFXStepper = new CoolNumericStepper(80, y + 12, 10, camBF[0], -500, 500, 0);
+		camBFYStepper = new CoolNumericStepper(165, y + 12, 10, camBF[1], -500, 500, 0);
 		tab.add(camBFXStepper);
 		tab.add(camBFYStepper);
 
@@ -1592,13 +1598,13 @@ class StageEditor extends funkin.states.MusicBeatState
 		y += 22;
 		lbl('X:', y);
 		lbl('Y:', y + 20);
-		gfXStepper = new FlxUINumericStepper(16, y + 12, 10, gfPos[0], -2000, 4000, 0);
-		gfYStepper = new FlxUINumericStepper(130, y + 12, 10, gfPos[1], -2000, 4000, 0);
+		gfXStepper = new CoolNumericStepper(16, y + 12, 10, gfPos[0], -2000, 4000, 0);
+		gfYStepper = new CoolNumericStepper(130, y + 12, 10, gfPos[1], -2000, 4000, 0);
 		tab.add(gfXStepper);
 		tab.add(gfYStepper);
 
 		lbl('GF Version:', y + 24);
-		gfVersionInput = new FlxUIInputText(8, y + 36, 120, stageData.gfVersion ?? 'gf', 10);
+		gfVersionInput = new CoolInputText(8, y + 36, 120, stageData.gfVersion ?? 'gf', 10);
 		tab.add(gfVersionInput);
 
 		y += 60;
@@ -1606,15 +1612,15 @@ class StageEditor extends funkin.states.MusicBeatState
 		y += 22;
 		lbl('X:', y);
 		lbl('Y:', y + 20);
-		dadXStepper = new FlxUINumericStepper(16, y + 12, 10, dadPos[0], -2000, 4000, 0);
-		dadYStepper = new FlxUINumericStepper(130, y + 12, 10, dadPos[1], -2000, 4000, 0);
+		dadXStepper = new CoolNumericStepper(16, y + 12, 10, dadPos[0], -2000, 4000, 0);
+		dadYStepper = new CoolNumericStepper(130, y + 12, 10, dadPos[1], -2000, 4000, 0);
 		tab.add(dadXStepper);
 		tab.add(dadYStepper);
 		y += 26;
 		lbl('Cam Offset X:', y);
 		lbl('Y:', y + 20);
-		camDadXStepper = new FlxUINumericStepper(80, y + 12, 10, camDad[0], -500, 500, 0);
-		camDadYStepper = new FlxUINumericStepper(165, y + 12, 10, camDad[1], -500, 500, 0);
+		camDadXStepper = new CoolNumericStepper(80, y + 12, 10, camDad[0], -500, 500, 0);
+		camDadYStepper = new CoolNumericStepper(165, y + 12, 10, camDad[1], -500, 500, 0);
 		tab.add(camDadXStepper);
 		tab.add(camDadYStepper);
 
@@ -1629,7 +1635,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function buildShadersTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Shaders';
 
 		var T = EditorTheme.current;
@@ -1647,7 +1653,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		{
 			ShaderManager.scanShaders();
 			_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
-			var labels = FlxUIDropDownMenu.makeStrIdLabelArray(_shaderList, true);
+			var labels = CoolDropDown.makeStrIdLabelArray(_shaderList, true);
 			if (stageShaderDropdown != null) stageShaderDropdown.setData(labels);
 			if (elemShaderDropdown   != null) elemShaderDropdown.setData(labels);
 			setStatus('Shaders rescanned: ${_shaderList.length - 1} found');
@@ -1697,9 +1703,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		y += 14;
 
 		_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
-		var labels = FlxUIDropDownMenu.makeStrIdLabelArray(_shaderList, true);
+		var labels = CoolDropDown.makeStrIdLabelArray(_shaderList, true);
 
-		stageShaderDropdown = new FlxUIDropDownMenu(8, y, labels, function(id:String)
+		stageShaderDropdown = new CoolDropDown(8, y, labels, function(id:String)
 		{
 			var idx = Std.parseInt(id);
 			if (idx == null) return;
@@ -1721,7 +1727,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(lbl2);
 		y += 14;
 
-		elemShaderDropdown = new FlxUIDropDownMenu(8, y, labels, function(id:String)
+		elemShaderDropdown = new CoolDropDown(8, y, labels, function(id:String)
 		{
 			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length) return;
 			var idx = Std.parseInt(id);
@@ -1810,7 +1816,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			{
 				var tabW:Float = (RIGHT_W - 2) / 5;
 				var ti = Std.int((mx - (FlxG.width - RIGHT_W + 2)) / tabW);
-				// FlxUITabMenu sorts tabs alphabetically:
+				// CoolTabMenu sorts tabs alphabetically:
 				// [Anims=0, Chars=1, Element=2, Shaders=3, Stage=4]
 				_animTabVisible = (ti == 0); // tab index 0 = "Anims" (sorted first)
 			}
@@ -3296,7 +3302,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 				ShaderManager.scanShaders();
 				_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
-				var labels = FlxUIDropDownMenu.makeStrIdLabelArray(_shaderList, true);
+				var labels = CoolDropDown.makeStrIdLabelArray(_shaderList, true);
 				if (stageShaderDropdown != null) stageShaderDropdown.setData(labels);
 				if (elemShaderDropdown   != null) elemShaderDropdown.setData(labels);
 				setStatus('Shader imported: $filename');
@@ -3338,7 +3344,7 @@ class StageEditor extends funkin.states.MusicBeatState
 				// Refresh lists and re-apply to selected element if any
 				ShaderManager.scanShaders();
 				_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
-				var lbs = FlxUIDropDownMenu.makeStrIdLabelArray(_shaderList, true);
+				var lbs = CoolDropDown.makeStrIdLabelArray(_shaderList, true);
 				if (stageShaderDropdown != null) stageShaderDropdown.setData(lbs);
 				if (elemShaderDropdown   != null) elemShaderDropdown.setData(lbs);
 
@@ -3475,9 +3481,9 @@ class AddElementSubState extends flixel.FlxSubState
 {
 	var onConfirm:StageElement->Void;
 
-	var nameInput:FlxUIInputText;
-	var assetInput:FlxUIInputText;
-	var typeDropdown:FlxUIDropDownMenu;
+	var nameInput:CoolInputText;
+	var assetInput:CoolInputText;
+	var typeDropdown:CoolDropDown;
 
 	static inline final W:Int = 420;
 	static inline final H:Int = 320;
@@ -3545,7 +3551,7 @@ class AddElementSubState extends flixel.FlxSubState
 		}
 
 		lbl('Element Name:', y);
-		nameInput = new FlxUIInputText(panX + 12, y + 14, W - 28, 'new_element', 11);
+		nameInput = new CoolInputText(panX + 12, y + 14, W - 28, 'new_element', 11);
 		nameInput.scrollFactor.set();
 		nameInput.cameras = [_camSub];
 		add(nameInput);
@@ -3553,7 +3559,7 @@ class AddElementSubState extends flixel.FlxSubState
 		y += 40;
 		lbl('Type:', y);
 		var types = ['sprite', 'animated', 'backdrop', 'group', 'custom_class', 'sound'];
-		typeDropdown = new FlxUIDropDownMenu(panX + 12, y + 14, FlxUIDropDownMenu.makeStrIdLabelArray(types, true), null);
+		typeDropdown = new CoolDropDown(panX + 12, y + 14, CoolDropDown.makeStrIdLabelArray(types, true), null);
 		typeDropdown.scrollFactor.set();
 		typeDropdown.cameras = [_camSub];
 		add(typeDropdown);
@@ -3562,7 +3568,7 @@ class AddElementSubState extends flixel.FlxSubState
 		lbl('Asset path  (images/stages/… or browse to copy):', y);
 
 		// Asset path input
-		assetInput = new FlxUIInputText(panX + 12, y + 14, W - 110, 'myAsset', 11);
+		assetInput = new CoolInputText(panX + 12, y + 14, W - 110, 'myAsset', 11);
 		assetInput.scrollFactor.set();
 		assetInput.cameras = [_camSub];
 		add(assetInput);

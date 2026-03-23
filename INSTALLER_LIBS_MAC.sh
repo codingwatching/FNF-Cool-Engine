@@ -49,7 +49,6 @@ brew install --cask vlc
 # ── Clean conflicting libraries ──────────────────
 echo ""
 echo "Cleaning conflicting libraries..."
-haxelib remove flixel-ui     2>/dev/null || true
 haxelib remove flixel        2>/dev/null || true
 haxelib remove openfl        2>/dev/null || true
 haxelib remove lime          2>/dev/null || true
@@ -70,7 +69,7 @@ echo "Installing HaxeFlixel (FunkinCrew fork)..."
 haxelib install flixel 6.1.2         --never
 haxelib install flixel-addons  4.0.1 --never
 haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-haxelib install flixel-ui    --quiet --never
+haxelib git    coolui https://github.com/The-Cool-Engine-Crew/coolui --never
 haxelib install flixel-tools 1.5.1  --quiet --never
 
 # ── Additional ───────────────────────────────────
@@ -110,7 +109,8 @@ echo "  Lime:           $LIME_VERSION"
 echo "  OpenFL:         $OPENFL_VERSION"
 echo "  Flixel:         6.1.2"
 echo "  flixel-addons:  4.0.1"
-echo "  flixel-animate: MaybeMaru/flixel-animate (git)"
+echo "  flixel-animate: MaybeMaru/flixel-animate (git)
+  coolui:         The-Cool-Engine-Crew/coolui (git)"
 echo "  funkin.vis:     FunkinCrew/funkVis (git)"
 echo "  hxvlc:          MAJigsaw77/hxvlc (git)"
 echo "  discord_rpc:    Aidan63/linc_discord-rpc (git)"

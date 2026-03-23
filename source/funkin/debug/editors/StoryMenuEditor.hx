@@ -1,15 +1,21 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+import coolui.CoolTabMenu;
+
 
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.addons.ui.FlxUI;
-import flixel.addons.ui.FlxUICheckBox;
-import flixel.addons.ui.FlxUIDropDownMenu;
-import flixel.addons.ui.FlxUIInputText;
-import flixel.addons.ui.FlxUINumericStepper;
-import flixel.addons.ui.FlxUIGroup;
-import flixel.addons.ui.FlxUI;
+
+
+
+
+
+
+
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
@@ -18,7 +24,7 @@ import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
 import funkin.data.WeekFile;
 import funkin.data.WeekFile.WeekData;
-import funkin.debug.CoolTabMenu;
+
 import funkin.gameplay.objects.character.CharacterList;
 import funkin.menus.substate.MenuCharacter;
 import funkin.states.MusicBeatState;
@@ -140,24 +146,24 @@ class StoryMenuEditor extends MusicBeatState
 	var _tabMenu : CoolTabMenu;
 
 	// Controles tab WEEK
-	var _wId      : FlxUIInputText;
-	var _wName    : FlxUIInputText;
-	var _wPath    : FlxUIInputText;
-	var _wColor   : FlxUIInputText;
-	var _wLocked  : FlxUICheckBox;
-	var _wOrder   : FlxUINumericStepper;
-	var _wSongIn  : FlxUIInputText;
+	var _wId      : CoolInputText;
+	var _wName    : CoolInputText;
+	var _wPath    : CoolInputText;
+	var _wColor   : CoolInputText;
+	var _wLocked  : CoolCheckBox;
+	var _wOrder   : CoolNumericStepper;
+	var _wSongIn  : CoolInputText;
 	var _wSongs   : Array<SongRow> = [];
 	/** Tab WEEK para poder añadir/quitar filas dinámicamente. */
-	var _weekTab  : FlxUI = null;
+	var _weekTab  : coolui.CoolUIGroup = null;
 	var _colPrev  : FlxSprite;
 
 	// Controles tab CHARS
-	var _cDrop  : Array<FlxUIDropDownMenu>   = [];
-	var _cOffX  : Array<FlxUINumericStepper> = [];
-	var _cOffY  : Array<FlxUINumericStepper> = [];
-	var _cScale : Array<FlxUINumericStepper> = [];
-	var _cFlip  : Array<FlxUICheckBox>       = [];
+	var _cDrop  : Array<CoolDropDown>   = [];
+	var _cOffX  : Array<CoolNumericStepper> = [];
+	var _cOffY  : Array<CoolNumericStepper> = [];
+	var _cScale : Array<CoolNumericStepper> = [];
+	var _cFlip  : Array<CoolCheckBox>       = [];
 	static var SLOT_LABELS : Array<String> = ["Oponente", "BF", "GF"];
 
 	// ── Status ────────────────────────────────────────────────────────────────
@@ -176,7 +182,7 @@ class StoryMenuEditor extends MusicBeatState
 		funkin.system.CursorManager.show();
 
 		// ── Una sola cámara para todo ────────────────────────────────────────────
-		// Usar una única camHUD evita los problemas de FlxUI con múltiples cámaras.
+		// Usar una única camHUD evita los problemas de coolui.CoolUIGroup con múltiples cámaras.
 		// Los elementos del preview se posicionan y escalan manualmente.
 		var pvX = LIST_W + 1;
 		var pvW = FlxG.width - LIST_W - PANEL_W - 2;
@@ -425,7 +431,8 @@ class StoryMenuEditor extends MusicBeatState
 
 	function _buildTabWeek():Void
 	{
-		var tab = new FlxUI(null, _tabMenu);
+		var tab = new coolui.CoolUIGroup();
+		tab.name = 'week';
 		var y0  = CoolTabMenu.TAB_BAR_H + 10;
 		var xL  = 10;
 		var lW  = PANEL_W - 20;
@@ -438,16 +445,16 @@ class StoryMenuEditor extends MusicBeatState
 		}
 
 		lbl(y0,            "ID (nombre del archivo)");
-		_wId   = new FlxUIInputText(xL, y0 + 13,           lW, '', 11); tab.add(_wId);
+		_wId   = new CoolInputText(xL, y0 + 13,           lW, '', 11); tab.add(_wId);
 
 		lbl(y0 + sH,       "Nombre de la semana");
-		_wName = new FlxUIInputText(xL, y0 + sH + 13,      lW, '', 11); tab.add(_wName);
+		_wName = new CoolInputText(xL, y0 + sH + 13,      lW, '', 11); tab.add(_wName);
 
 		lbl(y0 + sH * 2,   "Ruta del título (weekPath)");
-		_wPath = new FlxUIInputText(xL, y0 + sH * 2 + 13,  lW, '', 11); tab.add(_wPath);
+		_wPath = new CoolInputText(xL, y0 + sH * 2 + 13,  lW, '', 11); tab.add(_wPath);
 
 		lbl(y0 + sH * 3,   "Color (hex)");
-		_wColor = new FlxUIInputText(xL, y0 + sH * 3 + 13, lW - 36, '', 11);
+		_wColor = new CoolInputText(xL, y0 + sH * 3 + 13, lW - 36, '', 11);
 		_wColor.callback = function(_, _) { _onColorChange(); };
 		tab.add(_wColor);
 
@@ -455,12 +462,12 @@ class StoryMenuEditor extends MusicBeatState
 		_colPrev.makeGraphic(28, 20, 0xFFFFD900);
 		tab.add(_colPrev);
 
-		_wLocked = new FlxUICheckBox(xL, y0 + sH * 4 + 8, null, null, "Bloqueada", 90);
+		_wLocked = new CoolCheckBox(xL, y0 + sH * 4 + 8, null, null, "Bloqueada", 90);
 		cast(_wLocked.getLabel(), flixel.text.FlxText).color = C_WHITE;
 		tab.add(_wLocked);
 
 		lbl(y0 + sH * 4 + 6, "               Orden:");
-		_wOrder = new FlxUINumericStepper(xL + 165, y0 + sH * 4 + 6, 1, 0, 0, 99, 0);
+		_wOrder = new CoolNumericStepper(xL + 165, y0 + sH * 4 + 6, 1, 0, 0, 99, 0);
 		tab.add(_wOrder);
 
 		// ── Sección canciones
@@ -475,7 +482,7 @@ class StoryMenuEditor extends MusicBeatState
 		tab.add(sLbl);
 
 		var addY = sepY + 22;
-		_wSongIn = new FlxUIInputText(xL, addY, lW - 32, '', 11);
+		_wSongIn = new CoolInputText(xL, addY, lW - 32, '', 11);
 		tab.add(_wSongIn);
 
 		var btnAdd = _mkBtn(xL + lW - 28, addY, 26, 20, "+", C_GREEN, function()
@@ -527,7 +534,8 @@ class StoryMenuEditor extends MusicBeatState
 
 	function _buildTabChars():Void
 	{
-		var tab   = new FlxUI(null, _tabMenu);
+		var tab   = new coolui.CoolUIGroup();
+		tab.name = 'chars';
 		var allCh = CharacterList.getAllCharacters();
 		if (allCh == null || allCh.length == 0) allCh = ['bf', 'dad', 'gf'];
 		var opts  = allCh.copy();
@@ -550,25 +558,25 @@ class StoryMenuEditor extends MusicBeatState
 			sDiv.makeGraphic(lW, 1, sc); sDiv.alpha = 0.25; tab.add(sDiv);
 
 			// Dropdown
-			var drop = new FlxUIDropDownMenu(xL, sy + 18,
-				FlxUIDropDownMenu.makeStrIdLabelArray(opts),
+			var drop = new CoolDropDown(xL, sy + 18,
+				CoolDropDown.makeStrIdLabelArray(opts),
 				function(sel:String) { _onCharSel(sn, sel); });
 			_cDrop[s] = drop; tab.add(drop);
 
 			// Offset X / Y
 			var oxt = new FlxText(xL,      sy + 48, 55, "Offset X:", 10); oxt.color = C_GRAY; oxt.font = Paths.font("vcr.ttf"); tab.add(oxt);
-			var oxs = new FlxUINumericStepper(xL + 58,  sy + 46, 2, 0, -500, 500, 1); _cOffX[s] = oxs; tab.add(oxs);
+			var oxs = new CoolNumericStepper(xL + 58,  sy + 46, 2, 0, -500, 500, 1); _cOffX[s] = oxs; tab.add(oxs);
 
 			var oyt = new FlxText(xL+160,  sy + 48, 55, "Offset Y:", 10); oyt.color = C_GRAY; oyt.font = Paths.font("vcr.ttf"); tab.add(oyt);
-			var oys = new FlxUINumericStepper(xL + 218, sy + 46, 2, 0, -500, 500, 1); _cOffY[s] = oys; tab.add(oys);
+			var oys = new CoolNumericStepper(xL + 218, sy + 46, 2, 0, -500, 500, 1); _cOffY[s] = oys; tab.add(oys);
 
 			// Escala / Flip
 			var sct = new FlxText(xL,      sy + 72, 55, "Scale:", 10); sct.color = C_GRAY; sct.font = Paths.font("vcr.ttf"); tab.add(sct);
-			var scs = new FlxUINumericStepper(xL + 58, sy + 70, 0.05, 1.0, 0.1, 5.0, 2); _cScale[s] = scs; tab.add(scs);
+			var scs = new CoolNumericStepper(xL + 58, sy + 70, 0.05, 1.0, 0.1, 5.0, 2); _cScale[s] = scs; tab.add(scs);
 
-			var fbox = new FlxUICheckBox(xL + 180, sy + 72, null, null, "Flip X", 60);
+			var fbox = new CoolCheckBox(xL + 180, sy + 72, null, null, "Flip X", 60);
 			cast(fbox.getLabel(), flixel.text.FlxText).color = C_WHITE;
-			fbox.callback = function() { _applyCharEdit(sn); };
+			fbox.callback = function(_:Bool) { _applyCharEdit(sn); };
 			_cFlip[s] = fbox; tab.add(fbox);
 		}
 

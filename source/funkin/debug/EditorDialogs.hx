@@ -1,5 +1,9 @@
 package funkin.debug;
 
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
@@ -248,19 +252,19 @@ class AnimationEditorDialog extends FlxTypedGroup<FlxSprite>
 			add(new FlxText(180, yPos + 5, 0, 'Animation ${i + 1}'));
 			
 			add(new FlxText(180, yPos + 25, 0, "Name:"));
-			var nameInput = new flixel.addons.ui.FlxUIInputText(250, yPos + 25, 150, anim.name);
+			var nameInput = new coolui.CoolInputText(250, yPos + 25, 150, anim.name);
 			add(nameInput);
 			
 			add(new FlxText(180, yPos + 55, 0, "Prefix:"));
-			var prefixInput = new flixel.addons.ui.FlxUIInputText(250, yPos + 55, 150, anim.prefix);
+			var prefixInput = new coolui.CoolInputText(250, yPos + 55, 150, anim.prefix);
 			add(prefixInput);
 			
 			add(new FlxText(180, yPos + 85, 0, "FPS:"));
-			var fpsStepper = new flixel.addons.ui.FlxUINumericStepper(250, yPos + 85, 1, 
+			var fpsStepper = new coolui.CoolNumericStepper(250, yPos + 85, 1, 
 				anim.framerate != null ? anim.framerate : 24, 1, 120, 0);
 			add(fpsStepper);
 			
-			var loopCheckbox = new flixel.addons.ui.FlxUICheckBox(400, yPos + 85, null, null, "Loop", 50);
+			var loopCheckbox = new coolui.CoolCheckBox(400, yPos + 85, null, null, "Loop", 50);
 			loopCheckbox.checked = anim.looped != null ? anim.looped : false;
 			add(loopCheckbox);
 			

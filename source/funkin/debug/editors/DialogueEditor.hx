@@ -1,4 +1,6 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -13,7 +15,7 @@ import funkin.cutscenes.dialogue.DialogueData.*;
 import funkin.cutscenes.dialogue.DialogueBoxImproved;
 import flixel.group.FlxSpriteGroup;
 import funkin.gameplay.PlayState;
-import flixel.addons.ui.FlxInputText;
+
 
 #if sys
 import lime.ui.FileDialog;
@@ -97,42 +99,42 @@ class DialogueEditor extends FlxState
 	var boxesGroup:FlxSpriteGroup;
 
 	// === INPUTS (Conversación) ===
-	var conversationNameInput:FlxInputText;
+	var conversationNameInput:CoolInputText;
 	var skinNameDisplay:FlxText;
-	var characterText:FlxInputText;
-	var messageText:FlxInputText;
-	var bubbleTypeText:FlxInputText;
-	var speedText:FlxInputText;
-	var portraitNameInput:FlxInputText;
-	var boxNameInput:FlxInputText;
-	var musicInput:FlxInputText;
+	var characterText:CoolInputText;
+	var messageText:CoolInputText;
+	var bubbleTypeText:CoolInputText;
+	var speedText:CoolInputText;
+	var portraitNameInput:CoolInputText;
+	var boxNameInput:CoolInputText;
+	var musicInput:CoolInputText;
 
 	// === INPUTS (Skin) ===
-	var skinNameInput:FlxInputText;
-	var styleText:FlxInputText;
-	var bgColorText:FlxInputText;
-	var textXInput:FlxInputText;
-	var textYInput:FlxInputText;
-	var textWidthInput:FlxInputText;
-	var textSizeInput:FlxInputText;
-	var textFontInput:FlxInputText;
-	var textColorInput:FlxInputText;
+	var skinNameInput:CoolInputText;
+	var styleText:CoolInputText;
+	var bgColorText:CoolInputText;
+	var textXInput:CoolInputText;
+	var textYInput:CoolInputText;
+	var textWidthInput:CoolInputText;
+	var textSizeInput:CoolInputText;
+	var textFontInput:CoolInputText;
+	var textColorInput:CoolInputText;
 
 	// === INPUTS (Portrait) ===
-	var portraitConfigNameInput:FlxInputText;
-	var portraitXInput:FlxInputText;
-	var portraitYInput:FlxInputText;
-	var portraitScaleXInput:FlxInputText;
-	var portraitScaleYInput:FlxInputText;
-	var portraitAnimInput:FlxInputText;
+	var portraitConfigNameInput:CoolInputText;
+	var portraitXInput:CoolInputText;
+	var portraitYInput:CoolInputText;
+	var portraitScaleXInput:CoolInputText;
+	var portraitScaleYInput:CoolInputText;
+	var portraitAnimInput:CoolInputText;
 
 	// === INPUTS (Box) ===
-	var boxConfigNameInput:FlxInputText;
-	var boxXInput:FlxInputText;
-	var boxYInput:FlxInputText;
-	var boxScaleXInput:FlxInputText;
-	var boxScaleYInput:FlxInputText;
-	var boxAnimInput:FlxInputText;
+	var boxConfigNameInput:CoolInputText;
+	var boxXInput:CoolInputText;
+	var boxYInput:CoolInputText;
+	var boxScaleXInput:CoolInputText;
+	var boxScaleYInput:CoolInputText;
+	var boxAnimInput:CoolInputText;
 
 	// === BOTONES ===
 	var addMessageBtn:FlxButton;
@@ -1079,10 +1081,10 @@ class DialogueEditor extends FlxState
 	/**
 	 * Crear texto editable
 	 */
-	function createEditableText(x:Float, y:Float, width:Float, initialText:String, ?size:Int = 14):FlxInputText
+	function createEditableText(x:Float, y:Float, width:Float, initialText:String, ?size:Int = 14):CoolInputText
 	{
-		var inputText = new FlxInputText(x, y, Std.int(width), initialText, size, FlxColor.WHITE, 0x33FFFFFF);
-		inputText.setBorderStyle(OUTLINE, FlxColor.BLACK, 1);
+		var inputText = new CoolInputText(x, y, Std.int(width), initialText, size, FlxColor.WHITE, 0x33FFFFFF);
+		// inputText.setBorderStyle removed — CoolInputText uses FlxText display for styling
 		inputText.focusGained = () -> inputText.color = FlxColor.YELLOW;
 		inputText.focusLost = () -> inputText.color = FlxColor.WHITE;
 		return inputText;

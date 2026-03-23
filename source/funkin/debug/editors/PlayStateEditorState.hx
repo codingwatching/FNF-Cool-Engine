@@ -1,4 +1,10 @@
 package funkin.debug.editors;
+import coolui.CoolInputText;
+import coolui.CoolNumericStepper;
+import coolui.CoolCheckBox;
+import coolui.CoolDropDown;
+import coolui.CoolTabMenu;
+
 
 // ─── Core ─────────────────────────────────────────────────────────────────────
 import flixel.FlxBasic;
@@ -6,12 +12,12 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
-import flixel.addons.ui.FlxUI;
-import flixel.addons.ui.FlxUICheckBox;
-import flixel.addons.ui.FlxUIDropDownMenu;
-import flixel.addons.ui.FlxUIInputText;
-import flixel.addons.ui.FlxUINumericStepper;
-import flixel.addons.ui.FlxUITabMenu;
+
+
+
+
+
+
 import flixel.group.FlxGroup;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
@@ -158,7 +164,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	// ── Cámaras ───────────────────────────────────────────────────────────────
 	var camGame   : FlxCamera;
 	var camHUD    : FlxCamera;
-	var camUI     : FlxCamera;  // cameras[0], zoom=1 fixed, used by FlxUI for hit detection
+	var camUI     : FlxCamera;  // cameras[0], zoom=1 fixed, used by coolui.CoolUIGroup for hit detection
 	var _gameZoom : Float = 1.0; // current zoom of the game viewport
 
 	// ── Gameplay ──────────────────────────────────────────────────────────────
@@ -209,7 +215,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var saveBtn       : MiniBtn2;
 	var toggleTLBtn   : MiniBtn2;
 	var togglePanelBtn: MiniBtn2;
-	var diffDropdown  : FlxUIDropDownMenu;
+	var diffDropdown  : CoolDropDown;
 	var timeTxt       : FlxText;
 	var unsavedDot    : FlxSprite;
 	var statusTxt     : FlxText;
@@ -230,17 +236,17 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var tlDragSeek     : Bool  = false;
 
 	// ── UI - Right Panel ──────────────────────────────────────────────────────
-	var rightPanel         : FlxUITabMenu;
+	var rightPanel         : CoolTabMenu;
 	var panelBg            : FlxSprite;
 	var rightPanelVisible  : Bool = true;
 
 	// Events tab
-	var evtTypeDropdown    : FlxUIDropDownMenu;
-	var evtValueInput      : FlxUIInputText;
-	var evtStepStepper     : FlxUINumericStepper;
-	var evtTrackStepper    : FlxUINumericStepper;
-	var evtLabelInput      : FlxUIInputText;
-	var evtDiffChecks      : Array<FlxUICheckBox> = [];
+	var evtTypeDropdown    : CoolDropDown;
+	var evtValueInput      : CoolInputText;
+	var evtStepStepper     : CoolNumericStepper;
+	var evtTrackStepper    : CoolNumericStepper;
+	var evtLabelInput      : CoolInputText;
+	var evtDiffChecks      : Array<CoolCheckBox> = [];
 	var evtAddBtn          : MiniBtn2;
 	var evtDeleteBtn       : MiniBtn2;
 	var step_nowBtn        : MiniBtn2;       // Botón "insert at playhead"
@@ -249,12 +255,12 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var selectedEventId    : String = '';
 
 	// Scripts tab
-	var scrNameInput    : FlxUIInputText;
-	var scrStepStepper  : FlxUINumericStepper;
-	var scrAutoCheck    : FlxUICheckBox;
-	var scrEnabledCheck : FlxUICheckBox;
-	var scrDiffChecks   : Array<FlxUICheckBox> = [];
-	var scrCodeInput    : FlxUIInputText;
+	var scrNameInput    : CoolInputText;
+	var scrStepStepper  : CoolNumericStepper;
+	var scrAutoCheck    : CoolCheckBox;
+	var scrEnabledCheck : CoolCheckBox;
+	var scrDiffChecks   : Array<CoolCheckBox> = [];
+	var scrCodeInput    : CoolInputText;
 	var scrAddBtn       : MiniBtn2;
 	var scrDeleteBtn    : MiniBtn2;
 	var scrRunBtn       : MiniBtn2;
@@ -306,7 +312,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 	// ── Skin de notas ─────────────────────────────────────────────────────────
 	var _currentNoteSkin : String = 'default';
-	var noteSkinDropdown : FlxUIDropDownMenu;
+	var noteSkinDropdown : CoolDropDown;
 
 	// ── Drag de personajes en el viewport ─────────────────────────────────────
 	var _dragChar      : Character = null;
@@ -317,12 +323,12 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var _charHandles   : Array<{spr:FlxSprite, char:Character}> = [];
 
 	// ── Tween event builder ───────────────────────────────────────────────────
-	var _tweenTargetInput  : FlxUIInputText;
-	var _tweenPropInput    : FlxUIInputText;
-	var _tweenFromInput    : FlxUIInputText;
-	var _tweenToInput      : FlxUIInputText;
-	var _tweenDurInput     : FlxUIInputText;
-	var _tweenEaseDropdown : FlxUIDropDownMenu;
+	var _tweenTargetInput  : CoolInputText;
+	var _tweenPropInput    : CoolInputText;
+	var _tweenFromInput    : CoolInputText;
+	var _tweenToInput      : CoolInputText;
+	var _tweenDurInput     : CoolInputText;
+	var _tweenEaseDropdown : CoolDropDown;
 	var _tweenBuilderGroup : Array<flixel.FlxBasic> = [];
 
 	// ── Status message ────────────────────────────────────────────────────────
@@ -433,7 +439,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	function setupCameras():Void
 	{
 		// ── CRITICAL: camUI must be cameras[0] = FlxG.camera ─────────────────────
-		// FlxUI / FlxUITabMenu / FlxUIInputText use cameras[0] to map screen coords
+		// coolui.CoolUIGroup / CoolTabMenu / CoolInputText use cameras[0] to map screen coords
 		// to world coords for click detection. If cameras[0] has zoom != 1 (camGame
 		// does after a Camera Zoom event fires), every button/input hitbox is offset.
 		// Fix: same pattern as StageEditor and AnimationDebug — transparent camUI at
@@ -862,7 +868,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		if (diffDropdown != null) remove(diffDropdown);
 		var ddItems = allDiffs.length > 0 ? allDiffs : ['normal'];
-		diffDropdown = new FlxUIDropDownMenu(bx, 6, FlxUIDropDownMenu.makeStrIdLabelArray(ddItems, true), _onDiffChanged);
+		diffDropdown = new CoolDropDown(bx, 6, CoolDropDown.makeStrIdLabelArray(ddItems, true), _onDiffChanged);
 		diffDropdown.selectedLabel = currentDiff;
 		diffDropdown.scrollFactor.set(); diffDropdown.cameras = [camHUD];
 		add(diffDropdown); bx += 90;
@@ -1347,7 +1353,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	//  Right Panel (FlxUITabMenu)
+	//  Right Panel (CoolTabMenu)
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function setupRightPanel():Void
@@ -1367,7 +1373,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 			{name:'Song',    label:'Song'},
 		];
 
-		rightPanel = new FlxUITabMenu(null, tabs, true);
+		rightPanel = new CoolTabMenu(null, tabs, true);
 		rightPanel.resize(RIGHT_W - 2, panelH);
 		rightPanel.x = panelX + 2;
 		rightPanel.y = TOP_H;
@@ -1384,7 +1390,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 	function _buildEventsTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Events';
 
 		var y = 6.0;
@@ -1402,17 +1408,17 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		lbl('Event Type:', y);
 		var eventTypeList = _getEventTypeList();
-		evtTypeDropdown = new FlxUIDropDownMenu(6, y + 13, FlxUIDropDownMenu.makeStrIdLabelArray(eventTypeList, true),
+		evtTypeDropdown = new CoolDropDown(6, y + 13, CoolDropDown.makeStrIdLabelArray(eventTypeList, true),
 			function(id:String) { _onEventTypeSelected(id); });
 		evtTypeDropdown.selectedLabel = eventTypeList.length > 0 ? eventTypeList[0] : 'Camera Follow';
 		tab.add(evtTypeDropdown); y += 40;
 
 		lbl('Value (v1|v2):', y);
-		evtValueInput = new FlxUIInputText(6, y + 13, RIGHT_W - 20, '', 10);
+		evtValueInput = new CoolInputText(6, y + 13, RIGHT_W - 20, '', 10);
 		tab.add(evtValueInput); y += 38;
 
 		lbl('Step Time:', y);
-		evtStepStepper = new FlxUINumericStepper(6, y + 13, 1, 0, 0, 9999, 0);
+		evtStepStepper = new CoolNumericStepper(6, y + 13, 1, 0, 0, 9999, 0);
 		tab.add(evtStepStepper);
 
 		// Botón "At Playhead" — establece el step al tiempo actual
@@ -1428,11 +1434,11 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		y += 36;
 
 		lbl('Track (0-5):', y);
-		evtTrackStepper = new FlxUINumericStepper(6, y + 13, 1, 0, 0, TRACK_NAMES.length - 1, 0);
+		evtTrackStepper = new CoolNumericStepper(6, y + 13, 1, 0, 0, TRACK_NAMES.length - 1, 0);
 		tab.add(evtTrackStepper); y += 36;
 
 		lbl('Label (opcional):', y);
-		evtLabelInput = new FlxUIInputText(6, y + 13, RIGHT_W - 20, '', 10);
+		evtLabelInput = new CoolInputText(6, y + 13, RIGHT_W - 20, '', 10);
 		tab.add(evtLabelInput); y += 36;
 
 		// ── Tween Builder (visible solo cuando tipo = "Tween") ────────────────
@@ -1440,27 +1446,27 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		var tweenHdr = lbl('Tween Builder:', y); y += 14;
 
 		lbl('Target:', y);
-		_tweenTargetInput = new FlxUIInputText(6, y + 13, Std.int(RIGHT_W - 20), 'camGame', 10);
+		_tweenTargetInput = new CoolInputText(6, y + 13, Std.int(RIGHT_W - 20), 'camGame', 10);
 		tab.add(_tweenTargetInput); y += 36;
 
 		lbl('Property:', y);
-		_tweenPropInput = new FlxUIInputText(6, y + 13, Std.int(RIGHT_W / 2 - 10), 'zoom', 10);
+		_tweenPropInput = new CoolInputText(6, y + 13, Std.int(RIGHT_W / 2 - 10), 'zoom', 10);
 		tab.add(_tweenPropInput);
 		lbl('Duration:', y);
-		_tweenDurInput = new FlxUIInputText(Std.int(RIGHT_W / 2 + 2), y + 13, Std.int(RIGHT_W / 2 - 10), '1.0', 10);
+		_tweenDurInput = new CoolInputText(Std.int(RIGHT_W / 2 + 2), y + 13, Std.int(RIGHT_W / 2 - 10), '1.0', 10);
 		tab.add(_tweenDurInput); y += 36;
 
 		lbl('From:', y);
-		_tweenFromInput = new FlxUIInputText(6, y + 13, Std.int(RIGHT_W / 2 - 10), '', 10);
+		_tweenFromInput = new CoolInputText(6, y + 13, Std.int(RIGHT_W / 2 - 10), '', 10);
 		tab.add(_tweenFromInput);
 		lbl('To:', y);
-		_tweenToInput = new FlxUIInputText(Std.int(RIGHT_W / 2 + 2), y + 13, Std.int(RIGHT_W / 2 - 10), '1.2', 10);
+		_tweenToInput = new CoolInputText(Std.int(RIGHT_W / 2 + 2), y + 13, Std.int(RIGHT_W / 2 - 10), '1.2', 10);
 		tab.add(_tweenToInput); y += 36;
 
 		lbl('Ease:', y);
 		final easeNames = ['linear','quadIn','quadOut','quadInOut','cubeIn','cubeOut','cubeInOut',
 		                   'elasticIn','elasticOut','bounceIn','bounceOut','sineIn','sineOut','sineInOut'];
-		_tweenEaseDropdown = new FlxUIDropDownMenu(6, y + 13, FlxUIDropDownMenu.makeStrIdLabelArray(easeNames, true), null);
+		_tweenEaseDropdown = new CoolDropDown(6, y + 13, CoolDropDown.makeStrIdLabelArray(easeNames, true), null);
 		_tweenEaseDropdown.selectedLabel = 'linear';
 		tab.add(_tweenEaseDropdown); y += 40;
 
@@ -1485,7 +1491,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		final diffOptions = allDiffs.concat(['*']);
 		for (diff in diffOptions)
 		{
-			var chk = new FlxUICheckBox(dx, y, null, null, diff == '*' ? 'all' : diff, 60);
+			var chk = new CoolCheckBox(dx, y, null, null, diff == '*' ? 'all' : diff, 60);
 			chk.checked = (diff == '*');
 			tab.add(chk); evtDiffChecks.push(chk);
 			dx += 68; if (dx > RIGHT_W - 70) { dx = 6; y += 22; }
@@ -1494,7 +1500,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		sep(y); y += 6;
 
-		// Botones añadir / eliminar — añadidos AL TAB (visibilidad controlada por FlxUITabMenu)
+		// Botones añadir / eliminar — añadidos AL TAB (visibilidad controlada por CoolTabMenu)
 		// y también al estado raíz para que se dibujen en camHUD.
 		evtAddBtn    = _makeTabBtn(6,         y, 'ADD',    0xFF224422, _onAddEvent);
 		evtDeleteBtn = _makeTabBtn(RIGHT_W/2, y, 'DELETE', 0xFF441122, _onDeleteEvent);
@@ -1562,7 +1568,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 	function _buildScriptsTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Scripts';
 
 		var y = 6.0;
@@ -1579,16 +1585,16 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		}
 
 		lbl('Script Name:', y);
-		scrNameInput = new FlxUIInputText(6, y + 13, RIGHT_W - 20, 'myScript', 10);
+		scrNameInput = new CoolInputText(6, y + 13, RIGHT_W - 20, 'myScript', 10);
 		tab.add(scrNameInput); y += 38;
 
 		lbl('Trigger Step (-1 = manual):', y);
-		scrStepStepper = new FlxUINumericStepper(6, y + 13, 1, -1, -1, 9999, 0);
+		scrStepStepper = new CoolNumericStepper(6, y + 13, 1, -1, -1, 9999, 0);
 		tab.add(scrStepStepper); y += 36;
 
-		scrAutoCheck    = new FlxUICheckBox(6, y, null, null, 'Auto-trigger on step', RIGHT_W - 20);
+		scrAutoCheck    = new CoolCheckBox(6, y, null, null, 'Auto-trigger on step', RIGHT_W - 20);
 		scrAutoCheck.checked = false; tab.add(scrAutoCheck); y += 22;
-		scrEnabledCheck = new FlxUICheckBox(6, y, null, null, 'Enabled', 80);
+		scrEnabledCheck = new CoolCheckBox(6, y, null, null, 'Enabled', 80);
 		scrEnabledCheck.checked = true; tab.add(scrEnabledCheck); y += 28;
 
 		sep(y); y += 6;
@@ -1599,7 +1605,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		final diffOptions = allDiffs.concat(['*']);
 		for (diff in diffOptions)
 		{
-			var chk = new FlxUICheckBox(dx, y, null, null, diff == '*' ? 'all' : diff, 60);
+			var chk = new CoolCheckBox(dx, y, null, null, diff == '*' ? 'all' : diff, 60);
 			chk.checked = (diff == '*');
 			tab.add(chk); scrDiffChecks.push(chk);
 			dx += 68; if (dx > RIGHT_W - 70) { dx = 6; y += 22; }
@@ -1609,7 +1615,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		sep(y); y += 6;
 		lbl('Script Code (HScript):', y); y += 14;
 
-		scrCodeInput = new FlxUIInputText(6, y, RIGHT_W - 20, '// Your script here\n// Available: game, boyfriend, dad, gf, stage, camGame, camHUD\n\nfunction onBeatHit(beat) {\n\t// called on beat\n}', 9);
+		scrCodeInput = new CoolInputText(6, y, RIGHT_W - 20, '// Your script here\n// Available: game, boyfriend, dad, gf, stage, camGame, camHUD\n\nfunction onBeatHit(beat) {\n\t// called on beat\n}', 9);
 		scrCodeInput.lines = 14;
 		tab.add(scrCodeInput); y += 145;
 
@@ -1672,7 +1678,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 	function _buildSongTab():Void
 	{
-		var tab = new FlxUI(null, rightPanel);
+		var tab = new coolui.CoolUIGroup();
 		tab.name = 'Song';
 
 		var SONG = PlayState.SONG;
@@ -1703,7 +1709,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		// ── BPM live edit ─────────────────────────────────────────────────────
 		lbl('BPM (live)', y); y += 13;
-		var bpmStepper = new FlxUINumericStepper(6, y, 1, SONG.bpm, 40, 400, 1);
+		var bpmStepper = new CoolNumericStepper(6, y, 1, SONG.bpm, 40, 400, 1);
 		tab.add(bpmStepper); y += 28;
 		var applyBpmBtn = new MiniBtn2(6, y, RIGHT_W - 20, 22, 'APPLY BPM', 0xFF1A2A3A, C_TEXT, function()
 		{
@@ -1719,7 +1725,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		// ── Speed live edit ───────────────────────────────────────────────────
 		lbl('Speed (scroll speed)', y); y += 13;
-		var speedStepper = new FlxUINumericStepper(6, y, 0.1, SONG.speed, 0.1, 10.0, 1);
+		var speedStepper = new CoolNumericStepper(6, y, 0.1, SONG.speed, 0.1, 10.0, 1);
 		tab.add(speedStepper); y += 28;
 		var applySpeedBtn = new MiniBtn2(6, y, RIGHT_W - 20, 22, 'APPLY SPEED', 0xFF1A2A3A, C_TEXT, function()
 		{
@@ -1736,7 +1742,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		// ── Note skin ─────────────────────────────────────────────────────────
 		lbl('Note Skin (live)', y); y += 13;
 		var skins = _getAvailableNoteSkins();
-		noteSkinDropdown = new FlxUIDropDownMenu(6, y, FlxUIDropDownMenu.makeStrIdLabelArray(skins, true),
+		noteSkinDropdown = new CoolDropDown(6, y, CoolDropDown.makeStrIdLabelArray(skins, true),
 			function(id:String) {
 				var i = Std.parseInt(id);
 				if (i != null && i >= 0 && i < skins.length) _applyNoteSkin(skins[i]);
@@ -2619,7 +2625,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		if (unsavedDot != null) unsavedDot.visible = hasUnsaved;
 	}
 
-	function _getDiffChecks(checks:Array<FlxUICheckBox>):Array<String>
+	function _getDiffChecks(checks:Array<CoolCheckBox>):Array<String>
 	{
 		final diffOptions = allDiffs.concat(['*']); // mismo orden que los checkboxes
 		var diffs:Array<String> = [];
@@ -2634,7 +2640,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		return diffs.length > 0 ? diffs : ['*'];
 	}
 
-	function _setDiffChecks(checks:Array<FlxUICheckBox>, diffs:Array<String>):Void
+	function _setDiffChecks(checks:Array<CoolCheckBox>, diffs:Array<String>):Void
 	{
 		final diffOptions = allDiffs.concat(['*']);
 		final isAll = diffs.contains('*');
@@ -3239,7 +3245,7 @@ private class MiniBtn2 extends FlxSprite
 		return super.set_cameras(value);
 	}
 
-	// Auto-call updateInput so buttons inside FlxUI tabs work without manual wiring.
+	// Auto-call updateInput so buttons inside coolui.CoolUIGroup tabs work without manual wiring.
 	override public function update(elapsed:Float):Void
 	{
 		super.update(elapsed);
@@ -3248,7 +3254,7 @@ private class MiniBtn2 extends FlxSprite
 
 	public function updateInput():Void
 	{
-		// camera-aware overlap so hit-boxes work regardless of FlxUI tab offsets
+		// camera-aware overlap so hit-boxes work regardless of coolui.CoolUIGroup tab offsets
 		var cam = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
 		var over = FlxG.mouse.overlaps(this, cam);
 
@@ -3263,7 +3269,7 @@ private class MiniBtn2 extends FlxSprite
 			_hovered = false;
 		}
 
-		// Keep label centred on the button body (position may be changed by FlxUI layout)
+		// Keep label centred on the button body (position may be changed by coolui.CoolUIGroup layout)
 		label.x = x;
 		label.y = y + (height - label.height) / 2;
 

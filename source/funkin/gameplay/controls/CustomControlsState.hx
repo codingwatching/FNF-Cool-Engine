@@ -1,10 +1,12 @@
 package funkin.gameplay.controls;
+import coolui.CoolButton;
+
 
 import flixel.system.FlxAssets.VirtualInputData;
 import flixel.ui.FlxButton;
 import lime.utils.Int16Array;
 import lime.utils.Assets;
-import flixel.addons.ui.FlxUIButton;
+
 import flixel.text.FlxText;
 import funkin.gameplay.controls.Controls.Control;
 import flixel.FlxG;
@@ -33,9 +35,9 @@ class CustomControlsState extends funkin.states.MusicBeatSubstate
 	var _hb:Hitbox;
 
 	var _saveconrtol:FlxSave;
-	var exitbutton:FlxUIButton;
-	var exportbutton:FlxUIButton;
-	var importbutton:FlxUIButton;
+	var exitbutton:CoolButton;
+	var exportbutton:CoolButton;
+	var importbutton:CoolButton;
 
 	var up_text:FlxText;
 	var down_text:FlxText;
@@ -119,22 +121,22 @@ class CustomControlsState extends funkin.states.MusicBeatSubstate
 
 		// buttons
 
-		exitbutton = new FlxUIButton(FlxG.width - 650,25,"exit");
+		exitbutton = new CoolButton(FlxG.width - 650,25,"exit");
 		exitbutton.resize(125,50);
 		exitbutton.setLabelFormat("VCR OSD Mono",24,FlxColor.BLACK,"center");
 
-		var savebutton = new FlxUIButton((exitbutton.x + exitbutton.width + 25),25,"exit and save",() -> {
+		var savebutton = new CoolButton((exitbutton.x + exitbutton.width + 25),25,"exit and save",() -> {
 			save();
 			StateTransition.switchState(new funkin.menus.OptionsMenuState());
 		});
 		savebutton.resize(250,50);
 		savebutton.setLabelFormat("VCR OSD Mono",24,FlxColor.BLACK,"center");
 
-		exportbutton = new FlxUIButton(FlxG.width - 150, 25, "export", () -> { savetoclipboard(_pad); } );
+		exportbutton = new CoolButton(FlxG.width - 150, 25, "export", () -> { savetoclipboard(_pad); } );
 		exportbutton.resize(125,50);
 		exportbutton.setLabelFormat("VCR OSD Mono", 24, FlxColor.BLACK,"center");
 
-		importbutton = new FlxUIButton(exportbutton.x, 100, "import", () -> { loadfromclipboard(_pad); });
+		importbutton = new CoolButton(exportbutton.x, 100, "import", () -> { loadfromclipboard(_pad); });
 		importbutton.resize(125,50);
 		importbutton.setLabelFormat("VCR OSD Mono", 24, FlxColor.BLACK,"center");
 
