@@ -3,6 +3,7 @@
 	"isPlayer": false,
 	"antialiasing": false,
 	"scale": 6.0,
+	"flipX":true,
 	"cameraOffset":[0,-150],
 	"healthIcon":"bf-pixel",
 	"animations": [
