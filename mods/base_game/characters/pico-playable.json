@@ -8,7 +8,6 @@
 		-250
 	],
 	"healthIcon": "pico",
-	"flipX": true,
 	"isFlxAnimate": true,
 	"charDeath": "pico-playable",
 	"animations": [

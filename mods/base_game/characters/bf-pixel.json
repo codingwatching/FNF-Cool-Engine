@@ -3,7 +3,6 @@
 	"isPlayer": true,
 	"antialiasing": false,
 	"scale": 6.0,
-	"flipX": true,
 	"cameraOffset":[-200,-200],
 	"animations": [
 		{
