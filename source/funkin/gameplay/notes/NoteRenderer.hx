@@ -280,7 +280,15 @@ class NoteRenderer
             var cover = activeHoldCovers.get(key);
             // Si playEnd() devuelve false → cover en estado "end_pending" (start aún no acabó)
             // Se eliminará del map igualmente; el cover se autodestruirá al terminar su start
-            if (cover != null) cover.playEnd();
+            if (cover != null)
+            {
+                // CPU: matar el cover instantáneamente (sin animación de end), igual que V-Slice.
+                // Player: reproducir la animación de end normalmente.
+                if (!isPlayer)
+                    cover.killInstant();
+                else
+                    cover.playEnd();
+            }
             activeHoldCovers.remove(key);
         }
     }

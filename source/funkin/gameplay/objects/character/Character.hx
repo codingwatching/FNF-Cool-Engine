@@ -164,7 +164,7 @@ class Character extends FunkinSprite
 	var _idleAnim:String = "idle";
 
 	/** flipX base del personaje (sin per-anim flipX). Guardado en characterLoad(). */
-	var _baseFlipX:Bool = false;
+	public var _baseFlipX:Bool = false;
 
 	// ══════════════════════════════════════════════════════════════════════════
 	//  CACHÉS ESTÁTICOS
@@ -276,15 +276,12 @@ class Character extends FunkinSprite
 		if (characterData.isPlayer)
 			isPlayer = true;
 
-		if (characterData.flipX != null && characterData.flipX)
+		// flipX del JSON es la única fuente de verdad — isPlayer ya NO voltea el personaje.
+		// Para que un personaje mire a la derecha, pon flipX: true en su JSON.
+		if (characterData.flipX != null)
 			flipX = characterData.flipX;
 
-		if (isPlayer)
-		{
-			flipX = !flipX;
-		}
-
-		// Guardar el flipX base AQUÍ, cuando ya están aplicados isPlayer y flipX del JSON.
+		// Guardar el flipX base AQUÍ, cuando ya está aplicado el flipX del JSON.
 		// playAnim() usará este valor como base para el XOR con AnimData.flipX.
 		_baseFlipX = this.flipX;
 

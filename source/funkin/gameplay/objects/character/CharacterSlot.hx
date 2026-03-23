@@ -107,9 +107,25 @@ class CharacterSlot
 		final charName = charData.name != null ? charData.name : 'bf';
 		character = new Character(charData.x, charData.y, charName, charType == 'Player');
 
-		// Aplicar configuración del slot
-		if (charData.flip != null && charData.flip)
+		// ── Slot-flip: orientar el personaje según el slot donde está colocado ──
+		// Si el isPlayer del JSON del personaje no coincide con el tipo de slot,
+		// el personaje está siendo colocado en el lado contrario al que fue diseñado
+		// (ej: BF con flipX:true puesto en slot Opponent). En ese caso invertimos
+		// flipX para que mire en la dirección correcta, independientemente de su JSON.
+		final charIsPlayer:Bool = (character.characterData != null && character.characterData.isPlayer);
+		final slotIsPlayer:Bool = (charType == 'Player');
+		if (charIsPlayer != slotIsPlayer)
+		{
 			character.flipX = !character.flipX;
+			character._baseFlipX = character.flipX; // mantener XOR de playAnim() consistente
+		}
+
+		// Aplicar flip manual del slot (charData.flip) encima del slot-flip
+		if (charData.flip != null && charData.flip)
+		{
+			character.flipX = !character.flipX;
+			character._baseFlipX = character.flipX;
+		}
 
 		if (charData.scale != null && charData.scale != 1.0)
 		{

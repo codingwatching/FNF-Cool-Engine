@@ -77,6 +77,7 @@ class AnimationDebug extends MusicBeatState
 
 	// UI Elements — Character tab
 	var playerCheckbox:CoolCheckBox;
+	var charFlipXCheckbox:CoolCheckBox;
 
 	// UI Elements — Properties tab
 	var antialiasingCheckbox:CoolCheckBox;
@@ -437,14 +438,18 @@ class AnimationDebug extends MusicBeatState
 		});
 		charDropdown.selectedLabel = daAnim;
 
-		playerCheckbox = new CoolCheckBox(10, 70, null, null, "Player Character (FlipX)", 180);
+		playerCheckbox = new CoolCheckBox(10, 70, null, null, "Player Character", 150);
 		playerCheckbox.checked = false;
-		playerCheckbox.callback = function(_:Bool)
-		{
-			if (char != null)
-				char.flipX = playerCheckbox.checked;
-		};
 		tab.add(playerCheckbox);
+
+		charFlipXCheckbox = new CoolCheckBox(165, 70, null, null, "FlipX", 80);
+		charFlipXCheckbox.checked = false;
+		charFlipXCheckbox.callback = function(_:Bool)
+		{
+			if (char != null)      char.flipX      = charFlipXCheckbox.checked;
+			if (ghostChar != null) ghostChar.flipX = charFlipXCheckbox.checked;
+		};
+		tab.add(charFlipXCheckbox);
 
 		tab.add(new FlxText(10, 95, 0, "Death Character:", 10));
 		charDeathInput = new CoolInputText(10, 108, 200, '', 8);
@@ -455,7 +460,7 @@ class AnimationDebug extends MusicBeatState
 
 		// ── Game Over ──────────────────────────────────────────────────────────
 		var goLabel = new FlxText(10, 140, 0, "── Game Over ──", 10);
-		goLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		goLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(goLabel);
 
 		var yGO = 157;
@@ -521,7 +526,7 @@ class AnimationDebug extends MusicBeatState
 		var yPos = 10;
 
 		var titleLabel = new FlxText(10, yPos, 0, "Add/Edit Animation", 14);
-		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(titleLabel);
 		yPos += 25;
 
@@ -549,7 +554,7 @@ class AnimationDebug extends MusicBeatState
 		tab.add(atlasSection);
 		var atlasSectionLabel = new FlxText(14, yPos - 1, 0, "─ Multi-Atlas", 8);
 		atlasSectionLabel.color = 0xFFFF90D0;
-		atlasSectionLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		atlasSectionLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(atlasSectionLabel);
 		yPos += 12;
 
@@ -573,7 +578,7 @@ class AnimationDebug extends MusicBeatState
 		// Si se rellena, esta animación se cargará del sub-atlas indicado.
 		// Ejemplo: "tankman/bloody" → assets/characters/images/tankman/bloody/
 		var atlasLabel = new FlxText(10, yPos, 0, "Sub-Atlas Path:", 10);
-		atlasLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		atlasLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(atlasLabel);
 		yPos += 14;
 		animAssetPathInput = new CoolInputText(10, yPos, 290, '', 8);
@@ -588,7 +593,7 @@ class AnimationDebug extends MusicBeatState
 		// "animateatlas" para Adobe Animate, "sparrow" para XML atlas.
 		// Dejar vacío para que el engine lo detecte automáticamente.
 		var rtLabel = new FlxText(10, yPos, 0, "Render Type:", 10);
-		rtLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		rtLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(rtLabel);
 		yPos += 14;
 		animRenderTypeInput = new CoolInputText(10, yPos, 200, '', 8);
@@ -665,7 +670,7 @@ class AnimationDebug extends MusicBeatState
 		var yPos = 10;
 
 		var titleLabel = new FlxText(10, yPos, 0, "Character Properties", 14);
-		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(titleLabel);
 		yPos += 25;
 
@@ -919,14 +924,14 @@ class AnimationDebug extends MusicBeatState
 		var yPos = 10;
 
 		var titleLabel = new FlxText(10, yPos, 0, "Import Assets", 14);
-		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(titleLabel);
 		yPos += 25;
 
 		// ── Standard sprite ──
 		var stdLabel = new FlxText(10, yPos, 0, "Standard Sprite:", 12);
 		stdLabel.color = FlxColor.CYAN;
-		stdLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		stdLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(stdLabel);
 		yPos += 20;
 
@@ -941,7 +946,7 @@ class AnimationDebug extends MusicBeatState
 		// ── FlxAnimate ──
 		var flxLabel = new FlxText(10, yPos, 0, "FlxAnimate (Adobe Animate):", 12);
 		flxLabel.color = FlxColor.ORANGE;
-		flxLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		flxLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(flxLabel);
 		yPos += 20;
 
@@ -968,7 +973,7 @@ class AnimationDebug extends MusicBeatState
 		// ── Health Icon ──
 		var iconTitle = new FlxText(10, yPos, 0, "Health Icon:", 12);
 		iconTitle.color = FlxColor.LIME;
-		iconTitle.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		iconTitle.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(iconTitle);
 		yPos += 20;
 
@@ -991,7 +996,7 @@ class AnimationDebug extends MusicBeatState
 		var yPos = 10;
 
 		var titleLabel = new FlxText(10, yPos, 0, "Export Character", 14);
-		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.WHITE, 1);
+		titleLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		tab.add(titleLabel);
 		yPos += 30;
 
@@ -1050,8 +1055,8 @@ class AnimationDebug extends MusicBeatState
 			newAnim.renderType = rawRenderType;
 
 		// flipX por animacion
-		if (animFlipXCheckbox != null && animFlipXCheckbox.checked)
-			newAnim.flipX = true;
+		if (animFlipXCheckbox != null)
+			newAnim.flipX = animFlipXCheckbox.checked;
 
 		if (editingAnimName != null)
 		{
@@ -1691,13 +1696,14 @@ class AnimationDebug extends MusicBeatState
 				antialiasingCheckbox.checked = characterData.antialiasing;
 
 			if (playerCheckbox != null)
-			{
 				playerCheckbox.checked = characterData.isPlayer;
-				// Sincronizar flipX con el valor real del JSON
-				if (char != null)
-					char.flipX = characterData.isPlayer;
-				if (ghostChar != null)
-					ghostChar.flipX = characterData.isPlayer;
+
+			if (charFlipXCheckbox != null)
+			{
+				var fx = characterData.flipX != null ? characterData.flipX : false;
+				charFlipXCheckbox.checked = fx;
+				if (char != null)      char.flipX      = fx;
+				if (ghostChar != null) ghostChar.flipX = fx;
 			}
 
 			if (charDeathInput != null)
@@ -1791,6 +1797,8 @@ class AnimationDebug extends MusicBeatState
 			antialiasing: antialiasingCheckbox.checked,
 			scale: scaleStepper.value
 		};
+		if (charFlipXCheckbox != null && charFlipXCheckbox.checked)
+			tempData.flipX = true;
 
 		if (isTxtCheckbox.checked)
 			tempData.isTxt = true;
@@ -1867,6 +1875,8 @@ class AnimationDebug extends MusicBeatState
 			antialiasing: antialiasingCheckbox.checked,
 			scale: scaleStepper.value
 		};
+		if (charFlipXCheckbox != null && charFlipXCheckbox.checked)
+			exportData.flipX = true;
 
 		if (isTxtCheckbox.checked)
 			exportData.isTxt = true;

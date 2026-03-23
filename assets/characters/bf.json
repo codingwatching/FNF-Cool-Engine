@@ -7,7 +7,6 @@
 		-50,
 		-40
 	],
-	"flipX": true,
 	"gameOverMusic": "gameplay/gameOver",
 	"animations": [
 		{

@@ -341,4 +341,13 @@ class NoteHoldCover extends FlxSprite
 		active  = false;
 		kill();
 	}
+
+	/**
+	 * Mata el cover instantáneamente sin reproducir la animación de end.
+	 * Usado para el CPU (igual que V-Slice), donde el end del hold splash es invisible.
+	 */
+	public function killInstant():Void
+	{
+		_killSelf();
+	}
 }

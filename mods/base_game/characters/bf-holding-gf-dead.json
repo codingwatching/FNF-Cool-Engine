@@ -26,7 +26,6 @@
 			"looped": false
 		}
 	],
-	"isPlayer": true,
 	"antialiasing": true,
 	"flipX": true,
 	"path": "bf-holding-gf",
