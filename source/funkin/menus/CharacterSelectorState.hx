@@ -472,7 +472,18 @@ class CharacterSelectorState extends MusicBeatState
 				{
 					File.copy(xmlPath, destDir + baseName + ".xml");
 					importedIsTxt = false;
-					setStatus("✓ PNG + XML imported → " + baseName, FlxColor.LIME);
+					setStatus("✓ PNG + XML importados — abriendo mapper…", FlxColor.LIME);
+					// Parsear prefijos únicos del XML y abrir el mapper de nombres
+					var rawAnims = parseXmlPrefixes(destDir + baseName + ".xml");
+					if (rawAnims.length > 0)
+					{
+						openSubState(new funkin.debug.editors.AnimMapperSubState(rawAnims,
+							function(mapped:Array<funkin.gameplay.objects.character.Character.AnimData>)
+							{
+								importedAnimData = mapped;
+								setStatus("✓ " + mapped.length + " animaciones mapeadas para " + baseName, FlxColor.LIME);
+							}));
+					}
 				}
 				else if (FileSystem.exists(txtPath))
 				{
@@ -520,19 +531,37 @@ class CharacterSelectorState extends MusicBeatState
 
 				var hasAnim = FileSystem.exists(animJson);
 				if (hasAnim)
-				{
 					File.copy(animJson, destFolder + "Animation.json");
-					importedAnimData = parseAnimJson(destFolder + "Animation.json");
-				}
 
 				importedIsFlxAnimate   = true;
 				importedIsTxt          = false;
 				importedSpritePath     = wizardCharName;
 				importedSpritemapName  = baseName;
 
-				var msg = "✓ FlxAnimate imported";
-				if (!hasAnim) msg += " — no Animation.json (add anims manually)";
-				setStatus(msg, hasAnim ? FlxColor.LIME : FlxColor.YELLOW);
+				if (hasAnim)
+				{
+					// Parsear símbolos y abrir el mapper de nombres
+					var rawAnims = parseAnimJson(destFolder + "Animation.json");
+					if (rawAnims.length > 0)
+					{
+						setStatus("✓ FlxAnimate importado — abriendo mapper de símbolos…", FlxColor.LIME);
+						openSubState(new funkin.debug.editors.AnimMapperSubState(rawAnims,
+							function(mapped:Array<funkin.gameplay.objects.character.Character.AnimData>)
+							{
+								importedAnimData = mapped;
+								setStatus("✓ " + mapped.length + " símbolos mapeados", FlxColor.LIME);
+							}));
+					}
+					else
+					{
+						importedAnimData = rawAnims;
+						setStatus("✓ FlxAnimate importado (sin símbolos en Animation.json)", FlxColor.YELLOW);
+					}
+				}
+				else
+				{
+					setStatus("✓ FlxAnimate importado — sin Animation.json (añade anims manualmente)", FlxColor.YELLOW);
+				}
 			}
 			catch (e:Dynamic) { setStatus("✗ Error: " + e, FlxColor.RED); }
 		});
@@ -568,6 +597,37 @@ class CharacterSelectorState extends MusicBeatState
 			statusLine.text  = msg;
 			statusLine.color = col;
 		}
+	}
+
+	/** Parsea un XML de Sparrow y extrae los prefijos únicos de SubTexture
+	 *  (quitando los dígitos finales). Devuelve Array<AnimData> para AnimMapperSubState. */
+	/** Parses a Sparrow XML and returns unique SubTexture prefixes
+	 *  (trailing digits stripped) as an Array<AnimData> for AnimMapperSubState. */
+	function parseXmlPrefixes(xmlPath:String, framerate:Int = 24):Array<AnimData>
+	{
+		var result:Array<AnimData> = [];
+		#if sys
+		var seen = new Map<String, Bool>();
+		try
+		{
+			var root = Xml.parse(File.getContent(xmlPath)).firstElement();
+			for (node in root.elements())
+			{
+				if (node.nodeName != "SubTexture") continue;
+				var raw    = node.get("name") != null ? node.get("name") : "";
+				var prefix = ~/\d+$/.replace(raw, "");
+				prefix = StringTools.trim(prefix);
+				if (prefix != "" && !seen.exists(prefix))
+				{
+					seen.set(prefix, true);
+					result.push({ name: prefix, prefix: prefix,
+						framerate: framerate, looped: false, offsetX: 0, offsetY: 0 });
+				}
+			}
+		}
+		catch (e:Dynamic) {}
+		#end
+		return result;
 	}
 
 	/** Parsea Animation.json y devuelve AnimData[] — igual que AnimationDebug */

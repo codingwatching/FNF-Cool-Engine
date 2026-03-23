@@ -172,16 +172,21 @@ class EngineSettings
 	{
 		if (fps <= 0)
 		{
+			// Unlimited: render at 1000, logic capped at 240 (same split as Main.setMaxFps).
+			// FIX: set stage.frameRate to the LOWER value first so Flixel's
+			// updateFramerate setter never sees value < stage.frameRate → no warning.
+			openfl.Lib.current.stage.frameRate = 240;
+			FlxG.updateFramerate = 240;
+			FlxG.drawFramerate   = 1000;
 			openfl.Lib.current.stage.frameRate = 1000;
-			FlxG.updateFramerate = 1000;
-			FlxG.drawFramerate = 1000;
-			trace('[EngineSettings] FPS aplicado: Unlimited (cap=1000)');
+			trace('[EngineSettings] FPS aplicado: Unlimited (update=240, draw=1000)');
 		}
 		else
 		{
+			// FIX: lower stage.frameRate before assigning updateFramerate.
 			openfl.Lib.current.stage.frameRate = fps;
 			FlxG.updateFramerate = fps;
-			FlxG.drawFramerate = fps;
+			FlxG.drawFramerate   = fps;
 			trace('[EngineSettings] FPS aplicado: $fps');
 		}
 	}

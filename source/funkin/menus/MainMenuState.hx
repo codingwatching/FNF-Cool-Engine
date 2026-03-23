@@ -132,7 +132,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		modShit.y -= 40;
 		add(modShit);
 
-		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v0.3.1", 12);
+		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v0.6.1", 12);
 		versionShit.scrollFactor.set();
 		versionShit.antialiasing = FlxG.save.data.antialiasing;
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);

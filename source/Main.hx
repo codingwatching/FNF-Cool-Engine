@@ -478,9 +478,13 @@ class Main extends Sprite
 		#if (!html5 && !mobileC)
 		final renderFps:Int = fps <= 0 ? 1000 : fps;
 		final updateFps:Int = fps <= 0 ? 240  : fps;
-		openfl.Lib.current.stage.frameRate = renderFps;
+		// FIX: Flixel's updateFramerate setter warns when value < stage.frameRate.
+		// Lower stage.frameRate to updateFps first so the check passes, then
+		// raise it to renderFps via drawFramerate (which sets stage.frameRate internally).
+		openfl.Lib.current.stage.frameRate = updateFps;
 		FlxG.updateFramerate = updateFps;
 		FlxG.drawFramerate   = renderFps;
+		openfl.Lib.current.stage.frameRate = renderFps;
 		#else
 		final effective:Int = fps <= 0 ? 60 : fps;
 		openfl.Lib.current.stage.frameRate = effective;

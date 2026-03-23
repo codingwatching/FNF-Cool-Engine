@@ -1232,17 +1232,40 @@ class AnimationDebug extends MusicBeatState
 			if (FileSystem.exists(xmlPath))
 			{
 				File.copy(xmlPath, destDir + baseName + ".xml");
-				setHelp("✓ PNG + XML importeds", FlxColor.LIME);
+				setHelp("✓ PNG + XML importados — abriendo mapper…", FlxColor.LIME);
+
+				// Parse unique prefixes from the XML and open the name mapper
+				var rawAnims = _parseXmlPrefixes(destDir + baseName + ".xml");
+				if (rawAnims.length > 0)
+				{
+					openSubState(new AnimMapperSubState(rawAnims, function(mapped:Array<funkin.gameplay.objects.character.Character.AnimData>)
+					{
+						// Guard: mapper returned empty (all rows deleted by user) — do not wipe existing anims
+						if (mapped.length == 0)
+						{
+							setHelp("⚠ No animations confirmed — keeping existing list", FlxColor.YELLOW);
+							return;
+						}
+						currentAnimData = mapped;
+						reloadCharacterWithNewAnims();
+						setHelp("✓ PNG + XML importados — " + mapped.length + " animaciones mapeadas", FlxColor.LIME);
+					}));
+				}
+				else
+				{
+					// XML found but no parseable prefixes (e.g. non-Sparrow format)
+					setHelp("⚠ PNG + XML importados — no se detectaron prefijos en el XML", FlxColor.YELLOW);
+				}
 			}
 			else if (FileSystem.exists(txtPath))
 			{
 				File.copy(txtPath, destDir + baseName + ".txt");
 				isTxtCheckbox.checked = true;
-				setHelp("✓ PNG + TXT importeds", FlxColor.LIME);
+				setHelp("✓ PNG + TXT importados", FlxColor.LIME);
 			}
 			else
 			{
-				setHelp("⚠ PNG imported (not found XML/TXT)", FlxColor.WHITE);
+				setHelp("⚠ PNG importado (sin XML/TXT)", FlxColor.WHITE);
 			}
 
 			pathInput.text = baseName;
@@ -1351,14 +1374,36 @@ class AnimationDebug extends MusicBeatState
 			isTxtCheckbox.checked = false;
 			isSpritesheetCheckbox.checked = false;
 
-			// Auto-cargar animaciones desde Animation.json si existe
+			// Si hay Animation.json, parsear símbolos y abrir el mapper de nombres
 			if (hasAnimJson)
-				loadAnimationsFromAnimationJson(destFolder + "Animation.json");
-
-			var msg = "✓ FlxAnimate imported in " + destFolder;
-			if (!hasAnimJson)
-				msg += "\n⚠ No Animation.json — add animations manually";
-			setHelp(msg, hasAnimJson ? FlxColor.LIME : FlxColor.WHITE);
+			{
+				var rawAnims = _parseAnimJsonSymbols(destFolder + "Animation.json");
+				if (rawAnims.length > 0)
+				{
+					setHelp("✓ FlxAnimate importado — abriendo mapper de símbolos…", FlxColor.LIME);
+					openSubState(new AnimMapperSubState(rawAnims, function(mapped:Array<funkin.gameplay.objects.character.Character.AnimData>)
+					{
+						// Guard: mapper returned empty (all rows deleted by user) — do not wipe existing anims
+						if (mapped.length == 0)
+						{
+							setHelp("⚠ No symbols confirmed — keeping existing animation list", FlxColor.YELLOW);
+							return;
+						}
+						currentAnimData = mapped;
+						reloadCharacterWithNewAnims();
+						setHelp("✓ FlxAnimate importado — " + mapped.length + " símbolos mapeados", FlxColor.LIME);
+					}));
+				}
+				else
+				{
+					loadAnimationsFromAnimationJson(destFolder + "Animation.json");
+					setHelp("✓ FlxAnimate importado en " + destFolder, FlxColor.LIME);
+				}
+			}
+			else
+			{
+				setHelp("✓ FlxAnimate importado\n⚠ Sin Animation.json — añade animaciones manualmente", FlxColor.WHITE);
+			}
 		}
 		catch (err:Dynamic)
 		{
@@ -2260,4 +2305,84 @@ class AnimationDebug extends MusicBeatState
 			return true;
 		return false;
 	}
+
+	// ── _parseXmlPrefixes ────────────────────────────────────────────────────
+	/**
+	 * Lee un XML de Sparrow atlas y extrae los prefijos únicos de SubTexture
+	 * (quitando los dígitos finales del nombre).
+	 * Devuelve un Array<AnimData> listo para pasar a AnimMapperSubState.
+	 */
+	function _parseXmlPrefixes(xmlPath:String, framerate:Int = 24):Array<AnimData>
+	{
+		var result:Array<AnimData> = [];
+		#if sys
+		var seen = new Map<String, Bool>();
+		try
+		{
+			var root = Xml.parse(sys.io.File.getContent(xmlPath)).firstElement();
+			for (node in root.elements())
+			{
+				if (node.nodeName != "SubTexture") continue;
+				var raw    = node.get("name") != null ? node.get("name") : "";
+				var prefix = ~/\d+$/.replace(raw, ""); // strip trailing digits
+				prefix = StringTools.trim(prefix);
+				if (prefix != "" && !seen.exists(prefix))
+				{
+					seen.set(prefix, true);
+					result.push({
+						name:      prefix,
+						prefix:    prefix,
+						framerate: framerate,
+						looped:    false,
+						offsetX:   0,
+						offsetY:   0
+					});
+				}
+			}
+		}
+		catch (e:Dynamic) { FlxG.log.error("[AnimDebug] _parseXmlPrefixes error: " + e); }
+		#end
+		return result;
+	}
+
+	// ── _parseAnimJsonSymbols ─────────────────────────────────────────────────
+	/**
+	 * Lee un Animation.json de FlxAnimate y devuelve todos los símbolos (SN)
+	 * como Array<AnimData> listo para AnimMapperSubState.
+	 * A diferencia de loadAnimationsFromAnimationJson, NO modifica currentAnimData.
+	 */
+	function _parseAnimJsonSymbols(animJsonPath:String, framerate:Int = 24):Array<AnimData>
+	{
+		var result:Array<AnimData> = [];
+		#if sys
+		try
+		{
+			var parsed:Dynamic = haxe.Json.parse(sys.io.File.getContent(animJsonPath));
+			var fps:Int = (parsed.MD != null) ? Std.int(parsed.MD.FRT) : framerate;
+			// Deduplicate by SN so AN.SN never creates a duplicate of an SD.S entry
+			var seen = new Map<String, Bool>();
+
+			// Main animation (AN)
+			if (parsed.AN != null && parsed.AN.SN != null && !seen.exists(parsed.AN.SN))
+			{
+				seen.set(parsed.AN.SN, true);
+				result.push({ name: parsed.AN.SN, prefix: parsed.AN.SN,
+					framerate: fps, looped: true, offsetX: 0, offsetY: 0 });
+			}
+
+			// Symbol dictionary (SD.S)
+			if (parsed.SD != null && parsed.SD.S != null)
+				for (sym in (cast parsed.SD.S : Array<Dynamic>))
+					if (sym.SN != null && !seen.exists(sym.SN))
+					{
+						seen.set(sym.SN, true);
+						result.push({ name: sym.SN, prefix: sym.SN,
+							framerate: fps, looped: false, offsetX: 0, offsetY: 0 });
+					}
+		}
+		catch (e:Dynamic) { FlxG.log.error("[AnimDebug] _parseAnimJsonSymbols error: " + e); }
+		#end
+		return result;
+	}
+
 }

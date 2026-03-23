@@ -15,7 +15,8 @@ import funkin.audio.AudioConfig;
  * DataInfoUI — overlay de debug/stats superpuesto sobre el juego.
  *
  * ─── Capas de información ────────────────────────────────────────────────────
- *  • FPSCount    — FPS + RAM usada + RAM pico  (siempre visible si showFps=true)
+ *  • FPSCount    — FPS + RAM usada + RAM pico + GC Mem  (siempre visible si showFps=true)
+ *  • _devLabel   — Watermark "Developer Mode" debajo del FPS (solo si developerMode=true)
  *  • SystemPanel — OS, CPU, GPU, VRAM, RAM total  (toggle con F3)
  *  • StatsPanel  — GPU renderer, draw calls, cache, audio config  (toggle con F3)
  *
@@ -23,8 +24,10 @@ import funkin.audio.AudioConfig;
  *  F3         — alterna visibilidad de SystemPanel + StatsPanel
  *  Shift+F3   — alterna visibilidad de todo el overlay
  *
+ * El fondo negro se redimensiona dinámicamente según el ancho real del texto FPS.
+ *
  * @author  Cool Engine Team
- * @since   0.5.1
+ * @since   0.6.0
  */
 class DataInfoUI extends Sprite
 {
@@ -37,31 +40,50 @@ class DataInfoUI extends Sprite
 	public static var saveData:Dynamic = null;
 
 	private var _bg:Shape;
+	private var _devLabel:TextField;
 	private var _expanded:Bool = false;
+
+	// Padding interior del fondo
+	private static inline var PAD_X:Float = 6;
+	private static inline var PAD_Y:Float = 4;
 
 	public function new(x:Float = 10, y:Float = 3)
 	{
 		super();
 
-		saveData = _getSaveData();
+		saveData   = _getSaveData();
 		gpuEnabled = (saveData?.gpuRendering ?? true);
 
-		// Fondo semitransparente — se redimensiona con el contenido
+		// Fondo semitransparente — se redimensiona cada frame con el contenido
 		_bg = new Shape();
-		_updateBG(230, 18);
+		_updateBG(200, 36);
 		addChild(_bg);
 
-		// FPS counter
-		fps = new FPSCount(x, y, 0xFFFFFF);
+		// FPS counter (2 líneas: FPS+Mem / GC Mem)
+		fps = new FPSCount(PAD_X, PAD_Y, 0xFFFFFF);
 		addChild(fps);
 
+		// Watermark "Developer Mode" — solo visible cuando developerMode esté activo
+		_devLabel = new TextField();
+		_devLabel.selectable   = false;
+		_devLabel.mouseEnabled = false;
+		_devLabel.defaultTextFormat = new TextFormat(
+			openfl.utils.Assets.getFont(Paths.font("Funkin.otf")).fontName,
+			16, 0xFFFFFF
+		);
+		_devLabel.autoSize = openfl.text.TextFieldAutoSize.LEFT;
+		_devLabel.text     = "Developer Mode";
+		_devLabel.x        = PAD_X;
+		_devLabel.visible  = false;
+		addChild(_devLabel);
+
 		// Panel de info del sistema (oculto por defecto)
-		systemPanel = new SystemPanel(x, y + 18);
+		systemPanel = new SystemPanel(x, 0);
 		systemPanel.visible = false;
 		addChild(systemPanel);
 
 		// Panel de stats de rendimiento (oculto por defecto)
-		statsPanel = new StatsPanel(x, y + 18 + SystemPanel.HEIGHT + 4);
+		statsPanel = new StatsPanel(x, SystemPanel.HEIGHT + 4);
 		statsPanel.visible = false;
 		addChild(statsPanel);
 
@@ -71,6 +93,48 @@ class DataInfoUI extends Sprite
 
 		this.x = x;
 		this.y = y;
+
+		// Actualizar BG cada frame según el tamaño real del texto
+		addEventListener(Event.ENTER_FRAME, _onFrame);
+	}
+
+	// ── Frame loop — reposicionar y redimensionar el fondo ────────────────────
+
+	private function _onFrame(_:Event):Void
+	{
+		var devMode = mods.ModManager.developerMode;
+
+		// ── Posición del watermark ────────────────────────────────────────────
+		_devLabel.visible = devMode;
+		_devLabel.y       = fps.y + fps.textHeight + 1;
+
+		// ── Calcular dimensiones del fondo ───────────────────────────────────
+		// Ancho: el mayor entre el FPS y el watermark (si visible)
+		var contentW:Float = fps.textWidth + PAD_X * 2;
+		if (devMode && _devLabel.textWidth + PAD_X * 2 > contentW)
+			contentW = _devLabel.textWidth + PAD_X * 2;
+
+		// Altura en modo colapsado: fps + (watermark si procede)
+		var fpsH:Float = fps.textHeight;
+		var labelH:Float = devMode ? (_devLabel.textHeight + 1) : 0;
+		var collapsedH:Float = PAD_Y + fpsH + labelH + PAD_Y;
+
+		var totalH:Float;
+		if (_expanded)
+		{
+			// Paneles empiezan debajo del bloque FPS+watermark
+			var panelsTop:Float = collapsedH;
+			systemPanel.y = panelsTop;
+			statsPanel.y  = panelsTop + SystemPanel.HEIGHT + 4;
+			totalH = panelsTop + SystemPanel.HEIGHT + StatsPanel.HEIGHT + 8;
+			if (contentW < 230) contentW = 230;
+		}
+		else
+		{
+			totalH = collapsedH;
+		}
+
+		_updateBG(contentW, totalH);
 	}
 
 	// ── Toggles ────────────────────────────────────────────────────────────────
@@ -83,11 +147,9 @@ class DataInfoUI extends Sprite
 
 	private function _setExpanded(v:Bool):Void
 	{
-		_expanded = v;
+		_expanded           = v;
 		systemPanel.visible = v;
 		statsPanel.visible  = v;
-		var bgH = v ? (18 + SystemPanel.HEIGHT + StatsPanel.HEIGHT + 8) : 18;
-		_updateBG(230, bgH);
 	}
 
 	/** Toggle legacy para compatibilidad (antes se llamaba toggleGPUStats). */
@@ -127,21 +189,21 @@ class SystemPanel extends TextField
 	{
 		super();
 
-		this.x           = x + 4;
-		this.y           = y;
-		this.width       = 210;
-		this.height      = HEIGHT;
-		this.selectable  = false;
+		this.x            = x + 4;
+		this.y            = y;
+		this.width        = 210;
+		this.height       = HEIGHT;
+		this.selectable   = false;
 		this.mouseEnabled = false;
 		this.defaultTextFormat = new TextFormat("_sans", 9, 0xAADDFF);
-		this.multiline   = true;
-		this.wordWrap    = false;
+		this.multiline    = true;
+		this.wordWrap     = false;
 
 		// Rellenar cuando SystemInfo esté listo (puede no estarlo aún)
 		if (SystemInfo.initialized)
 			_fill();
 		else
-			this.text = "System Info cargando...";
+			this.text = "System Info loading...";
 
 		// Rellenar en el primer frame si aún no está listo
 		addEventListener(Event.ENTER_FRAME, _onEnter);
@@ -179,7 +241,7 @@ class SystemPanel extends TextField
 		if (SystemInfo.ramType.length > 0)    ramLine += '  ${SystemInfo.ramType}';
 		if (ramLine.length > 0) lines.push(ramLine);
 
-		if (lines.length == 0) lines.push("(System info no disponible)");
+		if (lines.length == 0) lines.push("(System info not available)");
 		this.text = lines.join("\n");
 		_filled = true;
 	}
@@ -213,7 +275,7 @@ class StatsPanel extends TextField
 		this.defaultTextFormat = new TextFormat("_sans", 9, 0x00FF88);
 		this.multiline    = true;
 		this.wordWrap     = false;
-		this.text         = "Stats cargando...";
+		this.text         = "Stats loading...";
 
 		addEventListener(Event.ENTER_FRAME, _onEnter);
 	}
@@ -231,8 +293,8 @@ class StatsPanel extends TextField
 		var lines:Array<String> = [];
 
 		// ── Ventana ──
-		var ww = WindowManager.windowWidth;
-		var wh = WindowManager.windowHeight;
+		var ww   = WindowManager.windowWidth;
+		var wh   = WindowManager.windowHeight;
 		var mode = WindowManager.scaleMode;
 		lines.push('Win: ${ww}×${wh}  Scale: $mode${WindowManager.isFullscreen ? " [FS]" : ""}');
 
@@ -259,11 +321,11 @@ class StatsPanel extends TextField
 
 		// ── GC / Memoria ──
 		#if cpp
-		var usedMB   = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE) / (1024 * 1024));
-		var peakMB   = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_RESERVED) / (1024 * 1024));
+		var usedMB = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE)    / (1024 * 1024));
+		var peakMB = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_RESERVED) / (1024 * 1024));
 		#else
-		var usedMB   = Math.round(openfl.system.System.totalMemory / (1024 * 1024));
-		var peakMB   = usedMB;
+		var usedMB = Math.round(openfl.system.System.totalMemory / (1024 * 1024));
+		var peakMB = usedMB;
 		#end
 		var gcPaused = funkin.system.MemoryUtil.disableCount > 0;
 		lines.push('Mem: ${usedMB}/${peakMB} MB  GC: ${gcPaused ? "paused" : "active"}');
@@ -284,7 +346,7 @@ class StatsPanel extends TextField
 // ─────────────────────────────────────────────────────────────────────────────
 // GPUStatsText — alias legacy (evita romper código existente)
 // ─────────────────────────────────────────────────────────────────────────────
-@:deprecated("Usa StatsPanel. GPUStatsText se mantendrá como alias vacío.")
+@:deprecated("Use StatsPanel. GPUStatsText will remain as an empty alias.")
 class GPUStatsText extends TextField
 {
 	public static function getSaveData():Dynamic

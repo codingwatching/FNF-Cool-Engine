@@ -11,7 +11,7 @@ import openfl.display._internal.stats.DrawCallContext;
 #end
 
 /**
- * FPSCount — muestra FPS + Memoria.
+ * FPSCount — muestra FPS + Memoria + GC Mem.
  *
  * v2: Ring buffer O(1) en vez de Array + shift() O(n).
  *   ANTES: times.push() + while(shift()) movía el array entero cada frame.
@@ -52,11 +52,11 @@ class FPSCount extends TextField
 		mouseEnabled = false;
 		defaultTextFormat = new TextFormat(
 			openfl.utils.Assets.getFont(Paths.font("Funkin.otf")).fontName,
-			14, color
+			16, color
 		);
 		visible  = true;
 		autoSize = openfl.text.TextFieldAutoSize.LEFT;
-		text     = "FPS: 0 - Memory: 0MB/0MB";
+		text     = "FPS: 0 - Mem: 0MB/0MB - GC Mem: 0MB";
 
 		// Pre-alocar buffer una sola vez — cero alocaciones en el game loop
 		_ring = [for (_ in 0...RING_CAP) 0.0];
@@ -77,8 +77,6 @@ class FPSCount extends TextField
 		if (_ringFill < RING_CAP) _ringFill++;
 
 		// ── Contar frames dentro del último segundo ───────────────────────────
-		// Leemos desde la entrada más reciente hacia atrás hasta que un
-		// timestamp quede fuera de la ventana de 1000 ms.
 		var cutoff:Float = now - 1000.0;
 		var validCount:Int = 0;
 		for (k in 0..._ringFill)
@@ -96,21 +94,23 @@ class FPSCount extends TextField
 
 		if (validCount != cacheCount && visible)
 		{
-			// OPTIMIZADO: usar cpp.vm.Gc.stats().totalUsed en vez de System.totalMemory.
-			// System.totalMemory = totalAllocated = heap máximo histórico (solo baja con compact()).
-			// totalUsed = bytes de objetos vivos ahora mismo → refleja la liberación real de RAM.
-			// Esto hace que el counter baje correctamente después del flushGPUCache + compact().
 			var mem:Float;
+			var gcMem:Float;
 			#if cpp
-			mem = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE) / (byteValue * byteValue));
+			mem   = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE)    / (byteValue * byteValue));
+			gcMem = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_RESERVED) / (byteValue * byteValue));
 			#else
-			mem = Math.round(System.totalMemory / (byteValue * byteValue));
+			mem   = Math.round(System.totalMemory / (byteValue * byteValue));
+			gcMem = mem;
 			#end
 			if (mem > memPeak) memPeak = mem;
-			text = 'FPS: $showFps - Memory: ${mem}MB/${memPeak}MB';
+
+			var line1 = 'FPS: $showFps - Mem: ${mem}MB/${memPeak}MB - GC Mem: ${gcMem}MB';
 			#if (gl_stats && !disable_cffi && (!html5 || !canvas))
-			text += "  DC: " + Context3DStats.totalDrawCalls();
+			line1 += "  DC: " + Context3DStats.totalDrawCalls();
 			#end
+
+			text = line1;
 		}
 
 		cacheCount = validCount;
