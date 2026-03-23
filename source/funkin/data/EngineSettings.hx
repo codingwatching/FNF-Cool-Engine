@@ -27,7 +27,7 @@ import flixel.FlxG;
  *    ocupa 1080p (o ajusta al monitor si es más pequeño).
  *
  * @author  Cool Engine Team
- * @since   0.6.0
+ * @since   0.6.1
  */
 class EngineSettings
 {

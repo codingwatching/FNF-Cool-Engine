@@ -60,8 +60,10 @@ function _createHealthBar()
 
 	// makeBar already sets RIGHT_TO_LEFT, scrollFactor and camHUD
 	healthBar = makeBar(healthBarBG.x + 4, healthBarBG.y + 4, Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), gameState, 'health', 0, 2);
-	var dadColor = (dad != null && dad.healthBarColor != null) ? dad.healthBarColor : 0xFFFF0000;
-	var bfColor  = (boyfriend != null && boyfriend.healthBarColor != null) ? boyfriend.healthBarColor : 0xFF66FF33;
+	var dadColor = (dad != null && dad.characterData != null && dad.characterData.healthBarColor != null)
+		? dad.healthBarColor : 0xFFFF0000;
+	var bfColor  = (boyfriend != null && boyfriend.characterData != null && boyfriend.characterData.healthBarColor != null)
+		? boyfriend.healthBarColor : 0xFF66FF33;
 	healthBar.createFilledBar(dadColor, bfColor);
 	uiAdd(healthBar);
 

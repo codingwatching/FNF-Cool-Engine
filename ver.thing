@@ -1,17 +1,5 @@
-0.6.0B-
-- Stage Editor Fixed
-- Splashes System Fixed
-- Notes System Fixed
-- Better VRAM and RAM ussage
-- Console in real time DEBUG
-- Better scoreText
-- Improved System Events
-- WaveForm for Chart Menu
-- MP4 Videos Fixed
-- Fixed ubication folders editors
-- New Credits Menu
-- Better Main Menu
-- BPM Detector
-- Script for Modcharts
-- Fixed bugs
-- Week 7
+0.6.1B-
+- Add FlipX in Animation Debug and Fixed HealthBar Colors
+- Anim Mapper for best animations edit
+- SpriteSheet Editor better
+- GC memory in fps and watermark for developer mode

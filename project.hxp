@@ -29,7 +29,7 @@ class Project extends HXProject
   static final FILE:String         = "FNF-CE";
   static final PACKAGE:String      = "com.coolTeam.coolEngine";
   static final MAIN_CLASS:String   = "Main";
-  static final VERSION:String      = "0.6.0B";
+  static final VERSION:String      = "0.6.1B";
   static final COMPANY:String      = "CoolTeam";
   static final SOURCE_DIR:String   = "source";
   static final TEMPLATES_DIR:String = "templates";
