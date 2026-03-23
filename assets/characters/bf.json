@@ -3,6 +3,7 @@
 	"gameOverSound": "gameplay/gameover/fnf_loss_sfx",
 	"isFlxAnimate": true,
 	"charDeath": "bf-dead",
+	"flipX":true,
 	"cameraOffset": [
 		-50,
 		-40

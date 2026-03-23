@@ -11,6 +11,7 @@
 	"gameOverSound": "fnf_loss_sfx",
 	"healthIcon": "bf",
 	"isFlxAnimate": true,
+	"flipX":true,
 	"charDeath": "bf-holding-gf-dead",
 	"gameOverMusic": "gameplay/gameOver",
 	"animations": [
