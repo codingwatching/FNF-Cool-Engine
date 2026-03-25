@@ -4,6 +4,7 @@ import flixel.FlxG;
 import funkin.gameplay.notes.Note;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.input.keyboard.FlxKey;
+import funkin.data.SaveData;
 #if mobileC
 import flixel.ui.FlxButton;
 #end
@@ -26,6 +27,19 @@ using StringTools;
  *
  *  4. processInputs y processSustains son llamados ~60-120 veces/seg;
  *     eliminar los closures es lo más importante de todo.
+ *
+ * GHOST TAP OFF — misses diferidos:
+ *
+ *  Cuando ghost tapping está desactivado, el miss NO se dispara inmediatamente
+ *  al pulsar una tecla sin nota en rango. En su lugar queda "pendiente" durante
+ *  la ventana del input buffer (~100ms). Si durante ese tiempo una nota entra en
+ *  canBeHit, el input bufferizado la golpea normalmente y el miss se cancela.
+ *  Solo si el buffer expira sin nota disponible se dispara el miss.
+ *
+ *  Esto corrige el problema de false-misses cuando el jugador pulsa ligeramente
+ *  antes de que la nota entre en la ventana de hit (canBeHit usa una ventana early
+ *  reducida de hitWindow/2.7 ≈ 61ms), que con ghost tap OFF resultaba en miss +
+ *  buffer consumido + nota sin golpear.
  */
 class InputHandler
 {
@@ -61,6 +75,12 @@ class InputHandler
 	private var bufferedInputs:Array<Float> = [0, 0, 0, 0];
 	private var inputProcessed:Array<Bool>  = [false, false, false, false];
 
+	// === GHOST-TAP MISS DEFERRAL ===
+	// Cuando ghost tap está OFF y se pulsa sin nota disponible, el miss queda
+	// pendiente aquí en lugar de dispararse inmediatamente. Se dispara al
+	// expirar el buffer (si no se golpeó ninguna nota en ese tiempo).
+	private var _pendingGhostMiss:Array<Bool> = [false, false, false, false];
+
 	// ── PREALLOCADOS — cero allocs en el hot path ────────────────────────────
 	// Antes: [[], [], [], []] nuevo cada frame = 5 allocs × 60fps = 300 allocs/seg
 	// Ahora: resize(0) en su lugar — el array interno no se reasigna.
@@ -82,11 +102,11 @@ class InputHandler
 
 	public function new()
 	{
-		leftBind[0]  = FlxKey.fromString(FlxG.save.data.leftBind);
-		downBind[0]  = FlxKey.fromString(FlxG.save.data.downBind);
-		upBind[0]    = FlxKey.fromString(FlxG.save.data.upBind);
-		rightBind[0] = FlxKey.fromString(FlxG.save.data.rightBind);
-		killBind[0]  = FlxKey.fromString(FlxG.save.data.killBind);
+		leftBind[0]  = FlxKey.fromString(SaveData.data.leftBind);
+		downBind[0]  = FlxKey.fromString(SaveData.data.downBind);
+		upBind[0]    = FlxKey.fromString(SaveData.data.upBind);
+		rightBind[0] = FlxKey.fromString(SaveData.data.rightBind);
+		killBind[0]  = FlxKey.fromString(SaveData.data.killBind);
 	}
 
 	// ─── UPDATE ──────────────────────────────────────────────────────────────
@@ -228,6 +248,10 @@ class InputHandler
 			{
 				bufferedInputs[dir] = currentTime;
 				inputProcessed[dir] = false;
+				// Nueva pulsación — cancelar cualquier miss pendiente de ghost tap
+				// para esta dirección (el jugador volvió a pulsar antes de que
+				// expirara el buffer anterior).
+				_pendingGhostMiss[dir] = false;
 			}
 		}
 
@@ -267,6 +291,32 @@ class InputHandler
 		_processDir(1, _notesByDir1, currentTime);
 		_processDir(2, _notesByDir2, currentTime);
 		_processDir(3, _notesByDir3, currentTime);
+
+		// ── Misses diferidos de ghost-tap OFF ─────────────────────────────────
+		// Disparar el miss pendiente solo si el buffer ya expiró Y no se golpeó
+		// ninguna nota en esta dirección (inputProcessed sigue en false).
+		// Si se golpeó una nota, inputProcessed pasó a true dentro de _processDir
+		// y el miss queda cancelado.
+		if (!ghostTapping)
+		{
+			for (dir in 0...4)
+			{
+				if (!_pendingGhostMiss[dir]) continue;
+				// Buffer expirado sin nota → disparar miss
+				if ((currentTime - bufferedInputs[dir]) > bufferTime)
+				{
+					_pendingGhostMiss[dir] = false;
+					inputProcessed[dir]    = true;
+					if (onNoteMiss != null) onNoteMiss(null);
+				}
+				// Si inputProcessed se puso a true por un hit en _processDir
+				// (nota golpeada durante el buffer), también limpiar el pending.
+				else if (inputProcessed[dir])
+				{
+					_pendingGhostMiss[dir] = false;
+				}
+			}
+		}
 	}
 
 	/** Comparador estático — reutilizado por todos los sorts, cero allocs. */
@@ -284,12 +334,22 @@ class InputHandler
 
 		if (possibleNotes.length > 0)
 		{
-			if (mashCounter <= possibleNotes.length + 1 || mashViolations > MAX_MASH_VIOLATIONS)
+			// Sin ghost tapping el jugador ya paga misses por teclas sueltas,
+			// así que la protección anti-mash no debe bloquear hits válidos.
+			// Con ghost tapping ON la protección sigue activa para evitar
+			// que el jugador spamee sin perder salud.
+			var canHit = !ghostTapping
+				|| (mashCounter <= possibleNotes.length + 1)
+				|| (mashViolations > MAX_MASH_VIOLATIONS);
+
+			if (canHit)
 			{
 				if (onNoteHit != null)
 				{
 					onNoteHit(possibleNotes[0]);
 					inputProcessed[dir] = true;
+					// Nota golpeada → cancelar miss pendiente si lo había
+					_pendingGhostMiss[dir] = false;
 				}
 			}
 			else
@@ -299,8 +359,14 @@ class InputHandler
 		}
 		else if (!ghostTapping && pressed[dir])
 		{
-			if (onNoteMiss != null) onNoteMiss(null);
-			inputProcessed[dir] = true;
+			// No hay nota en rango pero el jugador pulsó — NO disparar miss
+			// todavía. Marcar como pendiente para que el sistema de deferred
+			// misses lo dispare solo cuando el buffer expire sin nota.
+			// Esto evita falsos misses cuando el jugador pulsa ligeramente antes
+			// de que la nota entre en la ventana de hit (canBeHit early window).
+			_pendingGhostMiss[dir] = true;
+			// NOTA: inputProcessed[dir] NO se pone a true aquí, para que el
+			// buffer siga activo y pueda golpear la nota si llega a tiempo.
 		}
 	}
 
@@ -356,6 +422,7 @@ class InputHandler
 	{
 		bufferedInputs[0] = bufferedInputs[1] = bufferedInputs[2] = bufferedInputs[3] = 0;
 		inputProcessed[0] = inputProcessed[1] = inputProcessed[2] = inputProcessed[3] = false;
+		_pendingGhostMiss[0] = _pendingGhostMiss[1] = _pendingGhostMiss[2] = _pendingGhostMiss[3] = false;
 	}
 
 	public function anyKeyHeld():Bool

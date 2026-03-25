@@ -12,6 +12,7 @@ import haxe.Json;
 #if sys
 import sys.FileSystem;
 import sys.io.File;
+import funkin.data.SaveData;
 #end
 
 using StringTools;
@@ -1135,17 +1136,17 @@ class NoteSkinSystem
 
 	private static function loadSavedSkin():Void
 	{
-		if (FlxG.save.data.noteSkin != null && availableSkins.exists(FlxG.save.data.noteSkin))
+		if (SaveData.data.noteSkin != null && availableSkins.exists(SaveData.data.noteSkin))
 		{
-			currentSkin = FlxG.save.data.noteSkin;
+			currentSkin = SaveData.data.noteSkin;
 		}
 		else
 		{
 			currentSkin = "Default";
-			if (FlxG.save.data.noteSkin != "Default")
+			if (SaveData.data.noteSkin != "Default")
 			{
-				FlxG.save.data.noteSkin = "Default";
-				FlxG.save.flush(); // solo flush cuando realmente cambia algo
+				SaveData.data.noteSkin = "Default";
+				SaveData.flush(); // solo flush cuando realmente cambia algo
 			}
 		}
 	}
@@ -1161,7 +1162,7 @@ class NoteSkinSystem
 		// La heurística: si el save tiene "PixelSplash" pero no hay skin Pixel activa
 		// global, revertir. Mas simple: los splash que contengan "pixel" en el nombre
 		// (case-insensitive) no deben ser el splash global por defecto.
-		var savedSplash:String = FlxG.save.data.noteSplash;
+		var savedSplash:String = SaveData.data.noteSplash;
 		var isValidGlobal:Bool = (savedSplash != null
 			&& availableSplashes.exists(savedSplash)
 			&& savedSplash.toLowerCase().indexOf('pixel') < 0); // no pixel-only splashes as global default
@@ -1176,10 +1177,10 @@ class NoteSkinSystem
 			_globalSplash = "Default";
 			currentSplash = "Default";
 			// Reparar el save si estaba corrompido
-			if (FlxG.save.data.noteSplash != "Default")
+			if (SaveData.data.noteSplash != "Default")
 			{
-				FlxG.save.data.noteSplash = "Default";
-				FlxG.save.flush();
+				SaveData.data.noteSplash = "Default";
+				SaveData.flush();
 			}
 		}
 	}
@@ -1194,8 +1195,8 @@ class NoteSkinSystem
 			return false;
 		}
 		currentSkin = skinName;
-		FlxG.save.data.noteSkin = skinName;
-		FlxG.save.flush();
+		SaveData.data.noteSkin = skinName;
+		SaveData.flush();
 		loadSkinScript(skinName);
 		return true;
 	}
@@ -1206,7 +1207,7 @@ class NoteSkinSystem
 			init();
 		if (skinName == null || skinName == '' || skinName == 'default')
 		{
-			currentSkin = FlxG.save.data.noteSkin != null ? FlxG.save.data.noteSkin : 'Default';
+			currentSkin = SaveData.data.noteSkin != null ? SaveData.data.noteSkin : 'Default';
 			loadSkinScript(currentSkin);
 			return;
 		}
@@ -1225,7 +1226,7 @@ class NoteSkinSystem
 				return;
 			}
 		}
-		currentSkin = FlxG.save.data.noteSkin != null ? FlxG.save.data.noteSkin : 'Default';
+		currentSkin = SaveData.data.noteSkin != null ? SaveData.data.noteSkin : 'Default';
 		loadSkinScript(currentSkin);
 		trace('[NoteSkinSystem] Skin "$skinName" no encontrada, usando global: $currentSkin');
 	}
@@ -1243,7 +1244,7 @@ class NoteSkinSystem
 
 	public static function restoreGlobalSkin():Void
 	{
-		var saved = FlxG.save.data.noteSkin;
+		var saved = SaveData.data.noteSkin;
 		// Si el jugador eligió una skin específica en Opciones, respetarla.
 		if (saved != null && saved != 'Default' && availableSkins.exists(saved))
 		{
@@ -1270,8 +1271,8 @@ class NoteSkinSystem
 		// para que restoreGlobalSplash() use siempre el valor correcto.
 		_globalSplash = splashName;
 		currentSplash = splashName;
-		FlxG.save.data.noteSplash = splashName;
-		FlxG.save.flush();
+		SaveData.data.noteSplash = splashName;
+		SaveData.flush();
 		loadSplashScript(splashName);
 		return true;
 	}

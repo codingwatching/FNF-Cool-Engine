@@ -139,7 +139,7 @@ class EditorHubState extends MusicBeatState
 	 * Set to null to show the icon placeholder instead.
 	 */
 	static var EDITOR_IMAGES:Array<String> = [
-		'character editor', // Character Editor  — e.g. replace with "editors/char_editor"
+		'editors/character editor', // Character Editor  — e.g. replace with "editors/char_editor"
 		null, // Story Menu Editor
 		null, // Menu Editor
 		null, // Sprite Editor
@@ -296,7 +296,7 @@ class EditorHubState extends MusicBeatState
 			var worldY:Float = i * (CARD_H + CARD_GAP);
 			var imgPath:String = (i < EDITOR_IMAGES.length) ? EDITOR_IMAGES[i] : null;
 
-			var card = new EditorCard(CARD_X, worldY, CARD_W, CARD_H, EDITOR_NAMES[i], EDITOR_DESCS[i], EDITOR_ICONS[i], EDITOR_ACCENTS[i], 'editors/$imgPath');
+			var card = new EditorCard(CARD_X, worldY, CARD_W, CARD_H, EDITOR_NAMES[i], EDITOR_DESCS[i], EDITOR_ICONS[i], EDITOR_ACCENTS[i], imgPath);
 
 			// Assign exclusively to the scroll camera so the card is clipped
 			// to the left-panel viewport and responds to camera.scroll.y.

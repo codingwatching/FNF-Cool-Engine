@@ -1,6 +1,7 @@
 package funkin.data;
 
 import flixel.FlxG;
+import funkin.data.SaveData;
 
 /**
  * EngineSettings — Configuración centralizada del engine.
@@ -68,17 +69,10 @@ class EngineSettings
 	{
 		var fps:Int = DEFAULT_FPS;
 
-		// ── Migración automática del campo obsoleto ──────────────────────────
-		if (FlxG.save.data.FPSCap != null && FlxG.save.data.fpsTarget == null)
-		{
-			trace('[EngineSettings] Migrando FPSCap → fpsTarget (valor: ${FlxG.save.data.FPSCap})');
-			FlxG.save.data.fpsTarget = FlxG.save.data.FPSCap;
-			FlxG.save.data.FPSCap = null;
-			FlxG.save.flush();
-		}
-
-		if (FlxG.save.data.fpsTarget != null)
-			fps = Std.int(FlxG.save.data.fpsTarget);
+		// La migración FPSCap → fpsTarget ya la hace SaveData.migrate() al inicio.
+		// Aquí simplemente leemos el campo canónico.
+		if (SaveData.data.fpsTarget != null)
+			fps = Std.int(SaveData.data.fpsTarget);
 
 		// Forzar rango válido
 		fps = clampFPS(fps);
@@ -90,7 +84,7 @@ class EngineSettings
 	 * Cambia el FPS del engine, lo persiste y lo aplica de forma inmediata.
 	 *
 	 * Usar desde la pantalla de opciones en lugar de escribir directamente en
-	 * FlxG.save.data.
+	 * SaveData.data.
 	 *
 	 * @param fps  Valor deseado. Se clampea automáticamente a [MIN_FPS, MAX_FPS].
 	 */
@@ -98,10 +92,10 @@ class EngineSettings
 	{
 		fps = clampFPS(fps);
 
-		FlxG.save.data.fpsTarget = fps;
+		SaveData.data.fpsTarget = fps;
 		// Limpiar el campo obsoleto para no confundir futuras migraciones
-		FlxG.save.data.FPSCap = null;
-		FlxG.save.flush();
+		SaveData.data.FPSCap = null;
+		SaveData.flush();
 
 		_applyFPSRaw(fps);
 	}
@@ -112,10 +106,10 @@ class EngineSettings
 	 */
 	public static function getFPS():Int
 	{
-		if (FlxG.save.data.fpsTarget != null)
-			return clampFPS(Std.int(FlxG.save.data.fpsTarget));
-		if (FlxG.save.data.FPSCap != null)
-			return clampFPS(Std.int(FlxG.save.data.FPSCap));
+		if (SaveData.data.fpsTarget != null)
+			return clampFPS(Std.int(SaveData.data.fpsTarget));
+		if (SaveData.data.FPSCap != null)
+			return clampFPS(Std.int(SaveData.data.FPSCap));
 		return DEFAULT_FPS;
 	}
 

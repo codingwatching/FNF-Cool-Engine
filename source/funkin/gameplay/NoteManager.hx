@@ -16,6 +16,7 @@ import funkin.gameplay.notes.NoteSkinSystem;
 import funkin.gameplay.modchart.ModChartManager;
 import funkin.gameplay.modchart.ModChartEvent;
 import funkin.gameplay.notes.NoteTypeManager;
+import funkin.data.SaveData;
 
 using StringTools;
 
@@ -104,8 +105,8 @@ class NoteManager
 
 	/** Actualiza el caché de opciones del jugador. Llamar si el jugador cambia config. */
 	public function refreshSaveDataCache():Void {
-		_cachedNoteSplashes  = FlxG.save.data.notesplashes == true;
-		_cachedMiddlescroll  = FlxG.save.data.middlescroll == true;
+		_cachedNoteSplashes  = SaveData.data.notesplashes == true;
+		_cachedMiddlescroll  = SaveData.data.middlescroll == true;
 	}
 
 	// === CALLBACKS ===

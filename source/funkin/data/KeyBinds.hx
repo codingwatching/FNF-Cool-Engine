@@ -1,33 +1,34 @@
 package funkin.data;
 
 import flixel.FlxG;
+import funkin.data.SaveData;
 
 class KeyBinds
 {
     public static function resetBinds():Void
 	{
-        FlxG.save.data.upBind     = "W";
-        FlxG.save.data.downBind   = "S";
-        FlxG.save.data.leftBind   = "A";
-        FlxG.save.data.rightBind  = "D";
-        FlxG.save.data.killBind   = "R";
-        FlxG.save.data.acceptBind = "ENTER";
-        FlxG.save.data.backBind   = "ESCAPE";
-        FlxG.save.data.pauseBind  = "P";
-        FlxG.save.data.cheatBind  = "SEVEN";
+        SaveData.data.upBind     = "W";
+        SaveData.data.downBind   = "S";
+        SaveData.data.leftBind   = "A";
+        SaveData.data.rightBind  = "D";
+        SaveData.data.killBind   = "R";
+        SaveData.data.acceptBind = "ENTER";
+        SaveData.data.backBind   = "ESCAPE";
+        SaveData.data.pauseBind  = "P";
+        SaveData.data.cheatBind  = "SEVEN";
         data.PlayerSettings.player1.controls.loadKeyBinds();
     }
 
     public static function keyCheck():Void
     {
-        if (FlxG.save.data.upBind     == null) FlxG.save.data.upBind     = "W";
-        if (FlxG.save.data.downBind   == null) FlxG.save.data.downBind   = "S";
-        if (FlxG.save.data.leftBind   == null) FlxG.save.data.leftBind   = "A";
-        if (FlxG.save.data.rightBind  == null) FlxG.save.data.rightBind  = "D";
-        if (FlxG.save.data.killBind   == null) FlxG.save.data.killBind   = "R";
-        if (FlxG.save.data.acceptBind == null) FlxG.save.data.acceptBind = "ENTER";
-        if (FlxG.save.data.backBind   == null) FlxG.save.data.backBind   = "ESCAPE";
-        if (FlxG.save.data.pauseBind  == null) FlxG.save.data.pauseBind  = "P";
-        if (FlxG.save.data.cheatBind  == null) FlxG.save.data.cheatBind  = "SEVEN";
+        if (SaveData.data.upBind     == null) SaveData.data.upBind     = "W";
+        if (SaveData.data.downBind   == null) SaveData.data.downBind   = "S";
+        if (SaveData.data.leftBind   == null) SaveData.data.leftBind   = "A";
+        if (SaveData.data.rightBind  == null) SaveData.data.rightBind  = "D";
+        if (SaveData.data.killBind   == null) SaveData.data.killBind   = "R";
+        if (SaveData.data.acceptBind == null) SaveData.data.acceptBind = "ENTER";
+        if (SaveData.data.backBind   == null) SaveData.data.backBind   = "ESCAPE";
+        if (SaveData.data.pauseBind  == null) SaveData.data.pauseBind  = "P";
+        if (SaveData.data.cheatBind  == null) SaveData.data.cheatBind  = "SEVEN";
     }
 }

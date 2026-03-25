@@ -17,10 +17,12 @@ import flixel.FlxSprite;
 import flixel.FlxSubState;
 import haxe.Json;
 import funkin.gameplay.PlayState;
+import funkin.gameplay.GameState;
 import funkin.scripting.StateScriptHandler;
 import funkin.transitions.StateTransition;
 import funkin.transitions.StickerTransition;
 import funkin.states.LoadingState;
+import funkin.data.SaveData;
 
 using StringTools;
 /**
@@ -414,7 +416,7 @@ class ResultScreen extends FlxSubState
 		add(difficultyText);
 
 		// Accuracy small (top-right)
-		var pctVal = Std.int(PlayState.accuracy);
+		var pctVal = Std.int(GameState.get().accuracy);
 		pctSmallText = new FlxText(FlxG.width + 20, 12, 0, pctVal + '%', 24);
 		pctSmallText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, LEFT,
 			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -457,7 +459,7 @@ class ResultScreen extends FlxSubState
 		try { rankSprite.loadGraphic(Paths.image('menu/ratings/' + currentRank)); }
 		catch (_) { rankSprite.makeGraphic(120, 120, FlxColor.YELLOW); }
 		rankSprite.scale.set(1.6, 1.6);
-		rankSprite.antialiasing = (FlxG.save.data?.antialiasing ?? true);
+		rankSprite.antialiasing = (SaveData.data?.antialiasing ?? true);
 		rankSprite.updateHitbox();
 		rankSprite.screenCenter(X);
 		rankSprite.x += 160;
@@ -467,7 +469,7 @@ class ResultScreen extends FlxSubState
 		add(rankSprite);
 		_pulseSprites.push(rankSprite);
 
-		if (PlayState.misses == 0)
+		if (GameState.get().misses == 0)
 		{
 			fcBadge = new FlxSprite();
 			try { fcBadge.loadGraphic(Paths.image('menu/ratings/FC')); }
@@ -495,7 +497,7 @@ class ResultScreen extends FlxSubState
 		scoreGroup = new FlxTypedGroup<FlxText>();
 		add(scoreGroup);
 
-		_scoreDigits = new ScoreDigitGroup(48, 90, PlayState.songScore);
+		_scoreDigits = new ScoreDigitGroup(48, 90, GameState.get().score);
 		_scoreDigits.alpha = 0;
 		_scoreDigits.scrollFactor.set(0, 0);
 		add(_scoreDigits);
@@ -519,16 +521,17 @@ class ResultScreen extends FlxSubState
 		tallyGroup = new FlxTypedGroup<FlxSprite>();
 		add(tallyGroup);
 
-		var total:Int = PlayState.sicks + PlayState.goods + PlayState.bads + PlayState.shits + PlayState.misses;
+		var gs     = GameState.get();
+		var total:Int = gs.sicks + gs.goods + gs.bads + gs.shits + gs.misses;
 		if (total <= 0) total = 1;
 
 		var rowDefs:Array<Dynamic> = [
-			{label: 'SICKS',   value: PlayState.sicks,  color: FlxColor.fromRGB( 80, 255, 140), barColor: FlxColor.fromRGB( 80, 255, 140)},
-			{label: 'GOODS',   value: PlayState.goods,  color: FlxColor.fromRGB( 80, 200, 255), barColor: FlxColor.fromRGB( 80, 200, 255)},
-			{label: 'BADS',    value: PlayState.bads,   color: FlxColor.fromRGB(255, 200,  80), barColor: FlxColor.fromRGB(255, 200,  80)},
-			{label: 'SHITS',   value: PlayState.shits,  color: FlxColor.fromRGB(180, 100,  40), barColor: FlxColor.fromRGB(180, 100,  40)},
-			{label: 'MISSES',  value: PlayState.misses, color: FlxColor.fromRGB(255,  70,  70), barColor: FlxColor.fromRGB(255,  70,  70)},
-			{label: 'COMBO',   value: PlayState.maxCombo, color: FlxColor.fromRGB(200, 200, 255), barColor: FlxColor.fromRGB(200, 200, 255)},
+			{label: 'SICKS',   value: gs.sicks,    color: FlxColor.fromRGB( 80, 255, 140), barColor: FlxColor.fromRGB( 80, 255, 140)},
+			{label: 'GOODS',   value: gs.goods,    color: FlxColor.fromRGB( 80, 200, 255), barColor: FlxColor.fromRGB( 80, 200, 255)},
+			{label: 'BADS',    value: gs.bads,     color: FlxColor.fromRGB(255, 200,  80), barColor: FlxColor.fromRGB(255, 200,  80)},
+			{label: 'SHITS',   value: gs.shits,    color: FlxColor.fromRGB(180, 100,  40), barColor: FlxColor.fromRGB(180, 100,  40)},
+			{label: 'MISSES',  value: gs.misses,   color: FlxColor.fromRGB(255,  70,  70), barColor: FlxColor.fromRGB(255,  70,  70)},
+			{label: 'COMBO',   value: gs.maxCombo, color: FlxColor.fromRGB(200, 200, 255), barColor: FlxColor.fromRGB(200, 200, 255)},
 		];
 
 		// Custom stats from scripts
@@ -559,7 +562,7 @@ class ResultScreen extends FlxSubState
 
 	function _buildBigAccuracy():Void
 	{
-		_pctTarget  = PlayState.accuracy;
+		_pctTarget  = GameState.get().accuracy;
 		_pctStart   = Math.max(0, _pctTarget - 30);
 		_pctCurrent = _pctStart;
 
@@ -572,8 +575,8 @@ class ResultScreen extends FlxSubState
 		add(bigPctText);
 		_pulseSprites.push(cast bigPctText);
 
-		var ratingTxt = _getRatingText(PlayState.accuracy);
-		var ratingClr = _getRatingColor(PlayState.accuracy);
+		var ratingTxt = _getRatingText(GameState.get().accuracy);
+		var ratingClr = _getRatingColor(GameState.get().accuracy);
 		ratingText = new FlxText(0, FlxG.height + 150, FlxG.width, ratingTxt, 32);
 		ratingText.setFormat(Paths.font('vcr.ttf'), 32, ratingClr, CENTER,
 			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -596,7 +599,7 @@ class ResultScreen extends FlxSubState
 	 */
 	function _buildHighscoreNew():Void
 	{
-		if (!PlayState.isNewHighscore) return;
+		if (!GameState.get().isNewHighscore) return;
 
 		highscoreNew = new FlxSprite();
 		try
@@ -622,7 +625,7 @@ class ResultScreen extends FlxSubState
 		highscoreNew.y    = -120; // starts off-screen above
 		highscoreNew.alpha = 0;
 		highscoreNew.scrollFactor.set(0, 0);
-		highscoreNew.antialiasing = (FlxG.save.data?.antialiasing ?? true);
+		highscoreNew.antialiasing = (SaveData.data?.antialiasing ?? true);
 		add(highscoreNew);
 
 		StateScriptHandler.exposeElement('highscoreNew', highscoreNew);
@@ -914,7 +917,7 @@ class ResultScreen extends FlxSubState
 
 		if (bf != null) try { bf.playAnim('hey', true); } catch (_) {}
 
-		if (FlxG.save.data?.flashing ?? true)
+		if (SaveData.data?.flashing ?? true)
 			FlxG.camera.flash(FlxColor.WHITE, 0.4);
 		FlxG.camera.shake(0.005, 0.25);
 
@@ -971,12 +974,12 @@ class ResultScreen extends FlxSubState
 
 	function _generateRank():String
 	{
-		var acc = PlayState.accuracy;
+		var acc = GameState.get().accuracy;
 
 		var scriptRank = StateScriptHandler.callOnScriptsReturn('getCustomRank', [acc], null);
 		if (scriptRank != null) return scriptRank;
 
-		if (rankConfig.naWhenZero && acc == 0 && PlayState.misses == 0) return 'N/A';
+		if (rankConfig.naWhenZero && acc == 0 && GameState.get().misses == 0) return 'N/A';
 		if (acc <= rankConfig.failAt) return 'F';
 
 		var sorted = rankConfig.ranks.copy();
@@ -1070,15 +1073,16 @@ class ResultScreen extends FlxSubState
 
 	function _exposeData():Void
 	{
+		var gs = GameState.get();
 		StateScriptHandler.exposeAll([
-			'songScore'   => PlayState.songScore,
-			'accuracy'    => PlayState.accuracy,
-			'misses'      => PlayState.misses,
-			'sicks'       => PlayState.sicks,
-			'goods'       => PlayState.goods,
-			'bads'        => PlayState.bads,
-			'shits'       => PlayState.shits,
-			'maxCombo'    => PlayState.maxCombo,
+			'songScore'   => gs.score,
+			'accuracy'    => gs.accuracy,
+			'misses'      => gs.misses,
+			'sicks'       => gs.sicks,
+			'goods'       => gs.goods,
+			'bads'        => gs.bads,
+			'shits'       => gs.shits,
+			'maxCombo'    => gs.maxCombo,
 			'isStoryMode' => PlayState.isStoryMode,
 			'songName'    => PlayState.SONG?.song ?? '',
 			'difficulty'  => PlayState.storyDifficulty,

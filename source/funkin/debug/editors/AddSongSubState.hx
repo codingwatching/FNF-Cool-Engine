@@ -1,7 +1,6 @@
 package funkin.debug.editors;
 import coolui.CoolInputText;
 
-
 #if desktop
 import lime.ui.FileDialog;
 #end
@@ -162,6 +161,7 @@ class AddSongSubState extends FlxSubState
 	var noteSkinInput:CoolInputText;
 	var introVideoInput:CoolInputText;
 	var outroVideoInput:CoolInputText;
+	var noteSkinsInput:CoolInputText; // JSON inline: {"player_strums_0":"PixelSkin","cpu_strums_0":"Default"}
 	var artistInput:CoolInputText;
 	var albumInput:CoolInputText;
 	var albumTextInput:CoolInputText;
@@ -1443,6 +1443,18 @@ class AddSongSubState extends FlxSubState
 
 		cy += 74;
 
+		// ── Skins por jugador / grupo de strums ───────────────────────────────
+		_lbl(g, cx, cy, "Player Skins (per strum group):", 0.49);
+		noteSkinsInput = _inp(g, cx, cy + 22, windowWidth - 80, "", 200, 0.51);
+		var hps = new FlxText(cx, cy + 52, windowWidth - 80,
+			"JSON: {\"player_strums_0\":\"PixelSkin\",\"cpu_strums_0\":\"Default\"}  —  key = group ID or character name. Empty = uses Note Skin above.", 11);
+		hps.setFormat(Paths.font("vcr.ttf"), 11,
+			funkin.debug.themes.EditorTheme.current.textSecondary, LEFT);
+		hps.alpha = 0; g.add(hps);
+		FlxTween.tween(hps, {alpha: 0.7}, 0.3, {startDelay: 0.52});
+
+		cy += 74;
+
 		// ── Artist ────────────────────────────────────────────────────────────
 		_lbl(g, cx, cy, "Artist:", 0.50);
 		artistInput = _inp(g, cx, cy + 22, windowWidth - 80, "", 80, 0.52);
@@ -2036,6 +2048,21 @@ class AddSongSubState extends FlxSubState
 		var outroVideo = outroVideoInput != null ? outroVideoInput.text.trim() : '';
 		var artist     = artistInput    != null ? artistInput.text.trim()    : '';
 
+		// ── Parsear noteSkins desde el campo de texto (JSON inline) ─────────
+		var noteSkinsRaw = noteSkinsInput != null ? noteSkinsInput.text.trim() : '';
+		var noteSkinsObj:Dynamic = null;
+		if (noteSkinsRaw != '' && noteSkinsRaw != '{}')
+		{
+			try
+			{
+				noteSkinsObj = haxe.Json.parse(noteSkinsRaw);
+			}
+			catch (e:Dynamic)
+			{
+				trace('[AddSong] noteSkins JSON inválido, se ignorará: $e');
+			}
+		}
+
 		// ── Sufijos de las dificultades habilitadas ────────────────────────────
 		// Se guardan en "difficulties" del meta para que getAvailableDifficulties()
 		// filtre correctamente y el jugador solo vea las diffs elegidas.
@@ -2049,6 +2076,7 @@ class AddSongSubState extends FlxSubState
 			introVideo:   introVideo != '' ? introVideo : null,
 			outroVideo:   outroVideo != '' ? outroVideo : null,
 			artist:       artist     != '' ? artist     : null,
+			noteSkins:  noteSkinsObj,
 			// Solo escribir el campo si hay diffs configuradas explícitamente.
 			// Si el array está vacío (nadie pasó por el paso 2), lo dejamos null
 			// para mantener el comportamiento legacy (mostrar todo).
@@ -2091,6 +2119,21 @@ class AddSongSubState extends FlxSubState
 		if (noteSkinInput   != null) noteSkinInput.text   = m.noteSkin;
 		if (introVideoInput != null) introVideoInput.text = m.introVideo ?? '';
 		if (outroVideoInput != null) outroVideoInput.text = m.outroVideo ?? '';
+		// Reconstruir JSON de noteSkins desde el Map cargado
+		if (noteSkinsInput != null)
+		{
+			if (m.noteSkins != null && m.noteSkins.keys().hasNext())
+			{
+				var obj:Dynamic = {};
+				for (key in m.noteSkins.keys())
+					Reflect.setField(obj, key, m.noteSkins.get(key));
+				noteSkinsInput.text = haxe.Json.stringify(obj);
+			}
+			else
+			{
+				noteSkinsInput.text = '';
+			}
+		}
 
 		// Artista y álbum desde freeplayListData (prioridad) o meta.json
 		for (entry in freeplayListData.songs)

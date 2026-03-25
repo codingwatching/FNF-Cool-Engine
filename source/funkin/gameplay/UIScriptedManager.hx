@@ -14,9 +14,7 @@ using StringTools;
 	* UIScriptedManager — A UIManager fully controlled by HScript.
 
 	* If the requested script does not exist or fails, the default script is loaded automatically.
-
 	* *
-
 	* ─── API exposed to the script ──────────────────────────────────────────────
 
 	* // Construction

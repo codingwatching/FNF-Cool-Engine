@@ -18,6 +18,7 @@ import funkin.scripting.StateScriptHandler;
 import funkin.transitions.StateTransition;
 import funkin.audio.MusicManager;
 import haxe.Json;
+import funkin.data.SaveData;
 
 using StringTools;
 
@@ -129,7 +130,7 @@ class TitleState extends funkin.states.MusicBeatState
 		StateScriptHandler.callOnScripts('onCreate', []);
 		#end
 
-		if (FlxG.save.data.weekUnlocked != null)
+		if (SaveData.data.weekUnlocked != null)
 		{
 			if (StoryMenuState.weekUnlocked.length < 4)
 				StoryMenuState.weekUnlocked.insert(0, true);
@@ -294,7 +295,7 @@ class TitleState extends funkin.states.MusicBeatState
 			if (titleText != null)
 				titleText.animation.play('press');
 
-			if (FlxG.save.data.flashing)
+			if (SaveData.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 1);
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
 
@@ -515,7 +516,7 @@ class TitleState extends funkin.states.MusicBeatState
 		{
 			remove(ngSpr);
 
-			if (FlxG.save.data.flashing)
+			if (SaveData.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 4);
 			remove(credGroup);
 

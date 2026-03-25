@@ -11,6 +11,7 @@ import funkin.scripting.StateScriptHandler;
 import funkin.transitions.StateTransition;
 import haxe.Json;
 import ui.Alphabet;
+import funkin.data.SaveData;
 
 /**
  * CustomMenuState — Ejecuta en el juego cualquier menú creado con MenuEditor.
@@ -237,7 +238,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 				_sprites.push(spr); // guarda spr aunque esté vacío para mantener índices
 				continue;
 			}
-			spr.antialiasing = FlxG.save.data.antialiasing;
+			spr.antialiasing = SaveData.data.antialiasing;
 			spr.scrollFactor.set();
 			add(spr);
 			_sprites.push(spr);
@@ -347,7 +348,7 @@ class CustomMenuState extends funkin.states.MusicBeatState
 
 		_selected = true;
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
-		if (FlxG.save.data.flashing) FlxG.camera.flash(FlxColor.WHITE);
+		if (SaveData.data.flashing) FlxG.camera.flash(FlxColor.WHITE);
 
 		var action = _items[_curIdx].action ?? "";
 		var itemScript = _items[_curIdx].script ?? "";

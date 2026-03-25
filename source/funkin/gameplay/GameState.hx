@@ -21,8 +21,15 @@ class GameState
 	// === STATS ===
 	public var score:Int = 0;
 	public var combo:Int = 0;
+	public var maxCombo:Int = 0;
 	public var health:Float = 1.0;
 	public var accuracy:Float = 0.00;
+
+	/**
+	 * True if the score of this game exceeds the previously saved high score.
+     * Set in PlayState just before calling Highscore.saveScore().
+	 */
+	public var isNewHighscore:Bool = false;
 
 	// === COUNTERS LEGACY (compatibilidad con scripts/HUD existentes) ===
 	public var sicks:Int = 0;
@@ -60,6 +67,7 @@ class GameState
 	{
 		score     = 0;
 		combo     = 0;
+		maxCombo  = 0;
 		health    = 1.0;
 		accuracy  = 0.0;
 		sicks     = 0;
@@ -67,6 +75,7 @@ class GameState
 		bads      = 0;
 		shits     = 0;
 		misses    = 0;
+		isNewHighscore   = false;
 		totalNotesHit    = 0;
 		totalNotesPlayed = 0;
 		ratingCounts.clear();
@@ -121,7 +130,10 @@ class GameState
 		if (ratingData.breakCombo)
 			combo = 0;
 		else
+		{
 			combo++;
+			if (combo > maxCombo) maxCombo = combo;
+		}
 
 		// ── Accuracy ─────────────────────────────────────────────────────────
 		totalNotesHit += ratingData.accuracyWeight;

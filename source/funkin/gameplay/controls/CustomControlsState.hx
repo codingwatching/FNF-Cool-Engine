@@ -24,6 +24,7 @@ import haxe.Json;
 import ui.Hitbox;
 #if lime
 import lime.system.Clipboard;
+import funkin.data.SaveData;
 #end
 
 using StringTools;
@@ -73,7 +74,7 @@ class CustomControlsState extends funkin.states.MusicBeatSubstate
 		bg.setGraphicSize(Std.int(bg.width * 1.1));
 		bg.updateHitbox();
 		bg.screenCenter();
-		bg.antialiasing = FlxG.save.data.antialiasing;
+		bg.antialiasing = SaveData.data.antialiasing;
 		
 		// load curSelected
 		if (_saveconrtol.data.buttonsmode == null){

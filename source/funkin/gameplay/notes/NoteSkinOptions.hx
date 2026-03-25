@@ -19,6 +19,7 @@ import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import lime.utils.Assets;
 import ui.Alphabet;
+import funkin.data.SaveData;
 
 enum PreviewMode
 {
@@ -111,7 +112,7 @@ class NoteSkinOptions extends funkin.states.MusicBeatState
 		bg.setGraphicSize(Std.int(bg.width * 1.1));
 		bg.updateHitbox();
 		bg.screenCenter();
-		bg.antialiasing = FlxG.save.data.antialiasing;
+		bg.antialiasing = SaveData.data.antialiasing;
 		add(bg);
 
 		// Panel izquierdo (lista) - MEJORADO

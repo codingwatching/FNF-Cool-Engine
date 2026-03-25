@@ -21,6 +21,7 @@ import openfl.display.BitmapData as Bitmap;
 import data.PlayerSettings;
 import funkin.scripting.StateScriptHandler;
 import funkin.audio.MusicManager;
+import funkin.data.SaveData;
 
 using StringTools;
 
@@ -74,7 +75,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		bg.scale.set(bgScale, bgScale);
 		bg.updateHitbox();
 		bg.screenCenter();
-		bg.antialiasing = FlxG.save.data.antialiasing;
+		bg.antialiasing = SaveData.data.antialiasing;
 		add(bg);
 
 		camFollow = new FlxObject(0, 0, 1, 1);
@@ -115,7 +116,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 			if (optionShit.length < 6)
 				scr = 0;
 			menuItem.scrollFactor.set(0, scr);
-			menuItem.antialiasing = FlxG.save.data.antialiasing;
+			menuItem.antialiasing = SaveData.data.antialiasing;
 			menuItem.setGraphicSize(Std.int(menuItem.width * 0.8));
 			menuItem.updateHitbox();
 		}
@@ -128,13 +129,13 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#end
 		modShit.scrollFactor.set();
 		modShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		modShit.antialiasing = FlxG.save.data.antialiasing;
+		modShit.antialiasing = SaveData.data.antialiasing;
 		modShit.y -= 40;
 		add(modShit);
 
 		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v0.6.1", 12);
 		versionShit.scrollFactor.set();
-		versionShit.antialiasing = FlxG.save.data.antialiasing;
+		versionShit.antialiasing = SaveData.data.antialiasing;
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
 
@@ -142,7 +143,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		versionShit2.scrollFactor.set();
 		versionShit2.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		versionShit2.y -= 20;
-		versionShit2.antialiasing = FlxG.save.data.antialiasing;
+		versionShit2.antialiasing = SaveData.data.antialiasing;
 		add(versionShit2);
 
 		// Etiqueta del mod activo — solo visible si hay uno cargado
@@ -157,7 +158,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 			var modActiveText:FlxText = new FlxText(FlxG.width - 270, FlxG.height - 19, 0, '\u25B6 MOD: $_modLabel$_modVer', 16);
 			modActiveText.scrollFactor.set();
 			modActiveText.setFormat("VCR OSD Mono", 16, _modColor, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-			modActiveText.antialiasing = FlxG.save.data.antialiasing;
+			modActiveText.antialiasing = SaveData.data.antialiasing;
 			add(modActiveText);
 		}
 
@@ -237,7 +238,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 
 				selectedSomethin = true;
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'));
-				if (FlxG.save.data.flashing)
+				if (SaveData.data.flashing)
 					FlxG.camera.flash(FlxColor.WHITE);
 
 				menuItems.forEach(function(spr:FlxSprite)

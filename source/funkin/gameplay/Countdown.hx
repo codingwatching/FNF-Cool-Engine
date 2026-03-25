@@ -9,6 +9,7 @@ import flixel.sound.FlxSound;
 import funkin.data.Conductor;
 import funkin.gameplay.PlayStateConfig;
 import funkin.scripting.ScriptHandler;
+import funkin.data.SaveData;
 
 // ─── Configuración de un skin de countdown ────────────────────────────────────
 // Todos los valores son soft-coded; se puede cambiar desde scripts/JSON sin
@@ -197,7 +198,7 @@ class Countdown {
 				spr.setGraphicSize(Std.int(spr.width * skin.pixelScale));
 			else {
 				spr.setGraphicSize(Std.int(spr.width * skin.hdScale));
-				spr.antialiasing = FlxG.save.data.antialiasing;
+				spr.antialiasing = SaveData.data.antialiasing;
 			}
 
 			spr.updateHitbox();
@@ -437,7 +438,7 @@ class Countdown {
 			spr.setGraphicSize(Std.int(spr.width * sk.pixelScale));
 		else {
 			spr.setGraphicSize(Std.int(spr.width * sk.hdScale));
-			spr.antialiasing = FlxG.save.data.antialiasing;
+			spr.antialiasing = SaveData.data.antialiasing;
 		}
 
 		spr.updateHitbox();

@@ -55,6 +55,23 @@ typedef SongMetaData =
 	@:optional var stageSkins:Null<Dynamic>;
 
 	/**
+	 * Skins por grupo de strums o por jugador.
+	 * La clave puede ser:
+	 *   - El ID exacto del strum group (ej: "player_strums_0", "cpu_strums_0")
+	 *   - El nombre del personaje vinculado al grupo (ej: "bf", "dad")
+	 * El valor es el nombre de la skin a aplicar.
+	 *
+	 * Ejemplo:
+	 *   "noteSkins": {
+	 *     "player_strums_0": "DefaultPixel",
+	 *     "cpu_strums_0":    "Default"
+	 *   }
+	 *
+	 * Tiene mayor prioridad que noteSkin y stageSkins para los grupos indicados.
+	 */
+	@:optional var noteSkins:Null<Dynamic>;
+
+	/**
 	 * Overrides por dificultad. La clave es el sufijo de dificultad SIN el guión
 	 * (ej: "erect", "hard", "nightmare"). Los campos presentes en el objeto
 	 * tienen prioridad sobre los valores base del meta.json para esa dificultad.
@@ -111,6 +128,13 @@ class MetaData
 	public var noteSkin:String = 'default';
 	public var noteSplash:Null<String> = null;
 	public var stageSkins:Null<Map<String, String>> = null;
+
+	/**
+	 * Skins por ID de strum group o por nombre de personaje.
+	 * null = no hay overrides por grupo (se usa noteSkin / stageSkins como antes).
+	 * Populated desde el campo "noteSkins" del meta.json.
+	 */
+	public var noteSkins:Null<Map<String, String>> = null;
 
 	// ── Hold Cover ──────────────────────────────────────────────────────────
 	/** null = usar GlobalConfig.holdCoverEnabled */
@@ -217,6 +241,19 @@ class MetaData
 				if (val != null && val != '') meta.stageSkins.set(field, val);
 			}
 			if (!meta.stageSkins.iterator().hasNext()) meta.stageSkins = null;
+		}
+
+		// ── Per-group / per-player skins ─────────────────────────────────────
+		if (rawData?.noteSkins != null)
+		{
+			meta.noteSkins = new Map<String, String>();
+			var obj:Dynamic = rawData.noteSkins;
+			for (field in Reflect.fields(obj))
+			{
+				var val = Std.string(Reflect.field(obj, field));
+				if (val != null && val != '') meta.noteSkins.set(field, val);
+			}
+			if (!meta.noteSkins.iterator().hasNext()) meta.noteSkins = null;
 		}
 
 		// ── Hold Cover ───────────────────────────────────────────────────────

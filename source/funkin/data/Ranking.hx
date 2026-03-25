@@ -1,47 +1,42 @@
 package funkin.data;
+
+import funkin.gameplay.GameState;
 import funkin.gameplay.PlayState;
-class Ranking {
-    public static function generateLetterRank():String{
-        var daRanking:String = 'N/A';
-        var accuracy:Array<Bool> = [
-            PlayState.accuracy >= 99.99, //SS
-            PlayState.accuracy >= 94.99, //S
-            PlayState.accuracy >= 89.99, //A
-            PlayState.accuracy >= 79.99, //B
-            PlayState.accuracy >= 69.99, //C
-            PlayState.accuracy >= 59.99, //D
-        ];
 
-        //Osu!Mania Ranking System
+class Ranking
+{
+	/** Genera la letra de ranking basada en la accuracy del GameState actual. */
+	public static function generateLetterRank():String
+	{
+		var gs       = GameState.get();
+		var acc      = gs.accuracy;
+		var daRanking:String = 'N/A';
 
-        for(i in 0...accuracy.length)
-        {
-            var lyrics = accuracy[i];
-            if (lyrics)
-            {
-                switch(i)
-                {
-                    case 0:
-                        daRanking = "SS";
-                    case 1:
-                        daRanking = "S";
-                    case 2:
-                        daRanking = "A";
-                    case 3:
-                        daRanking = "B";
-                    case 4:
-                        daRanking = "C";
-                    case 5:
-                        daRanking = "D";
-                }
-                break;
-            }
-        }
+		// Sistema de ranking estilo osu!mania
+		var thresholds:Array<{rank:String, min:Float}> = [
+			{rank: 'SS', min: 99.99},
+			{rank: 'S',  min: 94.99},
+			{rank: 'A',  min: 89.99},
+			{rank: 'B',  min: 79.99},
+			{rank: 'C',  min: 69.99},
+			{rank: 'D',  min: 59.99},
+		];
 
-        if (PlayState.accuracy == 0 && PlayState.misses == 0)
-            daRanking = "N/A";
-        else if (PlayState.accuracy <= 59.99 && !PlayState.startingSong)
-            daRanking = "F";
-        return daRanking;
-    }
+		for (t in thresholds)
+		{
+			if (acc >= t.min)
+			{
+				daRanking = t.rank;
+				break;
+			}
+		}
+
+		// Casos especiales
+		if (acc == 0 && gs.misses == 0)
+			daRanking = 'N/A';
+		else if (acc <= 59.99 && !PlayState.startingSong)
+			daRanking = 'F';
+
+		return daRanking;
+	}
 }

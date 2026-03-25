@@ -1,6 +1,7 @@
 package funkin.gameplay.objects.hud;
 
 import flixel.FlxG;
+import funkin.data.SaveData;
 
 class Highscore
 {
@@ -99,11 +100,11 @@ class Highscore
 
 	public static function load():Void
 	{
-		if (FlxG.save.data.songScores != null)
-			songScores = FlxG.save.data.songScores;
+		if (SaveData.data.songScores != null)
+			songScores = SaveData.data.songScores;
 		// FIX: songRating no se cargaba → rating siempre 0 al relanzar
-		if (FlxG.save.data.songRating != null)
-			songRating = FlxG.save.data.songRating;
+		if (SaveData.data.songRating != null)
+			songRating = SaveData.data.songRating;
 	}
 
 	// ─── Internos ────────────────────────────────────────────────────────────
@@ -111,15 +112,15 @@ class Highscore
 	static function _setScore(key:String, score:Int):Void
 	{
 		songScores.set(key, score);
-		FlxG.save.data.songScores = songScores;
-		FlxG.save.flush();
+		SaveData.data.songScores = songScores;
+		SaveData.flush();
 	}
 
 	static function _setRating(key:String, rating:Float):Void
 	{
 		songRating.set(key, rating);
-		FlxG.save.data.songRating = songRating;
-		FlxG.save.flush();
+		SaveData.data.songRating = songRating;
+		SaveData.flush();
 	}
 
 	/** Resuelve el sufijo de dificultad por índice en difficultyStuff. */

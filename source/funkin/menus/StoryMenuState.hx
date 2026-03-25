@@ -40,6 +40,7 @@ import haxe.format.JsonParser;
 import funkin.audio.MusicManager;
 #if sys
 import sys.FileSystem;
+import funkin.data.SaveData;
 #end
 
 
@@ -657,7 +658,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			if (stopspamming == false)
 			{
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'));
-				if (FlxG.save.data.flashing)
+				if (SaveData.data.flashing)
 					FlxG.camera.flash(FlxColor.WHITE, 1);
 
 				if (grpWeekText != null

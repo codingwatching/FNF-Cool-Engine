@@ -45,6 +45,7 @@ import haxe.Json;
 import funkin.audio.MusicManager;
 #if sys
 import sys.FileSystem;
+import funkin.data.SaveData;
 #end
 
 /**
@@ -934,7 +935,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 				}
 				discSpr = new FlxSprite(CARD_X, CARD_Y + 280);
 				discSpr.loadGraphic(Paths.image('menu/freeplay/disc'));
-				discSpr.antialiasing = FlxG.save.data.antialiasing;
+				discSpr.antialiasing = SaveData.data.antialiasing;
 				discSpr.setGraphicSize(Std.int(discSpr.width * 0.45));
 				discSpr.updateHitbox();
 				discSpr.scrollFactor.set();
@@ -1012,7 +1013,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			if (colorTween != null)
 				colorTween.cancel();
 			funkin.audio.MusicManager.stop();
-			if (FlxG.save.data.flashing)
+			if (SaveData.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 1);
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
 			StickerTransition.setCurrentContext(songs[curSelected].week, songs[curSelected].songName);

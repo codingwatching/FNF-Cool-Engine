@@ -14,6 +14,7 @@ import flixel.input.gamepad.FlxGamepadButton;
 import funkin.data.KeyBinds;
 import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.input.keyboard.FlxKey;
+import funkin.data.SaveData;
 
 enum abstract Action(String) to String from String
 {
@@ -590,36 +591,36 @@ class Controls extends FlxActionSet
 		removeKeyboard();
 		KeyBinds.keyCheck();
 
-		inline bindKeys(Control.UP,    [FlxKey.fromString(FlxG.save.data.upBind),    FlxKey.UP]);
-		inline bindKeys(Control.DOWN,  [FlxKey.fromString(FlxG.save.data.downBind),  FlxKey.DOWN]);
-		inline bindKeys(Control.LEFT,  [FlxKey.fromString(FlxG.save.data.leftBind),  FlxKey.LEFT]);
-		inline bindKeys(Control.RIGHT, [FlxKey.fromString(FlxG.save.data.rightBind), FlxKey.RIGHT]);
-		inline bindKeys(Control.RESET, [FlxKey.fromString(FlxG.save.data.killBind)]);
+		inline bindKeys(Control.UP,    [FlxKey.fromString(SaveData.data.upBind),    FlxKey.UP]);
+		inline bindKeys(Control.DOWN,  [FlxKey.fromString(SaveData.data.downBind),  FlxKey.DOWN]);
+		inline bindKeys(Control.LEFT,  [FlxKey.fromString(SaveData.data.leftBind),  FlxKey.LEFT]);
+		inline bindKeys(Control.RIGHT, [FlxKey.fromString(SaveData.data.rightBind), FlxKey.RIGHT]);
+		inline bindKeys(Control.RESET, [FlxKey.fromString(SaveData.data.killBind)]);
 
 		// ACCEPT: tecla configurable + fallbacks Z/SPACE/ENTER
-		var acceptKey = FlxKey.fromString(FlxG.save.data.acceptBind);
+		var acceptKey = FlxKey.fromString(SaveData.data.acceptBind);
 		var acceptKeys = [acceptKey, Z, SPACE];
 		if (acceptKey != ENTER) acceptKeys.push(ENTER);
 		inline bindKeys(Control.ACCEPT, acceptKeys);
 
 		// BACK: tecla configurable + fallback BACKSPACE/ESCAPE
-		var backKey = FlxKey.fromString(FlxG.save.data.backBind);
+		var backKey = FlxKey.fromString(SaveData.data.backBind);
 		var backKeys = [backKey, BACKSPACE];
 		if (backKey != ESCAPE) backKeys.push(ESCAPE);
 		inline bindKeys(Control.BACK, backKeys);
 
 		// PAUSE: tecla configurable + fallback ENTER/ESCAPE
-		var pauseKey = FlxKey.fromString(FlxG.save.data.pauseBind);
+		var pauseKey = FlxKey.fromString(SaveData.data.pauseBind);
 		var pauseKeys = [pauseKey, ENTER, ESCAPE];
 		inline bindKeys(Control.PAUSE, pauseKeys);
 
 		// SCREENSHOT: tecla configurable + fallback F12
-		var screenshotKey = FlxKey.fromString(FlxG.save.data.screenshotBind);
+		var screenshotKey = FlxKey.fromString(SaveData.data.screenshotBind);
 		var screenshotKeys = [screenshotKey, F12];
 		inline bindKeys(Control.SCREENSHOT, screenshotKeys);
 
 		// CHEAT: tecla configurable
-		var cheatKey = FlxKey.fromString(FlxG.save.data.cheatBind);
+		var cheatKey = FlxKey.fromString(SaveData.data.cheatBind);
 		inline bindKeys(Control.CHEAT, [cheatKey]);
 
 		trace('KeyBinds are Load');

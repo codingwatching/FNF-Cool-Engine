@@ -37,6 +37,7 @@ import sys.thread.Thread;
 import funkin.data.KeyBinds;
 import funkin.gameplay.notes.NoteSkinSystem;
 import funkin.addons.AddonManager;
+import funkin.data.SaveData;
 #if mobileC
 import funkin.util.plugins.TouchPointerPlugin;
 #end
@@ -372,12 +373,15 @@ class Main extends Sprite
 	private function initializeSaveSystem():Void
 	{
 		FlxG.save.bind('coolengine', 'CoolTeam');
+		
+		SaveData.migrate();
+
 		funkin.menus.OptionsMenuState.OptionsData.initSave();
 		funkin.gameplay.objects.hud.Highscore.load();
 
 		// ── Aplicar modo de escala guardado ────────────────────────────────────
-		if (FlxG.save.data.scaleMode != null)
-			WindowManager.applyScaleModeByName(FlxG.save.data.scaleMode);
+		if (SaveData.data.scaleMode != null)
+			WindowManager.applyScaleModeByName(SaveData.data.scaleMode);
 	}
 
 	private function initializeGameSystems():Void
@@ -395,12 +399,12 @@ class Main extends Sprite
 		#if mobileC
 		TouchPointerPlugin.initialize();
 		// Restaurar preferencia guardada
-		if (FlxG.save.data.touchIndicator != null)
-			TouchPointerPlugin.enabled = FlxG.save.data.touchIndicator;
+		if (SaveData.data.touchIndicator != null)
+			TouchPointerPlugin.enabled = SaveData.data.touchIndicator;
 		#end
 
-		if (FlxG.save.data.gpuCaching != null)
-			PathsCache.gpuCaching = FlxG.save.data.gpuCaching;
+		if (SaveData.data.gpuCaching != null)
+			PathsCache.gpuCaching = SaveData.data.gpuCaching;
 
 		Paths.addExclusion(Paths.music('freakyMenu'));
 		Paths.addExclusion(Paths.image('menu/cursor/cursor-default'));
@@ -422,18 +426,18 @@ class Main extends Sprite
 		#end
 
 		#if !mobileC
-		if (FlxG.save.data.fpsTarget != null)
+		if (SaveData.data.fpsTarget != null)
 		{
-			setMaxFps(Std.int(FlxG.save.data.fpsTarget));
+			setMaxFps(Std.int(SaveData.data.fpsTarget));
 		}
-		else if (FlxG.save.data.FPSCap != null && FlxG.save.data.FPSCap)
+		else if (SaveData.data.FPSCap != null && SaveData.data.FPSCap > 0)
 		{
-			FlxG.save.data.fpsTarget = 120;
+			SaveData.data.fpsTarget = 120;
 			setMaxFps(120);
 		}
 		else
 		{
-			FlxG.save.data.fpsTarget = 60;
+			SaveData.data.fpsTarget = 60;
 			setMaxFps(60);
 		}
 		#end
@@ -497,7 +501,7 @@ class Main extends Sprite
 	public static function applyVSync():Void
 	{
 		#if cpp
-		VSyncAPI.setVSync(FlxG.save.data.vsync == true);
+		VSyncAPI.setVSync(SaveData.data.vsync == true);
 		#end
 	}
 

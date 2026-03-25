@@ -20,6 +20,7 @@ import funkin.gameplay.PlayState;
 import funkin.data.Conductor;
 import funkin.data.Song.StrumsGroupData;
 import funkin.data.Song;
+import funkin.data.SaveData;
 
 /**
  * ══════════════════════════════════════════════════════════════════════
@@ -1537,10 +1538,10 @@ class ModChartEditorState extends FlxState
 		setStatus('Script not found para: ${songName}');
 		#else
 		// HTML5: usar FlxG.save
-		if (FlxG.save.data.modchart_script != null)
+		if (SaveData.data.modchart_script != null)
 		{
 			try {
-				var count = parseModScript(FlxG.save.data.modchart_script);
+				var count = parseModScript(SaveData.data.modchart_script);
 				if (scriptStatusTxt != null) scriptStatusTxt.text = '✓ ${count} eventos desde save.';
 				setStatus('Script cargado desde save: ${count} eventos.');
 			} catch (e:Dynamic) {
@@ -1586,8 +1587,8 @@ class ModChartEditorState extends FlxState
 			setStatus('Error al exportar: ${e}');
 		}
 		#else
-		FlxG.save.data.modchart_script = json;
-		FlxG.save.flush();
+		SaveData.data.modchart_script = json;
+		SaveData.flush();
 		if (scriptStatusTxt != null) scriptStatusTxt.text = '✓ Exportado en save.';
 		setStatus('Script exportado en save.');
 		#end
@@ -2289,8 +2290,8 @@ class ModChartEditorState extends FlxState
 			setStatus('✓ Guardado: ${mainPath}  (backup auto)');
 		} catch (e:Dynamic) { setStatus("Error al guardar: " + e); }
 		#else
-		FlxG.save.data.modchart_last = manager.toJson();
-		FlxG.save.flush();
+		SaveData.data.modchart_last = manager.toJson();
+		SaveData.flush();
 		setStatus("✓ Guardado en save.");
 		#end
 	}
@@ -2312,9 +2313,9 @@ class ModChartEditorState extends FlxState
 		}
 		else setStatus("Archivo not found: " + mainPath);
 		#else
-		if (FlxG.save.data.modchart_last != null)
+		if (SaveData.data.modchart_last != null)
 		{
-			manager.loadFromJson(FlxG.save.data.modchart_last);
+			manager.loadFromJson(SaveData.data.modchart_last);
 			refreshTimeline();
 			setStatus("✓ Cargado desde save.");
 		}

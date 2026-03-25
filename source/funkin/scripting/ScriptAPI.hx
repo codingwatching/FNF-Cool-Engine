@@ -424,6 +424,7 @@ class ScriptAPI
 
 	static function exposeStorage(interp:Interp):Void
 	{
+		interp.variables.set('SaveData',funkin.data.SaveData);
 		interp.variables.set('data', {
 			set:    function(key:String, value:Dynamic) { Reflect.setField(FlxG.save.data, key, value); },
 			get:    function(key:String, ?fallback:Dynamic):Dynamic {

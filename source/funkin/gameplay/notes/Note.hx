@@ -8,6 +8,7 @@ import flixel.FlxG;
 import funkin.data.Conductor;
 import funkin.gameplay.PlayStateConfig;
 import animationdata.FunkinSprite;
+import funkin.data.SaveData;
 
 using StringTools;
 
@@ -102,7 +103,7 @@ class Note extends FlxSprite
 		// así que calculamos la X final directamente igual que en recycle().
 		x = _calcBaseX(mustHitNote) + (swagWidth * noteData);
 		y = -2000;
-		this.strumTime = strumTime + FlxG.save.data.offset;
+		this.strumTime = strumTime + SaveData.data.offset;
 		this.noteData = noteData;
 
 		NoteSkinSystem.init();
@@ -267,7 +268,7 @@ class Note extends FlxSprite
 
 	public function recycle(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false):Void
 	{
-		this.strumTime = strumTime + FlxG.save.data.offset;
+		this.strumTime = strumTime + SaveData.data.offset;
 		this.noteData = noteData;
 		this.prevNote = prevNote != null ? prevNote : this;
 		this.isSustainNote = sustainNote;
@@ -384,7 +385,7 @@ class Note extends FlxSprite
 		noteScore * 0.2;
 		alpha = 0.6;
 
-		if (FlxG.save.data.downscroll)
+		if (SaveData.data.downscroll)
 		{
 			flipY = true;
 			flipX = true;
@@ -564,7 +565,7 @@ class Note extends FlxSprite
 	/** Calcula la posición X base según mustPress y middlescroll. */
 	inline function _calcBaseX(mustHitNote:Bool):Float
 	{
-		if (FlxG.save.data.middlescroll)
+		if (SaveData.data.middlescroll)
 			return mustHitNote ? (FlxG.width / 2 - swagWidth * 2) : -275;
 		else
 			return mustHitNote ? (FlxG.width / 2 + 100) : 100;

@@ -8,6 +8,7 @@ import funkin.gameplay.notes.Note;
 import funkin.gameplay.notes.NoteSplash;
 import funkin.gameplay.notes.NoteHoldCover;
 import funkin.gameplay.notes.NoteBatcher;
+import funkin.data.SaveData;
 
 /**
  * NoteRenderer SUPER OPTIMIZADO
@@ -245,7 +246,7 @@ class NoteRenderer
      * Iniciar cover visual para una hold note.
      * Reproduce start → loop (automático) → end (cuando se llama stopHoldCover).
      *
-     * Solo llamar si FlxG.save.data.notesplashes == true (el check lo hace NoteManager).
+     * Solo llamar si SaveData.data.notesplashes == true (el check lo hace NoteManager).
      * El caller debe añadir el resultado al FlxGroup de la escena.
      *
      * @return El NoteHoldCover asignado, o null si ya había uno para esta nota.
@@ -318,12 +319,12 @@ class NoteRenderer
 
     /**
      * Alias mantenido para que NoteManager.toggleHoldSplashes() compile sin cambios.
-     * Los hold covers se habilitan/deshabilitan mediante FlxG.save.data.notesplashes
+     * Los hold covers se habilitan/deshabilitan mediante SaveData.data.notesplashes
      * en NoteManager.handleSustainNoteHit().
      */
     public function toggleHoldSplashes():Void
     {
-        trace('[NoteRenderer] Hold covers controlados via FlxG.save.data.notesplashes en NoteManager');
+        trace('[NoteRenderer] Hold covers controlados via SaveData.data.notesplashes en NoteManager');
     }
 
     public function getPoolStats():String

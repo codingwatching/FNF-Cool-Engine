@@ -1,3 +1,8 @@
 {
-    "artist": "Kawai Sprite"
+    "artist": "Kawai Sprite",
+    "noteSkin": "Default",
+    "noteSkins": {
+        "player_strums_0": "Default",
+        "cpu_strums_0":    "Pixel"
+    }
 }

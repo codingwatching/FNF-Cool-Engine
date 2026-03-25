@@ -25,6 +25,7 @@ import funkin.menus.ModImportSubState;
 #if sys
 import sys.FileSystem;
 import sys.io.File;
+import funkin.data.SaveData;
 #end
 
 using StringTools;
@@ -946,7 +947,7 @@ class ModSelectorState extends MusicBeatState
 		else if (FlxG.keys.justPressed.F5)
 		{
 			_sndConfirm();
-			FlxG.save.flush();
+			SaveData.flush();
 			_showStatus('✓ Saved.', true);
 		}
 	}

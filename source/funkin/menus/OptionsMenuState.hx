@@ -24,6 +24,7 @@ import funkin.menus.MainMenuState;
 import funkin.audio.MusicManager;
 import data.PlayerSettings;
 import openfl.Lib;
+import funkin.data.SaveData;
 
 /**
  * Options Menu - Sistema de tabs integrado con keybinds
@@ -46,7 +47,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	/** Devuelve el valor actual guardado (0 = Unlimited, default 60). */
 	static function _getCurrentFPS():Int
 	{
-		return FlxG.save.data.fpsTarget != null ? Std.int(FlxG.save.data.fpsTarget) : 60;
+		return SaveData.data.fpsTarget != null ? Std.int(SaveData.data.fpsTarget) : 60;
 	}
 
 	/** Siguiente valor al pulsar → (Right/Toggle): sube 5, al llegar a 240 pasa a Unlimited,
@@ -186,7 +187,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		titleText.setFormat(Paths.font("Funkin.otf"), 48, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		titleText.borderSize = 3;
 		titleText.scrollFactor.set();
-		titleText.antialiasing = FlxG.save.data.antialiasing;
+		titleText.antialiasing = SaveData.data.antialiasing;
 		add(titleText);
 
 		// Crear contentPanel ANTES de usarlo
@@ -218,7 +219,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			var categoryText:FlxText = new FlxText(60 + (i * categoryWidth), tabY + 8, categoryWidth, categories[i], 24);
 			categoryText.setFormat(Paths.font("Funkin.otf"), 22, 0xFF888888, CENTER, OUTLINE, FlxColor.BLACK);
 			categoryText.borderSize = 2;
-			categoryText.antialiasing = FlxG.save.data.antialiasing;
+			categoryText.antialiasing = SaveData.data.antialiasing;
 			categoryText.ID = i;
 			categoryText.scrollFactor.set();
 			categoryTexts.add(categoryText);
@@ -263,7 +264,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		warningText = new FlxText(0, 140, FlxG.width, "", 20);
 		warningText.setFormat(Paths.font("Funkin.otf"), 20, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
 		warningText.borderSize = 2;
-		warningText.antialiasing = FlxG.save.data.antialiasing;
+		warningText.antialiasing = SaveData.data.antialiasing;
 		warningText.alpha = 0;
 		warningText.scrollFactor.set();
 		add(warningText);
@@ -273,7 +274,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		bindingIndicator.setFormat(Paths.font("Funkin.otf"), 22, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
 		bindingIndicator.borderSize = 2;
 		bindingIndicator.visible = false;
-		bindingIndicator.antialiasing = FlxG.save.data.antialiasing;
+		bindingIndicator.antialiasing = SaveData.data.antialiasing;
 		bindingIndicator.scrollFactor.set();
 		add(bindingIndicator);
 
@@ -290,7 +291,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			"LEFT/RIGHT : Tab  |  UP/DOWN : Navigate  |  ENTER : Toggle/Edit  |  A/D : Adjust  |  ESC : Back", 18);
 		helpText.setFormat(Paths.font("Funkin.otf"), 18, 0xFFAAAAAA, CENTER, OUTLINE, FlxColor.BLACK);
 		helpText.borderSize = 1.5;
-		helpText.antialiasing = FlxG.save.data.antialiasing;
+		helpText.antialiasing = SaveData.data.antialiasing;
 		helpText.scrollFactor.set();
 		add(helpText);
 
@@ -299,7 +300,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		_editModeIndicator.setFormat(Paths.font("Funkin.otf"), 20, FlxColor.LIME, CENTER, OUTLINE, FlxColor.BLACK);
 		_editModeIndicator.borderSize = 2;
 		_editModeIndicator.visible = false;
-		_editModeIndicator.antialiasing = FlxG.save.data.antialiasing;
+		_editModeIndicator.antialiasing = SaveData.data.antialiasing;
 		_editModeIndicator.scrollFactor.set();
 		add(_editModeIndicator);
 
@@ -307,14 +308,14 @@ class OptionsMenuState extends MusicBeatSubstate
 		_scrollArrowUp = new FlxText(0, OPT_START_Y - 28, FlxG.width, "▲  More Options Up", 18);
 		_scrollArrowUp.setFormat(Paths.font("Funkin.otf"), 18, 0xFF888888, CENTER, NONE);
 		_scrollArrowUp.visible = false;
-		_scrollArrowUp.antialiasing = FlxG.save.data.antialiasing;
+		_scrollArrowUp.antialiasing = SaveData.data.antialiasing;
 		_scrollArrowUp.scrollFactor.set();
 		add(_scrollArrowUp);
 
 		_scrollArrowDown = new FlxText(0, OPT_START_Y + OPT_VISIBLE_H + 4, FlxG.width, "▼  More Options Down", 18);
 		_scrollArrowDown.setFormat(Paths.font("Funkin.otf"), 18, 0xFF888888, CENTER, NONE);
 		_scrollArrowDown.visible = false;
-		_scrollArrowDown.antialiasing = FlxG.save.data.antialiasing;
+		_scrollArrowDown.antialiasing = SaveData.data.antialiasing;
 		_scrollArrowDown.scrollFactor.set();
 		add(_scrollArrowDown);
 
@@ -360,45 +361,45 @@ class OptionsMenuState extends MusicBeatSubstate
 	function loadKeyBinds()
 	{
 		// Verificar que existan los keybinds
-		if (FlxG.save.data.leftBind   == null) FlxG.save.data.leftBind   = "A";
-		if (FlxG.save.data.downBind   == null) FlxG.save.data.downBind   = "S";
-		if (FlxG.save.data.upBind     == null) FlxG.save.data.upBind     = "W";
-		if (FlxG.save.data.rightBind  == null) FlxG.save.data.rightBind  = "D";
-		if (FlxG.save.data.killBind   == null) FlxG.save.data.killBind   = "R";
-		if (FlxG.save.data.acceptBind == null) FlxG.save.data.acceptBind = "ENTER";
-		if (FlxG.save.data.backBind   == null) FlxG.save.data.backBind   = "ESCAPE";
-		if (FlxG.save.data.pauseBind  == null) FlxG.save.data.pauseBind  = "ENTER";
-		if (FlxG.save.data.screenshotBind  == null) FlxG.save.data.screenshotBind  = "F12";
-		if (FlxG.save.data.cheatBind  == null) FlxG.save.data.cheatBind  = "SEVEN";
+		if (SaveData.data.leftBind   == null) SaveData.data.leftBind   = "A";
+		if (SaveData.data.downBind   == null) SaveData.data.downBind   = "S";
+		if (SaveData.data.upBind     == null) SaveData.data.upBind     = "W";
+		if (SaveData.data.rightBind  == null) SaveData.data.rightBind  = "D";
+		if (SaveData.data.killBind   == null) SaveData.data.killBind   = "R";
+		if (SaveData.data.acceptBind == null) SaveData.data.acceptBind = "ENTER";
+		if (SaveData.data.backBind   == null) SaveData.data.backBind   = "ESCAPE";
+		if (SaveData.data.pauseBind  == null) SaveData.data.pauseBind  = "ENTER";
+		if (SaveData.data.screenshotBind  == null) SaveData.data.screenshotBind  = "F12";
+		if (SaveData.data.cheatBind  == null) SaveData.data.cheatBind  = "SEVEN";
 
 		keys = [
-			FlxG.save.data.leftBind,
-			FlxG.save.data.downBind,
-			FlxG.save.data.upBind,
-			FlxG.save.data.rightBind,
-			FlxG.save.data.killBind,
-			FlxG.save.data.acceptBind,
-			FlxG.save.data.backBind,
-			FlxG.save.data.pauseBind,
-			FlxG.save.data.screenshotBind,
-			FlxG.save.data.cheatBind
+			SaveData.data.leftBind,
+			SaveData.data.downBind,
+			SaveData.data.upBind,
+			SaveData.data.rightBind,
+			SaveData.data.killBind,
+			SaveData.data.acceptBind,
+			SaveData.data.backBind,
+			SaveData.data.pauseBind,
+			SaveData.data.screenshotBind,
+			SaveData.data.cheatBind
 		];
 	}
 
 	function saveKeyBinds()
 	{
-		FlxG.save.data.leftBind   = keys[0];
-		FlxG.save.data.downBind   = keys[1];
-		FlxG.save.data.upBind     = keys[2];
-		FlxG.save.data.rightBind  = keys[3];
-		FlxG.save.data.killBind   = keys[4];
-		FlxG.save.data.acceptBind = keys[5];
-		FlxG.save.data.backBind   = keys[6];
-		FlxG.save.data.pauseBind  = keys[7];
-		FlxG.save.data.screenshotBind  = keys[8];
-		FlxG.save.data.cheatBind  = keys[9];
+		SaveData.data.leftBind   = keys[0];
+		SaveData.data.downBind   = keys[1];
+		SaveData.data.upBind     = keys[2];
+		SaveData.data.rightBind  = keys[3];
+		SaveData.data.killBind   = keys[4];
+		SaveData.data.acceptBind = keys[5];
+		SaveData.data.backBind   = keys[6];
+		SaveData.data.pauseBind  = keys[7];
+		SaveData.data.screenshotBind  = keys[8];
+		SaveData.data.cheatBind  = keys[9];
 
-		FlxG.save.flush();
+		SaveData.flush();
 		PlayerSettings.player1.controls.loadKeyBinds();
 	}
 
@@ -506,26 +507,26 @@ class OptionsMenuState extends MusicBeatSubstate
 		currentOptions = [
 			{
 				name: "Flashing Lights",
-				get: function() return FlxG.save.data.flashing ? "ON" : "OFF",
+				get: function() return SaveData.data.flashing ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.flashing = !FlxG.save.data.flashing;
+					SaveData.data.flashing = !SaveData.data.flashing;
 				}
 			},
 			{
 				name: "Camera Zoom",
-				get: function() return FlxG.save.data.camZoom ? "ON" : "OFF",
+				get: function() return SaveData.data.camZoom ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.camZoom = !FlxG.save.data.camZoom;
+					SaveData.data.camZoom = !SaveData.data.camZoom;
 				}
 			},
 			{
 				name: "Show HUD",
-				get: function() return FlxG.save.data.HUD ? "OFF" : "ON",
+				get: function() return SaveData.data.HUD ? "OFF" : "ON",
 				toggle: function()
 				{
-					FlxG.save.data.HUD = !FlxG.save.data.HUD;
+					SaveData.data.HUD = !SaveData.data.HUD;
 				}
 			},
 			{
@@ -545,7 +546,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			{
 				// ── FPS Cap ─────────────────────────────────────────────────────
 				// ← / → suben/bajan de 5 en 5 entre 30 y 240, luego Unlimited (0).
-				// Se guarda en FlxG.save.data.fpsTarget y se aplica de inmediato.
+				// Se guarda en SaveData.data.fpsTarget y se aplica de inmediato.
 				name: "FPS Cap",
 				get: function()
 				{
@@ -570,11 +571,11 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "VSync",
 				get: function()
 				{
-					return (FlxG.save.data.vsync == true) ? "ON" : "OFF";
+					return (SaveData.data.vsync == true) ? "ON" : "OFF";
 				},
 				toggle: function()
 				{
-					applyVSync(!(FlxG.save.data.vsync == true));
+					applyVSync(!(SaveData.data.vsync == true));
 				}
 			}
 			#end
@@ -586,8 +587,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	/** Aplica el FPS cap y lo persiste en el save */
 	function applyFPSCap(fps:Int):Void
 	{
-		FlxG.save.data.fpsTarget = fps;
-		FlxG.save.flush();
+		SaveData.data.fpsTarget = fps;
+		SaveData.flush();
 
 		// Delegar SIEMPRE en Main.setMaxFps() — es el único punto que sabe
 		// si usar FrameLimiterAPI (desktop/cpp) o stage.frameRate (mobile/html5).
@@ -603,8 +604,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	/** Aplica/quita VSync via extensión nativa y lo persiste en el save */
 	function applyVSync(value:Bool):Void
 	{
-		FlxG.save.data.vsync = value;
-		FlxG.save.flush();
+		SaveData.data.vsync = value;
+		SaveData.flush();
 		#if cpp
 		extensions.VSyncAPI.setVSync(value);
 		#end
@@ -619,87 +620,87 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Widescreen",
 				get: function()
 				{
-					var s = FlxG.save.data.scaleMode;
+					var s = SaveData.data.scaleMode;
 					return (s == 'widescreen') ? "ON" : "OFF";
 				},
 				toggle: function()
 				{
-					var cur = FlxG.save.data.scaleMode;
+					var cur = SaveData.data.scaleMode;
 					var next = (cur == 'widescreen') ? 'letterbox' : 'widescreen';
-					FlxG.save.data.scaleMode = next;
-					FlxG.save.flush();
+					SaveData.data.scaleMode = next;
+					SaveData.flush();
 					funkin.system.WindowManager.applyScaleModeByName(next);
 				}
 			},
 			#end
 			{
 				name: "GPU Texture Caching",
-				get: function() return FlxG.save.data.gpuCaching ? "ON" : "OFF",
+				get: function() return SaveData.data.gpuCaching ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.gpuCaching = !FlxG.save.data.gpuCaching;
-					funkin.cache.PathsCache.gpuCaching = FlxG.save.data.gpuCaching;
-					FlxG.save.flush();
+					SaveData.data.gpuCaching = !SaveData.data.gpuCaching;
+					funkin.cache.PathsCache.gpuCaching = SaveData.data.gpuCaching;
+					SaveData.flush();
 				}
 			},
 			{
 				name: "Low Memory Mode",
-				get: function() return FlxG.save.data.lowMemoryMode ? "ON" : "OFF",
+				get: function() return SaveData.data.lowMemoryMode ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.lowMemoryMode = !FlxG.save.data.lowMemoryMode;
-					funkin.cache.PathsCache.lowMemoryMode = FlxG.save.data.lowMemoryMode;
-					FlxG.save.flush();
+					SaveData.data.lowMemoryMode = !SaveData.data.lowMemoryMode;
+					funkin.cache.PathsCache.lowMemoryMode = SaveData.data.lowMemoryMode;
+					SaveData.flush();
 				}
 			},
 			{
 				name: "Shaders",
-				get: function() return FlxG.save.data.shaders ? "ON" : "OFF",
+				get: function() return SaveData.data.shaders ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.shaders = !FlxG.save.data.shaders;
+					SaveData.data.shaders = !SaveData.data.shaders;
 				}
 			},
 			{
 				name: "Streamed Music",
-				get: function() return FlxG.save.data.streamedMusic ? "ON" : "OFF",
+				get: function() return SaveData.data.streamedMusic ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.streamedMusic = !FlxG.save.data.streamedMusic;
-					funkin.cache.PathsCache.streamedMusic = FlxG.save.data.streamedMusic;
-					FlxG.save.flush();
+					SaveData.data.streamedMusic = !SaveData.data.streamedMusic;
+					funkin.cache.PathsCache.streamedMusic = SaveData.data.streamedMusic;
+					SaveData.flush();
 				}
 			},
 			{
 				name: "Anti-Aliasing",
-				get: function() return FlxG.save.data.antialiasing ? "ON" : "OFF",
+				get: function() return SaveData.data.antialiasing ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.antialiasing = !FlxG.save.data.antialiasing;
+					SaveData.data.antialiasing = !SaveData.data.antialiasing;
 				}
 			},
 			{
 				name: "Note Splashes",
-				get: function() return FlxG.save.data.notesplashes ? "ON" : "OFF",
+				get: function() return SaveData.data.notesplashes ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.notesplashes = !FlxG.save.data.notesplashes;
+					SaveData.data.notesplashes = !SaveData.data.notesplashes;
 				}
 			},
 			{
 				name: "Visual Effects",
-				get: function() return FlxG.save.data.specialVisualEffects ? "ON" : "OFF",
+				get: function() return SaveData.data.specialVisualEffects ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.specialVisualEffects = !FlxG.save.data.specialVisualEffects;
+					SaveData.data.specialVisualEffects = !SaveData.data.specialVisualEffects;
 				}
 			},
 			{
 				name: "Static Stage",
-				get: function() return FlxG.save.data.staticstage ? "ON" : "OFF",
+				get: function() return SaveData.data.staticstage ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.staticstage = !FlxG.save.data.staticstage;
+					SaveData.data.staticstage = !SaveData.data.staticstage;
 				}
 			}
 		];
@@ -712,50 +713,50 @@ class OptionsMenuState extends MusicBeatSubstate
 		currentOptions = [
 			{
 				name: "Downscroll",
-				get: function() return FlxG.save.data.downscroll ? "ON" : "OFF",
+				get: function() return SaveData.data.downscroll ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.downscroll = !FlxG.save.data.downscroll;
+					SaveData.data.downscroll = !SaveData.data.downscroll;
 				}
 			},
 			{
 				name: "Middlescroll",
-				get: function() return FlxG.save.data.middlescroll ? "ON" : "OFF",
+				get: function() return SaveData.data.middlescroll ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.middlescroll = !FlxG.save.data.middlescroll;
+					SaveData.data.middlescroll = !SaveData.data.middlescroll;
 				}
 			},
 			{
 				name: "Ghost Tapping",
-				get: function() return FlxG.save.data.ghosttap ? "ON" : "OFF",
+				get: function() return SaveData.data.ghosttap ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.ghosttap = !FlxG.save.data.ghosttap;
+					SaveData.data.ghosttap = !SaveData.data.ghosttap;
 				}
 			},
 			{
 				name: "Accuracy Display",
-				get: function() return FlxG.save.data.accuracyDisplay ? "ON" : "OFF",
+				get: function() return SaveData.data.accuracyDisplay ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.accuracyDisplay = !FlxG.save.data.accuracyDisplay;
+					SaveData.data.accuracyDisplay = !SaveData.data.accuracyDisplay;
 				}
 			},
 			{
 				name: "Sick Mode",
-				get: function() return FlxG.save.data.sickmode ? "ON" : "OFF",
+				get: function() return SaveData.data.sickmode ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.sickmode = !FlxG.save.data.sickmode;
+					SaveData.data.sickmode = !SaveData.data.sickmode;
 				}
 			},
 			{
 				name: "Hit Sounds",
-				get: function() return FlxG.save.data.hitsounds ? "ON" : "OFF",
+				get: function() return SaveData.data.hitsounds ? "ON" : "OFF",
 				toggle: function()
 				{
-					FlxG.save.data.hitsounds = !FlxG.save.data.hitsounds;
+					SaveData.data.hitsounds = !SaveData.data.hitsounds;
 				}
 			},
 			// ── Lane Backdrop (osu-style) ───────────────────────────────────────
@@ -766,21 +767,21 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Lane Backdrop",
 				get: function()
 				{
-					var a:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+					var a:Float = (SaveData.data.laneAlpha != null) ? SaveData.data.laneAlpha : 0.0;
 					return Std.int(a * 100) + "%";
 				},
 				left: function()
 				{
-					var a:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+					var a:Float = (SaveData.data.laneAlpha != null) ? SaveData.data.laneAlpha : 0.0;
 					a = Math.max(0.0, Math.round((a - 0.05) * 100) / 100);
-					FlxG.save.data.laneAlpha = a;
+					SaveData.data.laneAlpha = a;
 					_applyLaneBackdropAlpha(a);
 				},
 				right: function()
 				{
-					var a:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+					var a:Float = (SaveData.data.laneAlpha != null) ? SaveData.data.laneAlpha : 0.0;
 					a = Math.min(1.0, Math.round((a + 0.05) * 100) / 100);
-					FlxG.save.data.laneAlpha = a;
+					SaveData.data.laneAlpha = a;
 					_applyLaneBackdropAlpha(a);
 				}
 			},
@@ -791,8 +792,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Rating Position",
 				get: function()
 				{
-					var ox:Int = FlxG.save.data.ratingOffsetX != null ? FlxG.save.data.ratingOffsetX : 0;
-					var oy:Int = FlxG.save.data.ratingOffsetY != null ? FlxG.save.data.ratingOffsetY : 0;
+					var ox:Float = SaveData.data.ratingOffsetX != null ? SaveData.data.ratingOffsetX : 0;
+					var oy:Float = SaveData.data.ratingOffsetY != null ? SaveData.data.ratingOffsetY : 0;
 					return 'X:$ox  Y:$oy';
 				},
 				toggle: function()
@@ -896,22 +897,22 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Pad Opacity",
 				get: function()
 				{
-					var v = FlxG.save.data.mobileAlpha != null ? Std.int(FlxG.save.data.mobileAlpha * 100) : 75;
+					var v = SaveData.data.mobileAlpha != null ? Std.int(SaveData.data.mobileAlpha * 100) : 75;
 					return v + "%";
 				},
 				left: function()
 				{
-					var v:Float = FlxG.save.data.mobileAlpha != null ? FlxG.save.data.mobileAlpha : 0.75;
+					var v:Float = SaveData.data.mobileAlpha != null ? SaveData.data.mobileAlpha : 0.75;
 					v = Math.max(0.1, v - 0.05);
-					FlxG.save.data.mobileAlpha = v;
-					FlxG.save.flush();
+					SaveData.data.mobileAlpha = v;
+					SaveData.flush();
 				},
 				right: function()
 				{
-					var v:Float = FlxG.save.data.mobileAlpha != null ? FlxG.save.data.mobileAlpha : 0.75;
+					var v:Float = SaveData.data.mobileAlpha != null ? SaveData.data.mobileAlpha : 0.75;
 					v = Math.min(1.0, v + 0.05);
-					FlxG.save.data.mobileAlpha = v;
-					FlxG.save.flush();
+					SaveData.data.mobileAlpha = v;
+					SaveData.flush();
 				},
 				toggle: function() {}
 			},
@@ -933,8 +934,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				get: function() return "BACKSPACE",
 				toggle: function()
 				{
-					FlxG.save.data.mobilePadLayout = null;
-					FlxG.save.flush();
+					SaveData.data.mobilePadLayout = null;
+					SaveData.flush();
 					showWarning("Custom layout reset!");
 					FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 				}
@@ -943,15 +944,15 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Touch Indicator",
 				get: function()
 				{
-					var on = FlxG.save.data.touchIndicator != null ? FlxG.save.data.touchIndicator : true;
+					var on = SaveData.data.touchIndicator != null ? SaveData.data.touchIndicator : true;
 					return on ? "ON" : "OFF";
 				},
 				toggle: function()
 				{
-					var cur = FlxG.save.data.touchIndicator != null ? FlxG.save.data.touchIndicator : true;
-					FlxG.save.data.touchIndicator = !cur;
-					FlxG.save.flush();
-					funkin.util.plugins.TouchPointerPlugin.enabled = FlxG.save.data.touchIndicator;
+					var cur = SaveData.data.touchIndicator != null ? SaveData.data.touchIndicator : true;
+					SaveData.data.touchIndicator = !cur;
+					SaveData.flush();
+					funkin.util.plugins.TouchPointerPlugin.enabled = SaveData.data.touchIndicator;
 				}
 			}
 		];
@@ -991,12 +992,12 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Subtitles",
 				get: function()
 				{
-					return (FlxG.save.data.subtitlesEnabled != false) ? "ON" : "OFF";
+					return (SaveData.data.subtitlesEnabled != false) ? "ON" : "OFF";
 				},
 				toggle: function()
 				{
-					FlxG.save.data.subtitlesEnabled = !(FlxG.save.data.subtitlesEnabled != false);
-					FlxG.save.flush();
+					SaveData.data.subtitlesEnabled = !(SaveData.data.subtitlesEnabled != false);
+					SaveData.flush();
 				}
 			},
 			// ── Fuente del texto ──────────────────────────────────────────────
@@ -1004,24 +1005,24 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Font",
 				get: function()
 				{
-					var f:String = FlxG.save.data.subtitleFont != null ? FlxG.save.data.subtitleFont : 'vcr.ttf';
+					var f:String = SaveData.data.subtitleFont != null ? SaveData.data.subtitleFont : 'vcr.ttf';
 					var idx = SUBTITLE_FONT_FILES.indexOf(f);
 					return idx >= 0 ? SUBTITLE_FONT_NAMES[idx] : f;
 				},
 				left: function()
 				{
-					var f:String = FlxG.save.data.subtitleFont != null ? FlxG.save.data.subtitleFont : 'vcr.ttf';
+					var f:String = SaveData.data.subtitleFont != null ? SaveData.data.subtitleFont : 'vcr.ttf';
 					var idx = _resolveSubtitleFontIndex(f);
 					idx = (idx - 1 + _availableSubtitleFonts().length) % _availableSubtitleFonts().length;
-					FlxG.save.data.subtitleFont = _availableSubtitleFonts()[idx];
+					SaveData.data.subtitleFont = _availableSubtitleFonts()[idx];
 					_applySubtitleSettings();
 				},
 				right: function()
 				{
-					var f:String = FlxG.save.data.subtitleFont != null ? FlxG.save.data.subtitleFont : 'vcr.ttf';
+					var f:String = SaveData.data.subtitleFont != null ? SaveData.data.subtitleFont : 'vcr.ttf';
 					var idx = _resolveSubtitleFontIndex(f);
 					idx = (idx + 1) % _availableSubtitleFonts().length;
-					FlxG.save.data.subtitleFont = _availableSubtitleFonts()[idx];
+					SaveData.data.subtitleFont = _availableSubtitleFonts()[idx];
 					_applySubtitleSettings();
 				}
 			},
@@ -1030,25 +1031,25 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Font Size",
 				get: function()
 				{
-					var sz:Int = FlxG.save.data.subtitleSize != null ? FlxG.save.data.subtitleSize : 26;
+					var sz:Int = SaveData.data.subtitleSize != null ? SaveData.data.subtitleSize : 26;
 					return sz + " px";
 				},
 				left: function()
 				{
-					var sz:Int = FlxG.save.data.subtitleSize != null ? FlxG.save.data.subtitleSize : 26;
+					var sz:Int = SaveData.data.subtitleSize != null ? SaveData.data.subtitleSize : 26;
 					var idx = SUBTITLE_SIZES.indexOf(sz);
 					if (idx < 0) idx = SUBTITLE_SIZES.indexOf(26);
 					idx = (idx - 1 + SUBTITLE_SIZES.length) % SUBTITLE_SIZES.length;
-					FlxG.save.data.subtitleSize = SUBTITLE_SIZES[idx];
+					SaveData.data.subtitleSize = SUBTITLE_SIZES[idx];
 					_applySubtitleSettings();
 				},
 				right: function()
 				{
-					var sz:Int = FlxG.save.data.subtitleSize != null ? FlxG.save.data.subtitleSize : 26;
+					var sz:Int = SaveData.data.subtitleSize != null ? SaveData.data.subtitleSize : 26;
 					var idx = SUBTITLE_SIZES.indexOf(sz);
 					if (idx < 0) idx = SUBTITLE_SIZES.indexOf(26);
 					idx = (idx + 1) % SUBTITLE_SIZES.length;
-					FlxG.save.data.subtitleSize = SUBTITLE_SIZES[idx];
+					SaveData.data.subtitleSize = SUBTITLE_SIZES[idx];
 					_applySubtitleSettings();
 				}
 			},
@@ -1057,26 +1058,26 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Text Color",
 				get: function()
 				{
-					var c:Int = FlxG.save.data.subtitleColor != null ? FlxG.save.data.subtitleColor : 0xFFFFFFFF;
+					var c:Int = SaveData.data.subtitleColor != null ? SaveData.data.subtitleColor : 0xFFFFFFFF;
 					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
 					return idx >= 0 ? SUBTITLE_COLOR_NAMES[idx] : "Custom";
 				},
 				left: function()
 				{
-					var c:Int = FlxG.save.data.subtitleColor != null ? FlxG.save.data.subtitleColor : 0xFFFFFFFF;
+					var c:Int = SaveData.data.subtitleColor != null ? SaveData.data.subtitleColor : 0xFFFFFFFF;
 					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
 					if (idx < 0) idx = 0;
 					idx = (idx - 1 + SUBTITLE_COLOR_VALUES.length) % SUBTITLE_COLOR_VALUES.length;
-					FlxG.save.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
+					SaveData.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
 					_applySubtitleSettings();
 				},
 				right: function()
 				{
-					var c:Int = FlxG.save.data.subtitleColor != null ? FlxG.save.data.subtitleColor : 0xFFFFFFFF;
+					var c:Int = SaveData.data.subtitleColor != null ? SaveData.data.subtitleColor : 0xFFFFFFFF;
 					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
 					if (idx < 0) idx = 0;
 					idx = (idx + 1) % SUBTITLE_COLOR_VALUES.length;
-					FlxG.save.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
+					SaveData.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
 					_applySubtitleSettings();
 				}
 			},
@@ -1085,21 +1086,21 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Background Opacity",
 				get: function()
 				{
-					var a:Float = FlxG.save.data.subtitleBgAlpha != null ? FlxG.save.data.subtitleBgAlpha : 0.6;
+					var a:Float = SaveData.data.subtitleBgAlpha != null ? SaveData.data.subtitleBgAlpha : 0.6;
 					return Std.int(a * 100) + "%";
 				},
 				left: function()
 				{
-					var a:Float = FlxG.save.data.subtitleBgAlpha != null ? FlxG.save.data.subtitleBgAlpha : 0.6;
+					var a:Float = SaveData.data.subtitleBgAlpha != null ? SaveData.data.subtitleBgAlpha : 0.6;
 					a = Math.max(0.0, Math.round((a - 0.1) * 10) / 10);
-					FlxG.save.data.subtitleBgAlpha = a;
+					SaveData.data.subtitleBgAlpha = a;
 					_applySubtitleSettings();
 				},
 				right: function()
 				{
-					var a:Float = FlxG.save.data.subtitleBgAlpha != null ? FlxG.save.data.subtitleBgAlpha : 0.6;
+					var a:Float = SaveData.data.subtitleBgAlpha != null ? SaveData.data.subtitleBgAlpha : 0.6;
 					a = Math.min(1.0, Math.round((a + 0.1) * 10) / 10);
-					FlxG.save.data.subtitleBgAlpha = a;
+					SaveData.data.subtitleBgAlpha = a;
 					_applySubtitleSettings();
 				}
 			},
@@ -1108,13 +1109,13 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Position",
 				get: function()
 				{
-					var p:String = FlxG.save.data.subtitlePosition != null ? FlxG.save.data.subtitlePosition : 'bottom';
+					var p:String = SaveData.data.subtitlePosition != null ? SaveData.data.subtitlePosition : 'bottom';
 					return switch (p) { case 'top': "Top"; case 'center': "Center"; default: "Bottom"; };
 				},
 				toggle: function()
 				{
-					var p:String = FlxG.save.data.subtitlePosition != null ? FlxG.save.data.subtitlePosition : 'bottom';
-					FlxG.save.data.subtitlePosition = switch (p) {
+					var p:String = SaveData.data.subtitlePosition != null ? SaveData.data.subtitlePosition : 'bottom';
+					SaveData.data.subtitlePosition = switch (p) {
 						case 'bottom': 'top';
 						case 'top':    'center';
 						default:       'bottom';
@@ -1127,11 +1128,11 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Bold Text",
 				get: function()
 				{
-					return (FlxG.save.data.subtitleBold != false) ? "ON" : "OFF";
+					return (SaveData.data.subtitleBold != false) ? "ON" : "OFF";
 				},
 				toggle: function()
 				{
-					FlxG.save.data.subtitleBold = !(FlxG.save.data.subtitleBold != false);
+					SaveData.data.subtitleBold = !(SaveData.data.subtitleBold != false);
 					_applySubtitleSettings();
 				}
 			},
@@ -1140,29 +1141,29 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Fade Speed",
 				get: function()
 				{
-					var f:Float = FlxG.save.data.subtitleFadeIn != null ? FlxG.save.data.subtitleFadeIn : 0.2;
+					var f:Float = SaveData.data.subtitleFadeIn != null ? SaveData.data.subtitleFadeIn : 0.2;
 					return f == 0 ? "Instant" : (Std.int(f * 10) / 10) + "s";
 				},
 				left: function()
 				{
 					var steps:Array<Float> = [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0];
-					var f:Float = FlxG.save.data.subtitleFadeIn != null ? FlxG.save.data.subtitleFadeIn : 0.2;
+					var f:Float = SaveData.data.subtitleFadeIn != null ? SaveData.data.subtitleFadeIn : 0.2;
 					var idx = 0;
 					var best = 999.0;
 					for (i in 0...steps.length) { var d = Math.abs(steps[i] - f); if (d < best) { best = d; idx = i; } }
 					idx = (idx - 1 + steps.length) % steps.length;
-					FlxG.save.data.subtitleFadeIn = steps[idx];
+					SaveData.data.subtitleFadeIn = steps[idx];
 					_applySubtitleSettings();
 				},
 				right: function()
 				{
 					var steps:Array<Float> = [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0];
-					var f:Float = FlxG.save.data.subtitleFadeIn != null ? FlxG.save.data.subtitleFadeIn : 0.2;
+					var f:Float = SaveData.data.subtitleFadeIn != null ? SaveData.data.subtitleFadeIn : 0.2;
 					var idx = 0;
 					var best = 999.0;
 					for (i in 0...steps.length) { var d = Math.abs(steps[i] - f); if (d < best) { best = d; idx = i; } }
 					idx = (idx + 1) % steps.length;
-					FlxG.save.data.subtitleFadeIn = steps[idx];
+					SaveData.data.subtitleFadeIn = steps[idx];
 					_applySubtitleSettings();
 				}
 			},
@@ -1171,27 +1172,27 @@ class OptionsMenuState extends MusicBeatSubstate
 				name: "Translate To",
 				get: function()
 				{
-					var code:String = FlxG.save.data.subtitleTranslateLang != null ? FlxG.save.data.subtitleTranslateLang : '';
+					var code:String = SaveData.data.subtitleTranslateLang != null ? SaveData.data.subtitleTranslateLang : '';
 					var idx = SUBTITLE_LANG_CODES.indexOf(code);
 					return idx >= 0 ? SUBTITLE_LANG_NAMES[idx] : "None";
 				},
 				left: function()
 				{
-					var code:String = FlxG.save.data.subtitleTranslateLang != null ? FlxG.save.data.subtitleTranslateLang : '';
+					var code:String = SaveData.data.subtitleTranslateLang != null ? SaveData.data.subtitleTranslateLang : '';
 					var idx = SUBTITLE_LANG_CODES.indexOf(code);
 					if (idx < 0) idx = 0;
 					idx = (idx - 1 + SUBTITLE_LANG_CODES.length) % SUBTITLE_LANG_CODES.length;
-					FlxG.save.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
-					FlxG.save.flush();
+					SaveData.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
+					SaveData.flush();
 				},
 				right: function()
 				{
-					var code:String = FlxG.save.data.subtitleTranslateLang != null ? FlxG.save.data.subtitleTranslateLang : '';
+					var code:String = SaveData.data.subtitleTranslateLang != null ? SaveData.data.subtitleTranslateLang : '';
 					var idx = SUBTITLE_LANG_CODES.indexOf(code);
 					if (idx < 0) idx = 0;
 					idx = (idx + 1) % SUBTITLE_LANG_CODES.length;
-					FlxG.save.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
-					FlxG.save.flush();
+					SaveData.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
+					SaveData.flush();
 				}
 			}
 		];
@@ -1235,38 +1236,38 @@ class OptionsMenuState extends MusicBeatSubstate
 	/** Aplica la configuración de subtítulos guardada al SubtitleManager singleton. */
 	function _applySubtitleSettings():Void
 	{
-		FlxG.save.flush();
+		SaveData.flush();
 		var sm = funkin.ui.SubtitleManager.instance;
 
 		// Fuente
-		if (FlxG.save.data.subtitleFont != null)
-			sm.defaultFont = FlxG.save.data.subtitleFont;
+		if (SaveData.data.subtitleFont != null)
+			sm.defaultFont = SaveData.data.subtitleFont;
 
 		// Tamaño
-		if (FlxG.save.data.subtitleSize != null)
-			sm.defaultSize = FlxG.save.data.subtitleSize;
+		if (SaveData.data.subtitleSize != null)
+			sm.defaultSize = SaveData.data.subtitleSize;
 
 		// Color
-		if (FlxG.save.data.subtitleColor != null)
-			sm.defaultColor = FlxG.save.data.subtitleColor;
+		if (SaveData.data.subtitleColor != null)
+			sm.defaultColor = SaveData.data.subtitleColor;
 
 		// Opacidad de fondo
-		if (FlxG.save.data.subtitleBgAlpha != null)
-			sm.defaultBgAlpha = FlxG.save.data.subtitleBgAlpha;
+		if (SaveData.data.subtitleBgAlpha != null)
+			sm.defaultBgAlpha = SaveData.data.subtitleBgAlpha;
 
 		// Negrita
-		if (FlxG.save.data.subtitleBold != null)
-			sm.defaultBold = (FlxG.save.data.subtitleBold != false);
+		if (SaveData.data.subtitleBold != null)
+			sm.defaultBold = (SaveData.data.subtitleBold != false);
 
 		// Fade in/out
-		if (FlxG.save.data.subtitleFadeIn != null)
+		if (SaveData.data.subtitleFadeIn != null)
 		{
-			sm.defaultFadeIn  = FlxG.save.data.subtitleFadeIn;
-			sm.defaultFadeOut = FlxG.save.data.subtitleFadeIn;
+			sm.defaultFadeIn  = SaveData.data.subtitleFadeIn;
+			sm.defaultFadeOut = SaveData.data.subtitleFadeIn;
 		}
 
 		// Posición Y
-		var pos:String = FlxG.save.data.subtitlePosition != null ? FlxG.save.data.subtitlePosition : 'bottom';
+		var pos:String = SaveData.data.subtitlePosition != null ? SaveData.data.subtitlePosition : 'bottom';
 		sm.defaultY = switch (pos) {
 			case 'top':    60.0;
 			case 'center': -2.0; // valor especial: centrado vertical
@@ -1279,7 +1280,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		currentOptions = [
 			{
 				name: "Audio Offset",
-				get: function() return FlxG.save.data.offset + " ms",
+				get: function() return SaveData.data.offset + " ms",
 				toggle: function()
 				{
 					openSubState(new OffsetCalibrationState());
@@ -1307,7 +1308,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			nameText.borderSize = 2;
 			nameText.ID = i;
 			nameText.scrollFactor.set();
-			nameText.antialiasing = FlxG.save.data.antialiasing;
+			nameText.antialiasing = SaveData.data.antialiasing;
 			optionNames.add(nameText);
 
 			var rawVal:String = opt.get();
@@ -1329,7 +1330,7 @@ class OptionsMenuState extends MusicBeatSubstate
 						icon.setGraphicSize(40, 40);
 						icon.updateHitbox();
 						icon.scrollFactor.set();
-						icon.antialiasing = FlxG.save.data.antialiasing;
+						icon.antialiasing = SaveData.data.antialiasing;
 						icon.ID = i;
 						_buttonIcons.add(icon);
 						iconPlaced = true;
@@ -1338,7 +1339,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				// Fallback to text if no icon available
 				var valueText:FlxText = new FlxText(FlxG.width - 400, OPT_START_Y + (i * OPT_SPACING), iconPlaced ? 260 : 320, iconPlaced ? '' : rawVal, 26);
 				valueText.setFormat(Paths.font("Funkin.otf"), 26, FlxColor.CYAN, RIGHT, OUTLINE, FlxColor.BLACK);
-				valueText.antialiasing = FlxG.save.data.antialiasing;
+				valueText.antialiasing = SaveData.data.antialiasing;
 				valueText.borderSize = 2;
 				valueText.ID = i;
 				valueText.scrollFactor.set();
@@ -1365,7 +1366,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				cb.scale.set(0.95,0.95);
 				cb.updateHitbox();
 				cb.scrollFactor.set();
-				cb.antialiasing = FlxG.save.data.antialiasing;
+				cb.antialiasing = SaveData.data.antialiasing;
 				cb.ID = i;
 				_checkboxSprites.add(cb);
 			}
@@ -1374,7 +1375,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			{
 				var valueText:FlxText = new FlxText(FlxG.width - 400, OPT_START_Y + (i * OPT_SPACING), 320, rawVal, 26);
 				valueText.setFormat(Paths.font("Funkin.otf"), 26, FlxColor.CYAN, RIGHT, OUTLINE, FlxColor.BLACK);
-				valueText.antialiasing = FlxG.save.data.antialiasing;
+				valueText.antialiasing = SaveData.data.antialiasing;
 				valueText.borderSize = 2;
 				valueText.ID = i;
 				valueText.scrollFactor.set();
@@ -1597,9 +1598,9 @@ class OptionsMenuState extends MusicBeatSubstate
 			}
 			if (changed)
 			{
-				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
+				FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 				updateOptionDisplay();
-				FlxG.save.flush();
+				SaveData.flush();
 			}
 			// Salir del modo edición con ENTER o ESC
 			if (controls.ACCEPT || controls.BACK)
@@ -1640,7 +1641,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			{
 				if (opt.left != null)
 				{
-					FlxG.sound.play(Paths.sound('menus/scrollMenu'));
+					FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 					opt.left();
 					updateOptionDisplay();
 				}
@@ -1649,7 +1650,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			{
 				if (opt.right != null)
 				{
-					FlxG.sound.play(Paths.sound('menus/scrollMenu'));
+					FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 					opt.right();
 					updateOptionDisplay();
 				}
@@ -1667,15 +1668,15 @@ class OptionsMenuState extends MusicBeatSubstate
 				_editMode = true;
 				_editModeIndicator.text = "⟵ A / D ⟶   Adjusting: " + opt.name + "   ENTER / ESC to confirm";
 				_editModeIndicator.visible = true;
-				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
+				FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 				return;
 			}
 
-			FlxG.sound.play(Paths.sound('menus/confirmMenu'));
+			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
 			var optionName = opt.name;
 			opt.toggle();
 			updateOptionDisplay();
-			FlxG.save.flush();
+			SaveData.flush();
 
 			// Si estamos en pause menu
 			if (fromPause)
@@ -1690,7 +1691,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					if (fromPause && PlayState.instance != null)
 					{
-						FlxG.save.flush();
+						SaveData.flush();
 						pendingRewind = true;
 						close(); // vuelve a PauseSubState que detectará pendingRewind
 						isOpenOptions = false;
@@ -1802,7 +1803,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				// Rebuild full icon list so new key shows correct icon (or text fallback)
 				_rebuildControlsIconAt(curSelected, pressedKey);
 				updateOptionDisplay();
-				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
+				FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 
 				// Advertir si hay duplicados (pero permitirlos)
 				if (hasDuplicateKeys())
@@ -1895,7 +1896,9 @@ class OptionsMenuState extends MusicBeatSubstate
 		var safeGameplaySettings = [
 			"Ghost Tapping", // Seguro: solo afecta siguiente input
 			"Show HUD", // Seguro: solo visual
-			"Note Splashes", // Seguro: solo visual
+			// "Note Splashes" — REQUIERE RESTART: grpNoteSplashes se inicializa en create(),
+			// simplemente cambiar .visible no basta cuando el warmup ya ocurrió.
+			// Queda en requiresRestart() para forzar el rewind.
 			"Accuracy Display", // Seguro: solo visual
 			"Anti-Aliasing" // Seguro: solo visual
 		];
@@ -1917,6 +1920,8 @@ class OptionsMenuState extends MusicBeatSubstate
 		var restartRequired = [
 			"Downscroll",
 			"Middlescroll",
+			"Note Splashes",
+			"Rating Position",
 			"Perfect Mode",
 			"Sick Mode",
 			"Static Stage",
@@ -1932,7 +1937,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	/**
 	 * Aplica el alpha del lane backdrop al PlayState activo si existe.
 	 * Si no hay PlayState activo (options desde menú), el cambio solo se
-	 * persiste en FlxG.save.data y se aplicará al siguiente gameplay.
+	 * persiste en SaveData.data y se aplicará al siguiente gameplay.
 	 */
 	private function _applyLaneBackdropAlpha(alpha:Float):Void
 	{
@@ -2065,7 +2070,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				icon.setGraphicSize(40, 40);
 				icon.updateHitbox();
 				icon.scrollFactor.set();
-				icon.antialiasing = FlxG.save.data.antialiasing;
+				icon.antialiasing = SaveData.data.antialiasing;
 				icon.ID = idx;
 				_buttonIcons.add(icon);
 				// Hide the text value for this slot
@@ -2218,100 +2223,100 @@ class OptionsData
 {
 	public static function initSave():Void
 	{
-		if (FlxG.save.data.downscroll == null)
-			FlxG.save.data.downscroll = false;
+		if (SaveData.data.downscroll == null)
+			SaveData.data.downscroll = false;
 
 		// ── Display / Resolution ──────────────────────────────────────────────
-		if (FlxG.save.data.renderResolution == null)
-			FlxG.save.data.renderResolution = '1080p'; // '720p' o '1080p'
+		if (SaveData.data.renderResolution == null)
+			SaveData.data.renderResolution = '1080p'; // '720p' o '1080p'
 
-		if (FlxG.save.data.scaleMode == null)
-			FlxG.save.data.scaleMode = 'letterbox'; // 'letterbox', 'widescreen', 'stretch', 'pixel'
+		if (SaveData.data.scaleMode == null)
+			SaveData.data.scaleMode = 'letterbox'; // 'letterbox', 'widescreen', 'stretch', 'pixel'
 
-		if (FlxG.save.data.shaders == null)
-			FlxG.save.data.shaders = true;
+		if (SaveData.data.shaders == null)
+			SaveData.data.shaders = true;
 
-		if (FlxG.save.data.vsync == null)
-			FlxG.save.data.vsync = false;
+		if (SaveData.data.vsync == null)
+			SaveData.data.vsync = false;
 
-		if (FlxG.save.data.accuracyDisplay == null)
-			FlxG.save.data.accuracyDisplay = true;
+		if (SaveData.data.accuracyDisplay == null)
+			SaveData.data.accuracyDisplay = true;
 
-		if (FlxG.save.data.notesplashes == null)
-			FlxG.save.data.notesplashes = true;
+		if (SaveData.data.notesplashes == null)
+			SaveData.data.notesplashes = true;
 
-		if (FlxG.save.data.middlescroll == null)
-			FlxG.save.data.middlescroll = false;
+		if (SaveData.data.middlescroll == null)
+			SaveData.data.middlescroll = false;
 
-		if (FlxG.save.data.HUD == null)
-			FlxG.save.data.HUD = false;
+		if (SaveData.data.HUD == null)
+			SaveData.data.HUD = false;
 
-		if (FlxG.save.data.camZoom == null)
-			FlxG.save.data.camZoom = false;
+		if (SaveData.data.camZoom == null)
+			SaveData.data.camZoom = false;
 
-		if (FlxG.save.data.flashing == null)
-			FlxG.save.data.flashing = false;
+		if (SaveData.data.flashing == null)
+			SaveData.data.flashing = false;
 
-		if (FlxG.save.data.offset == null)
-			FlxG.save.data.offset = 0;
+		if (SaveData.data.offset == null)
+			SaveData.data.offset = 0;
 
-		if (FlxG.save.data.sickmode == null)
-			FlxG.save.data.sickmode = false;
+		if (SaveData.data.sickmode == null)
+			SaveData.data.sickmode = false;
 
-		if (FlxG.save.data.staticstage == null)
-			FlxG.save.data.staticstage = false;
+		if (SaveData.data.staticstage == null)
+			SaveData.data.staticstage = false;
 
-		if (FlxG.save.data.specialVisualEffects == null)
-			FlxG.save.data.specialVisualEffects = true;
+		if (SaveData.data.specialVisualEffects == null)
+			SaveData.data.specialVisualEffects = true;
 
-		if (FlxG.save.data.ghosttap == null)
-			FlxG.save.data.ghosttap = true;
+		if (SaveData.data.ghosttap == null)
+			SaveData.data.ghosttap = true;
 
-		if (FlxG.save.data.hitsounds == null)
-			FlxG.save.data.hitsounds = false;
+		if (SaveData.data.hitsounds == null)
+			SaveData.data.hitsounds = false;
 
-		if (FlxG.save.data.antialiasing == null)
-			FlxG.save.data.antialiasing = true;
+		if (SaveData.data.antialiasing == null)
+			SaveData.data.antialiasing = true;
 
 		// ── Keybinds ──────────────────────────────────────────────────────────
 		// Inicializar defaults aquí para que loadKeyBinds() nunca lea null
 		// (FlxKey.fromString(null) devuelve NONE=0, lo que puede disparar
 		// capturas accidentales si el ScreenshotPlugin se inicializa antes).
-		if (FlxG.save.data.leftBind   == null) FlxG.save.data.leftBind   = "A";
-		if (FlxG.save.data.downBind   == null) FlxG.save.data.downBind   = "S";
-		if (FlxG.save.data.upBind     == null) FlxG.save.data.upBind     = "W";
-		if (FlxG.save.data.rightBind  == null) FlxG.save.data.rightBind  = "D";
-		if (FlxG.save.data.killBind   == null) FlxG.save.data.killBind   = "R";
-		if (FlxG.save.data.acceptBind == null) FlxG.save.data.acceptBind = "ENTER";
-		if (FlxG.save.data.backBind   == null) FlxG.save.data.backBind   = "ESCAPE";
-		if (FlxG.save.data.pauseBind  == null) FlxG.save.data.pauseBind  = "ENTER";
-		if (FlxG.save.data.screenshotBind == null) FlxG.save.data.screenshotBind = "F12";
-		if (FlxG.save.data.cheatBind  == null) FlxG.save.data.cheatBind  = "SEVEN";
+		if (SaveData.data.leftBind   == null) SaveData.data.leftBind   = "A";
+		if (SaveData.data.downBind   == null) SaveData.data.downBind   = "S";
+		if (SaveData.data.upBind     == null) SaveData.data.upBind     = "W";
+		if (SaveData.data.rightBind  == null) SaveData.data.rightBind  = "D";
+		if (SaveData.data.killBind   == null) SaveData.data.killBind   = "R";
+		if (SaveData.data.acceptBind == null) SaveData.data.acceptBind = "ENTER";
+		if (SaveData.data.backBind   == null) SaveData.data.backBind   = "ESCAPE";
+		if (SaveData.data.pauseBind  == null) SaveData.data.pauseBind  = "ENTER";
+		if (SaveData.data.screenshotBind == null) SaveData.data.screenshotBind = "F12";
+		if (SaveData.data.cheatBind  == null) SaveData.data.cheatBind  = "SEVEN";
 
 		// ── PathsCache: GPU texture caching ──────────────────────────────────
 		// Por defecto activo en desktop (false en web/mobile sin context3D fiable).
 		// Cuando está activo, los bitmaps se suben a VRAM y la copia en RAM se
 		// libera → ahorro de ~4 MB por textura 1024×1024.
-		if (FlxG.save.data.gpuCaching == null)
-			FlxG.save.data.gpuCaching = #if (desktop && !hl) true #else false #end;
+		if (SaveData.data.gpuCaching == null)
+			SaveData.data.gpuCaching = #if (desktop && !hl) true #else false #end;
 
 		// Sincronizar con PathsCache al arrancar
-		funkin.cache.PathsCache.gpuCaching = FlxG.save.data.gpuCaching;
+		funkin.cache.PathsCache.gpuCaching = SaveData.data.gpuCaching;
 
 		// ── Low Memory Mode (inspirado en Codename Engine) ───────────────────
-		if (FlxG.save.data.lowMemoryMode == null)
-			FlxG.save.data.lowMemoryMode = false;
-		funkin.cache.PathsCache.lowMemoryMode = FlxG.save.data.lowMemoryMode;
+		if (SaveData.data.lowMemoryMode == null)
+			SaveData.data.lowMemoryMode = false;
+		funkin.cache.PathsCache.lowMemoryMode = SaveData.data.lowMemoryMode;
 
 		// ── Streamed Music (no cachear audio de canciones) ───────────────────
-		if (FlxG.save.data.streamedMusic == null)
-			FlxG.save.data.streamedMusic = false;
-		funkin.cache.PathsCache.streamedMusic = FlxG.save.data.streamedMusic;
+		if (SaveData.data.streamedMusic == null)
+			SaveData.data.streamedMusic = false;
+		funkin.cache.PathsCache.streamedMusic = SaveData.data.streamedMusic;
 
 		// ── Mobile controls ───────────────────────────────────────────────────
 		#if mobileC
-		if (FlxG.save.data.mobileAlpha == null)
-			FlxG.save.data.mobileAlpha = 0.75;
+		if (SaveData.data.mobileAlpha == null)
+			SaveData.data.mobileAlpha = 0.75;
 		// mobilePadLayout se inicializa como null → Mobilecontrols usará posiciones default
 		#end
 	}
@@ -2466,7 +2471,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 
 		// ── Offset actual ─────────────────────────────────────────────────────
 		_offsetTxt = new FlxText(0, _panel.y + 462, FlxG.width,
-			"Current Offset: " + (FlxG.save.data.offset ?? 0) + " ms", 26);
+			"Current Offset: " + (SaveData.data.offset ?? 0) + " ms", 26);
 		_offsetTxt.setFormat(Paths.font("vcr.ttf"), 26, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
 		_offsetTxt.borderSize = 2;
 		add(_offsetTxt);
@@ -2484,7 +2489,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		_countdownTxt.screenCenter(Y);
 		add(_countdownTxt);
 
-		if (FlxG.save.data.offset == null) FlxG.save.data.offset = 0;
+		if (SaveData.data.offset == null) SaveData.data.offset = 0;
 	}
 
 	override function update(elapsed:Float)
@@ -2538,13 +2543,13 @@ class OffsetCalibrationState extends MusicBeatSubstate
 
 		if (FlxG.keys.justPressed.LEFT || FlxG.keys.justPressed.A)
 		{
-			FlxG.save.data.offset -= 1;
+			SaveData.data.offset -= 1;
 			_updateOffsetTxt();
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
 		}
 		if (FlxG.keys.justPressed.RIGHT || FlxG.keys.justPressed.D)
 		{
-			FlxG.save.data.offset += 1;
+			SaveData.data.offset += 1;
 			_updateOffsetTxt();
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
 		}
@@ -2554,7 +2559,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		if (FlxG.keys.justPressed.ESCAPE || controls.BACK)
 		{
 			funkin.audio.SoundTray.blockInput = false;
-			FlxG.save.flush();
+			SaveData.flush();
 			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 			funkin.system.CursorManager.hide();
 			MusicManager.playWithFade('freakyMenu', 0.7, 4.0);
@@ -2610,7 +2615,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		for (t in _tapTimes) sum += t;
 		var avg = Std.int(sum / _tapTimes.length);
 
-		FlxG.save.data.offset = avg;
+		SaveData.data.offset = avg;
 		_updateOffsetTxt();
 		_resultsTxt.text = "Calculated: " + avg + " ms — Saved!";
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
@@ -2630,14 +2635,14 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		_feedbackTxt.text = "";
 		_resultsTxt.text = "";
 		_tapBarFill.makeGraphic(4, 16, 0xFF5555FF);
-		FlxG.save.data.offset = 0;
+		SaveData.data.offset = 0;
 		_updateOffsetTxt();
 		FlxG.sound.play(Paths.sound('menus/cancelMenu'), 0.6);
 	}
 
 	function _updateOffsetTxt():Void
 	{
-		_offsetTxt.text = "Current Offset: " + (FlxG.save.data.offset ?? 0) + " ms";
+		_offsetTxt.text = "Current Offset: " + (SaveData.data.offset ?? 0) + " ms";
 	}
 
 	/** Añade un sprite justo detrás de otro en la display list. */
@@ -2654,13 +2659,13 @@ class OffsetCalibrationState extends MusicBeatSubstate
  *
  * Muestra una recreación simplificada del HUD de gameplay y un popup de
  * rating de ejemplo que el usuario puede mover con WASD / flechas o arrastrando
- * con el ratón. Guarda los offsets en FlxG.save.data.ratingOffsetX / ratingOffsetY.
+ * con el ratón. Guarda los offsets en SaveData.data.ratingOffsetX / ratingOffsetY.
  */
 class RatingPositionSubState extends FlxSubState
 {
 	// Offset acumulado (píxeles desde la posición base del juego)
-	var _offsetX:Int = 0;
-	var _offsetY:Int = 0;
+	var _offsetX:Null<Float> = 0;
+	var _offsetY:Null<Float> = 0;
 
 	// Sprites de la preview
 	var _ratingPreview:FlxSprite;
@@ -2692,8 +2697,8 @@ class RatingPositionSubState extends FlxSubState
 	var _dragging:Bool    = false;
 	var _dragStartMouseX:Float = 0;
 	var _dragStartMouseY:Float = 0;
-	var _dragStartOffX:Int = 0;
-	var _dragStartOffY:Int = 0;
+	var _dragStartOffX:Null<Float> = 0;
+	var _dragStartOffY:Null<Float> = 0;
 
 	// BUGFIX: cámara que se usará para TODOS los sprites de este substate.
 	// Cuando el editor se abre desde gameplay (fromPause), OptionsMenuState
@@ -2709,8 +2714,8 @@ class RatingPositionSubState extends FlxSubState
 	function onInit()
 	{
 		// Leer los offsets guardados (default: posición base original = -50, 0)
-		posX = (FlxG.save.data.ratingOffsetX != null) ? FlxG.save.data.ratingOffsetX : -100;
-		posY = (FlxG.save.data.ratingOffsetY != null) ? FlxG.save.data.ratingOffsetY : 0;
+		posX = (SaveData.data.ratingOffsetX != null) ? SaveData.data.ratingOffsetX : -100;
+		posY = (SaveData.data.ratingOffsetY != null) ? SaveData.data.ratingOffsetY : 0;
 	}
 
 	override function create()
@@ -2727,8 +2732,8 @@ class RatingPositionSubState extends FlxSubState
 			? FlxG.cameras.list[FlxG.cameras.list.length - 1]
 			: FlxG.camera;
 
-		_offsetX = FlxG.save.data.ratingOffsetX != null ? FlxG.save.data.ratingOffsetX : 0;
-		_offsetY = FlxG.save.data.ratingOffsetY != null ? FlxG.save.data.ratingOffsetY : 0;
+		_offsetX = SaveData.data.ratingOffsetX != null ? SaveData.data.ratingOffsetX : 0;
+		_offsetY = SaveData.data.ratingOffsetY != null ? SaveData.data.ratingOffsetY : 0;
 
 		// ── Fondo oscuro ──────────────────────────────────────────────────────
 		var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
@@ -2786,7 +2791,7 @@ class RatingPositionSubState extends FlxSubState
 		_ratingPreview = new FlxSprite(FlxG.width * 0.55 - 40 + posX, FlxG.height * 0.5 - 90 + posY);
 		_ratingPreview.loadGraphic(Paths.image('UI/normal/score/sick'));
 		_ratingPreview.setGraphicSize(Std.int(_ratingPreview.width * 0.7));
-		_ratingPreview.antialiasing = FlxG.save.data.antialiasing;
+		_ratingPreview.antialiasing = SaveData.data.antialiasing;
 		_ratingPreview.updateHitbox();
 		_ratingPreview.scrollFactor.set();
 		_ratingPreview.cameras = [_cam];
@@ -2999,9 +3004,9 @@ class RatingPositionSubState extends FlxSubState
 
 	function _save():Void
 	{
-		FlxG.save.data.ratingOffsetX = _offsetX;
-		FlxG.save.data.ratingOffsetY = _offsetY;
-		FlxG.save.flush();
+		SaveData.data.ratingOffsetX = _offsetX;
+		SaveData.data.ratingOffsetY = _offsetY;
+		SaveData.flush();
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 	}
 }

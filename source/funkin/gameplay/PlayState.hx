@@ -69,6 +69,7 @@ import funkin.gameplay.modchart.ModChartEvent;
 import funkin.gameplay.modchart.ModChartManager;
 import funkin.gameplay.modchart.ModChartEditorState;
 import funkin.gameplay.notes.NoteSkinSystem.NoteSkinData;
+import funkin.data.SaveData;
 
 using StringTools;
 
@@ -89,18 +90,12 @@ class PlayState extends funkin.states.MusicBeatState
 	// ✨ CHART TESTING: Tiempo desde el cual empezar (para testear secciones específicas)
 	public static var startFromTime:Null<Float> = null;
 
-	// === LEGACY STATS ===
-	public static var misses:Int = 0;
-	public static var shits:Int = 0;
-	public static var bads:Int = 0;
-	public static var goods:Int = 0;
-	public static var sicks:Int = 0;
-	public static var songScore:Int = 0;
-	/** True if the score achieved this run beat the previous best. Set in endSong() before saving. */
-	public static var isNewHighscore:Bool = false;
-	public static var accuracy:Float = 0.00;
+	/**
+	 * Acumulador de score para el modo Story (suma de todas las canciones de la semana).
+	 * Se mantiene como static porque sobrevive entre canciones deliberadamente.
+	 * Los stats de una sola partida viven en `gameState` (instancia en GameState.get()).
+	 */
 	public static var campaignScore:Int = 0;
-	public static var maxCombo:Int = 0;
 
 	/** Proxy to gameState.health for compatibility. */
 	public var health(get, set):Float;
@@ -187,17 +182,29 @@ class PlayState extends funkin.states.MusicBeatState
 
 	/** Alias de compatibilidad legacy/scripts — apunta al track del primer Player. */
 	public var vocalsBf(get, never):FlxSound;
+
 	inline function get_vocalsBf():FlxSound
 	{
-		for (k in _vocalsPlayerKeys) { var v = vocalsPerChar.get(k); if (v != null) return v; }
+		for (k in _vocalsPlayerKeys)
+		{
+			var v = vocalsPerChar.get(k);
+			if (v != null)
+				return v;
+		}
 		return null;
 	}
 
 	/** Alias de compatibilidad legacy/scripts — apunta al track del primer Opponent. */
 	public var vocalsDad(get, never):FlxSound;
+
 	inline function get_vocalsDad():FlxSound
 	{
-		for (k in _vocalsOpponentKeys) { var v = vocalsPerChar.get(k); if (v != null) return v; }
+		for (k in _vocalsOpponentKeys)
+		{
+			var v = vocalsPerChar.get(k);
+			if (v != null)
+				return v;
+		}
 		return null;
 	}
 
@@ -205,7 +212,8 @@ class PlayState extends funkin.states.MusicBeatState
 	private var _usingPerCharVocals:Bool = false;
 
 	/** Personajes de tipo Player — sus tracks se activan en note-hit del jugador. */
-	private var _vocalsPlayerKeys:Array<String>   = [];
+	private var _vocalsPlayerKeys:Array<String> = [];
+
 	/** Personajes de tipo Opponent — sus tracks se activan en note-hit del CPU. */
 	private var _vocalsOpponentKeys:Array<String> = [];
 
@@ -223,13 +231,14 @@ class PlayState extends funkin.states.MusicBeatState
 	public static var isBotPlay:Bool = false;
 
 	// ── Modo cinemático ────────────────────────────────────────────────────────
+
 	/** true = sin strums, sin HUD de score/health, sin game-over, sin pause.
-	*  Diseñado para el CutsceneEditorState — el editor pone su propia barra. */
-	public static var cinematicMode    : Bool = false;
+	 *  Diseñado para el CutsceneEditorState — el editor pone su propia barra. */
+	public static var cinematicMode:Bool = false;
 
 	/** Callback que llama el PlayState cuando la canción termina en cinematicMode.
- *  El CutsceneEditorState lo asigna para recibir el evento "fin de canción". */
-	public var onCinematicEnd : Void -> Void = null;
+	 *  El CutsceneEditorState lo asigna para recibir el evento "fin de canción". */
+	public var onCinematicEnd:Void->Void = null;
 
 	public var canPause:Bool = true;
 
@@ -279,6 +288,7 @@ class PlayState extends funkin.states.MusicBeatState
 	private var heldNotes:Map<Int, Note> = new Map(); // dirección -> nota (tracking local para la cámara/personajes)
 
 	// ── Lane Backdrop (osu-style) ─────────────────────────────────────────
+
 	/** Fondo negro semitransparente detrás del carril del jugador, estilo osu!.
 	 *  Alpha configurable en opciones (0.0 = transparente por defecto). */
 	public var laneBackdrop:FlxSprite;
@@ -309,7 +319,6 @@ class PlayState extends funkin.states.MusicBeatState
 
 	// _audioBootFrames/_audioBootSavedFps eliminados: CoreAudio.play() no baja
 	// FPS en targets nativos (OpenAL). Ver funkin/audio/CoreAudio.hx.
-
 	private var characterSlots:Array<CharacterSlot> = [];
 
 	public var strumsGroups:Array<StrumsGroup> = [];
@@ -867,13 +876,14 @@ class PlayState extends funkin.states.MusicBeatState
 		// ── Modo cinemático: ocultar strums y notas ──────────────────────────
 		if (cinematicMode)
 		{
-			strumLineNotes.visible  = false;
-			sustainNotes.visible    = false;
-			notes.visible           = false;
+			strumLineNotes.visible = false;
+			sustainNotes.visible = false;
+			notes.visible = false;
 			grpNoteSplashes.visible = false;
-			grpHoldCovers.visible   = false;
-			laneBackdrop.visible    = false;
-			if (noteBatcher != null) noteBatcher.visible = false;
+			grpHoldCovers.visible = false;
+			laneBackdrop.visible = false;
+			if (noteBatcher != null)
+				noteBatcher.visible = false;
 		}
 	}
 
@@ -887,7 +897,7 @@ class PlayState extends funkin.states.MusicBeatState
 		if (laneBackdrop == null)
 			return;
 
-		var alpha:Float = (FlxG.save.data.laneAlpha != null) ? FlxG.save.data.laneAlpha : 0.0;
+		var alpha:Float = (SaveData.data.laneAlpha != null) ? SaveData.data.laneAlpha : 0.0;
 		laneBackdrop.alpha = alpha;
 
 		if (playerStrums == null || playerStrums.members == null || playerStrums.members.length < 4)
@@ -899,16 +909,17 @@ class PlayState extends funkin.states.MusicBeatState
 		}
 
 		var firstStrum:FlxSprite = playerStrums.members[0];
-		var lastStrum:FlxSprite  = playerStrums.members[playerStrums.members.length - 1];
+		var lastStrum:FlxSprite = playerStrums.members[playerStrums.members.length - 1];
 
 		if (firstStrum == null || lastStrum == null)
 			return;
 
 		// Ancho = desde la izquierda del primer strum hasta la derecha del último
 		var startX:Float = firstStrum.x;
-		var endX:Float   = lastStrum.x + lastStrum.width;
-		var bw:Int       = Std.int(endX - startX + 20); // +20px padding lateral
-		if (bw < 4) bw = 4;
+		var endX:Float = lastStrum.x + lastStrum.width;
+		var bw:Int = Std.int(endX - startX + 20); // +20px padding lateral
+		if (bw < 4)
+			bw = 4;
 
 		laneBackdrop.makeGraphic(bw, FlxG.height, flixel.util.FlxColor.BLACK);
 		laneBackdrop.setPosition(startX - 10, 0); // -10 para padding izquierdo
@@ -944,12 +955,12 @@ class PlayState extends funkin.states.MusicBeatState
 				{
 					cpuStrums = group.strums;
 					cpuStrumsGroup = group;
-					if (FlxG.save.data.downscroll)
+					if (SaveData.data.downscroll)
 					{
 						for (i in 0...cpuStrums.members.length)
 							cpuStrums.members[i].y = FlxG.height - 150;
 					}
-					if (FlxG.save.data.middlescroll)
+					if (SaveData.data.middlescroll)
 					{
 						for (i in 0...cpuStrums.members.length)
 						{
@@ -966,10 +977,49 @@ class PlayState extends funkin.states.MusicBeatState
 
 				for (i in 0...playerStrums.members.length)
 				{
-					if (FlxG.save.data.downscroll)
+					if (SaveData.data.downscroll)
 						playerStrums.members[i].y = FlxG.height - 150;
-					if (FlxG.save.data.middlescroll)
+					if (SaveData.data.middlescroll)
 						playerStrums.members[i].x -= (FlxG.width / 4);
+				}
+			}
+		}
+
+		// ── Aplicar skins por grupo (noteSkins del meta.json) ──────────────
+		// Prioridad más alta que noteSkin y stageSkins: permite dar una skin
+		// diferente a cada grupo de strums (p.ej. pixel solo para el jugador).
+		// Clave = ID del grupo (ej: "player_strums_0") o nombre de personaje
+		// vinculado al grupo (ej: "bf", "dad").
+		if (metaData != null && metaData.noteSkins != null)
+		{
+			for (group in strumsGroups)
+			{
+				// Buscar override por ID de grupo
+				var skinOverride:Null<String> = metaData.noteSkins.get(group.id);
+
+				// Si no hay por ID, buscar por personaje vinculado al grupo
+				if (skinOverride == null && group.data.characters != null)
+				{
+					for (charId in group.data.characters)
+					{
+						var s = metaData.noteSkins.get(charId);
+						if (s != null) { skinOverride = s; break; }
+					}
+				}
+
+				if (skinOverride != null && skinOverride != '')
+				{
+					// getCurrentSkinData(name) carga la skin por nombre sin cambiar la activa global
+					var skinData = NoteSkinSystem.getCurrentSkinData(skinOverride);
+					if (skinData != null)
+					{
+						group.reloadAllStrumSkins(skinData);
+						trace('[PlayState] noteSkins: grupo "${group.id}" → skin "$skinOverride"');
+					}
+					else
+					{
+						trace('[PlayState] noteSkins: skin "$skinOverride" no encontrada para grupo "${group.id}"');
+					}
 				}
 			}
 		}
@@ -1035,7 +1085,7 @@ class PlayState extends funkin.states.MusicBeatState
 
 		// Input handler
 		inputHandler = new InputHandler();
-		inputHandler.ghostTapping = FlxG.save.data.ghosttap;
+		inputHandler.ghostTapping = SaveData.data.ghosttap;
 		inputHandler.onNoteHit = onPlayerNoteHit;
 		inputHandler.onNoteMiss = onPlayerNoteMiss;
 
@@ -1076,7 +1126,7 @@ class PlayState extends funkin.states.MusicBeatState
 		#end
 
 		// AJUSTE: Calcular posición de strums según downscroll
-		if (FlxG.save.data.downscroll)
+		if (SaveData.data.downscroll)
 			strumLiney = FlxG.height - 150; // Flechas abajo
 		else
 			strumLiney = PlayStateConfig.STRUM_LINE_Y; // Flechas arriba (50 por defecto)
@@ -1088,8 +1138,8 @@ class PlayState extends funkin.states.MusicBeatState
 			sustainNotes);
 
 		noteManager.strumLineY = strumLiney;
-		noteManager.downscroll = FlxG.save.data.downscroll;
-		noteManager.middlescroll = FlxG.save.data.middlescroll;
+		noteManager.downscroll = SaveData.data.downscroll;
+		noteManager.middlescroll = SaveData.data.middlescroll;
 		noteManager.onCPUNoteHit = onCPUNoteHit;
 		noteManager.onNoteHit = null; // Hold covers now managed by NoteManager internally
 		noteManager.onNoteMiss = onPlayerNoteMiss; // FIX: sin esto missNote() llama a null y la penalización nunca se aplica
@@ -1115,7 +1165,7 @@ class PlayState extends funkin.states.MusicBeatState
 		if (cinematicMode)
 		{
 			uiManager = new UIScriptedManager(camHUD, gameState, metaData);
-			uiManager.active  = false;
+			uiManager.active = false;
 			uiManager.visible = false;
 			add(uiManager);
 			return;
@@ -1145,7 +1195,7 @@ class PlayState extends funkin.states.MusicBeatState
 		for (i in 0...4)
 		{
 			var targetAlpha:Float = 1;
-			if (player < 1 && FlxG.save.data.middlescroll)
+			if (player < 1 && SaveData.data.middlescroll)
 				targetAlpha = 0;
 
 			var babyArrow:StrumNote = new StrumNote(0, strumLiney, i);
@@ -1155,7 +1205,7 @@ class PlayState extends funkin.states.MusicBeatState
 			var xPos = 100 + (Note.swagWidth * i);
 			if (player == 1)
 			{
-				if (FlxG.save.data.middlescroll)
+				if (SaveData.data.middlescroll)
 					xPos = FlxG.width / 2 - (Note.swagWidth * 2) + (Note.swagWidth * i);
 				else
 					xPos += FlxG.width / 2;
@@ -1164,7 +1214,7 @@ class PlayState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				if (FlxG.save.data.middlescroll)
+				if (SaveData.data.middlescroll)
 					xPos = -275 + (Note.swagWidth * i);
 
 				cpuStrums.add(babyArrow);
@@ -1217,7 +1267,8 @@ class PlayState extends funkin.states.MusicBeatState
 		}
 		funkin.audio.CoreAudio.setInst(_rawInst);
 		// Compatibilidad: FlxG.sound.music sigue apuntando al inst
-		if (_rawInst != null) FlxG.sound.music = _rawInst;
+		if (_rawInst != null)
+			FlxG.sound.music = _rawInst;
 
 		// Limpiar vocals anterior si existía (por si se llama generateSong más de una vez)
 		// CRÍTICO: desregistrar de CoreAudio ANTES de destruir el FlxSound,
@@ -1391,15 +1442,15 @@ class PlayState extends funkin.states.MusicBeatState
 
 		if (scriptsEnabled)
 		{
-			var _startCb:Dynamic = function() {
+			var _startCb:Dynamic = function()
+			{
 				inCutscene = false;
 				fixInstandVocals();
 				// Llamar startCountdown() de nuevo — ahora el hook no volverá a dispararse
 				// porque startedCountdown ya es true o el script no devolverá true de nuevo.
 				startCountdown();
 			};
-			var scriptHandled = ScriptHandler.callOnScriptsReturn(
-				'onIntroCutscene', [_startCb], false);
+			var scriptHandled = ScriptHandler.callOnScriptsReturn('onIntroCutscene', [_startCb], false);
 			if (scriptHandled == true)
 			{
 				inCutscene = true;
@@ -1412,13 +1463,12 @@ class PlayState extends funkin.states.MusicBeatState
 		// Ambos son opcionales — si solo hay uno de los dos funciona igual.
 		// Si hay los dos, el video se reproduce primero y cuando termina
 		// arranca la sprite cutscene, y cuando esa termina arranca el countdown.
-		if (isStoryMode && metaData != null
-			&& (metaData.introVideo != null || metaData.introCutscene != null))
+		if (isStoryMode && metaData != null && (metaData.introVideo != null || metaData.introCutscene != null))
 		{
 			// Capturar y limpiar las keys ANTES de entrar para evitar loops
 			final vidKey = metaData.introVideo;
 			final cutKey = metaData.introCutscene;
-			metaData.introVideo    = null;
+			metaData.introVideo = null;
 			metaData.introCutscene = null;
 
 			// Paso 2: sprite cutscene (o ir directo al countdown si no hay)
@@ -1493,7 +1543,8 @@ class PlayState extends funkin.states.MusicBeatState
 				_reloadedInst.pause();
 			}
 			funkin.audio.CoreAudio.setInst(_reloadedInst);
-			if (_reloadedInst != null) FlxG.sound.music = _reloadedInst;
+			if (_reloadedInst != null)
+				FlxG.sound.music = _reloadedInst;
 		}
 		else if (funkin.audio.CoreAudio.inst == null)
 		{
@@ -1534,7 +1585,7 @@ class PlayState extends funkin.states.MusicBeatState
 
 		if (cinematicMode)
 		{
-			startingSong     = false;
+			startingSong = false;
 			startedCountdown = true;
 			startSong();
 			return;
@@ -1607,7 +1658,8 @@ class PlayState extends funkin.states.MusicBeatState
 					{
 						for (snd in vocalsPerChar)
 						{
-							if (snd == null) continue;
+							if (snd == null)
+								continue;
 							funkin.audio.CoreAudio.play(snd);
 							snd.time = targetTime;
 						}
@@ -1769,9 +1821,6 @@ class PlayState extends funkin.states.MusicBeatState
 			// Update UI
 			uiManager.update(elapsed);
 
-			// Sync legacy stats
-			syncLegacyStats();
-
 			// Check death
 			if (!cinematicMode && (gameState.isDead() || FlxG.keys.anyJustPressed(inputHandler.killBind)))
 				gameOver();
@@ -1915,7 +1964,8 @@ class PlayState extends funkin.states.MusicBeatState
 			{
 				for (snd in vocalsPerChar)
 				{
-					if (snd == null) continue;
+					if (snd == null)
+						continue;
 					snd.time = 0;
 					funkin.audio.CoreAudio.play(snd);
 				}
@@ -2117,7 +2167,7 @@ class PlayState extends funkin.states.MusicBeatState
 					var health = getHealthForRating(rating);
 					gameState.modifyHealth(health);
 					uiManager.showRatingPopup(rating, gameState.combo);
-					if (FlxG.save.data.hitsounds && rating == 'sick')
+					if (SaveData.data.hitsounds && rating == 'sick')
 						playHitSound();
 				}
 				else
@@ -2151,12 +2201,14 @@ class PlayState extends funkin.states.MusicBeatState
 				for (k in _vocalsPlayerKeys)
 				{
 					var snd = vocalsPerChar.get(k);
-					if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 1.0);
+					if (snd != null)
+						funkin.audio.CoreAudio.setBaseVolume(snd, 1.0);
 				}
 			}
 			else
 			{
-				if (vocals != null) funkin.audio.CoreAudio.setBaseVolume(vocals, 1.0);
+				if (vocals != null)
+					funkin.audio.CoreAudio.setBaseVolume(vocals, 1.0);
 			}
 
 			for (hook in _noteHitHookArr)
@@ -2248,12 +2300,14 @@ class PlayState extends funkin.states.MusicBeatState
 			for (k in _vocalsPlayerKeys)
 			{
 				var snd = vocalsPerChar.get(k);
-				if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 0.0);
+				if (snd != null)
+					funkin.audio.CoreAudio.setBaseVolume(snd, 0.0);
 			}
 		}
 		else
 		{
-			if (vocals != null) funkin.audio.CoreAudio.setBaseVolume(vocals, 0.0);
+			if (vocals != null)
+				funkin.audio.CoreAudio.setBaseVolume(vocals, 0.0);
 		}
 
 		if (scriptsEnabled)
@@ -2383,12 +2437,14 @@ class PlayState extends funkin.states.MusicBeatState
 				for (k in _vocalsOpponentKeys)
 				{
 					var snd = vocalsPerChar.get(k);
-					if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 1.0);
+					if (snd != null)
+						funkin.audio.CoreAudio.setBaseVolume(snd, 1.0);
 				}
 			}
 			else
 			{
-				if (vocals != null) funkin.audio.CoreAudio.setBaseVolume(vocals, 1.0);
+				if (vocals != null)
+					funkin.audio.CoreAudio.setBaseVolume(vocals, 1.0);
 			}
 		}
 	}
@@ -2464,23 +2520,6 @@ class PlayState extends funkin.states.MusicBeatState
 		snd.play(true);
 	}
 
-	/**
-	 * Sync legacy stats — solo copia cuando algo cambió realmente.
-	 * Se comparan score+misses como proxy rápido; si coinciden, el resto tampoco cambia.
-	 */
-	private function syncLegacyStats():Void
-	{
-		if (gameState.score == songScore && gameState.misses == misses)
-			return; // nada cambió — evitar 7 asignaciones por frame
-		songScore = gameState.score;
-		misses = gameState.misses;
-		sicks = gameState.sicks;
-		goods = gameState.goods;
-		bads = gameState.bads;
-		shits = gameState.shits;
-		accuracy = gameState.accuracy;
-	}
-
 	override function openSubState(SubState:FlxSubState)
 	{
 		if (paused)
@@ -2498,7 +2537,8 @@ class PlayState extends funkin.states.MusicBeatState
 				if (_usingPerCharVocals)
 				{
 					for (snd in vocalsPerChar)
-						if (snd != null) snd.pause();
+						if (snd != null)
+							snd.pause();
 				}
 				else if (vocals != null)
 					vocals.pause();
@@ -2517,9 +2557,9 @@ class PlayState extends funkin.states.MusicBeatState
 		if (paused)
 		{
 			// FIX: !inCutscene — si la pausa se abrió durante una SpriteCutscene
-		// (que no usa FlxG.sound.music para su audio) no intentar resync del
-		// inst porque lo arrancaría mientras la cutscene todavía corre.
-		var shouldResync = isPlaying && !isRewinding && FlxG.sound.music != null && !startingSong && !VideoManager.isPlaying && !inCutscene;
+			// (que no usa FlxG.sound.music para su audio) no intentar resync del
+			// inst porque lo arrancaría mientras la cutscene todavía corre.
+			var shouldResync = isPlaying && !isRewinding && FlxG.sound.music != null && !startingSong && !VideoManager.isPlaying && !inCutscene;
 			if (shouldResync)
 			{
 				// BUGFIX: Si el audio ya está reproduciéndose (PauseSubState llamó
@@ -2630,7 +2670,9 @@ class PlayState extends funkin.states.MusicBeatState
 		// Pausar vocales antes del resync para evitar glitch de audio
 		if (_usingPerCharVocals)
 		{
-			for (snd in vocalsPerChar) if (snd != null) snd.pause();
+			for (snd in vocalsPerChar)
+				if (snd != null)
+					snd.pause();
 		}
 		else if (SONG.needsVoices && vocals != null)
 		{
@@ -2654,7 +2696,8 @@ class PlayState extends funkin.states.MusicBeatState
 		{
 			for (snd in vocalsPerChar)
 			{
-				if (snd == null) continue;
+				if (snd == null)
+					continue;
 				snd.time = Conductor.songPosition;
 				snd.resume();
 			}
@@ -2684,7 +2727,8 @@ class PlayState extends funkin.states.MusicBeatState
 			isPlaying = false;
 			if (FlxG.sound.music != null)
 				FlxG.sound.music.pause();
-			if (onCinematicEnd != null) onCinematicEnd();
+			if (onCinematicEnd != null)
+				onCinematicEnd();
 			return;
 		}
 
@@ -2694,7 +2738,9 @@ class PlayState extends funkin.states.MusicBeatState
 			funkin.audio.CoreAudio.setInstVolume(0.0);
 		if (_usingPerCharVocals)
 		{
-			for (snd in vocalsPerChar) if (snd != null) funkin.audio.CoreAudio.setBaseVolume(snd, 0.0);
+			for (snd in vocalsPerChar)
+				if (snd != null)
+					funkin.audio.CoreAudio.setBaseVolume(snd, 0.0);
 		}
 		else if (vocals != null)
 			funkin.audio.CoreAudio.setBaseVolume(vocals, 0.0);
@@ -2705,8 +2751,8 @@ class PlayState extends funkin.states.MusicBeatState
 			final diffSuffix = funkin.data.CoolUtil.difficultySuffix();
 			// Check BEFORE saving so we can detect if this is a new personal best
 			final _prevScore = funkin.gameplay.objects.hud.Highscore.getScore(SONG.song, diffSuffix);
-			isNewHighscore = (songScore > _prevScore);
-			Highscore.saveScore(SONG.song, songScore, diffSuffix);
+			gameState.isNewHighscore = (gameState.score > _prevScore);
+			Highscore.saveScore(SONG.song, gameState.score, diffSuffix);
 			Highscore.saveRating(SONG.song, gameState.accuracy, diffSuffix);
 		}
 
@@ -2726,12 +2772,12 @@ class PlayState extends funkin.states.MusicBeatState
 		//   }
 		if (scriptsEnabled)
 		{
-			var _continueCb:Dynamic = function() {
+			var _continueCb:Dynamic = function()
+			{
 				inCutscene = false;
 				continueAfterSong();
 			};
-			var scriptHandledOutro = ScriptHandler.callOnScriptsReturn(
-				'onOutroCutscene', [_continueCb], false);
+			var scriptHandledOutro = ScriptHandler.callOnScriptsReturn('onOutroCutscene', [_continueCb], false);
 			if (scriptHandledOutro == true)
 			{
 				inCutscene = true;
@@ -2741,12 +2787,11 @@ class PlayState extends funkin.states.MusicBeatState
 
 		// ── Outro cutscene sequence ─────────────────────────────────────────────
 		// Orden: outroVideo → outroCutscene (sprite) → diálogo → continueAfterSong
-		if (metaData != null
-			&& (metaData.outroVideo != null || metaData.outroCutscene != null))
+		if (metaData != null && (metaData.outroVideo != null || metaData.outroCutscene != null))
 		{
 			final vidKey = metaData.outroVideo;
 			final cutKey = metaData.outroCutscene;
-			metaData.outroVideo    = null;
+			metaData.outroVideo = null;
 			metaData.outroCutscene = null;
 
 			// Orden OUTRO (inverso al intro): diálogo → sprite cutscene → video → continueAfterSong
@@ -3055,13 +3100,6 @@ class PlayState extends funkin.states.MusicBeatState
 
 		// ── 2. Resetear GameState (score, health, combo, etc.) ──────────────
 		gameState.reset();
-		PlayState.misses = 0;
-		PlayState.shits = 0;
-		PlayState.bads = 0;
-		PlayState.goods = 0;
-		PlayState.sicks = 0;
-		PlayState.songScore = 0;
-		PlayState.accuracy = 0;
 
 		// ── 3. Resetear Conductor al BPM original ────────────────────────────
 		Conductor.changeBPM(SONG.bpm);
@@ -3125,7 +3163,8 @@ class PlayState extends funkin.states.MusicBeatState
 		{
 			for (snd in vocalsPerChar)
 			{
-				if (snd == null) continue;
+				if (snd == null)
+					continue;
 				snd.time = 0;
 				snd.stop();
 				funkin.audio.CoreAudio.setBaseVolume(snd, 1.0); // restaurar a full para el retry
@@ -3167,8 +3206,8 @@ class PlayState extends funkin.states.MusicBeatState
 		// ── 10. Resetear animaciones de strums a 'static' y re-aplicar posiciones ─
 		// Aplica downscroll/middlescroll usando los datos originales del StrumsGroup
 		// (respetando data.x y spacing) — más correcto que recalcular manualmente.
-		var _isDownscroll = FlxG.save.data.downscroll;
-		var _isMiddlescroll = FlxG.save.data.middlescroll;
+		var _isDownscroll = SaveData.data.downscroll;
+		var _isMiddlescroll = SaveData.data.middlescroll;
 		var _strumY:Float = _isDownscroll ? FlxG.height - 150 : PlayStateConfig.STRUM_LINE_Y;
 		strumLiney = _strumY;
 		if (noteManager != null)
@@ -3198,7 +3237,7 @@ class PlayState extends funkin.states.MusicBeatState
 			// Sin este fix, grupos de GF creados por la migración legacy (visible:false)
 			// reaparecen en pantalla al reiniciar o hacer rewind.
 			final shouldBeVisible:Bool = (group.isVisible == true);
-			final _isMiddlescrollReset:Bool = (FlxG.save.data.middlescroll == true);
+			final _isMiddlescrollReset:Bool = (SaveData.data.middlescroll == true);
 			group.strums.forEach(function(s:FlxSprite)
 			{
 				// CPU strums se ocultan en middlescroll independientemente de isVisible
@@ -3537,7 +3576,7 @@ class PlayState extends funkin.states.MusicBeatState
 	{
 		if (isStoryMode)
 		{
-			campaignScore += songScore;
+			campaignScore += gameState.score;
 			storyPlaylist.remove(storyPlaylist[0]);
 
 			if (storyPlaylist.length <= 0)
@@ -3547,7 +3586,7 @@ class PlayState extends funkin.states.MusicBeatState
 				if (SONG.validScore)
 					Highscore.saveWeekScore(storyWeek, campaignScore, funkin.data.CoolUtil.difficultySuffix());
 
-				FlxG.save.flush();
+				SaveData.flush();
 				LoadingState.loadAndSwitchState(new ResultScreen());
 			}
 			else
@@ -3566,7 +3605,9 @@ class PlayState extends funkin.states.MusicBeatState
 			// vocals puede ser null en charts V-Slice que usan vocales por personaje.
 			if (_usingPerCharVocals)
 			{
-				for (snd in vocalsPerChar) if (snd != null) snd.stop();
+				for (snd in vocalsPerChar)
+					if (snd != null)
+						snd.stop();
 			}
 			else if (vocals != null)
 				vocals.stop();
@@ -3592,7 +3633,7 @@ class PlayState extends funkin.states.MusicBeatState
 		// 1. Actualizar visibilidad del HUD (100% seguro)
 		if (uiManager != null)
 		{
-			var hideHud = FlxG.save.data.HUD;
+			var hideHud = SaveData.data.HUD;
 			uiManager.visible = !hideHud; // Controlar visibilidad del grupo completo
 		}
 
@@ -3602,7 +3643,7 @@ class PlayState extends funkin.states.MusicBeatState
 		// 3. Actualizar ghost tapping (seguro, solo afecta siguiente input)
 		if (inputHandler != null)
 		{
-			inputHandler.ghostTapping = FlxG.save.data.ghosttap;
+			inputHandler.ghostTapping = SaveData.data.ghosttap;
 		}
 
 		// === CAMBIOS QUE REQUIEREN MÁS CUIDADO ===
@@ -3625,17 +3666,20 @@ class PlayState extends funkin.states.MusicBeatState
 		if (skinData != null && skinData.isPixel == true)
 			return;
 
-		final aa:Bool = (FlxG.save.data.antialiasing == true);
+		final aa:Bool = (SaveData.data.antialiasing == true);
 
 		for (sprite in currentStage.members)
 		{
 			if (sprite != null && Std.isOfType(sprite, FlxSprite))
-				(cast sprite:FlxSprite).antialiasing = aa;
+				(cast sprite : FlxSprite).antialiasing = aa;
 		}
 
-		if (boyfriend != null) boyfriend.antialiasing = aa;
-		if (dad       != null) dad.antialiasing       = aa;
-		if (gf        != null) gf.antialiasing        = aa;
+		if (boyfriend != null)
+			boyfriend.antialiasing = aa;
+		if (dad != null)
+			dad.antialiasing = aa;
+		if (gf != null)
+			gf.antialiasing = aa;
 	}
 
 	/**
@@ -3658,7 +3702,8 @@ class PlayState extends funkin.states.MusicBeatState
 			_pauseVocalsOnly();
 			return;
 		}
-		if (!canPause) return;
+		if (!canPause)
+			return;
 		pauseMenu();
 	}
 
@@ -3667,7 +3712,9 @@ class PlayState extends funkin.states.MusicBeatState
 	{
 		if (_usingPerCharVocals)
 		{
-			for (snd in vocalsPerChar) if (snd != null && snd.playing) snd.pause();
+			for (snd in vocalsPerChar)
+				if (snd != null && snd.playing)
+					snd.pause();
 		}
 		else if (vocals != null && vocals.playing)
 		{
@@ -3685,7 +3732,8 @@ class PlayState extends funkin.states.MusicBeatState
 		// _onGlobalFocusLost() ya se encarga de la pausa completa.
 		// Este override solo existe para cubrir el caso en que el signal
 		// no se haya conectado todavía (antes del final de create()).
-		if (!paused && canPause) pauseMenu();
+		if (!paused && canPause)
+			pauseMenu();
 	}
 
 	/**
@@ -3709,7 +3757,8 @@ class PlayState extends funkin.states.MusicBeatState
 				{
 					for (snd in vocalsPerChar)
 					{
-						if (snd == null) continue;
+						if (snd == null)
+							continue;
 						snd.time = t;
 					}
 				}
@@ -3737,7 +3786,7 @@ class PlayState extends funkin.states.MusicBeatState
 	private function _tryLoadPerCharVocals(diffSuffix:String):Bool
 	{
 		// Limpiar listas de roles
-		_vocalsPlayerKeys   = [];
+		_vocalsPlayerKeys = [];
 		_vocalsOpponentKeys = [];
 
 		// Construir lista de candidatos: [{name, type}]
@@ -3749,11 +3798,18 @@ class PlayState extends funkin.states.MusicBeatState
 			{
 				var t = c.type != null ? c.type : 'Opponent';
 				// GF / Other nunca tienen vocals
-				if (t == 'Girlfriend' || t == 'Other') continue;
+				if (t == 'Girlfriend' || t == 'Other')
+					continue;
 				// Saltar duplicados por nombre
 				var dup = false;
-				for (prev in candidates) if (prev.name == c.name) { dup = true; break; }
-				if (!dup) candidates.push({name: c.name, type: t});
+				for (prev in candidates)
+					if (prev.name == c.name)
+					{
+						dup = true;
+						break;
+					}
+				if (!dup)
+					candidates.push({name: c.name, type: t});
 			}
 		}
 
@@ -3763,14 +3819,16 @@ class PlayState extends funkin.states.MusicBeatState
 			var p1 = SONG.player1 != null ? SONG.player1 : 'bf';
 			var p2 = SONG.player2 != null ? SONG.player2 : 'dad';
 			candidates.push({name: p1, type: 'Player'});
-			if (p2 != p1) candidates.push({name: p2, type: 'Opponent'});
+			if (p2 != p1)
+				candidates.push({name: p2, type: 'Opponent'});
 		}
 
 		var loaded = 0;
 		for (cand in candidates)
 		{
 			var snd = Paths.loadVoicesForChar(SONG.song, cand.name, diffSuffix);
-			if (snd == null) continue;
+			if (snd == null)
+				continue;
 
 			snd.pause();
 			FlxG.sound.list.add(snd);
@@ -3796,13 +3854,14 @@ class PlayState extends funkin.states.MusicBeatState
 	{
 		for (snd in vocalsPerChar)
 		{
-			if (snd == null) continue;
+			if (snd == null)
+				continue;
 			FlxG.sound.list.remove(snd, true);
 			snd.stop();
 			snd.destroy();
 		}
 		vocalsPerChar.clear();
-		_vocalsPlayerKeys   = [];
+		_vocalsPlayerKeys = [];
 		_vocalsOpponentKeys = [];
 		_usingPerCharVocals = false;
 	}

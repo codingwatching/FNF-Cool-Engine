@@ -4,8 +4,6 @@ import coolui.CoolNumericStepper;
 import coolui.CoolCheckBox;
 import coolui.CoolDropDown;
 import coolui.CoolTabMenu;
-
-
 import flixel.math.FlxMath;
 import funkin.gameplay.objects.character.Character.AnimData;
 import funkin.gameplay.objects.character.Character.CharacterData;
@@ -67,6 +65,7 @@ class AnimationDebug extends MusicBeatState
 	var layeringbullshit:FlxTypedGroup<FlxSprite>;
 	var animList:Array<String> = [];
 	var curAnim:Int = 0;
+	var ghostAnimIdx:Int = 0;
 	public var daAnim:String = 'bf';
 	var camFollow:FlxObject;
 	var camHUD:FlxCamera;
@@ -1527,6 +1526,7 @@ class AnimationDebug extends MusicBeatState
 	{
 		// Al cambiar de personaje, cancelar cualquier edición pendiente
 		editingAnimName = null;
+		ghostAnimIdx = 0;
 		if (addAnimBtn != null)
 			addAnimBtn.text = "Add Animation";
 		dumbTexts.forEach(function(text:FlxText)
@@ -1625,7 +1625,7 @@ class AnimationDebug extends MusicBeatState
 				}
 			}
 			var label = anim + animAssetTag + "  [" + offsets[0] + ", " + offsets[1] + "]";
-			var text = new FlxText(10, rowY + 3, 328, label, 11);
+			var text = new FlxText(10, rowY + 3, 295, label, 11);
 			text.scrollFactor.set();
 			text.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 			// Si tiene sub-atlas, tintarlo levemente diferente (magenta suave)
@@ -1640,6 +1640,24 @@ class AnimationDebug extends MusicBeatState
 			text.alpha = 0;
 			dumbTexts.add(text);
 			FlxTween.tween(text, {alpha: 1}, 0.2, {startDelay: daLoop * 0.03 + 0.05, ease: FlxEase.quartOut});
+			
+			var isGhostRow = (daLoop == ghostAnimIdx);
+			var ghostBadgeBg = new FlxSprite(308, rowY);
+			ghostBadgeBg.makeGraphic(28, rowH - 1, isGhostRow ? 0xCC7744CC : 0x33FFFFFF);
+			ghostBadgeBg.scrollFactor.set();
+			ghostBadgeBg.cameras = [camHUD];
+			ghostBadgeBg.alpha = 0;
+			dumbTexts.add(cast ghostBadgeBg);
+			FlxTween.tween(ghostBadgeBg, {alpha: 1}, 0.2, {startDelay: daLoop * 0.03, ease: FlxEase.quartOut});
+
+			var ghostLabel = new FlxText(308, rowY + 3, 28, "[G]", 10);
+			ghostLabel.scrollFactor.set();
+			ghostLabel.alignment = CENTER;
+			ghostLabel.color = isGhostRow ? 0xFFFFFFFF : 0x88FFFFFF;
+			ghostLabel.cameras = [camHUD];
+			ghostLabel.alpha = 0;
+			dumbTexts.add(ghostLabel);
+			FlxTween.tween(ghostLabel, {alpha: 1}, 0.2, {startDelay: daLoop * 0.03 + 0.05, ease: FlxEase.quartOut});
 
 			if (pushList)
 				animList.push(anim);
@@ -2064,6 +2082,28 @@ class AnimationDebug extends MusicBeatState
 		if (isTyping())
 			return;
 
+		// ── Click en el badge [G] de cada fila para cambiar la anim del ghost ─
+		// La columna del badge está en x=308–335, filas desde y=174 cada 20px.
+		if (FlxG.mouse.justPressed && ghostChar != null && animList.length > 0)
+		{
+			var mx = FlxG.mouse.gameX;
+			var my = FlxG.mouse.gameY;
+			var listStartY = 174;
+			var rowH2 = 20;
+			if (mx >= 308 && mx <= 336 && my >= listStartY && my < listStartY + animList.length * rowH2)
+			{
+				var clickedIdx = Std.int((my - listStartY) / rowH2);
+				if (clickedIdx >= 0 && clickedIdx < animList.length)
+				{
+					ghostAnimIdx = clickedIdx;
+					if (ghostChar.visible)
+						ghostChar.playAnim(animList[ghostAnimIdx]);
+					updateOffsetTexts();
+					setHelp("[G] Ghost → " + animList[ghostAnimIdx], 0xFFAA88FF);
+				}
+			}
+		}
+
 		// Reset camera
 		if (FlxG.keys.justPressed.R)
 		{
@@ -2101,7 +2141,7 @@ class AnimationDebug extends MusicBeatState
 			{
 				char.playAnim(animList[curAnim]);
 				if (ghostChar != null)
-					ghostChar.playAnim(animList[0]);
+					ghostChar.playAnim(animList[ghostAnimIdx]);
 				updateOffsetTexts();
 
 				// Bounce visual en el texto de animación
@@ -2151,7 +2191,7 @@ class AnimationDebug extends MusicBeatState
 
 				char.playAnim(selAnim);
 				if (ghostChar != null)
-					ghostChar.playAnim(animList[0]);
+					ghostChar.playAnim(animList[ghostAnimIdx]);
 				updateOffsetTexts();
 
 				// Flash amarillo → normal en textInfo como feedback
@@ -2213,7 +2253,7 @@ class AnimationDebug extends MusicBeatState
 
 						char.playAnim(selAnim);
 						if (ghostChar != null)
-							ghostChar.playAnim(animList[0]);
+							ghostChar.playAnim(animList[ghostAnimIdx]);
 						updateOffsetTexts();
 					}
 				}

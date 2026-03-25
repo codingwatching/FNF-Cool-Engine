@@ -48,7 +48,7 @@ function onCreate()
 
 function _createHealthBar()
 {
-	var healthBarY = FlxG.save.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.88;
+	var healthBarY = SaveData.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.88;
 
 	healthBarBG = makeSprite(0, healthBarY);
 	healthBarBG.loadGraphic(Paths.image('UI/healthBar'));
@@ -79,10 +79,10 @@ function _createHealthBar()
 
 function _createScoreText()
 {
-    var healthBarY = FlxG.save.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.98;
+    var healthBarY = SaveData.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.98;
     scoreTxt = makeText(0, healthBarY - 35, '', 20);
     scoreTxt.fieldWidth = FlxG.width;
-    scoreTxt.antialiasing = FlxG.save.data.antialiasing;
+    scoreTxt.antialiasing = SaveData.data.antialiasing;
     scoreTxt.setFormat(Paths.font('Funkin.otf'), 20, 0xFFFFFFFF, "center");
     setTextBorder(scoreTxt, 'outline', 0xFF000000, 2, 1);
     scoreTxt.size = 20;
@@ -130,7 +130,7 @@ function _updateScoreText()
 	var rawScore = Std.string(Std.int(gameState.score));
 	var formattedScore = _formatScore(gameState.score);
 
-	if (FlxG.save.data.accuracyDisplay)
+	if (SaveData.data.accuracyDisplay)
 		scoreTxt.text = StringTools.replace(scoreManager.getHUDText(gameState), rawScore, formattedScore);
 	else
 		scoreTxt.text = 'Score: ' + formattedScore + ' - Misses: ' + gameState.misses;
@@ -229,8 +229,8 @@ var posY = 0;
 function onInit()
 {
 	// Read the saved offsets (default: original base position = -50, 0)
-	posX = (FlxG.save.data.ratingOffsetX != null) ? FlxG.save.data.ratingOffsetX : -100;
-	posY = (FlxG.save.data.ratingOffsetY != null) ? FlxG.save.data.ratingOffsetY : 0;
+	posX = (SaveData.data.ratingOffsetX != null) ? SaveData.data.ratingOffsetX : -100;
+	posY = (SaveData.data.ratingOffsetY != null) ? SaveData.data.ratingOffsetY : 0;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -263,7 +263,7 @@ function onRatingPopup(ratingName, combo)
 	if (!isPixel)
 	{
 		ratingSprite.setGraphicSize(Std.int(ratingSprite.width * 0.7));
-		ratingSprite.antialiasing = FlxG.save.data.antialiasing;
+		ratingSprite.antialiasing = SaveData.data.antialiasing;
 	}
 	else
 	{
@@ -319,7 +319,7 @@ function _showComboNumbers(combo, pixelPart1, pixelPart2)
 
 		if (!isPixel)
 		{
-			numScore.antialiasing = FlxG.save.data.antialiasing;
+			numScore.antialiasing = SaveData.data.antialiasing;
 			numScore.setGraphicSize(Std.int(numScore.width * 0.35));
 		}
 		else
@@ -375,7 +375,7 @@ function onMissPopup()
 	if (!isPixel)
 	{
 		rating.setGraphicSize(Std.int(rating.width * 0.7));
-		rating.antialiasing = FlxG.save.data.antialiasing;
+		rating.antialiasing = SaveData.data.antialiasing;
 	}
 	else
 	{

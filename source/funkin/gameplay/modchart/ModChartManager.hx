@@ -6,6 +6,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import funkin.gameplay.objects.StrumsGroup;
 import funkin.gameplay.modchart.ModChartEvent;
 import haxe.Json;
+import lime.app.Application;
 
 using StringTools;
 
@@ -19,1473 +20,1981 @@ import llua.State;
 
 typedef StrumState =
 {
-    // ── Posición del strum ──────────────────────────────────────────────────
-    var baseX    : Float;
-    var baseY    : Float;
-    var offsetX  : Float;
-    var offsetY  : Float;
-    var absX     : Null<Float>;
-    var absY     : Null<Float>;
-
-    // ── Rotación / apariencia del strum ─────────────────────────────────────
-    var angle    : Float;
-    var spinRate : Float;
-    var alpha    : Float;
-    var scaleX   : Float;
-    var scaleY   : Float;
-    var visible  : Bool;
-    /** Visibilidad original del grupo — capturada al crear el strum y nunca modificada
-     *  por eventos de modchart. Usada en resetToStart()/seekToBeat() para restaurar
-     *  la visibilidad correcta (false para grupos GF) sin perder el valor base. */
-    var baseVisible : Bool;
-
-    // ── Modificadores per-nota (NUEVOS) ──────────────────────────────────────
-    /** Amplitud de onda senoidal en X para cada nota (px). 0 = desactivado. */
-    var drunkX      : Float;
-    /** Amplitud de onda senoidal en Y para cada nota (px). 0 = desactivado. */
-    var drunkY      : Float;
-    /** Frecuencia de las ondas drunk (default 1.0). */
-    var drunkFreq   : Float;
-    /** Rotación en onda según strumTime de cada nota (grados). 0 = desactivado. */
-    var tornado     : Float;
-    /** Rotación plana extra en cada nota (grados). 0 = sin efecto. */
-    var confusion   : Float;
-    /** Multiplicador de scroll speed (default 1.0). -1 = invertido. */
-    var scrollMult  : Float;
-    /** Inversión X de notas (0=normal, 1=espejo alrededor del strum). */
-    var flipX       : Float;
-    /** Offset X plano para todas las notas del strum (px). */
-    var noteOffsetX : Float;
-    /** Offset Y plano para todas las notas del strum (px). */
-    var noteOffsetY : Float;
-    /** Amplitud de ola Y global (todas las notas oscilan juntas). */
-    var bumpy       : Float;
-    /** Velocidad de la ola bumpy (default 2.0). */
-    var bumpySpeed  : Float;
-
-    // ── Nuevos modificadores v3 ───────────────────────────────────────────
-    /** Amplitud de ola X global por songPosition (tipsy). */
-    var tipsy       : Float;
-    /** Velocidad de la ola tipsy (default 1.0). */
-    var tipsySpeed  : Float;
-    /** Scroll invertido local para este strum (1=invertido, 0=normal). */
-    var invert      : Float;
-    /** Amplitud del zigzag en X. */
-    var zigzag      : Float;
-    /** Frecuencia del zigzag (default 1.0). */
-    var zigzagFreq  : Float;
-    /** Amplitud de la ola Y viajante (wave). */
-    var wave        : Float;
-    /** Velocidad de la ola wave (default 1.5). */
-    var waveSpeed   : Float;
-    /** Amplitud del pulso de escala en beat (0=sin pulso). */
-    var beatScale   : Float;
-    /** Pulso de escala actual (decae entre beats). Solo uso interno. */
-    var _beatPulse  : Float;
-    /** 1 = notas invisibles pero hiteables; 0 = visible. */
-    var stealth     : Float;
-    /** Multiplicador de alpha per-nota (0-1). */
-    var noteAlpha   : Float;
+	var baseX:Float;
+	var baseY:Float;
+	var offsetX:Float;
+	var offsetY:Float;
+	var absX:Null<Float>;
+	var absY:Null<Float>;
+	var angle:Float;
+	var spinRate:Float;
+	var alpha:Float;
+	var scaleX:Float;
+	var scaleY:Float;
+	var visible:Bool;
+	var baseVisible:Bool;
+	var drunkX:Float;
+	var drunkY:Float;
+	var drunkFreq:Float;
+	var tornado:Float;
+	var confusion:Float;
+	var scrollMult:Float;
+	var flipX:Float;
+	var noteOffsetX:Float;
+	var noteOffsetY:Float;
+	var bumpy:Float;
+	var bumpySpeed:Float;
+	var tipsy:Float;
+	var tipsySpeed:Float;
+	var invert:Float;
+	var zigzag:Float;
+	var zigzagFreq:Float;
+	var wave:Float;
+	var waveSpeed:Float;
+	var beatScale:Float;
+	var _beatPulse:Float;
+	var stealth:Float;
+	var noteAlpha:Float;
 }
 
-// ─── Estado de cámara controlado por modchart ─────────────────────────────────
+// ─── Estado de cámara ─────────────────────────────────────────────────────────
 
-/**
- * PlayState lee estos valores cada frame y los suma al estado base de la cámara.
- * Todos empiezan en 0 / 1 y se interpolan con el sistema de tweens normal.
- */
 typedef CameraModState =
 {
-    /** Zoom extra (se suma al zoom base del juego; 0 = sin efecto). */
-    var zoom    : Float;
-    /** Offset horizontal de cámara (px). */
-    var offsetX : Float;
-    /** Offset vertical de cámara (px). */
-    var offsetY : Float;
-    /** Rotación extra de cámara (grados). */
-    var angle   : Float;
+	var zoom:Float;
+	var offsetX:Float;
+	var offsetY:Float;
+	var angle:Float;
 }
 
-// ─── Evento en ejecución ──────────────────────────────────────────────────────
+// ─── Estado de ventana OS ─────────────────────────────────────────────────────
+
+/**
+ * Todos los parámetros que controlan la ventana del OS.
+ * El motor calcula la posición/escala/opacidad final cada frame
+ * combinando todos los modificadores activos.
+ */
+typedef WindowModState =
+{
+	// Base — offset directo desde la posición inicial de la ventana
+	var offsetX:Float;
+	var offsetY:Float;
+	// Escala de la ventana (multiplicadores, 1.0 = normal)
+	var scaleX:Float;
+	var scaleY:Float;
+	// Opacidad (0-1)
+	var alpha:Float;
+
+	// Órbita circular/elíptica
+	var orbit:Float; // radio
+	var orbitSpeed:Float; // beats/rev
+	var orbitPhase:Float; // offset turns
+	var orbitEX:Float; // stretch X
+	var orbitEY:Float; // stretch Y
+
+	// Vibración aleatoria determinista
+	var shake:Float; // amplitud px
+	var shakeSpeed:Float; // velocidad
+
+	// Rebote de resorte
+	var bounce:Float; // amplitud px
+	var bounceFreq:Float;
+	var bouncePeriod:Float; // beats
+
+	// Espiral arquimediana
+	var spiral:Float; // radio max
+	var spiralSpeed:Float;
+	var spiralTight:Float; // curvas
+
+	// Lemniscata (figura-8)
+	var figure8:Float; // amplitud
+	var figure8Speed:Float;
+
+	// Glitch (teletransporte rápido)
+	var glitch:Float; // amplitud
+	var glitchRate:Float;
+
+	// Warp (snap aleatorio)
+	var warp:Float; // distancia
+	var warpPeriod:Float; // beats
+	var _warpX:Float; // estado interno
+	var _warpY:Float;
+	var _warpCycle:Int;
+
+	// Péndulo
+	var swing:Float;
+	var swingSpeed:Float;
+
+	// Onda triangular
+	var winZigzag:Float;
+	var zigzagSpeed:Float;
+
+	// Pinball
+	var pinball:Float; // velocidad px/beat
+	var pinballAngle:Float; // grados
+
+	// Roll
+	var roll:Float;
+	var rollSpeed:Float;
+
+	// Pulso de escala en beat
+	var beatScale:Float;
+	var _beatPulse:Float;
+
+	// Pulso cardíaco
+	var heartbeat:Float;
+
+	// Strobe
+	var strobe:Float;
+	var strobeRate:Float;
+	var strobeDuty:Float;
+
+	// Anclaje a esquina de pantalla
+	var anchor:Float; // blend 0-1
+	var anchorX:Float; // -1/0/1
+	var anchorY:Float;
+	var anchorMX:Float; // margen px
+	var anchorMY:Float;
+}
+
+// ─── Tween activo ────────────────────────────────────────────────────────────
 
 typedef ActiveTween =
 {
-    var event     : ModChartEvent;
-    var startBeat : Float;
-    var startVal  : Float;   // valor del strum al inicio del tween
-    var groupId   : String;
-    var strumIdx  : Int;
+	var event:ModChartEvent;
+	var startBeat:Float;
+	var startVal:Float;
+	var groupId:String;
+	var strumIdx:Int;
 }
 
-// ─── Manager principal ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 class ModChartManager
 {
-    // ── Datos ──────────────────────────────────────────────────────────────────
-    public var data:ModChartData;
-
-    // ── Grupos de strums ───────────────────────────────────────────────────────
-    private var strumsGroups:Array<StrumsGroup>;
-
-    /**
-     * Estado de cada strum:  states[groupId][strumIdx 0-3]
-     */
-    private var states:Map<String, Array<StrumState>> = new Map();
-
-    /**
-     * Estado de cámara — PlayState lo lee cada frame y lo aplica.
-     * Ejemplo en PlayState.update():
-     *   if (modChartManager != null) {
-     *     var cs = modChartManager.camState;
-     *     camGame.zoom = defaultCamZoom + cs.zoom;
-     *     camGame.scroll.x += cs.offsetX;
-     *     camGame.scroll.y += cs.offsetY;
-     *     camGame.angle = cs.angle;
-     *   }
-     */
-    public var camState:CameraModState = { zoom: 0, offsetX: 0, offsetY: 0, angle: 0 };
-
-    // ── Eventos pendientes (aún no disparados) ─────────────────────────────────
-    private var pending:Array<ModChartEvent> = [];
-
-    /**
-     * Índice del próximo evento pendiente.
-     * Reemplaza pending.shift() (O(n)) por un avance de puntero O(1).
-     */
-    private var _pendingIdx:Int = 0;
-
-    // ── Tweens activos (en interpolación) ─────────────────────────────────────
-    private var activeTweens:Array<ActiveTween> = [];
-
-    /**
-     * Array reutilizable para tweens terminados — evita new Array() cada frame.
-     */
-    private var _finishedTweens:Array<ActiveTween> = [];
-
-    // ── Tiempo actual ──────────────────────────────────────────────────────────
-    private var currentBeat:Float = 0;
-    private var songPosition:Float = 0;
-
-    // ── Flags ──────────────────────────────────────────────────────────────────
-    public var enabled:Bool = true;
-
-    // ── Singleton cómodo ──────────────────────────────────────────────────────
-    public static var instance:ModChartManager = null;
-
-    // ─────────────────────────────────────────────────────────────────────────
-
-    public function new(strumsGroups:Array<StrumsGroup>)
-    {
-        instance = this;
-        this.strumsGroups = strumsGroups;
-
-        // Datos vacíos por defecto
-        data = {
-            name    : "New ModChart",
-            song    : "",
-            version : "1.0",
-            events  : []
-        };
-
-        captureBasePositions();
-        trace('[ModChartManager] Inicializado con ${strumsGroups.length} grupos de strums');
-    }
-
-    // ─── Captura de posiciones base ────────────────────────────────────────────
-
-    /**
-     * Reemplaza los StrumsGroups internos por unos nuevos y recaptura posiciones.
-     * Úsalo desde el editor para redirigir applyAllStates() a los strums propios
-     * del editor en vez de los de PlayState (que ya habrán sido destruidos).
-     */
-    public function replaceStrumsGroups(newGroups:Array<StrumsGroup>):Void
-    {
-        this.strumsGroups = newGroups;
-        captureBasePositions();
-        trace('[ModChartManager] StrumsGroups reemplazados: ${newGroups.length} grupos');
-    }
-
-    /**
-     * Captura la posición ACTUAL de cada strum como posición base.
-     * Llamar después de que PlayState haya colocado todos los strums.
-     * Funciona en cualquier modo de scroll porque lee las posiciones reales.
-     */
-    public function captureBasePositions():Void
-    {
-        states.clear();
-
-        for (group in strumsGroups)
-        {
-            var arr:Array<StrumState> = [];
-
-            for (i in 0...4)
-            {
-                var spr = group.getStrum(i);
-                if (spr == null)
-                {
-                    arr.push(makeDefaultState(0, 0));
-                    continue;
-                }
-
-                var st:StrumState = {
-                    baseX       : spr.x,
-                    baseY       : spr.y,
-                    offsetX     : 0,
-                    offsetY     : 0,
-                    absX        : null,
-                    absY        : null,
-                    angle       : 0,
-                    spinRate    : 0,
-                    alpha       : 1,
-                    scaleX      : spr.scale.x,
-                    scaleY      : spr.scale.y,
-                    // Visibilidad — capturar la original para que reset la restaure correctamente
-                    visible     : spr.visible,
-                    baseVisible : spr.visible, // BUGFIX: GF strums (visible:false) no deben volverse visibles en reset
-                    // per-nota modifiers
-                    drunkX      : 0,
-                    drunkY      : 0,
-                    drunkFreq   : 1.0,
-                    tornado     : 0,
-                    confusion   : 0,
-                    scrollMult  : 1.0,
-                    flipX       : 0,
-                    noteOffsetX : 0,
-                    noteOffsetY : 0,
-                    bumpy       : 0,
-                    bumpySpeed  : 2.0,
-                    // v3 nuevos
-                    tipsy       : 0,
-                    tipsySpeed  : 1.0,
-                    invert      : 0,
-                    zigzag      : 0,
-                    zigzagFreq  : 1.0,
-                    wave        : 0,
-                    waveSpeed   : 1.5,
-                    beatScale   : 0,
-                    _beatPulse  : 0,
-                    stealth     : 0,
-                    noteAlpha   : 1.0
-                };
-
-                arr.push(st);
-            }
-
-            states.set(group.id, arr);
-        }
-
-        trace('[ModChartManager] Posiciones base capturadas para ${strumsGroups.length} grupos');
-    }
-
-    private function makeDefaultState(bx:Float, by:Float):StrumState
-    {
-        return {
-            baseX      : bx,
-            baseY      : by,
-            offsetX    : 0,
-            offsetY    : 0,
-            absX       : null,
-            absY       : null,
-            angle      : 0,
-            spinRate   : 0,
-            alpha      : 1,
-            scaleX     : 0.7,
-            scaleY     : 0.7,
-            visible    : true,
-            baseVisible: true,
-            // per-nota
-            drunkX     : 0,
-            drunkY     : 0,
-            drunkFreq  : 1.0,
-            tornado    : 0,
-            confusion  : 0,
-            scrollMult : 1.0,
-            flipX      : 0,
-            noteOffsetX: 0,
-            noteOffsetY: 0,
-            bumpy      : 0,
-            bumpySpeed : 2.0,
-            // v3
-            tipsy      : 0,
-            tipsySpeed : 1.0,
-            invert     : 0,
-            zigzag     : 0,
-            zigzagFreq : 1.0,
-            wave       : 0,
-            waveSpeed  : 1.5,
-            beatScale  : 0,
-            _beatPulse : 0,
-            stealth    : 0,
-            noteAlpha  : 1.0
-        };
-    }
-
-    // ─── Carga/guardado ───────────────────────────────────────────────────────
-
-    /** Carga el modchart de una canción desde assets/modcharts/<song>.json */
-    public function loadFromFile(songName:String):Bool
-    {
-        var song = songName.toLowerCase();
-
-        // ── Función helper: buscar en todas las fuentes posibles ─────────────
-        // Orden de prioridad: mod activo → otros mods habilitados → assets base
-        var searchPaths:Array<String> = [];
-
-        // 1. Mod activo (máxima prioridad)
-        #if sys
-        var activeMod = mods.ModManager.activeMod;
-        if (activeMod != null)
-        {
-            searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.lua');
-            searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.hx');
-            searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.json');
-        }
-
-        // 2. Todos los mods habilitados (en orden)
-        for (mod in mods.ModManager.installedMods)
-        {
-            if (!mod.enabled) continue;
-            if (mod.id == activeMod) continue; // ya añadido arriba
-            searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.lua');
-            searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.hx');
-            searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.json');
-        }
-        #end
-
-        // 3. Assets base
-        searchPaths.push('assets/songs/${song}/modchart.lua');
-        searchPaths.push('assets/songs/${song}/modchart.hx');
-        searchPaths.push('assets/data/modcharts/${song}.lua');
-        searchPaths.push('assets/data/modcharts/${song}.hx');
-        searchPaths.push('assets/songs/${song}/modchart.json');
-        searchPaths.push('assets/data/modcharts/${song}.json');
-
-        // ── Buscar y cargar ──────────────────────────────────────────────────
-        for (p in searchPaths)
-        {
-            #if sys
-            var exists = sys.FileSystem.exists(p);
-            #else
-            var exists = openfl.Assets.exists(p);
-            #end
-
-            if (!exists) continue;
-
-            if (p.endsWith('.lua'))
-            {
-                var result = loadFromLua(p, songName);
-                if (result) return true;
-            }
-            else if (p.endsWith('.hx'))
-            {
-                var result = loadFromHScript(p, songName);
-                if (result) return true;
-            }
-            else if (p.endsWith('.json'))
-            {
-                try
-                {
-                    var txt = #if sys sys.io.File.getContent(p) #else openfl.Assets.getText(p) #end;
-                    var loaded:ModChartData = Json.parse(txt);
-                    data = loaded;
-                    data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
-                    pending = data.events.copy();
-                    trace('[ModChartManager] Modchart JSON cargado desde "$p" (${data.events.length} eventos)');
-                    return true;
-                }
-                catch (e:Dynamic)
-                {
-                    trace('[ModChartManager] ERROR al cargar modchart JSON "$p": $e');
-                }
-            }
-        }
-
-        trace('[ModChartManager] No hay modchart para "$songName"');
-        return false;
-    }
-
-    /**
-     * Carga un modchart desde un archivo HScript.
-     *
-     * El script puede usar estas funciones:
-     *   onCreate()             — se llama al cargar el script
-     *   onBeatHit(beat:Int)    — en cada beat
-     *   onStepHit(step:Int)    — en cada step
-     *   onUpdate(pos:Float)    — cada frame (songPosition en ms)
-     *   onNoteHit(note)        — cuando se golpea una nota
-     *
-     * Y estas APIs de modchart (disponibles como variables globales):
-     *   modChart.addEventSimple(beat, target, strumIdx, type, value, dur, ease)
-     *   modChart.clearEvents()
-     *   MOVE_X / MOVE_Y / ANGLE / ALPHA / SCALE / SPIN / RESET / VISIBLE / SET_ABS_X / SET_ABS_Y
-     *   LINEAR / QUAD_IN / QUAD_OUT / QUAD_IN_OUT / CUBE_IN / CUBE_OUT / ELASTIC_OUT / BOUNCE_OUT ...
-     *
-     * Ejemplo de modchart HScript:
-     *   function onCreate() {
-     *     // Rotar todos los strums del jugador 360° en 4 beats a partir del beat 8
-     *     modChart.addEventSimple(8, "player", -1, ANGLE, 360, 4, SINE_IN_OUT);
-     *     // Hacer bounce a un strum individual
-     *     modChart.addEventSimple(16, "cpu", 0, MOVE_Y, -100, 2, BOUNCE_OUT);
-     *   }
-     *   function onBeatHit(beat) {
-     *     if (beat % 4 == 0)
-     *       modChart.addEventSimple(beat, "all", -1, SCALE, 1.2, 0.5, ELASTIC_OUT);
-     *   }
-     */
-    public function loadFromHScript(path:String, songName:String = ''):Bool
-    {
-        #if HSCRIPT_ALLOWED
-        try
-        {
-            var src = #if sys sys.io.File.getContent(path) #else openfl.Assets.getText(path) #end;
-            if (src == null || src.length == 0) return false;
-
-            var parser = new hscript.Parser();
-            parser.allowTypes = true;
-            #if (hscript >= "2.5.0")
-            try { parser.allowMetadata = true; } catch(_:Dynamic) {}
-            #end
-            var prog = parser.parseString(src);
-            var interp = new hscript.Interp();
-
-            // ── Exponer constantes de ModEventType ──────────────────────────
-            // strum básicos
-            interp.variables.set('MOVE_X',        ModEventType.MOVE_X);
-            interp.variables.set('MOVE_Y',        ModEventType.MOVE_Y);
-            interp.variables.set('SET_ABS_X',     ModEventType.SET_ABS_X);
-            interp.variables.set('SET_ABS_Y',     ModEventType.SET_ABS_Y);
-            interp.variables.set('ANGLE',         ModEventType.ANGLE);
-            interp.variables.set('ALPHA',         ModEventType.ALPHA);
-            interp.variables.set('SCALE',         ModEventType.SCALE);
-            interp.variables.set('SCALE_X',       ModEventType.SCALE_X);
-            interp.variables.set('SCALE_Y',       ModEventType.SCALE_Y);
-            interp.variables.set('SPIN',          ModEventType.SPIN);
-            interp.variables.set('RESET',         ModEventType.RESET);
-            interp.variables.set('VISIBLE',       ModEventType.VISIBLE);
-            // per-nota
-            interp.variables.set('DRUNK_X',       ModEventType.DRUNK_X);
-            interp.variables.set('DRUNK_Y',       ModEventType.DRUNK_Y);
-            interp.variables.set('DRUNK_FREQ',    ModEventType.DRUNK_FREQ);
-            interp.variables.set('TORNADO',       ModEventType.TORNADO);
-            interp.variables.set('CONFUSION',     ModEventType.CONFUSION);
-            interp.variables.set('SCROLL_MULT',   ModEventType.SCROLL_MULT);
-            interp.variables.set('FLIP_X',        ModEventType.FLIP_X);
-            interp.variables.set('NOTE_OFFSET_X', ModEventType.NOTE_OFFSET_X);
-            interp.variables.set('NOTE_OFFSET_Y', ModEventType.NOTE_OFFSET_Y);
-            interp.variables.set('BUMPY',         ModEventType.BUMPY);
-            interp.variables.set('BUMPY_SPEED',   ModEventType.BUMPY_SPEED);
-            // v3 nuevos
-            interp.variables.set('TIPSY',         ModEventType.TIPSY);
-            interp.variables.set('TIPSY_SPEED',   ModEventType.TIPSY_SPEED);
-            interp.variables.set('INVERT',        ModEventType.INVERT);
-            interp.variables.set('ZIGZAG',        ModEventType.ZIGZAG);
-            interp.variables.set('ZIGZAG_FREQ',   ModEventType.ZIGZAG_FREQ);
-            interp.variables.set('WAVE',          ModEventType.WAVE);
-            interp.variables.set('WAVE_SPEED',    ModEventType.WAVE_SPEED);
-            interp.variables.set('BEAT_SCALE',    ModEventType.BEAT_SCALE);
-            interp.variables.set('STEALTH',       ModEventType.STEALTH);
-            interp.variables.set('NOTE_ALPHA',    ModEventType.NOTE_ALPHA);
-            // cámara
-            interp.variables.set('CAM_ZOOM',      ModEventType.CAM_ZOOM);
-            interp.variables.set('CAM_MOVE_X',    ModEventType.CAM_MOVE_X);
-            interp.variables.set('CAM_MOVE_Y',    ModEventType.CAM_MOVE_Y);
-            interp.variables.set('CAM_ANGLE',     ModEventType.CAM_ANGLE);
-
-            // ── Exponer constantes de ModEase ────────────────────────────────
-            interp.variables.set('LINEAR',      ModEase.LINEAR);
-            interp.variables.set('QUAD_IN',     ModEase.QUAD_IN);
-            interp.variables.set('QUAD_OUT',    ModEase.QUAD_OUT);
-            interp.variables.set('QUAD_IN_OUT', ModEase.QUAD_IN_OUT);
-            interp.variables.set('CUBE_IN',     ModEase.CUBE_IN);
-            interp.variables.set('CUBE_OUT',    ModEase.CUBE_OUT);
-            interp.variables.set('CUBE_IN_OUT', ModEase.CUBE_IN_OUT);
-            interp.variables.set('SINE_IN',     ModEase.SINE_IN);
-            interp.variables.set('SINE_OUT',    ModEase.SINE_OUT);
-            interp.variables.set('SINE_IN_OUT', ModEase.SINE_IN_OUT);
-            interp.variables.set('ELASTIC_IN',  ModEase.ELASTIC_IN);
-            interp.variables.set('ELASTIC_OUT', ModEase.ELASTIC_OUT);
-            interp.variables.set('BOUNCE_OUT',  ModEase.BOUNCE_OUT);
-            interp.variables.set('BACK_IN',     ModEase.BACK_IN);
-            interp.variables.set('BACK_OUT',    ModEase.BACK_OUT);
-            interp.variables.set('INSTANT',     ModEase.INSTANT);
-
-            // ── Exponer API del modchart ─────────────────────────────────────
-            interp.variables.set('modChart', this);
-            interp.variables.set('song', songName);
-            // ── Exponer utilidades de uso frecuente en scripts ───────────────
-            interp.variables.set('Math', Math);
-            interp.variables.set('FlxG', flixel.FlxG);
-            interp.variables.set('Conductor', funkin.data.Conductor);
-            // noteManager y playState: disponibles si el juego ya arrancó
-            interp.variables.set('noteManager',
-                funkin.gameplay.PlayState.instance != null
-                    ? funkin.gameplay.PlayState.instance.noteManager : null);
-            interp.variables.set('playState', funkin.gameplay.PlayState.instance);
-            // camState: referencia directa para leerla/modificarla desde scripts
-            interp.variables.set('camState', camState);
-
-            // Ejecutar el programa (define funciones)
-            interp.execute(prog);
-
-            // Guardar el intérprete para callbacks en tiempo real
-            _hscriptInterp = interp;
-
-            // Llamar onCreate() si existe
-            if (interp.variables.exists('onCreate'))
-            {
-                try { Reflect.callMethod(null, interp.variables.get('onCreate'), []); }
-                catch (e:Dynamic) { trace('[ModChartManager] Error en onCreate(): $e'); }
-            }
-
-            data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
-            pending = data.events.copy();
-
-            trace('[ModChartManager] Modchart HScript cargado: "$path" (${data.events.length} eventos pre-generados)');
-            return true;
-        }
-        catch (e:Dynamic)
-        {
-            trace('[ModChartManager] ERROR al cargar modchart HScript: $e');
-            return false;
-        }
-        #else
-        trace('[ModChartManager] HScript no disponible (compilar con -D HSCRIPT_ALLOWED)');
-        return false;
-        #end
-    }
-
-    #if HSCRIPT_ALLOWED
-    /** Intérprete HScript para el modchart (null si no hay script activo) */
-    private var _hscriptInterp:Null<hscript.Interp> = null;
-
-    #if (LUA_ALLOWED && linc_luajit)
-    /** Script Lua activo para el modchart (null si no hay script Lua). */
-    private var _luaScript:Null<funkin.scripting.RuleScriptInstance> = null;
-    #end
-
-    /** Llama una función del modchart HScript si existe. */
-    private inline function _callHScript(func:String, args:Array<Dynamic>):Void
-    {
-        if (_hscriptInterp == null) return;
-        if (!_hscriptInterp.variables.exists(func)) return;
-        try { Reflect.callMethod(null, _hscriptInterp.variables.get(func), args); }
-        catch (e:Dynamic) { trace('[ModChartManager] Error en $func(): $e'); }
-    }
-    #end
-
-    // ── Lua modchart support ─────────────────────────────────────────────────
-
-    /**
-     * Carga un modchart desde un archivo Lua.
-     *
-     * El script tiene acceso a las mismas APIs que HScript:
-     *
-     *   -- Tipos de evento (constantes globales)
-     *   MOVE_X, MOVE_Y, SET_ABS_X, SET_ABS_Y
-     *   ANGLE, SPIN, ALPHA, SCALE, SCALE_X, SCALE_Y, VISIBLE, RESET
-     *   DRUNK_X, DRUNK_Y, DRUNK_FREQ, TORNADO, CONFUSION
-     *   SCROLL_MULT, FLIP_X, NOTE_OFFSET_X, NOTE_OFFSET_Y
-     *   BUMPY, BUMPY_SPEED
-     *   CAM_ZOOM, CAM_MOVE_X, CAM_MOVE_Y, CAM_ANGLE
-     *
-     *   -- Easings
-     *   LINEAR, QUAD_IN, QUAD_OUT, QUAD_IN_OUT, CUBE_IN, CUBE_OUT,
-     *   CUBE_IN_OUT, SINE_IN, SINE_OUT, SINE_IN_OUT,
-     *   ELASTIC_IN, ELASTIC_OUT, BOUNCE_OUT, BACK_IN, BACK_OUT, INSTANT
-     *
-     *   -- Función de modchart
-     *   addEvent(beat, target, strumIdx, type, value, duration, ease)
-     *   clearEvents()
-     *   getState(groupId, strumIdx)   -- devuelve tabla con campos del StrumState
-     *
-     *   -- Propiedades de solo lectura
-     *   songPosition    -- ms actual de la canción
-     *   currentBeat     -- beat actual (float)
-     *
-     * Hooks del script (definir como funciones globales Lua):
-     *   function onCreate()             end
-     *   function onUpdate(songPos)      end
-     *   function onBeatHit(beat)        end
-     *   function onStepHit(step)        end
-     *   function onNoteHit(note)        end
-     *   function onDestroy()            end
-     *
-     * Ejemplo completo:
-     *
-     *   function onCreate()
-     *     -- Rotar todos los strums del jugador en un loop de 4 beats
-     *     addEvent(8,  "player", -1, ANGLE,  360, 4, SINE_IN_OUT)
-     *     addEvent(12, "player", -1, ANGLE,    0, 4, SINE_IN_OUT)
-     *     -- Efectos drunk en el CPU desde el beat 16
-     *     addEvent(16, "cpu", -1, DRUNK_X, 80, 2, QUAD_IN_OUT)
-     *     addEvent(16, "cpu", -1, DRUNK_Y, 40, 2, QUAD_IN_OUT)
-     *   end
-     *
-     *   function onBeatHit(beat)
-     *     if beat % 4 == 0 then
-     *       addEvent(beat, "all", -1, SCALE, 1.3, 0.3, ELASTIC_OUT)
-     *       addEvent(beat + 0.3, "all", -1, SCALE, 1.0, 0.2, QUAD_OUT)
-     *     end
-     *   end
-     *
-     *   function onUpdate(pos)
-     *     -- Zoom de cámara ondulante
-     *     addEvent(currentBeat, "all", -1, CAM_ZOOM, math.sin(pos * 0.003) * 0.1, 0, INSTANT)
-     *   end
-     */
-    public function loadFromLua(path:String, songName:String = ''):Bool
-    {
-        #if (LUA_ALLOWED && linc_luajit)
-        try
-        {
-            #if sys
-            if (!sys.FileSystem.exists(path))
-            {
-                trace('[ModChartManager] Lua no encontrado: $path');
-                return false;
-            }
-            #end
-
-            var lua = new funkin.scripting.RuleScriptInstance(
-                'modchart_${songName}', path);
-
-            // ── Exponer constantes ModEventType ───────────────────────────────
-            inline function setStr(k:String, v:String) lua.set(k, v);
-            // Strum - posición
-            setStr('MOVE_X',        ModEventType.MOVE_X);
-            setStr('MOVE_Y',        ModEventType.MOVE_Y);
-            setStr('SET_ABS_X',     ModEventType.SET_ABS_X);
-            setStr('SET_ABS_Y',     ModEventType.SET_ABS_Y);
-            // Strum - apariencia/rotación
-            setStr('ANGLE',         ModEventType.ANGLE);
-            setStr('SPIN',          ModEventType.SPIN);
-            setStr('ALPHA',         ModEventType.ALPHA);
-            setStr('SCALE',         ModEventType.SCALE);
-            setStr('SCALE_X',       ModEventType.SCALE_X);
-            setStr('SCALE_Y',       ModEventType.SCALE_Y);
-            setStr('VISIBLE',       ModEventType.VISIBLE);
-            setStr('RESET',         ModEventType.RESET);
-            // Per-nota
-            setStr('DRUNK_X',       ModEventType.DRUNK_X);
-            setStr('DRUNK_Y',       ModEventType.DRUNK_Y);
-            setStr('DRUNK_FREQ',    ModEventType.DRUNK_FREQ);
-            setStr('TORNADO',       ModEventType.TORNADO);
-            setStr('CONFUSION',     ModEventType.CONFUSION);
-            setStr('SCROLL_MULT',   ModEventType.SCROLL_MULT);
-            setStr('FLIP_X',        ModEventType.FLIP_X);
-            setStr('NOTE_OFFSET_X', ModEventType.NOTE_OFFSET_X);
-            setStr('NOTE_OFFSET_Y', ModEventType.NOTE_OFFSET_Y);
-            setStr('BUMPY',         ModEventType.BUMPY);
-            setStr('BUMPY_SPEED',   ModEventType.BUMPY_SPEED);
-            // v3 nuevos
-            setStr('TIPSY',         ModEventType.TIPSY);
-            setStr('TIPSY_SPEED',   ModEventType.TIPSY_SPEED);
-            setStr('INVERT',        ModEventType.INVERT);
-            setStr('ZIGZAG',        ModEventType.ZIGZAG);
-            setStr('ZIGZAG_FREQ',   ModEventType.ZIGZAG_FREQ);
-            setStr('WAVE',          ModEventType.WAVE);
-            setStr('WAVE_SPEED',    ModEventType.WAVE_SPEED);
-            setStr('BEAT_SCALE',    ModEventType.BEAT_SCALE);
-            setStr('STEALTH',       ModEventType.STEALTH);
-            setStr('NOTE_ALPHA',    ModEventType.NOTE_ALPHA);
-            // Cámara
-            setStr('CAM_ZOOM',      ModEventType.CAM_ZOOM);
-            setStr('CAM_MOVE_X',    ModEventType.CAM_MOVE_X);
-            setStr('CAM_MOVE_Y',    ModEventType.CAM_MOVE_Y);
-            setStr('CAM_ANGLE',     ModEventType.CAM_ANGLE);
-
-            // ── Exponer constantes ModEase ────────────────────────────────────
-            setStr('LINEAR',      ModEase.LINEAR);
-            setStr('QUAD_IN',     ModEase.QUAD_IN);
-            setStr('QUAD_OUT',    ModEase.QUAD_OUT);
-            setStr('QUAD_IN_OUT', ModEase.QUAD_IN_OUT);
-            setStr('CUBE_IN',     ModEase.CUBE_IN);
-            setStr('CUBE_OUT',    ModEase.CUBE_OUT);
-            setStr('CUBE_IN_OUT', ModEase.CUBE_IN_OUT);
-            setStr('SINE_IN',     ModEase.SINE_IN);
-            setStr('SINE_OUT',    ModEase.SINE_OUT);
-            setStr('SINE_IN_OUT', ModEase.SINE_IN_OUT);
-            setStr('ELASTIC_IN',  ModEase.ELASTIC_IN);
-            setStr('ELASTIC_OUT', ModEase.ELASTIC_OUT);
-            setStr('BOUNCE_OUT',  ModEase.BOUNCE_OUT);
-            setStr('BACK_IN',     ModEase.BACK_IN);
-            setStr('BACK_OUT',    ModEase.BACK_OUT);
-            setStr('INSTANT',     ModEase.INSTANT);
-
-            // ── Exponer API del manager como funciones Lua ────────────────────
-            var self = this;
-
-            lua.set('song', songName);
-            lua.set('songPosition', 0.0);
-            lua.set('currentBeat', 0.0);
-
-            // addEvent(beat, target, strumIdx, type, value, duration, ease)
-            lua.set('addEvent', function(beat:Float, target:String, strumIdx:Int,
-                type:String, value:Float, ?duration:Float, ?ease:String):Void
-            {
-                self.addEventSimple(beat, target, strumIdx, type, value,
-                    duration ?? 0.0, ease ?? ModEase.LINEAR);
-            });
-
-            // clearEvents()
-            lua.set('clearEvents', function():Void
-                self.clearEvents());
-
-            // getState(groupId, strumIdx) — devuelve tabla con campos del StrumState
-            lua.set('getState', function(groupId:String, strumIdx:Int):Dynamic
-            {
-                var st = self.getState(groupId, strumIdx);
-                if (st == null) return null;
-                return {
-                    x: st.baseX + st.offsetX, y: st.baseY + st.offsetY,
-                    angle: st.angle, alpha: st.alpha,
-                    scaleX: st.scaleX, scaleY: st.scaleY,
-                    visible: st.visible, scrollMult: st.scrollMult
-                };
-            });
-
-            // Acceso a camState
-            lua.set('camState', camState);
-
-            // Acceso a Conductor / FlxG por comodidad
-            lua.set('Conductor', funkin.data.Conductor);
-            lua.set('FlxG',      flixel.FlxG);
-            lua.set('Math',      Math);
-
-            // ── Cargar y ejecutar el script ───────────────────────────────────
-            #if sys
-            var src = sys.io.File.getContent(path);
-            #else
-            var src = openfl.Assets.getText(path);
-            #end
-            lua.loadString(src);
-
-            if (!lua.active)
-            {
-                trace('[ModChartManager] Error al activar script Lua: $path');
-                lua.destroy();
-                return false;
-            }
-
-            _luaScript = lua;
-
-            // Sortear y preparar eventos que el onCreate() pudo haber añadido
-            data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
-            pending = data.events.copy();
-
-            trace('[ModChartManager] Modchart Lua cargado: "$path" (${data.events.length} eventos pre-generados)');
-            return true;
-        }
-        catch (e:Dynamic)
-        {
-            trace('[ModChartManager] ERROR al cargar modchart Lua: $e');
-            return false;
-        }
-        #else
-        trace('[ModChartManager] LUA_ALLOWED no definido — modchart Lua desactivado.');
-        return false;
-        #end
-    }
-
-    #if (LUA_ALLOWED && linc_luajit)
-    /** Llama una función del script Lua del modchart si existe. */
-    private inline function _callLua(func:String, args:Array<Dynamic>):Void
-    {
-        if (_luaScript == null || !_luaScript.active) return;
-        _luaScript.call(func, args);
-    }
-    #end
-
-    /** Carga modchart desde string JSON (útil para el editor) */
-    public function loadFromJson(json:String):Void
-    {
-        try
-        {
-            var loaded:ModChartData = Json.parse(json);
-            data = loaded;
-            data.events.sort((a, b) -> a.beat < b.beat ? -1 : 1);
-            resetToStart();
-        }
-        catch (e:Dynamic)
-        {
-            trace('[ModChartManager] ERROR parse JSON: $e');
-        }
-    }
-
-    /** Carga directamente un ModChartData */
-    public function loadData(d:ModChartData):Void
-    {
-        data = d;
-        data.events.sort((a, b) -> a.beat < b.beat ? -1 : 1);
-        resetToStart();
-    }
-
-    /** Serializa el modchart actual a JSON */
-    public function toJson():String
-        return Json.stringify(data, null, "  ");
-
-    // ─── Control de playback ──────────────────────────────────────────────────
-
-    /**
-     * Reinicia todos los estados a posición base y recarga eventos pendientes.
-     * Llamar cuando el juego reinicia o se salta a un punto.
-     */
-    public function resetToStart():Void
-    {
-        activeTweens = [];
-
-        // Reiniciar estados (mantener baseX/Y, resetear offsets)
-        for (group in strumsGroups)
-        {
-            var arr = states.get(group.id);
-            if (arr == null) continue;
-
-            for (i in 0...arr.length)
-            {
-                var st  = arr[i];
-                var spr = group.getStrum(i);
-                st.offsetX     = 0;
-                st.offsetY     = 0;
-                st.absX        = null;
-                st.absY        = null;
-                st.angle       = 0;
-                st.spinRate    = 0;
-                st.alpha       = 1;
-                st.scaleX      = (spr != null) ? spr.scale.x : 0.7;
-                st.scaleY      = (spr != null) ? spr.scale.y : 0.7;
-                st.visible     = st.baseVisible; // FIX: restaurar visibilidad original (GF strums deben quedar ocultos)
-                // per-nota
-                st.drunkX      = 0;
-                st.drunkY      = 0;
-                st.drunkFreq   = 1.0;
-                st.tornado     = 0;
-                st.confusion   = 0;
-                st.scrollMult  = 1.0;
-                st.flipX       = 0;
-                st.noteOffsetX = 0;
-                st.noteOffsetY = 0;
-                st.bumpy       = 0;
-                st.bumpySpeed  = 2.0;
-                // v3
-                st.tipsy       = 0;
-                st.tipsySpeed  = 1.0;
-                st.invert      = 0;
-                st.zigzag      = 0;
-                st.zigzagFreq  = 1.0;
-                st.wave        = 0;
-                st.waveSpeed   = 1.5;
-                st.beatScale   = 0;
-                st._beatPulse  = 0;
-                st.stealth     = 0;
-                st.noteAlpha   = 1.0;
-            }
-        }
-
-        // Re-copiar eventos pendientes a partir del beat actual
-        _pendingIdx = 0; pending = [];
-        for (ev in data.events)
-        {
-            if (ev.beat >= currentBeat - 0.01)
-                pending.push(ev);
-        }
-
-        applyAllStates();
-        trace('[ModChartManager] Reset. Eventos pendientes: ${pending.length}');
-    }
-
-    /**
-     * Salta a un beat específico (para preview del editor).
-     * Aplica todos los eventos hasta ese beat instantáneamente.
-     */
-    public function seekToBeat(beat:Float):Void
-    {
-        // Resetear estados
-        for (group in strumsGroups)
-        {
-            var arr = states.get(group.id);
-            if (arr == null) continue;
-            for (i in 0...arr.length)
-            {
-                var st  = arr[i];
-                var spr = group.getStrum(i);
-                st.offsetX     = 0; st.offsetY = 0;
-                st.absX        = null; st.absY = null;
-                st.angle       = 0; st.spinRate = 0;
-                st.alpha       = 1;
-                st.scaleX      = (spr != null) ? spr.scale.x : 0.7;
-                st.scaleY      = (spr != null) ? spr.scale.y : 0.7;
-                st.visible     = st.baseVisible; // FIX: restaurar visibilidad original (GF strums deben quedar ocultos)
-                st.drunkX      = 0; st.drunkY = 0; st.drunkFreq = 1.0;
-                st.tornado     = 0; st.confusion = 0;
-                st.scrollMult  = 1.0; st.flipX = 0;
-                st.noteOffsetX = 0; st.noteOffsetY = 0;
-                st.bumpy       = 0; st.bumpySpeed = 2.0;
-                // v3
-                st.tipsy       = 0; st.tipsySpeed = 1.0;
-                st.invert      = 0;
-                st.zigzag      = 0; st.zigzagFreq = 1.0;
-                st.wave        = 0; st.waveSpeed = 1.5;
-                st.beatScale   = 0; st._beatPulse = 0;
-                st.stealth     = 0; st.noteAlpha = 1.0;
-            }
-        }
-
-        // Reproducir todos los eventos hasta el beat objetivo
-        for (ev in data.events)
-        {
-            if (ev.beat > beat) break;
-            // Aplicar instantáneamente (t=1)
-            applyEventInstant(ev);
-        }
-
-        currentBeat = beat;
-
-        // Preparar pendientes desde este beat
-        activeTweens = [];
-        _pendingIdx = 0; pending = [];
-        for (ev in data.events)
-        {
-            if (ev.beat >= beat - 0.01)
-                pending.push(ev);
-        }
-
-        applyAllStates();
-    }
-
-    // ─── Update principal ─────────────────────────────────────────────────────
-
-    /**
-     * Llamar cada frame desde PlayState.update()
-     * Solo requiere Conductor.songPosition — beat/step se calculan internamente.
-     * Evita depender de curBeat/curStep, que son 'private' en MusicBeatState
-     * y NO son accesibles desde subclases en Haxe (a diferencia de Java).
-     */
-    public function update(songPos:Float):Void
-    {
-        if (!enabled) return;
-
-        this.songPosition = songPos;
-
-        // Beat en punto flotante derivado directamente del conductor
-        var beatFloat:Float = (funkin.data.Conductor.crochet > 0)
-            ? songPos / funkin.data.Conductor.crochet
-            : 0.0;
-
-        this.currentBeat = beatFloat;
-
-        // 1. Disparar eventos cuyo beat ya llegó
-        fireReadyEvents(beatFloat);
-
-        // 2. Actualizar tweens activos
-        updateTweens(beatFloat);
-
-        // 3. Aplicar spin continuo
-        applySpins(FlxG.elapsed);
-
-        // 4. Escribir valores en los sprites
-        applyAllStates();
-
-        // 5. HScript onUpdate hook (para modcharts que quieran lógica por frame)
-        #if HSCRIPT_ALLOWED
-        _callHScript('onUpdate', [songPos]);
-        #end
-
-        // 6. Lua onUpdate hook
-        #if (LUA_ALLOWED && linc_luajit)
-        if (_luaScript != null)
-        {
-            _luaScript.set('songPosition', songPos);
-            _luaScript.set('currentBeat', currentBeat);
-            _callLua('onUpdate', [songPos]);
-        }
-        #end
-    }
-
-    // ── Disparar eventos ────────────────────────────────────────────────────
-
-    private function fireReadyEvents(curBeat:Float):Void
-    {
-        while (_pendingIdx < pending.length)
-        {
-            final ev = pending[_pendingIdx];
-            if (ev.beat > curBeat) break;
-
-            _pendingIdx++;
-
-            if (ev.type == RESET)
-            {
-                applyReset(ev);
-                continue;
-            }
-
-            if (ev.duration <= 0 || ev.ease == INSTANT)
-            {
-                applyEventInstant(ev);
-            }
-            else
-            {
-                if (ModChartHelpers.isCameraType(ev.type))
-                {
-                    // Los eventos de cámara no tienen grupo/strum — un solo tween global
-                    activeTweens.push({
-                        event     : ev,
-                        startBeat : ev.beat,
-                        startVal  : getStateValue("", -1, ev.type),
-                        groupId   : "__camera__",
-                        strumIdx  : 0
-                    });
-                }
-                else
-                {
-                    final targets = resolveTargets(ev.target, ev.strumIdx);
-                    for (t in targets)
-                    {
-                        activeTweens.push({
-                            event     : ev,
-                            startBeat : ev.beat,
-                            startVal  : getStateValue(t.groupId, t.strumIdx, ev.type),
-                            groupId   : t.groupId,
-                            strumIdx  : t.strumIdx
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    // ── Actualizar tweens ───────────────────────────────────────────────────
-
-    private function updateTweens(curBeat:Float):Void
-    {
-        // Usar _finishedTweens reutilizable — evita new Array cada frame
-        _finishedTweens.resize(0);
-
-        for (tw in activeTweens)
-        {
-            final elapsed = curBeat - tw.startBeat;
-            final t       = tw.event.duration > 0 ? elapsed / tw.event.duration : 1.0;
-            final eased   = ModChartHelpers.applyEase(tw.event.ease, t);
-            final val     = tw.startVal + (tw.event.value - tw.startVal) * eased;
-
-            setStateValue(tw.groupId, tw.strumIdx, tw.event.type, val);
-
-            if (t >= 1.0)
-                _finishedTweens.push(tw);
-        }
-
-        // Eliminar tweens terminados en una pasada inversa (O(n), no O(n²))
-        var i = _finishedTweens.length - 1;
-        while (i >= 0)
-        {
-            final idx = activeTweens.indexOf(_finishedTweens[i]);
-            if (idx >= 0) activeTweens.splice(idx, 1);
-            i--;
-        }
-    }
-
-    // ── Spin continuo ───────────────────────────────────────────────────────
-
-    private function applySpins(elapsed:Float):Void
-    {
-        // beats per second = bpm / 60
-        var bps:Float = funkin.data.Conductor.bpm / 60.0;
-        for (group in strumsGroups)
-        {
-            var arr = states.get(group.id);
-            if (arr == null) continue;
-
-            for (st in arr)
-            {
-                if (st.spinRate != 0)
-                    st.angle += st.spinRate * elapsed * bps;
-
-                // BEAT_SCALE: decaer el pulso suavemente entre beats
-                // El pulso arranca en beatScale cuando onBeatHit dispara y decae a 0.
-                if (st._beatPulse > 0)
-                {
-                    st._beatPulse -= elapsed * 8.0; // ~0.12s para decaer completamente
-                    if (st._beatPulse < 0) st._beatPulse = 0;
-                }
-            }
-        }
-    }
-
-    // ── Aplicar estados a sprites ────────────────────────────────────────────
-
-    private function applyAllStates():Void
-    {
-        for (group in strumsGroups)
-        {
-            var arr = states.get(group.id);
-            if (arr == null) continue;
-
-            for (i in 0...4)
-            {
-                var spr = group.getStrum(i);
-                if (spr == null || i >= arr.length) continue;
-
-                var st = arr[i];
-
-                // Posición
-                if (st.absX != null)
-                    spr.x = st.absX;
-                else
-                    spr.x = st.baseX + st.offsetX;
-
-                if (st.absY != null)
-                    spr.y = st.absY;
-                else
-                    spr.y = st.baseY + st.offsetY;
-
-                // Ángulo
-                spr.angle = st.angle;
-
-                // Alpha
-                spr.alpha = Math.max(0, Math.min(1, st.alpha));
-
-                // Escala
-                spr.scale.set(st.scaleX, st.scaleY);
-
-                // Visibilidad — usa st.visible que resetToStart() ya restaura al valor
-                // original del grupo (st.baseVisible). Esto permite que modcharts puedan
-                // mostrar intencionalmente strums de GF via VISIBLE sin romperlos.
-                spr.visible = st.visible;
-            }
-        }
-    }
-
-    // ── Helpers de resolución de targets ────────────────────────────────────
-
-    private function resolveTargets(target:String, strumIdx:Int):Array<{groupId:String, strumIdx:Int}>
-    {
-        var result:Array<{groupId:String, strumIdx:Int}> = [];
-
-        var groupIds:Array<String> = [];
-
-        if (target == "all")
-        {
-            for (g in strumsGroups) groupIds.push(g.id);
-        }
-        else if (target == "player")
-        {
-            for (g in strumsGroups) if (!g.isCPU) groupIds.push(g.id);
-        }
-        else if (target == "cpu")
-        {
-            for (g in strumsGroups) if (g.isCPU) groupIds.push(g.id);
-        }
-        else
-        {
-            groupIds.push(target);
-        }
-
-        for (gid in groupIds)
-        {
-            if (strumIdx == -1)
-            {
-                for (s in 0...4) result.push({ groupId: gid, strumIdx: s });
-            }
-            else
-            {
-                result.push({ groupId: gid, strumIdx: strumIdx });
-            }
-        }
-
-        return result;
-    }
-
-    // ── Leer/escribir valor de estado ────────────────────────────────────────
-
-    private function getStateValue(groupId:String, strumIdx:Int, type:ModEventType):Float
-    {
-        // Eventos de cámara: leer del camState global
-        if (ModChartHelpers.isCameraType(type))
-        {
-            return switch (type)
-            {
-                case CAM_ZOOM   : camState.zoom;
-                case CAM_MOVE_X : camState.offsetX;
-                case CAM_MOVE_Y : camState.offsetY;
-                case CAM_ANGLE  : camState.angle;
-                default         : 0;
-            };
-        }
-
-        var arr = states.get(groupId);
-        if (arr == null || strumIdx < 0 || strumIdx >= arr.length) return 0;
-        var st = arr[strumIdx];
-
-        return switch (type)
-        {
-            case MOVE_X        : st.offsetX;
-            case MOVE_Y        : st.offsetY;
-            case SET_ABS_X     : st.absX != null ? st.absX : st.baseX;
-            case SET_ABS_Y     : st.absY != null ? st.absY : st.baseY;
-            case ANGLE         : st.angle;
-            case ALPHA         : st.alpha;
-            case SCALE         : st.scaleX;
-            case SCALE_X       : st.scaleX;
-            case SCALE_Y       : st.scaleY;
-            case SPIN          : st.spinRate;
-            case VISIBLE       : st.visible ? 1 : 0;
-            case DRUNK_X       : st.drunkX;
-            case DRUNK_Y       : st.drunkY;
-            case DRUNK_FREQ    : st.drunkFreq;
-            case TORNADO       : st.tornado;
-            case CONFUSION     : st.confusion;
-            case SCROLL_MULT   : st.scrollMult;
-            case FLIP_X        : st.flipX;
-            case NOTE_OFFSET_X : st.noteOffsetX;
-            case NOTE_OFFSET_Y : st.noteOffsetY;
-            case BUMPY         : st.bumpy;
-            case BUMPY_SPEED   : st.bumpySpeed;
-            // v3
-            case TIPSY         : st.tipsy;
-            case TIPSY_SPEED   : st.tipsySpeed;
-            case INVERT        : st.invert;
-            case ZIGZAG        : st.zigzag;
-            case ZIGZAG_FREQ   : st.zigzagFreq;
-            case WAVE          : st.wave;
-            case WAVE_SPEED    : st.waveSpeed;
-            case BEAT_SCALE    : st.beatScale;
-            case STEALTH       : st.stealth;
-            case NOTE_ALPHA    : st.noteAlpha;
-            // camera types are already handled above via isCameraType() guard
-            case CAM_ZOOM | CAM_MOVE_X | CAM_MOVE_Y | CAM_ANGLE: 0;
-            default            : 0;
-        };
-    }
-
-    private function setStateValue(groupId:String, strumIdx:Int, type:ModEventType, value:Float):Void
-    {
-        // Eventos de cámara: escribir en camState global
-        if (ModChartHelpers.isCameraType(type))
-        {
-            switch (type)
-            {
-                case CAM_ZOOM   : camState.zoom    = value;
-                case CAM_MOVE_X : camState.offsetX = value;
-                case CAM_MOVE_Y : camState.offsetY = value;
-                case CAM_ANGLE  : camState.angle   = value;
-                default:
-            }
-            return;
-        }
-
-        var arr = states.get(groupId);
-        if (arr == null || strumIdx < 0 || strumIdx >= arr.length) return;
-        var st = arr[strumIdx];
-
-        switch (type)
-        {
-            case MOVE_X        : st.offsetX     = value; st.absX = null;
-            case MOVE_Y        : st.offsetY     = value; st.absY = null;
-            case SET_ABS_X     : st.absX        = value;
-            case SET_ABS_Y     : st.absY        = value;
-            case ANGLE         : st.angle       = value;
-            case ALPHA         : st.alpha       = value;
-            case SCALE         : st.scaleX      = value; st.scaleY = value;
-            case SCALE_X       : st.scaleX      = value;
-            case SCALE_Y       : st.scaleY      = value;
-            case SPIN          : st.spinRate    = value;
-            case VISIBLE       : st.visible     = value >= 0.5;
-            case DRUNK_X       : st.drunkX      = value;
-            case DRUNK_Y       : st.drunkY      = value;
-            case DRUNK_FREQ    : st.drunkFreq   = value;
-            case TORNADO       : st.tornado     = value;
-            case CONFUSION     : st.confusion   = value;
-            case SCROLL_MULT   : st.scrollMult  = value;
-            case FLIP_X        : st.flipX       = value;
-            case NOTE_OFFSET_X : st.noteOffsetX = value;
-            case NOTE_OFFSET_Y : st.noteOffsetY = value;
-            case BUMPY         : st.bumpy       = value;
-            case BUMPY_SPEED   : st.bumpySpeed  = value;
-            // v3
-            case TIPSY         : st.tipsy       = value;
-            case TIPSY_SPEED   : st.tipsySpeed  = value;
-            case INVERT        : st.invert      = value;
-            case ZIGZAG        : st.zigzag      = value;
-            case ZIGZAG_FREQ   : st.zigzagFreq  = value;
-            case WAVE          : st.wave        = value;
-            case WAVE_SPEED    : st.waveSpeed   = value;
-            case BEAT_SCALE    : st.beatScale   = value;
-            case STEALTH       : st.stealth     = value;
-            case NOTE_ALPHA    : st.noteAlpha   = value;
-            case RESET         : /* handled separately */
-            // camera types are already handled above via isCameraType() guard
-            case CAM_ZOOM | CAM_MOVE_X | CAM_MOVE_Y | CAM_ANGLE:
-        }
-    }
-
-    private function applyEventInstant(ev:ModChartEvent):Void
-    {
-        var targets = resolveTargets(ev.target, ev.strumIdx);
-        for (t in targets)
-            setStateValue(t.groupId, t.strumIdx, ev.type, ev.value);
-    }
-
-    private function applyReset(ev:ModChartEvent):Void
-    {
-        // RESET "camera" también resetea el camState
-        if (ev.target == "camera" || ev.target == "cam")
-        {
-            camState.zoom = 0; camState.offsetX = 0;
-            camState.offsetY = 0; camState.angle = 0;
-            return;
-        }
-
-        var targets = resolveTargets(ev.target, ev.strumIdx);
-        for (t in targets)
-        {
-            var arr = states.get(t.groupId);
-            if (arr == null) continue;
-            if (t.strumIdx < 0 || t.strumIdx >= arr.length) continue;
-            var st  = arr[t.strumIdx];
-            var spr:Dynamic = null;
-            for (g in strumsGroups)
-                if (g.id == t.groupId) { spr = g.getStrum(t.strumIdx); break; }
-            // strum base
-            st.offsetX     = 0; st.offsetY = 0;
-            st.absX        = null; st.absY = null;
-            st.angle       = 0; st.spinRate = 0;
-            st.alpha       = 1;
-            st.scaleX      = (spr != null) ? spr.scale.x : 0.7;
-            st.scaleY      = (spr != null) ? spr.scale.y : 0.7;
-            st.visible     = st.baseVisible; // FIX: restaurar visibilidad original (GF strums deben quedar ocultos)
-            // per-nota
-            st.drunkX      = 0; st.drunkY = 0; st.drunkFreq = 1.0;
-            st.tornado     = 0; st.confusion = 0;
-            st.scrollMult  = 1.0; st.flipX = 0;
-            st.noteOffsetX = 0; st.noteOffsetY = 0;
-            st.bumpy       = 0; st.bumpySpeed = 2.0;
-            // v3
-            st.tipsy       = 0; st.tipsySpeed = 1.0;
-            st.invert      = 0;
-            st.zigzag      = 0; st.zigzagFreq = 1.0;
-            st.wave        = 0; st.waveSpeed = 1.5;
-            st.beatScale   = 0; st._beatPulse = 0;
-            st.stealth     = 0; st.noteAlpha = 1.0;
-        }
-    }
-
-    // ─── API pública de scripting ─────────────────────────────────────────────
-
-    /**
-     * Agrega un evento en tiempo de ejecución (desde scripts de canción).
-     * El evento se integra ordenado en la lista.
-     */
-    public function addEvent(ev:ModChartEvent):Void
-    {
-        data.events.push(ev);
-        data.events.sort((a, b) -> a.beat < b.beat ? -1 : 1);
-
-        if (ev.beat >= currentBeat - 0.01)
-            pending.push(ev);
-
-        pending.sort((a, b) -> a.beat < b.beat ? -1 : 1);
-    }
-
-    /** Agrega un evento simple con la API fluida de ModChartHelpers */
-    public function addEventSimple(beat:Float, target:String, strumIdx:Int,
-                                    type:ModEventType, value:Float,
-                                    duration:Float = 0, ease:ModEase = LINEAR):Void
-    {
-        addEvent(ModChartHelpers.makeEvent(beat, target, strumIdx, type, value, duration, ease));
-    }
-
-    /** Borra todos los eventos */
-    public function clearEvents():Void
-    {
-        data.events = [];
-        _pendingIdx = 0; pending = [];
-        activeTweens = [];
-    }
-
-    /** Acceso directo al estado de un strum (para el editor) */
-    public function getState(groupId:String, strumIdx:Int):Null<StrumState>
-    {
-        var arr = states.get(groupId);
-        if (arr == null || strumIdx < 0 || strumIdx >= arr.length) return null;
-        return arr[strumIdx];
-    }
-
-    /** Devuelve la posición visual actual de un strum (para el editor) */
-    public function getStrumDisplayPos(groupId:String, strumIdx:Int):{x:Float, y:Float}
-    {
-        var st = getState(groupId, strumIdx);
-        if (st == null) return { x: 0, y: 0 };
-        return {
-            x : st.absX != null ? st.absX : st.baseX + st.offsetX,
-            y : st.absY != null ? st.absY : st.baseY + st.offsetY
-        };
-    }
-
-    // ─── Beat / Step hooks ────────────────────────────────────────────────────
-
-    /** Llamar desde overrideBeatHit() de PlayState */
-    public function onBeatHit(beat:Int):Void
-    {
-        // Disparar pulso de beatScale en todos los strums que lo tengan activo
-        for (group in strumsGroups)
-        {
-            var arr = states.get(group.id);
-            if (arr == null) continue;
-            for (st in arr)
-                if (st.beatScale > 0)
-                    st._beatPulse = st.beatScale;
-        }
-
-        #if HSCRIPT_ALLOWED
-        _callHScript('onBeatHit', [beat]);
-        #end
-        #if (LUA_ALLOWED && linc_luajit)
-        _callLua('onBeatHit', [beat]);
-        #end
-    }
-
-    /**
-     * Llamar desde PlayState cuando el jugador golpea una nota.
-     * El objeto note debe tener al menos: strumTime, noteData, noteType.
-     */
-    public function onNoteHit(note:Dynamic):Void
-    {
-        #if HSCRIPT_ALLOWED
-        _callHScript('onNoteHit', [note]);
-        #end
-        #if (LUA_ALLOWED && linc_luajit)
-        _callLua('onNoteHit', [note]);
-        #end
-    }
-
-    /** Llamar desde overrideStepHit() de PlayState */
-    public function onStepHit(step:Int):Void {
-        #if HSCRIPT_ALLOWED
-        _callHScript('onStepHit', [step]);
-        #end
-        #if (LUA_ALLOWED && linc_luajit)
-        _callLua('onStepHit', [step]);
-        #end
-    }
-
-    // ─── Destructor ───────────────────────────────────────────────────────────
-
-    public function destroy():Void
-    {
-        activeTweens = [];
-        _pendingIdx = 0; pending = [];
-        states.clear();
-        strumsGroups = null;
-        #if HSCRIPT_ALLOWED
-        _hscriptInterp = null;
-        #end
-        #if (LUA_ALLOWED && linc_luajit)
-        if (_luaScript != null)
-        {
-            _callLua('onDestroy', []);
-            _luaScript.destroy();
-            _luaScript = null;
-        }
-        #end
-        instance = null;
-    }
+	public var data:ModChartData;
+
+	private var strumsGroups:Array<StrumsGroup>;
+	private var states:Map<String, Array<StrumState>> = new Map();
+
+	public var camState:CameraModState = {
+		zoom: 0,
+		offsetX: 0,
+		offsetY: 0,
+		angle: 0
+	};
+
+	// ── Window state ──────────────────────────────────────────────────────────
+
+	/**
+	 * Estado completo de la ventana OS.  PlayState no necesita leer esto —
+	 * el manager lo aplica directamente en applyWindowState() cada frame.
+	 */
+	public var winState:WindowModState;
+
+	/** Posición base de la ventana (capturada en init, restaurada en destroy). */
+	private var _winBaseX:Int = 0;
+
+	private var _winBaseY:Int = 0;
+	private var _winBaseW:Int = 0;
+	private var _winBaseH:Int = 0;
+	private var _winBaseAlpha:Float = 1.0;
+	private var _winInitialized:Bool = false;
+
+	/** Caché de screen size para no leer display.bounds cada frame. */
+	private var _screenW:Float = 1920;
+
+	private var _screenH:Float = 1080;
+
+	/** Valores anteriores para evitar llamadas innecesarias a la API de Lime. */
+	private var _lastWinX:Int = -9999;
+
+	private var _lastWinY:Int = -9999;
+	private var _lastWinW:Int = -9999;
+	private var _lastWinH:Int = -9999;
+	private var _lastWinAlpha:Float = -1;
+
+	// ── Eventos / tweens ──────────────────────────────────────────────────────
+	private var pending:Array<ModChartEvent> = [];
+	private var _pendingIdx:Int = 0;
+	private var activeTweens:Array<ActiveTween> = [];
+	private var _finishedTweens:Array<ActiveTween> = [];
+
+	private var currentBeat:Float = 0;
+	private var songPosition:Float = 0;
+
+	public var enabled:Bool = true;
+
+	public static var instance:ModChartManager = null;
+
+	// ─────────────────────────────────────────────────────────────────────────
+
+	public function new(strumsGroups:Array<StrumsGroup>)
+	{
+		instance = this;
+		this.strumsGroups = strumsGroups;
+
+		data = {
+			name: "New ModChart",
+			song: "",
+			version: "1.0",
+			events: []
+		};
+
+		winState = _makeDefaultWinState();
+		_initWindow();
+
+		captureBasePositions();
+		trace('[ModChartManager] Init con ${strumsGroups.length} grupos de strums');
+	}
+
+	// ── Window init / destroy ─────────────────────────────────────────────────
+
+	private function _initWindow():Void
+	{
+		#if (!html5 && !mobile)
+		try
+		{
+			final win = Application.current?.window;
+			if (win == null)
+				return;
+			_winBaseX = win.x;
+			_winBaseY = win.y;
+			_winBaseW = win.width;
+			_winBaseH = win.height;
+			_winBaseAlpha = win.opacity;
+
+			// Capturar tamaño de pantalla
+			final b = win.display?.bounds;
+			if (b != null)
+			{
+				_screenW = b.width;
+				_screenH = b.height;
+			}
+
+			_winInitialized = true;
+			trace('[ModChartManager] Ventana capturada: ${_winBaseW}×${_winBaseH} @ (${_winBaseX},${_winBaseY}) pantalla ${_screenW}×${_screenH}');
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModChartManager] No se pudo capturar ventana: $e');
+		}
+		#end
+	}
+
+	private function _restoreWindow():Void
+	{
+		#if (!html5 && !mobile)
+		if (!_winInitialized)
+			return;
+		try
+		{
+			final win = Application.current?.window;
+			if (win == null)
+				return;
+			win.move(_winBaseX, _winBaseY);
+			win.resize(_winBaseW, _winBaseH);
+			win.opacity = _winBaseAlpha;
+		}
+		catch (_:Dynamic)
+		{
+		}
+		#end
+	}
+
+	private function _makeDefaultWinState():WindowModState
+	{
+		return {
+			offsetX: 0,
+			offsetY: 0,
+			scaleX: 1,
+			scaleY: 1,
+			alpha: 1,
+			orbit: 0,
+			orbitSpeed: 4,
+			orbitPhase: 0,
+			orbitEX: 1,
+			orbitEY: 1,
+			shake: 0,
+			shakeSpeed: 8,
+			bounce: 0,
+			bounceFreq: 6,
+			bouncePeriod: 1,
+			spiral: 0,
+			spiralSpeed: 4,
+			spiralTight: 2,
+			figure8: 0,
+			figure8Speed: 8,
+			glitch: 0,
+			glitchRate: 4,
+			warp: 0,
+			warpPeriod: 1,
+			_warpX: 0,
+			_warpY: 0,
+			_warpCycle: -1,
+			swing: 0,
+			swingSpeed: 2,
+			winZigzag: 0,
+			zigzagSpeed: 2,
+			pinball: 0,
+			pinballAngle: 45,
+			roll: 0,
+			rollSpeed: 4,
+			beatScale: 0,
+			_beatPulse: 0,
+			heartbeat: 0,
+			strobe: 0,
+			strobeRate: 4,
+			strobeDuty: 0.5,
+			anchor: 0,
+			anchorX: 1,
+			anchorY: -1,
+			anchorMX: 20,
+			anchorMY: 20
+		};
+	}
+
+	// ── Aplicar estado de ventana al OS ───────────────────────────────────────
+
+	private function applyWindowState(beat:Float):Void
+	{
+		#if (html5 || mobile)
+		return;
+		#end
+
+		if (!_winInitialized)
+			return;
+
+		final ws = winState;
+
+		// ── Calcular offsets acumulados ───────────────────────────────────────
+		var dx:Float = ws.offsetX;
+		var dy:Float = ws.offsetY;
+		var sx:Float = ws.scaleX;
+		var sy:Float = ws.scaleY;
+		var al:Float = ws.alpha;
+
+		// Órbita
+		if (ws.orbit != 0)
+		{
+			final spd = ws.orbitSpeed == 0 ? 0.001 : ws.orbitSpeed;
+			final angle = ((beat / spd) + ws.orbitPhase) * Math.PI * 2;
+			dx += Math.cos(angle) * ws.orbit * ws.orbitEX;
+			dy += Math.sin(angle) * ws.orbit * ws.orbitEY;
+		}
+
+		// Shake
+		if (ws.shake != 0)
+		{
+			final t = beat * ws.shakeSpeed;
+			dx += _hash(t, 42) * ws.shake;
+			dy += _hash(t + 100, 77) * ws.shake;
+		}
+
+		// Bounce
+		if (ws.bounce != 0)
+		{
+			final period = ws.bouncePeriod == 0 ? 1 : ws.bouncePeriod;
+			final tY = beat % period;
+			dy += ws.bounce * Math.exp(-ws.bounceFreq * 0.5 * tY) * Math.sin(ws.bounceFreq * tY * Math.PI * 2);
+		}
+
+		// Espiral
+		if (ws.spiral != 0)
+		{
+			final spd = ws.spiralSpeed == 0 ? 0.001 : ws.spiralSpeed;
+			final tight = ws.spiralTight == 0 ? 1 : ws.spiralTight;
+			final angle = (beat / spd) * Math.PI * 2;
+			final t = (angle / (Math.PI * 2 * tight)) % 1.0;
+			final r = ws.spiral * t;
+			dx += Math.cos(angle) * r;
+			dy += Math.sin(angle) * r;
+		}
+
+		// Figura-8
+		if (ws.figure8 != 0)
+		{
+			final spd = ws.figure8Speed == 0 ? 0.001 : ws.figure8Speed;
+			final t = (beat / spd) * Math.PI * 2;
+			final denom = 1 + Math.sin(t) * Math.sin(t);
+			dx += ws.figure8 * Math.cos(t) / denom;
+			dy += ws.figure8 * Math.sin(t) * Math.cos(t) / denom * 0.5;
+		}
+
+		// Glitch
+		if (ws.glitch != 0)
+		{
+			final rate = ws.glitchRate == 0 ? 0.001 : ws.glitchRate;
+			final tc = beat * rate;
+			final cycle = Math.floor(tc);
+			final frac = tc - cycle;
+			if (frac < 0.3)
+			{
+				dx += _hash(cycle, 13) * ws.glitch;
+				dy += _hash(cycle, 99) * ws.glitch;
+			}
+		}
+
+		// Warp
+		if (ws.warp != 0)
+		{
+			final period = ws.warpPeriod == 0 ? 1 : ws.warpPeriod;
+			final cycle = Std.int(beat / period);
+			if (cycle != ws._warpCycle)
+			{
+				ws._warpCycle = cycle;
+				ws._warpX = _hash01(cycle, 7) * ws.warp;
+				ws._warpY = _hash01(cycle, 31) * ws.warp;
+			}
+			dx += ws._warpX;
+			dy += ws._warpY;
+		}
+
+		// Swing (péndulo)
+		if (ws.swing != 0)
+		{
+			final spd = ws.swingSpeed == 0 ? 0.001 : ws.swingSpeed;
+			final t = (beat / spd) * Math.PI * 2;
+			dx += Math.sin(t) * ws.swing + Math.sin(3 * t) * ws.swing * 0.25 * 0.3;
+		}
+
+		// Zigzag (onda triangular)
+		if (ws.winZigzag != 0)
+		{
+			final spd = ws.zigzagSpeed == 0 ? 0.001 : ws.zigzagSpeed;
+			final t = (beat / spd) % 1.0;
+			final w = t < 0.5 ? t * 4 - 1 : 3 - t * 4; // triángulo [-1,1]
+			dx += w * ws.winZigzag;
+		}
+
+		// Pinball (rebota en bordes del monitor)
+		if (ws.pinball != 0)
+		{
+			final maxX = _screenW - _winBaseW;
+			final maxY = _screenH - _winBaseH;
+			if (maxX > 0 && maxY > 0)
+			{
+				final ang = ws.pinballAngle * Math.PI / 180;
+				final px = Math.cos(ang) * ws.pinball * beat;
+				final py = Math.sin(ang) * ws.pinball * beat;
+				// Convertir a offset relativo al origen base
+				dx = _bouncePinball(px, maxX) - _winBaseX;
+				dy = _bouncePinball(py, maxY) - _winBaseY;
+			}
+		}
+
+		// Roll (rueda rodando)
+		if (ws.roll != 0)
+		{
+			final spd = ws.rollSpeed == 0 ? 0.001 : ws.rollSpeed;
+			final norm = ((beat / spd) % 1.0);
+			dx += (norm * 2 - 1) * ws.roll * 0.5;
+		}
+
+		// Beat scale
+		if (ws._beatPulse > 0)
+		{
+			sx *= 1 + ws._beatPulse;
+			sy *= 1 + ws._beatPulse;
+		}
+
+		// Heartbeat
+		if (ws.heartbeat != 0)
+		{
+			final t = beat % 1.0;
+			final p1 = Math.exp(-10 * t) * ws.heartbeat;
+			final t2 = (t < 0.3) ? t + 0.7 : t - 0.3;
+			final p2 = Math.exp(-10 * t2) * ws.heartbeat * 0.5;
+			sx *= 1 + p1 + p2;
+			sy *= 1 + p1 + p2;
+		}
+
+		// Strobe
+		if (ws.strobe != 0)
+		{
+			final rate = ws.strobeRate == 0 ? 0.001 : ws.strobeRate;
+			final t = (beat * rate) % 1.0;
+			if (t > ws.strobeDuty)
+				al *= 1.0 - ws.strobe;
+		}
+
+		// Anclaje a esquina de pantalla
+		if (ws.anchor > 0)
+		{
+			final winW = Std.int(_winBaseW * sx);
+			final winH = Std.int(_winBaseH * sy);
+			final absX:Float = ws.anchorX <= -0.5 ? ws.anchorMX : ws.anchorX >= 0.5 ? _screenW - winW - ws.anchorMX : (_screenW - winW) * 0.5;
+			final absY:Float = ws.anchorY <= -0.5 ? ws.anchorMY : ws.anchorY >= 0.5 ? _screenH - winH - ws.anchorMY : (_screenH - winH) * 0.5;
+			final offX = absX - _winBaseX;
+			final offY = absY - _winBaseY;
+			dx = dx * (1 - ws.anchor) + offX * ws.anchor;
+			dy = dy * (1 - ws.anchor) + offY * ws.anchor;
+		}
+
+		// ── Calcular posición y tamaño finales ────────────────────────────────
+		sx = Math.max(0.1, sx);
+		sy = Math.max(0.1, sy);
+		al = Math.max(0.0, Math.min(1.0, al));
+
+		final finalX = _winBaseX + Std.int(dx);
+		final finalY = _winBaseY + Std.int(dy);
+		final finalW = Std.int(_winBaseW * sx);
+		final finalH = Std.int(_winBaseH * sy);
+
+		// ── Aplicar solo si cambió ─────────────────────────────────────────────
+		try
+		{
+			final win = Application.current?.window;
+			if (win == null)
+				return;
+
+			if (finalX != _lastWinX || finalY != _lastWinY)
+			{
+				win.move(finalX, finalY);
+				_lastWinX = finalX;
+				_lastWinY = finalY;
+			}
+			if (finalW != _lastWinW || finalH != _lastWinH)
+			{
+				win.resize(finalW, finalH);
+				_lastWinW = finalW;
+				_lastWinH = finalH;
+			}
+			if (Math.abs(al - _lastWinAlpha) > 0.004)
+			{
+				win.opacity = al;
+				_lastWinAlpha = al;
+			}
+		}
+		catch (e:Dynamic)
+		{
+		}
+	}
+
+	// ── Helpers matemáticos ──────────────────────────────────────────────────
+
+	private inline function _hash(t:Float, seed:Float):Float
+	{
+		final v = Math.sin(t * 127.1 + seed * 311.7) * 43758.5453;
+		return (v - Math.floor(v)) * 2.0 - 1.0;
+	}
+
+	private inline function _hash01(t:Float, seed:Float):Float
+	{
+		final v = Math.sin(t * 127.1 + seed * 311.7) * 43758.5453;
+		return (v - Math.floor(v)) * 2.0 - 1.0;
+	}
+
+	private inline function _bouncePinball(p:Float, max:Float):Float
+	{
+		final period = max * 2;
+		final t = ((p % period) + period) % period;
+		return (t > max) ? period - t : t;
+	}
+
+	// ── Leer/escribir valores del estado de ventana ───────────────────────────
+
+	private function getWindowValue(type:ModEventType):Float
+	{
+		final ws = winState;
+		return switch (type)
+		{
+			case WIN_X: ws.offsetX;
+			case WIN_Y: ws.offsetY;
+			case WIN_SCALE: ws.scaleX; // scaleX == scaleY en uniform
+			case WIN_SCALE_X: ws.scaleX;
+			case WIN_SCALE_Y: ws.scaleY;
+			case WIN_ALPHA: ws.alpha;
+			case WIN_ORBIT: ws.orbit;
+			case WIN_ORBIT_SPEED: ws.orbitSpeed;
+			case WIN_ORBIT_PHASE: ws.orbitPhase;
+			case WIN_ORBIT_EX: ws.orbitEX;
+			case WIN_ORBIT_EY: ws.orbitEY;
+			case WIN_SHAKE: ws.shake;
+			case WIN_SHAKE_SPEED: ws.shakeSpeed;
+			case WIN_BOUNCE: ws.bounce;
+			case WIN_BOUNCE_FREQ: ws.bounceFreq;
+			case WIN_BOUNCE_PERIOD: ws.bouncePeriod;
+			case WIN_SPIRAL: ws.spiral;
+			case WIN_SPIRAL_SPEED: ws.spiralSpeed;
+			case WIN_SPIRAL_TIGHT: ws.spiralTight;
+			case WIN_FIGURE8: ws.figure8;
+			case WIN_FIGURE8_SPEED: ws.figure8Speed;
+			case WIN_GLITCH: ws.glitch;
+			case WIN_GLITCH_RATE: ws.glitchRate;
+			case WIN_WARP: ws.warp;
+			case WIN_WARP_PERIOD: ws.warpPeriod;
+			case WIN_SWING: ws.swing;
+			case WIN_SWING_SPEED: ws.swingSpeed;
+			case WIN_ZIGZAG: ws.winZigzag;
+			case WIN_ZIGZAG_SPEED: ws.zigzagSpeed;
+			case WIN_PINBALL: ws.pinball;
+			case WIN_PINBALL_ANGLE: ws.pinballAngle;
+			case WIN_ROLL: ws.roll;
+			case WIN_ROLL_SPEED: ws.rollSpeed;
+			case WIN_BEAT_SCALE: ws.beatScale;
+			case WIN_HEARTBEAT: ws.heartbeat;
+			case WIN_STROBE: ws.strobe;
+			case WIN_STROBE_RATE: ws.strobeRate;
+			case WIN_STROBE_DUTY: ws.strobeDuty;
+			case WIN_ANCHOR: ws.anchor;
+			case WIN_ANCHOR_X: ws.anchorX;
+			case WIN_ANCHOR_Y: ws.anchorY;
+			case WIN_ANCHOR_MX: ws.anchorMX;
+			case WIN_ANCHOR_MY: ws.anchorMY;
+			default: 0;
+		};
+	}
+
+	private function setWindowValue(type:ModEventType, value:Float):Void
+	{
+		final ws = winState;
+		switch (type)
+		{
+			case WIN_X:
+				ws.offsetX = value;
+			case WIN_Y:
+				ws.offsetY = value;
+			case WIN_SCALE:
+				ws.scaleX = value;
+				ws.scaleY = value;
+			case WIN_SCALE_X:
+				ws.scaleX = value;
+			case WIN_SCALE_Y:
+				ws.scaleY = value;
+			case WIN_ALPHA:
+				ws.alpha = value;
+			case WIN_ORBIT:
+				ws.orbit = value;
+			case WIN_ORBIT_SPEED:
+				ws.orbitSpeed = value;
+			case WIN_ORBIT_PHASE:
+				ws.orbitPhase = value;
+			case WIN_ORBIT_EX:
+				ws.orbitEX = value;
+			case WIN_ORBIT_EY:
+				ws.orbitEY = value;
+			case WIN_SHAKE:
+				ws.shake = value;
+			case WIN_SHAKE_SPEED:
+				ws.shakeSpeed = value;
+			case WIN_BOUNCE:
+				ws.bounce = value;
+			case WIN_BOUNCE_FREQ:
+				ws.bounceFreq = value;
+			case WIN_BOUNCE_PERIOD:
+				ws.bouncePeriod = value;
+			case WIN_SPIRAL:
+				ws.spiral = value;
+			case WIN_SPIRAL_SPEED:
+				ws.spiralSpeed = value;
+			case WIN_SPIRAL_TIGHT:
+				ws.spiralTight = value;
+			case WIN_FIGURE8:
+				ws.figure8 = value;
+			case WIN_FIGURE8_SPEED:
+				ws.figure8Speed = value;
+			case WIN_GLITCH:
+				ws.glitch = value;
+			case WIN_GLITCH_RATE:
+				ws.glitchRate = value;
+			case WIN_WARP:
+				ws.warp = value;
+			case WIN_WARP_PERIOD:
+				ws.warpPeriod = value;
+			case WIN_SWING:
+				ws.swing = value;
+			case WIN_SWING_SPEED:
+				ws.swingSpeed = value;
+			case WIN_ZIGZAG:
+				ws.winZigzag = value;
+			case WIN_ZIGZAG_SPEED:
+				ws.zigzagSpeed = value;
+			case WIN_PINBALL:
+				ws.pinball = value;
+			case WIN_PINBALL_ANGLE:
+				ws.pinballAngle = value;
+			case WIN_ROLL:
+				ws.roll = value;
+			case WIN_ROLL_SPEED:
+				ws.rollSpeed = value;
+			case WIN_BEAT_SCALE:
+				ws.beatScale = value;
+			case WIN_HEARTBEAT:
+				ws.heartbeat = value;
+			case WIN_STROBE:
+				ws.strobe = value;
+			case WIN_STROBE_RATE:
+				ws.strobeRate = value;
+			case WIN_STROBE_DUTY:
+				ws.strobeDuty = value;
+			case WIN_ANCHOR:
+				ws.anchor = value;
+			case WIN_ANCHOR_X:
+				ws.anchorX = value;
+			case WIN_ANCHOR_Y:
+				ws.anchorY = value;
+			case WIN_ANCHOR_MX:
+				ws.anchorMX = value;
+			case WIN_ANCHOR_MY:
+				ws.anchorMY = value;
+			case WIN_RESET:
+				winState = _makeDefaultWinState();
+				_restoreWindow();
+			default:
+		}
+	}
+
+	// ── Captura de posiciones base ────────────────────────────────────────────
+
+	public function replaceStrumsGroups(newGroups:Array<StrumsGroup>):Void
+	{
+		this.strumsGroups = newGroups;
+		captureBasePositions();
+	}
+
+	public function captureBasePositions():Void
+	{
+		states.clear();
+		for (group in strumsGroups)
+		{
+			var arr:Array<StrumState> = [];
+			for (i in 0...4)
+			{
+				var spr = group.getStrum(i);
+				if (spr == null)
+				{
+					arr.push(makeDefaultState(0, 0));
+					continue;
+				}
+				arr.push({
+					baseX: spr.x,
+					baseY: spr.y,
+					offsetX: 0,
+					offsetY: 0,
+					absX: null,
+					absY: null,
+					angle: 0,
+					spinRate: 0,
+					alpha: 1,
+					scaleX: spr.scale.x,
+					scaleY: spr.scale.y,
+					visible: spr.visible,
+					baseVisible: spr.visible,
+					drunkX: 0,
+					drunkY: 0,
+					drunkFreq: 1.0,
+					tornado: 0,
+					confusion: 0,
+					scrollMult: 1.0,
+					flipX: 0,
+					noteOffsetX: 0,
+					noteOffsetY: 0,
+					bumpy: 0,
+					bumpySpeed: 2.0,
+					tipsy: 0,
+					tipsySpeed: 1.0,
+					invert: 0,
+					zigzag: 0,
+					zigzagFreq: 1.0,
+					wave: 0,
+					waveSpeed: 1.5,
+					beatScale: 0,
+					_beatPulse: 0,
+					stealth: 0,
+					noteAlpha: 1.0
+				});
+			}
+			states.set(group.id, arr);
+		}
+	}
+
+	private function makeDefaultState(bx:Float, by:Float):StrumState
+	{
+		return {
+			baseX: bx,
+			baseY: by,
+			offsetX: 0,
+			offsetY: 0,
+			absX: null,
+			absY: null,
+			angle: 0,
+			spinRate: 0,
+			alpha: 1,
+			scaleX: 0.7,
+			scaleY: 0.7,
+			visible: true,
+			baseVisible: true,
+			drunkX: 0,
+			drunkY: 0,
+			drunkFreq: 1.0,
+			tornado: 0,
+			confusion: 0,
+			scrollMult: 1.0,
+			flipX: 0,
+			noteOffsetX: 0,
+			noteOffsetY: 0,
+			bumpy: 0,
+			bumpySpeed: 2.0,
+			tipsy: 0,
+			tipsySpeed: 1.0,
+			invert: 0,
+			zigzag: 0,
+			zigzagFreq: 1.0,
+			wave: 0,
+			waveSpeed: 1.5,
+			beatScale: 0,
+			_beatPulse: 0,
+			stealth: 0,
+			noteAlpha: 1.0
+		};
+	}
+
+	// ─── Carga de archivos ────────────────────────────────────────────────────
+
+	public function loadFromFile(songName:String):Bool
+	{
+		var song = songName.toLowerCase();
+		var searchPaths:Array<String> = [];
+
+		#if sys
+		var activeMod = mods.ModManager.activeMod;
+		if (activeMod != null)
+		{
+			searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.lua');
+			searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.hx');
+			searchPaths.push('${mods.ModManager.MODS_FOLDER}/$activeMod/songs/${song}/modchart.json');
+		}
+		for (mod in mods.ModManager.installedMods)
+		{
+			if (!mod.enabled || mod.id == activeMod)
+				continue;
+			searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.lua');
+			searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.hx');
+			searchPaths.push('${mods.ModManager.MODS_FOLDER}/${mod.id}/songs/${song}/modchart.json');
+		}
+		#end
+
+		searchPaths.push('assets/songs/${song}/modchart.lua');
+		searchPaths.push('assets/songs/${song}/modchart.hx');
+		searchPaths.push('assets/data/modcharts/${song}.lua');
+		searchPaths.push('assets/data/modcharts/${song}.hx');
+		searchPaths.push('assets/songs/${song}/modchart.json');
+		searchPaths.push('assets/data/modcharts/${song}.json');
+
+		for (p in searchPaths)
+		{
+			#if sys
+			var exists = sys.FileSystem.exists(p);
+			#else
+			var exists = openfl.Assets.exists(p);
+			#end
+			if (!exists)
+				continue;
+
+			if (p.endsWith('.lua'))
+			{
+				if (loadFromLua(p, songName))
+					return true;
+			}
+			else if (p.endsWith('.hx'))
+			{
+				if (loadFromHScript(p, songName))
+					return true;
+			}
+			else if (p.endsWith('.json'))
+			{
+				try
+				{
+					var txt = #if sys sys.io.File.getContent(p) #else openfl.Assets.getText(p) #end;
+					var loaded:ModChartData = Json.parse(txt);
+					data = loaded;
+					data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
+					pending = data.events.copy();
+					trace('[ModChartManager] JSON cargado desde "$p"');
+					return true;
+				}
+				catch (e:Dynamic)
+				{
+					trace('[ModChartManager] ERROR JSON "$p": $e');
+				}
+			}
+		}
+		trace('[ModChartManager] No hay modchart para "$songName"');
+		return false;
+	}
+
+	public function loadFromHScript(path:String, songName:String = ''):Bool
+	{
+		#if HSCRIPT_ALLOWED
+		try
+		{
+			var src = #if sys sys.io.File.getContent(path) #else openfl.Assets.getText(path) #end;
+			if (src == null || src.length == 0)
+				return false;
+
+			var parser = new hscript.Parser();
+			parser.allowTypes = true;
+			#if (hscript >= "2.5.0")
+			try
+			{
+				parser.allowMetadata = true;
+			}
+			catch (_:Dynamic)
+			{
+			}
+			#end
+			var prog = parser.parseString(src);
+			var interp = new hscript.Interp();
+
+			_exposeConstantsHScript(interp);
+			interp.variables.set('modChart', this);
+			interp.variables.set('song', songName);
+			interp.variables.set('Math', Math);
+			interp.variables.set('FlxG', flixel.FlxG);
+			interp.variables.set('Conductor', funkin.data.Conductor);
+			interp.variables.set('noteManager', funkin.gameplay.PlayState.instance != null ? funkin.gameplay.PlayState.instance.noteManager : null);
+			interp.variables.set('playState', funkin.gameplay.PlayState.instance);
+			interp.variables.set('camState', camState);
+			interp.variables.set('winState', winState);
+
+			interp.execute(prog);
+			_hscriptInterp = interp;
+
+			if (interp.variables.exists('onCreate'))
+				try
+				{
+					Reflect.callMethod(null, interp.variables.get('onCreate'), []);
+				}
+				catch (e:Dynamic)
+				{
+					trace('[ModChartManager] Error onCreate(): $e');
+				}
+
+			data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
+			pending = data.events.copy();
+			trace('[ModChartManager] HScript cargado: "$path"');
+			return true;
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModChartManager] ERROR HScript: $e');
+			return false;
+		}
+		#else
+		return false;
+		#end
+	}
+
+	public function loadFromLua(path:String, songName:String = ''):Bool
+	{
+		#if (LUA_ALLOWED && linc_luajit)
+		try
+		{
+			#if sys
+			if (!sys.FileSystem.exists(path))
+				return false;
+			#end
+
+			var lua = new funkin.scripting.RuleScriptInstance('modchart_${songName}', path);
+			_exposeConstantsLua(lua, songName);
+
+			#if sys
+			var src = sys.io.File.getContent(path);
+			#else
+			var src = openfl.Assets.getText(path);
+			#end
+			lua.loadString(src);
+
+			if (!lua.active)
+			{
+				lua.destroy();
+				return false;
+			}
+
+			_luaScript = lua;
+			data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
+			pending = data.events.copy();
+			trace('[ModChartManager] Lua cargado: "$path"');
+			return true;
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModChartManager] ERROR Lua: $e');
+			return false;
+		}
+		#else
+		return false;
+		#end
+	}
+
+	// ── Exposición de constantes a scripts ────────────────────────────────────
+	#if HSCRIPT_ALLOWED
+	private var _hscriptInterp:Null<hscript.Interp> = null;
+
+	private function _exposeConstantsHScript(interp:hscript.Interp):Void
+	{
+		inline function s(k:String, v:Dynamic)
+			interp.variables.set(k, v);
+		// Strum
+		s('MOVE_X', ModEventType.MOVE_X);
+		s('MOVE_Y', ModEventType.MOVE_Y);
+		s('SET_ABS_X', ModEventType.SET_ABS_X);
+		s('SET_ABS_Y', ModEventType.SET_ABS_Y);
+		s('ANGLE', ModEventType.ANGLE);
+		s('SPIN', ModEventType.SPIN);
+		s('ALPHA', ModEventType.ALPHA);
+		s('SCALE', ModEventType.SCALE);
+		s('SCALE_X', ModEventType.SCALE_X);
+		s('SCALE_Y', ModEventType.SCALE_Y);
+		s('VISIBLE', ModEventType.VISIBLE);
+		s('RESET', ModEventType.RESET);
+		s('DRUNK_X', ModEventType.DRUNK_X);
+		s('DRUNK_Y', ModEventType.DRUNK_Y);
+		s('DRUNK_FREQ', ModEventType.DRUNK_FREQ);
+		s('TORNADO', ModEventType.TORNADO);
+		s('CONFUSION', ModEventType.CONFUSION);
+		s('SCROLL_MULT', ModEventType.SCROLL_MULT);
+		s('FLIP_X', ModEventType.FLIP_X);
+		s('NOTE_OFFSET_X', ModEventType.NOTE_OFFSET_X);
+		s('NOTE_OFFSET_Y', ModEventType.NOTE_OFFSET_Y);
+		s('BUMPY', ModEventType.BUMPY);
+		s('BUMPY_SPEED', ModEventType.BUMPY_SPEED);
+		s('TIPSY', ModEventType.TIPSY);
+		s('TIPSY_SPEED', ModEventType.TIPSY_SPEED);
+		s('INVERT', ModEventType.INVERT);
+		s('ZIGZAG', ModEventType.ZIGZAG);
+		s('ZIGZAG_FREQ', ModEventType.ZIGZAG_FREQ);
+		s('WAVE', ModEventType.WAVE);
+		s('WAVE_SPEED', ModEventType.WAVE_SPEED);
+		s('BEAT_SCALE', ModEventType.BEAT_SCALE);
+		s('STEALTH', ModEventType.STEALTH);
+		s('NOTE_ALPHA', ModEventType.NOTE_ALPHA);
+		// Camera
+		s('CAM_ZOOM', ModEventType.CAM_ZOOM);
+		s('CAM_MOVE_X', ModEventType.CAM_MOVE_X);
+		s('CAM_MOVE_Y', ModEventType.CAM_MOVE_Y);
+		s('CAM_ANGLE', ModEventType.CAM_ANGLE);
+		// Window
+		s('WIN_X', ModEventType.WIN_X);
+		s('WIN_Y', ModEventType.WIN_Y);
+		s('WIN_SCALE', ModEventType.WIN_SCALE);
+		s('WIN_SCALE_X', ModEventType.WIN_SCALE_X);
+		s('WIN_SCALE_Y', ModEventType.WIN_SCALE_Y);
+		s('WIN_ALPHA', ModEventType.WIN_ALPHA);
+		s('WIN_RESET', ModEventType.WIN_RESET);
+		s('WIN_ORBIT', ModEventType.WIN_ORBIT);
+		s('WIN_ORBIT_SPEED', ModEventType.WIN_ORBIT_SPEED);
+		s('WIN_ORBIT_PHASE', ModEventType.WIN_ORBIT_PHASE);
+		s('WIN_ORBIT_EX', ModEventType.WIN_ORBIT_EX);
+		s('WIN_ORBIT_EY', ModEventType.WIN_ORBIT_EY);
+		s('WIN_SHAKE', ModEventType.WIN_SHAKE);
+		s('WIN_SHAKE_SPEED', ModEventType.WIN_SHAKE_SPEED);
+		s('WIN_BOUNCE', ModEventType.WIN_BOUNCE);
+		s('WIN_BOUNCE_FREQ', ModEventType.WIN_BOUNCE_FREQ);
+		s('WIN_BOUNCE_PERIOD', ModEventType.WIN_BOUNCE_PERIOD);
+		s('WIN_SPIRAL', ModEventType.WIN_SPIRAL);
+		s('WIN_SPIRAL_SPEED', ModEventType.WIN_SPIRAL_SPEED);
+		s('WIN_SPIRAL_TIGHT', ModEventType.WIN_SPIRAL_TIGHT);
+		s('WIN_FIGURE8', ModEventType.WIN_FIGURE8);
+		s('WIN_FIGURE8_SPEED', ModEventType.WIN_FIGURE8_SPEED);
+		s('WIN_GLITCH', ModEventType.WIN_GLITCH);
+		s('WIN_GLITCH_RATE', ModEventType.WIN_GLITCH_RATE);
+		s('WIN_WARP', ModEventType.WIN_WARP);
+		s('WIN_WARP_PERIOD', ModEventType.WIN_WARP_PERIOD);
+		s('WIN_SWING', ModEventType.WIN_SWING);
+		s('WIN_SWING_SPEED', ModEventType.WIN_SWING_SPEED);
+		s('WIN_ZIGZAG', ModEventType.WIN_ZIGZAG);
+		s('WIN_ZIGZAG_SPEED', ModEventType.WIN_ZIGZAG_SPEED);
+		s('WIN_PINBALL', ModEventType.WIN_PINBALL);
+		s('WIN_PINBALL_ANGLE', ModEventType.WIN_PINBALL_ANGLE);
+		s('WIN_ROLL', ModEventType.WIN_ROLL);
+		s('WIN_ROLL_SPEED', ModEventType.WIN_ROLL_SPEED);
+		s('WIN_BEAT_SCALE', ModEventType.WIN_BEAT_SCALE);
+		s('WIN_HEARTBEAT', ModEventType.WIN_HEARTBEAT);
+		s('WIN_STROBE', ModEventType.WIN_STROBE);
+		s('WIN_STROBE_RATE', ModEventType.WIN_STROBE_RATE);
+		s('WIN_STROBE_DUTY', ModEventType.WIN_STROBE_DUTY);
+		s('WIN_ANCHOR', ModEventType.WIN_ANCHOR);
+		s('WIN_ANCHOR_X', ModEventType.WIN_ANCHOR_X);
+		s('WIN_ANCHOR_Y', ModEventType.WIN_ANCHOR_Y);
+		s('WIN_ANCHOR_MX', ModEventType.WIN_ANCHOR_MX);
+		s('WIN_ANCHOR_MY', ModEventType.WIN_ANCHOR_MY);
+		// Eases
+		s('LINEAR', ModEase.LINEAR);
+		s('QUAD_IN', ModEase.QUAD_IN);
+		s('QUAD_OUT', ModEase.QUAD_OUT);
+		s('QUAD_IN_OUT', ModEase.QUAD_IN_OUT);
+		s('CUBE_IN', ModEase.CUBE_IN);
+		s('CUBE_OUT', ModEase.CUBE_OUT);
+		s('CUBE_IN_OUT', ModEase.CUBE_IN_OUT);
+		s('SINE_IN', ModEase.SINE_IN);
+		s('SINE_OUT', ModEase.SINE_OUT);
+		s('SINE_IN_OUT', ModEase.SINE_IN_OUT);
+		s('ELASTIC_IN', ModEase.ELASTIC_IN);
+		s('ELASTIC_OUT', ModEase.ELASTIC_OUT);
+		s('BOUNCE_OUT', ModEase.BOUNCE_OUT);
+		s('BACK_IN', ModEase.BACK_IN);
+		s('BACK_OUT', ModEase.BACK_OUT);
+		s('INSTANT', ModEase.INSTANT);
+	}
+
+	private inline function _callHScript(func:String, args:Array<Dynamic>):Void
+	{
+		if (_hscriptInterp == null || !_hscriptInterp.variables.exists(func))
+			return;
+		try
+		{
+			Reflect.callMethod(null, _hscriptInterp.variables.get(func), args);
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModChartManager] Error $func(): $e');
+		}
+	}
+	#end
+
+	#if (LUA_ALLOWED && linc_luajit)
+	private var _luaScript:Null<funkin.scripting.RuleScriptInstance> = null;
+
+	private function _exposeConstantsLua(lua:funkin.scripting.RuleScriptInstance, songName:String):Void
+	{
+		inline function s(k:String, v:Dynamic)
+			lua.set(k, v);
+		s('song', songName);
+		s('songPosition', 0.0);
+		s('currentBeat', 0.0);
+		// Strum types
+		s('MOVE_X', ModEventType.MOVE_X);
+		s('MOVE_Y', ModEventType.MOVE_Y);
+		s('SET_ABS_X', ModEventType.SET_ABS_X);
+		s('SET_ABS_Y', ModEventType.SET_ABS_Y);
+		s('ANGLE', ModEventType.ANGLE);
+		s('SPIN', ModEventType.SPIN);
+		s('ALPHA', ModEventType.ALPHA);
+		s('SCALE', ModEventType.SCALE);
+		s('SCALE_X', ModEventType.SCALE_X);
+		s('SCALE_Y', ModEventType.SCALE_Y);
+		s('VISIBLE', ModEventType.VISIBLE);
+		s('RESET', ModEventType.RESET);
+		s('DRUNK_X', ModEventType.DRUNK_X);
+		s('DRUNK_Y', ModEventType.DRUNK_Y);
+		s('DRUNK_FREQ', ModEventType.DRUNK_FREQ);
+		s('TORNADO', ModEventType.TORNADO);
+		s('CONFUSION', ModEventType.CONFUSION);
+		s('SCROLL_MULT', ModEventType.SCROLL_MULT);
+		s('FLIP_X', ModEventType.FLIP_X);
+		s('NOTE_OFFSET_X', ModEventType.NOTE_OFFSET_X);
+		s('NOTE_OFFSET_Y', ModEventType.NOTE_OFFSET_Y);
+		s('BUMPY', ModEventType.BUMPY);
+		s('BUMPY_SPEED', ModEventType.BUMPY_SPEED);
+		s('TIPSY', ModEventType.TIPSY);
+		s('TIPSY_SPEED', ModEventType.TIPSY_SPEED);
+		s('INVERT', ModEventType.INVERT);
+		s('ZIGZAG', ModEventType.ZIGZAG);
+		s('ZIGZAG_FREQ', ModEventType.ZIGZAG_FREQ);
+		s('WAVE', ModEventType.WAVE);
+		s('WAVE_SPEED', ModEventType.WAVE_SPEED);
+		s('BEAT_SCALE', ModEventType.BEAT_SCALE);
+		s('STEALTH', ModEventType.STEALTH);
+		s('NOTE_ALPHA', ModEventType.NOTE_ALPHA);
+		// Camera
+		s('CAM_ZOOM', ModEventType.CAM_ZOOM);
+		s('CAM_MOVE_X', ModEventType.CAM_MOVE_X);
+		s('CAM_MOVE_Y', ModEventType.CAM_MOVE_Y);
+		s('CAM_ANGLE', ModEventType.CAM_ANGLE);
+		// Window
+		s('WIN_X', ModEventType.WIN_X);
+		s('WIN_Y', ModEventType.WIN_Y);
+		s('WIN_SCALE', ModEventType.WIN_SCALE);
+		s('WIN_SCALE_X', ModEventType.WIN_SCALE_X);
+		s('WIN_SCALE_Y', ModEventType.WIN_SCALE_Y);
+		s('WIN_ALPHA', ModEventType.WIN_ALPHA);
+		s('WIN_RESET', ModEventType.WIN_RESET);
+		s('WIN_ORBIT', ModEventType.WIN_ORBIT);
+		s('WIN_ORBIT_SPEED', ModEventType.WIN_ORBIT_SPEED);
+		s('WIN_ORBIT_PHASE', ModEventType.WIN_ORBIT_PHASE);
+		s('WIN_ORBIT_EX', ModEventType.WIN_ORBIT_EX);
+		s('WIN_ORBIT_EY', ModEventType.WIN_ORBIT_EY);
+		s('WIN_SHAKE', ModEventType.WIN_SHAKE);
+		s('WIN_SHAKE_SPEED', ModEventType.WIN_SHAKE_SPEED);
+		s('WIN_BOUNCE', ModEventType.WIN_BOUNCE);
+		s('WIN_BOUNCE_FREQ', ModEventType.WIN_BOUNCE_FREQ);
+		s('WIN_BOUNCE_PERIOD', ModEventType.WIN_BOUNCE_PERIOD);
+		s('WIN_SPIRAL', ModEventType.WIN_SPIRAL);
+		s('WIN_SPIRAL_SPEED', ModEventType.WIN_SPIRAL_SPEED);
+		s('WIN_SPIRAL_TIGHT', ModEventType.WIN_SPIRAL_TIGHT);
+		s('WIN_FIGURE8', ModEventType.WIN_FIGURE8);
+		s('WIN_FIGURE8_SPEED', ModEventType.WIN_FIGURE8_SPEED);
+		s('WIN_GLITCH', ModEventType.WIN_GLITCH);
+		s('WIN_GLITCH_RATE', ModEventType.WIN_GLITCH_RATE);
+		s('WIN_WARP', ModEventType.WIN_WARP);
+		s('WIN_WARP_PERIOD', ModEventType.WIN_WARP_PERIOD);
+		s('WIN_SWING', ModEventType.WIN_SWING);
+		s('WIN_SWING_SPEED', ModEventType.WIN_SWING_SPEED);
+		s('WIN_ZIGZAG', ModEventType.WIN_ZIGZAG);
+		s('WIN_ZIGZAG_SPEED', ModEventType.WIN_ZIGZAG_SPEED);
+		s('WIN_PINBALL', ModEventType.WIN_PINBALL);
+		s('WIN_PINBALL_ANGLE', ModEventType.WIN_PINBALL_ANGLE);
+		s('WIN_ROLL', ModEventType.WIN_ROLL);
+		s('WIN_ROLL_SPEED', ModEventType.WIN_ROLL_SPEED);
+		s('WIN_BEAT_SCALE', ModEventType.WIN_BEAT_SCALE);
+		s('WIN_HEARTBEAT', ModEventType.WIN_HEARTBEAT);
+		s('WIN_STROBE', ModEventType.WIN_STROBE);
+		s('WIN_STROBE_RATE', ModEventType.WIN_STROBE_RATE);
+		s('WIN_STROBE_DUTY', ModEventType.WIN_STROBE_DUTY);
+		s('WIN_ANCHOR', ModEventType.WIN_ANCHOR);
+		s('WIN_ANCHOR_X', ModEventType.WIN_ANCHOR_X);
+		s('WIN_ANCHOR_Y', ModEventType.WIN_ANCHOR_Y);
+		s('WIN_ANCHOR_MX', ModEventType.WIN_ANCHOR_MX);
+		s('WIN_ANCHOR_MY', ModEventType.WIN_ANCHOR_MY);
+		// Eases
+		s('LINEAR', ModEase.LINEAR);
+		s('QUAD_IN', ModEase.QUAD_IN);
+		s('QUAD_OUT', ModEase.QUAD_OUT);
+		s('QUAD_IN_OUT', ModEase.QUAD_IN_OUT);
+		s('CUBE_IN', ModEase.CUBE_IN);
+		s('CUBE_OUT', ModEase.CUBE_OUT);
+		s('CUBE_IN_OUT', ModEase.CUBE_IN_OUT);
+		s('SINE_IN', ModEase.SINE_IN);
+		s('SINE_OUT', ModEase.SINE_OUT);
+		s('SINE_IN_OUT', ModEase.SINE_IN_OUT);
+		s('ELASTIC_IN', ModEase.ELASTIC_IN);
+		s('ELASTIC_OUT', ModEase.ELASTIC_OUT);
+		s('BOUNCE_OUT', ModEase.BOUNCE_OUT);
+		s('BACK_IN', ModEase.BACK_IN);
+		s('BACK_OUT', ModEase.BACK_OUT);
+		s('INSTANT', ModEase.INSTANT);
+
+		var self = this;
+		s('addEvent', function(beat:Float, target:String, strumIdx:Int, type:String, value:Float, ?duration:Float, ?ease:String):Void
+		{
+			self.addEventSimple(beat, target, strumIdx, type, value, duration ?? 0.0, ease ?? ModEase.LINEAR);
+		});
+		s('clearEvents', function():Void self.clearEvents());
+		s('getState', function(groupId:String, strumIdx:Int):Dynamic
+		{
+			var st = self.getState(groupId, strumIdx);
+			if (st == null)
+				return null;
+			return {
+				x: st.baseX + st.offsetX,
+				y: st.baseY + st.offsetY,
+				angle: st.angle,
+				alpha: st.alpha,
+				scaleX: st.scaleX,
+				scaleY: st.scaleY,
+				visible: st.visible,
+				scrollMult: st.scrollMult
+			};
+		});
+		s('camState', camState);
+		s('winState', winState);
+		s('Conductor', funkin.data.Conductor);
+		s('FlxG', flixel.FlxG);
+		s('Math', Math);
+	}
+
+	private inline function _callLua(func:String, args:Array<Dynamic>):Void
+	{
+		if (_luaScript == null || !_luaScript.active)
+			return;
+		_luaScript.call(func, args);
+	}
+	#end
+
+	// ─── Playback ─────────────────────────────────────────────────────────────
+
+	public function loadFromJson(json:String):Void
+	{
+		try
+		{
+			var loaded:ModChartData = Json.parse(json);
+			data = loaded;
+			data.events.sort((a, b) -> a.beat < b.beat ? -1 : 1);
+			resetToStart();
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ModChartManager] ERROR parse JSON: $e');
+		}
+	}
+
+	public function loadData(d:ModChartData):Void
+	{
+		data = d;
+		data.events.sort((a, b) -> a.beat < b.beat ? -1 : 1);
+		resetToStart();
+	}
+
+	public function toJson():String
+		return Json.stringify(data, null, "  ");
+
+	public function resetToStart():Void
+	{
+		activeTweens = [];
+		winState = _makeDefaultWinState();
+		_lastWinX = _lastWinY = _lastWinW = _lastWinH = -9999;
+		_lastWinAlpha = -1;
+
+		for (group in strumsGroups)
+		{
+			var arr = states.get(group.id);
+			if (arr == null)
+				continue;
+			for (i in 0...arr.length)
+			{
+				var st = arr[i];
+				var spr = group.getStrum(i);
+				st.offsetX = 0;
+				st.offsetY = 0;
+				st.absX = null;
+				st.absY = null;
+				st.angle = 0;
+				st.spinRate = 0;
+				st.alpha = 1;
+				st.scaleX = (spr != null) ? spr.scale.x : 0.7;
+				st.scaleY = (spr != null) ? spr.scale.y : 0.7;
+				st.visible = st.baseVisible;
+				st.drunkX = 0;
+				st.drunkY = 0;
+				st.drunkFreq = 1.0;
+				st.tornado = 0;
+				st.confusion = 0;
+				st.scrollMult = 1.0;
+				st.flipX = 0;
+				st.noteOffsetX = 0;
+				st.noteOffsetY = 0;
+				st.bumpy = 0;
+				st.bumpySpeed = 2.0;
+				st.tipsy = 0;
+				st.tipsySpeed = 1.0;
+				st.invert = 0;
+				st.zigzag = 0;
+				st.zigzagFreq = 1.0;
+				st.wave = 0;
+				st.waveSpeed = 1.5;
+				st.beatScale = 0;
+				st._beatPulse = 0;
+				st.stealth = 0;
+				st.noteAlpha = 1.0;
+			}
+		}
+
+		_pendingIdx = 0;
+		pending = [];
+		for (ev in data.events)
+			if (ev.beat >= currentBeat - 0.01)
+				pending.push(ev);
+
+		applyAllStates();
+	}
+
+	public function seekToBeat(beat:Float):Void
+	{
+		for (group in strumsGroups)
+		{
+			var arr = states.get(group.id);
+			if (arr == null)
+				continue;
+			for (i in 0...arr.length)
+			{
+				var st = arr[i];
+				var spr = group.getStrum(i);
+				st.offsetX = 0;
+				st.offsetY = 0;
+				st.absX = null;
+				st.absY = null;
+				st.angle = 0;
+				st.spinRate = 0;
+				st.alpha = 1;
+				st.scaleX = (spr != null) ? spr.scale.x : 0.7;
+				st.scaleY = (spr != null) ? spr.scale.y : 0.7;
+				st.visible = st.baseVisible;
+				st.drunkX = 0;
+				st.drunkY = 0;
+				st.drunkFreq = 1.0;
+				st.tornado = 0;
+				st.confusion = 0;
+				st.scrollMult = 1.0;
+				st.flipX = 0;
+				st.noteOffsetX = 0;
+				st.noteOffsetY = 0;
+				st.bumpy = 0;
+				st.bumpySpeed = 2.0;
+				st.tipsy = 0;
+				st.tipsySpeed = 1.0;
+				st.invert = 0;
+				st.zigzag = 0;
+				st.zigzagFreq = 1.0;
+				st.wave = 0;
+				st.waveSpeed = 1.5;
+				st.beatScale = 0;
+				st._beatPulse = 0;
+				st.stealth = 0;
+				st.noteAlpha = 1.0;
+			}
+		}
+		winState = _makeDefaultWinState();
+
+		for (ev in data.events)
+		{
+			if (ev.beat > beat)
+				break;
+			if (ModChartHelpers.isWindowType(ev.type))
+				setWindowValue(ev.type, ev.value);
+			else
+				applyEventInstant(ev);
+		}
+
+		currentBeat = beat;
+		activeTweens = [];
+		_pendingIdx = 0;
+		pending = [];
+		for (ev in data.events)
+			if (ev.beat >= beat - 0.01)
+				pending.push(ev);
+
+		applyAllStates();
+	}
+
+	// ─── Update ───────────────────────────────────────────────────────────────
+
+	public function update(songPos:Float):Void
+	{
+		if (!enabled)
+			return;
+
+		this.songPosition = songPos;
+		var beatFloat:Float = (funkin.data.Conductor.crochet > 0) ? songPos / funkin.data.Conductor.crochet : 0.0;
+		this.currentBeat = beatFloat;
+
+		fireReadyEvents(beatFloat);
+		updateTweens(beatFloat);
+		applySpins(FlxG.elapsed);
+		applyAllStates();
+		applyWindowState(beatFloat); // ← WINDOW MODS APLICADOS AQUÍ
+
+		#if HSCRIPT_ALLOWED
+		_callHScript('onUpdate', [songPos]);
+		#end
+		#if (LUA_ALLOWED && linc_luajit)
+		if (_luaScript != null)
+		{
+			_luaScript.set('songPosition', songPos);
+			_luaScript.set('currentBeat', currentBeat);
+			_callLua('onUpdate', [songPos]);
+		}
+		#end
+	}
+
+	// ── Disparar eventos ─────────────────────────────────────────────────────
+
+	private function fireReadyEvents(curBeat:Float):Void
+	{
+		while (_pendingIdx < pending.length)
+		{
+			final ev = pending[_pendingIdx];
+			if (ev.beat > curBeat)
+				break;
+			_pendingIdx++;
+
+			if (ev.type == RESET)
+			{
+				applyReset(ev);
+				continue;
+			}
+			if (ev.type == WIN_RESET)
+			{
+				winState = _makeDefaultWinState();
+				_restoreWindow();
+				continue;
+			}
+
+			if (ev.duration <= 0 || ev.ease == INSTANT)
+			{
+				if (ModChartHelpers.isWindowType(ev.type))
+					setWindowValue(ev.type, ev.value);
+				else
+					applyEventInstant(ev);
+			}
+			else
+			{
+				if (ModChartHelpers.isCameraType(ev.type))
+				{
+					activeTweens.push({
+						event: ev,
+						startBeat: ev.beat,
+						startVal: getStateValue("", -1, ev.type),
+						groupId: "__camera__",
+						strumIdx: 0
+					});
+				}
+				else if (ModChartHelpers.isWindowType(ev.type))
+				{
+					activeTweens.push({
+						event: ev,
+						startBeat: ev.beat,
+						startVal: getWindowValue(ev.type),
+						groupId: "__window__",
+						strumIdx: 0
+					});
+				}
+				else
+				{
+					final targets = resolveTargets(ev.target, ev.strumIdx);
+					for (t in targets)
+						activeTweens.push({
+							event: ev,
+							startBeat: ev.beat,
+							startVal: getStateValue(t.groupId, t.strumIdx, ev.type),
+							groupId: t.groupId,
+							strumIdx: t.strumIdx
+						});
+				}
+			}
+		}
+	}
+
+	// ── Tweens ───────────────────────────────────────────────────────────────
+
+	private function updateTweens(curBeat:Float):Void
+	{
+		_finishedTweens.resize(0);
+		for (tw in activeTweens)
+		{
+			final elapsed = curBeat - tw.startBeat;
+			final t = tw.event.duration > 0 ? elapsed / tw.event.duration : 1.0;
+			final eased = ModChartHelpers.applyEase(tw.event.ease, t);
+			final val = tw.startVal + (tw.event.value - tw.startVal) * eased;
+
+			if (tw.groupId == "__window__")
+				setWindowValue(tw.event.type, val);
+			else
+				setStateValue(tw.groupId, tw.strumIdx, tw.event.type, val);
+
+			if (t >= 1.0)
+				_finishedTweens.push(tw);
+		}
+
+		var i = _finishedTweens.length - 1;
+		while (i >= 0)
+		{
+			final idx = activeTweens.indexOf(_finishedTweens[i]);
+			if (idx >= 0)
+				activeTweens.splice(idx, 1);
+			i--;
+		}
+	}
+
+	// ── Spin / Beat pulse ─────────────────────────────────────────────────────
+
+	private function applySpins(elapsed:Float):Void
+	{
+		var bps:Float = funkin.data.Conductor.bpm / 60.0;
+		for (group in strumsGroups)
+		{
+			var arr = states.get(group.id);
+			if (arr == null)
+				continue;
+			for (st in arr)
+			{
+				if (st.spinRate != 0)
+					st.angle += st.spinRate * elapsed * bps;
+				if (st._beatPulse > 0)
+				{
+					st._beatPulse -= elapsed * 8.0;
+					if (st._beatPulse < 0)
+						st._beatPulse = 0;
+				}
+			}
+		}
+
+		// Window beat pulse decay
+		if (winState._beatPulse > 0)
+		{
+			winState._beatPulse -= elapsed * 8.0;
+			if (winState._beatPulse < 0)
+				winState._beatPulse = 0;
+		}
+	}
+
+	// ── Apply sprites ─────────────────────────────────────────────────────────
+
+	private function applyAllStates():Void
+	{
+		for (group in strumsGroups)
+		{
+			var arr = states.get(group.id);
+			if (arr == null)
+				continue;
+			for (i in 0...4)
+			{
+				var spr = group.getStrum(i);
+				if (spr == null || i >= arr.length)
+					continue;
+				var st = arr[i];
+				spr.x = (st.absX != null) ? st.absX : st.baseX + st.offsetX;
+				spr.y = (st.absY != null) ? st.absY : st.baseY + st.offsetY;
+				spr.angle = st.angle;
+				spr.alpha = Math.max(0, Math.min(1, st.alpha));
+				spr.scale.set(st.scaleX, st.scaleY);
+				spr.visible = st.visible;
+			}
+		}
+	}
+
+	// ── Target resolution ─────────────────────────────────────────────────────
+
+	private function resolveTargets(target:String, strumIdx:Int):Array<{groupId:String, strumIdx:Int}>
+	{
+		var result:Array<{groupId:String, strumIdx:Int}> = [];
+		var groupIds:Array<String> = [];
+
+		if (target == "all")
+			for (g in strumsGroups)
+				groupIds.push(g.id);
+		else if (target == "player")
+			for (g in strumsGroups)
+			{
+				if (!g.isCPU)
+					groupIds.push(g.id);
+			}
+		else if (target == "cpu")
+			for (g in strumsGroups)
+			{
+				if (g.isCPU)
+					groupIds.push(g.id);
+			}
+		else
+			groupIds.push(target);
+
+		for (gid in groupIds)
+		{
+			if (strumIdx == -1)
+				for (s in 0...4)
+					result.push({groupId: gid, strumIdx: s});
+			else
+				result.push({groupId: gid, strumIdx: strumIdx});
+		}
+		return result;
+	}
+
+	// ── get/set state value ───────────────────────────────────────────────────
+
+	private function getStateValue(groupId:String, strumIdx:Int, type:ModEventType):Float
+	{
+		if (ModChartHelpers.isCameraType(type))
+			return switch (type)
+			{
+				case CAM_ZOOM: camState.zoom;
+				case CAM_MOVE_X: camState.offsetX;
+				case CAM_MOVE_Y: camState.offsetY;
+				case CAM_ANGLE: camState.angle;
+				default: 0;
+			};
+
+		var arr = states.get(groupId);
+		if (arr == null || strumIdx < 0 || strumIdx >= arr.length)
+			return 0;
+		var st = arr[strumIdx];
+		return switch (type)
+		{
+			case MOVE_X: st.offsetX;
+			case MOVE_Y: st.offsetY;
+			case SET_ABS_X: st.absX != null ? st.absX : st.baseX;
+			case SET_ABS_Y: st.absY != null ? st.absY : st.baseY;
+			case ANGLE: st.angle;
+			case ALPHA: st.alpha;
+			case SCALE | SCALE_X: st.scaleX;
+			case SCALE_Y: st.scaleY;
+			case SPIN: st.spinRate;
+			case VISIBLE: st.visible ? 1 : 0;
+			case DRUNK_X: st.drunkX;
+			case DRUNK_Y: st.drunkY;
+			case DRUNK_FREQ: st.drunkFreq;
+			case TORNADO: st.tornado;
+			case CONFUSION: st.confusion;
+			case SCROLL_MULT: st.scrollMult;
+			case FLIP_X: st.flipX;
+			case NOTE_OFFSET_X: st.noteOffsetX;
+			case NOTE_OFFSET_Y: st.noteOffsetY;
+			case BUMPY: st.bumpy;
+			case BUMPY_SPEED: st.bumpySpeed;
+			case TIPSY: st.tipsy;
+			case TIPSY_SPEED: st.tipsySpeed;
+			case INVERT: st.invert;
+			case ZIGZAG: st.zigzag;
+			case ZIGZAG_FREQ: st.zigzagFreq;
+			case WAVE: st.wave;
+			case WAVE_SPEED: st.waveSpeed;
+			case BEAT_SCALE: st.beatScale;
+			case STEALTH: st.stealth;
+			case NOTE_ALPHA: st.noteAlpha;
+			default: 0;
+		};
+	}
+
+	private function setStateValue(groupId:String, strumIdx:Int, type:ModEventType, value:Float):Void
+	{
+		if (ModChartHelpers.isCameraType(type))
+		{
+			switch (type)
+			{
+				case CAM_ZOOM:
+					camState.zoom = value;
+				case CAM_MOVE_X:
+					camState.offsetX = value;
+				case CAM_MOVE_Y:
+					camState.offsetY = value;
+				case CAM_ANGLE:
+					camState.angle = value;
+				default:
+			}
+			return;
+		}
+
+		var arr = states.get(groupId);
+		if (arr == null || strumIdx < 0 || strumIdx >= arr.length)
+			return;
+		var st = arr[strumIdx];
+		switch (type)
+		{
+			case MOVE_X:
+				st.offsetX = value;
+				st.absX = null;
+			case MOVE_Y:
+				st.offsetY = value;
+				st.absY = null;
+			case SET_ABS_X:
+				st.absX = value;
+			case SET_ABS_Y:
+				st.absY = value;
+			case ANGLE:
+				st.angle = value;
+			case ALPHA:
+				st.alpha = value;
+			case SCALE:
+				st.scaleX = value;
+				st.scaleY = value;
+			case SCALE_X:
+				st.scaleX = value;
+			case SCALE_Y:
+				st.scaleY = value;
+			case SPIN:
+				st.spinRate = value;
+			case VISIBLE:
+				st.visible = value >= 0.5;
+			case DRUNK_X:
+				st.drunkX = value;
+			case DRUNK_Y:
+				st.drunkY = value;
+			case DRUNK_FREQ:
+				st.drunkFreq = value;
+			case TORNADO:
+				st.tornado = value;
+			case CONFUSION:
+				st.confusion = value;
+			case SCROLL_MULT:
+				st.scrollMult = value;
+			case FLIP_X:
+				st.flipX = value;
+			case NOTE_OFFSET_X:
+				st.noteOffsetX = value;
+			case NOTE_OFFSET_Y:
+				st.noteOffsetY = value;
+			case BUMPY:
+				st.bumpy = value;
+			case BUMPY_SPEED:
+				st.bumpySpeed = value;
+			case TIPSY:
+				st.tipsy = value;
+			case TIPSY_SPEED:
+				st.tipsySpeed = value;
+			case INVERT:
+				st.invert = value;
+			case ZIGZAG:
+				st.zigzag = value;
+			case ZIGZAG_FREQ:
+				st.zigzagFreq = value;
+			case WAVE:
+				st.wave = value;
+			case WAVE_SPEED:
+				st.waveSpeed = value;
+			case BEAT_SCALE:
+				st.beatScale = value;
+			case STEALTH:
+				st.stealth = value;
+			case NOTE_ALPHA:
+				st.noteAlpha = value;
+			case RESET:
+			case CAM_ZOOM | CAM_MOVE_X | CAM_MOVE_Y | CAM_ANGLE:
+			default:
+		}
+	}
+
+	private function applyEventInstant(ev:ModChartEvent):Void
+	{
+		for (t in resolveTargets(ev.target, ev.strumIdx))
+			setStateValue(t.groupId, t.strumIdx, ev.type, ev.value);
+	}
+
+	private function applyReset(ev:ModChartEvent):Void
+	{
+		if (ev.target == "camera" || ev.target == "cam")
+		{
+			camState.zoom = 0;
+			camState.offsetX = 0;
+			camState.offsetY = 0;
+			camState.angle = 0;
+			return;
+		}
+		for (t in resolveTargets(ev.target, ev.strumIdx))
+		{
+			var arr = states.get(t.groupId);
+			if (arr == null || t.strumIdx < 0 || t.strumIdx >= arr.length)
+				continue;
+			var st = arr[t.strumIdx];
+			var spr:Dynamic = null;
+			for (g in strumsGroups)
+				if (g.id == t.groupId)
+				{
+					spr = g.getStrum(t.strumIdx);
+					break;
+				}
+			st.offsetX = 0;
+			st.offsetY = 0;
+			st.absX = null;
+			st.absY = null;
+			st.angle = 0;
+			st.spinRate = 0;
+			st.alpha = 1;
+			st.scaleX = (spr != null) ? spr.scale.x : 0.7;
+			st.scaleY = (spr != null) ? spr.scale.y : 0.7;
+			st.visible = st.baseVisible;
+			st.drunkX = 0;
+			st.drunkY = 0;
+			st.drunkFreq = 1.0;
+			st.tornado = 0;
+			st.confusion = 0;
+			st.scrollMult = 1.0;
+			st.flipX = 0;
+			st.noteOffsetX = 0;
+			st.noteOffsetY = 0;
+			st.bumpy = 0;
+			st.bumpySpeed = 2.0;
+			st.tipsy = 0;
+			st.tipsySpeed = 1.0;
+			st.invert = 0;
+			st.zigzag = 0;
+			st.zigzagFreq = 1.0;
+			st.wave = 0;
+			st.waveSpeed = 1.5;
+			st.beatScale = 0;
+			st._beatPulse = 0;
+			st.stealth = 0;
+			st.noteAlpha = 1.0;
+		}
+	}
+
+	// ─── API pública ──────────────────────────────────────────────────────────
+
+	public function addEvent(ev:ModChartEvent):Void
+	{
+		data.events.push(ev);
+		data.events.sort((a, b) -> a.beat < b.beat ? -1 : 1);
+		if (ev.beat >= currentBeat - 0.01)
+			pending.push(ev);
+		pending.sort((a, b) -> a.beat < b.beat ? -1 : 1);
+	}
+
+	public function addEventSimple(beat:Float, target:String, strumIdx:Int, type:ModEventType, value:Float, duration:Float = 0, ease:ModEase = LINEAR):Void
+	{
+		addEvent(ModChartHelpers.makeEvent(beat, target, strumIdx, type, value, duration, ease));
+	}
+
+	public function clearEvents():Void
+	{
+		data.events = [];
+		_pendingIdx = 0;
+		pending = [];
+		activeTweens = [];
+	}
+
+	public function getState(groupId:String, strumIdx:Int):Null<StrumState>
+	{
+		var arr = states.get(groupId);
+		if (arr == null || strumIdx < 0 || strumIdx >= arr.length)
+			return null;
+		return arr[strumIdx];
+	}
+
+	public function getStrumDisplayPos(groupId:String, strumIdx:Int):{x:Float, y:Float}
+	{
+		var st = getState(groupId, strumIdx);
+		if (st == null)
+			return {x: 0, y: 0};
+		return {
+			x: st.absX != null ? st.absX : st.baseX + st.offsetX,
+			y: st.absY != null ? st.absY : st.baseY + st.offsetY
+		};
+	}
+
+	// ─── Beat / Step hooks ────────────────────────────────────────────────────
+
+	public function onBeatHit(beat:Int):Void
+	{
+		for (group in strumsGroups)
+		{
+			var arr = states.get(group.id);
+			if (arr == null)
+				continue;
+			for (st in arr)
+				if (st.beatScale > 0)
+					st._beatPulse = st.beatScale;
+		}
+
+		// Window beat scale pulse
+		if (winState.beatScale > 0)
+			winState._beatPulse = winState.beatScale;
+
+		#if HSCRIPT_ALLOWED _callHScript('onBeatHit', [beat]); #end
+		#if (LUA_ALLOWED && linc_luajit) _callLua('onBeatHit', [beat]); #end
+	}
+
+	public function onNoteHit(note:Dynamic):Void
+	{
+		#if HSCRIPT_ALLOWED _callHScript('onNoteHit', [note]); #end
+		#if (LUA_ALLOWED && linc_luajit) _callLua('onNoteHit', [note]); #end
+	}
+
+	public function onStepHit(step:Int):Void
+	{
+		#if HSCRIPT_ALLOWED _callHScript('onStepHit', [step]); #end
+		#if (LUA_ALLOWED && linc_luajit) _callLua('onStepHit', [step]); #end
+	}
+
+	// ─── Destructor ───────────────────────────────────────────────────────────
+
+	public function destroy():Void
+	{
+		activeTweens = [];
+		_pendingIdx = 0;
+		pending = [];
+		states.clear();
+		strumsGroups = null;
+
+		_restoreWindow(); // ← Restaurar ventana al estado original al destruir
+
+		#if HSCRIPT_ALLOWED _hscriptInterp = null; #end
+		#if (LUA_ALLOWED && linc_luajit)
+		if (_luaScript != null)
+		{
+			_callLua('onDestroy', []);
+			_luaScript.destroy();
+			_luaScript = null;
+		}
+		#end
+		instance = null;
+	}
 }
