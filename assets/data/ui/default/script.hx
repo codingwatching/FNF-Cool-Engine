@@ -51,7 +51,7 @@ function _createHealthBar()
 	var healthBarY = SaveData.data.downscroll ? FlxG.height * 0.1 : FlxG.height * 0.88;
 
 	healthBarBG = makeSprite(0, healthBarY);
-	healthBarBG.loadGraphic(Paths.image('UI/healthBar'));
+	healthBarBG.loadGraphic(Paths.getGraphic('UI/healthBar'));
 	screenCenterX(healthBarBG);
 	uiAdd(healthBarBG);
 
@@ -255,7 +255,7 @@ function onRatingPopup(ratingName, combo)
 	ratingSprite.alpha = 1;
 	ratingSprite.visible = true;
 
-	ratingSprite.loadGraphic(Paths.image('UI/' + pixelPart1 + ratingName + pixelPart2));
+	ratingSprite.loadGraphic(Paths.getGraphic('UI/' + pixelPart1 + ratingName + pixelPart2));
 
 	ratingSprite.x = FlxG.width * 0.55 - 40 + posX;
 	ratingSprite.y = FlxG.height * 0.5 - 90 + posY;
@@ -312,7 +312,7 @@ function _showComboNumbers(combo, pixelPart1, pixelPart2)
 		var numScore = _getFromPool(numberPool);
 		numScore.alpha = 1;
 		numScore.visible = true;
-		numScore.loadGraphic(Paths.image('UI/' + pixelPart1 + 'nums/num' + Std.int(i) + pixelPart2));
+		numScore.loadGraphic(Paths.getGraphic('UI/' + pixelPart1 + 'nums/num' + Std.int(i) + pixelPart2));
 
 		numScore.x = FlxG.width * 0.55 + (43 * daLoop) - 90 + 140 + posX;
 		numScore.y = FlxG.height * 0.5 + 20 + posY;
@@ -365,9 +365,9 @@ function onMissPopup()
 	rating.visible = true;
 
 	if (isPixel)
-		rating.loadGraphic(Paths.image('UI/pixelUI/score/miss-pixel'));
+		rating.loadGraphic(Paths.getGraphic('UI/pixelUI/score/miss-pixel'));
 	else
-		rating.loadGraphic(Paths.image('UI/normal/score/miss'));
+		rating.loadGraphic(Paths.getGraphic('UI/normal/score/miss'));
 
 	rating.x = FlxG.width * 0.55 - 40 + posX;
 	rating.y = FlxG.height * 0.5 - 90 + posY;

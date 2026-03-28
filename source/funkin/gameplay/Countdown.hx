@@ -190,7 +190,7 @@ class Countdown {
 
 		for (path in skin.sprPaths) {
 			var spr = new FlxSprite();
-			spr.loadGraphic(Paths.image(path));
+			spr.loadGraphic(Paths.getGraphic(path));
 			spr.cameras     = [_camera];
 			spr.scrollFactor.set();
 
@@ -333,7 +333,7 @@ class Countdown {
 
 		// Sonido
 		if (step.sndPath != null && step.sndPath.length > 0)
-			FlxG.sound.play(Paths.sound(step.sndPath), skin.soundVolume);
+			FlxG.sound.play(Paths.getSound(Paths.sound(step.sndPath)), skin.soundVolume);
 
 		// Sprite (solo si hay path y sprite cargado)
 		if (step.sprPath != null)
@@ -430,7 +430,7 @@ class Countdown {
 		final dur = Conductor.crochet / 1000.0;
 		final sk  = skin;
 
-		var spr = new FlxSprite().loadGraphic(Paths.image(path));
+		var spr = new FlxSprite().loadGraphic(Paths.getGraphic(path));
 		spr.cameras = [_camera];
 		spr.scrollFactor.set();
 

@@ -301,6 +301,22 @@ class NoteRenderer
      */
     public function updateHoldCovers():Void {}
 
+    /**
+     * Re-center an active NoteHoldCover to a new strum position.
+     * Called every frame from NoteManager._updateHoldCoverPositions() so
+     * covers follow strums that move during modchart events or beat bumps.
+     *
+     * @param key  Internal key (same formula as startHoldCover/stopHoldCover).
+     * @param cx   New strum center X in world coords.
+     * @param cy   New strum center Y in world coords.
+     */
+    public function updateActiveCoverPosition(key:Int, cx:Float, cy:Float):Void
+    {
+        final cover = activeHoldCovers.get(key);
+        if (cover != null && cover.inUse)
+            cover.updatePosition(cx, cy);
+    }
+
     // ─────────────────────── TOGGLE / STATS / BATCHER ────────────────────────
 
     public function updateBatcher():Void

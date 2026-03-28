@@ -83,6 +83,8 @@ class GlobalConfig
 	 */
 	public var holdCoverEnabled:Bool = true;
 
+	public var splashesEnabled:Bool = true;
+
 	/**
 	 * Skin global del hold cover (nombre de atlas sin extensión).
 	 * Se busca en assets/images/holdCovers/{holdCoverSkin}.
@@ -184,6 +186,8 @@ class GlobalConfig
 			if (raw.noteSkin        != null) cfg.noteSkin        = Std.string(raw.noteSkin);
 			if (raw.noteSplash      != null) cfg.noteSplash      = Std.string(raw.noteSplash);
 			if (raw.holdCoverEnabled != null) cfg.holdCoverEnabled = (raw.holdCoverEnabled == true);
+			if (raw.splashesEnabled != null) cfg.splashesEnabled = (raw.splashesEnabled == true);
+			
 			if (raw.holdCoverSkin   != null && Std.string(raw.holdCoverSkin) != '')
 				cfg.holdCoverSkin = Std.string(raw.holdCoverSkin);
 
@@ -305,6 +309,7 @@ class GlobalConfig
 				noteSkin:         noteSkin,
 				noteSplash:       noteSplash,
 				holdCoverEnabled: holdCoverEnabled,
+				splashesEnabled: splashesEnabled,
 				holdCoverSkin:    holdCoverSkin
 			};
 			// Solo serializar campos no-default para mantener el JSON limpio

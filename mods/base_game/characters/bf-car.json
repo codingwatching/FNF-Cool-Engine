@@ -79,15 +79,6 @@
 			"offsetY": -19
 		},
 		{
-			"name": "hey",
-			"prefix": "BF HEY",
-			"framerate": 24,
-			"looped": false,
-			"offsetX": 0,
-			"offsetY": 0,
-			"specialAnim": true
-		},
-		{
 			"name": "scared",
 			"prefix": "BF idle shaking",
 			"framerate": 24,

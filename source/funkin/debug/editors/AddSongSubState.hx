@@ -1444,7 +1444,7 @@ class AddSongSubState extends FlxSubState
 		cy += 74;
 
 		// ── Skins por jugador / grupo de strums ───────────────────────────────
-		_lbl(g, cx, cy, "Player Skins (per strum group):", 0.49);
+		_lbl(g, cx, cy, "Note Skins (per strum group):", 0.49);
 		noteSkinsInput = _inp(g, cx, cy + 22, windowWidth - 80, "", 200, 0.51);
 		var hps = new FlxText(cx, cy + 52, windowWidth - 80,
 			"JSON: {\"player_strums_0\":\"PixelSkin\",\"cpu_strums_0\":\"Default\"}  —  key = group ID or character name. Empty = uses Note Skin above.", 11);
@@ -1883,6 +1883,11 @@ class AddSongSubState extends FlxSubState
 		for (m in g.members)
 		{
 			if (m == null) continue;
+			// Recurrir en grupos anidados (ej: _diffRowContainer, _slotContainer)
+			// para que los CoolInputText internos también se oculten — los TextField
+			// de OpenFL ignoran el visible del grupo padre al renderizar.
+			if (Std.isOfType(m, FlxTypedGroup))
+				_setGroupVisible(cast(m, FlxTypedGroup<Dynamic>), vis);
 			if (Std.isOfType(m, flixel.FlxBasic))
 			{
 				var fb:flixel.FlxBasic = cast m;
@@ -1937,6 +1942,19 @@ class AddSongSubState extends FlxSubState
 
 	function addNewSong(songName:String, weekIndex:Int, bpmVal:Float):Void
 	{
+		// ── Insertar entrada en freeplayListData ANTES de guardar el JSON ────
+		final entry:FreeplaySongEntry = {
+			name:      songName,
+			icon:      iconNameInput.text.trim(),
+			color:     selectedColor,
+			bpm:       bpmVal,
+			group:     weekIndex,
+			artist:    (artistInput    != null) ? artistInput.text.trim()    : '',
+			album:     (albumInput     != null) ? albumInput.text.trim()     : '',
+			albumText: (albumTextInput != null) ? albumTextInput.text.trim() : ''
+		};
+		freeplayListData = FreeplayList.upsert(freeplayListData, entry);
+
 		createBaseChartJSON(songName.toLowerCase(), bpmVal);
 
 		#if desktop

@@ -487,27 +487,6 @@ class PlayState extends funkin.states.MusicBeatState
 
 		StickerTransition.clearStickers();
 
-		if (scriptsEnabled)
-		{
-			ScriptHandler.setOnScripts('boyfriend', boyfriend);
-			ScriptHandler.setOnScripts('dad', dad);
-			ScriptHandler.setOnScripts('gf', gf);
-			ScriptHandler.setOnScripts('stage', currentStage);
-			// onStageCreate ya fue disparado por loadStageScripts() una vez que los elementos existen.
-			// Llamarlo aqui de nuevo (via callOnScripts) dispara TODOS los layers incluyendo stage,
-			// causando una segunda ejecucion con los sprites aun no registrados. Solo llamamos
-			// a los scripts que NO son de stage (global, song, ui, etc.).
-			ScriptHandler.callOnNonStageScripts('onStageCreate', ScriptHandler._argsEmpty);
-			ScriptHandler.callOnScripts('postCreate', ScriptHandler._argsEmpty);
-			// Resolver listArtist con prioridad: meta.json > chart field > default.
-			// meta.json permite overridear el artista sin modificar el chart.
-			if (metaData != null && metaData.artist != null && metaData.artist != '')
-				GameState.listArtist = metaData.artist;
-			else if (SONG.artist != null && SONG.artist != '')
-				GameState.listArtist = SONG.artist;
-			ScriptHandler.setOnScripts('author', GameState.listArtist);
-		}
-
 		// Crear UI groups
 		createNoteGroups();
 
@@ -553,6 +532,27 @@ class PlayState extends funkin.states.MusicBeatState
 		Paths.clearPreviousSession();
 
 		super.create();
+
+		if (scriptsEnabled)
+		{
+			ScriptHandler.setOnScripts('boyfriend', boyfriend);
+			ScriptHandler.setOnScripts('dad', dad);
+			ScriptHandler.setOnScripts('gf', gf);
+			ScriptHandler.setOnScripts('stage', currentStage);
+			// onStageCreate ya fue disparado por loadStageScripts() una vez que los elementos existen.
+			// Llamarlo aqui de nuevo (via callOnScripts) dispara TODOS los layers incluyendo stage,
+			// causando una segunda ejecucion con los sprites aun no registrados. Solo llamamos
+			// a los scripts que NO son de stage (global, song, ui, etc.).
+			ScriptHandler.callOnNonStageScripts('onStageCreate', ScriptHandler._argsEmpty);
+			ScriptHandler.callOnScripts('postCreate', ScriptHandler._argsEmpty);
+			// Resolver listArtist con prioridad: meta.json > chart field > default.
+			// meta.json permite overridear el artista sin modificar el chart.
+			if (metaData != null && metaData.artist != null && metaData.artist != '')
+				GameState.listArtist = metaData.artist;
+			else if (SONG.artist != null && SONG.artist != '')
+				GameState.listArtist = SONG.artist;
+			ScriptHandler.setOnScripts('author', GameState.listArtist);
+		}
 
 		// ── Pausa global al perder foco ───────────────────────────────────────
 		// FlxG.signals.focusLost se dispara EN CUALQUIER momento, sin importar

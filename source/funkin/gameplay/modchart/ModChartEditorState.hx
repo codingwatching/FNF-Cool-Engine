@@ -88,6 +88,7 @@ class ModChartEditorState extends FlxState
 	static inline var TL_SB_H  = 14;      // altura scrollbar horizontal dedicado
 	static inline var PANEL_L  = 300;     // panel izquierdo (propiedades)
 	static inline var PANEL_R  = 240;     // panel derecho (tools + inspector)
+	static inline var MTB_H    = 52;      // altura media transport bar
 
 	private var tlY       : Float;
 	private var gameAreaY : Float;
@@ -235,6 +236,41 @@ class ModChartEditorState extends FlxState
 	static inline var ZOOM_MIN = 0.5;
 	static inline var ZOOM_MAX = 2.5;
 
+	// ── Media Transport Bar ───────────────────────────────────────────────────
+	private var mtbGroup        : FlxGroup;
+	private var mtbPlayhead     : FlxSprite;
+	private var mtbZoom         : Float = 1.0;   // 1.0 = canción completa visible
+	static inline var MTB_ZOOM_MIN = 0.5;
+	static inline var MTB_ZOOM_MAX = 8.0;
+	private var mtbY            : Float = 0;
+	private var mtbX            : Float = 0;
+	private var mtbW            : Float = 0;
+	private var songDurationMs  : Float = 0;
+	private var mtbStrumsGroup  : FlxGroup;
+
+	// Wrench (para mover y cambiar zoom del MTB)
+	private var wrenchSpr       : FlxSprite;
+	private var wrenchLbl       : FlxText;
+	private var wrenchDragging  : Bool  = false;
+	private var wrenchDragOX    : Float = 0;
+	private var mtbZoomAtDragStart : Float = 1.0;
+	private var mtbZoomLbl      : FlxText;   // label "Zoom×X.X" en el MTB
+
+	// ── Tools menu (visibilidad) ───────────────────────────────────────────────
+	private var showNotes       : Bool = false;
+	private var showSplashes    : Bool = false;
+	private var showStrums      : Bool = true;
+	private var showStrumPos    : Bool = true;
+	private var toolsMenuOpen   : Bool = false;
+	private var toolsMenuGroup  : FlxGroup;
+	private var toolsMenuBg     : FlxSprite;
+
+	// Labels de las opciones de tools (para actualizar el checkmark)
+	private var toolsLblNotes    : FlxText;
+	private var toolsLblSplashes : FlxText;
+	private var toolsLblStrums   : FlxText;
+	private var toolsLblStrumPos : FlxText;
+
 	// ── Patrones de ritmo ─────────────────────────────────────────────────────
 	private var rhythmPatterns : Array<RhythmPattern> = [];
 
@@ -295,7 +331,7 @@ class ModChartEditorState extends FlxState
 		rowCount  = srcStrumsGrps.length * 4;
 		tlY       = SH - STAT_H - TL_H;
 		gameAreaY = BAR_H;
-		gameAreaH = tlY - BAR_H;
+		gameAreaH = tlY - BAR_H - MTB_H;   // reservar espacio para el MTB
 		gameAreaX = PANEL_L;
 		gameAreaW = SW - PANEL_L - PANEL_R;
 
@@ -326,9 +362,12 @@ class ModChartEditorState extends FlxState
 		selBoxGroup   = new FlxGroup(); add(selBoxGroup);
 		strumHitGroup = new FlxGroup(); add(strumHitGroup);
 
-		tlGroup       = new FlxGroup(); add(tlGroup);
-		windowGroup   = new FlxGroup(); add(windowGroup);
-		inspListGroup = new FlxGroup(); add(inspListGroup);
+		tlGroup        = new FlxGroup(); add(tlGroup);
+		mtbGroup       = new FlxGroup(); add(mtbGroup);
+		mtbStrumsGroup = new FlxGroup(); add(mtbStrumsGroup);
+		toolsMenuGroup = new FlxGroup(); add(toolsMenuGroup);
+		windowGroup    = new FlxGroup(); add(windowGroup);
+		inspListGroup  = new FlxGroup(); add(inspListGroup);
 
 		buildGameBackground(gameBgGrp);
 		setupEditorStrums();
@@ -337,6 +376,8 @@ class ModChartEditorState extends FlxState
 		buildTopBar();
 		buildStatusBar();
 		buildTimeline();
+		buildMediaTransportBar();
+		buildToolsMenu();
 		buildLeftPanel();
 		buildRightPanel();
 
@@ -369,7 +410,8 @@ class ModChartEditorState extends FlxState
 		pushUndo();
 		refreshTimeline();
 		refreshStrumPropWindow();
-		setStatus("Editor v4 listo. Tab=Preview | H=HideUI | F11=FullGame | F1=Ayuda");
+		refreshVisibility();   // aplicar estado inicial de visibilidad
+		setStatus("Editor v4 listo — TOOLS para notas/splashes | MTB: arrastra la tuerca para zoom");
 
 		StateTransition.onStateCreated();
 	}
@@ -540,7 +582,7 @@ class ModChartEditorState extends FlxState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// BARRA SUPERIOR
+	// BARRA SUPERIOR — nuevo formato: MENU | CURBEAT | CURSTEP | TOOLS | TIME
 	// ─────────────────────────────────────────────────────────────────────────
 
 	function buildTopBar():Void
@@ -548,24 +590,56 @@ class ModChartEditorState extends FlxState
 		add(mkBg(0, 0, SW, BAR_H, C_BAR_BG));
 		add(mkBg(0, BAR_H - 1, SW, 1, C_TL_BORDER));
 
-		var title = mkTxt(8, 7, "◈ MODCHART EDITOR v4", 13, C_ACCENT);
+		// ── Título / menú ──────────────────────────────────────────────────
+		var title = mkTxt(8, 7, "◈ MODCHART MENU", 12, C_ACCENT);
 		title.bold = true;
 		add(title);
+		add(mkBg(130, 0, 1, BAR_H, C_TL_BORDER));
 
-		beatInfoLbl = mkTxt(200, 8, "Beat: 0.00  Step: 0  BPM: 120  0ms", 11, C_TEXT);
+		// ── CURBEAT ───────────────────────────────────────────────────────
+		add(mkTxt(138, 5, "CURBEAT:", 9, C_DIM));
+		beatInfoLbl = mkTxt(194, 5, "0", 11, C_TEXT);
+		beatInfoLbl.bold = true;
 		add(beatInfoLbl);
+		add(mkBg(280, 0, 1, BAR_H, C_TL_BORDER));
 
-		audioLbl = mkTxt(SW - 440, 8, "♪ Detenido", 11, 0xFF77FF99);
-		add(audioLbl);
+		// ── CURSTEP ───────────────────────────────────────────────────────
+		add(mkTxt(288, 5, "CURSTEP:", 9, C_DIM));
+		var stepLbl = mkTxt(344, 5, "0", 11, C_TEXT);
+		stepLbl.bold = true;
+		// lo actualizamos en updateLabels con beatInfoLbl reemplazado
+		// usamos beatInfoLbl para beat, stepLbl para step
+		add(stepLbl);
+		// guardar ref al step label (reutilizamos audioLbl como stepLbl aquí)
+		audioLbl = stepLbl;
+		add(mkBg(430, 0, 1, BAR_H, C_TL_BORDER));
 
-		volLbl = mkTxt(SW - 330, 8, "Vol: 100%", 11, C_DIM);
+		// ── TOOLS (dropdown toggle) ───────────────────────────────────────
+		var toolsBg = mkBg(438, 3, 64, 26, 0xFF0C1A40);
+		toolsBg.alpha = 0.9;
+		add(toolsBg);
+		add(mkTxt(446, 8, "TOOLS ▾", 10, C_ACCENT));
+		hitBtns.push({ x: 438, y: 3, w: 64.0, h: 26.0, cb: function() {
+			toolsMenuOpen = !toolsMenuOpen;
+			toolsMenuGroup.visible = toolsMenuOpen;
+		}});
+		add(mkBg(506, 0, 1, BAR_H, C_TL_BORDER));
+
+		// ── TIME RANGE (actualizado en updateLabels) ─────────────────────
+		volLbl = mkTxt(514, 8, "0:00 — 0:00", 10, C_DIM);
 		add(volLbl);
+		add(mkBg(630, 0, 1, BAR_H, C_TL_BORDER));
 
-		addBarBtn(SW - 250, 4,  "Vol−",       function() { volValue = Math.max(0, volValue - 0.1); applyVolume(); });
-		addBarBtn(SW - 212, 4,  "Vol+",       function() { volValue = Math.min(1, volValue + 0.1); applyVolume(); });
-		addBarBtn(SW - 172, 4,  "[H]ide",     function() toggleUIWindows());
-		addBarBtn(SW - 122, 4,  "[Tab]Preview", function() togglePreview());
-		addBarBtn(SW - 50,  4,  "[ESC]",      exitEditor);
+		// ── Vol y controles ───────────────────────────────────────────────
+		addBarBtn(640,  4, "Vol−", function() { volValue = Math.max(0, volValue - 0.1); applyVolume(); });
+		addBarBtn(678,  4, "Vol+", function() { volValue = Math.min(1, volValue + 0.1); applyVolume(); });
+		add(mkBg(720, 0, 1, BAR_H, C_TL_BORDER));
+
+		addBarBtn(728,  4, "[H]ide",       function() toggleUIWindows());
+		addBarBtn(778,  4, "[Tab]Preview", function() togglePreview());
+		addBarBtn(856,  4, "Ctrl+Z Undo",  function() doUndo());
+		addBarBtn(930,  4, "Ctrl+S Save",  function() onClickSave());
+		addBarBtn(SW - 50, 4, "[ESC]",     exitEditor);
 	}
 
 	function addBarBtn(x:Float, y:Float, lbl:String, cb:Void->Void):Void
@@ -601,6 +675,311 @@ class ModChartEditorState extends FlxState
 		addStatusBtn(sx + 78, sy, "1/16", function() { snapDiv = 16; updateSnapLbl(); });
 		addStatusBtn(sx + 122, sy, "Free", function() { snapDiv = 1;  updateSnapLbl(); });
 		addStatusBtn(sx + 165, sy, "F11",  function() toggleFullGame());
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// MEDIA TRANSPORT BAR
+	// Barra horizontal que muestra la duración completa de la canción,
+	// la posición de las strums, eventos y un playhead de tiempo.
+	// ═════════════════════════════════════════════════════════════════════════
+
+	function buildMediaTransportBar():Void
+	{
+		mtbY = gameAreaY + gameAreaH;          // justo debajo del área de juego
+		mtbX = (PANEL_L : Float);
+		mtbW = (SW - PANEL_L - PANEL_R : Float);
+
+		// ── Fondo del MTB ────────────────────────────────────────────────
+		mtbGroup.add(mkBg(0, mtbY, SW, MTB_H, 0xFF04040E));
+		mtbGroup.add(mkBg(0, mtbY, SW, 1, C_TL_BORDER));
+		mtbGroup.add(mkBg(0, mtbY + MTB_H - 1, SW, 1, C_TL_BORDER));
+
+		// Label de sección
+		mtbGroup.add(mkBg(0, mtbY, PANEL_L - 1, MTB_H, 0xFF060612));
+		var sLbl = mkTxt(6, mtbY + 5, "TRANSPORT", 9, C_ACCENT);
+		sLbl.bold = true;
+		mtbGroup.add(sLbl);
+		mtbGroup.add(mkTxt(6, mtbY + 18, "MTB", 8, C_DIM));
+
+		// Zoom label del MTB (referencia directa)
+		mtbZoomLbl = mkTxt(8, mtbY + MTB_H - 16, "Zoom×1.0", 8, C_DIM);
+		mtbGroup.add(mtbZoomLbl);
+
+		// ── Riel de la barra central ──────────────────────────────────────
+		var railY = mtbY + MTB_H / 2 - 2;
+		mtbGroup.add(mkBg(Std.int(mtbX), Std.int(railY), Std.int(mtbW), 4, 0xFF1A2A55));
+
+		// Marcador inicio (círculo) — left dot
+		mtbGroup.add(mkBg(Std.int(mtbX), Std.int(railY - 3), 10, 10, 0xFF2244AA));
+
+		// ── Playhead del MTB ─────────────────────────────────────────────
+		mtbPlayhead = new FlxSprite(mtbX, mtbY + 6);
+		mtbPlayhead.makeGraphic(2, MTB_H - 12, FlxColor.fromInt(C_PLAYHEAD));
+		mtbPlayhead.cameras = [editorCam];
+		mtbGroup.add(mtbPlayhead);
+
+		// Triángulo del playhead (3 pixels debajo del rail)
+		var triY = Std.int(railY + 6);
+		var triSpr = new FlxSprite(mtbX, triY);
+		triSpr.makeGraphic(8, 8, 0x00000000);
+		// Fill triangle via pixels
+		var pix = triSpr.pixels;
+		var tc  = FlxColor.fromInt(C_PLAYHEAD);
+		pix.fillRect(new openfl.geom.Rectangle(3, 0, 2, 1), tc);
+		pix.fillRect(new openfl.geom.Rectangle(2, 1, 4, 1), tc);
+		pix.fillRect(new openfl.geom.Rectangle(1, 2, 6, 1), tc);
+		pix.fillRect(new openfl.geom.Rectangle(0, 3, 8, 1), tc);
+		triSpr.pixels = pix;
+		triSpr.cameras = [editorCam];
+		mtbGroup.add(triSpr);
+
+		// ── Wrench / tuerca (zoom handle) ────────────────────────────────
+		// Posición: justo a la izquierda del PANEL_L, debajo del MTB
+		var wx = PANEL_L - 28.0;
+		var wy = mtbY + MTB_H / 2 - 10.0;
+
+		wrenchSpr = new FlxSprite(wx, wy);
+		wrenchSpr.makeGraphic(22, 20, 0x00000000);
+		// Dibujar ícono de tuerca simplificado
+		var wp = wrenchSpr.pixels;
+		var wc = FlxColor.fromInt(0xFF6688BB);
+		// Cuerpo de la llave
+		wp.fillRect(new openfl.geom.Rectangle(4,  5, 14, 10), wc);
+		// Cabeza hexagonal
+		wp.fillRect(new openfl.geom.Rectangle(0,  3, 8,  14), wc);
+		wp.fillRect(new openfl.geom.Rectangle(0,  7, 10, 6),  FlxColor.fromInt(0xFF08081E));
+		// Mango
+		wp.fillRect(new openfl.geom.Rectangle(10, 8,  12, 4), wc);
+		// Círculo handle (círculo pequeño a la derecha)
+		wp.fillRect(new openfl.geom.Rectangle(18, 7,  4,  6), FlxColor.fromInt(0xFFAABBFF));
+		wrenchSpr.pixels  = wp;
+		wrenchSpr.cameras = [editorCam];
+		add(wrenchSpr);
+
+		wrenchLbl = mkTxt(wx - 14, wy + 22, "⟺ zoom", 7, C_DIM);
+		add(wrenchLbl);
+
+		// ── Separador derecho MTB ─────────────────────────────────────────
+		mtbGroup.add(mkBg(SW - PANEL_R, mtbY, 1, MTB_H, C_TL_BORDER));
+
+		refreshMTB();
+	}
+
+	/** Refresca los sprites dinámicos del MTB (posición playhead + strum markers) */
+	public function refreshMTB():Void
+	{
+		if (mtbGroup == null || mtbPlayhead == null) return;
+
+		// Calcular duración de la canción en ms
+		songDurationMs = (FlxG.sound.music != null && FlxG.sound.music.length > 0)
+			? FlxG.sound.music.length
+			: Math.max(1000.0, getMaxBeat() * Conductor.crochet + 2000.0);
+
+		var visibleMs = songDurationMs / mtbZoom;
+		var msPerPx   = visibleMs / mtbW;
+		var railY     = mtbY + MTB_H / 2 - 2;
+
+		// Actualizar posición del playhead
+		var phX = mtbX + songPosition / msPerPx;
+		phX = FlxMath.bound(phX, mtbX, mtbX + mtbW - 2);
+		mtbPlayhead.x = phX;
+
+		// ── Actualizar strum position markers ────────────────────────────
+		if (mtbStrumsGroup != null)
+		{
+			mtbStrumsGroup.forEach(function(b:flixel.FlxBasic) {
+				if      (Std.isOfType(b, FlxSprite)) { var s:FlxSprite=cast b; s.destroy(); }
+				else if (Std.isOfType(b, FlxText))   { var t:FlxText=cast b;   t.destroy(); }
+			});
+			mtbStrumsGroup.clear();
+		}
+
+		// ── Tick marks de beats sobre el rail ────────────────────────────
+		if (mtbStrumsGroup != null && Conductor.crochet > 0)
+		{
+			var totalBeats  = Std.int(visibleMs / Conductor.crochet) + 1;
+			var pxPerBeat   = (Conductor.crochet / msPerPx);
+
+			// Solo dibujar ticks si caben razonablemente (>= 4px entre ticks)
+			if (pxPerBeat >= 3)
+			{
+				var tickStep = 1;
+				if (pxPerBeat < 8)  tickStep = 4;
+				if (pxPerBeat < 4)  tickStep = 16;
+
+				var bi = 0;
+				while (bi <= totalBeats)
+				{
+					var beatMs = bi * Conductor.crochet;
+					var tx2    = Std.int(mtbX + beatMs / msPerPx);
+					if (tx2 > mtbX + mtbW) break;
+
+					var isMeasure = bi % 4 == 0;
+					var tickH     = isMeasure ? 8 : 4;
+					var tickCol   = isMeasure ? 0xFF1A3A7A : 0xFF0F1F44;
+
+					var tick = mkBg(tx2, Std.int(railY - tickH + 2), 1, tickH, tickCol);
+					tick.cameras = [editorCam];
+					mtbStrumsGroup.add(tick);
+
+					// Número de compás (solo en measures)
+					if (isMeasure && pxPerBeat * 4 >= 24)
+					{
+						var numLbl = mkTxt(tx2 + 2, Std.int(railY - tickH - 2),
+							Std.string(Std.int(bi / 4)), 7, 0xFF2244AA);
+						numLbl.cameras = [editorCam];
+						mtbStrumsGroup.add(numLbl);
+					}
+					bi += tickStep;
+				}
+			}
+		}
+
+		// ── Marcadores de posición de strums ─────────────────────────────
+		if (showStrumPos && mtbStrumsGroup != null)
+		{
+			for (gi in 0...editorGroups.length)
+			{
+				var grp = editorGroups[gi];
+				var src = gi < srcStrumsGrps.length ? srcStrumsGrps[gi] : null;
+				if (src == null) continue;
+
+				for (si in 0...4)
+				{
+					var strum = grp.getStrum(si);
+					if (strum == null) continue;
+
+					// Posición X del strum relativa al área de juego → porcentaje → MTB
+					var strumPct = (strum.x - gameAreaX) / Math.max(1, gameAreaW);
+					strumPct = FlxMath.bound(strumPct, 0, 1);
+					var markerX = Std.int(mtbX + strumPct * mtbW);
+
+					var dirColors = [0xFFDD44FF, 0xFF44CCFF, 0xFF44FF88, 0xFFFF4444];
+					var col = dirColors[si];
+
+					// Pin vertical (T-shape como en el sketch)
+					var pinBase = mkBg(markerX, Std.int(railY - 12), 2, 12, col);
+					pinBase.cameras = [editorCam];
+					mtbStrumsGroup.add(pinBase);
+
+					// Flag del pin (rectangulo en la cima)
+					var pinFlag = mkBg(markerX - 4, Std.int(railY - 18), 10, 6, col);
+					pinFlag.cameras = [editorCam];
+					mtbStrumsGroup.add(pinFlag);
+
+					// Letra de dirección en la flag
+					var dirs = ["L","D","U","R"];
+					var lbl  = mkTxt(markerX - 2, Std.int(railY - 17), dirs[si], 7, 0xFF000000);
+					lbl.cameras = [editorCam];
+					mtbStrumsGroup.add(lbl);
+
+					// Línea de referencia desde la base del pin hacia abajo
+					var pinDown = mkBg(markerX, Std.int(railY + 4), 1, 4, col);
+					pinDown.alpha = 0.5;
+					pinDown.cameras = [editorCam];
+					mtbStrumsGroup.add(pinDown);
+				}
+			}
+		}
+
+		// ── Actualizar tiempo en volLbl (rango de la canción) ─────────────
+		if (volLbl != null)
+		{
+			var posS = Std.int(songPosition / 1000);
+			var durS = Std.int(songDurationMs / 1000);
+			inline function fmtTime(totalS:Int):String
+			{
+				var m = Std.int(totalS / 60);
+				var s = totalS % 60;
+				return '$m:${s < 10 ? "0" : ""}$s';
+			}
+			volLbl.text = fmtTime(posS) + " — " + fmtTime(durS)
+				+ "  Vol:" + Std.int(volValue * 100) + "%";
+		}
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// TOOLS MENU (dropdown de visibilidad)
+	// ═════════════════════════════════════════════════════════════════════════
+
+	function buildToolsMenu():Void
+	{
+		toolsMenuGroup.visible = false;
+
+		var tx  = 438.0;
+		var ty  = BAR_H + 2.0;
+		var tw  = 210.0;
+		var th  = 142.0;
+
+		// Fondo del menú
+		toolsMenuBg = new FlxSprite(tx, ty);
+		toolsMenuBg.makeGraphic(Std.int(tw), Std.int(th), FlxColor.fromInt(0xF00A0A1E));
+		toolsMenuBg.cameras = [editorCam];
+		toolsMenuGroup.add(toolsMenuBg);
+		drawBorderSprite(toolsMenuBg, Std.int(tw), Std.int(th), C_TL_BORDER, 1);
+		toolsMenuBg.pixels = toolsMenuBg.pixels;
+
+		var header = mkTxt(tx + 8, ty + 6, "— VISIBILIDAD —", 10, C_ACCENT);
+		header.bold = true;
+		toolsMenuGroup.add(header);
+
+		var lineY = ty + 22.0;
+		toolsMenuGroup.add(mkBg(tx, lineY, tw, 1, 0xFF1A2888));
+		lineY += 4;
+
+		inline function toolRow(label:String, getVal:Void->Bool, setVal:Bool->Void):FlxText
+		{
+			var curVal = getVal();
+			var bg = mkBg(tx + 4, lineY, tw - 8, 22, 0xFF080820);
+			bg.alpha = 0.8;
+			toolsMenuGroup.add(bg);
+			var chk = mkTxt(tx + 8, lineY + 4, (curVal ? "☑" : "☐") + " " + label, 11,
+				curVal ? 0xFF88FFAA : C_DIM);
+			toolsMenuGroup.add(chk);
+			var captLn  = lineY;
+			var captGet = getVal;
+			var captSet = setVal;
+			hitBtns.push({ x: tx + 4, y: captLn, w: tw - 8, h: 22.0, cb: function() {
+				captSet(!captGet());
+				toolsMenuOpen = false;
+				toolsMenuGroup.visible = false;
+				refreshVisibility();
+			}});
+			lineY += 26;
+			return chk;
+		}
+
+		toolsLblStrums   = toolRow("Ver Strums",
+			function() return showStrums,   function(v) showStrums   = v);
+		toolsLblNotes    = toolRow("Ver Notas",
+			function() return showNotes,    function(v) showNotes    = v);
+		toolsLblSplashes = toolRow("Ver Splashes",
+			function() return showSplashes, function(v) showSplashes = v);
+		toolsLblStrumPos = toolRow("Ver Posición de Strums",
+			function() return showStrumPos, function(v) showStrumPos = v);
+	}
+
+	/** Aplica la visibilidad actual a los sprites correspondientes */
+	function refreshVisibility():Void
+	{
+		// Strums del editor
+		for (edGrp in editorGroups)
+			edGrp.strums.forEach(function(s:FlxSprite) s.visible = showStrums);
+
+		// Hit boxes y labels de strums
+		strumHitGroup.visible = showStrums;
+		selBoxGroup.visible   = showStrums;
+
+		// MTB strum markers
+		refreshMTB();
+
+		// Actualizar checkmarks en el menú de tools
+		if (toolsLblStrums   != null) { toolsLblStrums.text   = (showStrums   ? "☑" : "☐") + " Ver Strums";             toolsLblStrums.color   = FlxColor.fromInt(showStrums   ? 0xFF88FFAA : C_DIM); }
+		if (toolsLblNotes    != null) { toolsLblNotes.text    = (showNotes    ? "☑" : "☐") + " Ver Notas";              toolsLblNotes.color    = FlxColor.fromInt(showNotes    ? 0xFF88FFAA : C_DIM); }
+		if (toolsLblSplashes != null) { toolsLblSplashes.text = (showSplashes ? "☑" : "☐") + " Ver Splashes";           toolsLblSplashes.color = FlxColor.fromInt(showSplashes ? 0xFF88FFAA : C_DIM); }
+		if (toolsLblStrumPos != null) { toolsLblStrumPos.text = (showStrumPos ? "☑" : "☐") + " Ver Posición de Strums"; toolsLblStrumPos.color = FlxColor.fromInt(showStrumPos ? 0xFF88FFAA : C_DIM); }
+
+		setStatus('Visibilidad: Strums=${showStrums}  Notas=${showNotes}  Splashes=${showSplashes}  StrumPos=${showStrumPos}');
 	}
 
 	function addStatusBtn(x:Float, y:Float, lbl:String, cb:Void->Void):Void
@@ -911,11 +1290,8 @@ class ModChartEditorState extends FlxState
 
 	function updateAudioLabel():Void
 	{
-		if (audioLbl == null) return;
-		var ms = (isPlaying && FlxG.sound.music != null) ? FlxG.sound.music.time : songPosition;
-		var s  = Std.int(ms / 1000);
-		var ts = '${Std.int(s / 60)}:${s % 60 < 10 ? "0" : ""}${s % 60}';
-		audioLbl.text = isPlaying ? '♪ ▶ $ts' : '♪ ⏸ $ts';
+		// El tiempo se muestra en la Media Transport Bar (volLbl)
+		// Esta función se mantiene por compatibilidad
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -1758,6 +2134,7 @@ class ModChartEditorState extends FlxState
 		updateLabels();
 		refreshEvList();
 		updateAudioLabel();
+		refreshMTB();   // actualizar media transport bar cada frame
 
 		// Actualizar easing preview si cambió el ease
 		if (easingPreviewOpen && lblEase != null && (newEase:String) != easingPrevEase)
@@ -1766,8 +2143,13 @@ class ModChartEditorState extends FlxState
 
 	function updateLabels():Void
 	{
+		// beatInfoLbl ahora muestra solo el CURBEAT (número grande)
 		if (beatInfoLbl != null)
-			beatInfoLbl.text = 'Beat: ${fmt(playheadBeat)}  Step: ${Std.int(playheadBeat*4)}  BPM: ${fmt(Conductor.bpm)}  ${Std.int(songPosition)}ms';
+			beatInfoLbl.text = Std.string(Std.int(playheadBeat));
+
+		// audioLbl ahora es el stepLbl — muestra CURSTEP
+		if (audioLbl != null)
+			audioLbl.text = Std.string(Std.int(playheadBeat * 4));
 
 		if (lblType   != null) lblType.text    = ModChartHelpers.typeLabel(newType);
 		if (lblTarget != null) lblTarget.text  = newTarget;
@@ -1863,10 +2245,15 @@ class ModChartEditorState extends FlxState
 		var show = !previewMode;
 		windowGroup.visible   = show;
 		tlGroup.visible       = show;
-		strumHitGroup.visible = show;
-		selBoxGroup.visible   = show;
+		mtbGroup.visible      = show;
+		mtbStrumsGroup.visible= show;
+		toolsMenuGroup.visible= show && toolsMenuOpen;
+		strumHitGroup.visible = show && showStrums;
+		selBoxGroup.visible   = show && showStrums;
 		if (tlScrollbarBg    != null) tlScrollbarBg.visible    = show;
 		if (tlScrollbarThumb != null) tlScrollbarThumb.visible  = show;
+		if (wrenchSpr        != null) wrenchSpr.visible         = show;
+		if (wrenchLbl        != null) wrenchLbl.visible         = show;
 		if (show) setStatus("Preview OFF");
 		else      setStatus("◈ PREVIEW MODE — Tab para salir");
 	}
@@ -1941,6 +2328,18 @@ class ModChartEditorState extends FlxState
 		{
 			draggingWin       = null;
 			scrollbarDragging = false;
+			wrenchDragging    = false;
+		}
+
+		// ── Drag wrench (zoom del MTB) ─────────────────────────────────────
+		if (wrenchDragging && wrenchSpr != null)
+		{
+			var dx = mx - wrenchDragOX;
+			mtbZoom = FlxMath.bound(mtbZoomAtDragStart + dx / 80.0, MTB_ZOOM_MIN, MTB_ZOOM_MAX);
+			if (mtbZoomLbl != null)
+				mtbZoomLbl.text = 'Zoom×${Math.round(mtbZoom * 10) / 10}';
+			refreshMTB();
+			return;
 		}
 
 		// ── Drag scrollbar ────────────────────────────────────────────────────
@@ -1993,6 +2392,38 @@ class ModChartEditorState extends FlxState
 
 		if (lp)
 		{
+			// ── Cerrar tools menu si click fuera ──────────────────────────
+			if (toolsMenuOpen && !(mx >= 438 && mx <= 638 && my >= BAR_H && my <= BAR_H + 140))
+			{
+				toolsMenuOpen = false;
+				toolsMenuGroup.visible = false;
+			}
+
+			// ── Click en wrench ───────────────────────────────────────────
+			if (wrenchSpr != null && inR(mx, my, wrenchSpr.x - 4, wrenchSpr.y - 4,
+			                             wrenchSpr.width + 8, wrenchSpr.height + 8))
+			{
+				wrenchDragging        = true;
+				wrenchDragOX          = mx;
+				mtbZoomAtDragStart    = mtbZoom;
+				setStatus("⟺ Arrastra para cambiar zoom del MTB | zoom actual: ×" + Math.round(mtbZoom * 10) / 10);
+				return;
+			}
+
+			// ── Click en el rail del MTB → mover playhead ─────────────────
+			if (my >= mtbY && my <= mtbY + MTB_H && mx >= mtbX && mx <= mtbX + mtbW)
+			{
+				var ratio = (mx - mtbX) / mtbW;
+				songDurationMs = (FlxG.sound.music != null && FlxG.sound.music.length > 0)
+					? FlxG.sound.music.length
+					: Math.max(1000.0, getMaxBeat() * Conductor.crochet + 2000.0);
+				var visibleMs = songDurationMs / mtbZoom;
+				var targetMs  = ratio * visibleMs;
+				var targetBeat = targetMs / Conductor.crochet;
+				seekToBeat(targetBeat);
+				return;
+			}
+
 			// ── Click en scrollbar ────────────────────────────────────────────
 			if (my >= sbY && my <= sbY + TL_SB_H && mx >= sbTrackX && mx <= sbTrackX + sbTrackW)
 			{
@@ -2527,6 +2958,23 @@ class ModChartEditorState extends FlxState
 			"  Ctrl+Z          → Deshacer  |  Ctrl+Y → Rehacer\n" +
 			"  Ctrl+S          → Guardar (con backup automático)\n" +
 			"  F1              → Esta ayuda  |  ESC → Cerrar editor\n\n" +
+			"BARRA SUPERIOR\n" +
+			"  CURBEAT         → Beat actual del playhead\n" +
+			"  CURSTEP         → Step actual (beat × 4)\n" +
+			"  TOOLS ▾         → Dropdown de visibilidad (notas, splashes, strums, posiciones)\n" +
+			"  TIME            → Posición actual / duración total de la canción\n\n" +
+			"MEDIA TRANSPORT BAR (MTB)\n" +
+			"  Rail horizontal → Línea de tiempo de la canción completa\n" +
+			"  Playhead rojo   → Posición actual de reproducción\n" +
+			"  Pines (L/D/U/R) → Posición actual de cada strum en el área de juego\n" +
+			"  LMB sobre rail  → Mover playhead a ese punto de la canción\n" +
+			"  🔧 Tuerca       → Arrastra horizontalmente para cambiar zoom del MTB\n" +
+			"                    Zoom ×0.5 = más canción visible | ×8 = más detalle\n\n" +
+			"TOOLS (visibilidad por defecto)\n" +
+			"  ☑ Ver Strums              → Activado (strums siempre visibles por defecto)\n" +
+			"  ☐ Ver Notas               → Desactivado por defecto\n" +
+			"  ☐ Ver Splashes            → Desactivado por defecto\n" +
+			"  ☑ Ver Posición de Strums  → Pines en el MTB, activado por defecto\n\n" +
 			"TIMELINE (v4 — con grupos y scrollbar)\n" +
 			"  LMB vacío               → Mover playhead al beat clickeado\n" +
 			"  LMB sobre evento        → Seleccionar evento\n" +
@@ -2534,21 +2982,7 @@ class ModChartEditorState extends FlxState
 			"  LMB sobre header grupo  → Colapsar / expandir grupo\n" +
 			"  Rueda                   → Scroll horizontal\n" +
 			"  Ctrl+Rueda              → Zoom in/out\n" +
-			"  Scrollbar inferior      → Arrastrar thumb para navegar\n" +
-			"  ◀ / ▶ (extremos bar)   → Scroll fino\n" +
-			"  Botón ALL               → Ver toda la canción\n\n" +
-			"EASE PREVIEW\n" +
-			"  Botón 'Ease〜' (timeline) o '〜 EASE PREVIEW' (panel derecho)\n" +
-			"  → Abre ventana flotante con curva del easing actual\n" +
-			"  → Se actualiza automáticamente al cambiar el ease\n\n" +
-			"SCRIPTS EXTERNOS\n" +
-			"  Botón 'Scripts' (timeline) o '📜 SCRIPTS' (panel derecho)\n" +
-			"  → Importar eventos desde JSON externo\n" +
-			"  → Exportar eventos actuales como script JSON\n" +
-			"  → Ruta automática: modcharts/scripts/<cancion>.json\n\n" +
-			"GUARDAR (mejorado)\n" +
-			"  Ctrl+S o botón GUARDAR → Guarda + backup automático\n" +
-			"  → Backup en modcharts/backup/ (últimos 5)\n\n" +
+			"  Scrollbar inferior      → Arrastrar thumb para navegar\n\n" +
 			"[F1 para cerrar esta ayuda]", 11);
 		helpTxt.color   = FlxColor.fromInt(C_TEXT);
 		helpTxt.cameras = [editorCam];

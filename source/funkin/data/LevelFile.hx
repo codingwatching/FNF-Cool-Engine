@@ -4,7 +4,6 @@ import haxe.Json;
 import funkin.data.Song.SwagSong;
 import funkin.data.MetaData.SongMetaData;
 import mods.ModManager;
-
 #if sys
 import sys.FileSystem;
 import sys.io.File;
@@ -72,31 +71,31 @@ using StringTools;
  *
  * @version 3.0.0
  */
-
 typedef LevelData =
 {
-	var version        : Null<Int>;
-	var title          : String;
-	@:optional var artist       : String;
-	@:optional var charter      : String;
-	@:optional var bpm          : Float;
-	@:optional var previewStart : Int;
-	@:optional var previewEnd   : Int;
-	@:optional var tags         : Array<String>;
-	var meta           : SongMetaData;
+	var version:Null<Int>;
+	var title:String;
+	@:optional var charter:String;
+	@:optional var bpm:Float;
+	@:optional var previewStart:Int;
+	@:optional var previewEnd:Int;
+	@:optional var tags:Array<String>;
+	var meta:SongMetaData;
+
 	/** Objeto cuyas claves son sufijos de dificultad ('' = normal). */
-	var difficulties   : Dynamic;
+	var difficulties:Dynamic;
+
 	/**
 	 * Datos del PlayState Editor (eventos PSE + scripts inline).
 	 * Reemplaza el viejo archivo `*-playstate.json` separado.
 	 */
-	@:optional var pse : Null<Dynamic>;
+	@:optional var pse:Null<Dynamic>;
 }
 
 class LevelFile
 {
 	public static inline var FORMAT_VERSION = 3;
-	public static inline var EXTENSION      = 'level';
+	public static inline var EXTENSION = 'level';
 
 	// ──────────────────────────────────────────────────────────────────────────
 	//  SAVE
@@ -125,22 +124,17 @@ class LevelFile
 	 * @param song       SwagSong de esta dificultad
 	 * @param meta       SongMetaData (null = no cambiar el bloque meta existente)
 	 */
-	public static function saveDiff(
-		songName : String,
-		diff     : String,
-		song     : SwagSong,
-		?meta    : SongMetaData
-	) : Bool
+	public static function saveDiff(songName:String, diff:String, song:SwagSong, ?meta:SongMetaData):Bool
 	{
 		#if sys
 		try
 		{
-			final key  = songName.toLowerCase();
+			final key = songName.toLowerCase();
 			final path = _targetPath(key);
 			_ensureDir(path);
 
 			// Si el .level no existe aún, migrar los archivos legacy primero
-			var level : LevelData;
+			var level:LevelData;
 			if (FileSystem.exists(path))
 			{
 				level = _read(path);
@@ -153,8 +147,10 @@ class LevelFile
 
 			// Aplicar el guardado actual (tiene prioridad sobre el legacy)
 			Reflect.setField(level.difficulties, diff ?? '', song);
-			if (meta != null) level.meta = meta;
-			if (song.bpm > 0) level.bpm  = song.bpm;
+			if (meta != null)
+				level.meta = meta;
+			if (song.bpm > 0)
+				level.bpm = song.bpm;
 
 			File.saveContent(path, Json.stringify(level, null, '\t'));
 			trace('[LevelFile] saveDiff "$diff" → $path');
@@ -175,30 +171,25 @@ class LevelFile
 	 *
 	 * @param diffs   Map de sufijo → SwagSong
 	 */
-	public static function saveAll(
-		songName : String,
-		diffs    : Map<String, SwagSong>,
-		?meta    : SongMetaData,
-		?title   : String,
-		?artist  : String,
-		?charter : String
-	) : Bool
+	public static function saveAll(songName:String, diffs:Map<String, SwagSong>, ?meta:SongMetaData, ?title:String, ?charter:String):Bool
 	{
 		#if sys
 		try
 		{
-			final key  = songName.toLowerCase();
+			final key = songName.toLowerCase();
 			final path = _targetPath(key);
 			_ensureDir(path);
 
 			final normal = diffs.exists('') ? diffs.get('') : diffs.iterator().next();
-			var level    = _emptyLevel(key, normal);
+			var level = _emptyLevel(key, normal);
 			level.difficulties = {};
 
-			if (title   != null) level.title   = title;
-			if (artist  != null) level.artist  = artist;
-			if (charter != null) level.charter = charter;
-			if (meta    != null) level.meta    = meta;
+			if (title != null)
+				level.title = title;
+			if (charter != null)
+				level.charter = charter;
+			if (meta != null)
+				level.meta = meta;
 
 			for (suffix => song in diffs)
 				Reflect.setField(level.difficulties, suffix ?? '', song);
@@ -228,16 +219,16 @@ class LevelFile
 	 * Si el .level no existe aún, primero migra todos los archivos legacy
 	 * (charts .json, meta.json) antes de escribir el bloque pse.
 	 */
-	public static function savePSE(songName:String, pseData:Dynamic) : Bool
+	public static function savePSE(songName:String, pseData:Dynamic):Bool
 	{
 		#if sys
 		try
 		{
-			final key  = songName.toLowerCase();
+			final key = songName.toLowerCase();
 			final path = _targetPath(key);
 			_ensureDir(path);
 
-			var level : LevelData;
+			var level:LevelData;
 			if (FileSystem.exists(path))
 			{
 				level = _read(path);
@@ -271,10 +262,10 @@ class LevelFile
 	 *
 	 * @return  Objeto `{events, scripts}` o null si no hay datos PSE.
 	 */
-	public static function loadPSE(songName:String) : Null<Dynamic>
+	public static function loadPSE(songName:String):Null<Dynamic>
 	{
 		#if sys
-		final key  = songName.toLowerCase();
+		final key = songName.toLowerCase();
 		final path = resolvePath(key);
 
 		// ── 1. Bloque pse del .level ──────────────────────────────────────
@@ -289,7 +280,10 @@ class LevelFile
 					return level.pse;
 				}
 			}
-			catch (e:Dynamic) { trace('[LevelFile] loadPSE read error: $e'); }
+			catch (e:Dynamic)
+			{
+				trace('[LevelFile] loadPSE read error: $e');
+			}
 		}
 
 		// ── 2. Fallback: archivo -playstate.json legacy ───────────────────
@@ -302,11 +296,13 @@ class LevelFile
 				{
 					try
 					{
-						final parsed : Dynamic = Json.parse(File.getContent(legacyPath));
+						final parsed:Dynamic = Json.parse(File.getContent(legacyPath));
 						trace('[LevelFile] loadPSE fallback legacy: $legacyPath');
 						return parsed;
 					}
-					catch (_) {}
+					catch (_)
+					{
+					}
 				}
 			}
 		}
@@ -314,7 +310,13 @@ class LevelFile
 		final baseLegacy = 'assets/songs/$key/$key-playstate.json';
 		if (FileSystem.exists(baseLegacy))
 		{
-			try { return cast Json.parse(File.getContent(baseLegacy)); } catch (_) {}
+			try
+			{
+				return cast Json.parse(File.getContent(baseLegacy));
+			}
+			catch (_)
+			{
+			}
 		}
 		#end
 		return null;
@@ -332,10 +334,10 @@ class LevelFile
 	 * @param songName   Nombre de carpeta
 	 * @param diff       Sufijo ('' = normal, '-hard', '-erect'…)
 	 */
-	public static function loadDiff(songName:String, ?diff:String = '') : Null<SwagSong>
+	public static function loadDiff(songName:String, ?diff:String = ''):Null<SwagSong>
 	{
 		#if sys
-		final key  = songName.toLowerCase();
+		final key = songName.toLowerCase();
 		final path = resolvePath(key);
 
 		// ── 1. Archivo .level ─────────────────────────────────────────────
@@ -344,7 +346,7 @@ class LevelFile
 			try
 			{
 				final level = _read(path);
-				var song : SwagSong = cast Reflect.field(level.difficulties, diff ?? '');
+				var song:SwagSong = cast Reflect.field(level.difficulties, diff ?? '');
 
 				// Fallback a normal si la diff pedida no existe en el .level
 				if (song == null && diff != '' && diff != null)
@@ -359,7 +361,10 @@ class LevelFile
 					return song;
 				}
 			}
-			catch (e:Dynamic) { trace('[LevelFile] .level read error: $e'); }
+			catch (e:Dynamic)
+			{
+				trace('[LevelFile] .level read error: $e');
+			}
 		}
 
 		// ── 2. Fallback a .json legacy ────────────────────────────────────
@@ -377,20 +382,30 @@ class LevelFile
 				// notes['-hard'] → fallback a first key = easy. Con 'hard' matchea directo.
 				return Song.parseJSONshit(raw, legacyPath, legacyName);
 			}
-			catch (e) { trace('[LevelFile] legacy load error: $e'); }
+			catch (e)
+			{
+				trace('[LevelFile] legacy load error: $e');
+			}
 		}
 		#end
 		return null;
 	}
 
 	/** Carga el .level completo (todas las diffs + meta). */
-	public static function loadFull(songName:String) : Null<LevelData>
+	public static function loadFull(songName:String):Null<LevelData>
 	{
 		#if sys
 		final path = resolvePath(songName.toLowerCase());
-		if (path == null) return null;
-		try { return _read(path); }
-		catch (e:Dynamic) { trace('[LevelFile] loadFull error: $e'); }
+		if (path == null)
+			return null;
+		try
+		{
+			return _read(path);
+		}
+		catch (e:Dynamic)
+		{
+			trace('[LevelFile] loadFull error: $e');
+		}
 		#end
 		return null;
 	}
@@ -399,7 +414,7 @@ class LevelFile
 	 * Carga el bloque meta del .level.
 	 * Devuelve null si no hay .level (MetaData.load usará meta.json legacy).
 	 */
-	public static function loadMeta(songName:String) : Null<SongMetaData>
+	public static function loadMeta(songName:String):Null<SongMetaData>
 	{
 		#if sys
 		final path = resolvePath(songName.toLowerCase());
@@ -408,9 +423,12 @@ class LevelFile
 			try
 			{
 				final level = _read(path);
-				if (level.meta != null) return level.meta;
+				if (level.meta != null)
+					return level.meta;
 			}
-			catch (_) {}
+			catch (_)
+			{
+			}
 		}
 		#end
 		return null;
@@ -424,9 +442,9 @@ class LevelFile
 	 * Combina las dificultades del .level con las de los .json legacy.
 	 * Devuelve Array de pares [label, suffix] como Song.getAvailableDifficulties.
 	 */
-	public static function getAvailableDifficulties(songName:String) : Array<Array<String>>
+	public static function getAvailableDifficulties(songName:String):Array<Array<String>>
 	{
-		final found : Map<String, Bool> = new Map();
+		final found:Map<String, Bool> = new Map();
 
 		// Dificultades del .level
 		#if sys
@@ -439,7 +457,9 @@ class LevelFile
 				for (dk in Reflect.fields(level.difficulties))
 					found.set(dk, true);
 			}
-			catch (_) {}
+			catch (_)
+			{
+			}
 		}
 		#end
 
@@ -450,17 +470,21 @@ class LevelFile
 		if (!found.keys().hasNext())
 			return [['Easy', '-easy'], ['Normal', ''], ['Hard', '-hard']];
 
-		final ordered : Array<Array<String>> = [];
-		final priority = [['-easy','Easy'],['','Normal'],['-normal','Normal'],['-hard','Hard']];
+		final ordered:Array<Array<String>> = [];
+		final priority = [['-easy', 'Easy'], ['', 'Normal'], ['-normal', 'Normal'], ['-hard', 'Hard']];
 		for (p in priority)
 		{
-			if (found.exists(p[0])) { ordered.push([p[1], p[0]]); found.remove(p[0]); }
+			if (found.exists(p[0]))
+			{
+				ordered.push([p[1], p[0]]);
+				found.remove(p[0]);
+			}
 		}
 		final rest = [for (k in found.keys()) k];
 		rest.sort((a, b) -> a < b ? -1 : a > b ? 1 : 0);
 		for (s in rest)
 		{
-			final lbl = s.length > 1 ? s.substr(1,1).toUpperCase() + s.substr(2) : s;
+			final lbl = s.length > 1 ? s.substr(1, 1).toUpperCase() + s.substr(2) : s;
 			ordered.push([lbl, s]);
 		}
 		return ordered;
@@ -476,28 +500,32 @@ class LevelFile
 	 *
 	 * @return true si se generó el .level correctamente
 	 */
-	public static function migrateFromJson(songName:String) : Bool
+	public static function migrateFromJson(songName:String):Bool
 	{
 		#if sys
-		final key   = songName.toLowerCase();
-		final diffs : Map<String, SwagSong> = new Map();
-		var metaRaw : SongMetaData = null;
+		final key = songName.toLowerCase();
+		final diffs:Map<String, SwagSong> = new Map();
+		var metaRaw:SongMetaData = null;
 
 		// Cargar cada dificultad desde sus .json
 		for (pair in Song.getAvailableDifficulties(key))
 		{
-			final suffix    = pair[1];
-			final diffName  = _legacyDiffName(key, suffix);
+			final suffix = pair[1];
+			final diffName = _legacyDiffName(key, suffix);
 			final chartPath = Song.findChart(key, diffName);
-			if (chartPath == null) continue;
+			if (chartPath == null)
+				continue;
 			try
 			{
-				final raw  = File.getContent(chartPath).trim();
+				final raw = File.getContent(chartPath).trim();
 				final song = Song.parseJSONshit(raw, chartPath, suffix);
 				diffs.set(suffix, song);
 				trace('[LevelFile] migrate: loaded "$suffix" from $chartPath');
 			}
-			catch (e) { trace('[LevelFile] migrate skip "$suffix": $e'); }
+			catch (e)
+			{
+				trace('[LevelFile] migrate skip "$suffix": $e');
+			}
 		}
 
 		if (Lambda.count(diffs) == 0)
@@ -507,20 +535,23 @@ class LevelFile
 		}
 
 		// Cargar meta.json si existe
-		for (mp in [
-			ModManager.resolveInMod('songs/$key/meta.json'),
-			'assets/songs/$key/meta.json'
-		])
+		for (mp in [ModManager.resolveInMod('songs/$key/meta.json'), 'assets/songs/$key/meta.json'])
 		{
 			if (mp != null && FileSystem.exists(mp))
 			{
-				try { metaRaw = cast Json.parse(File.getContent(mp)); break; }
-				catch (_) {}
+				try
+				{
+					metaRaw = cast Json.parse(File.getContent(mp));
+					break;
+				}
+				catch (_)
+				{
+				}
 			}
 		}
 
 		final base = diffs.exists('') ? diffs.get('') : diffs.iterator().next();
-		return saveAll(key, diffs, metaRaw, base?.song ?? key, metaRaw?.artist ?? null);
+		return saveAll(key, diffs, metaRaw, base?.song ?? key);
 		#else
 		return false;
 		#end
@@ -531,7 +562,7 @@ class LevelFile
 	// ──────────────────────────────────────────────────────────────────────────
 
 	/** ¿Existe un .level para esta canción? */
-	public static function exists(songName:String) : Bool
+	public static function exists(songName:String):Bool
 		return resolvePath(songName.toLowerCase()) != null;
 
 	/**
@@ -540,21 +571,23 @@ class LevelFile
 	 *   2. Todos los mods habilitados
 	 *   3. assets/
 	 */
-	public static function resolvePath(songName:String) : Null<String>
+	public static function resolvePath(songName:String):Null<String>
 	{
 		#if sys
 		final key = songName.toLowerCase();
 
-		final searchRoots : Array<String> = [];
+		final searchRoots:Array<String> = [];
 
 		if (ModManager.isActive())
 			searchRoots.push(ModManager.modRoot());
 
 		for (mod in ModManager.installedMods)
 		{
-			if (!ModManager.isEnabled(mod.id)) continue;
+			if (!ModManager.isEnabled(mod.id))
+				continue;
 			final root = '${ModManager.MODS_FOLDER}/${mod.id}';
-			if (!searchRoots.contains(root)) searchRoots.push(root);
+			if (!searchRoots.contains(root))
+				searchRoots.push(root);
 		}
 
 		for (root in searchRoots)
@@ -562,12 +595,14 @@ class LevelFile
 			for (sub in ['songs/$key', 'assets/songs/$key'])
 			{
 				final p = '$root/$sub/$key.$EXTENSION';
-				if (FileSystem.exists(p)) return p;
+				if (FileSystem.exists(p))
+					return p;
 			}
 		}
 
 		final base = 'assets/songs/$key/$key.$EXTENSION';
-		if (FileSystem.exists(base)) return base;
+		if (FileSystem.exists(base))
+			return base;
 		#end
 		return null;
 	}
@@ -576,7 +611,7 @@ class LevelFile
 	//  PRIVATE
 	// ──────────────────────────────────────────────────────────────────────────
 
-	static function _targetPath(key:String) : String
+	static function _targetPath(key:String):String
 	{
 		#if sys
 		if (ModManager.isActive())
@@ -586,17 +621,19 @@ class LevelFile
 	}
 
 	/** Returns all roots to search (active mod first, then all enabled mods). */
-	static function _searchRoots() : Array<String>
+	static function _searchRoots():Array<String>
 	{
-		final roots : Array<String> = [];
+		final roots:Array<String> = [];
 		#if sys
 		if (ModManager.isActive())
 			roots.push(ModManager.modRoot());
 		for (mod in ModManager.installedMods)
 		{
-			if (!ModManager.isEnabled(mod.id)) continue;
+			if (!ModManager.isEnabled(mod.id))
+				continue;
 			final root = '${ModManager.MODS_FOLDER}/${mod.id}';
-			if (!roots.contains(root)) roots.push(root);
+			if (!roots.contains(root))
+				roots.push(root);
 		}
 		#end
 		return roots;
@@ -611,32 +648,37 @@ class LevelFile
 	 * Devuelve null si no se encuentra ningún archivo legacy (canción nueva).
 	 * NO escribe nada a disco — el caller decide cuándo guardar.
 	 */
-	static function _buildLevelFromLegacy(key:String) : Null<LevelData>
+	static function _buildLevelFromLegacy(key:String):Null<LevelData>
 	{
 		#if sys
-		final diffs : Map<String, SwagSong> = new Map();
+		final diffs:Map<String, SwagSong> = new Map();
 
 		// ── Charts .json ──────────────────────────────────────────────────
 		for (pair in Song.getAvailableDifficulties(key))
 		{
-			final suffix   = pair[1];
+			final suffix = pair[1];
 			final diffName = _legacyDiffName(key, suffix);
-			final path     = Song.findChart(key, diffName);
-			if (path == null) continue;
+			final path = Song.findChart(key, diffName);
+			if (path == null)
+				continue;
 			try
 			{
-				final raw  = File.getContent(path).trim();
+				final raw = File.getContent(path).trim();
 				final song = Song.parseJSONshit(raw, path, suffix);
 				diffs.set(suffix, song);
 				trace('[LevelFile] _buildLevelFromLegacy: loaded diff "$suffix" from $path');
 			}
-			catch (e) { trace('[LevelFile] _buildLevelFromLegacy skip "$suffix": $e'); }
+			catch (e)
+			{
+				trace('[LevelFile] _buildLevelFromLegacy skip "$suffix": $e');
+			}
 		}
 
-		if (Lambda.count(diffs) == 0) return null;
+		if (Lambda.count(diffs) == 0)
+			return null;
 
 		// ── meta.json ─────────────────────────────────────────────────────
-		var metaRaw : SongMetaData = null;
+		var metaRaw:SongMetaData = null;
 		for (mp in [
 			ModManager.resolveInMod('songs/$key/meta.json'),
 			ModManager.resolveInMod('assets/songs/$key/meta.json'),
@@ -645,13 +687,19 @@ class LevelFile
 		{
 			if (mp != null && FileSystem.exists(mp))
 			{
-				try { metaRaw = cast Json.parse(File.getContent(mp)); break; }
-				catch (_) {}
+				try
+				{
+					metaRaw = cast Json.parse(File.getContent(mp));
+					break;
+				}
+				catch (_)
+				{
+				}
 			}
 		}
 
 		// ── -playstate.json ───────────────────────────────────────────────
-		var pseRaw : Dynamic = null;
+		var pseRaw:Dynamic = null;
 		for (root in _searchRoots().concat(['assets']))
 		{
 			for (sub in ['songs/$key', 'assets/songs/$key'])
@@ -659,32 +707,39 @@ class LevelFile
 				final p = '$root/$sub/$key-playstate.json';
 				if (FileSystem.exists(p))
 				{
-					try { pseRaw = Json.parse(File.getContent(p)); break; }
-					catch (_) {}
+					try
+					{
+						pseRaw = Json.parse(File.getContent(p));
+						break;
+					}
+					catch (_)
+					{
+					}
 				}
 			}
-			if (pseRaw != null) break;
+			if (pseRaw != null)
+				break;
 		}
 
 		// ── Construir LevelData ───────────────────────────────────────────
-		final base  = diffs.exists('') ? diffs.get('') : diffs.iterator().next();
-		var level   = _emptyLevel(key, base);
+		final base = diffs.exists('') ? diffs.get('') : diffs.iterator().next();
+		var level = _emptyLevel(key, base);
 
 		if (metaRaw != null)
 		{
-			level.meta   = metaRaw;
-			if (metaRaw.artist != null) level.artist = metaRaw.artist;
+			level.meta = metaRaw;
 		}
 
 		level.difficulties = {};
 		for (suffix => song in diffs)
 			Reflect.setField(level.difficulties, suffix ?? '', song);
 
-		if (pseRaw != null) level.pse = pseRaw;
+		if (pseRaw != null)
+			level.pse = pseRaw;
 
 		trace('[LevelFile] _buildLevelFromLegacy: assembled ${Lambda.count(diffs)} diffs'
 			+ (metaRaw != null ? ' + meta' : '')
-			+ (pseRaw  != null ? ' + pse'  : '')
+			+ (pseRaw != null ? ' + pse' : '')
 			+ ' for "$key"');
 
 		return level;
@@ -693,33 +748,33 @@ class LevelFile
 		#end
 	}
 
-	static function _ensureDir(path:String) : Void
+	static function _ensureDir(path:String):Void
 	{
 		#if sys
 		final dir = haxe.io.Path.directory(path);
-		if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+		if (!FileSystem.exists(dir))
+			FileSystem.createDirectory(dir);
 		#end
 	}
 
-	static function _read(path:String) : LevelData
+	static function _read(path:String):LevelData
 	{
-		final raw : LevelData = cast Json.parse(File.getContent(path));
+		final raw:LevelData = cast Json.parse(File.getContent(path));
 		_migrate(raw);
 		return raw;
 	}
 
-	static function _emptyLevel(key:String, ?base:SwagSong) : LevelData
+	static function _emptyLevel(key:String, ?base:SwagSong):LevelData
 	{
 		return {
-			version:      FORMAT_VERSION,
-			title:        base?.song ?? key,
-			artist:       null,
-			charter:      null,
-			bpm:          base?.bpm ?? 120,
+			version: FORMAT_VERSION,
+			title: base?.song ?? key,
+			charter: null,
+			bpm: base?.bpm ?? 120,
 			previewStart: 0,
-			previewEnd:   30000,
-			tags:         [],
-			meta:         {},
+			previewEnd: 30000,
+			tags: [],
+			meta: {},
 			difficulties: {}
 		};
 	}
@@ -728,16 +783,18 @@ class LevelFile
 	 * Transforma el sufijo de dificultad en el nombre que espera Song.findChart.
 	 * Ej: '' → 'bopeebo' | '-hard' → 'hard'
 	 */
-	static function _legacyDiffName(key:String, suffix:String) : String
+	static function _legacyDiffName(key:String, suffix:String):String
 	{
-		if (suffix == null || suffix == '') return key;
+		if (suffix == null || suffix == '')
+			return key;
 		return suffix.startsWith('-') ? suffix.substr(1) : suffix;
 	}
 
 	/** Migración in-place de versiones anteriores del formato. */
-	static function _migrate(data:LevelData) : Void
+	static function _migrate(data:LevelData):Void
 	{
-		if (data.version != null && data.version >= FORMAT_VERSION) return;
+		if (data.version != null && data.version >= FORMAT_VERSION)
+			return;
 
 		// v1 / v2: tenía un campo "song" directo en lugar de "difficulties"
 		if (Reflect.hasField(data, 'song') && data.difficulties == null)
@@ -748,7 +805,8 @@ class LevelFile
 			trace('[LevelFile] migrated v${data.version ?? 1} → v$FORMAT_VERSION');
 		}
 
-		if (data.meta == null) data.meta = {};
+		if (data.meta == null)
+			data.meta = {};
 		data.version = FORMAT_VERSION;
 	}
 }

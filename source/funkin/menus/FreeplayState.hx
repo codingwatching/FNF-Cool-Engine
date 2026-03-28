@@ -117,9 +117,9 @@ class FreeplayState extends funkin.states.MusicBeatState
 	// ── Disc / record player ──────────────────────────────────────────────────
 	var discSpr:FlxSprite;
 
-	var _discBaseAngle:Float  = 0.0;   // accumulated rotation (deg)
-	var _discSpinSpeed:Float  = 45.0;  // deg/sec at rest
-	var _discBeatBump:Float   = 0.0;   // extra speed added on beat, decays to 0
+	var _discBaseAngle:Float = 0.0; // accumulated rotation (deg)
+	var _discSpinSpeed:Float = 45.0; // deg/sec at rest
+	var _discBeatBump:Float = 0.0; // extra speed added on beat, decays to 0
 
 	// ── Error overlay ─────────────────────────────────────────────────────────
 	var errorText:FlxText;
@@ -190,6 +190,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 			default: '';
 		};
 	}
+
+	var artist = '';
 
 	// ─────────────────────────────────────────────────────────────────────────
 
@@ -428,11 +430,23 @@ class FreeplayState extends funkin.states.MusicBeatState
 		{
 			var ak = _albumKeyFor(s);
 			if (ak != '' && Paths.exists('images/menu/freeplay/albums/$ak.png'))
-				try { funkin.cache.PathsCache.instance.cacheGraphic('menu/freeplay/albums/$ak'); } catch (_) {}
+				try
+				{
+					funkin.cache.PathsCache.instance.cacheGraphic('menu/freeplay/albums/$ak');
+				}
+				catch (_)
+				{
+				}
 		}
 		for (rank in ['SS', 'S', 'A', 'B', 'C', 'D'])
 			if (Paths.exists('images/menu/ratings/$rank.png'))
-				try { funkin.cache.PathsCache.instance.cacheGraphic('menu/ratings/$rank'); } catch (_) {}
+				try
+				{
+					funkin.cache.PathsCache.instance.cacheGraphic('menu/ratings/$rank');
+				}
+				catch (_)
+				{
+				}
 		#end
 		changeSelection(0);
 		_rebuildDiffPills();
@@ -657,23 +671,23 @@ class FreeplayState extends funkin.states.MusicBeatState
 		for (i in 0...freeplayData.songs.length)
 		{
 			final entry = freeplayData.songs[i];
-			final meta  = new SongMetadata(entry.name, entry.group ?? i, entry.icon ?? 'bf', i);
+			final meta = new SongMetadata(entry.name, entry.group ?? i, entry.icon ?? 'bf', i);
 
 			// Artista: campo directo > meta.json
-			var artist = entry.artist ?? '';
-			if (artist == '')
+			#if sys
+			try
 			{
-				#if sys
-				try
-				{
-					final m = funkin.data.MetaData.load(entry.name.toLowerCase());
-					if (m.artist != null && m.artist != '') artist = m.artist;
-				}
-				catch (_) {}
-				#end
+				final m = funkin.data.MetaData.load(entry.name.toLowerCase());
+				if (m.artist != null)
+					artist = m.artist;
 			}
-			meta.artist    = artist;
-			meta.album     = entry.album     ?? '';
+			catch (_)
+			{
+			}
+			#end
+			if (artist == '')
+				artist = entry.artist ?? '';
+			meta.album = entry.album ?? '';
 			meta.albumText = entry.albumText ?? '';
 
 			songs.push(meta);
@@ -699,21 +713,22 @@ class FreeplayState extends funkin.states.MusicBeatState
 				final entries:Array<FreeplaySongEntry> = [];
 				for (modWeek in mods.compat.ModCompatLayer.getModSongsInfo())
 				{
-					if (Reflect.field(modWeek, 'hideFreeplay') == true) continue;
-					final ws:Array<String>  = cast (Reflect.field(modWeek, 'weekSongs') ?? []);
-					final si:Array<String>  = cast (Reflect.field(modWeek, 'songIcons') ?? []);
-					final bp:Array<Float>   = cast (Reflect.field(modWeek, 'bpm') ?? []);
-					final cl:Array<String>  = cast (Reflect.field(modWeek, 'color') ?? []);
+					if (Reflect.field(modWeek, 'hideFreeplay') == true)
+						continue;
+					final ws:Array<String> = cast(Reflect.field(modWeek, 'weekSongs') ?? []);
+					final si:Array<String> = cast(Reflect.field(modWeek, 'songIcons') ?? []);
+					final bp:Array<Float> = cast(Reflect.field(modWeek, 'bpm') ?? []);
+					final cl:Array<String> = cast(Reflect.field(modWeek, 'color') ?? []);
 					for (j in 0...ws.length)
 						entries.push({
-							name:  ws[j],
-							icon:  (si != null && j < si.length) ? si[j] : 'bf',
-							bpm:   (bp != null && j < bp.length) ? bp[j] : 120.0,
+							name: ws[j],
+							icon: (si != null && j < si.length) ? si[j] : 'bf',
+							bpm: (bp != null && j < bp.length) ? bp[j] : 120.0,
 							color: (cl != null && cl.length > 0) ? cl[0] : '0xFFFFD900',
 							group: 0
 						});
 				}
-				freeplayData = { songs: entries };
+				freeplayData = {songs: entries};
 				return;
 			}
 		}
@@ -727,28 +742,43 @@ class FreeplayState extends funkin.states.MusicBeatState
 			freeplayData = _autoDiscoverModSongs();
 		#end
 	}
+
 	#if sys
 	function _autoDiscoverModSongs():FreeplayListData
 	{
 		final modId = mods.ModManager.activeMod;
-		if (modId == null) return { songs: [] };
+		if (modId == null)
+			return {songs: []};
 		final songsDir = '${mods.ModManager.MODS_FOLDER}/$modId/songs';
-		if (!sys.FileSystem.exists(songsDir)) return { songs: [] };
+		if (!sys.FileSystem.exists(songsDir))
+			return {songs: []};
 		final entries:Array<FreeplaySongEntry> = [];
 		for (entry in sys.FileSystem.readDirectory(songsDir))
 		{
 			final ep = '$songsDir/$entry';
-			if (!sys.FileSystem.isDirectory(ep)) continue;
+			if (!sys.FileSystem.isDirectory(ep))
+				continue;
 			var hasChart = sys.FileSystem.exists('$ep/$entry.level');
 			if (!hasChart)
 				for (diff in ['hard', 'normal', 'easy', 'chart'])
-					if (sys.FileSystem.exists('$ep/$diff.json')) { hasChart = true; break; }
-			if (!hasChart) continue;
-			entries.push({ name: entry, icon: 'icon-$entry', bpm: 120.0, color: '0xFFFF9900', group: 0 });
+					if (sys.FileSystem.exists('$ep/$diff.json'))
+					{
+						hasChart = true;
+						break;
+					}
+			if (!hasChart)
+				continue;
+			entries.push({
+				name: entry,
+				icon: 'icon-$entry',
+				bpm: 120.0,
+				color: '0xFFFF9900',
+				group: 0
+			});
 		}
 		if (entries.length > 0)
 			trace('[Freeplay] Auto-discovered ${entries.length} songs from mod $modId');
-		return { songs: entries };
+		return {songs: entries};
 	}
 	#end
 
@@ -1128,7 +1158,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 		// ── Artist — lee del SongMetadata (ya resuelto en songsSystem) ────────
 		// Formato: "by <artista>"  si hay artista; si no, "from <weekName>" como antes.
-		var artistStr = song.artist != null ? song.artist.trim() : '';
+		var artistStr = artist;
 		if (artistStr != '')
 		{
 			spotlightArtist.text = 'by  $artistStr';
@@ -1165,13 +1195,17 @@ class FreeplayState extends funkin.states.MusicBeatState
 		var _tgY = spotlightIcon.scale.y;
 		spotlightIcon.scale.set(_tgX * 0.6, _tgY * 0.6);
 		spotlightIcon.updateHitbox(); // recalcular offset para la escala inicial del pop-in
-		var _ico = spotlightIcon;    // captura local para el closure del tween
+		var _ico = spotlightIcon; // captura local para el closure del tween
 		FlxTween.tween(spotlightIcon.scale, {x: _tgX, y: _tgY}, 0.35, {
-			ease:     FlxEase.elasticOut,
-			type:     ONESHOT,
+			ease: FlxEase.elasticOut,
+			type: ONESHOT,
 			// updateHitbox() en cada frame mantiene el offset alineado con la escala
 			// durante la animación, evitando el desplazamiento visual incorrecto.
-			onUpdate: function(_) { if (_ico != null && _ico.alive && _ico.frames != null) _ico.updateHitbox(); }
+			onUpdate: function(_)
+			{
+				if (_ico != null && _ico.alive && _ico.frames != null)
+					_ico.updateHitbox();
+			}
 		});
 
 		var diffSuffix = difficultyStuff.length > curDifficulty ? difficultyStuff[curDifficulty][1] : '';
@@ -1320,8 +1354,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		// Si devuelve null o un valor no-Array, se conserva el original.
 		// Uso en freeplay_main.hx:
 		//   function onDifficultyStuffBuilt(songName, diffs) { ... return filteredDiffs; }
-		final _filtered = StateScriptHandler.callOnScriptsReturn(
-			'onDifficultyStuffBuilt', [songs[curSelected].songName, difficultyStuff], null);
+		final _filtered = StateScriptHandler.callOnScriptsReturn('onDifficultyStuffBuilt', [songs[curSelected].songName, difficultyStuff], null);
 		if (_filtered != null && Std.isOfType(_filtered, Array))
 			difficultyStuff = cast _filtered;
 
@@ -1387,9 +1420,6 @@ class SongMetadata
 	/** Índice dentro del array de canciones (para leer album, etc.). */
 	public var songIndex:Int = 0;
 
-	/** Artista de la canción — leído desde freeplayList.json o meta.json. */
-	public var artist:String = '';
-
 	/** Clave de álbum para esta canción. */
 	public var album:String = '';
 
@@ -1398,11 +1428,11 @@ class SongMetadata
 
 	public function new(song:String, week:Int, songCharacter:String, ?songIndex:Int = 0)
 	{
-		this.songName      = song;
-		this.week          = week;
+		this.songName = song;
+		this.week = week;
 		this.songCharacter = songCharacter;
-		this.songIndex     = songIndex;
-		this.color         = -7179779;
+		this.songIndex = songIndex;
+		this.color = -7179779;
 	}
 }
 

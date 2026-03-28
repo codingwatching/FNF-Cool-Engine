@@ -350,4 +350,28 @@ class NoteHoldCover extends FlxSprite
 	{
 		_killSelf();
 	}
+
+	// ─── LIVE STRUM TRACKING ──────────────────────────────────────────────────
+
+	/**
+	 * Update the cover's world position to match the strum's CURRENT center.
+	 *
+	 * WHY THIS IS NEEDED:
+	 *   setup() captures the strum center once when the hold begins.
+	 *   When strums move mid-song (modcharts, stage events, scripted offsets)
+	 *   the cover drifts out of sync — it stays at the old position while the
+	 *   strum moves underneath it.  NoteManager calls this every frame while
+	 *   the cover is active so it tracks the strum in real time.
+	 *
+	 * @param strumCenterX  Current horizontal center of the strum sprite.
+	 * @param strumCenterY  Current vertical center of the strum sprite.
+	 */
+	public function updatePosition(strumCenterX:Float, strumCenterY:Float):Void
+	{
+		if (!alive) return;
+
+		_strumCenterX = strumCenterX;
+		_strumCenterY = strumCenterY;
+		_applyPosition();
+	}
 }

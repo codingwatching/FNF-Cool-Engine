@@ -4,7 +4,6 @@
 	"isPlayer": true,
 	"antialiasing": true,
 	"scale": 1.0,
-	"flipX": true,
 	"animations": [
 		{
 			"name": "firstDeath",

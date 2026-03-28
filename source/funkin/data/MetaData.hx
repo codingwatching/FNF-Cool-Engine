@@ -6,6 +6,7 @@ import sys.io.File;
 import mods.ModManager;
 
 using StringTools;
+
 /**
  * MetaData — Metadata por canción.
  *
@@ -94,6 +95,8 @@ typedef SongMetaData =
 	@:optional var holdCoverFrameW:Null<Int>;
 	@:optional var holdCoverFrameH:Null<Int>;
 
+	@:optional var splashesEnabled:Null<Bool>;
+
 	// ── HUD ────────────────────────────────────────────────────────────────
 	@:optional var overrideGlobal:Null<Bool>;
 	@:optional var hideCombo:Null<Bool>;
@@ -137,14 +140,21 @@ class MetaData
 	public var noteSkins:Null<Map<String, String>> = null;
 
 	// ── Hold Cover ──────────────────────────────────────────────────────────
+
 	/** null = usar GlobalConfig.holdCoverEnabled */
 	public var holdCoverEnabled:Null<Bool> = null;
+
+	public var splashesEnabled:Null<Bool> = null;
+
 	/** null = usar GlobalConfig.holdCoverSkin o el builtin */
 	public var holdCoverSkin:Null<String> = null;
+
 	/** "sparrow" | "packer" | "grid" */
 	public var holdCoverFormat:String = 'sparrow';
+
 	/** Ancho de frame para formato "grid" */
 	public var holdCoverFrameW:Int = 0;
+
 	/** Alto de frame para formato "grid" */
 	public var holdCoverFrameH:Int = 0;
 
@@ -153,10 +163,13 @@ class MetaData
 	public var hudVisible:Bool = true;
 	public var introVideo:Null<String> = null;
 	public var outroVideo:Null<String> = null;
+
 	/** Clave de cutscene de sprites para el intro (assets/data/cutscenes/{key}.json). */
 	public var introCutscene:Null<String> = null;
+
 	/** Clave de cutscene de sprites para el outro. */
 	public var outroCutscene:Null<String> = null;
+
 	public var midSongVideo:Bool = false;
 	public var disableCameraZoom:Bool = false;
 	public var artist:Null<String> = null;
@@ -170,7 +183,9 @@ class MetaData
 
 	public var raw:SongMetaData;
 
-	public function new() {}
+	public function new()
+	{
+	}
 
 	public static function load(songName:String, ?difficulty:String):MetaData
 	{
@@ -196,11 +211,13 @@ class MetaData
 		{
 			var path:String = null;
 			final modPath = ModManager.resolveInMod('songs/$songKey/meta.json');
-			if (modPath != null) path = modPath;
+			if (modPath != null)
+				path = modPath;
 			else
 			{
 				final basePath = 'assets/songs/$songKey/meta.json';
-				if (FileSystem.exists(basePath)) path = basePath;
+				if (FileSystem.exists(basePath))
+					path = basePath;
 			}
 
 			if (path != null && FileSystem.exists(path))
@@ -223,13 +240,18 @@ class MetaData
 		}
 		#else
 		final legacyPath = 'assets/songs/${songName.toLowerCase()}/meta.json';
-		try { rawData = cast Json.parse(lime.utils.Assets.getText(legacyPath)); } catch (_) {}
+		try
+		{
+			rawData = cast Json.parse(lime.utils.Assets.getText(legacyPath));
+		}
+		catch (_)
+		{
+		}
 		#end
 
-		meta.ui        = resolveStr(rawData?.ui,       global.ui,       'default');
-		meta.noteSkin  = resolveStr(rawData?.noteSkin, global.noteSkin, 'default');
-		meta.noteSplash = (rawData?.noteSplash != null && rawData.noteSplash != '')
-			? rawData.noteSplash : null;
+		meta.ui = resolveStr(rawData?.ui, global.ui, 'default');
+		meta.noteSkin = resolveStr(rawData?.noteSkin, global.noteSkin, 'default');
+		meta.noteSplash = (rawData?.noteSplash != null && rawData.noteSplash != '') ? rawData.noteSplash : null;
 
 		if (rawData?.stageSkins != null)
 		{
@@ -238,9 +260,11 @@ class MetaData
 			for (field in Reflect.fields(obj))
 			{
 				var val = Std.string(Reflect.field(obj, field));
-				if (val != null && val != '') meta.stageSkins.set(field, val);
+				if (val != null && val != '')
+					meta.stageSkins.set(field, val);
 			}
-			if (!meta.stageSkins.iterator().hasNext()) meta.stageSkins = null;
+			if (!meta.stageSkins.iterator().hasNext())
+				meta.stageSkins = null;
 		}
 
 		// ── Per-group / per-player skins ─────────────────────────────────────
@@ -251,14 +275,18 @@ class MetaData
 			for (field in Reflect.fields(obj))
 			{
 				var val = Std.string(Reflect.field(obj, field));
-				if (val != null && val != '') meta.noteSkins.set(field, val);
+				if (val != null && val != '')
+					meta.noteSkins.set(field, val);
 			}
-			if (!meta.noteSkins.iterator().hasNext()) meta.noteSkins = null;
+			if (!meta.noteSkins.iterator().hasNext())
+				meta.noteSkins = null;
 		}
 
 		// ── Hold Cover ───────────────────────────────────────────────────────
 		// holdCoverEnabled: meta tiene prioridad; null = deja que GlobalConfig decida
 		meta.holdCoverEnabled = (rawData?.holdCoverEnabled != null) ? rawData.holdCoverEnabled : null;
+
+		meta.splashesEnabled = (rawData?.splashesEnabled != null) ? rawData.splashesEnabled : null;
 
 		// holdCoverSkin: meta > global
 		if (rawData?.holdCoverSkin != null && rawData.holdCoverSkin != '')
@@ -273,14 +301,14 @@ class MetaData
 		meta.holdCoverFrameW = (rawData?.holdCoverFrameW != null) ? rawData.holdCoverFrameW : 0;
 		meta.holdCoverFrameH = (rawData?.holdCoverFrameH != null) ? rawData.holdCoverFrameH : 0;
 
-		meta.hideCombo   = resolveBool(rawData?.hideCombo,   false);
+		meta.hideCombo = resolveBool(rawData?.hideCombo, false);
 		meta.hideRatings = resolveBool(rawData?.hideRatings, false);
-		meta.hudVisible  = resolveBool(rawData?.hudVisible,  true);
-		meta.introVideo        = rawData?.introVideo  ?? null;
-		meta.outroVideo        = rawData?.outroVideo  ?? null;
-		meta.introCutscene     = rawData?.introCutscene ?? null;
-		meta.outroCutscene     = rawData?.outroCutscene ?? null;
-		meta.midSongVideo      = resolveBool(rawData?.midSongVideo,      false);
+		meta.hudVisible = resolveBool(rawData?.hudVisible, true);
+		meta.introVideo = rawData?.introVideo ?? null;
+		meta.outroVideo = rawData?.outroVideo ?? null;
+		meta.introCutscene = rawData?.introCutscene ?? null;
+		meta.outroCutscene = rawData?.outroCutscene ?? null;
+		meta.midSongVideo = resolveBool(rawData?.midSongVideo, false);
 		meta.disableCameraZoom = resolveBool(rawData?.disableCameraZoom, false);
 		meta.artist = (rawData?.artist != null && rawData.artist != '') ? rawData.artist : null;
 
@@ -305,7 +333,8 @@ class MetaData
 			{
 				// artist
 				final ovArtist:Null<String> = Reflect.field(ov, 'artist');
-				if (ovArtist != null && ovArtist != '') meta.artist = ovArtist;
+				if (ovArtist != null && ovArtist != '')
+					meta.artist = ovArtist;
 
 				// Añadir aquí más campos en el futuro siguiendo el mismo patrón:
 				// final ovXxx = Reflect.field(ov, 'xxx');
@@ -322,23 +351,16 @@ class MetaData
 	/**
 	 * Guarda los valores actuales como meta.json en la carpeta de la canción.
 	 */
-	public static function save(songName:String, ui:String, noteSkin:String,
-	                            ?noteSplash:String = null,
-	                            ?stageSkins:Map<String,String> = null,
-	                            ?holdCoverEnabled:Null<Bool> = null,
-	                            ?holdCoverSkin:Null<String> = null,
-	                            ?holdCoverFormat:String = 'sparrow',
-	                            ?holdCoverFrameW:Int = 0,
-	                            ?holdCoverFrameH:Int = 0,
-	                            ?hideCombo:Bool = false,
-	                            ?hideRatings:Bool = false,
-	                            ?hudVisible:Bool = true):Void
+	public static function save(songName:String, ui:String, noteSkin:String, ?noteSplash:String = null, ?stageSkins:Map<String, String> = null,
+			?holdCoverEnabled:Null<Bool> = null, ?holdCoverSkin:Null<String> = null, ?holdCoverFormat:String = 'sparrow', ?holdCoverFrameW:Int = 0,
+			?holdCoverFrameH:Int = 0, ?hideCombo:Bool = false, ?hideRatings:Bool = false, ?hudVisible:Bool = true):Void
 	{
 		#if sys
 		try
 		{
 			var dir = 'assets/songs/${songName.toLowerCase()}';
-			if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+			if (!FileSystem.exists(dir))
+				FileSystem.createDirectory(dir);
 
 			var stageSkinsObj:Dynamic = null;
 			if (stageSkins != null)
@@ -349,18 +371,18 @@ class MetaData
 			}
 
 			var data:SongMetaData = {
-				ui:         (ui != null && ui != '') ? ui : null,
-				noteSkin:   (noteSkin != null && noteSkin != '') ? noteSkin : null,
+				ui: (ui != null && ui != '') ? ui : null,
+				noteSkin: (noteSkin != null && noteSkin != '') ? noteSkin : null,
 				noteSplash: (noteSplash != null && noteSplash != '') ? noteSplash : null,
 				stageSkins: stageSkinsObj,
 				holdCoverEnabled: holdCoverEnabled,
-				holdCoverSkin:   (holdCoverSkin != null && holdCoverSkin != '') ? holdCoverSkin : null,
+				holdCoverSkin: (holdCoverSkin != null && holdCoverSkin != '') ? holdCoverSkin : null,
 				holdCoverFormat: (holdCoverFormat != null && holdCoverFormat != 'sparrow') ? holdCoverFormat : null,
 				holdCoverFrameW: (holdCoverFrameW > 0) ? holdCoverFrameW : null,
 				holdCoverFrameH: (holdCoverFrameH > 0) ? holdCoverFrameH : null,
-				hideCombo:   hideCombo,
+				hideCombo: hideCombo,
 				hideRatings: hideRatings,
-				hudVisible:  hudVisible
+				hudVisible: hudVisible
 			};
 
 			File.saveContent('$dir/meta.json', Json.stringify(data, null, '\t'));
@@ -375,8 +397,10 @@ class MetaData
 
 	static inline function resolveStr(metaVal:Null<String>, globalVal:Null<String>, fallback:String):String
 	{
-		if (metaVal != null && metaVal.length > 0) return metaVal;
-		if (globalVal != null && globalVal.length > 0) return globalVal;
+		if (metaVal != null && metaVal.length > 0)
+			return metaVal;
+		if (globalVal != null && globalVal.length > 0)
+			return globalVal;
 		return fallback;
 	}
 

@@ -96,17 +96,25 @@ class NoteManager
 	 *  Si cambia (modchart o evento de velocidad), recalculamos todos los sustains activos. */
 	private var _lastSustainSpeed:Float = -1.0;
 
-
 	// === SAVE.DATA CACHE (evita acceso Dynamic en hot loop) ===
 	// Se actualizan en generateNotes() y cuando cambia la configuración.
 	private var _cachedNoteSplashes:Bool = false;
 
+	private var _cachedHoldCoverEnabled:Bool = true;
+
 	private var _cachedMiddlescroll:Bool = false;
+
+	private var _noteSplashesEnabled:Bool = true;
 
 	/** Actualiza el caché de opciones del jugador. Llamar si el jugador cambia config. */
 	public function refreshSaveDataCache():Void {
 		_cachedNoteSplashes  = SaveData.data.notesplashes == true;
 		_cachedMiddlescroll  = SaveData.data.middlescroll == true;
+		final metaHoldCover = PlayState.instance.metaData.holdCoverEnabled;
+		_cachedHoldCoverEnabled = metaHoldCover != null ? metaHoldCover : funkin.data.GlobalConfig.instance.holdCoverEnabled;
+
+		final metaNoteSplashes = PlayState.instance.metaData.splashesEnabled;
+		_noteSplashesEnabled = metaNoteSplashes != null ? metaNoteSplashes : funkin.data.GlobalConfig.instance.splashesEnabled;
 	}
 
 	// === CALLBACKS ===
@@ -321,6 +329,13 @@ class NoteManager
 		updateActiveNotes(songPosition);
 		updateStrumAnimations();
 		autoReleaseFinishedHolds();
+
+		// ── Hold splash live tracking ────────────────────────────────────────
+		// Re-center every active NoteHoldCover on the strum's CURRENT position.
+		// This is the fix for covers drifting away during modchart movements.
+		if (renderer != null)
+			_updateHoldCoverPositions();
+
 		if (renderer != null)
 		{
 			renderer.updateBatcher();
@@ -617,10 +632,12 @@ class NoteManager
 				if (strum != null)
 				{
 					var holdSplashCPU = NoteTypeManager.getHoldSplashName(note.noteType);
-					var cover = renderer.startHoldCover(dir, strum.x - strum.offset.x + strum.frameWidth * 0.5, strum.y - strum.offset.y + strum.frameHeight * 0.5, false, note.strumsGroupIndex, holdSplashCPU);
-					if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0) {
-						_holdCoverSet.set(cover, true);
-						holdCovers.add(cover);
+					if (_cachedHoldCoverEnabled){
+						var cover = renderer.startHoldCover(dir, strum.x - strum.offset.x + strum.frameWidth * 0.5, strum.y - strum.offset.y + strum.frameHeight * 0.5, false, note.strumsGroupIndex, holdSplashCPU);
+						if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0) {
+							_holdCoverSet.set(cover, true);
+							holdCovers.add(cover);
+						}
 					}
 				}
 			}
@@ -885,11 +902,14 @@ class NoteManager
 
 			note.x = _noteX;
 
-			// ── Deformación dinámica de sustains ─────────────────────────────
-			// Orienta cada pieza hacia la posición de la pieza anterior (la más
-			// cercana al strum). BUG FIX v3: _prevY ahora incluye TODOS los
-			// offsets Y (drunkY, bumpy, wave, noteOffsetY) evaluados en
-			// _prevStrumTime, igual que se hace para el X.
+			// ── Sustain deformation (legacy rigid-scroll mode) ────────────────
+			// When the snake system is active (default), this block is skipped.
+			// SnakeSustainChain handles both angle AND scale.y from actual chain
+			// geometry, making this computation redundant.
+			//
+			// When snake is disabled, the original rigid-column deformation runs:
+			// each piece rotates to face the piece ahead of it along the straight
+			// scroll direction, with scale.y corrected for the resulting angle.
 			if (note.isSustainNote)
 			{
 				final _prevStrumTime:Float = note.strumTime - Conductor.stepCrochet;
@@ -910,8 +930,6 @@ class NoteManager
 							+ songPosition * 0.0008
 						);
 
-					// bumpy y wave: usan songPosition, no strumTime → igual para ambas piezas
-					// pero se incluyen para mantener coherencia visual en offsets grandes
 					if (_modState.bumpy != 0)
 						_prevY += _modState.bumpy * Math.sin(
 							songPosition * 0.001 * _modState.bumpySpeed
@@ -1023,12 +1041,15 @@ class NoteManager
 		if (note.isSustainNote)
 			note.y = noteY;
 
-		// BUGFIX: El clip de sustains debe aplicarse a TODAS las notas largas
-		// (jugador y CPU, upscroll y downscroll). Antes solo se aplicaba a
-		// CPU en downscroll, lo que causaba que los cuerpos de los holds
-		// se vieran "rotos" o solapados con el strum en el resto de casos.
-		// Además, el clipRect nunca se limpiaba cuando dejaba de ser necesario,
-		// dejando el rect viejo de la nota anterior asignado a la nota actual.
+		// ── Clip rect for sustain notes ──────────────────────────────────────
+		// When the snake system is active, this block is SKIPPED for sustains.
+		// _applySnakeSustains() re-runs this logic AFTER overriding note.y with
+		// the snake chain position, so the clip always reflects the real Y.
+		//
+		// The removeNote() paths (clipH <= 0 / clipY out of range) still fire
+		// here in the math-Y pass because: at the point a segment is fully past
+		// the strum, math Y and snake Y are essentially identical (the chain head
+		// IS the strum center, so converged segments near it have almost no lag).
 		if (note.isSustainNote)
 		{
 			// BUGFIX: Cortar la nota exactamente en el CENTRO del strum, no en
@@ -1165,7 +1186,7 @@ class NoteManager
 		{
 			if (note.isSustainNote)
 				handleSustainNoteHit(note);
-			else if (_cachedNoteSplashes && renderer != null)
+			else if (_cachedNoteSplashes && _noteSplashesEnabled && renderer != null)
 				createNormalSplash(note, true);
 		}
 		// BUGFIX: Las notas sustain NO se eliminan aquí — quedan en el grupo
@@ -1189,7 +1210,7 @@ class NoteManager
 			holdStartTimes.set(direction, Conductor.songPosition);
 
 			// Hold covers solo si los note splashes están activados en opciones
-			if (_cachedNoteSplashes && renderer != null)
+			if (_cachedNoteSplashes && _cachedHoldCoverEnabled && renderer != null)
 			{
 				var strum = getStrumForDirection(direction, note.strumsGroupIndex, true);
 				if (strum != null)
@@ -1355,6 +1376,63 @@ class NoteManager
 		}
 
 		trace('[NoteManager] rewindTo($targetTime) → _unspawnIdx=$_unspawnIdx / ${unspawnNotes.length}');
+	}
+
+	// ─── Hold splash live tracking ────────────────────────────────────────────
+
+	/**
+	 * Re-center every active NoteHoldCover on its strum's CURRENT position.
+	 *
+	 * FIX EXPLAINED:
+	 *   startHoldCover() in NoteRenderer captures the strum center once at
+	 *   the moment the hold begins.  When strums move (modchart events, stage
+	 *   scripts, beat-bump animations, etc.) the hold splash is left at the
+	 *   old position and visually drifts away from the strum arrow.
+	 *
+	 *   This function is called every frame (via update()) and pushes the strum's
+	 *   LIVE position into each active cover via NoteRenderer.updateActiveCoverPosition().
+	 *
+	 * COST:
+	 *   - Iterates heldNotes.keys() (≤ 4 player holds) + 4 CPU directions.
+	 *   - Each iteration does one Map lookup + one getStrumForDirection (O(1) cached).
+	 *   - NoteHoldCover._applyPosition() is two float additions. Negligible.
+	 */
+	private function _updateHoldCoverPositions():Void
+	{
+		if (renderer == null) return;
+
+		// ── Player holds ────────────────────────────────────────────────────
+		for (dir in heldNotes.keys())
+		{
+			final note = heldNotes.get(dir);
+			if (note == null) continue;
+
+			final strum = getStrumForDirection(dir, note.strumsGroupIndex, true);
+			if (strum == null) continue;
+
+			final cx:Float = strum.x - strum.offset.x + strum.frameWidth  * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * 0.5;
+
+			// Key formula mirrors NoteRenderer.startHoldCover / stopHoldCover
+			final key:Int = dir + note.strumsGroupIndex * 8;
+			renderer.updateActiveCoverPosition(key, cx, cy);
+		}
+
+		// ── CPU holds ───────────────────────────────────────────────────────
+		for (dir in 0...4)
+		{
+			if (!_cpuHeldDirs[dir]) continue;
+
+			final strum = getStrumForDirection(dir, _cpuHoldGroupIdx[dir], false);
+			if (strum == null) continue;
+
+			final cx:Float = strum.x - strum.offset.x + strum.frameWidth  * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * 0.5;
+
+			// Key formula: CPU side = +4 offset in NoteRenderer
+			final key:Int = dir + 4 + _cpuHoldGroupIdx[dir] * 8;
+			renderer.updateActiveCoverPosition(key, cx, cy);
+		}
 	}
 
 	public function destroy():Void

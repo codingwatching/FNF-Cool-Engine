@@ -95,8 +95,8 @@ class ModManager
 	/** Sub-carpetas estándar que se crean al crear un mod nuevo. */
 	static var STD_FOLDERS = [
 		'characters', 'cutscenes', 'data', 'fonts', 'images',
-		'music', 'noteType', 'shaders', 'skins', 'songs',
-		'sounds', 'splashes', 'stages', 'states'
+		'music', 'notes', 'shaders', 'songs',
+		'sounds', 'stages', 'states'
 	];
 
 	private static var _enabledMap:Map<String, Bool> = new Map();

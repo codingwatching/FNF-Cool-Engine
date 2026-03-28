@@ -3,3 +3,9 @@
 - Anim Mapper for best animations edit
 - SpriteSheet Editor better
 - GC memory in fps and watermark for developer mode
+- Now you can view a ghost in any pose you want in animation debug
+- You can now set different skins for each character.
+- New save data system: SaveData
+- Fixed Note Splashes issue
+- Fixed input without Ghost tapping
+- ModChart Window improved
