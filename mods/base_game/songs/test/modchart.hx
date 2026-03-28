@@ -46,7 +46,7 @@ function onCreate() {
 
     // CPU aparece primero (latido lento)
     modChart.addEventSimple(4,  "cpu",    -1, ALPHA, 0.45, 3.0, QUAD_OUT);
-    modChart.addEventSimple(4,  "cpu",    -1, SCALE, 0.7,  2.0, BACK_OUT);
+    modChart.addEventSimple(4,  "cpu",    -1, SCALE, 6,  2.0, BACK_OUT);
 
     // Player aparece con retardo (revelación)
     modChart.addEventSimple(12, "player", -1, ALPHA, 0.45, 3.0, QUAD_OUT);
@@ -75,7 +75,7 @@ function onCreate() {
 
     modChart.addEventSimple(32,   "cpu",    -1, ALPHA,  1.0, 0, INSTANT);
     modChart.addEventSimple(32,   "cpu",    -1, MOVE_Y, 0, 0.55, BOUNCE_OUT);
-    modChart.addEventSimple(32,   "cpu",    -1, SCALE,  0.7, 0.50, ELASTIC_OUT);
+    modChart.addEventSimple(32,   "cpu",    -1, SCALE,  6.0, 0.50, ELASTIC_OUT);
     modChart.addEventSimple(32.5, "player", -1, ALPHA,  1.0, 0, INSTANT);
     modChart.addEventSimple(32.5, "player", -1, MOVE_Y, 0, 0.55, BOUNCE_OUT);
     modChart.addEventSimple(32.5, "player", -1, SCALE,  0.7, 0.50, ELASTIC_OUT);
@@ -210,7 +210,7 @@ function onCreate() {
     modChart.addEventSimple(128, "all", -1, MOVE_Y, -130, 0, INSTANT);
 
     modChart.addEventSimple(128,   "cpu",    -1, MOVE_Y, 0, 0.60, BOUNCE_OUT);
-    modChart.addEventSimple(128,   "cpu",    -1, SCALE,  0.7, 0.55, ELASTIC_OUT);
+    modChart.addEventSimple(128,   "cpu",    -1, SCALE,  6.0, 0.55, ELASTIC_OUT);
     modChart.addEventSimple(128.3, "player", -1, MOVE_Y, 0, 0.60, BOUNCE_OUT);
     modChart.addEventSimple(128.3, "player", -1, SCALE,  0.7, 0.55, ELASTIC_OUT);
 
@@ -287,7 +287,7 @@ function onCreate() {
         if (beat >= 164) break;
         var si = roulette[i];
         modChart.addEventSimple(beat,        "cpu", si, SCALE, 1.22, 0.09, ELASTIC_OUT);
-        modChart.addEventSimple(beat + 0.30, "cpu", si, SCALE,  0.7, 0.28, QUAD_IN);
+        modChart.addEventSimple(beat + 0.30, "cpu", si, SCALE,  6.0, 0.28, QUAD_IN);
         modChart.addEventSimple(beat,        "cpu", si, ANGLE,  14,  0.09, QUAD_OUT);
         modChart.addEventSimple(beat + 0.22, "cpu", si, ANGLE,   0,  0.18, ELASTIC_OUT);
     }
@@ -309,7 +309,7 @@ function onCreate() {
     modChart.addEventSimple(176, "all", -1, RESET,  0, 0, INSTANT);
     modChart.addEventSimple(176, "all", -1, SCALE,  1.6, 0, INSTANT);
     modChart.addEventSimple(176, "all", -1, ALPHA,  0.0, 0, INSTANT);
-    modChart.addEventSimple(176, "all", -1, SCALE,  0.7, 0.5, ELASTIC_OUT);
+    modChart.addEventSimple(176, "all", -1, SCALE,  6.0, 0.5, ELASTIC_OUT);
     modChart.addEventSimple(176, "all", -1, ALPHA,  1.0, 0.3, QUAD_OUT);
 
     modChart.addEventSimple(176, "player", -1, SET_ABS_X, BASE_CPU_X,    2.0, QUAD_IN_OUT);
@@ -341,7 +341,7 @@ function onCreate() {
     modChart.addEventSimple(192, "all", -1, MOVE_Y, -110, 0, INSTANT);
 
     modChart.addEventSimple(192,   "cpu",    -1, MOVE_Y, 0, 0.58, BOUNCE_OUT);
-    modChart.addEventSimple(192,   "cpu",    -1, SCALE,  0.7, 0.52, ELASTIC_OUT);
+    modChart.addEventSimple(192,   "cpu",    -1, SCALE,  6.0, 0.52, ELASTIC_OUT);
     modChart.addEventSimple(192.4, "player", -1, MOVE_Y, 0, 0.58, BOUNCE_OUT);
     modChart.addEventSimple(192.4, "player", -1, SCALE,  0.7, 0.52, ELASTIC_OUT);
 

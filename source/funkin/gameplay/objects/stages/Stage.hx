@@ -58,7 +58,7 @@ typedef StageData =
 
 typedef StageElement =
 {
-	var type:String; // "sprite", "animated", "group", "sound", "custom_class", "custom_class_group"
+	var type:String; // "sprite", "animated", "graphic", "group", "sound", "custom_class", "custom_class_group", "character"
 	var asset:String;
 	var position:Array<Float>;
 	@:optional var name:String;
@@ -74,6 +74,12 @@ typedef StageElement =
 	@:optional var blend:String;
 	@:optional var visible:Bool;
 	@:optional var zIndex:Int;
+
+	// For graphic (makeGraphic solid-colour rect) sprites
+	/** Width and height in pixels for makeGraphic. Default: [100.0, 100.0]. */
+	@:optional var graphicSize:Array<Float>;
+	/** Fill colour for makeGraphic, as a hex string (e.g. "#FF0000" or "0xFFFF0000"). Default: "#FFFFFF". */
+	@:optional var graphicColor:String;
 
 	// For animated sprites
 	@:optional var animations:Array<StageAnimation>;
@@ -119,6 +125,13 @@ typedef StageElement =
 	 * Has no effect at runtime — purely an editor hint.
 	 */
 	@:optional var locked:Bool;
+
+	/**
+	 * For type:"character" elements — marks where a character should be inserted
+	 * in the render order. Valid values: "bf", "gf", "dad".
+	 * The element has no visual; it is a render-order anchor only.
+	 */
+	@:optional var charSlot:String;
 
 	// ── Modelo 3D (type: "model3d") ───────────────────────────────────────────
 	//
@@ -317,6 +330,17 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	 */
 	public var aboveCharsGroup:FlxTypedGroup<FlxBasic> = new FlxTypedGroup<FlxBasic>();
 
+	/**
+	 * Flat ordered list of every sprite built by buildStage(), populated when
+	 * the stage JSON contains at least one type:"character" anchor element.
+	 * PlayState iterates this instead of adding the Stage group to insert
+	 * characters at the correct depth between stage sprites.
+	 */
+	public var spriteList:Array<{element:StageElement, sprite:FlxBasic}> = [];
+
+	/** True when stageData.elements contains at least one type:"character" entry. */
+	public var _useCharAnchorSystem:Bool = false;
+
 	public var defaultCamZoom:Float = 1.05;
 	public var isPixelStage:Bool = false;
 
@@ -469,16 +493,24 @@ class Stage extends FlxTypedGroup<FlxBasic>
 		if (stageData.cameraSpeed != null && stageData.cameraSpeed > 0)
 			cameraSpeed = stageData.cameraSpeed;
 
-		// Sort elements by zIndex
+		// Detect if any element is a character anchor — enables the new
+		// integrated character-layer ordering system.
 		if (stageData.elements != null)
 		{
-			stageData.elements.sort(function(a, b)
+			for (elem in stageData.elements)
 			{
-				var azIndex = a.zIndex != null ? a.zIndex : 0;
-				var bzIndex = b.zIndex != null ? b.zIndex : 0;
-				return azIndex - bzIndex;
-			});
+				if (elem.type != null && elem.type.toLowerCase() == 'character')
+				{
+					_useCharAnchorSystem = true;
+					break;
+				}
+			}
+		}
 
+		// Elements are rendered in array order (drag to reorder in the editor).
+		// zIndex is no longer used for sorting — the array IS the render order.
+		if (stageData.elements != null)
+		{
 			for (element in stageData.elements)
 			{
 				createElement(element);
@@ -584,10 +616,16 @@ class Stage extends FlxTypedGroup<FlxBasic>
 	{
 		switch (element.type.toLowerCase())
 		{
+			case "character":
+				// Character anchor — no visual. Records position in spriteList so
+				// PlayState can insert the character at this render depth.
+				spriteList.push({element: element, sprite: null});
 			case "sprite":
 				createSprite(element);
 			case "animated":
 				createAnimatedSprite(element);
+			case "graphic":
+				createGraphicSprite(element);
 			case "group":
 				createGroup(element);
 			case "sound":
@@ -610,15 +648,26 @@ class Stage extends FlxTypedGroup<FlxBasic>
 
 	/**
 	 * After creating a sprite/group, decides which group it lives in.
-	 * Elements with aboveChars:true go into aboveCharsGroup (rendered above characters).
-	 * All others stay in the Stage group itself (rendered below characters).
+	 * If the stage uses char anchors (_useCharAnchorSystem), sprites go into
+	 * spriteList only — PlayState will add them individually at the right depth.
+	 * Otherwise the old two-group system is used:
+	 *   aboveChars:true → aboveCharsGroup (rendered above characters)
+	 *   everything else → Stage group itself (rendered below characters)
 	 */
 	inline function _addToGroup(element:StageElement, obj:FlxBasic):Void
 	{
-		if (element.aboveChars == true)
-			aboveCharsGroup.add(obj);
+		if (_useCharAnchorSystem)
+		{
+			spriteList.push({element: element, sprite: obj});
+			// Don't add to this group — PlayState adds directly for depth control.
+		}
 		else
-			add(obj);
+		{
+			if (element.aboveChars == true)
+				aboveCharsGroup.add(obj);
+			else
+				add(obj);
+		}
 	}
 
 	// ── Sprite estático ───────────────────────────────────────────────────────
@@ -708,6 +757,38 @@ class Stage extends FlxTypedGroup<FlxBasic>
 				return;
 			}
 		}
+
+		applyElementProperties(sprite, element);
+		_addToGroup(element, sprite);
+
+		if (element.name != null)
+			elements.set(element.name, sprite);
+	}
+
+	// ── Sprite de color sólido (makeGraphic) ──────────────────────────────────
+	// Rectángulo de color plano, sin asset externo.  El tamaño viene de
+	// graphicSize:[width, height] y el color de graphicColor (hex string).
+	//
+	// Ejemplo en el JSON del stage:
+	// {
+	//   "type": "graphic",
+	//   "name": "sky_overlay",
+	//   "asset": "",
+	//   "position": [0, 0],
+	//   "graphicSize": [1280.0, 720.0],
+	//   "graphicColor": "0xFF000000",
+	//   "alpha": 0.6
+	// }
+
+	function createGraphicSprite(element:StageElement):Void
+	{
+		final gSize  = element.graphicSize ?? [100.0, 100.0];
+		final gW     = Math.max(1, gSize.length > 0 ? gSize[0] : 100.0);
+		final gH     = Math.max(1, gSize.length > 1 ? gSize[1] : gW);
+		final gColor = element.graphicColor != null ? FlxColor.fromString(element.graphicColor) : FlxColor.WHITE;
+
+		var sprite:FunkinSprite = new FunkinSprite(element.position[0], element.position[1]);
+		sprite.makeGraphic(Std.int(gW), Std.int(gH), gColor);
 
 		applyElementProperties(sprite, element);
 		_addToGroup(element, sprite);

@@ -41,6 +41,7 @@ typedef StrumsGroupData =
 	var ?spacing:Float; // Espaciado entre flechas (default 160)
 	var ?scale:Float; // Escala de las flechas
 	var ?characters:Array<String>; // Personajes vinculados a este grupo (igual que Codename)
+	var ?noteSkin:String; // Skin exclusiva de este grupo (runtime, no se serializa)
 }
 
 /**

@@ -95,7 +95,7 @@ class GameDevConsole
 		// Campo título / toolbar
 		_titleField = _makeTextField(PADDING, PADDING, CONSOLE_W - PADDING * 2, 16);
 		_titleField.textColor = COL_TITLE;
-		_titleField.text = "▣ DEV CONSOLE  [F4 toggle]  [F5 clean]";
+		_titleField.text = "▣ DEV CONSOLE  [F4 toggle]  [F6 clean]";
 		_overlay.addChild(_titleField);
 
 		// Campo de log scrollable
@@ -129,7 +129,7 @@ class GameDevConsole
 		FlxG.stage.addEventListener(openfl.events.UncaughtErrorEvent.UNCAUGHT_ERROR, _onUncaughtError);
 
 		initialized = true;
-		log("[GameDevConsole] INICIALIZED. F4 = toggle, F5 = clean.", COL_SUCCESS);
+		log("[GameDevConsole] INICIALIZED. F4 = toggle, F6 = clean.", COL_SUCCESS);
 	}
 
 	// ─── API pública ──────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ class GameDevConsole
 		_drawBg(start, end);
 
 		// Título con conteo
-		_titleField.text = '▣ DEV CONSOLE  ${_lines.length} msgs  [F4 toogle]  [F5 clean]';
+		_titleField.text = '▣ DEV CONSOLE  ${_lines.length} msgs  [F4 toogle]  [F6 clean]';
 	}
 
 	private static function _drawBg(?scrollStart:Int = 0, ?scrollEnd:Int = 0):Void
@@ -366,7 +366,7 @@ class GameDevConsole
 		{
 			case Keyboard.F4:
 				toggle();
-			case Keyboard.F5:
+			case Keyboard.F6:
 				if (visible) clear();
 		}
 	}

@@ -90,7 +90,7 @@ class NoteRenderer
     /**
      * Obtener nota del pool o crear una nueva.
      */
-    public function getNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false):Note
+    public function getNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false, ?groupSkin:String):Note
     {
         var note:Note = null;
         final pool = sustainNote ? sustainPool : notePool;
@@ -98,12 +98,20 @@ class NoteRenderer
         if (pool.length > 0)
         {
             note = pool.pop();
-            note.recycle(strumTime, noteData, prevNote, sustainNote, mustHitNote);
+            note.recycle(strumTime, noteData, prevNote, sustainNote, mustHitNote, groupSkin);
             pooledNotes++;
         }
         else
         {
             note = new Note(strumTime, noteData, prevNote, sustainNote, mustHitNote);
+            // Para notas nuevas (no del pool) también hay que aplicar la skin del
+            // grupo, ya que new Note() usa getCurrentSkinData() sin contexto de grupo.
+            if (groupSkin != null && groupSkin != '')
+            {
+                var skinData = funkin.gameplay.notes.NoteSkinSystem.getCurrentSkinData(groupSkin);
+                if (skinData != null)
+                    note.loadSkin(skinData);
+            }
             createdNotes++;
         }
 

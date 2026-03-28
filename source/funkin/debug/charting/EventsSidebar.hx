@@ -913,13 +913,13 @@ class EventPopup extends FlxGroup
 	var addBtn:FlxButton;
 	var closeBtn:FlxButton;
 
-	static inline var POPUP_W:Int  = 360;
-	static inline var POPUP_H:Int  = 310;
+	static inline var POPUP_W:Int  = 380;
+	static inline var POPUP_H:Int  = 340;
 	static inline var BG:Int       = 0xFF0D1F0D;
 	static inline var ACCENT:Int   = 0xFF00FF88;
 	static inline var GRAY:Int     = 0xFFAAAAAA;
 	static inline var DESC_COLOR:Int = 0xFF88BBAA;
-	static inline var FIELD_W:Int  = 320;
+	static inline var FIELD_W:Int  = 340;
 
 	public function new(parent:ChartingState, song:SwagSong, camHUD:FlxCamera, sidebar:EventsSidebar)
 	{
@@ -955,18 +955,19 @@ class EventPopup extends FlxGroup
 		typeLbl.setFormat(Paths.font("vcr.ttf"), 11, GRAY, LEFT);
 		typeLbl.scrollFactor.set(); typeLbl.cameras = [camHUD]; add(typeLbl);
 
-		var typeNames = funkin.scripting.events.EventRegistry.getNamesForContext('chart');
-		if (typeNames.length == 0) typeNames.push("(no events)");
-
-		typeDropDown = new CoolDropDown(cx + 15, cy + 53, CoolDropDown.makeStrIdLabelArray(typeNames, true), function(id:String)
+		// Dropdown creado con lista vacía — se rellena en _refreshTypeDropDown()
+		typeDropDown = new CoolDropDown(cx + 15, cy + 53, CoolDropDown.makeStrIdLabelArray(["(loading...)"], true), function(id:String)
 		{
 			var idx = Std.parseInt(id);
-			if (idx != null && idx >= 0 && idx < typeNames.length)
-				_switchToType(typeNames[idx]);
+			var names = funkin.scripting.events.EventRegistry.getNamesForContext('chart');
+			names = names.filter(n -> n != null && n != "");
+			if (idx != null && idx >= 0 && idx < names.length)
+				_switchToType(names[idx]);
 		});
 		typeDropDown.scrollFactor.set(); typeDropDown.cameras = [camHUD]; add(typeDropDown);
 
-		descText = new FlxText(cx + 15, cy + 88, POPUP_W - 30, "", 9);
+		// La descripción va MÁS ABAJO para no solaparse con el dropdown abierto
+		descText = new FlxText(cx + 15, cy + 100, POPUP_W - 30, "", 9);
 		descText.setFormat(Paths.font("vcr.ttf"), 9, DESC_COLOR, LEFT);
 		descText.scrollFactor.set(); descText.cameras = [camHUD]; add(descText);
 
@@ -976,8 +977,50 @@ class EventPopup extends FlxGroup
 		addBtn = new FlxButton(cx + 15, cy + POPUP_H - 42, "Add Event", _onAddPressed);
 		addBtn.scrollFactor.set(); addBtn.cameras = [camHUD]; add(addBtn);
 
-		closeBtn = new FlxButton(cx + POPUP_W - 110, cy + POPUP_H - 42, "Cancel", close);
+		closeBtn = new FlxButton(cx + POPUP_W - 120, cy + POPUP_H - 42, "Cancel", close);
 		closeBtn.scrollFactor.set(); closeBtn.cameras = [camHUD]; add(closeBtn);
+	}
+
+	/**
+	 * Refresca el dropdown de tipos con la lista actual de EventRegistry.
+	 * Llamar cada vez que se abre el popup para mostrar eventos recién añadidos.
+	 */
+	function _refreshTypeDropDown():Void
+	{
+		var typeNames = funkin.scripting.events.EventRegistry.getNamesForContext('chart');
+		// Filtrar nombres vacíos o nulos
+		typeNames = typeNames.filter(n -> n != null && n != "");
+		if (typeNames.length == 0)
+		{
+			typeNames = EventInfoSystem.eventList.filter(n -> n != null && n != "");
+		}
+		if (typeNames.length == 0) typeNames.push("(no events)");
+
+		// Reconstruir el dropdown con los nuevos items
+		// CoolDropDown no tiene un método setItems, así que lo reemplazamos
+		var cx = (FlxG.width  - POPUP_W) / 2;
+		var cy = (FlxG.height - POPUP_H) / 2;
+
+		if (typeDropDown != null)
+		{
+			remove(typeDropDown, true);
+			typeDropDown.destroy();
+		}
+
+		final capturedNames = typeNames;
+		typeDropDown = new CoolDropDown(cx + 15, cy + 53, CoolDropDown.makeStrIdLabelArray(capturedNames, true), function(id:String)
+		{
+			var idx = Std.parseInt(id);
+			if (idx != null && idx >= 0 && idx < capturedNames.length)
+				_switchToType(capturedNames[idx]);
+		});
+		typeDropDown.scrollFactor.set(); typeDropDown.cameras = [camHUD];
+		// Insertar antes de descText para que el dropdown quede encima
+		add(typeDropDown);
+
+		// Seleccionar el primer tipo por defecto
+		if (capturedNames.length > 0 && capturedNames[0] != "(no events)")
+			_switchToType(capturedNames[0]);
 	}
 
 	function _switchToType(type:String):Void
@@ -994,7 +1037,7 @@ class EventPopup extends FlxGroup
 
 		var cx   = (FlxG.width  - POPUP_W) / 2;
 		var cy   = (FlxG.height - POPUP_H) / 2;
-		var yOff = cy + 108;
+		var yOff = cy + 120;   // debajo de descText (cy+100) con margen
 		var maxY = cy + POPUP_H - 55;
 
 		for (i in 0..._paramDefs.length)
@@ -1097,9 +1140,10 @@ class EventPopup extends FlxGroup
 		titleText.text = 'Add Event @ step ${Std.int(step)}';
 		if (addBtn != null) addBtn.label.text = "Add Event";
 
-		var types = funkin.scripting.events.EventRegistry.getNamesForContext('chart');
-		if (types.length == 0) types = EventInfoSystem.eventList;
-		if (types.length > 0) _switchToType(types[0]);
+		// Recargar eventos del disco (por si el usuario añadió nuevos JSONs)
+		funkin.scripting.events.EventRegistry.reload();
+		// Refrescar el dropdown con la lista actualizada
+		_refreshTypeDropDown();
 
 		isOpen = true;
 		visible = true;
@@ -1126,6 +1170,10 @@ class EventPopup extends FlxGroup
 		targetStep  = evt.stepTime;
 		titleText.text = 'Edit Event @ step ${Std.int(evt.stepTime)}';
 		if (addBtn != null) addBtn.label.text = "Save Changes";
+
+		// Recargar y refrescar dropdown antes de pre-seleccionar el tipo
+		funkin.scripting.events.EventRegistry.reload();
+		_refreshTypeDropDown();
 
 		// Pre-seleccionar el tipo del evento
 		_switchToType(evt.type);

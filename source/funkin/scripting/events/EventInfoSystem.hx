@@ -224,7 +224,11 @@ class EventInfoSystem
 
 		// 2. JSONs del engine (assets/data/events/ y assets/data/events/shared/)
 		_loadDir('assets/data/events', false);
+		_loadDir('assets/data/events/chart', false);
 		_loadDir('assets/data/events/shared', true);
+
+		_loadDir('data/events', false);
+		_loadDir('data/events/chart', false);
 
 		// 3. JSONs del mod activo (tienen prioridad sobre los del engine)
 		if (ModManager.isActive())
@@ -233,7 +237,10 @@ class EventInfoSystem
 			if (modRoot != null)
 			{
 				_loadDir('$modRoot/data/events', false);
+				_loadDir('$modRoot/data/events/chart', false);
 				_loadDir('$modRoot/data/events/shared', true);
+				_loadDir('$modRoot/assets/data/events', false);
+				_loadDir('$modRoot/assets/data/events/chart', false);
 			}
 		}
 	}

@@ -157,7 +157,7 @@ class Note extends FlxSprite
 	 * El caller (constructor / recycle) pasa el skinData ya resuelto
 	 * por NoteSkinSystem (que sabe qué skin corresponde al stage actual).
 	 */
-	function loadSkin(skinData:NoteSkinSystem.NoteSkinData):Void
+	public function loadSkin(skinData:NoteSkinSystem.NoteSkinData):Void
 	{
 		if (skinData == null)
 			return;
@@ -266,7 +266,12 @@ class Note extends FlxSprite
 
 	// ==================== RECYCLE (Object Pooling) ====================
 
-	public function recycle(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false):Void
+	/**
+	 * groupSkin: nombre de la skin exclusiva del grupo de strums al que
+	 * pertenece esta nota (guardado en StrumsGroupData.noteSkin por PlayState).
+	 * Si es null se usa la skin global activa (comportamiento original).
+	 */
+	public function recycle(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false, ?groupSkin:String):Void
 	{
 		this.strumTime = strumTime + SaveData.data.offset;
 		this.noteData = noteData;
@@ -308,7 +313,16 @@ class Note extends FlxSprite
 		// BUGFIX: el tipo de nota puede cambiar si el pool de NoteRenderer mezcla
 		// sustain y normales. loadSkin registra animaciones distintas según isSustainNote,
 		// así que hay que recargar también cuando cambia el tipo aunque la skin sea igual.
-		var skinData = NoteSkinSystem.getCurrentSkinData();
+		//
+		// groupSkin: si el grupo de strums tiene una skin propia, usarla en lugar
+		// de la skin global. Esto arregla que notas de grupos con skin diferente
+		// (p.ej. CPU con skin pixel, jugador con skin normal) aparezcan con la
+		// skin incorrecta al spawnear o reciclar notas del pool.
+		var skinData = (groupSkin != null && groupSkin != '')
+			? NoteSkinSystem.getCurrentSkinData(groupSkin)
+			: NoteSkinSystem.getCurrentSkinData();
+		if (skinData == null)
+			skinData = NoteSkinSystem.getCurrentSkinData(); // fallback a global
 		if (skinData.name != _loadedSkinName || isSustainNote != _loadedAsSustain)
 			loadSkin(skinData); // loadSkin() ya recalcula noteOffsetX/Y
 		else

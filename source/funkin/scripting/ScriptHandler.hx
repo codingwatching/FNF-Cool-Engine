@@ -346,54 +346,44 @@ class ScriptHandler
 
 		final scriptName = _extractName(scriptPath);
 		final script     = new HScriptInstance(scriptName, scriptPath);
+		// Cache the processed source so _handleError can show the exact failing line
+		// for runtime errors that occur later during call() invocations.
+		script._source   = content;
 
 		try
 		{
-			script.program = parser.parseString(content, scriptPath);
 			script.interp  = new Interp();
 
 			ScriptAPI.expose(script.interp);
 
-			// ── Per-instance require() and log() ─────────────────────────────
-			// require() needs the concrete instance to resolve relative paths.
-			// ScriptAPI.expose() has no access to the instance, so we inject here.
-			// BUG FIX: without this, require('ABotVis.hx') in nene.hx returns null
-			// because the interpreter doesn't know 'require' → viz = null → invisible bars.
 			script.interp.variables.set('require', function(path:String):Dynamic return script.require(path));
-			// log() as a top-level function (the API only exposes debug.log()).
-			// BUG FIX: scripts calling log('msg') would get "Variable log not found".
 			script.interp.variables.set('log', function(msg:Dynamic):Void trace('[Script:$scriptName] $msg'));
 
 			if (presetVars != null)
 				for (k => v in presetVars)
 					script.interp.variables.set(k, v);
 
-			// ── Psych Lua API shims ───────────────────────────────────────────
-			// Always expose the gameplay API for Lua scripts (getProperty,
-			// setProperty, makeLuaText, callMethod, etc.).
-			// The stage-specific API is layered on top when a Stage is provided.
 			if (isLua)
 				mods.compat.PsychLuaGameplayAPI.expose(script.interp);
 
 			if (isLua && stage != null)
 				mods.compat.PsychLuaStageAPI.expose(script.interp, stage);
 
-			// ── HScript: pre-process imports before execute ──────────────────
-			// Allows writing `import flixel.util.FlxColor;` in .hx/.hscript scripts.
-			// Imports are resolved and commented out; the class lands in interp.variables.
+			// ── HScript: pre-process imports BEFORE first parse ──────────────
+			// processImports() replaces import lines with comments and injects
+			// classes into interp.variables. We do it once here and only parse
+			// the (possibly modified) source — avoiding the double-parse that
+			// happened before when we parsed rawContent and then parsed again.
 			#if HSCRIPT_ALLOWED
-			if (!isLua)
-			{
-				final processedContent = processImports(content, script.interp);
-				if (processedContent != content)
-					script.program = parser.parseString(processedContent, scriptPath);
-			}
+			final finalContent = isLua ? content : processImports(content, script.interp);
+			if (finalContent != content) script._source = finalContent;
+			script.program = parser.parseString(finalContent, scriptPath);
+			#else
+			script.program = parser.parseString(content, scriptPath);
 			#end
 
 			script.interp.execute(script.program);
 
-			// Set up Psych callback aliases AFTER the script has defined its
-			// functions (goodNoteHit → onNoteHit, onCreatePost → postCreate, etc.)
 			if (isLua)
 				mods.compat.PsychLuaGameplayAPI.setupCallbackAliases(script);
 
@@ -406,8 +396,28 @@ class ScriptHandler
 		}
 		catch (e:Dynamic)
 		{
-			trace('[ScriptHandler] Error in "$scriptName"!');
-			trace('  → ${Std.string(e)}');
+			// Extract line number from the parse/runtime error for a pinpointed message
+			var lineInfo = '';
+			try
+			{
+				if (Reflect.hasField(e, 'line'))
+				{
+					lineInfo = ':${Reflect.field(e, 'line')}';
+				}
+				else if (Reflect.hasField(e, 'pmin'))
+				{
+					final pmin:Int = Reflect.field(e, 'pmin');
+					// Count newlines up to pmin to get the 1-based line number
+					var lineNum = 1;
+					final len   = Std.int(Math.min(pmin, content.length));
+					for (i in 0...len)
+						if (content.charAt(i) == '\n') lineNum++;
+					lineInfo = ':$lineNum';
+				}
+			}
+			catch (_e:Dynamic) {}
+
+			trace('[ScriptHandler] Error loading "$scriptName$lineInfo": ${Std.string(e)}');
 			if (isLua) trace('[ScriptHandler] Transpiled code:\n$content');
 			return null;
 		}
@@ -444,15 +454,15 @@ class ScriptHandler
 			: rawContentNoInit;
 		final scriptName = _extractName(scriptPath);
 		final script     = new HScriptInstance(scriptName, scriptPath);
+		// Cache source so _handleError can show the exact failing line on runtime errors
+		script._source   = rawContent;
 
 		try
 		{
-			script.program = parser.parseString(rawContent, scriptPath);
 			script.interp  = new Interp();
 
 			ScriptAPI.expose(script.interp);
 
-			// ── Per-instance require() and log() (see loadScript() for explanation) ─
 			script.interp.variables.set('require', function(path:String):Dynamic return script.require(path));
 			script.interp.variables.set('log', function(msg:Dynamic):Void trace('[Script:$scriptName] $msg'));
 
@@ -463,17 +473,15 @@ class ScriptHandler
 			if (isLuaNoInit)
 				mods.compat.PsychLuaGameplayAPI.expose(script.interp);
 
-			// ── HScript: pre-process imports before execute ──────────────────
+			// ── HScript: pre-process imports BEFORE first parse ──────────────
 			#if HSCRIPT_ALLOWED
-			if (!isLuaNoInit)
-			{
-				final processedRaw = processImports(rawContent, script.interp);
-				if (processedRaw != rawContent)
-					script.program = parser.parseString(processedRaw, scriptPath);
-			}
+			final finalRaw = isLuaNoInit ? rawContent : processImports(rawContent, script.interp);
+			if (finalRaw != rawContent) script._source = finalRaw;
+			script.program = parser.parseString(finalRaw, scriptPath);
+			#else
+			script.program = parser.parseString(rawContent, scriptPath);
 			#end
 
-			// Executing the program defines functions in interp.variables — without calling onCreate yet.
 			script.interp.execute(script.program);
 
 			if (isLuaNoInit)
@@ -485,8 +493,27 @@ class ScriptHandler
 		}
 		catch (e:Dynamic)
 		{
-			trace('[ScriptHandler] Error parsing "$scriptName"!');
-			trace('  → ${Std.string(e)}');
+			// Extract line number from the parse/runtime error for a pinpointed message
+			var lineInfo = '';
+			try
+			{
+				if (Reflect.hasField(e, 'line'))
+				{
+					lineInfo = ':${Reflect.field(e, 'line')}';
+				}
+				else if (Reflect.hasField(e, 'pmin'))
+				{
+					final pmin:Int = Reflect.field(e, 'pmin');
+					var lineNum = 1;
+					final len   = Std.int(Math.min(pmin, rawContent.length));
+					for (i in 0...len)
+						if (rawContent.charAt(i) == '\n') lineNum++;
+					lineInfo = ':$lineNum';
+				}
+			}
+			catch (_e:Dynamic) {}
+
+			trace('[ScriptHandler] Error loading "$scriptName$lineInfo": ${Std.string(e)}');
 			return null;
 		}
 
@@ -573,7 +600,7 @@ class ScriptHandler
 	public static function setOnScripts(varName:String, value:Dynamic):Void
 	{
 		// No intermediate Array "layers" allocation
-		inline function _setLayer(layer:Map<String, HScriptInstance>):Void
+		function _setLayer(layer:Map<String, HScriptInstance>):Void
 			for (script in layer) if (script.active) script.set(varName, value);
 		_setLayer(globalScripts);
 		_setLayer(stageScripts);
@@ -583,11 +610,65 @@ class ScriptHandler
 		_setLayer(charScripts);
 	
 		#if (LUA_ALLOWED && linc_luajit)
-		inline function _setLua(layer:Array<RuleScriptInstance>):Void
+		function _setLua(layer:Array<RuleScriptInstance>):Void
 			for (lua in layer) if (lua.active) lua.set(varName, value);
 		_setLua(globalLuaScripts); _setLua(stageLuaScripts); _setLua(songLuaScripts);
 		_setLua(uiLuaScripts);     _setLua(menuLuaScripts);  _setLua(charLuaScripts);
 		#end
+	}
+
+	/**
+	 * Injects all public fields of a PlayState into every active script.
+	 *
+	 * OPTIMIZACIÓN: en lugar de llamar setOnScripts() una vez por campo
+	 * (lo que iteraba los 6 layers N veces, N = nº de campos ≈ 80+),
+	 * construimos el mapa de vars una sola vez y hacemos UNA pasada por
+	 * todos los scripts, inyectando el batch entero con interp.variables.set().
+	 * 80 campos × 6 layers × M scripts → 1 construcción + 1 pasada total.
+	 */
+	public static function injectPlayState(ps:funkin.gameplay.PlayState):Void
+	{
+		if (ps == null) return;
+
+		// ── Construir el batch de variables una sola vez ───────────────────
+		final vars:Map<String, Dynamic> = [];
+		vars.set('game',      ps);
+		vars.set('playState', ps);
+
+		for (field in Type.getInstanceFields(funkin.gameplay.PlayState))
+		{
+			if (field.startsWith('_')) continue;
+			try {
+				final val = Reflect.getProperty(ps, field);
+				if (!Reflect.isFunction(val)) vars.set(field, val);
+			} catch (_e:Dynamic) {}
+		}
+		for (field in Type.getClassFields(funkin.gameplay.PlayState))
+		{
+			if (field.startsWith('_')) continue;
+			try {
+				final val = Reflect.getProperty(funkin.gameplay.PlayState, field);
+				if (!Reflect.isFunction(val)) vars.set(field, val);
+			} catch (_e:Dynamic) {}
+		}
+		if (ps.boyfriend    != null) vars.set('bf',    ps.boyfriend);
+		if (ps.dad          != null) vars.set('dad',   ps.dad);
+		if (ps.gf           != null) vars.set('gf',    ps.gf);
+		if (ps.currentStage != null) vars.set('stage', ps.currentStage);
+
+		// ── Inyectar el batch en una sola pasada por scripts ──────────────
+		function _injectLayer(layer:Map<String, HScriptInstance>):Void {
+			for (script in layer)
+				if (script.active && script.interp != null)
+					for (k => v in vars)
+						script.interp.variables.set(k, v);
+		}
+		_injectLayer(globalScripts);
+		_injectLayer(stageScripts);
+		_injectLayer(songScripts);
+		_injectLayer(uiScripts);
+		_injectLayer(menuScripts);
+		_injectLayer(charScripts);
 	}
 
 	/** Injects a variable only into stage scripts. */
@@ -622,13 +703,19 @@ class ScriptHandler
 	/** Gets the value of a variable from active scripts (first non-null result). */
 	public static function getFromScripts(varName:String, defaultValue:Dynamic = null):Dynamic
 	{
-		final layers = [globalScripts, stageScripts, songScripts, uiScripts, menuScripts, charScripts];
-		for (layer in layers)
+		// No alloc: iterate layers directly instead of building an Array each call.
+		function _check(layer:Map<String, HScriptInstance>):Dynamic {
 			for (script in layer)
-				if (script.active) {
-					final v = script.get(varName);
-					if (v != null) return v;
-				}
+				if (script.active) { final v = script.get(varName); if (v != null) return v; }
+			return null;
+		}
+		var v:Dynamic;
+		v = _check(globalScripts); if (v != null) return v;
+		v = _check(stageScripts);  if (v != null) return v;
+		v = _check(songScripts);   if (v != null) return v;
+		v = _check(uiScripts);     if (v != null) return v;
+		v = _check(menuScripts);   if (v != null) return v;
+		v = _check(charScripts);   if (v != null) return v;
 		return defaultValue;
 	}
 
@@ -685,16 +772,19 @@ class ScriptHandler
 	/** Reloads a script by name (without restarting the interpreter). */
 	public static function hotReload(name:String):Bool
 	{
-		final layers = [globalScripts, stageScripts, songScripts, uiScripts, menuScripts, charScripts];
-		for (layer in layers)
-		{
-			if (layer.exists(name))
-			{
-				layer.get(name).hotReload();
-				trace('[ScriptHandler] Hot-reload: $name');
-				return true;
-			}
+		// No alloc: check layers directly.
+		function _tryReload(layer:Map<String, HScriptInstance>):Bool {
+			if (!layer.exists(name)) return false;
+			layer.get(name).hotReload();
+			trace('[ScriptHandler] Hot-reload: $name');
+			return true;
 		}
+		if (_tryReload(globalScripts)) return true;
+		if (_tryReload(stageScripts))  return true;
+		if (_tryReload(songScripts))   return true;
+		if (_tryReload(uiScripts))     return true;
+		if (_tryReload(menuScripts))   return true;
+		if (_tryReload(charScripts))   return true;
 		trace('[ScriptHandler] hotReload: "$name" not found.');
 		return false;
 	}
@@ -796,7 +886,7 @@ class ScriptHandler
 
 	static function _destroyLuaLayer(layer:Array<RuleScriptInstance>):Void
 	{
-		for (lua in layer) try lua.destroy() catch (_) {};
+		for (lua in layer) try lua.destroy() catch (_e:Dynamic) {};
 		layer.resize(0);
 	}
 
@@ -879,6 +969,20 @@ class ScriptHandler
 			final fullName  = r.matched(1);
 			final alias     = r.matched(2);
 			final shortName = (alias != null && alias != '') ? alias : fullName.split('.').pop();
+
+			// IMPORTANT: If ScriptAPI.expose() already registered a hand-crafted proxy
+			// for this name (e.g. FlxColor → _flxColorProxy, FlxEase → _flxEaseProxy),
+			// do NOT overwrite it with the raw Haxe class/abstract resolved via reflection.
+			//
+			// Abstracts like FlxColor are erased at runtime — Type.resolveClass() may
+			// return the underlying @:impl class, whose static fields are NOT accessible
+			// via Reflect.field(). That would make FlxColor.BLACK return null in scripts.
+			// The proxy exposes them as plain Int values and is always the better choice.
+			if (interp.variables.exists(shortName))
+			{
+				trace('[ScriptHandler] import $fullName → kept existing proxy for "$shortName"');
+				return '// [import] $fullName';
+			}
 
 			var resolved:Dynamic = Type.resolveClass(fullName);
 			if (resolved == null) resolved = Type.resolveEnum(fullName);

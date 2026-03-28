@@ -357,6 +357,18 @@ class LevelFile
 
 				if (song != null)
 				{
+					if (song.notes != null)
+					{
+						for (rawSec in song.notes)
+						{
+							var sec:Dynamic = rawSec;
+							if (sec.lengthInSteps == null || sec.lengthInSteps <= 0)
+							{
+								var beats:Float = (sec.sectionBeats != null) ? cast sec.sectionBeats : 4.0;
+								sec.lengthInSteps = Std.int(beats * 4);
+							}
+						}
+					}
 					trace('[LevelFile] loadDiff "$diff" ← $path');
 					return song;
 				}

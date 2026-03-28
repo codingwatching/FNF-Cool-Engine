@@ -39,6 +39,9 @@ class MainMenuState extends funkin.states.MusicBeatState
 	var newInput:Bool = true;
 	var menuItem:FlxSprite;
 
+	var versionFNF:String = "0.6.1";
+	var versionAPI:String = "0.4.2B";
+
 	public static var firstStart:Bool = true;
 
 	public static var finishedFunnyMove:Bool = false;
@@ -125,7 +128,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		// En móvil: texto "[ MODS ]" tappable en lugar de "Press Shift"
 		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, '[ MODS ]', 12);
 		#else
-		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, 'Press Shift - Menu Mods - API v0.4.0B', 12);
+		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, 'Press Shift - Menu Mods - API v'+versionAPI, 12);
 		#end
 		modShit.scrollFactor.set();
 		modShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -133,7 +136,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		modShit.y -= 40;
 		add(modShit);
 
-		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v0.6.1", 12);
+		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v"+versionFNF, 12);
 		versionShit.scrollFactor.set();
 		versionShit.antialiasing = SaveData.data.antialiasing;
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);

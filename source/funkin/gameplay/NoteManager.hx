@@ -446,8 +446,16 @@ class NoteManager
 		{
 			final raw = unspawnNotes[_unspawnIdx++];
 
+			// Resolver la skin propia del grupo de strums (si la tiene).
+			// PlayState la guarda en StrumsGroupData.noteSkin cuando carga
+			// el bloque noteSkins del meta.json. Si el grupo no tiene override
+			// el campo es null y getNote usa la skin global activa.
+			var _groupSkin:String = null;
+			if (allStrumsGroups != null && raw.strumsGroupIndex < allStrumsGroups.length)
+				_groupSkin = allStrumsGroups[raw.strumsGroupIndex].data.noteSkin;
+
 			final _pnKey = _prevNoteKey(raw.noteData, raw.strumsGroupIndex);
-			final note = renderer.getNote(raw.strumTime, raw.noteData, _prevSpawnedNote.get(_pnKey), raw.isSustainNote, raw.mustHitNote);
+			final note = renderer.getNote(raw.strumTime, raw.noteData, _prevSpawnedNote.get(_pnKey), raw.isSustainNote, raw.mustHitNote, _groupSkin);
 			note.strumsGroupIndex = raw.strumsGroupIndex;
 			note.noteType = raw.noteType;
 			note.sustainLength = raw.sustainLength;
@@ -496,13 +504,6 @@ class NoteManager
 
 	private inline function _updateNoteGroup(members:Array<Note>, len:Int, songPosition:Float, hitWindow:Float):Void
 	{
-		// BUGFIX: iterar hacia ATRÁS para evitar que removeNote() corrompa la iteración.
-		// removeNote() llama sustainNotes.remove(note, splice=true), que desplaza todos
-		// los elementos posteriores un índice hacia la izquierda. Con iteración hacia adelante
-		// (for i in 0...len), la nota en i+1 pasa a i justo después de procesarlo → se SALTA.
-		// Con varias notas largas activas simultáneamente se saltan varias cada frame:
-		// sus posiciones y clipRects no se actualizan → glitches visuales en los holds.
-		// Iterando hacia atrás (len-1 → 0), el splice solo afecta índices ≥ i (ya procesados).
 		var i:Int = len;
 		while (i > 0)
 		{
@@ -816,21 +817,28 @@ class NoteManager
 		if (strum != null)
 		{
 			// ── Ángulo base del strum ─────────────────────────────────────────
-			var _finalAngle:Float = strum.angle;
+			// _baseAngle acumula: rotación del strum + confusion + tornado.
+			// INVERT NO entra aquí: se aplica distinto según el tipo de nota.
+			//   • Notas normales → +180° al ángulo final (rota el sprite).
+			//   • Sustains       → flipX/flipY (preserva el vector del snake).
+			var _baseAngle:Float = strum.angle;
 
 			if (_modState != null)
 			{
 				// CONFUSION: rotación plana extra en cada nota
-				_finalAngle += _modState.confusion;
+				_baseAngle += _modState.confusion;
 
 				// TORNADO: cada nota rota según su strumTime (efecto carrusel).
 				if (_modState.tornado != 0)
-					_finalAngle += _modState.tornado * Math.sin(
+					_baseAngle += _modState.tornado * Math.sin(
 						note.strumTime * 0.001 * _modState.drunkFreq
 					);
 			}
 
-			note.angle = _finalAngle;
+			// INVERT para notas normales: rotar la flecha 180° para que apunte
+			// en la dirección correcta. Los sustains lo manejan con flipX/flipY.
+			if (!note.isSustainNote)
+				note.angle = _baseAngle + (_modState != null && _modState.invert > 0.5 ? 180.0 : 0.0);
 
 			// ── Escala / alpha ────────────────────────────────────────────────
 			var newSX = strum.scale.x;
@@ -902,90 +910,120 @@ class NoteManager
 
 			note.x = _noteX;
 
-			// ── Sustain deformation (legacy rigid-scroll mode) ────────────────
-			// When the snake system is active (default), this block is skipped.
-			// SnakeSustainChain handles both angle AND scale.y from actual chain
-			// geometry, making this computation redundant.
+			// ── Sustain deformation — NightmareVision-style dynamic snake ────────
+			// Instead of the old 1/cos rigid-column correction, we compute the
+			// ACTUAL pixel position of the "next" step (strumTime + stepCrochet)
+			// applying every modifier at that time-offset, then derive:
+			//   • angle  = atan2(dy, dx) − 90   (same formula as NV's PlayState)
+			//   • scale.y = real Euclidean distance / frameHeight  (body pieces only)
 			//
-			// When snake is disabled, the original rigid-column deformation runs:
-			// each piece rotates to face the piece ahead of it along the straight
-			// scroll direction, with scale.y corrected for the resulting angle.
+			// This ensures sustain pieces bend, stretch and connect seamlessly
+			// under any modchart effect (drunk, wave, zigzag, tipsy, etc.) without
+			// gaps or visible "chunking". The tail cap keeps its base scale.
 			if (note.isSustainNote)
 			{
-				final _prevStrumTime:Float = note.strumTime - Conductor.stepCrochet;
+				// INVERT sustain flip: XOR entre downscroll global e INVERT mod.
+				// Exactamente uno de los dos activo = flip. Ambos o ninguno = sin flip.
+				//   upscroll  + no INVERT → sin flip (normal)
+				//   upscroll  +    INVERT → flip (notas vienen de arriba, como downscroll)
+				//   downscroll + no INVERT → flip (normal downscroll)
+				//   downscroll +    INVERT → sin flip (doble inversión = upscroll)
+				final _isInvert:Bool = _modState != null && _modState.invert > 0.5;
+				final _sustainFlip:Bool = downscroll != _isInvert;
+				note.flipX = _sustainFlip;
+				note.flipY = _sustainFlip;
 
-				// Y base de la pieza anterior
-				var _prevY:Float = downscroll
-					? _refY + (songPosition - _prevStrumTime) * _effectiveSpeed * _invertSign
-					: _refY - (songPosition - _prevStrumTime) * _effectiveSpeed * _invertSign;
+				// ── Position of the NEXT step (end-of-piece / start-of-next) ──
+				final _nextStrumTime:Float = note.strumTime + Conductor.stepCrochet;
 
-				// Sumar los mismos Y-offsets evaluados en _prevStrumTime
+				// Next Y: same formula as noteY but at _nextStrumTime
+				var _nextY:Float = downscroll
+					? _refY + (songPosition - _nextStrumTime) * _effectiveSpeed * _invertSign
+					: _refY - (songPosition - _nextStrumTime) * _effectiveSpeed * _invertSign;
+
+				// Apply same Y modifiers evaluated at _nextStrumTime
 				if (_modState != null)
 				{
-					_prevY += _modState.noteOffsetY;
+					_nextY += _modState.noteOffsetY;
 
 					if (_modState.drunkY != 0)
-						_prevY += _modState.drunkY * Math.sin(
-							_prevStrumTime * 0.001 * _modState.drunkFreq
+						_nextY += _modState.drunkY * Math.sin(
+							_nextStrumTime * 0.001 * _modState.drunkFreq
 							+ songPosition * 0.0008
 						);
 
 					if (_modState.bumpy != 0)
-						_prevY += _modState.bumpy * Math.sin(
+						_nextY += _modState.bumpy * Math.sin(
 							songPosition * 0.001 * _modState.bumpySpeed
 						);
 
 					if (_modState.wave != 0)
-						_prevY += _modState.wave * Math.sin(
+						_nextY += _modState.wave * Math.sin(
 							songPosition * 0.001 * _modState.waveSpeed
-							- _prevStrumTime * 0.001
+							- _nextStrumTime * 0.001
 						);
 				}
 
-				// X de la pieza anterior (ya existía, se mantiene)
-				var _prevX:Float = strum.x + (strum.width - note.width) / 2;
+				// Next X: same formula as _noteX but at _nextStrumTime
+				var _nextX:Float = strum.x + (strum.width - note.width) / 2;
 				if (_modState != null)
 				{
-					_prevX += _modState.noteOffsetX;
+					_nextX += _modState.noteOffsetX;
 
 					if (_modState.drunkX != 0)
-						_prevX += _modState.drunkX * Math.sin(
-							_prevStrumTime * 0.001 * _modState.drunkFreq
+						_nextX += _modState.drunkX * Math.sin(
+							_nextStrumTime * 0.001 * _modState.drunkFreq
 							+ songPosition * 0.0008
 						);
 
 					if (_modState.tipsy != 0)
-						_prevX += _modState.tipsy * Math.sin(
+						_nextX += _modState.tipsy * Math.sin(
 							songPosition * 0.001 * _modState.tipsySpeed
 						);
 
 					if (_modState.zigzag != 0)
 					{
-						var _zzP = Math.sin(_prevStrumTime * 0.001 * _modState.zigzagFreq * Math.PI);
-						_prevX += _modState.zigzag * (_zzP >= 0 ? 1.0 : -1.0);
+						var _zzN = Math.sin(_nextStrumTime * 0.001 * _modState.zigzagFreq * Math.PI);
+						_nextX += _modState.zigzag * (_zzN >= 0 ? 1.0 : -1.0);
 					}
 
 					if (_modState.flipX > 0.5)
 					{
 						final _sc:Float = strum.x + strum.width / 2;
-						_prevX = _sc - (_prevX - _sc + note.width / 2) - note.width / 2;
+						_nextX = _sc - (_nextX - _sc + note.width / 2) - note.width / 2;
 					}
 				}
 
-				// Vector hacia la pieza anterior → ángulo de deformación
-				final _dX:Float = _prevX - note.x;
-				final _dY:Float = _prevY - note.y;
+				// ── Angle: vector from current piece → next piece ────────────
+				// FIX: usar noteY (posición calculada este frame) en vez de note.y
+				// (que para sustains se asigna DESPUÉS de este bloque, causando que
+				// el vector se calculara contra la posición del frame anterior y
+				// producía huecos y trozos sueltos a velocidades altas o con mods).
+				final _dX:Float = _nextX - note.x;
+				final _dY:Float = _nextY - noteY;    // noteY, no note.y
 
-				final _rad:Float    = Math.atan2(_dY, _dX);
-				final _deg:Float    = _rad * (180.0 / Math.PI);
-				final _deform:Float = downscroll ? (_deg - 90.0) : (_deg + 90.0);
+				final _rad:Float = Math.atan2(_dY, _dX);
+				final _deg:Float = _rad * (180.0 / Math.PI);
 
-				note.angle = _finalAngle + _deform;
+				// _baseAngle: sin INVERT 180° — el flip ya está en flipX/flipY.
+				note.angle = _baseAngle + (_deg - 90.0);
 
-				final _deformRadAbs:Float = Math.abs(_deform * (Math.PI / 180.0));
-				final _cosDeform:Float    = Math.cos(_deformRadAbs);
-				final _seamOverlap:Float  = 4.0 / (note.frameHeight > 0 ? note.frameHeight : 1.0);
-				note.scale.y = note.sustainBaseScaleY / (_cosDeform > 0.1 ? _cosDeform : 0.1) + _seamOverlap;
+				// ── Scale.y: actual Euclidean distance (NV style) ─────────────
+				// Body pieces stretch to exactly fill the gap between this piece
+				// and the next. Tail caps keep their base scale (they're the end
+				// graphic and shouldn't stretch).
+				final _animName:String = note.animation.curAnim?.name ?? '';
+				final _isTailCap:Bool  = _animName.endsWith('holdend');
+
+				if (!_isTailCap)
+				{
+					final _dist:Float = Math.sqrt(_dX * _dX + _dY * _dY);
+					final _fh:Float   = note.frameHeight > 0 ? note.frameHeight : 1.0;
+					// Small seam overlap (2px in frame-space) prevents hairline
+					// gaps at high scroll speeds or extreme angles.
+					note.scale.y = (_dist + 2.0) / _fh;
+				}
+				// else: tail cap — leave scale.y as sustainBaseScaleY
 			}
 		}
 
@@ -1034,119 +1072,104 @@ class NoteManager
 				note.y += _modState.bumpy * Math.sin(songPosition * 0.001 * _modState.bumpySpeed);
 		}
 
-		// Posición Y de sustains: noteY directo (fórmula original).
-		// scale.y fue calculado en setupSustainNote() para que la altura de cada pieza
-		// coincida con el espacio entre strumTimes adyacentes (stepCrochet * scrollSpeed).
-		// Cualquier compensación de offset.y rompe esa alineación cuerpo↔tail.
 		if (note.isSustainNote)
 			note.y = noteY;
 
-		// ── Clip rect for sustain notes ──────────────────────────────────────
-		// When the snake system is active, this block is SKIPPED for sustains.
-		// _applySnakeSustains() re-runs this logic AFTER overriding note.y with
-		// the snake chain position, so the clip always reflects the real Y.
-		//
-		// The removeNote() paths (clipH <= 0 / clipY out of range) still fire
-		// here in the math-Y pass because: at the point a segment is fully past
-		// the strum, math Y and snake Y are essentially identical (the chain head
-		// IS the strum center, so converged segments near it have almost no lag).
 		if (note.isSustainNote)
 		{
-			// BUGFIX: Cortar la nota exactamente en el CENTRO del strum, no en
-			// el borde superior. halfStrum = mitad del ancho de una nota/strum,
-			// que aproxima la mitad de la altura visual del strum arrow.
-			// Antes: player usaba 0 (borde superior), CPU usaba 28 (muy poco).
-			// Ahora ambos usan halfStrum (~56px) para que la nota desaparezca
-			// justo en la mitad del strum en lugar de quedarse visible hasta
-			// el borde exacto o desaparecer demasiado pronto.
-			final halfStrum:Float = Note.swagWidth * 0.5;
-
-			// Umbral ajustado según dirección de scroll (mismo para player y CPU).
-			var strumLineThreshold = downscroll
-				? strumLineY - halfStrum   // downscroll: threshold desplazado hacia arriba
-				: strumLineY + halfStrum;  // upscroll:   threshold desplazado hacia dentro del strum
-
-			if (downscroll)
+			if (note.wasGoodHit && strum != null)
 			{
-				// Downscroll: la nota baja de arriba hacia el strum.
-				// Con flipY=true, el FRAME TOP = WORLD BOTTOM (parte que pasa el strum).
-				// Clipeamos siempre que el fondo de la nota cruce el threshold, sin
-				// esperar a wasGoodHit. Esto evita que el cuerpo del hold "sobresalga"
-				// visualmente por debajo de la línea de strums mientras se acerca.
-				//
-				// BUG FIX: el código anterior usaba
-				//   noteEndPos = note.y - note.offset.y * note.scale.y + note.height
-				// que multiplica el offset por scale una segunda vez (ya está en px mundo).
-				// Con hold notes de scale.y alto, noteEndPos era absurdamente grande →
-				// el clip siempre se activaba → clipRect.y negativo → artefactos visuales.
-				// Corrección: usar simplemente note.y + note.height (fondo del hitbox).
-				final noteBottom:Float = note.y + note.height;
-				if (noteBottom >= strumLineThreshold)
+				// Vector note-origin → center of the strum (in world coordinates)
+				final _sx:Float = strum.x - strum.offset.x + strum.frameWidth  * 0.5;
+				final _sy:Float = strum.y - strum.offset.y + strum.frameHeight * 0.5;
+				final _nx:Float = note.x  - note.offset.x  + note.frameWidth   * 0.5 * note.scale.x;
+				final _ny:Float = note.y  - note.offset.y;
+
+				final _vx:Float = _nx - _sx;
+				final _vy:Float = _ny - _sy;
+				final _mag:Float = Math.sqrt(_vx * _vx + _vy * _vy);
+
+				// Convert world distance → frame pixels
+				final _fh:Float = note.frameHeight > 0 ? note.frameHeight : 1.0;
+				final _clipFrameY:Float = _mag / note.scale.y;
+				final _clipH:Float      = _fh - _clipFrameY;
+
+				if (_clipH <= 0)
 				{
-					var clipH:Float = (strumLineThreshold - note.y) / note.scale.y;
-					if (clipH <= 0)
-					{
-						// Nota completamente por debajo del threshold: nada que mostrar.
-						// Si ya fue consumida, eliminarla del grupo.
-						note.clipRect = null;
-						if (note.wasGoodHit)
-						{
-							note.visible = false;
-							removeNote(note);
-						}
-					}
-					else
-					{
-						// clipH = píxeles de frame a mostrar (frame bottom = world top = por encima del strum)
-						_sustainClipRect.x      = 0;
-						_sustainClipRect.width  = note.frameWidth * 2;
-						_sustainClipRect.height = clipH;
-						_sustainClipRect.y      = note.frameHeight - clipH;
-						// Usar copyFrom en lugar de asignar referencia directa para
-						// que cada nota tenga su propio rect y no compartan el mismo objeto.
-						if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
-						note.clipRect.copyFrom(_sustainClipRect);
-						note.clipRect = note.clipRect; // forzar update interno de Flixel
-					}
+					// Sustain completely consumed — hide and recycle
+					note.clipRect = null;
+					note.visible  = false;
+					removeNote(note);
 				}
 				else
 				{
-					note.clipRect = null;
+					_sustainClipRect.x      = 0;
+					_sustainClipRect.width  = note.frameWidth * 2;
+					_sustainClipRect.y      = _clipFrameY;
+					_sustainClipRect.height = _clipH;
+					if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
+					note.clipRect.copyFrom(_sustainClipRect);
+					note.clipRect = note.clipRect;
 				}
 			}
-			else
+			else if (!note.wasGoodHit)
 			{
-				// Upscroll: la nota sube hacia el strum (Y decrece).
-				// Clipeamos la parte superior que ya pasó por encima del strum.
-				if (note.y < strumLineThreshold)
+				final _strumCenter:Float = (strum != null)
+					? strum.y - strum.offset.y + strum.frameHeight * 0.5
+					: strumLineY;
+
+				if (downscroll)
 				{
-					var clipY:Float = (strumLineThreshold - note.y) / note.scale.y;
-					var clipH:Float = note.frameHeight - clipY;
-					if (clipH > 0 && clipY >= 0)
+					final _noteBottom:Float = note.y + note.height;
+					if (_noteBottom >= _strumCenter)
 					{
-						_sustainClipRect.x      = 0;
-						_sustainClipRect.width  = note.frameWidth * 2;
-						_sustainClipRect.y      = clipY;
-						_sustainClipRect.height = clipH;
-						if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
-						note.clipRect.copyFrom(_sustainClipRect);
-						note.clipRect = note.clipRect; // forzar update interno de Flixel
+						final _clipH:Float = (_strumCenter - note.y) / note.scale.y;
+						if (_clipH <= 0)
+						{
+							note.clipRect = null;
+						}
+						else
+						{
+							_sustainClipRect.x      = 0;
+							_sustainClipRect.width  = note.frameWidth * 2;
+							_sustainClipRect.height = _clipH;
+							_sustainClipRect.y      = note.frameHeight - _clipH;
+							if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
+							note.clipRect.copyFrom(_sustainClipRect);
+							note.clipRect = note.clipRect;
+						}
 					}
 					else
 					{
-						// Nota completamente por encima del strum: ocultar si ya fue consumida
-						// y eliminarla del grupo para no seguir procesándola cada frame.
-						if (note.isSustainNote && note.wasGoodHit)
-						{
-							note.visible = false;
-							removeNote(note);
-						}
 						note.clipRect = null;
 					}
 				}
 				else
 				{
-					note.clipRect = null;
+					// Upscroll: note goes up, we clip the part that went over the strum
+					if (note.y < _strumCenter)
+					{
+						final _clipFrameY:Float = (_strumCenter - note.y) / note.scale.y;
+						final _clipH:Float      = note.frameHeight - _clipFrameY;
+						if (_clipH > 0 && _clipFrameY >= 0)
+						{
+							_sustainClipRect.x      = 0;
+							_sustainClipRect.width  = note.frameWidth * 2;
+							_sustainClipRect.y      = _clipFrameY;
+							_sustainClipRect.height = _clipH;
+							if (note.clipRect == null) note.clipRect = new flixel.math.FlxRect();
+							note.clipRect.copyFrom(_sustainClipRect);
+							note.clipRect = note.clipRect;
+						}
+						else
+						{
+							note.clipRect = null;
+						}
+					}
+					else
+					{
+						note.clipRect = null;
+					}
 				}
 			}
 		}

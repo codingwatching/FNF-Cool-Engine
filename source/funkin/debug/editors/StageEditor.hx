@@ -4,18 +4,11 @@ import coolui.CoolNumericStepper;
 import coolui.CoolCheckBox;
 import coolui.CoolDropDown;
 import coolui.CoolTabMenu;
-
-
 import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
-
-
-
-
-
 
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
@@ -144,6 +137,9 @@ class StageEditor extends funkin.states.MusicBeatState
 	var hoverTooltipBg:FlxSprite;
 	var hoverTooltipTxt:FlxText;
 	var _hoverName:String = '';
+	/** Cached tooltip dimensions — avoids makeGraphic every frame. */
+	var _tooltipW:Int = 0;
+	var _tooltipH:Int = 0;
 
 	// ── HUD: title + toolbar + status ────────────────────────────────────────
 	var titleText:FlxText;
@@ -159,6 +155,8 @@ class StageEditor extends funkin.states.MusicBeatState
 	var layerTextsGroup:FlxTypedGroup<FlxText>;
 	var layerHitData:Array<LayerHit> = [];
 	var layerHoverIdx:Int = -1;
+	/** Maps element index → its row-background FlxSprite so hover can recolor without full rebuild. */
+	var _layerRowBgMap:Map<Int, FlxSprite> = new Map();
 
 	// ── HUD: right panel (CoolTabMenu) ──────────────────────────────────────
 	var rightPanel:CoolTabMenu;
@@ -226,6 +224,16 @@ class StageEditor extends funkin.states.MusicBeatState
 	/** All backdrop-specific tab widgets; toggled as a group. */
 	var _backdropWidgets:Array<flixel.FlxBasic> = [];
 
+	// Graphic panel widgets (shown only when type == 'graphic')
+	var graphicWidthStepper:CoolNumericStepper;
+	var graphicHeightStepper:CoolNumericStepper;
+	var graphicFillColorInput:CoolInputText;
+	/** All graphic-specific tab widgets; toggled as a group. */
+	var _graphicWidgets:Array<flixel.FlxBasic> = [];
+
+	/** Asset path widgets (label + input + browse btn); hidden for types that have no external asset (graphic, group). */
+	var _assetWidgets:Array<flixel.FlxBasic> = [];
+
 	// ── Drag ─────────────────────────────────────────────────────────────────
 	var isDraggingEl:Bool = false;
 	var isDraggingChar:Bool = false;
@@ -235,6 +243,26 @@ class StageEditor extends funkin.states.MusicBeatState
 	var isDraggingCam:Bool = false;
 	var dragCamStart:FlxPoint;
 	var dragCamScrollStart:FlxPoint;
+
+	// ── Layer panel drag-to-reorder ───────────────────────────────────────────
+	var isDraggingLayer:Bool = false;
+	var dragLayerFromIdx:Int = -1;    // element index being dragged
+	var dragLayerGhostY:Float = 0;    // current Y of the ghost row
+	var dragLayerDropIdx:Int = -1;    // insertion index under the cursor
+	/** Ghost row sprite that follows the cursor when dragging a layer */
+	var layerDragGhost:FlxSprite;
+	var layerDragGhostTxt:FlxText;
+	/** Drop indicator line */
+	var layerDropLine:FlxSprite;
+
+	// ── Pending drag (press-and-hold to drag, click to select) ───────────────
+	/** Mouse pressed in drag zone but hasn't moved enough to start a drag. */
+	var dragLayerPending:Bool = false;
+	var dragLayerPendingIdx:Int = -1;
+	var dragLayerPendingX:Float = 0;
+	var dragLayerPendingY:Float = 0;
+	/** Pixels of movement required before a press becomes a drag (vs a click). */
+	static inline final DRAG_THRESHOLD:Float = 6.0;
 
 	// ── File reference ────────────────────────────────────────────────────────
 	var _fileRef:FileReference;
@@ -308,6 +336,26 @@ class StageEditor extends funkin.states.MusicBeatState
 		buildLayerPanel();
 		buildRightPanel();
 		buildSelectionBox();
+
+		// ── Layer drag ghost & drop indicator (camHUD, on top of everything) ──
+		var T2 = EditorTheme.current;
+		layerDragGhost = new FlxSprite(0, 0).makeGraphic(LEFT_W, ROW_H, 0xCC1155AA);
+		layerDragGhost.cameras = [camHUD];
+		layerDragGhost.scrollFactor.set();
+		layerDragGhost.visible = false;
+		add(layerDragGhost);
+		layerDragGhostTxt = new FlxText(8, 0, LEFT_W - 16, '', 9);
+		layerDragGhostTxt.setFormat(Paths.font('vcr.ttf'), 9, 0xFFFFFFFF, LEFT);
+		layerDragGhostTxt.cameras = [camHUD];
+		layerDragGhostTxt.scrollFactor.set();
+		layerDragGhostTxt.visible = false;
+		add(layerDragGhostTxt);
+		layerDropLine = new FlxSprite(0, 0).makeGraphic(LEFT_W, 2, 0xFF44AAFF);
+		layerDropLine.cameras = [camHUD];
+		layerDropLine.scrollFactor.set();
+		layerDropLine.visible = false;
+		add(layerDropLine);
+
 		saveHistory();
 
 		// Camera start position
@@ -468,6 +516,20 @@ class StageEditor extends funkin.states.MusicBeatState
 			_assignCamerasRecursive(stage, [camGame]);
 			add(stage);
 
+			// In the char-anchor system, sprites are in spriteList (stage.members is empty).
+			// Add each one directly so they appear in the editor canvas.
+			if (stage._useCharAnchorSystem)
+			{
+				for (entry in stage.spriteList)
+				{
+					if (entry.sprite != null)
+					{
+						entry.sprite.cameras = [camGame];
+						add(entry.sprite);
+					}
+				}
+			}
+
 			// Map all element sprites so the editor can select/drag/highlight them
 			for (name => spr in stage.elements)
 				elementSprites.set(name, spr);
@@ -513,16 +575,15 @@ class StageEditor extends funkin.states.MusicBeatState
 		add(charGroup);
 		add(charLabels);
 
-		// ── Above-chars group ─────────────────────────────────────────────────
-		// buildStage() already placed aboveChars:true elements into
-		// stage.aboveCharsGroup. We add that group HERE — after charGroup —
-		// so those sprites render on top of all characters in the preview.
-		// We keep a plain reference; stage.destroy() is responsible for cleanup.
-		if (stage != null && stage.aboveCharsGroup != null && stage.aboveCharsGroup.length > 0)
+		// ── Above-chars group / char-anchor system ────────────────────────────
+		// In the new char-anchor system, all sprites are in stage.spriteList
+		// and have already been added individually above. The aboveCharsGroup
+		// is empty (old-system only). Skip it to avoid double-add.
+		if (stage != null && !stage._useCharAnchorSystem
+			&& stage.aboveCharsGroup != null && stage.aboveCharsGroup.length > 0)
 		{
 			stageAboveGroup = stage.aboveCharsGroup;
 			stageAboveGroup.cameras = [camGame];
-			// FlxTypedGroup.cameras doesn't cascade to existing members — set each one
 			for (obj in stageAboveGroup.members)
 				if (obj != null)
 					obj.cameras = [camGame];
@@ -773,14 +834,13 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		// ── Clear existing rows ───────────────────────────────────────────────
 		for (s in layerRowsGroup.members)
-			if (s != null)
-				s.visible = false;
+			if (s != null) { remove(s, true); s.destroy(); }
 		for (t in layerTextsGroup.members)
-			if (t != null)
-				t.visible = false;
+			if (t != null) { remove(t, true); t.destroy(); }
 		layerRowsGroup.clear();
 		layerTextsGroup.clear();
 		layerHitData = [];
+		_layerRowBgMap.clear();
 
 		var rowY = TOP_H + 0.0;
 
@@ -842,6 +902,16 @@ class StageEditor extends funkin.states.MusicBeatState
 
 			var elemIdx = i;
 			var elem = elements[elemIdx];
+
+			// ── Character anchor row ────────────────────────────────────────
+			if (elem.type != null && elem.type.toLowerCase() == 'character')
+			{
+				_drawCharAnchorRow(elemIdx, rowY);
+				rowY += ROW_H;
+				i--;
+				continue;
+			}
+
 			var isSelected = (elemIdx == selectedIdx);
 			var isVisible = !(elem.visible == false);
 			var isAbove = (elem.aboveChars == true);
@@ -857,6 +927,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			rowBg.scrollFactor.set();
 			add(rowBg);
 			layerRowsGroup.add(rowBg);
+			_layerRowBgMap.set(elemIdx, rowBg); // store for hover-recolor (avoids full rebuild)
 			layerHitData.push({
 				x: 0,
 				w: LEFT_W,
@@ -902,19 +973,23 @@ class StageEditor extends funkin.states.MusicBeatState
 			{
 				case 'sprite': 'SPR';
 				case 'animated': 'ANI';
+				case 'graphic': 'GFX';
 				case 'backdrop': 'BKD';
 				case 'group': 'GRP';
 				case 'custom_class': 'CLS';
 				case 'custom_class_group': 'CGP';
 				case 'sound': 'SND';
+				case 'character': 'CHR';
 				default: elem.type.toUpperCase().substr(0, 3);
 			}
 			var typeBgColor = switch (elem.type.toLowerCase())
 			{
 				case 'animated': T.accentAlt;
+				case 'graphic': 0xFF5A3A00; // dark amber — solid colour rect
 				case 'backdrop': 0xFF003A5A; // dark teal — tiling layer
 				case 'group', 'custom_class_group': T.warning;
 				case 'sound': T.success;
+				case 'character': 0xFF0055AA;
 				default: T.bgHover;
 			}
 			var typeBg = new FlxSprite(116, rowY + 5).makeGraphic(28, 16, typeBgColor);
@@ -1060,128 +1135,106 @@ class StageEditor extends funkin.states.MusicBeatState
 			rowY += ROW_H;
 			i--;
 		}
+	}
 
-		// ── CHARACTERS section ────────────────────────────────────────────────
-		rowY += 6;
-		var charHeaderBg = new FlxSprite(0, rowY).makeGraphic(LEFT_W, 24, T.bgPanelAlt);
-		charHeaderBg.cameras = [camHUD];
-		charHeaderBg.scrollFactor.set();
-		add(charHeaderBg);
-		layerRowsGroup.add(charHeaderBg);
-		var charHeaderTxt = new FlxText(10, rowY + 5, 0, '\u25B6 CHARACTERS', 11);
-		charHeaderTxt.setFormat(Paths.font('vcr.ttf'), 11, T.accentAlt, LEFT);
-		charHeaderTxt.cameras = [camHUD];
-		charHeaderTxt.scrollFactor.set();
-		add(charHeaderTxt);
-		layerTextsGroup.add(charHeaderTxt);
+	// ── Row helpers used by refreshLayerPanel ─────────────────────────────────
 
-		// Legend: AB = above chars | z# = char render depth
-		var legendTxt = new FlxText(LEFT_W - 100, rowY + 6, 94, 'AB=above  z=depth', 8);
-		legendTxt.setFormat(Paths.font('vcr.ttf'), 8, 0xFFFF8800, RIGHT);
-		legendTxt.cameras = [camHUD];
-		legendTxt.scrollFactor.set();
-		add(legendTxt);
-		layerTextsGroup.add(legendTxt);
-		rowY += 24;
+	/** Draw a single character-anchor row (type:"character") in the layer panel. */
+	function _drawCharAnchorRow(elemIdx:Int, rowY:Float):Void
+	{
+		var T = EditorTheme.current;
+		var elem = stageData.elements[elemIdx];
+		var slot = elem.charSlot ?? 'bf';
+		var isSelected = (elemIdx == selectedIdx);
+		var isHovered = (elemIdx == layerHoverIdx && !isSelected);
 
-		var charDefs = [
-			{id: 'bf', label: 'BF', color: 0xFF00D9FF},
-			{id: 'gf', label: 'GF', color: 0xFFFF88FF},
-			{id: 'dad', label: 'Dad', color: 0xFFFFAA00}
-		];
-		for (cd in charDefs)
+		// Color-code by character slot
+		var slotColor = switch (slot.toLowerCase())
 		{
-			var c = characters.get(cd.id);
-			var pos = '---';
-			if (c != null)
-				pos = 'x:${Std.int(c.x)}  y:${Std.int(c.y)}';
+			case 'gf', 'girlfriend', 'spectator': 0xFFFF88FF;
+			case 'dad', 'opponent', 'player2':   0xFFFFAA00;
+			default: 0xFF00D9FF; // bf / player
+		};
+		var rowBgBase = switch (slot.toLowerCase())
+		{
+			case 'gf', 'girlfriend', 'spectator': 0xFF2A002A;
+			case 'dad', 'opponent', 'player2':   0xFF2A1A00;
+			default: 0xFF002A3A; // bf
+		};
+		var rowBgColor = isSelected ? T.rowSelected
+			: isHovered ? (rowBgBase | 0xAA000000)
+			: rowBgBase;
 
-			// z-order value for this char
-			var zVal = _getCharZOrder(cd.id);
-			var zStr = 'z:$zVal';
+		var rowBg = new FlxSprite(0, rowY).makeGraphic(LEFT_W, ROW_H, rowBgColor);
+		rowBg.cameras = [camHUD];
+		rowBg.scrollFactor.set();
+		add(rowBg);
+		layerRowsGroup.add(rowBg);
+		layerHitData.push({x: 0, w: LEFT_W, y: rowY, h: ROW_H, idx: elemIdx, charId: slot, zone: 'row'});
 
-			var cRowBg = new FlxSprite(0, rowY).makeGraphic(LEFT_W, ROW_H, selectedCharId == cd.id ? T.rowSelected : T.rowOdd);
-			cRowBg.cameras = [camHUD];
-			cRowBg.scrollFactor.set();
-			add(cRowBg);
-			layerRowsGroup.add(cRowBg);
-			// Clickable zone covers everything except the ▲/▼ column
-			layerHitData.push({
-				x: 0,
-				w: LEFT_W - 26,
-				y: rowY,
-				h: ROW_H,
-				idx: -1,
-				charId: cd.id,
-				zone: 'char'
-			});
-			var cLbl = new FlxText(8, rowY + 7, 35, cd.label, 10);
-			cLbl.setFormat(Paths.font('vcr.ttf'), 10, cd.color, LEFT);
-			cLbl.cameras = [camHUD];
-			cLbl.scrollFactor.set();
-			add(cLbl);
-			layerTextsGroup.add(cLbl);
-			var cPos = new FlxText(48, rowY + 7, 118, pos, 9);
-			cPos.setFormat(Paths.font('vcr.ttf'), 9, T.textSecondary, LEFT);
-			cPos.cameras = [camHUD];
-			cPos.scrollFactor.set();
-			add(cPos);
-			layerTextsGroup.add(cPos);
+		// Drag handle indicator
+		var gripTxt = new FlxText(3, rowY + 6, 12, '\u2630', 9);
+		gripTxt.setFormat(Paths.font('vcr.ttf'), 9, slotColor, CENTER);
+		gripTxt.cameras = [camHUD];
+		gripTxt.scrollFactor.set();
+		add(gripTxt);
+		layerTextsGroup.add(gripTxt);
 
-			// z-order indicator
-			var zTxt = new FlxText(170, rowY + 7, 36, zStr, 8);
-			zTxt.setFormat(Paths.font('vcr.ttf'), 8, 0xFFAACCFF, LEFT);
-			zTxt.cameras = [camHUD];
-			zTxt.scrollFactor.set();
-			add(zTxt);
-			layerTextsGroup.add(zTxt);
+		// Char slot label (e.g. "⬤ BF")
+		var slotLabel = '\u25CF ' + switch (slot.toLowerCase())
+		{
+			case 'gf', 'girlfriend', 'spectator': 'GF';
+			case 'dad', 'opponent', 'player2':   'DAD';
+			default: 'BF';
+		};
+		var labelTxt = new FlxText(16, rowY + 6, 70, slotLabel, 10);
+		labelTxt.setFormat(Paths.font('vcr.ttf'), 10, slotColor, LEFT);
+		labelTxt.cameras = [camHUD];
+		labelTxt.scrollFactor.set();
+		add(labelTxt);
+		layerTextsGroup.add(labelTxt);
 
-			// ▲ z up (more foreground)
-			var zupBg = new FlxSprite(LEFT_W - 24, rowY + 1).makeGraphic(22, 11, T.bgHover);
-			zupBg.cameras = [camHUD];
-			zupBg.scrollFactor.set();
-			add(zupBg);
-			layerRowsGroup.add(zupBg);
-			var zupTxt = new FlxText(LEFT_W - 24, rowY + 1, 22, '\u25B2', 8);
-			zupTxt.setFormat(Paths.font('vcr.ttf'), 8, T.textSecondary, CENTER);
-			zupTxt.cameras = [camHUD];
-			zupTxt.scrollFactor.set();
-			add(zupTxt);
-			layerTextsGroup.add(zupTxt);
-			layerHitData.push({
-				x: LEFT_W - 26,
-				w: 26,
-				y: rowY,
-				h: Std.int(ROW_H / 2) + 1,
-				idx: -1,
-				charId: cd.id,
-				zone: 'charup'
-			});
+		// "CHAR" type badge
+		var badgeBg = new FlxSprite(88, rowY + 5).makeGraphic(34, 16, slotColor);
+		badgeBg.cameras = [camHUD];
+		badgeBg.scrollFactor.set();
+		add(badgeBg);
+		layerRowsGroup.add(badgeBg);
+		var badgeTxt = new FlxText(88, rowY + 5, 34, 'CHAR', 8);
+		badgeTxt.setFormat(Paths.font('vcr.ttf'), 8, 0xFF000000, CENTER);
+		badgeTxt.cameras = [camHUD];
+		badgeTxt.scrollFactor.set();
+		add(badgeTxt);
+		layerTextsGroup.add(badgeTxt);
 
-			// ▼ z down (more background)
-			var zdnBg = new FlxSprite(LEFT_W - 24, rowY + 13).makeGraphic(22, 11, T.bgHover);
-			zdnBg.cameras = [camHUD];
-			zdnBg.scrollFactor.set();
-			add(zdnBg);
-			layerRowsGroup.add(zdnBg);
-			var zdnTxt = new FlxText(LEFT_W - 24, rowY + 13, 22, '\u25BC', 8);
-			zdnTxt.setFormat(Paths.font('vcr.ttf'), 8, T.textSecondary, CENTER);
-			zdnTxt.cameras = [camHUD];
-			zdnTxt.scrollFactor.set();
-			add(zdnTxt);
-			layerTextsGroup.add(zdnTxt);
-			layerHitData.push({
-				x: LEFT_W - 26,
-				w: 26,
-				y: rowY + Std.int(ROW_H / 2),
-				h: Std.int(ROW_H / 2) + 1,
-				idx: -1,
-				charId: cd.id,
-				zone: 'chardown'
-			});
+		// Position of the live character (if loaded)
+		var c = characters.get(switch (slot.toLowerCase())
+		{
+			case 'gf', 'girlfriend', 'spectator': 'gf';
+			case 'dad', 'opponent', 'player2':   'dad';
+			default: 'bf';
+		});
+		var posStr = c != null ? 'x:${Std.int(c.x)} y:${Std.int(c.y)}' : '';
+		var posTxt = new FlxText(126, rowY + 7, 90, posStr, 8);
+		posTxt.setFormat(Paths.font('vcr.ttf'), 8, T.textDim, LEFT);
+		posTxt.cameras = [camHUD];
+		posTxt.scrollFactor.set();
+		add(posTxt);
+		layerTextsGroup.add(posTxt);
 
-			rowY += ROW_H;
-		}
+		// ✕ Delete anchor
+		var delBg = new FlxSprite(LEFT_W - 24, rowY + 4).makeGraphic(20, 18, T.bgHover);
+		delBg.cameras = [camHUD];
+		delBg.scrollFactor.set();
+		add(delBg);
+		layerRowsGroup.add(delBg);
+		var delTxt = new FlxText(LEFT_W - 24, rowY + 5, 20, '\u2715', 9);
+		delTxt.setFormat(Paths.font('vcr.ttf'), 9, T.error, CENTER);
+		delTxt.cameras = [camHUD];
+		delTxt.scrollFactor.set();
+		add(delTxt);
+		layerTextsGroup.add(delTxt);
+		layerHitData.push({x: LEFT_W - 26, w: 26, y: rowY, h: ROW_H, idx: elemIdx, charId: slot, zone: 'del'});
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -1270,24 +1323,80 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(elemNameInput);
 
 		lbl('Type:', y + 32);
-		var types = ['sprite', 'animated', 'backdrop', 'group', 'custom_class', 'sound'];
+		var types = ['sprite', 'animated', 'graphic', 'backdrop', 'group', 'custom_class', 'sound'];
 		elemTypeDropdown = new CoolDropDown(8, y + 44, CoolDropDown.makeStrIdLabelArray(types, true), function(sel:String)
 		{
 			var t = types[Std.parseInt(sel)];
 			if (selectedIdx >= 0 && selectedIdx < stageData.elements.length)
 				stageData.elements[selectedIdx].type = t;
-			_setBackdropPanelVisible(t == 'backdrop');
+			_updateTypeWidgets(t);
 		});
 		tab.add(elemTypeDropdown);
 
 		y += 72;
-		lbl('Asset path:', y);
+
+		// ── Graphic properties (inline — visible only for 'graphic' type) ─────────
+		// Positioned at the same Y as the asset path field so they replace it when
+		// the type is 'graphic' (the two sections are mutually exclusive).
+		_graphicWidgets = [];
+
+		var gfxHeader = new FlxText(8, y, 0, '\u25A0 GRAPHIC PROPERTIES', 10);
+		gfxHeader.color = FlxColor.fromInt(0xFFFFAA33);
+		tab.add(gfxHeader);
+		_graphicWidgets.push(gfxHeader);
+		y += 18;
+
+		var gfxWLbl = new FlxText(8, y, 0, 'Width:', 10);
+		gfxWLbl.color = FlxColor.fromInt(EditorTheme.current.textSecondary);
+		tab.add(gfxWLbl);
+		_graphicWidgets.push(gfxWLbl);
+
+		var gfxHLbl = new FlxText(130, y, 0, 'Height:', 10);
+		gfxHLbl.color = FlxColor.fromInt(EditorTheme.current.textSecondary);
+		tab.add(gfxHLbl);
+		_graphicWidgets.push(gfxHLbl);
+		y += 14;
+
+		graphicWidthStepper  = new CoolNumericStepper(8,   y, 1, 100, 1, 8192, 0);
+		graphicHeightStepper = new CoolNumericStepper(130, y, 1, 100, 1, 8192, 0);
+		tab.add(graphicWidthStepper);
+		tab.add(graphicHeightStepper);
+		_graphicWidgets.push(graphicWidthStepper);
+		_graphicWidgets.push(graphicHeightStepper);
+		y += 28;
+
+		var gfxColLbl = new FlxText(8, y, 0, 'Fill colour (hex):', 10);
+		gfxColLbl.color = FlxColor.fromInt(EditorTheme.current.textSecondary);
+		tab.add(gfxColLbl);
+		_graphicWidgets.push(gfxColLbl);
+		y += 14;
+
+		graphicFillColorInput = new CoolInputText(8, y, 120, '#FFFFFF', 10);
+		tab.add(graphicFillColorInput);
+		_graphicWidgets.push(graphicFillColorInput);
+
+		// Rewind y to the start of the mutual-exclusion zone so the asset field
+		// sits at the same Y (only one of the two sections is visible at a time).
+		y -= (18 + 14 + 28 + 14); // back to start of _graphicWidgets block
+
+		// ── Asset path (hidden for 'graphic' and 'group' types) ───────────────────
+		_assetWidgets = [];
+
+		var assetLbl = new FlxText(8, y, 0, 'Asset path:', 10);
+		assetLbl.color = FlxColor.fromInt(EditorTheme.current.textSecondary);
+		tab.add(assetLbl);
+		_assetWidgets.push(assetLbl);
+
 		elemAssetInput = new CoolInputText(8, y + 12, RIGHT_W - 60, '', 10);
 		tab.add(elemAssetInput);
+		_assetWidgets.push(elemAssetInput);
+
 		var browseBtn = new FlxButton(RIGHT_W - 48, y + 11, 'Browse', browseAsset);
 		tab.add(browseBtn);
+		_assetWidgets.push(browseBtn);
 
-		y += 36;
+		// Advance y past the taller of the two sections (graphic props = 74px, asset = 36px).
+		y += 82;
 		sep(y);
 		y += 8;
 
@@ -1409,8 +1518,12 @@ class StageEditor extends funkin.states.MusicBeatState
 		_backdropWidgets.push(backdropVelXStepper);
 		_backdropWidgets.push(backdropVelYStepper);
 
-		// Hidden by default — syncElementFieldsToUI / type dropdown callback toggle them
+		// Hidden by default — syncElementFieldsToUI / _updateTypeWidgets toggle these
 		_setBackdropPanelVisible(false);
+		// Graphic widgets hidden by default (shown only for 'graphic' type)
+		_setGraphicPanelVisible(false);
+		// Asset widgets visible by default (hidden for graphic / group types)
+		for (w in _assetWidgets) if (w != null) w.visible = true;
 
 		rightPanel.addGroup(tab);
 	}
@@ -1800,6 +1913,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		handleKeyboard();
 		handleCameraMovement(elapsed);
 		handleLayerPanelClick();
+		handleLayerDrag();
 		handleCanvasDrag();
 		handleToolbarClick();
 		updateSelectionBox();
@@ -2000,20 +2114,45 @@ class StageEditor extends funkin.states.MusicBeatState
 					break;
 				}
 			}
-			if (newHover != layerHoverIdx)
+			if (newHover != layerHoverIdx && !isDraggingLayer && !dragLayerPending)
 			{
+				var oldHover = layerHoverIdx;
 				layerHoverIdx = newHover;
-				refreshLayerPanel();
+				// Recolor only the two affected row-background sprites instead of
+				// rebuilding the entire panel (180+ makeGraphic calls per hover event).
+				_recolorLayerRow(oldHover);
+				_recolorLayerRow(newHover);
 			}
 		}
 		else if (layerHoverIdx != -1)
 		{
+			var old = layerHoverIdx;
 			layerHoverIdx = -1;
-			refreshLayerPanel();
+			_recolorLayerRow(old);
 		}
 
 		if (!FlxG.mouse.justPressed || mx > LEFT_W || my < TOP_H || my > FlxG.height - STATUS_H)
 			return;
+
+		// ── Begin layer drag on mousedown in a 'row' zone ────────────────────
+		// Only start drag from the left part of the row (not over buttons).
+		// We detect this before pass-1 button detection so we can cancel later.
+		if (mx < 125) // drag handle zone = left 125 px
+		{
+			for (hit in layerHitData)
+			{
+				if (hit.zone == 'row' && hit.idx >= 0 && my >= hit.y && my <= hit.y + hit.h)
+				{
+					// Record the press — actual drag only activates once the mouse
+					// moves beyond DRAG_THRESHOLD. A release without movement = click.
+					dragLayerPending = true;
+					dragLayerPendingIdx = hit.idx;
+					dragLayerPendingX = mx;
+					dragLayerPendingY = my;
+					return; // don't fire click actions while press is pending
+				}
+			}
+		}
 
 		// ── Two-pass hit detection ────────────────────────────────────────────
 		// Pass 1: look for specific small-button zones (eye, up, down, del, add_element)
@@ -2057,38 +2196,30 @@ class StageEditor extends funkin.states.MusicBeatState
 							setStatus('"${elem.name ?? "element"}" ${elem.locked ? "locked (LK)" : "unlocked"}');
 						}
 
-					case 'charup':
-						// Move char one step toward foreground (higher z = rendered later = on top)
-						if (hit.charId != null)
-						{
-							_setCharZOrder(hit.charId, _getCharZOrder(hit.charId) + 1);
-							refreshLayerPanel();
-							markUnsaved();
-							setStatus('${hit.charId} z-order: ${_getCharZOrder(hit.charId)}');
-						}
-
-					case 'chardown':
-						// Move char one step toward background
-						if (hit.charId != null)
-						{
-							_setCharZOrder(hit.charId, _getCharZOrder(hit.charId) - 1);
-							refreshLayerPanel();
-							markUnsaved();
-							setStatus('${hit.charId} z-order: ${_getCharZOrder(hit.charId)}');
-						}
+					case 'charup', 'chardown':
+						// Character depth is now controlled by dragging the
+						// character anchor row in the layer list. No-op here.
 
 					case 'above':
-						// Toggle aboveChars on this element (renders above characters)
+						// Toggle aboveChars on this element (renders above characters).
+						// Character anchors don't use aboveChars — skip them.
 						if (hit.idx >= 0 && hit.idx < stageData.elements.length)
 						{
 							var elem = stageData.elements[hit.idx];
-							elem.aboveChars = !(elem.aboveChars == true);
-							saveHistory();
-							reloadStageView();
-							refreshLayerPanel();
-							markUnsaved();
-							var onOff = elem.aboveChars ? 'ON' : 'OFF';
-							setStatus('"${elem.name ?? "element"}" above-chars: $onOff');
+							if (elem.type != null && elem.type.toLowerCase() == 'character')
+							{
+								setStatus('Character anchors use drag-reorder, not the AB toggle');
+							}
+							else
+							{
+								elem.aboveChars = !(elem.aboveChars == true);
+								saveHistory();
+								reloadStageView();
+								refreshLayerPanel();
+								markUnsaved();
+								var onOff = elem.aboveChars ? 'ON' : 'OFF';
+								setStatus('"${elem.name ?? "element"}" above-chars: $onOff');
+							}
 						}
 
 					case 'add_element':
@@ -2146,6 +2277,147 @@ class StageEditor extends funkin.states.MusicBeatState
 					selectedCharId = rowFallback.charId;
 					selectedIdx = -1;
 					refreshLayerPanel();
+			}
+		}
+	}
+
+	function handleLayerDrag():Void
+	{
+		// ── Resolve pending drag (press without enough movement = click) ────
+		if (dragLayerPending)
+		{
+			var mx = FlxG.mouse.gameX;
+			var my = FlxG.mouse.gameY;
+			var dx = mx - dragLayerPendingX;
+			var dy = my - dragLayerPendingY;
+
+			if (FlxG.mouse.justReleased)
+			{
+				// Released without moving enough → treat as a click: select the row
+				dragLayerPending = false;
+				var idx = dragLayerPendingIdx;
+				if (idx >= 0 && idx < stageData.elements.length)
+				{
+					selectedIdx = idx;
+					selectedCharId = null;
+					syncElementFieldsToUI();
+					refreshLayerPanel();
+				}
+				return;
+			}
+
+			if (Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD)
+			{
+				// Moved far enough → activate the real drag
+				dragLayerPending = false;
+				isDraggingLayer = true;
+				dragLayerFromIdx = dragLayerPendingIdx;
+				dragLayerDropIdx = dragLayerPendingIdx;
+				var elem = stageData.elements[dragLayerPendingIdx];
+				var ghostLabel = elem.type != null && elem.type.toLowerCase() == 'character'
+					? '\u25CF ' + (elem.charSlot ?? 'char')
+					: (elem.name ?? 'element');
+				if (layerDragGhost != null)
+				{
+					layerDragGhost.y = my - ROW_H * 0.5;
+					layerDragGhost.visible = true;
+				}
+				if (layerDragGhostTxt != null)
+				{
+					layerDragGhostTxt.text = '\u2630  ' + ghostLabel;
+					layerDragGhostTxt.y = my - ROW_H * 0.5 + 6;
+					layerDragGhostTxt.visible = true;
+				}
+				// fall through to the main drag logic below
+			}
+			else
+				return; // still waiting for enough movement
+		}
+
+		if (!isDraggingLayer)
+		{
+			if (layerDragGhost != null) layerDragGhost.visible = false;
+			if (layerDragGhostTxt != null) layerDragGhostTxt.visible = false;
+			if (layerDropLine != null) layerDropLine.visible = false;
+			return;
+		}
+
+		var mx = FlxG.mouse.gameX;
+		var my = FlxG.mouse.gameY;
+
+		// Move ghost row with cursor
+		if (layerDragGhost != null)
+		{
+			layerDragGhost.y = my - ROW_H * 0.5;
+			layerDragGhost.visible = true;
+		}
+		if (layerDragGhostTxt != null)
+		{
+			layerDragGhostTxt.y = my - ROW_H * 0.5 + 6;
+			layerDragGhostTxt.visible = true;
+		}
+
+		// Find the drop target position: which row are we hovering over?
+		dragLayerDropIdx = dragLayerFromIdx; // default: no move
+		var bestY:Float = 9999;
+		for (hit in layerHitData)
+		{
+			if (hit.zone != 'row' || hit.idx < 0)
+				continue;
+			var rowMid = hit.y + ROW_H * 0.5;
+			var dist = Math.abs(my - rowMid);
+			if (dist < bestY)
+			{
+				bestY = dist;
+				// Drop above or below this row depending on cursor position
+				dragLayerDropIdx = (my < rowMid) ? hit.idx + 1 : hit.idx;
+			}
+		}
+		// Clamp
+		var total = stageData.elements != null ? stageData.elements.length : 0;
+		dragLayerDropIdx = Std.int(Math.max(0, Math.min(total, dragLayerDropIdx)));
+
+		// Draw the drop indicator line at the insertion point
+		var lineY:Float = -100;
+		for (hit in layerHitData)
+		{
+			if (hit.zone != 'row' || hit.idx < 0) continue;
+			// In the display the list is drawn top=last, bottom=first in array.
+			// dragLayerDropIdx == hit.idx means "insert above this visible row"
+			// which visually is the TOP edge of that row.
+			if (hit.idx == dragLayerDropIdx - 1)
+				lineY = hit.y; // top edge of the row above insertion
+			else if (hit.idx == dragLayerDropIdx)
+				lineY = hit.y; // top edge of insertion row
+		}
+		if (layerDropLine != null)
+		{
+			layerDropLine.visible = (lineY > 0);
+			if (lineY > 0) layerDropLine.y = lineY;
+		}
+
+		if (FlxG.mouse.justReleased)
+		{
+			isDraggingLayer = false;
+			dragLayerPending = false;
+			if (layerDragGhost != null) layerDragGhost.visible = false;
+			if (layerDragGhostTxt != null) layerDragGhostTxt.visible = false;
+			if (layerDropLine != null) layerDropLine.visible = false;
+
+			// Perform the move if position changed
+			var fromIdx = dragLayerFromIdx;
+			var toIdx = dragLayerDropIdx;
+			if (toIdx != fromIdx && toIdx != fromIdx + 1 && stageData.elements != null)
+			{
+				var elem = stageData.elements.splice(fromIdx, 1)[0];
+				var insertAt = toIdx > fromIdx ? toIdx - 1 : toIdx;
+				stageData.elements.insert(insertAt, elem);
+				selectedIdx = insertAt;
+				saveHistory();
+				reloadStageView();
+				refreshLayerPanel();
+				markUnsaved();
+				setStatus('Layer moved to position ${insertAt + 1}');
 			}
 		}
 	}
@@ -2502,7 +2774,13 @@ class StageEditor extends funkin.states.MusicBeatState
 			tx = sx - tw - 4;
 
 		hoverTooltipBg.setPosition(tx, ty);
-		hoverTooltipBg.makeGraphic(tw, th, 0xCC000000);
+		// Only call makeGraphic when size changes — avoids BitmapData alloc every frame.
+		if (tw != _tooltipW || th != _tooltipH)
+		{
+			_tooltipW = tw;
+			_tooltipH = th;
+			hoverTooltipBg.makeGraphic(tw, th, 0xCC000000);
+		}
 		hoverTooltipTxt.setPosition(tx + 4, ty + 3);
 
 		hoverTooltipBg.visible  = true;
@@ -2658,6 +2936,14 @@ class StageEditor extends funkin.states.MusicBeatState
 			Reflect.setField(elem.customProperties, 'velocityY', backdropVelYStepper.value);
 		}
 
+		// ── Graphic properties ────────────────────────────────────────────────
+		if (elem.type == 'graphic')
+		{
+			elem.graphicSize  = [graphicWidthStepper.value, graphicHeightStepper.value];
+			var gcStr = graphicFillColorInput.text.trim();
+			elem.graphicColor = (gcStr != '') ? gcStr : '#FFFFFF';
+		}
+
 		saveHistory();
 		reloadStageView();
 		selectedIdx = stageData.elements.length > 0 ? Std.int(Math.min(selectedIdx, stageData.elements.length - 1)) : -1;
@@ -2725,10 +3011,11 @@ class StageEditor extends funkin.states.MusicBeatState
 			elemShaderDropdown.selectedLabel = (_shaderList.contains(shName)) ? shName : '(none)';
 		}
 
-		// ── Backdrop panel ────────────────────────────────────────────────────
-		var isBackdrop = (elem.type == 'backdrop');
-		_setBackdropPanelVisible(isBackdrop);
-		if (isBackdrop)
+		// ── Type-specific panel visibility ────────────────────────────────────────
+		_updateTypeWidgets(elem.type);
+
+		// ── Backdrop panel values ─────────────────────────────────────────────────
+		if (elem.type == 'backdrop')
 		{
 			var cp = elem.customProperties;
 			if (backdropRepeatXCheck != null)
@@ -2751,6 +3038,15 @@ class StageEditor extends funkin.states.MusicBeatState
 				var vy = (cp != null) ? Reflect.field(cp, 'velocityY') : null;
 				backdropVelYStepper.value = (vy == null) ? 0 : Std.parseFloat(Std.string(vy));
 			}
+		}
+
+		// ── Graphic panel values ──────────────────────────────────────────────────
+		if (elem.type == 'graphic')
+		{
+			var gs = elem.graphicSize ?? [100.0, 100.0];
+			if (graphicWidthStepper  != null) graphicWidthStepper.value  = gs.length > 0 ? gs[0] : 100.0;
+			if (graphicHeightStepper != null) graphicHeightStepper.value = gs.length > 1 ? gs[1] : 100.0;
+			if (graphicFillColorInput != null) graphicFillColorInput.text = elem.graphicColor ?? '#FFFFFF';
 		}
 
 		// Sync animation tab
@@ -3225,9 +3521,48 @@ class StageEditor extends funkin.states.MusicBeatState
 	// ── Lock helpers ──────────────────────────────────────────────────────────
 
 	/** Shows or hides the backdrop properties section in the Element tab. */
+	/**
+	 * Central function that shows / hides type-specific widgets in the Element tab
+	 * based on the current element type.  Call this whenever the type changes
+	 * (type dropdown callback, syncElementFieldsToUI).
+	 *
+	 * Rules:
+	 *  – 'graphic'  → show GRAPHIC PROPERTIES, hide Asset path
+	 *  – 'group'    → hide Asset path (groups have no external asset)
+	 *  – 'backdrop' → show BACKDROP PROPERTIES, hide GRAPHIC PROPERTIES
+	 *  – others     → show Asset path, hide both type-specific panels
+	 */
+	function _updateTypeWidgets(type:String):Void
+	{
+		var isGraphic  = (type == 'graphic');
+		var isBackdrop = (type == 'backdrop');
+		var isGroup    = (type == 'group');
+		var isSound    = (type == 'sound');
+
+		// Asset path: visible for all types that load an external file
+		var showAsset = !isGraphic && !isGroup;
+		for (w in _assetWidgets)
+			if (w != null) w.visible = showAsset;
+
+		// Graphic properties panel (width/height/fill colour)
+		for (w in _graphicWidgets)
+			if (w != null) w.visible = isGraphic;
+
+		// Backdrop properties panel (repeat axes / scroll velocity)
+		for (w in _backdropWidgets)
+			if (w != null) w.visible = isBackdrop;
+	}
+
 	function _setBackdropPanelVisible(visible:Bool):Void
 	{
 		for (w in _backdropWidgets)
+			if (w != null)
+				w.visible = visible;
+	}
+
+	function _setGraphicPanelVisible(visible:Bool):Void
+	{
+		for (w in _graphicWidgets)
 			if (w != null)
 				w.visible = visible;
 	}
@@ -3238,39 +3573,53 @@ class StageEditor extends funkin.states.MusicBeatState
 		return idx >= 0 && idx < stageData.elements.length && stageData.elements[idx].locked == true;
 	}
 
-	// ── Character z-order helpers ─────────────────────────────────────────────
-	//
-	// Stored in stageData.customProperties.charOrder as { bf: Int, gf: Int, dad: Int }.
-	// Value semantics: higher = rendered later = on top of more elements.
-	// Defaults: dad = 0, gf = 1, bf = 100  (bf always above all by default).
-	// The number represents "how many stage elements are below this char".
-	// Saving this to JSON lets PlayState / Stage.hx read it for proper in-game ordering.
-
-	function _getCharZOrder(charId:String):Int
+	/**
+	 * Recolors the row-background sprite for element [idx] in-place.
+	 * Called on hover-in / hover-out instead of a full panel rebuild.
+	 * Only paints over the BitmapData that already exists — zero alloc.
+	 */
+	function _recolorLayerRow(idx:Int):Void
 	{
-		if (stageData.customProperties == null) stageData.customProperties = {};
-		var co = Reflect.field(stageData.customProperties, 'charOrder');
-		if (co == null)
-		{
-			co = {dad: 0, gf: 1, bf: 100};
-			Reflect.setField(stageData.customProperties, 'charOrder', co);
-		}
-		var v = Reflect.field(co, charId);
-		if (v == null) return charId == 'bf' ? 100 : (charId == 'gf' ? 1 : 0);
-		return Std.int(v);
-	}
+		if (idx < 0 || idx >= stageData.elements.length) return;
+		var spr = _layerRowBgMap.get(idx);
+		if (spr == null) return;
 
-	function _setCharZOrder(charId:String, val:Int):Void
-	{
-		if (stageData.customProperties == null) stageData.customProperties = {};
-		var co = Reflect.field(stageData.customProperties, 'charOrder');
-		if (co == null)
+		var T = EditorTheme.current;
+		var elem = stageData.elements[idx];
+		var isSelected = (idx == selectedIdx);
+		var isHovered  = (idx == layerHoverIdx && !isSelected);
+		var isAbove    = (elem.aboveChars == true);
+		var isCharType = (elem.type != null && elem.type.toLowerCase() == 'character');
+
+		var color:Int;
+		if (isSelected)
 		{
-			co = {dad: 0, gf: 1, bf: 100};
-			Reflect.setField(stageData.customProperties, 'charOrder', co);
+			color = T.rowSelected;
 		}
-		Reflect.setField(co, charId, val);
-		saveHistory();
+		else if (isHovered)
+		{
+			color = T.rowSelected & 0x00FFFFFF | 0x55000000;
+		}
+		else if (isCharType)
+		{
+			color = switch ((elem.charSlot ?? 'bf').toLowerCase())
+			{
+				case 'gf', 'girlfriend', 'spectator': 0xFF2A002A;
+				case 'dad', 'opponent', 'player2':   0xFF2A1A00;
+				default: 0xFF002A3A;
+			};
+		}
+		else if (isAbove)
+		{
+			color = 0xFF2A1A00;
+		}
+		else
+		{
+			// Even/odd — we don't track the draw-order parity here so use rowEven as neutral
+			color = T.rowEven;
+		}
+
+		spr.makeGraphic(LEFT_W, ROW_H, color);
 	}
 
 	// ── Shader helpers ────────────────────────────────────────────────────────
@@ -3558,7 +3907,7 @@ class AddElementSubState extends flixel.FlxSubState
 
 		y += 40;
 		lbl('Type:', y);
-		var types = ['sprite', 'animated', 'backdrop', 'group', 'custom_class', 'sound'];
+		var types = ['sprite', 'animated', 'graphic', 'backdrop', 'group', 'custom_class', 'sound', 'character'];
 		typeDropdown = new CoolDropDown(panX + 12, y + 14, CoolDropDown.makeStrIdLabelArray(types, true), null);
 		typeDropdown.scrollFactor.set();
 		typeDropdown.cameras = [_camSub];
@@ -3594,13 +3943,13 @@ class AddElementSubState extends flixel.FlxSubState
 		// Confirm / Cancel
 		var confirmBtn = new FlxButton(panX + 12, y, 'Add Element', function()
 		{
-			var types2 = ['sprite', 'animated', 'backdrop', 'group', 'custom_class', 'sound'];
+			var types2 = ['sprite', 'animated', 'graphic', 'backdrop', 'group', 'custom_class', 'sound', 'character'];
 			var typeIdx = Std.parseInt(typeDropdown.selectedId);
 			var typeName = (typeIdx != null && typeIdx >= 0 && typeIdx < types2.length) ? types2[typeIdx] : 'sprite';
 			var newElem:StageElement = {
 				type: typeName,
 				name: nameInput.text.trim(),
-				asset: assetInput.text.trim(),
+				asset: '',
 				position: [100.0, 100.0],
 				scrollFactor: [1.0, 1.0],
 				scale: [1.0, 1.0],
@@ -3609,6 +3958,8 @@ class AddElementSubState extends flixel.FlxSubState
 				antialiasing: true,
 				zIndex: 0
 			};
+			if (typeName != 'character')
+				newElem.asset = assetInput.text.trim();
 			if (typeName == 'animated')
 				newElem.animations = [
 					{
@@ -3618,10 +3969,28 @@ class AddElementSubState extends flixel.FlxSubState
 						looped: true
 					}
 				];
+			if (typeName == 'graphic')
+			{
+				// Default graphic: white 100×100 solid rect
+				newElem.graphicSize  = [100.0, 100.0];
+				newElem.graphicColor = '#FFFFFF';
+			}
 			if (typeName == 'backdrop')
 			{
 				// Default backdrop settings: tile both axes, no auto-scroll
 				newElem.customProperties = {repeatX: true, repeatY: true, velocityX: 0.0, velocityY: 0.0};
+			}
+			if (typeName == 'character')
+			{
+				// Character anchors use charSlot to specify which character.
+				// The name field doubles as charSlot (bf / gf / dad).
+				var slotName = nameInput.text.trim().toLowerCase();
+				if (slotName == '' || (slotName != 'bf' && slotName != 'gf' && slotName != 'dad'
+					&& slotName != 'girlfriend' && slotName != 'opponent'))
+					slotName = 'bf';
+				newElem.name = 'char_$slotName';
+				newElem.charSlot = slotName;
+				newElem.asset = '';
 			}
 			onConfirm(newElem);
 			close();

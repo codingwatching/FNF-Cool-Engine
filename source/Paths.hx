@@ -409,15 +409,15 @@ class Paths
 	}
 
 	/**
-	 * Carga y cachea un FlxGraphic para la clave dada.
+	 * Loads and caches an FlxGraphic for the given key.
 	 *
-	 * • Busca primero en PathsCache (cache hit → O(1), sin I/O).
-	 * • En miss: carga desde disco via Lime → crea FlxGraphic → sube a GPU si
-	 *   gpuCaching=true → libera imagen en RAM → cachea en PathsCache.
-	 * • El FlxGraphic resultante tiene persist=true + destroyOnNoUse=false.
+	 * • First searches PathsCache (cache hit → O(1), no I/O).
+	 * • On miss: loads from disk via Lime → creates FlxGraphic → uploads to GPU if
+	 * gpuCaching=true → releases image to RAM → caches in PathsCache.
+	 * • The resulting FlxGraphic has persist=true + destroyOnNoUse=false.
 	 *
-	 * @param key       Clave lógica del asset (sin prefijo "images/", sin ".png").
-	 * @param allowGPU  Si false, deshabilita GPU caching para este asset.
+	 * @param key       Logical key of the asset (without the "images/" prefix, without ".png").
+	 * @param allowGPU  If false, disable GPU caching for this asset.
 	 */
 	public static function getGraphic(key:String, allowGPU:Bool = true):Null<FlxGraphic>
 	{

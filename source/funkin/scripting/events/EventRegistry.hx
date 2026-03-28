@@ -113,13 +113,19 @@ class EventRegistry
 
 		// 2. Carpetas de eventos del engine
 		_loadRoot('assets/data/events');
+		// Ruta alternativa sin prefijo assets/ (permite poner eventos en data/events/chart/)
+		_loadRoot('data/events');
 
 		// 3. Carpetas de eventos del mod activo
 		#if sys
 		if (ModManager.isActive())
 		{
 			final r = ModManager.modRoot();
-			if (r != null) _loadRoot('$r/data/events');
+			if (r != null)
+			{
+				_loadRoot('$r/data/events');
+				_loadRoot('$r/assets/data/events');
+			}
 		}
 		// También buscar en todos los mods instalados habilitados
 		for (mod in ModManager.installedMods)
@@ -127,6 +133,7 @@ class EventRegistry
 			if (!ModManager.isEnabled(mod.id)) continue;
 			final r = '${ModManager.MODS_FOLDER}/${mod.id}';
 			_loadRoot('$r/data/events');
+			_loadRoot('$r/assets/data/events');
 		}
 		#end
 

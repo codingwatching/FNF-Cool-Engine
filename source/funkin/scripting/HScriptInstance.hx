@@ -15,6 +15,8 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 
+using StringTools;
+
 /**
  * HScriptInstance v3 — instancia individual de script HScript.
  *
@@ -56,8 +58,8 @@ class HScriptInstance
 	public var interp   : Null<Interp> = null;
 	public var program  : Null<Expr>   = null;
 
-	/** Source cacheada para hot-reload. */
-	var _source : String = '';
+	/** Cached source code — used for hot-reload and for pinpointing error lines. */
+	public var _source : String = '';
 
 	/**
 	 * Caché de funciones: mapea nombre → función (o _MISSING si no existe).
@@ -149,11 +151,16 @@ class HScriptInstance
 
 	// ── Variables ─────────────────────────────────────────────────────────────
 
-	/** Inyecta o actualiza una variable. */
+	/** Inyecta o actualiza una variable. Invalida el _funcCache si era una función cacheada. */
 	public function set(varName:String, value:Dynamic):Void
 	{
 		#if HSCRIPT_ALLOWED
-		if (interp != null) interp.variables.set(varName, value);
+		if (interp != null)
+		{
+			interp.variables.set(varName, value);
+			// Si existía en el caché de funciones, invalidar: el valor cambió.
+			if (_funcCache.exists(varName)) _funcCache.remove(varName);
+		}
 		#end
 	}
 
@@ -337,30 +344,149 @@ class HScriptInstance
 
 	function _handleError(funcName:String, e:Dynamic):Void
 	{
-		var msg = Std.string(e);
+		var msg         = Std.string(e);
+		var lineNum     = -1;
+		var lineContent = '';
 
-		// Intentar extraer número de línea de hscript.Expr.Error (2.4+)
 		#if HSCRIPT_ALLOWED
 		try
 		{
-			// En hscript 2.4+ los errores tienen campo `e` o `msg`
+			// hscript.Expr.Error carries structured position info we can use
+			// to show the exact failing line and a readable error description.
 			final exprErr = cast(e, hscript.Expr.Error);
 			if (exprErr != null)
 			{
-				// Intentar leer `.e` (línea del error en algunos formatos)
-				final lineField = Reflect.hasField(exprErr, 'pmin') ? Reflect.field(exprErr, 'pmin') : null;
-				if (lineField != null) msg = 'Línea ~${lineField}: $msg';
+				// Prefer a human-readable message derived from the ErrorDef enum
+				final defMsg = _formatErrorDef(Reflect.field(exprErr, 'e'));
+				if (defMsg != null && defMsg != '') msg = defMsg;
+
+				// hscript 2.5+ stores the line number directly in .line
+				if (Reflect.hasField(exprErr, 'line'))
+				{
+					final raw = Reflect.field(exprErr, 'line');
+					if (raw != null) lineNum = raw;
+				}
+
+				// Fallback: derive line number from the pmin character offset
+				if (lineNum <= 0 && Reflect.hasField(exprErr, 'pmin'))
+				{
+					final pmin:Int = Reflect.field(exprErr, 'pmin');
+					if (pmin >= 0) lineNum = _lineFromOffset(_getSource(), pmin);
+				}
 			}
 		}
-		catch (_) {} // Ignorar si el cast falla (versión antigua de hscript)
+		catch (_e:Dynamic) {}
 		#end
 
-		trace('[HScript] ¡Error en $name.$funcName()! → $msg');
+		// Pull the actual source line for context if we have a valid line number
+		if (lineNum > 0)
+			lineContent = _getSourceLine(_getSource(), lineNum);
+
+		// Format: [HScript] Error in myScript:42 (onUpdate) → Unknown variable "foo"
+		final location = lineNum > 0 ? '$name:$lineNum' : name;
+		trace('[HScript] Error in $location ($funcName) → $msg');
+
+		// Print the offending source line so the user can see exactly what failed
+		if (lineContent != '')
+			trace('  >> $lineContent');
 
 		if (onError != null)
+			try { onError(name, funcName, e); } catch (_e:Dynamic) {}
+	}
+
+	/**
+	 * Returns the cached source string, loading it from disk on first access
+	 * if it was never set (e.g. when the script was loaded via ScriptHandler
+	 * before this field was being populated).
+	 */
+	function _getSource():String
+	{
+		#if (HSCRIPT_ALLOWED && sys)
+		if (_source == '' && path != null && path != '' && sys.FileSystem.exists(path))
+			_source = sys.io.File.getContent(path);
+		#end
+		return _source;
+	}
+
+	/**
+	 * Converts an hscript ErrorDef enum value into a readable error string.
+	 *
+	 * Tries structured enum access first (hscript 2.5+), then falls back to
+	 * parsing the stringified representation for older versions.
+	 *
+	 * Examples of output:
+	 *   EUnknownVariable("myVar")  → Unknown variable "myVar"
+	 *   EInvalidAccess("length")   → Invalid field access "length"
+	 *   ECustom("division by 0")   → division by 0
+	 */
+	static function _formatErrorDef(errDef:Dynamic):Null<String>
+	{
+		if (errDef == null) return null;
+
+		// Structured path: works when errDef is a real hscript enum instance
+		try
 		{
-			try { onError(name, funcName, e); } catch(_) {}
+			final tag    = Type.enumConstructor(errDef);
+			final params = Type.enumParameters(errDef);
+			return switch (tag)
+			{
+				case 'EUnknownVariable':   'Unknown variable "${params[0]}"';
+				case 'EInvalidAccess':     'Invalid field access "${params[0]}"';
+				case 'ECustom':            Std.string(params[0]);
+				case 'EUnexpected':        'Unexpected token "${params[0]}"';
+				case 'EUnterminatedString':  'Unterminated string literal';
+				case 'EUnterminatedComment': 'Unterminated block comment';
+				case 'EInvalidOp':         'Invalid operator "${params[0]}"';
+				case 'EInvalidIterator':   'Invalid iterator "${params[0]}"';
+				case 'EInvalidChar':       'Invalid character (code ${params[0]})';
+				default: Std.string(errDef);
+			};
 		}
+		catch (_e:Dynamic) {}
+
+		// String-parse fallback for older hscript versions where enum casting fails
+		try
+		{
+			final s = Std.string(errDef);
+			if (s.startsWith('EUnknownVariable('))   return 'Unknown variable: ${s.substring(17, s.length - 1)}';
+			if (s.startsWith('EInvalidAccess('))      return 'Invalid field access: ${s.substring(15, s.length - 1)}';
+			if (s.startsWith('ECustom('))             return s.substring(8, s.length - 1);
+			if (s.startsWith('EUnexpected('))         return 'Unexpected token: ${s.substring(12, s.length - 1)}';
+			if (s == 'EUnterminatedString')           return 'Unterminated string literal';
+			if (s.startsWith('EInvalidOp('))          return 'Invalid operator: ${s.substring(11, s.length - 1)}';
+			if (s.startsWith('EInvalidIterator('))    return 'Invalid iterator: ${s.substring(17, s.length - 1)}';
+			return s;
+		}
+		catch (_e:Dynamic) {}
+
+		return null;
+	}
+
+	/**
+	 * Converts a pmin character offset to a 1-based line number by counting
+	 * newline characters in the source up to that position.
+	 */
+	static function _lineFromOffset(source:String, offset:Int):Int
+	{
+		if (offset <= 0 || source == '') return 1;
+		var line = 1;
+		final len = Std.int(Math.min(offset, source.length));
+		for (i in 0...len)
+			if (source.charAt(i) == '\n') line++;
+		return line;
+	}
+
+	/**
+	 * Returns the trimmed content of the given 1-based line number from source.
+	 * Returns an empty string if lineNum is out of range.
+	 */
+	static function _getSourceLine(source:String, lineNum:Int):String
+	{
+		if (source == '' || lineNum <= 0) return '';
+		final lines = source.split('\n');
+		final idx   = lineNum - 1;
+		if (idx >= lines.length) return '';
+		return StringTools.trim(lines[idx]);
 	}
 
 	function _resolvePath(rawPath:String):Null<String>

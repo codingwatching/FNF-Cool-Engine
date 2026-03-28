@@ -343,23 +343,6 @@ class PlayState extends funkin.states.MusicBeatState
 
 	override public function create()
 	{
-		// Iniciar sesión de caché: mueve _currentGraphics → _previousGraphics.
-		// Los assets cargados durante create() se rastrean en CURRENT.
-		// Los assets que el nuevo estado COMPARTE con el anterior son "rescatados"
-		// de _previousGraphics a CURRENT la primera vez que se piden, evitando
-		// recarga desde disco.
-		// clearPreviousSession() se llama al FINAL de create() para destruir
-		// lo que nadie rescató — no al principio, para dar tiempo al rescue.
-		// NOTA: PathsCache.beginSession() es llamado automáticamente por la señal
-		// preStateSwitch en FunkinCache.init(). Llamarlo aquí de nuevo causa que los
-		// assets del state anterior (menú, etc.) queden huérfanos entre las dos capas.
-		// FunkinCache ya rota sus capas en preStateSwitch, así que OpenFL también
-		// libera bitmaps correctamente. Paths.clearStoredMemory() ya no se necesita al inicio.
-
-		// NOTA: FunkinCache ya rota sus capas en preStateSwitch (justo antes de
-		// llegar aquí), así que OpenFL también libera bitmaps correctamente.
-		// Paths.clearStoredMemory() ya no se necesita al inicio.
-
 		if (StickerTransition.enabled)
 		{
 			transIn = null;
@@ -381,11 +364,11 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler.loadSongScripts(SONG.song);
 			EventManager.loadEventsFromSong();
 
-			// Exponer PlayState a los scripts
+			// Inyección mínima para onCreate: sólo game y SONG.
+			// El inject completo se hace después de que todos los sistemas estén listos.
 			ScriptHandler.setOnScripts('playState', this);
 			ScriptHandler.setOnScripts('game', this);
 			ScriptHandler.setOnScripts('SONG', SONG);
-			// Llamar onCreate en scripts
 			ScriptHandler.callOnScripts('onCreate', ScriptHandler._argsEmpty);
 		}
 
@@ -405,14 +388,13 @@ class PlayState extends funkin.states.MusicBeatState
 		setupCameras();
 
 		// BUGFIX: inyectar camGame/camHUD ANTES de loadStageAndCharacters().
-		// loadStageAndCharacters() → loadStageScripts() → onStageCreate() donde
-		// los scripts del stage ya usan camGame (e.g. setFilters, shaders).
-		// Si se inyecta después (como estaba antes, línea ~460) camGame es null
-		// durante onStageCreate y cualquier llamada a setFilters/clearFilters falla.
+		// Los scripts de stage usan camGame en onStageCreate (setFilters, shaders…).
+		// El inject completo via injectPlayState() vendrá después, pero las cámaras
+		// necesitan estar disponibles ya en este punto.
 		if (scriptsEnabled)
 		{
-			ScriptHandler.setOnScripts('camGame', camGame);
-			ScriptHandler.setOnScripts('camHUD', camHUD);
+			ScriptHandler.setOnScripts('camGame',      camGame);
+			ScriptHandler.setOnScripts('camHUD',       camHUD);
 			ScriptHandler.setOnScripts('camCountdown', camCountdown);
 		}
 
@@ -433,20 +415,6 @@ class PlayState extends funkin.states.MusicBeatState
 		// releer el archivo de disco en cada canción.
 		funkin.data.GlobalConfig.applyToSkinSystem();
 
-		// ── Aplicar skin de notas con jerarquía de prioridad ─────────────────
-		// IMPORTANTE: esto debe ocurrir ANTES de setupUI() para que UIScriptedManager
-		// lea el valor correcto de isPixel al construirse. Si se aplica después,
-		// el script UI recibe isPixel=false incluso en stages pixel (school, etc.)
-		// lo que provoca que los ratings y números de combo usen assets normales
-		// en lugar de los pixelados.
-		//
-		// Prioridad: meta.noteSkin > meta.stageSkins[stage] > stage-default > global player
-		//
-		// 1. Si el meta.json tiene "noteSkin" → override total para toda la canción.
-		// 2. Si tiene "stageSkins" → registrar los overrides por stage en el sistema.
-		//    El stage actual se resuelve via applySkinForStage().
-		// 3. Si no hay nada en meta → applySkinForStage() usa el mapping global
-		//    (los defaults "school"→"DefaultPixel" etc. o lo que haya en NoteSkinSystem).
 		if (metaData.noteSkin != null && metaData.noteSkin != 'default' && metaData.noteSkin != '')
 		{
 			// Override total: toda la canción usa esta skin sin importar el stage
@@ -468,12 +436,6 @@ class PlayState extends funkin.states.MusicBeatState
 		// Cargar script de la skin activa (si existe)
 		NoteSkinSystem.loadSkinScript();
 
-		// ── Aplicar splash de notas ───────────────────────────────────────────
-		// meta.noteSplash > global player preference (NoteSkinSystem ya cargo la global)
-		// BUGFIX: usar setTemporarySplash() en lugar de setSplash() para NO guardar
-		// permanentemente en disco. setSplash() hacia flush() y contaminaba la
-		// preferencia global del jugador — cualquier cancion de school cambiaba el
-		// splash a "PixelSplash" para TODAS las canciones siguientes.
 		if (metaData.noteSplash != null && metaData.noteSplash != '')
 			NoteSkinSystem.setTemporarySplash(metaData.noteSplash);
 		else
@@ -496,16 +458,6 @@ class PlayState extends funkin.states.MusicBeatState
 		modChartManager = new ModChartManager(strumsGroups);
 		modChartManager.data.song = SONG.song;
 		modChartManager.loadFromFile(SONG.song); // carga assets/modcharts/<song>.json si existe
-
-		// Exponer modchart y strums a scripts
-		if (scriptsEnabled)
-		{
-			ScriptHandler.setOnScripts('modChart', modChartManager);
-			ScriptHandler.setOnScripts('playerStrumsGroup', playerStrumsGroup);
-			ScriptHandler.setOnScripts('cpuStrumsGroup', cpuStrumsGroup);
-			ScriptHandler.setOnScripts('strumsGroups', strumsGroups);
-			ScriptHandler.setOnScripts('strumsGroupMap', strumsGroupMap);
-		}
 
 		// Generar música
 		generateSong();
@@ -535,18 +487,12 @@ class PlayState extends funkin.states.MusicBeatState
 
 		if (scriptsEnabled)
 		{
-			ScriptHandler.setOnScripts('boyfriend', boyfriend);
-			ScriptHandler.setOnScripts('dad', dad);
-			ScriptHandler.setOnScripts('gf', gf);
-			ScriptHandler.setOnScripts('stage', currentStage);
-			// onStageCreate ya fue disparado por loadStageScripts() una vez que los elementos existen.
-			// Llamarlo aqui de nuevo (via callOnScripts) dispara TODOS los layers incluyendo stage,
-			// causando una segunda ejecucion con los sprites aun no registrados. Solo llamamos
-			// a los scripts que NO son de stage (global, song, ui, etc.).
+			// Inject complete vars
+			ScriptHandler.injectPlayState(this);
+
 			ScriptHandler.callOnNonStageScripts('onStageCreate', ScriptHandler._argsEmpty);
 			ScriptHandler.callOnScripts('postCreate', ScriptHandler._argsEmpty);
-			// Resolver listArtist con prioridad: meta.json > chart field > default.
-			// meta.json permite overridear el artista sin modificar el chart.
+
 			if (metaData != null && metaData.artist != null && metaData.artist != '')
 				GameState.listArtist = metaData.artist;
 			else if (SONG.artist != null && SONG.artist != '')
@@ -554,31 +500,8 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler.setOnScripts('author', GameState.listArtist);
 		}
 
-		// ── Pausa global al perder foco ───────────────────────────────────────
-		// FlxG.signals.focusLost se dispara EN CUALQUIER momento, sin importar
-		// qué estado o substate esté activo (al contrario que override onFocusLost,
-		// que solo se invoca cuando PlayState es el estado raíz activo).
-		// Lo suscribimos aquí y lo quitamos en destroy() para no dejar listeners huérfanos.
 		FlxG.signals.focusLost.add(_onGlobalFocusLost);
 
-		// ── GPU flush post-primer-render ─────────────────────────────────────
-		// BUGFIX: el timer anterior se registraba ANTES de super.create() →
-		// los primeros frames de render aún no habían ocurrido cuando disparaba,
-		// por lo que getTexture() podía devolver null o las texturas no estaban
-		// subidas a VRAM todavía → disposeImage() borraba pixels antes del upload.
-		//
-		// SOLUCIÓN: escuchar ENTER_FRAME en el stage nativo de OpenFL.
-		// Esperamos 5 frames para garantizar que context3D procesó TODOS los
-		// draw calls del create() (personajes, stage, strums, HUD, countdown).
-		// En el frame 5 hacemos:
-		//   1. flushGPUCache()  — disposeImage() de todas las texturas subidas
-		//   2. Gc.run(true)     — ciclo GC mayor: recoge los Image.pixels liberados
-		//   3. Gc.compact()     — compacta el heap → System.totalMemory baja realmente
-		//
-		// Gc.compact() is slow (~50-200ms) but happens only once per song.
-		// We use 3 frames (was 5) to still guarantee GPU upload is done while
-		// running the compact as early as possible — during the very first
-		// countdown beat where the freeze is least noticeable.
 		#if (desktop && cpp && !hl)
 		var _flushFrameCount:Int = 0;
 		final _flushFramesNeeded:Int = 3;
@@ -675,18 +598,85 @@ class PlayState extends funkin.states.MusicBeatState
 		// ANTES de add() para que estén listos cuando scripts les apliquen shaders.
 		currentStage.cameras = [camGame];
 		_assignStageCameras(currentStage, [camGame]);
-		add(currentStage);
 
-		// Crear personajes desde stage
+		// Crear personajes (se crean pero NO se añaden al display list aún)
 		loadCharacters();
 
-		// ── Capas por encima de los personajes ───────────────────────────────
-		// Los elementos marcados con aboveChars:true en el JSON del stage se
-		// añaden AQUÍ, después de todos los personajes, para que se rendericen
-		// encima de ellos (cámaras, capas de luz, foreground, bokeh…)
-		// Equivalente a poner sprites DESPUÉS de <boyfriend> en Codename Engine.
-		if (currentStage.aboveCharsGroup != null && currentStage.aboveCharsGroup.length > 0)
-			add(currentStage.aboveCharsGroup);
+		if (currentStage._useCharAnchorSystem)
+		{
+			// ── Integrated char-anchor ordering ──────────────────────────────
+			// The stage JSON contains type:"character" anchor elements that mark
+			// exactly where each character should appear in the render stack.
+			// We add each sprite directly to PlayState so we can interleave
+			// characters between stage layers at the correct depth.
+			// The Stage group itself is still added for its update() / scripts.
+			add(currentStage); // update only; its member list is empty
+
+			var addedCharSlots:Map<String, Bool> = new Map();
+			var addedCharObjects:Array<Character> = [];
+
+			for (entry in currentStage.spriteList)
+			{
+				if (entry.sprite != null)
+				{
+					// Regular stage sprite — set camera and add directly
+					entry.sprite.cameras = [camGame];
+					add(entry.sprite);
+				}
+				else if (entry.element.type != null
+					&& entry.element.type.toLowerCase() == 'character'
+					&& entry.element.charSlot != null)
+				{
+					// Character anchor — find the matching slot and add it now
+					var slotKey = entry.element.charSlot.toLowerCase();
+					for (slot in characterSlots)
+					{
+						var matches = switch (slotKey)
+						{
+							case 'bf', 'boyfriend', 'player', 'player1': slot.isPlayerSlot;
+							case 'gf', 'girlfriend', 'spectator': slot.isGFSlot;
+							case 'dad', 'opponent', 'player2': slot.isOpponentSlot;
+							default: false;
+						};
+						if (matches && !addedCharSlots.exists(slotKey))
+						{
+							add(slot.character);
+							addedCharSlots.set(slotKey, true);
+							addedCharObjects.push(slot.character);
+							break;
+						}
+					}
+				}
+			}
+
+			// Safety: add any characters not placed by an anchor.
+			// Uses addedCharObjects (tracked above) instead of FlxBasic.parent,
+			// which is not accessible through the FunkinSprite inheritance chain.
+			for (slot in characterSlots)
+			{
+				if (slot.character != null && !addedCharObjects.contains(slot.character))
+					add(slot.character);
+			}
+		}
+		else
+		{
+			// ── Legacy two-group ordering (no char anchors) ───────────────────
+			add(currentStage);
+
+			// Add characters between stage and aboveCharsGroup
+			for (slot in characterSlots)
+			{
+				if (slot.character != null)
+					add(slot.character);
+			}
+
+			// ── Capas por encima de los personajes ───────────────────────────────
+			// Los elementos marcados con aboveChars:true en el JSON del stage se
+			// añaden AQUÍ, después de todos los personajes, para que se rendericen
+			// encima de ellos (cámaras, capas de luz, foreground, bokeh…)
+			if (currentStage.aboveCharsGroup != null && currentStage.aboveCharsGroup.length > 0)
+				add(currentStage.aboveCharsGroup);
+		}
 
 		// Asignar refs legacy buscando por tipo (no por índice)
 		for (slot in characterSlots)
@@ -804,7 +794,8 @@ class PlayState extends funkin.states.MusicBeatState
 			}
 
 			characterSlots.push(slot);
-			add(slot.character);
+			// Characters are added to the display list in loadStageAndCharacters()
+			// after stage sprites are in place, so that render depth is correct.
 		}
 
 		// BUG FIX #HIDEGF: hide_girlfriend del stage de Psych (y el campo nativo de Cool).
@@ -1014,6 +1005,9 @@ class PlayState extends funkin.states.MusicBeatState
 					if (skinData != null)
 					{
 						group.reloadAllStrumSkins(skinData);
+						// Guardar el nombre en group.data para que NoteManager
+						// pueda usarlo al spawnear y reciclar notas de este grupo.
+						group.data.noteSkin = skinOverride;
 						trace('[PlayState] noteSkins: grupo "${group.id}" → skin "$skinOverride"');
 					}
 					else
@@ -1080,8 +1074,6 @@ class PlayState extends funkin.states.MusicBeatState
 		// Character controller
 		characterController = new CharacterController();
 		characterController.initFromSlots(characterSlots);
-
-		ScriptHandler.setOnScripts('characterController', characterController);
 
 		// Input handler
 		inputHandler = new InputHandler();
@@ -3127,6 +3119,31 @@ class PlayState extends funkin.states.MusicBeatState
 		var _skinDataForReload = NoteSkinSystem.getCurrentSkinData();
 		for (group in strumsGroups)
 			group.reloadAllStrumSkins(_skinDataForReload);
+
+		// Re-aplicar overrides de skin por grupo (noteSkins del meta.json).
+		// El loop anterior los pisó con la skin global — hay que restaurarlos.
+		if (metaData != null && metaData.noteSkins != null)
+		{
+			for (group in strumsGroups)
+			{
+				var skinOverride:Null<String> = metaData.noteSkins.get(group.id);
+				if (skinOverride == null && group.data.characters != null)
+					for (charId in group.data.characters)
+					{
+						var s = metaData.noteSkins.get(charId);
+						if (s != null) { skinOverride = s; break; }
+					}
+				if (skinOverride != null && skinOverride != '')
+				{
+					var skinData = NoteSkinSystem.getCurrentSkinData(skinOverride);
+					if (skinData != null)
+					{
+						group.reloadAllStrumSkins(skinData);
+						group.data.noteSkin = skinOverride;
+					}
+				}
+			}
+		}
 
 		// ── 4. Rebobinar notas (matar activas + resetear índice de spawn) ────
 		if (noteManager != null)

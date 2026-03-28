@@ -94,7 +94,10 @@ class FunkinCache extends AssetCache
 		FlxG.signals.postStateSwitch.add(function()
 		{
 			instance.clearSecondLayer();
-			MemoryUtil.collectMinor();
+			// Major + compact para devolver páginas al OS y reducir MEM_INFO_RESERVED.
+			// Se llama DESPUÉS del switch (nuevo estado ya activo), no durante gameplay.
+			// Si el nuevo estado es PlayState, el CountDown enmascara el stutter inicial.
+			MemoryUtil.collectMajor();
 		});
 	}
 
@@ -145,8 +148,12 @@ class FunkinCache extends AssetCache
 		}
 		for (k in toRemove)
 		{
+			final b = bitmapData2.get(k);
 			FlxG.bitmap.removeByKey(k);
 			#if lime LimeAssets.cache.image.remove(k); #end
+			// CRÍTICO: dispose() libera la textura nativa (GPU/Stage3D).
+			// Sin esto el wrapper Haxe se GC-ea pero la VRAM/RAM nativa queda retenida.
+			if (b != null) try { b.dispose(); } catch (_:Dynamic) {}
 			bitmapData2.remove(k);
 			if (onEvict != null) try { onEvict(k, 'bitmap'); } catch (_:Dynamic) {}
 		}
@@ -160,10 +167,12 @@ class FunkinCache extends AssetCache
 		}
 
 		// ── Sounds ────────────────────────────────────────────────────────────
-		for (k in sound2.keys())
+		for (k => s in sound2)
 		{
 			if (_permanentSounds.exists(k)) continue;
 			#if lime LimeAssets.cache.audio.remove(k); #end
+			// close() libera el buffer de audio nativo; sin esto solo muere el wrapper.
+			if (s != null) try { s.close(); } catch (_:Dynamic) {}
 			if (onEvict != null) try { onEvict(k, 'sound'); } catch (_:Dynamic) {}
 		}
 

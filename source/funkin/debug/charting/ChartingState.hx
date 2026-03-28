@@ -466,6 +466,22 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Capturar dificultad actual para guardar el chart con el nombre correcto
 		curDiffSuffix = funkin.data.CoolUtil.difficultySuffix();
 
+		// Normalizar sectionBeats → lengthInSteps (charts .level cargados desde disco
+		// pueden llegar con sectionBeats en vez de lengthInSteps; sin esto el grid
+		// calcula totalGridHeight = 0 y el editor queda bloqueado).
+		if (_song.notes != null)
+		{
+			for (rawSec in _song.notes)
+			{
+				var sec:Dynamic = rawSec;
+				if (sec.lengthInSteps == null || sec.lengthInSteps <= 0)
+				{
+					var beats:Float = (sec.sectionBeats != null) ? cast sec.sectionBeats : 4.0;
+					sec.lengthInSteps = Std.int(beats * 4);
+				}
+			}
+		}
+
 		// Garantizar que strumsGroups y characters existan (incluye grupo de GF)
 		funkin.data.Song.ensureMigrated(_song);
 
@@ -4873,6 +4889,23 @@ class ChartingState extends funkin.states.MusicBeatState
 			}
 
 			_song = loadedSong;
+
+			// NORMALIZAR sectionBeats → lengthInSteps
+			// Los charts de Psych Engine y los .level nativos usan `sectionBeats`
+			// en lugar de `lengthInSteps`. Si lengthInSteps es nulo o 0 el grid
+			// calcula altura 0 por sección y el editor no avanza.
+			if (_song.notes != null)
+			{
+				for (rawSec in _song.notes)
+				{
+					var sec:Dynamic = rawSec;
+					if (sec.lengthInSteps == null || sec.lengthInSteps <= 0)
+					{
+						var beats:Float = (sec.sectionBeats != null) ? cast sec.sectionBeats : 4.0;
+						sec.lengthInSteps = Std.int(beats * 4);
+					}
+				}
+			}
 
 			// Verificar que tenga los campos necesarios
 			if (_song.player1 == null)
