@@ -305,8 +305,17 @@ class NoteManager
 					var floorSus:Int = Math.floor(susLength / Conductor.stepCrochet);
 					for (susNote in 0...floorSus)
 					{
+						// BUGFIX: antes el primer piece se spawneaba en daStrumTime + stepCrochet,
+						// dejando un hueco visual de exactamente un step entre la cabeza de la nota
+						// y el inicio de la cadena sustain. A velocidades de scroll altas (o BPMs
+						// bajos) este hueco se hace muy visible ("gran espacio").
+						//
+						// Ahora susNote=0 → strumTime = daStrumTime (mismo que la cabeza).
+						// El primer body piece se ancla en la posición de la cabeza y NoteManager
+						// lo estira dinámicamente hasta el siguiente step (snake scaling), eliminando
+						// el hueco sin acortar la longitud total visual de la cadena.
 						unspawnNotes.push({
-							strumTime: daStrumTime + (Conductor.stepCrochet * susNote) + Conductor.stepCrochet,
+							strumTime: daStrumTime + (Conductor.stepCrochet * susNote),
 							noteData: daNoteData,
 							isSustainNote: true,
 							mustHitNote: gottaHitNote,
@@ -768,18 +777,22 @@ class NoteManager
 		// ── Scroll speed con multiplicador per-strum ────────────────────────────
 		final _scrollMult:Float = (_modState != null) ? _modState.scrollMult : 1.0;
 
-		// INVERT: invierte el eje de scroll solo para este strum.
-		// Con invert=1, el signo del desplazamiento de tiempo se invierte,
-		// produciendo notas "al revés" sin tocar el downscroll global.
-		final _invertSign:Float  = (_modState != null && _modState.invert > 0.5) ? -1.0 : 1.0;
+		// INVERT: invierte la dirección de scroll para este strum.
+		// Usa XOR con downscroll global para que funcione igual en upscroll y downscroll:
+		//   upscroll  + no INVERT → notas vienen de abajo  (normal)
+		//   upscroll  +    INVERT → notas vienen de arriba (invertido)
+		//   downscroll + no INVERT → notas vienen de arriba (normal downscroll)
+		//   downscroll +    INVERT → notas vienen de abajo  (invertido downscroll)
+		final _isInvert:Bool = (_modState != null && _modState.invert > 0.5);
+		final _effectiveDownscroll:Bool = downscroll != _isInvert;
 		final _effectiveSpeed:Float = _scrollSpeed * _scrollMult;
 
 		// ── Posición Y base (referenciada al strum) ─────────────────────────────
 		var noteY:Float;
-		if (downscroll)
-			noteY = _refY + (songPosition - note.strumTime) * _effectiveSpeed * _invertSign;
+		if (_effectiveDownscroll)
+			noteY = _refY + (songPosition - note.strumTime) * _effectiveSpeed;
 		else
-			noteY = _refY - (songPosition - note.strumTime) * _effectiveSpeed * _invertSign;
+			noteY = _refY - (songPosition - note.strumTime) * _effectiveSpeed;
 
 		// ── Y modifiers (BUG FIX v3: drunkY, noteOffsetY, bumpy, wave nunca se aplicaban) ─
 		var _noteYOffset:Float = 0;
@@ -835,10 +848,11 @@ class NoteManager
 					);
 			}
 
-			// INVERT para notas normales: rotar la flecha 180° para que apunte
-			// en la dirección correcta. Los sustains lo manejan con flipX/flipY.
+			// INVERT para notas normales: rotar la flecha 180° cuando la dirección
+			// efectiva es downscroll (notas vienen de arriba).
+			// Usa _effectiveDownscroll (XOR) para ser consistente con la posición Y.
 			if (!note.isSustainNote)
-				note.angle = _baseAngle + (_modState != null && _modState.invert > 0.5 ? 180.0 : 0.0);
+				note.angle = _baseAngle + (_effectiveDownscroll ? 180.0 : 0.0);
 
 			// ── Escala / alpha ────────────────────────────────────────────────
 			var newSX = strum.scale.x;
@@ -922,24 +936,17 @@ class NoteManager
 			// gaps or visible "chunking". The tail cap keeps its base scale.
 			if (note.isSustainNote)
 			{
-				// INVERT sustain flip: XOR entre downscroll global e INVERT mod.
-				// Exactamente uno de los dos activo = flip. Ambos o ninguno = sin flip.
-				//   upscroll  + no INVERT → sin flip (normal)
-				//   upscroll  +    INVERT → flip (notas vienen de arriba, como downscroll)
-				//   downscroll + no INVERT → flip (normal downscroll)
-				//   downscroll +    INVERT → sin flip (doble inversión = upscroll)
-				final _isInvert:Bool = _modState != null && _modState.invert > 0.5;
-				final _sustainFlip:Bool = downscroll != _isInvert;
+				final _sustainFlip:Bool = _effectiveDownscroll;
 				note.flipX = _sustainFlip;
 				note.flipY = _sustainFlip;
 
 				// ── Position of the NEXT step (end-of-piece / start-of-next) ──
 				final _nextStrumTime:Float = note.strumTime + Conductor.stepCrochet;
 
-				// Next Y: same formula as noteY but at _nextStrumTime
-				var _nextY:Float = downscroll
-					? _refY + (songPosition - _nextStrumTime) * _effectiveSpeed * _invertSign
-					: _refY - (songPosition - _nextStrumTime) * _effectiveSpeed * _invertSign;
+				// Next Y: misma fórmula que noteY pero en _nextStrumTime
+				var _nextY:Float = _effectiveDownscroll
+					? _refY + (songPosition - _nextStrumTime) * _effectiveSpeed
+					: _refY - (songPosition - _nextStrumTime) * _effectiveSpeed;
 
 				// Apply same Y modifiers evaluated at _nextStrumTime
 				if (_modState != null)
@@ -1040,8 +1047,9 @@ class NoteManager
 			else
 				distPast = strumLineY - note.y;    // positivo = encima del strum (pasó)
 
-			// Empezar a desvanecer a partir de 20px antes del strum, llegar a alpha 0 a 120px después
-			final FADE_START:Float = -20.0;
+			// Start fading 50px before the strum line, reach alpha 0 at 120px after.
+			// The earlier FADE_START makes sustain tails disappear more smoothly.
+			final FADE_START:Float = -50.0;
 			final FADE_END:Float   = 120.0;
 			if (distPast > FADE_START)
 			{

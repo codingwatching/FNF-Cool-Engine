@@ -52,6 +52,10 @@ class EventManager
 	 */
 	public static function loadEventsFromSong():Void
 	{
+		// Limpiar pool de precacheo del run anterior (restart o cambio de canción)
+		// antes de construir el nuevo, para no acumular dummies de runs previos.
+		Character.releasePrecachePool();
+
 		events     = [];
 		_nextIndex = 0;
 
@@ -364,9 +368,24 @@ class EventManager
 					ScriptHandler.callOnScripts('onAltAnim', [v1, v2]);
 
 			case 'change character', 'swap character':
-				// Scripts handle the actual swap via onCharacterChange callback
+				// FIX: el built-in ahora realiza el swap real con reloadCharacter().
+				// Antes solo llamaba a scripts (que quizás no estaban cargados en
+				// ScriptHandler), por lo que el evento no hacía nada visible.
 				if (game != null && v1 != '' && v2 != '')
+				{
+					final target = _resolveChar(game, v1);
+					if (target != null)
+					{
+						target.reloadCharacter(v2);
+						// Actualizar iconos del HUD si existe uiManager
+						if (game.uiManager != null && game.boyfriend != null && game.dad != null)
+							game.uiManager.setIcons(game.boyfriend.healthIcon, game.dad.healthIcon);
+					}
+					else
+						trace('[EventManager] Change Character: slot "${v1}" no reconocido.');
+					// Notificar a scripts por si necesitan reaccionar al cambio
 					ScriptHandler.callOnScripts('onCharacterChange', [v1, v2]);
+				}
 
 			// -- HUD / Score ----------------------------------------------
 			case 'hud visible', 'toggle hud':
@@ -538,6 +557,9 @@ class EventManager
 		events = [];
 		customHandlers.clear();
 		_nextIndex = 0;
+		// Liberar dummies del pool que no llegaron a usarse (personajes opcionales
+		// que el jugador nunca alcanzó en la canción).
+		Character.releasePrecachePool();
 	}
 
 	/**

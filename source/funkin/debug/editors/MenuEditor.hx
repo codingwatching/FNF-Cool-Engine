@@ -1,4 +1,5 @@
 package funkin.debug.editors;
+import funkin.debug.EditorDialogs.UnsavedChangesDialog;
 import coolui.CoolInputText;
 import coolui.CoolCheckBox;
 import coolui.CoolDropDown;
@@ -80,6 +81,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 	var _isDirty     : Bool = false;
 	var _file        : FileReference;
 	var _music       : FlxSound;
+	var _unsavedDlg  : UnsavedChangesDialog = null;
 
 	// Live objects in preview (index -> FlxBasic)
 	var _live : Map<Int,FlxBasic> = new Map();
@@ -1436,8 +1438,24 @@ class MenuEditor extends funkin.states.MusicBeatState
 
 	function _goBack() : Void
 	{
+		if (_unsavedDlg != null) return;
+		if (_isDirty)
+		{
+			_unsavedDlg = new UnsavedChangesDialog([camUI]);
+			_unsavedDlg.onSaveAndExit = () -> { _save(); _menuEditorExit(); };
+			_unsavedDlg.onSave        = () -> { _save(); remove(_unsavedDlg); _unsavedDlg = null; };
+			_unsavedDlg.onExit        = () -> { _menuEditorExit(); };
+			add(_unsavedDlg);
+		}
+		else
+		{
+			_menuEditorExit();
+		}
+	}
+
+	function _menuEditorExit():Void
+	{
 		if (_music != null) { _music.stop(); _music = null; }
-		if (_isDirty) { _st('⚠ Unsaved changes — Ctrl+S to save, ESC to force quit'); _isDirty = false; return; }
 		funkin.system.CursorManager.hide();
 		FlxG.switchState(new funkin.menus.MainMenuState());
 	}

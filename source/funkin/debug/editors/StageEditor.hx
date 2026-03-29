@@ -1,4 +1,5 @@
 package funkin.debug.editors;
+import funkin.debug.EditorDialogs.UnsavedChangesDialog;
 import coolui.CoolInputText;
 import coolui.CoolNumericStepper;
 import coolui.CoolCheckBox;
@@ -98,6 +99,7 @@ class StageEditor extends funkin.states.MusicBeatState
 	var stageData:StageData;
 	var currentFilePath:String = '';
 	var hasUnsavedChanges:Bool = false;
+	var _unsavedDlg:UnsavedChangesDialog = null;
 
 	/** True once stageData has been populated from disk or from loadJSON.
 	 *  When true, reloadStageView uses __fromData__ (in-memory) instead of disk. */
@@ -1978,8 +1980,19 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		if (FlxG.keys.justPressed.ESCAPE)
 		{
-			funkin.system.CursorManager.hide();
-			StateTransition.switchState(new funkin.menus.FreeplayState());
+			if (_unsavedDlg != null) return;
+			if (hasUnsavedChanges)
+			{
+				_unsavedDlg = new UnsavedChangesDialog([camHUD]);
+				_unsavedDlg.onSaveAndExit = () -> { saveJSON(); _stageEditorExit(); };
+				_unsavedDlg.onSave        = () -> { saveJSON(); remove(_unsavedDlg); _unsavedDlg = null; };
+				_unsavedDlg.onExit        = () -> { _stageEditorExit(); };
+				add(_unsavedDlg);
+			}
+			else
+			{
+				_stageEditorExit();
+			}
 			return;
 		}
 
@@ -3268,6 +3281,13 @@ class StageEditor extends funkin.states.MusicBeatState
 		if (dir != '' && !FileSystem.exists(dir))
 			FileSystem.createDirectory(dir);
 		#end
+	}
+
+	/** Exits the Stage Editor cleanly. */
+	function _stageEditorExit():Void
+	{
+		funkin.system.CursorManager.hide();
+		StateTransition.switchState(new funkin.menus.FreeplayState());
 	}
 
 	function saveJSON():Void

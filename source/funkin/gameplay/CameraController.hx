@@ -149,12 +149,14 @@ class CameraController
 		currentTarget  = resolveTarget(target);
 		_extraOffsetX  = extraOffX;
 		_extraOffsetY  = extraOffY;
-		trace('[CameraController] Target → $currentTarget (extraOff=${extraOffX},${extraOffY} snap=$snap)');
+		trace('[CameraController] Target → $currentTarget (extraOff=${extraOffX},${extraOffY} snap=$snap locked=$locked)');
 
 		// Siempre snapear camFollow al nuevo target — la transición suave la
 		// hace camGame.follow(camFollow, LOCKON, followLerp), igual que V-Slice.
 		// El lerpSpeed de updateFollowPosition añadiría un segundo lerp encadenado
 		// que ralentiza y suaviza en exceso la transición.
+		// NOTA: _snapToTarget() respeta `locked` internamente — si está bloqueada
+		// no moverá camFollow aunque se cambie el target.
 		_snapToTarget();
 	}
 
@@ -182,6 +184,16 @@ class CameraController
 	 */
 	public function lock(?x:Float, ?y:Float):Void
 	{
+		// ── BUG FIX: cancelar el tween activo ANTES de poner locked=true ──────
+		// Si hay un panTo/tweenToTarget corriendo, su onComplete llama
+		//   if (!stayLocked) locked = false;
+		// lo que deshace el lock() que acaba de pedirse.
+		// Cancelando el tween aquí, el callback nunca se ejecuta.
+		if (_panTween != null)
+		{
+			_panTween.cancel();
+			_panTween = null;
+		}
 		locked = true;
 		_lockedPos.x = x ?? camFollow.x;
 		_lockedPos.y = y ?? camFollow.y;
@@ -438,6 +450,9 @@ class CameraController
 	/** Mueve camFollow instantáneamente al target actual (sin lerp). */
 	private function _snapToTarget():Void
 	{
+		// Si la cámara está bloqueada, nunca mover camFollow desde aquí.
+		if (locked) return;
+
 		// ── Target 'both': snap al centro entre bf y dad ──────────────────
 		if (currentTarget == 'both')
 		{

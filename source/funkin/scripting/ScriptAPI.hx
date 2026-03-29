@@ -2298,10 +2298,10 @@ class ScriptAPI
 				final ps = funkin.gameplay.PlayState.instance;
 				return ps != null ? ps.cameraController : null;
 			},
-			setTarget:      function(target:String, ?snap:Bool) {
+			setTarget:      function(target:String, ?extraOffX:Float, ?extraOffY:Float, ?snap:Bool) {
 				final ps = funkin.gameplay.PlayState.instance;
 				if (ps != null && ps.cameraController != null)
-					ps.cameraController.setTarget(target, snap ?? false);
+					ps.cameraController.setTarget(target, extraOffX ?? 0.0, extraOffY ?? 0.0, snap ?? true);
 			},
 			setFollowLerp:  function(lerp:Float) {
 				final ps = funkin.gameplay.PlayState.instance;
@@ -2334,6 +2334,49 @@ class ScriptAPI
 				final ps = funkin.gameplay.PlayState.instance;
 				if (ps == null || ps.cameraController == null) return '';
 				return ps.cameraController.currentTarget;
+			},
+			// FIX: lock/unlock/moveTo/panTo faltaban en el proxy.
+			// "locked" es un Bool (property), NO una función. Desde HScript
+			// llamar cameraController.locked() crashea porque intenta invocar un Bool.
+			// Usar estos helpers en su lugar:
+			//   camController.lock()          → bloquea en posición actual
+			//   camController.lock(x, y)      → bloquea en coordenadas de mundo
+			//   camController.unlock()        → reanuda follow
+			//   camController.isLocked()      → lee el Bool sin intentar llamarlo
+			lock:           function(?x:Float, ?y:Float) {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps != null && ps.cameraController != null)
+					ps.cameraController.lock(x, y);
+			},
+			unlock:         function() {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps != null && ps.cameraController != null)
+					ps.cameraController.unlock();
+			},
+			isLocked:       function():Bool {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps == null || ps.cameraController == null) return false;
+				return ps.cameraController.locked;
+			},
+			moveTo:         function(x:Float, y:Float) {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps != null && ps.cameraController != null)
+					ps.cameraController.moveTo(x, y);
+			},
+			panTo:          function(x:Float, y:Float, ?duration:Float, ?ease:Dynamic, ?keepLocked:Bool, ?onComplete:Dynamic) {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps != null && ps.cameraController != null)
+					ps.cameraController.panTo(x, y, duration, ease, keepLocked, onComplete);
+			},
+			tweenToTarget:  function(duration:Float, ?ease:Dynamic) {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps != null && ps.cameraController != null)
+					ps.cameraController.tweenToTarget(duration, ease);
+			},
+			centerBetweenChars: function(?snap:Bool) {
+				final ps = funkin.gameplay.PlayState.instance;
+				if (ps != null && ps.cameraController != null)
+					ps.cameraController.centerBetweenChars(snap);
 			}
 		});
 	}

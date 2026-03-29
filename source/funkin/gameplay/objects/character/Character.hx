@@ -187,53 +187,98 @@ class Character extends FunkinSprite
 	 */
 	static var _pathCache:Map<String, String> = [];
 
+	/**
+	 * Pool de personajes precacheados.
+	 *
+	 * Cada entrada es un Character "dummy" creado durante la fase de carga
+	 * de la canción. Mantenerlos vivos (en lugar de destruirlos) es esencial:
+	 * mientras el dummy existe, sus atlases tienen destroyOnNoUse = false,
+	 * lo que garantiza que el BitmapData permanezca en VRAM hasta el momento
+	 * en que el swap real ocurre.
+	 *
+	 * Sin este pool, releaseTrackedAtlases() en destroy() pondría
+	 * destroyOnNoUse = true y el GC de Flixel podría liberar la textura
+	 * entre el precacheo y el evento Change Character → re-upload a GPU → lag.
+	 *
+	 * Ciclo de vida:
+	 *   1. precacheCharacter(name) → crea dummy y lo guarda aquí.
+	 *   2. reloadCharacter(name)   → carga usando el caché caliente,
+	 *                                luego destruye el dummy del pool.
+	 *   3. releasePrecachePool()   → limpia todo al terminar la canción.
+	 */
+	static var _precachePool:Map<String, Character> = [];
+
 	/** Invalida las entradas de un personaje específico (recarga de mod). */
 	public static function invalidateCharCache(charName:String):Void
 	{
 		_dataCache.remove(charName);
 		_pathCache.remove(charName);
-		// Invalidar también el caché de frames de FunkinSprite
 		FunkinSprite.invalidateCache('char_sparrow:$charName');
 		FunkinSprite.invalidateCache('char_packer:$charName');
+		// Si había un dummy en el pool, destruirlo también
+		final pooled = _precachePool.get(charName);
+		if (pooled != null) { _precachePool.remove(charName); pooled.destroy(); }
 		trace('[Character] Cache invalidado para: $charName');
 	}
 
-	/** Limpia todos los cachés de Character. */
+	/** Limpia todos los cachés de Character, incluyendo el pool de precacheo. */
 	public static function clearCharCaches():Void
 	{
+		releasePrecachePool();
 		_dataCache.clear();
 		_pathCache.clear();
 		trace('[Character] Todos los cachés de Character limpiados.');
 	}
 
 	/**
-	 * Precachea un personaje SIN añadirlo al stage ni a ninguna cámara.
+	 * Destruye todos los dummies del pool y limpia la tabla.
+	 * Llamar al terminar la canción (EventManager.clear) para liberar
+	 * la VRAM reservada por personajes que no llegaron a usarse.
+	 */
+	public static function releasePrecachePool():Void
+	{
+		var count = 0;
+		for (_ => dummy in _precachePool) { dummy.destroy(); count++; }
+		_precachePool.clear();
+		if (count > 0)
+			trace('[Character] Pool liberado: $count dummies destruidos.');
+	}
+
+	/**
+	 * Precachea un personaje SIN añadirlo al stage ni a ninguna cámara,
+	 * manteniendo sus assets PINNED en VRAM hasta que el swap real ocurra.
 	 *
-	 * Carga en background:
-	 *   • JSON de datos → _dataCache  (Character.loadCharacterData)
-	 *   • Spritesheet PNG/XML → FunkinSprite._frameCache  (FlxAtlasFrames en VRAM)
+	 * A diferencia de la versión anterior (que destruía el dummy al instante),
+	 * esta implementación guarda el dummy en `_precachePool`. Mientras el dummy
+	 * esté vivo, sus atlases tienen `destroyOnNoUse = false`, lo que impide que
+	 * el GC de Flixel libere el BitmapData entre el precacheo y el evento.
 	 *
-	 * Llamar esto durante la fase de carga (antes del gameplay) elimina
-	 * el hitch que ocurre al cambiar de personaje con Change Character
-	 * si el personaje nuevo no había sido cargado antes.
+	 * Sin este pin, `_frameCache` puede tener la entrada pero
+	 * `atlas.parent.bitmap == null` → re-upload a GPU al hacer el swap → lag.
+	 *
+	 * El dummy se destruye automáticamente en `reloadCharacter()` (una vez que
+	 * el personaje real ha tomado la referencia a los frames) o en
+	 * `releasePrecachePool()` al finalizar la canción.
 	 *
 	 * @param name  Nombre del personaje a precachear
 	 */
 	public static function precacheCharacter(name:String):Void
 	{
-		if (name == null || name == '' || _dataCache.exists(name)) return;
+		// BUGFIX: se eliminó `|| _dataCache.exists(name)` de la guarda.
+		// Antes, si el JSON del personaje ya estaba en _dataCache (cargado en otra
+		// canción o como personaje activo), no se creaba el dummy → las texturas
+		// NO quedaban pinned en VRAM y podían ser liberadas por el GC de Flixel
+		// entre el precacheo y el evento Change Character → GPU re-upload → lag.
+		// Ahora siempre se crea el dummy salvo que ya exista uno en el pool.
+		if (name == null || name == '' || _precachePool.exists(name)) return;
 
 		try
 		{
-			// Crear una instancia temporal completamente fuera de pantalla
-			// y sin añadirla a ningún grupo/cámara.
-			// El constructor llama loadCharacterData + characterLoad internamente,
-			// lo que rellena _dataCache y FunkinSprite._frameCache.
-			final dummy = new Character(-99999, -99999, name, false);
-			// Destruir inmediatamente para liberar la instancia Haxe,
-			// pero los assets PNG/XML ya quedaron en los caches estáticos.
-			dummy.destroy();
-			trace('[Character] Precacheo completado: "$name"');
+			final dummy    = new Character(-99999, -99999, name, false);
+			dummy.visible  = false;
+			dummy.active   = false;
+			_precachePool.set(name, dummy);
+			trace('[Character] Precacheado (pool pinned): "$name"');
 		}
 		catch (e:Dynamic)
 		{
@@ -700,17 +745,36 @@ class Character extends FunkinSprite
 	public function reloadCharacter(newName:String):Void
 	{
 		if (newName == null || newName == '') return;
+
+		// ── GUARD: skip si ya es el personaje activo ──────────────────────────
+		// Evita destruir y reconstruir animaciones + recargar assets sin motivo.
+		if (newName == curCharacter) return;
+
 		final savedX      = x;
 		final savedY      = y;
 		final savedPlayer = isPlayer;
 
-		// Borrar animaciones y offsets del personaje anterior para evitar acumulación
+		// ── Liberar atlases del personaje anterior ANTES de cargar el nuevo ───
+		releaseTrackedAtlases();
+
+		// Borrar animaciones y offsets del personaje anterior
 		animOffsets.clear();
 		animation.destroyAnimations();
 
 		curCharacter = newName;
-		loadCharacterData(newName);
-		characterLoad(newName);
+		loadCharacterData(newName);  // hit de _dataCache (O(1))
+		characterLoad(newName);      // hit de _frameCache con bitmap pinned → sin GPU stall
+
+		// ── Liberar el dummy del pool DESPUÉS de que 'this' ya tomó los frames ─
+		// El dummy referenciaba los atlases con destroyOnNoUse=false para mantener
+		// el BitmapData en VRAM. Ahora 'this' los referencia a través de
+		// _usedAtlases, así que es seguro destruir el dummy sin perder la textura.
+		final pooled = Character._precachePool.get(newName);
+		if (pooled != null)
+		{
+			Character._precachePool.remove(newName);
+			pooled.destroy();
+		}
 
 		isPlayer = savedPlayer;
 		setPosition(savedX, savedY);

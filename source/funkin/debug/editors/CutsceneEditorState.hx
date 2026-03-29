@@ -1,4 +1,5 @@
 package funkin.debug.editors;
+import funkin.debug.EditorDialogs.UnsavedChangesDialog;
 import coolui.CoolInputText;
 import coolui.CoolDropDown;
 
@@ -114,6 +115,7 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 		return isIntro ? docIntro : docOutro;
 
 	var hasUnsaved:Bool = false;
+	var _unsavedDlg:UnsavedChangesDialog = null;
 	var pathIntro:String = '';
 	var pathOutro:String = '';
 
@@ -604,6 +606,23 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 	//  Botones top
 	// ═════════════════════════════════════════════════════════════════════════
 	function _onBack():Void
+	{
+		if (_unsavedDlg != null) return;
+		if (hasUnsaved)
+		{
+			_unsavedDlg = new UnsavedChangesDialog([camHUD]);
+			_unsavedDlg.onSaveAndExit = () -> { _onSave(); _cutsceneEditorExit(); };
+			_unsavedDlg.onSave        = () -> { _onSave(); remove(_unsavedDlg); _unsavedDlg = null; };
+			_unsavedDlg.onExit        = () -> { _cutsceneEditorExit(); };
+			add(_unsavedDlg);
+		}
+		else
+		{
+			_cutsceneEditorExit();
+		}
+	}
+
+	function _cutsceneEditorExit():Void
 	{
 		PlayState.cinematicMode = false;
 		PlayState.isBotPlay = false;

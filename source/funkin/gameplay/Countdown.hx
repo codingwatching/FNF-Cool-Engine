@@ -158,6 +158,11 @@ class Countdown {
 	var _state:PlayState;
 	var _camera:flixel.FlxCamera;
 	var _sprites:Array<FlxSprite> = [];
+	/** Escala base de cada sprite DESPUÉS de setGraphicSize + updateHitbox.
+	 *  Para sprites normales ≈ hdScale, para pixel ≈ pixelScale (6.0).
+	 *  Se usa en _showSprite para que enterStartScale y el tween target
+	 *  sean MULTIPLICADORES de la escala base, no de la escala 1.0 del frame. */
+	var _baseScales:Array<Float> = [];
 	var _loaded:Bool = false;
 	var _timer:FlxTimer = null;
 	var _onComplete:Void->Void = null;
@@ -185,7 +190,8 @@ class Countdown {
 	public function preload():Void {
 		if (_loaded) return;
 
-		_sprites = [];
+		_sprites    = [];
+		_baseScales = [];
 		final isPixelLocal = isPixel;
 
 		for (path in skin.sprPaths) {
@@ -202,6 +208,12 @@ class Countdown {
 			}
 
 			spr.updateHitbox();
+
+			// FIX: guardar la escala base DESPUÉS de setGraphicSize+updateHitbox.
+			// Para pixel → scale.x ≈ 6.0; para HD → scale.x ≈ 0.7.
+			// _showSprite necesita esta referencia para no resetear el zoom a 1.0.
+			_baseScales.push(spr.scale.x);
+
 			spr.alpha   = 0;
 			spr.visible = false;
 			spr.active  = false;
@@ -271,8 +283,9 @@ class Countdown {
 			FlxTween.cancelTweensOf(spr.scale);
 			spr.destroy();
 		}
-		_sprites = [];
-		_loaded  = false;
+		_sprites    = [];
+		_baseScales = [];
+		_loaded     = false;
 	}
 
 	// ─── Internos ─────────────────────────────────────────────────────────────
@@ -361,20 +374,25 @@ class Countdown {
 			return;
 		}
 
-		final spr = _sprites[idx];
-		final dur = Conductor.crochet / 1000.0;
-		final sk  = skin;
+		final spr  = _sprites[idx];
+		final dur  = Conductor.crochet / 1000.0;
+		final sk   = skin;
+
+		// FIX: la escala base es el valor guardado en preload() tras setGraphicSize.
+		// Para pixel ≈ 6.0, para HD ≈ 0.7. NO se usa 1.0 como target porque eso
+		// reduciría el sprite a su tamaño de frame original (el bug del "muy pequeño").
+		final base = (idx < _baseScales.length) ? _baseScales[idx] : 1.0;
 
 		// Cancelar tweens anteriores
 		FlxTween.cancelTweensOf(spr);
 		FlxTween.cancelTweensOf(spr.scale);
 
-		// Reset de estado
+		// Reset de estado — escala inicial = punch de entrada SOBRE la base
 		spr.screenCenter();
 		spr.visible = true;
 		spr.active  = true;
 		spr.alpha   = 0;
-		spr.scale.set(sk.enterStartScale, sk.enterStartScale);
+		spr.scale.set(base * sk.enterStartScale, base * sk.enterStartScale);
 		spr.angle   = (sk.rotMin != sk.rotMax) ? FlxG.random.float(sk.rotMin, sk.rotMax) : 0;
 
 		// ── ENTRADA ────────────────────────────────────────────────────────────
@@ -382,7 +400,8 @@ class Countdown {
 			dur * sk.enterAlphaDur,
 			{ease: FlxEase.quadOut}
 		);
-		FlxTween.tween(spr.scale, {x: 1.0, y: 1.0},
+		// Tween de scale vuelve a `base`, no a 1.0
+		FlxTween.tween(spr.scale, {x: base, y: base},
 			dur * sk.enterScaleDur,
 			{ease: FlxEase.elasticOut}
 		);
@@ -390,7 +409,7 @@ class Countdown {
 		// ── MICRO-PULSE (solo si pulseDelta > 0) ─────────────────────────────
 		if (sk.pulseDelta > 0) {
 			FlxTween.tween(spr.scale,
-				{x: 1.0 + sk.pulseDelta, y: 1.0 + sk.pulseDelta},
+				{x: base + sk.pulseDelta, y: base + sk.pulseDelta},
 				dur * sk.pulseUpDur,
 				{
 					ease: FlxEase.sineOut,
@@ -398,7 +417,7 @@ class Countdown {
 					onComplete: function(_) {
 						if (spr.alive)
 							FlxTween.tween(spr.scale,
-								{x: 1.0, y: 1.0},
+								{x: base, y: base},
 								dur * sk.pulseDownDur,
 								{ease: FlxEase.sineIn}
 							);
@@ -419,7 +438,7 @@ class Countdown {
 					spr.visible = false;
 					spr.active  = false;
 					spr.angle   = 0;
-					spr.scale.set(1, 1);
+					spr.scale.set(base, base); // restaurar base, no 1.0
 				}
 			}
 		);

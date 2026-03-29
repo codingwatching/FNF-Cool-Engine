@@ -1,62 +1,70 @@
 /**
  * ChangeCharacter.hx
- * Evento: "Change Character" / "Swap Character"
+ * Handler for the "Change Character" / "Swap Character" event.
  *
- * v1 = slot  →  "bf" / "boyfriend" / "player"
- *               "dad" / "opponent"
- *               "gf" / "girlfriend"
- * v2 = nombre del nuevo personaje (debe existir en assets/characters/)
- *
- * FIXES aplicados respecto a la versión original:
- *   1. Reemplazado target.loadCharacterSparrow() (solo recargaba el spritesheet)
- *      por target.reloadCharacter() — recarga datos JSON + spritesheet + anims + offsets.
- *   2. Reemplazado game.uiManager.updatePlayerIcon() / updateOpponentIcon()
- *      (métodos inexistentes → Null Function Pointer) por game.uiManager.setIcons()
- *      que es la API real de UIScriptedManager en Cool Engine.
+ * Event parameters (v1, v2):
+ *   v1 = slot → "bf" / "boyfriend" / "player"
+ *              "dad" / "opponent"
+ *              "gf" / "girlfriend"
+ *   v2 = name of the new character (must exist in characters/)
  */
-function onCharacterChange(slot, newCharName)
+function onTrigger(v1, v2, time)
 {
-	if (game == null || newCharName == null || newCharName == '')
-		return;
+    if (game == null || v1 == null || v1 == '' || v2 == null || v2 == '')
+        return false;
 
-	// Resolvemos qué Character hay que reemplazar
-	var target = null;
-	var slotLow = slot.toLowerCase();
+    // Resolvemos el slot a partir de v1
+    var slotLow = v1.toLowerCase();
+    var target  = null;
 
-	if (slotLow == 'bf' || slotLow == 'boyfriend' || slotLow == 'player')
-		target = game.boyfriend;
-	else if (slotLow == 'dad' || slotLow == 'opponent')
-		target = game.dad;
-	else if (slotLow == 'gf' || slotLow == 'girlfriend')
-		target = game.gf;
+    if (slotLow == 'bf' || slotLow == 'boyfriend' || slotLow == 'player')
+        target = game.boyfriend;
+    else if (slotLow == 'dad' || slotLow == 'opponent')
+        target = game.dad;
+    else if (slotLow == 'gf' || slotLow == 'girlfriend')
+        target = game.gf;
 
-	if (target == null)
-	{
-		trace('ChangeCharacter: slot "' + slot + '" no reconocido.');
-		return;
-	}
+    if (target == null)
+    {
+        trace('ChangeCharacter: slot "' + v1 + '" no reconocido.');
+        return false;
+    }
 
-	// FIX 1: reloadCharacter() recarga TODO (JSON + spritesheet + anims + offsets)
-	// y preserva internamente la posición e isPlayer, así que no hace falta
-	// guardarlos nosotros salvo para actualizar la referencia en PlayState.
-	var oldX = target.x;
-	var oldY = target.y;
+    // ── OPTIMIZACIÓN 1: skip si ya es el mismo personaje ─────────────────────
+    // Evita reconstruir animaciones y recargar assets innecesariamente.
+    // reloadCharacter() también tiene este guard, pero hacerlo aquí evita
+    // incluso la llamada al método y el precacheo redundante.
+    if (target.curCharacter == v2)
+    {
+        trace('ChangeCharacter: ' + v1 + ' ya es "' + v2 + '", skip.');
+        return false;
+    }
 
-	target.reloadCharacter(newCharName);
+    // ── OPTIMIZACIÓN 2: safety precache antes del cambio ─────────────────────
+    // Normalmente EventManager._precacheChangeCharacters() ya habrá creado
+    // un dummy pinned en _precachePool al inicio de la canción, manteniendo
+    // las texturas del personaje ancladas en VRAM hasta este momento.
+    // Este guard protege dos casos edge:
+    //   a) Evento disparado dinámicamente via fireEvent() desde un script.
+    //   b) El LRU de FunkinSprite haya purgado la textura entre el precacheo
+    //      y el momento en que llega el evento (canciones muy largas con muchos assets).
+    // NOTA: precacheCharacter() ya NO es no-op cuando _dataCache tiene la entrada.
+    // Siempre crea el dummy pin si no existe uno en el pool, asegurando que las
+    // texturas queden en VRAM incluso si el JSON del personaje ya está cacheado.
+    funkin.gameplay.objects.character.Character.precacheCharacter(v2);
 
-	// Actualizamos la referencia en PlayState (el objeto sigue siendo el mismo,
-	// solo recargado con nuevos datos visuales).
-	if (slotLow == 'bf' || slotLow == 'boyfriend' || slotLow == 'player')
-		game.boyfriend = target;
-	else if (slotLow == 'dad' || slotLow == 'opponent')
-		game.dad = target;
-	else if (slotLow == 'gf' || slotLow == 'girlfriend')
-		game.gf = target;
+    // ── Cambio real ───────────────────────────────────────────────────────────
+    // reloadCharacter internamente: libera atlases del anterior → limpia anims
+    // → loadCharacterData (hit de caché) → characterLoad (hit de caché de frames).
+    target.reloadCharacter(v2);
 
-	// FIX 2: setIcons(p1, p2) es la API correcta de UIScriptedManager.
-	// updatePlayerIcon() / updateOpponentIcon() no existen y causaban Null Function Pointer.
-	if (game.uiManager != null && game.boyfriend != null && game.dad != null)
-		game.uiManager.setIcons(game.boyfriend.healthIcon, game.dad.healthIcon);
+    // Actualizar iconos del HUD
+    if (game.uiManager != null && game.boyfriend != null && game.dad != null)
+        game.uiManager.setIcons(game.boyfriend.healthIcon, game.dad.healthIcon);
 
-	trace('ChangeCharacter: ' + slot + ' → ' + newCharName);
+    trace('ChangeCharacter: ' + v1 + ' → ' + v2);
+
+    // Devolver false = el built-in también corre (llama onCharacterChange
+    // en otros scripts que puedan estar escuchando).
+    return false;
 }

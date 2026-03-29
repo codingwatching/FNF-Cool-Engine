@@ -1,4 +1,5 @@
 package funkin.debug.editors;
+import funkin.debug.EditorDialogs.UnsavedChangesDialog;
 import coolui.CoolInputText;
 
 
@@ -151,6 +152,9 @@ class DialogueEditor extends FlxState
 	var addBoxBtn:FlxButton;
 	var removePortraitBtn:FlxButton;
 	var removeBoxBtn:FlxButton;
+
+	var _isDirty    : Bool = false;
+	var _unsavedDlg : UnsavedChangesDialog = null;
 
 	// === DATOS ===
 	var conversation:DialogueConversation;
@@ -1151,6 +1155,7 @@ class DialogueEditor extends FlxState
 	 */
 	function addMessage():Void
 	{
+		_isDirty = true;
 		conversation.messages.push({
 			character: "dad",
 			text: "New message",
@@ -1173,6 +1178,7 @@ class DialogueEditor extends FlxState
 		if (selectedMessageIndex < 0 || selectedMessageIndex >= conversation.messages.length)
 			return;
 
+		_isDirty = true;
 		var msg = conversation.messages[selectedMessageIndex];
 		msg.character = characterText.text;
 		msg.text = messageText.text;
@@ -1197,6 +1203,7 @@ class DialogueEditor extends FlxState
 		if (selectedMessageIndex < 0 || selectedMessageIndex >= conversation.messages.length)
 			return;
 
+		_isDirty = true;
 		conversation.messages.splice(selectedMessageIndex, 1);
 		selectedMessageIndex = -1;
 
@@ -1221,6 +1228,7 @@ class DialogueEditor extends FlxState
 
 		if (DialogueData.saveConversation(PlayState.SONG.song, conversation))
 		{
+			_isDirty = false;
 			showMessage("Conversation saved!", FlxColor.GREEN);
 		}
 		else
@@ -1391,6 +1399,7 @@ class DialogueEditor extends FlxState
 		// Guardar
 		if (DialogueData.saveSkin(currentSkinName, currentSkin))
 		{
+			_isDirty = false;
 			showMessage("Skin saved!", FlxColor.GREEN);
 			refreshSkinList();
 		}
@@ -1779,8 +1788,33 @@ class DialogueEditor extends FlxState
 		// Atajos de teclado
 		if (FlxG.keys.justPressed.ESCAPE)
 		{
-			StateTransition.switchState(new funkin.menus.FreeplayState());
-			funkin.system.CursorManager.hide();
+			if (_unsavedDlg == null)
+			{
+				if (_isDirty)
+				{
+					_unsavedDlg = new UnsavedChangesDialog();
+					// No dedicated HUD cam — use default cameras
+					_unsavedDlg.onSaveAndExit = () -> {
+						if (currentTab == CONVERSATION) saveConversation(); else saveSkin();
+						funkin.system.CursorManager.hide();
+						StateTransition.switchState(new funkin.menus.FreeplayState());
+					};
+					_unsavedDlg.onSave = () -> {
+						if (currentTab == CONVERSATION) saveConversation(); else saveSkin();
+						remove(_unsavedDlg); _unsavedDlg = null;
+					};
+					_unsavedDlg.onExit = () -> {
+						funkin.system.CursorManager.hide();
+						StateTransition.switchState(new funkin.menus.FreeplayState());
+					};
+					add(_unsavedDlg);
+				}
+				else
+				{
+					funkin.system.CursorManager.hide();
+					StateTransition.switchState(new funkin.menus.FreeplayState());
+				}
+			}
 		}
 
 		// Evitar shortcuts si hay focus en inputs

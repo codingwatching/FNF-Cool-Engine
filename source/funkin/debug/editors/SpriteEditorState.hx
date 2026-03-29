@@ -39,6 +39,7 @@ package funkin.debug.editors;
  */
 
 import coolui.CoolInputText;
+import funkin.debug.EditorDialogs.UnsavedChangesDialog;
 import coolui.CoolNumericStepper;
 import coolui.CoolCheckBox;
 import coolui.CoolTabMenu;
@@ -152,6 +153,7 @@ class SpriteEditorState extends MusicBeatState
     var _atlasImagePath:String = "";
     /** Whether the atlas has unsaved changes. */
     var _dirty:Bool = false;
+    var _unsavedDlg:UnsavedChangesDialog = null;
 
     // ── Selection ─────────────────────────────────────────────────────────────
     var _selIdx:Int  = -1;   // -1 = nothing selected
@@ -950,10 +952,22 @@ class SpriteEditorState extends MusicBeatState
 
     function _handleKeyboard():Void
     {
-        // ESC → back
+        // ESC → back (with unsaved-changes guard)
         if (FlxG.keys.justPressed.ESCAPE)
         {
-            StateTransition.switchState(new funkin.debug.EditorHubState());
+            if (_unsavedDlg != null) return;
+            if (_dirty)
+            {
+                _unsavedDlg = new UnsavedChangesDialog([camHUD]);
+                _unsavedDlg.onSaveAndExit = () -> { _saveXml(false); StateTransition.switchState(new funkin.debug.EditorHubState()); };
+                _unsavedDlg.onSave        = () -> { _saveXml(false); remove(_unsavedDlg); _unsavedDlg = null; };
+                _unsavedDlg.onExit        = () -> { StateTransition.switchState(new funkin.debug.EditorHubState()); };
+                add(_unsavedDlg);
+            }
+            else
+            {
+                StateTransition.switchState(new funkin.debug.EditorHubState());
+            }
             return;
         }
 

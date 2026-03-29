@@ -1,4 +1,5 @@
 package funkin.debug.editors;
+import funkin.debug.EditorDialogs.UnsavedChangesDialog;
 import coolui.CoolInputText;
 import coolui.CoolNumericStepper;
 import coolui.CoolCheckBox;
@@ -219,6 +220,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var timeTxt       : FlxText;
 	var unsavedDot    : FlxSprite;
 	var statusTxt     : FlxText;
+	var _unsavedDlg   : UnsavedChangesDialog = null;
 
 	// ── UI - Timeline ─────────────────────────────────────────────────────────
 	var timelineGroup  : FlxGroup;
@@ -3146,13 +3148,14 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 	function _goBack():Void
 	{
+		if (_unsavedDlg != null) return; // dialog already open
 		if (hasUnsaved)
 		{
-			// Aviso: cambios sin guardar
-			showStatus('⚠ Cambios sin guardar. Pulsa ESC de nuevo para salir o F5 para guardar.');
-			// Doble ESC para salir
-			if (FlxG.keys.pressed.SHIFT)
-				_exitNow();
+			_unsavedDlg = new UnsavedChangesDialog([camHUD]);
+			_unsavedDlg.onSaveAndExit = () -> { savePSEData(); _exitNow(); };
+			_unsavedDlg.onSave        = () -> { savePSEData(); remove(_unsavedDlg); _unsavedDlg = null; };
+			_unsavedDlg.onExit        = () -> { _exitNow(); };
+			add(_unsavedDlg);
 		}
 		else
 		{
