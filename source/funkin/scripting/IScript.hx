@@ -25,9 +25,9 @@ package funkin.scripting;
 interface IScript
 {
 	/** Identificador único del script (normalmente nombre de archivo sin ext). */
-	public var id        : String;
+	public var id                      : String;
 	/** Ruta al archivo fuente, o null si se cargó desde string. */
-	public var filePath  (default, null) : Null<String>;
+	public var filePath(default, null) : Null<String>;
 	/** true si el script está activo y puede recibir llamadas. */
 	public var active    : Bool;
 	/** true si ocurrió un error irrecuperable que desactivó el script. */

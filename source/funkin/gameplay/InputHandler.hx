@@ -4,7 +4,10 @@ import flixel.FlxG;
 import funkin.gameplay.notes.Note;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.input.keyboard.FlxKey;
+import funkin.data.Conductor;
 import funkin.data.SaveData;
+import openfl.events.KeyboardEvent;
+import openfl.Lib;
 #if mobileC
 import flixel.ui.FlxButton;
 #end
@@ -12,34 +15,46 @@ import flixel.ui.FlxButton;
 using StringTools;
 
 /**
- * InputHandler — Manejo de inputs del jugador.
+ * InputHandler — Input del jugador con detección sub-frame via OpenFL.
  *
- * OPTIMIZACIONES vs versión anterior:
+ * ── POR QUÉ OPENFL EN VEZ DE FlxG.keys ──────────────────────────────────
  *
- *  1. possibleNotesByDir es un Array<Array<Note>> PREALLOCADO como campo de instancia.
- *     Antes se creaba `[[], [], [], []]` cada frame → 5 allocs × 60fps = 300 allocs/seg
- *     de objetos de corta vida que presionan el GC. Ahora se hace .resize(0) en su lugar.
+ *  FlxG.keys.anyJustPressed() solo detecta pulsaciones al INICIO de cada
+ *  frame (update loop). A 60fps eso son ~16.7ms de lag potencial; a 120fps
+ *  ~8.3ms. En un juego de ritmo, esos ms importan.
  *
- *  2. forEachAlive() eliminado del hot path. Creaba un closure (heap alloc) en cada llamada.
- *     Reemplazado por iteración directa sobre members[i] con chequeo manual alive/canBeHit.
+ *  openfl.events.KeyboardEvent.KEY_DOWN/KEY_UP se dispara en el momento
+ *  exacto en que el sistema operativo entrega el evento, completamente
+ *  independiente del framerate. Usamos openfl.Lib.getTimer() (ms desde
+ *  el arranque del juego) para guardar el timestamp preciso de cada
+ *  pulsación. Así la ventana de hit compara tiempos reales en ms en vez
+ *  de "¿estaba pulsado cuando arrancó este frame?".
  *
- *  3. Sort lambda reemplazado por función estática — cero closures en el sort.
+ * ── MEJORAS vs versión anterior ──────────────────────────────────────────
  *
- *  4. processInputs y processSustains son llamados ~60-120 veces/seg;
- *     eliminar los closures es lo más importante de todo.
+ *  1. DETECCIÓN SUB-FRAME: KEY_DOWN/KEY_UP se captura inmediatamente,
+ *     no al próximo update(). Si el jugador pulsa y suelta dentro de un
+ *     mismo frame (pulsación muy rápida), ambos eventos se registran.
  *
- * GHOST TAP OFF — misses diferidos:
+ *  2. TIMESTAMPS EN MS: _pressTimeMs[dir] guarda openfl.Lib.getTimer()
+ *     del momento exacto del keydown. El buffer usa esos ms directamente
+ *     en vez de FlxG.game.ticks / 1000.
  *
- *  Cuando ghost tapping está desactivado, el miss NO se dispara inmediatamente
- *  al pulsar una tecla sin nota en rango. En su lugar queda "pendiente" durante
- *  la ventana del input buffer (~100ms). Si durante ese tiempo una nota entra en
- *  canBeHit, el input bufferizado la golpea normalmente y el miss se cancela.
- *  Solo si el buffer expira sin nota disponible se dispara el miss.
+ *  3. REPEAT FILTERING: KEY_DOWN repite el evento mientras la tecla está
+ *     pulsada. _rawHeld filtra los repeats — solo el primer evento cuenta
+ *     como justPressed.
  *
- *  Esto corrige el problema de false-misses cuando el jugador pulsa ligeramente
- *  antes de que la nota entre en la ventana de hit (canBeHit usa una ventana early
- *  reducida de hitWindow/2.7 ≈ 61ms), que con ghost tap OFF resultaba en miss +
- *  buffer consumido + nota sin golpear.
+ *  4. API COMPATIBLE: pressed/held/released/callbacks sin cambios.
+ *     PlayState no necesita modificaciones.
+ *
+ * ── GHOST TAP OFF — misses diferidos ─────────────────────────────────────
+ *
+ *  Cuando ghost tapping está OFF y se pulsa sin nota en rango, el miss NO
+ *  se dispara inmediatamente. Queda "pendiente" durante la ventana del
+ *  buffer. Si una nota entra en canBeHit antes de que expire el buffer,
+ *  se golpea normalmente y el miss se cancela. Solo si el buffer expira
+ *  sin nota disponible se dispara el miss. Esto corrige false-misses cuando
+ *  el jugador pulsa ligeramente antes de que la nota entre en la ventana.
  */
 class InputHandler
 {
@@ -50,7 +65,7 @@ class InputHandler
 	public var rightBind:Array<FlxKey> = [D, RIGHT];
 	public var killBind:Array<FlxKey>  = [R];
 
-	// === INPUT STATE ===
+	// === INPUT STATE (consumidos en update, escritos por los listeners OpenFL) ===
 	public var pressed:Array<Bool>  = [false, false, false, false];
 	public var held:Array<Bool>     = [false, false, false, false];
 	public var released:Array<Bool> = [false, false, false, false];
@@ -64,6 +79,7 @@ class InputHandler
 	// === CONFIG ===
 	public var ghostTapping:Bool   = true;
 	public var inputBuffering:Bool = true;
+	/** Ventana del buffer en SEGUNDOS (igual que antes, 0.1 = 100ms). */
 	public var bufferTime:Float    = 0.1;
 
 	// === ANTI-MASH ===
@@ -71,34 +87,50 @@ class InputHandler
 	private var mashViolations:Int = 0;
 	private static inline var MAX_MASH_VIOLATIONS:Int = 8;
 
-	// === INPUT BUFFER ===
+	// === ESTADO CRUDO DEL LISTENER OPENFL ====================================
+	// Estos flags los escribe el KEY_DOWN/KEY_UP handler inmediatamente,
+	// y los consume update() al principio de cada frame.
+	// _rawHeld    → la tecla está físicamente pulsada ahora mismo
+	// _rawPressed → evento KEY_DOWN recibido desde el último update()
+	//               (puede haber >1 si el framerate es bajo, solo nos importa 1)
+	// _rawReleased→ evento KEY_UP recibido desde el último update()
+	// _pressTimeMs→ openfl.Lib.getTimer() del KEY_DOWN más reciente (ms)
+	private var _rawHeld:Array<Bool>     = [false, false, false, false];
+	private var _rawPressed:Array<Bool>  = [false, false, false, false];
+	private var _rawReleased:Array<Bool> = [false, false, false, false];
+	private var _pressTimeMs:Array<Float> = [0, 0, 0, 0];
+
+	// === PRESS-TIME SONG POSITION =============================================
+	// Stores Conductor.songPosition at the exact moment of each keypress.
+	// Used by PlayState.onPlayerNoteHit() so noteDiff reflects when the player
+	// actually pressed, not when the buffered input fires (which can be up to
+	// 100ms later, causing incorrect Sick ratings on early presses).
+	public var pressSongPos:Array<Float> = [-1, -1, -1, -1];
+
+	// === INPUT BUFFER ========================================================
+	// bufferedInputs almacena el timestamp (ms) de la última pulsación no procesada.
+	// inputProcessed se pone a true cuando esa pulsación logra golpear una nota.
 	private var bufferedInputs:Array<Float> = [0, 0, 0, 0];
 	private var inputProcessed:Array<Bool>  = [false, false, false, false];
 
-	// === GHOST-TAP MISS DEFERRAL ===
-	// Cuando ghost tap está OFF y se pulsa sin nota disponible, el miss queda
-	// pendiente aquí en lugar de dispararse inmediatamente. Se dispara al
-	// expirar el buffer (si no se golpeó ninguna nota en ese tiempo).
+	// === GHOST-TAP MISS DEFERRAL =============================================
 	private var _pendingGhostMiss:Array<Bool> = [false, false, false, false];
 
-	// ── PREALLOCADOS — cero allocs en el hot path ────────────────────────────
-	// Antes: [[], [], [], []] nuevo cada frame = 5 allocs × 60fps = 300 allocs/seg
-	// Ahora: resize(0) en su lugar — el array interno no se reasigna.
+	// === NOTAS POR DIRECCIÓN (preallocadas, cero allocs en hot path) =========
 	private var _notesByDir0:Array<Note> = [];
 	private var _notesByDir1:Array<Note> = [];
 	private var _notesByDir2:Array<Note> = [];
 	private var _notesByDir3:Array<Note> = [];
 
-	// === CONTROLES MÓVILES ===
-	// Se asignan desde PlayState cuando se compila con el flag mobileC.
-	// Cada campo es un FlxButton cuya state (PRESSED/JUST_PRESSED/JUST_RELEASED)
-	// se combina con el input de teclado para que ambos funcionen simultáneamente.
+	// === CONTROLES MÓVILES ===================================================
 	#if mobileC
 	public var mobileLeft:FlxButton  = null;
 	public var mobileDown:FlxButton  = null;
 	public var mobileUp:FlxButton    = null;
 	public var mobileRight:FlxButton = null;
 	#end
+
+	// ── CONSTRUCTOR ──────────────────────────────────────────────────────────
 
 	public function new()
 	{
@@ -107,50 +139,104 @@ class InputHandler
 		upBind[0]    = FlxKey.fromString(SaveData.data.upBind);
 		rightBind[0] = FlxKey.fromString(SaveData.data.rightBind);
 		killBind[0]  = FlxKey.fromString(SaveData.data.killBind);
+
+		// Registrar listeners OpenFL — detección sub-frame
+		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, _onKeyDown, false, 10);
+		FlxG.stage.addEventListener(KeyboardEvent.KEY_UP,   _onKeyUp,   false, 10);
 	}
 
-	// ─── UPDATE ──────────────────────────────────────────────────────────────
+	/**
+	 * Llamar cuando el InputHandler ya no se necesita (p.ej. en PlayState.destroy).
+	 * Remueve los listeners de OpenFL para evitar fugas de memoria.
+	 */
+	public function destroy():Void
+	{
+		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, _onKeyDown);
+		FlxG.stage.removeEventListener(KeyboardEvent.KEY_UP,   _onKeyUp);
+	}
 
+	// ── LISTENERS OPENFL (sub-frame, máxima precisión) ───────────────────────
+
+	/**
+	 * Llamado en el momento exacto que el OS entrega el KEY_DOWN.
+	 * NOTA: KEY_DOWN repite mientras la tecla está pulsada (key repeat del OS).
+	 * _rawHeld filtra los repeats — solo el primer evento activa _rawPressed.
+	 */
+	private function _onKeyDown(e:KeyboardEvent):Void
+	{
+		var dir:Int = _keyCodeToDir(e.keyCode);
+		if (dir < 0) return;
+
+		if (!_rawHeld[dir])
+		{
+			// Primera pulsación real (no repeat) — guardar timestamp en ms
+			_rawPressed[dir]  = true;
+			_pressTimeMs[dir] = Lib.getTimer();
+		}
+		_rawHeld[dir] = true;
+	}
+
+	/**
+	 * Llamado en el momento exacto que el OS entrega el KEY_UP.
+	 */
+	private function _onKeyUp(e:KeyboardEvent):Void
+	{
+		var dir:Int = _keyCodeToDir(e.keyCode);
+		if (dir < 0) return;
+
+		_rawHeld[dir]     = false;
+		_rawReleased[dir] = true;
+	}
+
+	/**
+	 * Mapea un keyCode de OpenFL a una dirección (0=L, 1=D, 2=U, 3=R).
+	 * Devuelve -1 si el keyCode no corresponde a ningún bind.
+	 * FlxKey es un Int que coincide con los keyCodes de OpenFL en todas
+	 * las plataformas objetivo de Flixel.
+	 */
+	private function _keyCodeToDir(keyCode:Int):Int
+	{
+		// leftBind
+		for (k in leftBind)  if ((k:Int) == keyCode) return 0;
+		// downBind
+		for (k in downBind)  if ((k:Int) == keyCode) return 1;
+		// upBind
+		for (k in upBind)    if ((k:Int) == keyCode) return 2;
+		// rightBind
+		for (k in rightBind) if ((k:Int) == keyCode) return 3;
+		return -1;
+	}
+
+	// ── UPDATE ───────────────────────────────────────────────────────────────
+
+	/**
+	 * Consume los flags crudos escritos por los listeners OpenFL y los
+	 * convierte en los arrays públicos pressed/held/released.
+	 * Llamado una vez por frame desde PlayState.update().
+	 */
 	public function update():Void
 	{
-		pressed[0] = pressed[1] = pressed[2] = pressed[3] = false;
-		released[0] = released[1] = released[2] = released[3] = false;
-
-		if (FlxG.keys.anyJustPressed(leftBind))  pressed[0] = true;
-		if (FlxG.keys.anyJustPressed(downBind))  pressed[1] = true;
-		if (FlxG.keys.anyJustPressed(upBind))    pressed[2] = true;
-		if (FlxG.keys.anyJustPressed(rightBind)) pressed[3] = true;
-
-		held[0] = FlxG.keys.anyPressed(leftBind);
-
-		held[1] = FlxG.keys.anyPressed(downBind);
-		held[2] = FlxG.keys.anyPressed(upBind);
-		held[3] = FlxG.keys.anyPressed(rightBind);
-
-		if (FlxG.keys.anyJustReleased(leftBind))
+		for (dir in 0...4)
 		{
-			released[0] = true;
-			if (onKeyRelease != null) onKeyRelease(0);
-		}
-		if (FlxG.keys.anyJustReleased(downBind))
-		{
-			released[1] = true;
-			if (onKeyRelease != null) onKeyRelease(1);
-		}
-		if (FlxG.keys.anyJustReleased(upBind))
-		{
-			released[2] = true;
-			if (onKeyRelease != null) onKeyRelease(2);
-		}
-		if (FlxG.keys.anyJustReleased(rightBind))
-		{
-			released[3] = true;
-			if (onKeyRelease != null) onKeyRelease(3);
+			// pressed: hubo KEY_DOWN desde el último update
+			pressed[dir]  = _rawPressed[dir];
+			// held: la tecla está físicamente pulsada ahora
+			held[dir]     = _rawHeld[dir];
+			// released: hubo KEY_UP desde el último update
+			released[dir] = _rawReleased[dir];
+
+			// Disparar callbacks de release + limpiar flag
+			if (_rawReleased[dir])
+			{
+				_rawReleased[dir] = false;
+				if (onKeyRelease != null) onKeyRelease(dir);
+			}
+
+			// Limpiar pressed DESPUÉS de haberlo leído
+			_rawPressed[dir] = false;
 		}
 
-		// ── Controles táctiles (mobile) ───────────────────────────────────────
-		// Se combinan con OR con el teclado: si cualquiera de los dos registra
-		// una pulsación, el estado queda activado para ese frame.
+		// ── Controles táctiles (mobile) ───────────────────────────────────
 		#if mobileC
 		_updateMobileButton(mobileLeft,  0);
 		_updateMobileButton(mobileDown,  1);
@@ -160,34 +246,22 @@ class InputHandler
 	}
 
 	#if mobileC
-	/**
-	 * Lee el estado de un FlxButton y lo combina (OR) con pressed/held/released.
-	 * Inline para no generar overhead de llamada en el hot-path de 120fps.
-	 */
 	private inline function _updateMobileButton(btn:FlxButton, dir:Int):Void
 	{
 		if (btn == null) return;
 
-		// FlxButton.status: FlxButton.NORMAL=0, HIGHLIGHT=1, PRESSED=2
 		var isPressed = (btn.status == flixel.ui.FlxButton.PRESSED);
 
-		// justPressed: estaba sin presionar el frame anterior, ahora sí
 		if (isPressed && !held[dir])
-			pressed[dir] = true;
+		{
+			pressed[dir]      = true;
+			_pressTimeMs[dir] = Lib.getTimer();
+		}
 
-		// held: mantenido (puede solapar con keyboard held)
 		if (isPressed)
 			held[dir] = true;
 
-		// justReleased: estaba presionado el frame anterior, ahora no
-		if (!isPressed && held[dir] && !FlxG.keys.anyPressed(
-			switch (dir)
-			{
-				case 0: leftBind;
-				case 1: downBind;
-				case 2: upBind;
-				default: rightBind;
-			}))
+		if (!isPressed && held[dir] && !_rawHeld[dir])
 		{
 			released[dir] = true;
 			if (onKeyRelease != null) onKeyRelease(dir);
@@ -195,19 +269,8 @@ class InputHandler
 	}
 	#end
 
-	// ─── PROCESS INPUTS ──────────────────────────────────────────────────────
+	// ── PROCESS INPUTS ───────────────────────────────────────────────────────
 
-	/**
-	 * Procesa inputs del jugador contra las notas disponibles.
-	 *
-	 * OPT: iteración directa sobre members[] en lugar de forEachAlive().
-	 *      forEachAlive() asigna un closure nuevo en el heap cada llamada.
-	 *      Con iteración directa hay cero allocs en este path.
-	 *
-	 * OPT: possibleNotesByDir usa arrays preallocados (resize vs new).
-	 *
-	 * OPT: sort comparator es función estática — cero closures.
-	 */
 	public function processInputs(notes:FlxTypedGroup<Note>):Void
 	{
 		if (funkin.gameplay.PlayState.isBotPlay)
@@ -216,7 +279,6 @@ class InputHandler
 			held[0]    = held[1]    = held[2]    = held[3]    = false;
 			released[0]= released[1]= released[2]= released[3]= false;
 
-			// Iteración directa — sin closure
 			final members = notes.members;
 			final len = members.length;
 			for (i in 0...len)
@@ -234,6 +296,9 @@ class InputHandler
 			return;
 		}
 
+		// Timestamp actual en ms (OpenFL, sub-frame precision)
+		final nowMs:Float = Lib.getTimer();
+
 		var keysPressed:Int = 0;
 		if (pressed[0]) keysPressed++;
 		if (pressed[1]) keysPressed++;
@@ -241,27 +306,27 @@ class InputHandler
 		if (pressed[3]) keysPressed++;
 		mashCounter = keysPressed;
 
-		final currentTime = FlxG.game.ticks / 1000.0;
+		// Registrar nuevas pulsaciones en el buffer usando el timestamp OpenFL
+		// (_pressTimeMs ya fue guardado en el momento exacto del KEY_DOWN,
+		// no al inicio de este frame como hacía FlxG.game.ticks)
 		for (dir in 0...4)
 		{
 			if (pressed[dir])
 			{
-				bufferedInputs[dir] = currentTime;
-				inputProcessed[dir] = false;
-				// Nueva pulsación — cancelar cualquier miss pendiente de ghost tap
-				// para esta dirección (el jugador volvió a pulsar antes de que
-				// expirara el buffer anterior).
+				bufferedInputs[dir]    = _pressTimeMs[dir]; // ms del KEY_DOWN real
+				inputProcessed[dir]    = false;
 				_pendingGhostMiss[dir] = false;
+				pressSongPos[dir]      = Conductor.songPosition; // song pos at actual keypress
 			}
 		}
 
-		// Limpiar buckets preallocados — resize(0) no reasigna memoria interna
+		// Limpiar buckets preallocados
 		_notesByDir0.resize(0);
 		_notesByDir1.resize(0);
 		_notesByDir2.resize(0);
 		_notesByDir3.resize(0);
 
-		// Clasificar notas por dirección — iteración directa, sin closure
+		// Clasificar notas por dirección
 		final members = notes.members;
 		final len = members.length;
 		for (i in 0...len)
@@ -281,36 +346,28 @@ class InputHandler
 			}
 		}
 
-		// Ordenar por tiempo (función estática — cero closures)
 		if (_notesByDir0.length > 1) _notesByDir0.sort(_compareByStrumTime);
 		if (_notesByDir1.length > 1) _notesByDir1.sort(_compareByStrumTime);
 		if (_notesByDir2.length > 1) _notesByDir2.sort(_compareByStrumTime);
 		if (_notesByDir3.length > 1) _notesByDir3.sort(_compareByStrumTime);
 
-		_processDir(0, _notesByDir0, currentTime);
-		_processDir(1, _notesByDir1, currentTime);
-		_processDir(2, _notesByDir2, currentTime);
-		_processDir(3, _notesByDir3, currentTime);
+		_processDir(0, _notesByDir0, nowMs);
+		_processDir(1, _notesByDir1, nowMs);
+		_processDir(2, _notesByDir2, nowMs);
+		_processDir(3, _notesByDir3, nowMs);
 
-		// ── Misses diferidos de ghost-tap OFF ─────────────────────────────────
-		// Disparar el miss pendiente solo si el buffer ya expiró Y no se golpeó
-		// ninguna nota en esta dirección (inputProcessed sigue en false).
-		// Si se golpeó una nota, inputProcessed pasó a true dentro de _processDir
-		// y el miss queda cancelado.
+		// ── Misses diferidos de ghost-tap OFF ─────────────────────────────
 		if (!ghostTapping)
 		{
 			for (dir in 0...4)
 			{
 				if (!_pendingGhostMiss[dir]) continue;
-				// Buffer expirado sin nota → disparar miss
-				if ((currentTime - bufferedInputs[dir]) > bufferTime)
+				if ((nowMs - bufferedInputs[dir]) > bufferTime * 1000)
 				{
 					_pendingGhostMiss[dir] = false;
 					inputProcessed[dir]    = true;
 					if (onNoteMiss != null) onNoteMiss(null);
 				}
-				// Si inputProcessed se puso a true por un hit en _processDir
-				// (nota golpeada durante el buffer), también limpiar el pending.
 				else if (inputProcessed[dir])
 				{
 					_pendingGhostMiss[dir] = false;
@@ -319,25 +376,21 @@ class InputHandler
 		}
 	}
 
-	/** Comparador estático — reutilizado por todos los sorts, cero allocs. */
 	static function _compareByStrumTime(a:Note, b:Note):Int
 		return Std.int(a.strumTime - b.strumTime);
 
-	private inline function _processDir(dir:Int, possibleNotes:Array<Note>, currentTime:Float):Void
+	private inline function _processDir(dir:Int, possibleNotes:Array<Note>, nowMs:Float):Void
 	{
 		var hasValidInput = pressed[dir];
 
+		// Buffer: la pulsación OpenFL fue hace menos de bufferTime segundos
 		if (!hasValidInput && inputBuffering && !inputProcessed[dir])
-			hasValidInput = (currentTime - bufferedInputs[dir]) <= bufferTime;
+			hasValidInput = (nowMs - bufferedInputs[dir]) <= bufferTime * 1000;
 
 		if (!hasValidInput) return;
 
 		if (possibleNotes.length > 0)
 		{
-			// Sin ghost tapping el jugador ya paga misses por teclas sueltas,
-			// así que la protección anti-mash no debe bloquear hits válidos.
-			// Con ghost tapping ON la protección sigue activa para evitar
-			// que el jugador spamee sin perder salud.
 			var canHit = !ghostTapping
 				|| (mashCounter <= possibleNotes.length + 1)
 				|| (mashViolations > MAX_MASH_VIOLATIONS);
@@ -347,8 +400,7 @@ class InputHandler
 				if (onNoteHit != null)
 				{
 					onNoteHit(possibleNotes[0]);
-					inputProcessed[dir] = true;
-					// Nota golpeada → cancelar miss pendiente si lo había
+					inputProcessed[dir]    = true;
 					_pendingGhostMiss[dir] = false;
 				}
 			}
@@ -359,23 +411,12 @@ class InputHandler
 		}
 		else if (!ghostTapping && pressed[dir])
 		{
-			// No hay nota en rango pero el jugador pulsó — NO disparar miss
-			// todavía. Marcar como pendiente para que el sistema de deferred
-			// misses lo dispare solo cuando el buffer expire sin nota.
-			// Esto evita falsos misses cuando el jugador pulsa ligeramente antes
-			// de que la nota entre en la ventana de hit (canBeHit early window).
 			_pendingGhostMiss[dir] = true;
-			// NOTA: inputProcessed[dir] NO se pone a true aquí, para que el
-			// buffer siga activo y pueda golpear la nota si llega a tiempo.
 		}
 	}
 
-	// ─── PROCESS SUSTAINS ────────────────────────────────────────────────────
+	// ── PROCESS SUSTAINS ─────────────────────────────────────────────────────
 
-	/**
-	 * Procesa sustain notes del jugador.
-	 * OPT: iteración directa — sin forEachAlive/closure.
-	 */
 	public function processSustains(notes:FlxTypedGroup<Note>):Void
 	{
 		final members = notes.members;
@@ -409,7 +450,8 @@ class InputHandler
 		}
 	}
 
-	// No-op mantenido por compatibilidad
+	// ── UTILIDADES ───────────────────────────────────────────────────────────
+
 	public function checkMisses(notes:FlxTypedGroup<Note>):Void {}
 
 	public function resetMash():Void
@@ -423,6 +465,7 @@ class InputHandler
 		bufferedInputs[0] = bufferedInputs[1] = bufferedInputs[2] = bufferedInputs[3] = 0;
 		inputProcessed[0] = inputProcessed[1] = inputProcessed[2] = inputProcessed[3] = false;
 		_pendingGhostMiss[0] = _pendingGhostMiss[1] = _pendingGhostMiss[2] = _pendingGhostMiss[3] = false;
+		pressSongPos[0] = pressSongPos[1] = pressSongPos[2] = pressSongPos[3] = -1;
 	}
 
 	public function anyKeyHeld():Bool

@@ -4,39 +4,75 @@
 name: Build Cool Engine
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+  push:         { branches: [main, master] }
+  pull_request: { branches: [main, master] }
   workflow_dispatch:
 
 env:
-  HAXE_VERSION:  "4.3.6"
-  LIME_VERSION:  "8.3.1"
+  HAXE_VERSION:   "4.3.6"
+  LIME_VERSION:   "8.3.1"
   OPENFL_VERSION: "9.3.0"
 
-# ── Shared install step (reused in all jobs via a composite) ─────────────────
-# Each job still installs inline to keep things readable and avoid
-# composite action boilerplate.
+# ── Anchors ───────────────────────────────────────────────────────────────────
+# GitHub Actions ignores unknown top-level keys, so these are safe to use.
+x-steps:
+  checkout: &checkout
+    uses: actions/checkout@v4
+    with: { submodules: recursive }
+
+  # shell: bash makes this reusable on Windows too
+  lock-versions: &lock-versions
+    name: Lock library versions
+    shell: bash
+    run: |
+      haxelib set lime          ${{ env.LIME_VERSION }}
+      haxelib set openfl        ${{ env.OPENFL_VERSION }}
+      haxelib set flixel        6.1.2
+      haxelib set flixel-addons 4.0.1
+
+  setup-lime: &setup-lime
+    name: Setup Lime
+    shell: bash
+    run: haxelib run lime setup -y
+
+  setup-haxe: &setup-haxe
+    name: Install Haxe ${{ env.HAXE_VERSION }}
+    uses: krdlab/setup-haxe@v1
+    with: { haxe-version: "${{ env.HAXE_VERSION }}" }
+
+  upload-win: &upload-win
+    uses: actions/upload-artifact@v4
+    with:
+      name: CoolEngine-Windows
+      path: export/release/windows/bin/
+      if-no-files-found: error
+
+  upload-mac: &upload-mac
+    uses: actions/upload-artifact@v4
+    with:
+      name: CoolEngine-macOS
+      path: export/release/mac/bin/
+      if-no-files-found: error
+
+  upload-linux: &upload-linux
+    uses: actions/upload-artifact@v4
+    with:
+      name: CoolEngine-Linux
+      path: export/release/linux/bin/
+      if-no-files-found: error
 
 jobs:
 
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   # WINDOWS
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   build-windows:
     name: "Build — Windows"
     runs-on: windows-latest
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - *checkout
 
-      - name: Install Haxe ${{ env.HAXE_VERSION }}
-        uses: krdlab/setup-haxe@v1
-        with:
-          haxe-version: ${{ env.HAXE_VERSION }}
+      - *setup-haxe
 
       - name: Install MSVC build tools
         uses: microsoft/setup-msbuild@v2
@@ -46,62 +82,46 @@ jobs:
         run: |
           haxelib setup C:/haxelib
           echo "HAXELIB_PATH=C:/haxelib" >> $GITHUB_ENV
-          haxelib install hxcpp              --quiet --never
-          haxelib install lime   ${{ env.LIME_VERSION }}   --never
-          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
-          haxelib install flixel 6.1.2               --never
-          haxelib install flixel-addons 4.0.1        --never
-          haxelib git    coolui https://github.com/The-Cool-Engine-Crew/coolui --never
-          haxelib install flixel-tools 1.5.1 --quiet --never
-          haxelib install actuate            --quiet --never
-          haxelib install hscript            --quiet --never
-          haxelib install format             --quiet --never
-          haxelib install hxp                --quiet --never
+          haxelib install hxcpp                                                  --quiet --never
+          haxelib install lime          ${{ env.LIME_VERSION }}                  --never
+          haxelib install openfl        ${{ env.OPENFL_VERSION }}                --never
+          haxelib install flixel        6.1.2                                    --never
+          haxelib install flixel-addons 4.0.1                                    --never
+          haxelib git    coolui    https://github.com/The-Cool-Engine-Crew/coolui --never
+          haxelib install flixel-tools  1.5.1  --quiet --never
+          haxelib install actuate               --quiet --never
+          haxelib install hscript               --quiet --never
+          haxelib install format                --quiet --never
+          haxelib install hxp                   --quiet --never
           haxelib install linc_luajit           --quiet --never
-          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
+          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc       --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
-          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis             --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git           --never
 
-      - name: Lock library versions
-        shell: cmd
-        run: |
-          haxelib set lime   ${{ env.LIME_VERSION }}
-          haxelib set openfl ${{ env.OPENFL_VERSION }}
-          haxelib set flixel-addons 4.0.1
-
-      - name: Setup Lime
-        shell: cmd
-        run: haxelib run lime setup -y
+      - *lock-versions
+      - *setup-lime
 
       - name: Build (Windows release)
         shell: cmd
         run: haxelib run lime build windows -final
 
       - name: Upload Windows build
-        uses: actions/upload-artifact@v4
-        with:
-          name: CoolEngine-Windows
-          path: export/release/windows/bin/
-          if-no-files-found: error
+      -  *upload-win
 
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   # macOS (arm64)
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   build-macos:
     name: "Build — macOS"
     runs-on: macos-14
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - *checkout
 
       - name: Remove pre-installed Haxe
         run: |
           sudo rm -rf /Users/runner/hostedtoolcache/haxe || true
           sudo rm -f  /usr/local/bin/haxe /usr/local/bin/haxelib || true
-          which haxe || echo "haxe not found — good"
 
       - name: Install Neko
         run: |
@@ -125,57 +145,53 @@ jobs:
 
       - name: Install haxelibs
         run: |
-          haxelib install hxcpp              --quiet --never
-          haxelib install lime   ${{ env.LIME_VERSION }}   --never
-          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
-          haxelib install flixel 6.1.2               --never
-          haxelib install flixel-addons 4.0.1        --never
-          haxelib git    coolui https://github.com/The-Cool-Engine-Crew/coolui --never
-          haxelib install flixel-tools 1.5.1 --quiet --never
-          haxelib install actuate            --quiet --never
-          haxelib install hscript            --quiet --never
-          haxelib install format             --quiet --never
+          haxelib install hxcpp                                                  --quiet --never
+          haxelib install lime          ${{ env.LIME_VERSION }}                  --never
+          haxelib install openfl        ${{ env.OPENFL_VERSION }}                --never
+          haxelib install flixel        6.1.2                                    --never
+          haxelib install flixel-addons 4.0.1                                    --never
+          haxelib git    coolui    https://github.com/The-Cool-Engine-Crew/coolui --never
+          haxelib install flixel-tools  1.5.1  --quiet --never
+          haxelib install actuate               --quiet --never
+          haxelib install hscript               --quiet --never
+          haxelib install format                --quiet --never
+          haxelib install hxp                   --quiet --never
           haxelib install linc_luajit           --quiet --never
-          haxelib install hxp                --quiet --never
-          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
+          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc       --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
-          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis             --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git           --never
 
-      - name: Lock library versions
-        run: |
-          haxelib set lime   ${{ env.LIME_VERSION }}
-          haxelib set openfl ${{ env.OPENFL_VERSION }}
-          haxelib set flixel 6.1.2
-          haxelib set flixel-addons 4.0.1
-
-      - name: Setup Lime
-        run: haxelib run lime setup -y
+      - *lock-versions
+      - *setup-lime
 
       - name: Rebuild Lime for arm64
         run: arch -arm64 haxelib run lime rebuild mac
+
+      # FIX: macOS 14 deprecated CGLSetParameter/CGLGetParameter with type 'int'
+      # for the second argument; now requires the enum CGLContextParameter.
+      # kCGLCPSwapInterval is a legacy int literal → explicit cast required.
+      - name: Fix CGLContextParameter cast (VSyncAPI)
+        run: |
+          find . -name "VSyncAPI.cpp" -exec sed -i '' \
+            -e 's/CGLSetParameter(ctx, kCGLCPSwapInterval/CGLSetParameter(ctx, (CGLContextParameter)kCGLCPSwapInterval/g' \
+            -e 's/CGLGetParameter(ctx, kCGLCPSwapInterval/CGLGetParameter(ctx, (CGLContextParameter)kCGLCPSwapInterval/g' \
+            {} \;
 
       - name: Build (macOS release)
         run: arch -arm64 haxelib run lime build mac -final
 
       - name: Upload macOS build
-        uses: actions/upload-artifact@v4
-        with:
-          name: CoolEngine-macOS
-          path: export/release/mac/bin/
-          if-no-files-found: error
+      -  *upload-mac
 
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   # LINUX
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   build-linux:
     name: "Build — Linux"
     runs-on: ubuntu-22.04
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - *checkout
 
       - name: Install system dependencies
         run: |
@@ -189,64 +205,54 @@ jobs:
             libdbus-1-dev g++ gcc make
           sudo ldconfig
 
-      - name: Install Haxe ${{ env.HAXE_VERSION }}
-        uses: krdlab/setup-haxe@v1
-        with:
-          haxe-version: ${{ env.HAXE_VERSION }}
+      - *setup-haxe
 
       - name: Install haxelibs
         run: |
           haxelib setup ~/haxelib
-          haxelib install hxcpp              --quiet --never
-          haxelib install lime   ${{ env.LIME_VERSION }}   --never
-          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
-          haxelib install flixel 6.1.2               --never
-          haxelib install flixel-addons 4.0.1        --never
-          haxelib git    coolui https://github.com/The-Cool-Engine-Crew/coolui --never
-          haxelib install flixel-tools 1.5.1 --quiet --never
-          haxelib install actuate            --quiet --never
-          haxelib install hscript            --quiet --never
-          haxelib install format             --quiet --never
-          haxelib install hxp                --quiet --never
+          haxelib install hxcpp                                                  --quiet --never
+          haxelib install lime          ${{ env.LIME_VERSION }}                  --never
+          haxelib install openfl        ${{ env.OPENFL_VERSION }}                --never
+          haxelib install flixel        6.1.2                                    --never
+          haxelib install flixel-addons 4.0.1                                    --never
+          haxelib git    coolui    https://github.com/The-Cool-Engine-Crew/coolui --never
+          haxelib install flixel-tools  1.5.1  --quiet --never
+          haxelib install actuate               --quiet --never
+          haxelib install hscript               --quiet --never
+          haxelib install format                --quiet --never
+          haxelib install hxp                   --quiet --never
           haxelib install linc_luajit           --quiet --never
-          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc  --never
+          haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc       --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
-          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis             --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git           --never
 
-      - name: Lock library versions
+      - *lock-versions
+      - *setup-lime
+
+      # FIX: X11 hace 'typedef int Status', lo que choca con el parámetro
+      # 'int Status' generado por hxcpp en FlxKeyManager.h. La compilerflag
+      # -UStatus lo undefine antes de que hxcpp incluya los headers de X11.
+      - name: Fix X11 Status typedef conflict
         run: |
-          haxelib set lime   ${{ env.LIME_VERSION }}
-          haxelib set openfl ${{ env.OPENFL_VERSION }}
-          haxelib set flixel 6.1.2
-          haxelib set flixel-addons 4.0.1
-
-      - name: Setup Lime
-        run: haxelib run lime setup -y
+          sed -i 's|</project>|<compilerflag value="-UStatus" />\n</project>|' project.xml
 
       - name: Build (Linux release)
         run: haxelib run lime build linux -final
 
       - name: Upload Linux build
-        uses: actions/upload-artifact@v4
-        with:
-          name: CoolEngine-Linux
-          path: export/release/linux/bin/
-          if-no-files-found: error
+      -  *upload-linux
 
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   # ANDROID
-  # ════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════════════════
   build-android:
     name: "Build — Android"
     runs-on: ubuntu-22.04
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - *checkout
 
-      - name: Set up Java 17 (sdkmanager)
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -264,39 +270,29 @@ jobs:
             "cmake;3.22.1"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/21.4.7075529" >> $GITHUB_ENV
 
-      - name: Install Haxe ${{ env.HAXE_VERSION }}
-        uses: krdlab/setup-haxe@v1
-        with:
-          haxe-version: ${{ env.HAXE_VERSION }}
+      - *setup-haxe
 
       - name: Install haxelibs
         run: |
-          haxelib install hxcpp              --quiet --never
-          haxelib install lime   ${{ env.LIME_VERSION }}   --never
-          haxelib install openfl ${{ env.OPENFL_VERSION }} --never
-          haxelib install flixel 6.1.2               --never
-          haxelib install flixel-addons 4.0.1        --never
-          haxelib git    coolui https://github.com/The-Cool-Engine-Crew/coolui --never
-          haxelib install flixel-tools 1.5.1 --quiet --never
-          haxelib install actuate            --quiet --never
-          haxelib install hscript            --quiet --never
-          haxelib install format             --quiet --never
-          haxelib install hxp                --quiet --never
+          haxelib install hxcpp                                                  --quiet --never
+          haxelib install lime          ${{ env.LIME_VERSION }}                  --never
+          haxelib install openfl        ${{ env.OPENFL_VERSION }}                --never
+          haxelib install flixel        6.1.2                                    --never
+          haxelib install flixel-addons 4.0.1                                    --never
+          haxelib git    coolui    https://github.com/The-Cool-Engine-Crew/coolui --never
+          haxelib install flixel-tools  1.5.1  --quiet --never
+          haxelib install actuate               --quiet --never
+          haxelib install hscript               --quiet --never
+          haxelib install format                --quiet --never
+          haxelib install hxp                   --quiet --never
           haxelib install linc_luajit           --quiet --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
-          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis        --never
-          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git      --never
-          # discord_rpc omitido: no disponible en Android
+          haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis             --never
+          haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git           --never
+          # discord_rpc omitido: no compatible con Android
 
-      - name: Lock library versions
-        run: |
-          haxelib set lime   ${{ env.LIME_VERSION }}
-          haxelib set openfl ${{ env.OPENFL_VERSION }}
-          haxelib set flixel 6.1.2
-          haxelib set flixel-addons 4.0.1
-
-      - name: Setup Lime
-        run: haxelib run lime setup -y
+      - *lock-versions
+      - *setup-lime
 
       - name: Configure Lime Android paths
         run: |
@@ -313,9 +309,14 @@ jobs:
       - name: Build (Android release)
         run: haxelib run lime build android -final
 
+      # FIX: sin keystore la APK puede quedar en debug/ o como -unsigned.
+      # Buscamos cualquier .apk bajo outputs/ en vez de hardcodear la ruta.
+      - name: Locate APK
+        run: find export/release/android/bin/app/build/outputs/ -name "*.apk"
+
       - name: Upload Android build
         uses: actions/upload-artifact@v4
         with:
           name: CoolEngine-Android
-          path: export/release/android/bin/app/build/outputs/apk/release/
+          path: export/release/android/bin/app/build/outputs/apk/
           if-no-files-found: error

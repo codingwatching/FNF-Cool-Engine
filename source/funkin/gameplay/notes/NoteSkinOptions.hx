@@ -107,7 +107,7 @@ class NoteSkinOptions extends funkin.states.MusicBeatState
 		refreshLists();
 
 		// Background con gradiente
-		bg = new FlxSprite().loadGraphic(Paths.image('menu/menuDesat'));
+		bg = new FlxSprite().loadGraphic(Paths.image('menu/menuBG'));
 		bg.color = 0xFF9B59D0;
 		bg.setGraphicSize(Std.int(bg.width * 1.1));
 		bg.updateHitbox();

@@ -129,9 +129,9 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 
 		// === BACKGROUND ===
 		bg = new FlxSprite();
-		if (Paths.image('menu/menuDesat') != null)
+		if (Paths.image('menu/menuBG') != null)
 		{
-			bg.loadGraphic(Paths.image('menu/menuDesat'));
+			bg.loadGraphic(Paths.image('menu/menuBG'));
 		}
 		else
 		{

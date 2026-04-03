@@ -138,7 +138,9 @@ class Main extends Sprite
 		stage.quality = openfl.display.StageQuality.LOW;
 
 		#if cpp
-		cpp.vm.Gc.setMinimumFreeSpace(32 * 1024 * 1024);
+		// 8 MB de headroom es suficiente para menús; 32 MB inflaba el RSS en ~24 MB
+		// sin ningún beneficio de rendimiento en escenas ligeras como los menús.
+		cpp.vm.Gc.setMinimumFreeSpace(8 * 1024 * 1024);
 		cpp.vm.Gc.enable(true);
 		#end
 
@@ -236,10 +238,27 @@ class Main extends Sprite
 		#end
 		mods.ModManager.onModChanged = function(newMod:Null<String>)
 		{
+			// Limpiar cache de assets del mod anterior
 			Paths.forceClearCache();
 			funkin.gameplay.objects.character.CharacterList.reload();
 			MemoryUtil.collectMajor();
 			trace('[Main] Cache cleaned. Mod active → ${newMod ?? "base"}');
+
+			// BUG FIX: recargar scripts globales del nuevo mod.
+			// Sin esto, los scripts del mod anterior siguen activos y los del nuevo
+			// no se cargan → funciones de mod ausentes, variables incorrectas, crashes.
+			funkin.scripting.ScriptHandler.clearAll();
+			funkin.scripting.ScriptHandler.loadGlobalScripts();
+
+			// BUG FIX: reiniciar el sistema de skins al cambiar de mod.
+			// Sin esto ocurren 3 problemas:
+			//   1. availableSkins sigue teniendo las skins del mod anterior.
+			//   2. Las skins del nuevo mod no se descubren.
+			//   3. Los scripts Lua de skin del mod anterior (skinScripts/splashScripts)
+			//      siguen activos y pueden ejecutar código del mod equivocado.
+			funkin.gameplay.notes.NoteSkinSystem.destroyScripts();
+			funkin.gameplay.notes.NoteSkinSystem.forceReinit();
+
 			WindowManager.applyModBranding(mods.ModManager.activeInfo());
 			#if (desktop && cpp)
 			DiscordClient.applyModConfig(mods.ModManager.activeInfo());

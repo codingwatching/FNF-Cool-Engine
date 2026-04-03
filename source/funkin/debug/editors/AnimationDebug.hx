@@ -167,6 +167,11 @@ class AnimationDebug extends MusicBeatState
 	// Color actual seleccionado para la healthBar
 	var currentHealthBarColor:FlxColor = FlxColor.fromString("#31B0D1");
 
+	// ── Unsaved-changes tracking ──────────────────────────────────────────────
+	var _hasUnsaved:Bool = false;
+	var _unsavedDlg:funkin.debug.EditorDialogs.UnsavedChangesDialog = null;
+	var _windowCloseFn:Void->Void = null;
+
 	public function new(daAnim:String = 'bf')
 	{
 		super();
@@ -381,6 +386,19 @@ class AnimationDebug extends MusicBeatState
 
 		displayCharacter(daAnim);
 		loadCharacterData();
+
+		// ── Window-close guard ────────────────────────────────────────────
+		#if sys
+		_windowCloseFn = function()
+		{
+			if (_hasUnsaved)
+			{
+				// Auto-guardar al cerrar para no perder trabajo
+				try { reloadCharacterWithNewAnims(); } catch (_) {}
+			}
+		};
+		lime.app.Application.current.window.onClose.add(_windowCloseFn);
+		#end
 
 		super.create();
 	}
@@ -1039,8 +1057,7 @@ class AnimationDebug extends MusicBeatState
 			prefix: newPrefix,
 			framerate: animFramerateStepper.value,
 			looped: animLoopedCheckbox.checked,
-			offsetX: offsetXStepper.value,
-			offsetY: offsetYStepper.value
+			offsets: [offsetXStepper.value, offsetYStepper.value]
 		};
 
 		// Sub-atlas path (opcional): solo se guarda si se especificó algo
@@ -1114,6 +1131,8 @@ class AnimationDebug extends MusicBeatState
 			setHelp("✓ Animation add: " + newName, FlxColor.LIME);
 		}
 
+		_hasUnsaved = true;
+
 		// Limpiar campos tras Add (no tras Edit, para comodidad)
 		if (editingAnimName == null)
 		{
@@ -1145,8 +1164,8 @@ class AnimationDebug extends MusicBeatState
 				animPrefixInput.text = anim.prefix != null ? anim.prefix : "";
 				animFramerateStepper.value = anim.framerate != 0 ? anim.framerate : 24;
 				animLoopedCheckbox.checked = anim.looped;
-				offsetXStepper.value = anim.offsetX;
-				offsetYStepper.value = anim.offsetY;
+				offsetXStepper.value = anim.offsets[0];
+				offsetYStepper.value = anim.offsets[1];
 
 				// Cargar sub-atlas path y render type (nuevos campos opcionales)
 				if (animAssetPathInput != null)
@@ -1188,6 +1207,7 @@ class AnimationDebug extends MusicBeatState
 
 		reloadCharacterWithNewAnims();
 		setHelp("✓ Animation erased: " + animName, FlxColor.LIME);
+		_hasUnsaved = true;
 
 		if (curAnim >= animList.length)
 			curAnim = animList.length - 1;
@@ -1439,8 +1459,7 @@ class AnimationDebug extends MusicBeatState
 					prefix: parsed.AN.SN,
 					framerate: parsed.MD != null ? Std.int(parsed.MD.FRT) : 24,
 					looped: true,
-					offsetX: 0,
-					offsetY: 0
+					offsets: [0, 0]
 				});
 			}
 
@@ -1454,8 +1473,7 @@ class AnimationDebug extends MusicBeatState
 						prefix: sym.SN,
 						framerate: parsed.MD != null ? Std.int(parsed.MD.FRT) : 24,
 						looped: false,
-						offsetX: 0,
-						offsetY: 0
+						offsets: [0, 0]
 					});
 				}
 			}
@@ -1872,6 +1890,7 @@ class AnimationDebug extends MusicBeatState
 		{
 			final charPath = Paths.ensureDir(Paths.resolveWrite('characters/$daAnim.json'));
 			File.saveContent(charPath, jsonString);
+			_hasUnsaved = false;
 			displayCharacter(daAnim);
 			loadCharacterData();
 		}
@@ -2004,6 +2023,7 @@ class AnimationDebug extends MusicBeatState
 		_file.removeEventListener(Event.CANCEL, onSaveCancel);
 		_file.removeEventListener(IOErrorEvent.IO_ERROR, onSaveError);
 		_file = null;
+		_hasUnsaved = false;
 		setHelp("✓ File saved!", FlxColor.LIME);
 	}
 
@@ -2068,8 +2088,43 @@ class AnimationDebug extends MusicBeatState
 		// Exit — ESC siempre funciona aunque estés escribiendo
 		if (FlxG.keys.justPressed.ESCAPE)
 		{
-			funkin.system.CursorManager.hide();
-			LoadingState.loadAndSwitchState(new MainMenuState());
+			if (_unsavedDlg != null)
+			{
+				// Ya hay diálogo abierto — ignorar ESC para evitar doble-close
+			}
+			else if (_hasUnsaved)
+			{
+				_unsavedDlg = new funkin.debug.EditorDialogs.UnsavedChangesDialog([camHUD]);
+				_unsavedDlg.onSaveAndExit = () ->
+				{
+					reloadCharacterWithNewAnims();
+					_hasUnsaved = false;
+					remove(_unsavedDlg, true);
+					_unsavedDlg = null;
+					funkin.system.CursorManager.hide();
+					LoadingState.loadAndSwitchState(new MainMenuState());
+				};
+				_unsavedDlg.onSave = () ->
+				{
+					reloadCharacterWithNewAnims();
+					_hasUnsaved = false;
+					remove(_unsavedDlg, true);
+					_unsavedDlg = null;
+				};
+				_unsavedDlg.onExit = () ->
+				{
+					remove(_unsavedDlg, true);
+					_unsavedDlg = null;
+					funkin.system.CursorManager.hide();
+					LoadingState.loadAndSwitchState(new MainMenuState());
+				};
+				add(_unsavedDlg);
+			}
+			else
+			{
+				funkin.system.CursorManager.hide();
+				LoadingState.loadAndSwitchState(new MainMenuState());
+			}
 		}
 
 		// ── Zoom con rueda del mouse (siempre activo, no requiere teclado) ────
@@ -2183,8 +2238,7 @@ class AnimationDebug extends MusicBeatState
 				{
 					if (anim.name == selAnim)
 					{
-						anim.offsetX = offsets[0];
-						anim.offsetY = offsets[1];
+						anim.offsets = [offsets[0], offsets[1]];
 						break;
 					}
 				}
@@ -2193,6 +2247,7 @@ class AnimationDebug extends MusicBeatState
 				if (ghostChar != null)
 					ghostChar.playAnim(animList[ghostAnimIdx]);
 				updateOffsetTexts();
+				_hasUnsaved = true;
 
 				// Flash amarillo → normal en textInfo como feedback
 				// NOTA: no se usa FlxTween.tween con {} vacío porque VarTween
@@ -2245,8 +2300,7 @@ class AnimationDebug extends MusicBeatState
 						{
 							if (anim.name == selAnim)
 							{
-								anim.offsetX = offsets[0];
-								anim.offsetY = offsets[1];
+								anim.offsets = [offsets[0], offsets[1]];
 								break;
 							}
 						}
@@ -2255,6 +2309,7 @@ class AnimationDebug extends MusicBeatState
 						if (ghostChar != null)
 							ghostChar.playAnim(animList[ghostAnimIdx]);
 						updateOffsetTexts();
+						_hasUnsaved = true;
 					}
 				}
 			}
@@ -2384,8 +2439,7 @@ class AnimationDebug extends MusicBeatState
 						prefix:    prefix,
 						framerate: framerate,
 						looped:    false,
-						offsetX:   0,
-						offsetY:   0
+						offsets:   [0, 0]
 					});
 				}
 			}
@@ -2417,7 +2471,7 @@ class AnimationDebug extends MusicBeatState
 			{
 				seen.set(parsed.AN.SN, true);
 				result.push({ name: parsed.AN.SN, prefix: parsed.AN.SN,
-					framerate: fps, looped: true, offsetX: 0, offsetY: 0 });
+					framerate: fps, looped: true, offsets: [0, 0] });
 			}
 
 			// Symbol dictionary (SD.S)
@@ -2427,12 +2481,27 @@ class AnimationDebug extends MusicBeatState
 					{
 						seen.set(sym.SN, true);
 						result.push({ name: sym.SN, prefix: sym.SN,
-							framerate: fps, looped: false, offsetX: 0, offsetY: 0 });
+							framerate: fps, looped: false, offsets: [0, 0] });
 					}
 		}
 		catch (e:Dynamic) { FlxG.log.error("[AnimDebug] _parseAnimJsonSymbols error: " + e); }
 		#end
 		return result;
+	}
+
+	override function destroy():Void
+	{
+		// ── Quitar listener de cierre de ventana ───────────────────────────
+		#if sys
+		if (_windowCloseFn != null)
+		{
+			try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); }
+			catch (_) {}
+			_windowCloseFn = null;
+		}
+		#end
+		_unsavedDlg = null;
+		super.destroy();
 	}
 
 }

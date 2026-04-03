@@ -22,6 +22,9 @@ import data.PlayerSettings;
 import funkin.scripting.StateScriptHandler;
 import funkin.audio.MusicManager;
 import funkin.data.SaveData;
+import funkin.shaders.MenuBGShader;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
 
 using StringTools;
 
@@ -45,6 +48,35 @@ class MainMenuState extends funkin.states.MusicBeatState
 	public static var firstStart:Bool = true;
 
 	public static var finishedFunnyMove:Bool = false;
+
+	// ── MenuBG Shader — ciclo de colores ─────────────────────────────────────
+	var _bgShader:MenuBGShader;
+
+	/**
+	 * Paleta de colores en formato [R, G, B] (valores 0-1).
+	 * Se puede ampliar fácilmente con más entradas.
+	 */
+	static final BG_PALETTE:Array<Array<Float>> = [
+		[1.00, 0.41, 0.71],   // Rosa  #FF69B4
+		[0.61, 0.19, 1.00],   // Morado #9B30FF
+		[0.20, 0.80, 1.00],   // Cian  #33CCFF
+		[0.20, 1.00, 0.60],   // Verde neón #33FF99
+		[1.00, 0.55, 0.10],   // Naranja #FF8C19
+	];
+
+	/** Índice del color actualmente visible. */
+	var _paletteIdx:Int = 0;
+
+	/** Tween activo de transición de color (para cancelar si es necesario). */
+	var _colorTween:FlxTween = null;
+
+	/** Segundos que cada color permanece antes de transicionar. */
+	static inline final COLOR_HOLD:Float    = 4.0;
+	/** Duración de la transición de un color al siguiente. */
+	static inline final COLOR_TRANS:Float   = 1.2;
+
+	/** Timer acumulado para el ciclo de color. */
+	var _colorTimer:Float = 0;
 
 	override function create()
 	{
@@ -79,6 +111,15 @@ class MainMenuState extends funkin.states.MusicBeatState
 		bg.updateHitbox();
 		bg.screenCenter();
 		bg.antialiasing = SaveData.data.antialiasing;
+
+		// ── Aplicar shader de colorización ───────────────────────────────────
+		_bgShader = new MenuBGShader();
+		// Arrancar con el primer color de paleta ya asignado como A y B (sin blend)
+		_bgShader.setColorA(BG_PALETTE[0][0], BG_PALETTE[0][1], BG_PALETTE[0][2]);
+		_bgShader.setColorB(BG_PALETTE[1][0], BG_PALETTE[1][1], BG_PALETTE[1][2]);
+		_bgShader.setBlend(0.0);
+		bg.shader = _bgShader;
+
 		add(bg);
 
 		camFollow = new FlxObject(0, 0, 1, 1);
@@ -187,6 +228,17 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onUpdate', [elapsed]);
 		#end
+
+		// ── Ciclo de color del fondo ──────────────────────────────────────────
+		if (_bgShader != null)
+		{
+			_colorTimer += elapsed;
+			if (_colorTimer >= COLOR_HOLD)
+			{
+				_colorTimer = 0;
+				_startColorTransition();
+			}
+		}
 
 		// El volumen de la música de menú lo gestiona CoreAudio._applyAll() cada frame.
 		// No manipular FlxG.sound.music.volume aquí — pelea con el sistema de volumen.
@@ -318,8 +370,63 @@ class MainMenuState extends funkin.states.MusicBeatState
 		#end
 	}
 
+	/**
+	 * Inicia la transición al siguiente color de paleta.
+	 * Cancela cualquier tween previo, avanza el índice y hace blend 0→1.
+	 * Al completarse, fija colorA = colorB y prepara el siguiente B.
+	 */
+	function _startColorTransition():Void
+	{
+		if (_bgShader == null) return;
+
+		// Cancelar tween anterior si sigue activo
+		if (_colorTween != null)
+		{
+			_colorTween.cancel();
+			_colorTween = null;
+		}
+
+		// Avanzar índice
+		_paletteIdx = (_paletteIdx + 1) % BG_PALETTE.length;
+		var nextIdx:Int = (_paletteIdx + 1) % BG_PALETTE.length;
+
+		// Asignar: A = color actual, B = siguiente
+		var cA = BG_PALETTE[_paletteIdx];
+		var cB = BG_PALETTE[nextIdx];
+		_bgShader.setColorA(cA[0], cA[1], cA[2]);
+		_bgShader.setColorB(cB[0], cB[1], cB[2]);
+		_bgShader.setBlend(0.0);
+
+		// Animar blend de 0 a 1 durante COLOR_TRANS segundos
+		// Se usa un objeto auxiliar para que FlxTween pueda interpolarlo
+		var blendProxy = {v: 0.0};
+		_colorTween = FlxTween.tween(blendProxy, {v: 1.0}, COLOR_TRANS, {
+			ease: FlxEase.sineInOut,
+			onUpdate: function(_)
+			{
+				if (_bgShader != null)
+					_bgShader.setBlend(blendProxy.v);
+			},
+			onComplete: function(_)
+			{
+				// Una vez terminado: A ya es el color llegado, preparar el siguiente B
+				if (_bgShader != null)
+				{
+					_bgShader.setColorA(cB[0], cB[1], cB[2]);
+					_bgShader.setBlend(0.0);
+				}
+				_colorTween = null;
+			}
+		});
+	}
+
 	override function destroy()
 	{
+		if (_colorTween != null)
+		{
+			_colorTween.cancel();
+			_colorTween = null;
+		}
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onDestroy', []);
 		StateScriptHandler.clearStateScripts();

@@ -81,8 +81,7 @@ typedef CharacterData =
 
 typedef AnimData =
 {
-	var offsetX:Float;
-	var offsetY:Float;
+	var offsets:Array<Float>;
 	var name:String;
 	var looped:Bool;
 	var framerate:Float;
@@ -165,6 +164,19 @@ class Character extends FunkinSprite
 
 	/** flipX base del personaje (sin per-anim flipX). Guardado en characterLoad(). */
 	public var _baseFlipX:Bool = false;
+
+	/**
+	 * Tabla de reemplazos de animación.
+	 * Si se registra "idle" → "idle-alt", cada vez que se intente reproducir
+	 * "idle" se reproducirá "idle-alt" en su lugar (si existe).
+	 *
+	 * Uso desde script:
+	 *   character.setAnimReplace("idle", "idle-alt");
+	 *   character.setAnimReplace("singLEFT", "singLEFT-alt");
+	 *   character.removeAnimReplace("idle");
+	 *   character.clearAnimReplacements();
+	 */
+	public var _animReplacements:Map<String, String> = [];
 
 	// ══════════════════════════════════════════════════════════════════════════
 	//  CACHÉS ESTÁTICOS
@@ -464,6 +476,8 @@ class Character extends FunkinSprite
 		{
 			var loop:Null<Bool> = animData.looped;
 			if (loop == null) animData.looped = false;
+			var fr:Null<Float> = animData.framerate;
+			if (fr == null) animData.framerate = 24;
 			addAnim(animData.name, animData.prefix, Std.int(animData.framerate), animData.looped,
 				(animData.indices != null && animData.indices.length > 0) ? animData.indices : null);
 
@@ -471,7 +485,7 @@ class Character extends FunkinSprite
 			if (!isAnimateAtlas && (fa == null || fa.numFrames == 0))
 				trace('[Character] WARN: "${animData.name}" 0 frames (prefix="${animData.prefix}")');
 
-			addOffset(animData.name, animData.offsetX, animData.offsetY);
+			addOffset(animData.name, animData.offsets[0], animData.offsets[1]);
 		}
 
 		antialiasing = characterData.antialiasing;
@@ -539,20 +553,26 @@ class Character extends FunkinSprite
 
 	override public function playAnim(AnimName:String, Force:Bool = false, Reversed:Bool = false, Frame:Int = 0):Void
 	{
+		// ── Reemplazos de animación ────────────────────────────────────────────
+		// Si hay un reemplazo registrado Y la animación destino existe, redirigir.
+		var _resolved = _animReplacements.get(AnimName);
+		if (_resolved != null && animOffsets.exists(_resolved))
+			AnimName = _resolved;
 		super.playAnim(AnimName, Force, Reversed, Frame);
 
-		// ── flipX por animación ────────────────────────────────────────────────
-		// Se resuelve ANTES del offset para saber si hay inversión en este frame.
+		// la animación en la lista.
 		if (characterData != null)
 		{
+			var _animFlipX:Bool = false; // sin override → usar _baseFlipX
 			for (anim in characterData.animations)
 			{
 				if (anim.name == AnimName)
 				{
-					this.flipX = _baseFlipX != (anim.flipX == true);
+					_animFlipX = (anim.flipX == true);
 					break;
 				}
 			}
+			this.flipX = _baseFlipX != _animFlipX;
 		}
 
 		// ── Aplicar offset con compensación de flipX ──────────────────────────
@@ -869,6 +889,47 @@ class Character extends FunkinSprite
 	{
 		if (animOffsets.exists(name))
 			animOffsets.set(name, [x, y]);
+	}
+
+	// ── Reemplazos de animación ───────────────────────────────────────────────
+
+	/**
+	 * Registra un reemplazo de animación.
+	 * Cada vez que se intente reproducir `from`, se reproducirá `to` en su lugar
+	 * (siempre que `to` exista; si no existe, se reproduce `from` normalmente).
+	 *
+	 * Ejemplos:
+	 *   character.setAnimReplace("idle", "idle-alt");
+	 *   character.setAnimReplace("singLEFT", "singLEFT-alt");
+	 *
+	 * @param from  Nombre de la animación original a interceptar
+	 * @param to    Nombre de la animación destino
+	 */
+	public function setAnimReplace(from:String, to:String):Void
+		_animReplacements.set(from, to);
+
+	/**
+	 * Elimina el reemplazo de una animación específica.
+	 * @param from  Animación cuyo reemplazo se quiere quitar
+	 */
+	public function removeAnimReplace(from:String):Void
+		_animReplacements.remove(from);
+
+	/**
+	 * Elimina todos los reemplazos de animación registrados.
+	 */
+	public function clearAnimReplacements():Void
+		_animReplacements.clear();
+
+	/**
+	 * Devuelve el nombre real que se reproducirá al pedir `animName`,
+	 * teniendo en cuenta los reemplazos activos.
+	 * Útil para scripts que quieren saber qué animación va a salir.
+	 */
+	public function resolveAnimName(animName:String):String
+	{
+		var _r = _animReplacements.get(animName);
+		return (_r != null && animOffsets.exists(_r)) ? _r : animName;
 	}
 
 	// ── Destruir ──────────────────────────────────────────────────────────────

@@ -2,28 +2,34 @@
 	"isFlxAnimate": true,
 	"animations": [
 		{
-			"offsetX": 46,
 			"framerate": 24,
-			"offsetY": -84,
 			"prefix": "poses/BF Dies with GF",
 			"name": "firstDeath",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				46,
+				-84
+			]
 		},
 		{
-			"offsetX": 37,
 			"framerate": 24,
-			"offsetY": -101,
 			"prefix": "poses/BF Dead with GF Loop",
 			"name": "deathLoop",
-			"looped": true
+			"looped": true,
+			"offsets": [
+				37,
+				-101
+			]
 		},
 		{
-			"offsetX": 37,
 			"framerate": 24,
-			"offsetY": 28,
 			"prefix": "poses/RETRY confirm holding gf",
 			"name": "deathConfirm",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				37,
+				28
+			]
 		}
 	],
 	"antialiasing": true,

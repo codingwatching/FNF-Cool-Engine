@@ -11,97 +11,85 @@
 	"animations": [
 		{
 			"framerate": 24,
-			"offsetX": 13,
+			"offsets": [13, 4],
 			"prefix": "BF idle dance",
-			"offsetY": 4,
 			"looped": false,
 			"name": "idle"
 		},
 		{
 			"framerate": 24,
-			"offsetX": 10,
 			"prefix": "BF NOTE LEFT",
-			"offsetY": 7,
+			"offsets": [10, 7],
 			"looped": false,
 			"name": "singLEFT"
 		},
 		{
 			"framerate": 24,
-			"offsetX": 13,
+			"offsets": [13, 18],
 			"prefix": "BF NOTE LEFT MISS",
-			"offsetY": 18,
 			"looped": false,
 			"name": "singLEFTmiss"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -32,
+			"offsets": [-32, 11],
 			"prefix": "BF NOTE RIGHT",
-			"offsetY": 11,
 			"looped": false,
 			"name": "singRIGHT"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -30,
+			"offsets": [-30, 24],
 			"prefix": "BF NOTE RIGHT MISS",
-			"offsetY": 24,
 			"looped": false,
 			"name": "singRIGHTmiss"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -1,
+			"offsets": [-1, 76],
 			"prefix": "BF NOTE UP",
-			"offsetY": 76,
 			"looped": false,
 			"name": "singUP"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -10,
+			"offsets": [-10, 70],
 			"prefix": "BF NOTE UP MISS",
-			"offsetY": 70,
 			"looped": false,
 			"name": "singUPmiss"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -2,
+			"offsets": [-2, -34],
 			"prefix": "BF NOTE DOWN",
-			"offsetY": -34,
 			"looped": false,
 			"name": "singDOWN"
 		},
 		{
 			"framerate": 24,
-			"offsetX": 0,
+			"offsets": [0, -23],
 			"prefix": "BF NOTE DOWN MISS",
-			"offsetY": -23,
 			"looped": false,
 			"name": "singDOWNmiss"
 		},
 		{
 			"framerate": 24,
-			"offsetX": 12,
+			"offsets": [12, 14],
 			"prefix": "BF HEY!!",
-			"offsetY": 14,
 			"looped": false,
 			"name": "hey"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -30,
+			"offsets": [-30, 20],
 			"prefix": "Boyfriend YEAH cheer",
-			"offsetY": 20,
 			"looped": false,
 			"name": "yeah cheer"
 		},
 		{
 			"framerate": 24,
-			"offsetX": 0,
+			"offsets": [0, 0],
 			"prefix": "BF idle shaking",
-			"offsetY": 0,
 			"looped": false,
 			"name": "scared"
 		}

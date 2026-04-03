@@ -58,6 +58,44 @@ class NoteHoldCover extends FlxSprite
 	var _strumCenterX:Float = 0;
 	var _strumCenterY:Float = 0;
 
+	/** GC FIX: shader HSV reutilizado entre activaciones del pool (fallback colorHSV). */
+	var _colorSwapShader:funkin.shaders.NoteColorSwapShader = null;
+	/** GC FIX: shader RGB por paleta reutilizado entre activaciones del pool (colorDirections). Mismo enfoque que NightmareVision. */
+	var _rgbShader:funkin.shaders.NoteRGBPaletteShader = null;
+	/** Dirección del último shader aplicado, para detectar cambios. */
+	var _lastShaderDir:Int = -1;
+
+	/**
+	 * Cache animList: animName → [offsetX, offsetY, flipX:0|1, flipY:0|1].
+	 * Construido por _setupAnimations() cuando _hcData.animList != null.
+	 * Permite offsets y flipX por animación al estilo personaje.
+	 */
+	var _animListData:Map<String, Array<Float>> = null;
+
+	/** flipX base del sprite (antes de aplicar per-anim flipX del animList). */
+	var _baseFlipX:Bool = false;
+
+	/**
+	 * Per-animation positional offsets read from animList (offsetX / offsetY).
+	 * Set by _applyAnimListExtras() and consumed by _applyPosition() so that
+	 * each animation can shift the cover independently of the global skin offset.
+	 */
+	var _animOffsetX:Float = 0.0;
+	var _animOffsetY:Float = 0.0;
+
+	/**
+	 * BUG FIX: dimensiones cacheadas al hacer setup().
+	 * width/height cambian frame a frame cuando la animación está en loop
+	 * (cada frame puede tener distinto tamaño de hitbox), haciendo que
+	 * _applyPosition() calcule una X/Y diferente cada vez que
+	 * _updateHoldCoverPositions() la llama → el cover "baila" aunque el
+	 * strum esté completamente quieto.
+	 * Cacheamos las dimensiones UNA SOLA VEZ al iniciar el cover y las
+	 * usamos como referencia fija para todo el ciclo de vida del cover.
+	 */
+	var _cachedW:Float = 0;
+	var _cachedH:Float = 0;
+
 	// ─── Propiedad pública ────────────────────────────────────────────────────
 
 	/**
@@ -139,6 +177,9 @@ class NoteHoldCover extends FlxSprite
 				scale.set(s, s);
 				updateHitbox();
 
+				_cachedW = width  > 0 ? width  : frameWidth;
+				_cachedH = height > 0 ? height : frameHeight;
+
 				_loadedSplash = resolvedSplash;
 				_loadedColor  = _color;
 			}
@@ -157,17 +198,64 @@ class NoteHoldCover extends FlxSprite
 
 		// ── Shader de colorización automática ──────────────────────────────
 		final _hcSplashData = NoteSkinSystem.getSplashData(resolvedSplash);
-		if (_hcSplashData != null && _hcSplashData.colorAuto == true)
+		// FIX: heredar colorAuto/colorMult/colorDirections del note skin activo
+		// cuando el splash.json no los define explícitamente (null).
+		// Permite que colorAuto:true en skin.json colorice también los hold covers
+		// sin necesitar un splash.json separado.
+		final effectiveColorAuto = (_hcSplashData != null && _hcSplashData.colorAuto != null)
+			? _hcSplashData.colorAuto
+			: (NoteSkinSystem.getCurrentSkinData()?.colorAuto == true);
+		final effectiveColorMult = (_hcSplashData != null && _hcSplashData.colorMult != null)
+			? _hcSplashData.colorMult
+			: (NoteSkinSystem.getCurrentSkinData()?.colorMult ?? 1.0);
+		final effectiveColorDirs = (_hcSplashData != null && _hcSplashData.colorDirections != null)
+			? _hcSplashData.colorDirections
+			: NoteSkinSystem.getCurrentSkinData()?.colorDirections;
+		final effectiveColorHSV = (_hcSplashData != null && _hcSplashData.colorHSV != null)
+			? _hcSplashData.colorHSV
+			: NoteSkinSystem.getCurrentSkinData()?.colorHSV;
+
+		if (effectiveColorAuto == true)
 		{
-			final _noteDir  = ['Purple','Blue','Green','Red'].indexOf(_color);
-			final dir       = _noteDir >= 0 ? _noteDir : 0;
-			final mult      = (_hcSplashData.colorMult != null) ? _hcSplashData.colorMult : 1.0;
-			final customDir = (_hcSplashData.colorDirections != null && dir < _hcSplashData.colorDirections.length)
-				? _hcSplashData.colorDirections[dir] : null;
-			shader = new funkin.shaders.NoteRGBShader(dir % 4, mult, customDir);
+			final _noteDir = ['Purple', 'Blue', 'Green', 'Red'].indexOf(_color);
+			final dir      = _noteDir >= 0 ? _noteDir : 0;
+
+			// PRIORIDAD 1: colorDirections → RGB palette shader (mismo enfoque que NightmareVision).
+			// Reemplaza los canales R/G/B de la textura con colores reales por dirección.
+			if (effectiveColorDirs != null && dir < effectiveColorDirs.length)
+			{
+				final cd = effectiveColorDirs[dir];
+				// GC FIX: reutilizar shader entre activaciones del pool.
+				if (_rgbShader == null)
+					_rgbShader = new funkin.shaders.NoteRGBPaletteShader();
+				if (_lastShaderDir != dir)
+					_rgbShader.setColors(cd.r, cd.g, cd.b);
+				_colorSwapShader = null;
+				_lastShaderDir = dir;
+				shader = _rgbShader;
+			}
+			else
+			{
+				// PRIORIDAD 2: colorHSV → HSV shift (fallback cuando no hay colorDirections).
+				final mult = effectiveColorMult;
+				// GC FIX: reutilizar el shader existente.
+				if (_colorSwapShader == null)
+					_colorSwapShader = new funkin.shaders.NoteColorSwapShader(dir % 4, mult, null);
+				else if (_lastShaderDir != dir)
+				{
+					_colorSwapShader.setDirection(dir % 4, null);
+					_colorSwapShader.intensity = mult;
+				}
+				_rgbShader = null;
+				_lastShaderDir = dir;
+				shader = _colorSwapShader;
+			}
 		}
 		else
 		{
+			_lastShaderDir = -1;
+			_colorSwapShader = null;
+			_rgbShader = null;
 			shader = null;
 		}
 
@@ -197,6 +285,7 @@ class NoteHoldCover extends FlxSprite
 			_state = STATE_START;
 			visible = true;
 			animation.play(_startAnim, true);
+			_applyAnimListExtras(_startAnim);
 		}
 		else
 		{
@@ -272,12 +361,50 @@ class NoteHoldCover extends FlxSprite
 	{
 		if (_hcData == null || frames == null) return;
 
-		final fps:Int     = (_hcData.framerate     != null && _hcData.framerate     > 0) ? _hcData.framerate     : 24;
-		final loopFps:Int = (_hcData.loopFramerate != null && _hcData.loopFramerate > 0) ? _hcData.loopFramerate : 48;
+		_animListData = null;
+		_baseFlipX = this.flipX;
 
-		_addPrefixAnim(_startAnim, fps,     false);
-		_addPrefixAnim(_loopAnim,  loopFps, true);
-		_addPrefixAnim(_endAnim,   fps,     false);
+		if (_hcData.animList != null && _hcData.animList.length > 0)
+		{
+			// ── Sistema animList (estilo personaje) ─────────────────────────────
+			// Registrar TODAS las entradas del animList.
+			// _startAnim/_loopAnim/_endAnim (con sufijo de color) se buscan
+			// en la lista por nombre, así que deben coincidir exactamente.
+			_animListData = new Map();
+			for (entry in _hcData.animList)
+			{
+				if (entry == null || entry.name == null || entry.prefix == null) continue;
+
+				var fps:Int   = entry.fps      != null ? entry.fps
+				              : entry.framerate != null ? Std.int(entry.framerate) : 24;
+				var loop:Bool = entry.loop   != null ? entry.loop
+				              : entry.looped != null ? entry.looped : false;
+				// El loop del animList se respeta; solo override para el loopAnim si no está explícito
+				if (entry.name == _loopAnim && entry.loop == null && entry.looped == null)
+					loop = true;
+
+				if (entry.indices != null && entry.indices.length > 0)
+					animation.add(entry.name, entry.indices, fps, loop);
+				else
+					animation.addByPrefix(entry.name, entry.prefix, fps, loop);
+
+				var ox:Float = (entry.offsets != null && entry.offsets.length > 0) ? entry.offsets[0] : 0.0;
+				var oy:Float = (entry.offsets != null && entry.offsets.length > 1) ? entry.offsets[1] : 0.0;
+				var fx:Float = entry.flipX == true ? 1.0 : 0.0;
+				var fy:Float = entry.flipY == true ? 1.0 : 0.0;
+				_animListData.set(entry.name, [ox, oy, fx, fy]);
+			}
+		}
+		else
+		{
+			// ── Sistema legacy ───────────────────────────────────────────────────
+			final fps:Int     = (_hcData.framerate     != null && _hcData.framerate     > 0) ? _hcData.framerate     : 24;
+			final loopFps:Int = (_hcData.loopFramerate != null && _hcData.loopFramerate > 0) ? _hcData.loopFramerate : 48;
+
+			_addPrefixAnim(_startAnim, fps,     false);
+			_addPrefixAnim(_loopAnim,  loopFps, true);
+			_addPrefixAnim(_endAnim,   fps,     false);
+		}
 	}
 
 	inline function _addPrefixAnim(prefix:String, fps:Int, looped:Bool):Void
@@ -301,19 +428,26 @@ class NoteHoldCover extends FlxSprite
 	 */
 	function _applyPosition():Void
 	{
-		// width/height ya incorporan scale → correcto para cualquier escala
-		final fw:Float = (width  > 0) ? width  : frameWidth;
-		final fh:Float = (height > 0) ? height : frameHeight;
+		// BUG FIX #1: usar _cachedW/_cachedH (fijados en setup()) en lugar de
+		// width/height que varían con cada frame de animación → cover quieto.
+		final fw:Float = (_cachedW > 0) ? _cachedW : (width  > 0 ? width  : frameWidth);
+		final fh:Float = (_cachedH > 0) ? _cachedH : (height > 0 ? height : frameHeight);
 
-		x = _strumCenterX - fw * 0.5 - 20;
-		y = _strumCenterY - fh * 0.5 + 40;
+		x = _strumCenterX - fw * 0.5;
+		y = _strumCenterY - fh * 0.5;
 
-		// Ajuste fino desde splash.json
+		// Ajuste fino desde splash.json — convención estándar Flixel:
+		//   offset[0] positivo → cover se mueve a la DERECHA  ✓
+		//   offset[1] positivo → cover se mueve HACIA ABAJO   ✓
 		if (_hcData != null && _hcData.offset != null && _hcData.offset.length >= 2)
 		{
 			x += _hcData.offset[0];
 			y += _hcData.offset[1];
 		}
+
+		// Per-animation offsets from animList (set by _applyAnimListExtras).
+		x += _animOffsetX;
+		y += _animOffsetY;
 	}
 
 	function _playLoop():Void
@@ -321,7 +455,10 @@ class NoteHoldCover extends FlxSprite
 		_state = STATE_LOOP;
 		visible = true;
 		if (_loopAnim != '' && animation.getByName(_loopAnim) != null)
+		{
 			animation.play(_loopAnim, true);
+			_applyAnimListExtras(_loopAnim);
+		}
 	}
 
 	function _playEnd():Void
@@ -329,9 +466,40 @@ class NoteHoldCover extends FlxSprite
 		_state = STATE_END;
 		visible = true;
 		if (_endAnim != '' && animation.getByName(_endAnim) != null)
+		{
 			animation.play(_endAnim, true);
+			_applyAnimListExtras(_endAnim);
+		}
 		else
 			_killSelf(); // sin animación de fin → desaparecer
+	}
+
+	/**
+	 * Aplica flipX/flipY del animList para la animación dada (si existe en la cache).
+	 * El flipX sigue el patrón XOR de Character.hx: base XOR per-anim.
+	 * También almacena los offsets por animación y llama a _applyPosition() para
+	 * que el cover se desplace correctamente según el animList.
+	 */
+	inline function _applyAnimListExtras(animName:String):Void
+	{
+		if (_animListData == null) return;
+		var data = _animListData.get(animName);
+		if (data == null)
+		{
+			// No entry for this anim — clear any previously stored per-anim offset
+			// so leftover values from the previous animation don't bleed through.
+			_animOffsetX = 0.0;
+			_animOffsetY = 0.0;
+			_applyPosition();
+			return;
+		}
+		var animFlipX:Bool = data[2] > 0.5;
+		this.flipX = _baseFlipX != animFlipX;
+		if (data[3] > 0.5) this.flipY = !this.flipY;
+		// Store per-anim offsets so _applyPosition() can read them.
+		_animOffsetX = data[0];
+		_animOffsetY = data[1];
+		_applyPosition();
 	}
 
 	function _killSelf():Void

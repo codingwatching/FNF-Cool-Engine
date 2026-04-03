@@ -10,38 +10,48 @@
 	"isFlxAnimate": true,
 	"animations": [
 		{
-			"offsetX": -60,
 			"framerate": 24,
-			"offsetY": -170,
 			"prefix": "Idle",
-			"name": "idle"
+			"name": "idle",
+			"offsets": [
+				-60,
+				-170
+			]
 		},
 		{
-			"offsetX": -70,
 			"framerate": 24,
-			"offsetY": -168,
 			"prefix": "Left",
-			"name": "singRIGHT"
+			"name": "singRIGHT",
+			"offsets": [
+				-70,
+				-168
+			]
 		},
 		{
-			"offsetX": -60,
 			"framerate": 24,
-			"offsetY": -160,
 			"prefix": "Down",
-			"name": "singDOWN"
+			"name": "singDOWN",
+			"offsets": [
+				-60,
+				-160
+			]
 		},
 		{
-			"offsetX": -70,
 			"framerate": 24,
-			"offsetY": -170,
 			"prefix": "Up",
-			"name": "singUP"
+			"name": "singUP",
+			"offsets": [
+				-70,
+				-170
+			]
 		},
 		{
-			"offsetY": -170,
 			"prefix": "Right",
-			"offsetX": -60,
-			"name": "singLEFT"
+			"name": "singLEFT",
+			"offsets": [
+				-60,
+				-170
+			]
 		}
 	],
 	"isPlayer": true,

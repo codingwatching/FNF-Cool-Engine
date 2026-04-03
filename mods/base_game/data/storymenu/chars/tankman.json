@@ -1,6 +1,7 @@
 {
-  "offsetX": 0,
-  "offsetY": -50,
+  "offsets":[
+    0,-50
+  ],
   "scale": 1.0,
   "antialiasing": true,
   "flipX": false,

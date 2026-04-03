@@ -108,12 +108,6 @@ typedef SaveDataFields =
 	/** Global audio/input offset in ms. */
 	@:optional var offset:Null<Float>;
 
-	/** Camera zoom in gameplay (toggle). */
-	@:optional var camZoom:Null<Bool>;
-
-	/** Static stage (no background animations). */
-	@:optional var staticstage:Null<Bool>;
-
 	/** Hide HUD toggle. */
 	@:optional var HUD:Null<Bool>;
 

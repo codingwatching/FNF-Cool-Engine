@@ -2,8 +2,79 @@
   "name": "Default",
   "author": "FNF Team",
   "description": "Classic Friday Night Funkin' note splash effects",
+  "colorAuto": true,
+  "colorDirections": [
+    {
+      "r": [
+        0.761,
+        0.294,
+        0.600
+      ],
+      "g": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "b": [
+        0.235,
+        0.122,
+        0.337
+      ]
+    },
+    {
+      "r": [
+        0.0,
+        1.0,
+        1.0
+      ],
+      "g": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "b": [
+        0.082,
+        0.259,
+        0.718
+      ]
+    },
+    {
+      "r": [
+        0.071,
+        0.980,
+        0.020
+      ],
+      "g": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "b": [
+        0.039,
+        0.267,
+        0.278
+      ]
+    },
+    {
+      "r": [
+        0.976,
+        0.224,
+        0.247
+      ],
+      "g": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "b": [
+        0.396,
+        0.063,
+        0.220
+      ]
+    }
+  ],
   "assets": {
-    "path": "noteSplashes",
+    "path": "splash",
     "type": "sparrow",
     "scale": 1.0,
     "antialiasing": true,
@@ -13,39 +84,50 @@
     ]
   },
   "animations": {
-    "left": [
-      "note impact 1 purple",
-      "note impact 2 purple"
-    ],
-    "down": [
-      "note impact 1  blue",
-      "note impact 2 blue"
-    ],
-    "up": [
-      "note impact 1 green",
-      "note impact 2 green"
-    ],
-    "right": [
-      "note impact 1 red",
-      "note impact 2 red"
+    "all": [
+      "splash 1",
+      "splash 2"
     ],
     "framerate": 24,
     "randomFramerateRange": 2
   },
   "holdCover": {
-    "texturePrefix": "holdCover",
-    "perColorTextures": true,
+    "texturePrefix": "hold splash",
+    "perColorTextures": false,
     "textureType": "sparrow",
     "scale": 1.0,
     "antialiasing": true,
+    "offset": [
+      -2,
+      8
+    ],
     "framerate": 24,
     "loopFramerate": 48,
-    "offset": [
-      0,
-      0
-    ],
-    "startPrefix": "holdCoverStart",
-    "loopPrefix": "holdCover",
-    "endPrefix": "holdCoverEnd"
+    "animList": [
+      {
+        "name": "holdCoverStart",
+        "prefix": "start",
+        "fps": 24,
+        "offsets": [
+          20,
+          20
+        ]
+      },
+      {
+        "name": "holdCover",
+        "prefix": "loop",
+        "fps": 48,
+        "looped": true
+      },
+      {
+        "name": "holdCoverEnd",
+        "prefix": "end",
+        "fps": 24,
+        "offsets": [
+          -44,
+          -30
+        ]
+      }
+    ]
   }
 }

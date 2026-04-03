@@ -25,6 +25,8 @@ import funkin.audio.MusicManager;
 import data.PlayerSettings;
 import openfl.Lib;
 import funkin.data.SaveData;
+import funkin.shaders.MenuBGShader;
+import funkin.shaders.ScrollingGridShader;
 
 /**
  * Options Menu - Sistema de tabs integrado con keybinds
@@ -36,12 +38,20 @@ class OptionsMenuState extends MusicBeatSubstate
 	#if mobileC
 	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Subtitles', 'Note Skin', 'Offset', 'Mobile'];
 	#else
-	var categories:Array<String> = ['General', 'Graphics', 'Gameplay', 'Subtitles', 'Controls', 'Note Skin', 'Offset'];
+	var categories:Array<String> = [
+		'General',
+		'Graphics',
+		'Gameplay',
+		'Subtitles',
+		'Controls',
+		'Note Skin',
+		'Offset'
+	];
 	#end
 
 	// ── FPS Cap — rango 30–240 en pasos de 5, luego Unlimited (0) ──────────────
-	static inline final FPS_MIN:Int  = 30;
-	static inline final FPS_MAX:Int  = 240;
+	static inline final FPS_MIN:Int = 30;
+	static inline final FPS_MAX:Int = 240;
 	static inline final FPS_STEP:Int = 5;
 
 	/** Devuelve el valor actual guardado (0 = Unlimited, default 60). */
@@ -51,24 +61,28 @@ class OptionsMenuState extends MusicBeatSubstate
 	}
 
 	/** Siguiente valor al pulsar → (Right/Toggle): sube 5, al llegar a 240 pasa a Unlimited,
-	    desde Unlimited vuelve a 30. */
+		desde Unlimited vuelve a 30. */
 	static function _nextFPS(current:Int):Int
 	{
-		if (current <= 0)        return FPS_MIN;       // Unlimited → 30
-		if (current >= FPS_MAX)  return 0;             // 240 → Unlimited
+		if (current <= 0)
+			return FPS_MIN; // Unlimited → 30
+		if (current >= FPS_MAX)
+			return 0; // 240 → Unlimited
 		// Redondear al múltiplo de 5 más cercano por encima
 		final snapped = Math.ceil(current / FPS_STEP) * FPS_STEP;
-		final next    = (snapped == current) ? current + FPS_STEP : snapped;
+		final next = (snapped == current) ? current + FPS_STEP : snapped;
 		return next > FPS_MAX ? 0 : next;
 	}
 
 	/** Anterior valor al pulsar ←: baja 5, desde 30 pasa a Unlimited. */
 	static function _prevFPS(current:Int):Int
 	{
-		if (current <= 0)        return FPS_MAX;       // Unlimited → 240
-		if (current <= FPS_MIN)  return 0;             // 30 → Unlimited
+		if (current <= 0)
+			return FPS_MAX; // Unlimited → 240
+		if (current <= FPS_MIN)
+			return 0; // 30 → Unlimited
 		final snapped = Math.floor(current / FPS_STEP) * FPS_STEP;
-		final prev    = (snapped == current) ? current - FPS_STEP : snapped;
+		final prev = (snapped == current) ? current - FPS_STEP : snapped;
 		return prev < FPS_MIN ? 0 : prev;
 	}
 
@@ -88,25 +102,38 @@ class OptionsMenuState extends MusicBeatSubstate
 	// ── Scroll de opciones ────────────────────────────────────────────────
 	// Desplazamiento vertical en píxeles para cuando hay más opciones que espacio
 	var _optScrollY:Float = 0.0;
+
 	// Área visible de opciones: desde startY hasta el footer
-	static inline var OPT_START_Y:Int  = 180;
-	static inline var OPT_SPACING:Int  = 55;
+	static inline var OPT_START_Y:Int = 180;
+	static inline var OPT_SPACING:Int = 55;
 	static inline var OPT_VISIBLE_H:Int = 370; // FlxG.height(720) - footer(100) - startY(180) - margen(70)
 
 	// ── Scrollbar ─────────────────────────────────────────────────────────
-	var _scrollbarTrack:FlxSprite = null;  // barra gris de fondo
-	var _scrollbarThumb:FlxSprite = null;  // barra blanca indicadora
-	static inline var SCROLLBAR_W:Int  = 6;
-	static var SCROLLBAR_X:Int  = FlxG.width - 58; // pegado al borde derecho del panel
+	var _scrollbarTrack:FlxSprite = null; // barra gris de fondo
+	var _scrollbarThumb:FlxSprite = null; // barra blanca indicadora
+
+	static inline var SCROLLBAR_W:Int = 6;
+	static var SCROLLBAR_X:Int = FlxG.width - 58; // pegado al borde derecho del panel
 
 	// Keybind state
 	var bindingState:String = "select"; // "select", "binding", "editing"
 	var tempKey:String = "";
-	var keyBindNames:Array<String>    = ["LEFT", "DOWN", "UP", "RIGHT", "RESET", "ACCEPT", "BACK", "PAUSE", "SCREENSHOT", "CHEAT"];
-	var defaultKeys:Array<String>     = ["A",    "S",    "W",  "D",     "R",     "ENTER",  "ESCAPE","ENTER", "F12",    "SEVEN"];
-	var blacklistKeys:Array<String>   = ["SPACE"];
+	var keyBindNames:Array<String> = [
+		"LEFT",
+		"DOWN",
+		"UP",
+		"RIGHT",
+		"RESET",
+		"ACCEPT",
+		"BACK",
+		"PAUSE",
+		"SCREENSHOT",
+		"CHEAT"
+	];
+	var defaultKeys:Array<String> = ["A", "S", "W", "D", "R", "ENTER", "ESCAPE", "ENTER", "F12", "SEVEN"];
+	var blacklistKeys:Array<String> = ["SPACE"];
 	// Teclas que solo pueden usarse en ciertos controles:
-	var reservedKeys:Array<String>    = ["ESCAPE", "ENTER", "BACKSPACE"]; // solo para ACCEPT/BACK/PAUSE
+	var reservedKeys:Array<String> = ["ESCAPE", "ENTER", "BACKSPACE"]; // solo para ACCEPT/BACK/PAUSE
 	var keys:Array<String> = [];
 
 	// ── Edit mode (opciones multi-valor: ENTER entra, A/D cambia, ENTER/ESC sale) ──
@@ -122,25 +149,80 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	public static var fromPause:Bool = false;
 
+	/**
+	 * Guard de input: permanece true hasta que todas las teclas de ACCEPT
+	 * se hayan soltado al menos un frame. Evita que el ENTER/SPACE usado
+	 * para abrir el menú dispare una acción en el primer frame.
+	 */
+	var _inputGuard:Bool = true;
+
 	/** Si se cambia una opción que requiere restart mientras en pausa, este flag
 	 *  le indica a PauseSubState que dispare el rewind al volver. */
 	public static var pendingRewind:Bool = false;
 
 	public static var isOpenOptions:Bool = false;
 
+	/**
+	 * BUG FIX #7: caché estático del bitmap del fondo del menú.
+	 * La primera apertura llamaba BitmapData.fromFile() síncronamente
+	 * (lectura de disco + decodificación de PNG en el main thread) causando
+	 * un freeze visible de ~300-500ms. Con el caché, las aperturas siguientes
+	 * son instantáneas y la primera solo paga el costo una vez por sesión.
+	 */
+	private static var _cachedMenuBG:openfl.display.BitmapData = null;
+
 	// ── Controller icon atlas ─────────────────────────────────────────────────
+
 	/** Currently detected gamepad style: "ps" | "xbox" | "switch" | null (keyboard) */
 	var _gamepadStyle:Null<String> = null;
+
+	// ── Fondo del menú (no-pause) con shader de colorización ─────────────────
+
+	/** Sprite que muestra el menuBG con el shader aplicado (solo si !fromPause). */
+	var bgSprite:FlxSprite = null;
+
+	/** Shader de colorización del fondo. */
+	var _bgMenuShader:MenuBGShader = null;
+
+	/** Paleta de colores: misma que MainMenuState para coherencia visual. */
+	static final OPT_PALETTE:Array<Array<Float>> = [
+		[1.00, 0.41, 0.71], // Rosa  #FF69B4
+		[0.61, 0.19, 1.00], // Morado #9B30FF
+		[0.20, 0.80, 1.00], // Cian  #33CCFF
+		[0.20, 1.00, 0.60], // Verde neón #33FF99
+		[1.00, 0.55, 0.10], // Naranja #FF8C19
+	];
+
+	var _optPaletteIdx:Int = 0;
+	var _optColorTimer:Float = 0;
+	var _optColorTween:FlxTween = null;
+
+	static inline final OPT_COLOR_HOLD:Float = 4.0;
+	static inline final OPT_COLOR_TRANS:Float = 1.2;
+
+	// ── Grid de pausa ─────────────────────────────────────────────────────────
+
+	/** Sprite pantalla-completa con el shader de grid (solo si fromPause). */
+	var _pauseGrid:FlxSprite = null;
+
+	/** Shader de grid scrolling. */
+	var _gridShader:ScrollingGridShader = null;
+
 	/** Frames atlas for the detected gamepad. Loaded once, reused. */
 	var _gamepadAtlas:Null<flixel.graphics.frames.FlxAtlasFrames> = null;
+
 	/** Sprite pool for controller button icons (reused across rebuilds). */
 	var _buttonIcons:FlxTypedGroup<FlxSprite> = null;
 
 	// ── Checkbox atlas ────────────────────────────────────────────────────────
+
 	/** Sprite pool for boolean checkboxes (reused across rebuilds). */
 	var _checkboxSprites:FlxTypedGroup<FlxSprite> = null;
-	/** Frames for the checks atlas. */
-	var _checksAtlas:Null<String> = null;
+
+	/** Sparrow atlas frames for the checks sprite. */
+	var _checksAtlas:Null<flixel.graphics.frames.FlxAtlasFrames> = null;
+
+	var isCheck = false;
 
 	override function create()
 	{
@@ -161,14 +243,53 @@ class OptionsMenuState extends MusicBeatSubstate
 		DiscordClient.changePresence("Options Menu", null);
 		#end
 
+		if (!OptionsMenuState.fromPause)
+			MusicManager.play('configurator', 0.7);
+
 		// Inicializar keybinds
 		loadKeyBinds();
 
-		// Background semi-transparente (ajustar alpha si viene desde pause)
-		var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-		bg.alpha = fromPause ? 0.5 : 0.7;
-		bg.scrollFactor.set();
-		add(bg);
+		// ── Background según modo ─────────────────────────────────────────────
+		if (fromPause)
+		{
+			// PAUSA: grid scrolling que se mueve de izquierda a derecha
+			_gridShader = new ScrollingGridShader();
+			_pauseGrid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0x00000000);
+			_pauseGrid.shader = _gridShader;
+			_pauseGrid.scrollFactor.set();
+			_pauseGrid.alpha = 0;
+			add(_pauseGrid);
+			FlxTween.tween(_pauseGrid, {alpha: 1.0}, 0.5, {ease: FlxEase.quartInOut});
+		}
+		else
+		{
+			// MENÚ NORMAL: menuBG con shader de colorización
+			_bgMenuShader = new MenuBGShader();
+			// BUG FIX #7: usar caché estático — evita leer el PNG del disco
+			// cada vez que se abre el menú (primera apertura era ~300-500ms).
+			if (_cachedMenuBG == null)
+				_cachedMenuBG = openfl.display.BitmapData.fromFile(Paths.image('menu/menuBG'));
+			bgSprite = new FlxSprite().loadGraphic(_cachedMenuBG);
+			var bgScale:Float = Math.max(FlxG.width / bgSprite.width, FlxG.height / bgSprite.height) * 1.05;
+			bgSprite.scale.set(bgScale, bgScale);
+			bgSprite.updateHitbox();
+			bgSprite.screenCenter();
+			bgSprite.scrollFactor.set();
+			bgSprite.antialiasing = SaveData.data.antialiasing;
+
+			// Arrancar con primer color
+			_bgMenuShader.setColorA(OPT_PALETTE[0][0], OPT_PALETTE[0][1], OPT_PALETTE[0][2]);
+			_bgMenuShader.setColorB(OPT_PALETTE[1][0], OPT_PALETTE[1][1], OPT_PALETTE[1][2]);
+			_bgMenuShader.setBlend(0.0);
+			bgSprite.shader = _bgMenuShader;
+			add(bgSprite);
+
+			// Overlay oscuro encima para que el panel sea legible
+			var bgOverlay:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+			bgOverlay.alpha = 0.55;
+			bgOverlay.scrollFactor.set();
+			add(bgOverlay);
+		}
 
 		// Borde del panel (agregar primero para que esté detrás)
 		var borderThickness = 3;
@@ -243,7 +364,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		add(optionValues);
 
 		// Button-icon and checkbox sprite pools (drawn on top of value texts)
-		_buttonIcons     = new FlxTypedGroup<FlxSprite>();
+		_buttonIcons = new FlxTypedGroup<FlxSprite>();
 		_checkboxSprites = new FlxTypedGroup<FlxSprite>();
 		add(_buttonIcons);
 		add(_checkboxSprites);
@@ -252,13 +373,19 @@ class OptionsMenuState extends MusicBeatSubstate
 		_gamepadStyle = _detectGamepadStyle();
 		_gamepadAtlas = _loadGamepadAtlas(_gamepadStyle);
 
-		// Load checks atlas
-		try {
+		// Load checks Sparrow atlas (PNG + XML required)
+		try
+		{
 			#if sys
-			if (sys.FileSystem.exists('assets/images/menu/options/checks.png'))
+			if (sys.FileSystem.exists('assets/images/menu/options/checks.png')
+				&& sys.FileSystem.exists('assets/images/menu/options/checks.xml'))
 			#end
-				_checksAtlas = (Paths.image('menu/options/checks'));
-		} catch (_) { _checksAtlas = null; }
+			_checksAtlas = Paths.getSparrowAtlas('menu/options/checks');
+		}
+		catch (_)
+		{
+			_checksAtlas = null;
+		}
 
 		// Warning text para keybinds
 		warningText = new FlxText(0, 140, FlxG.width, "", 20);
@@ -361,16 +488,26 @@ class OptionsMenuState extends MusicBeatSubstate
 	function loadKeyBinds()
 	{
 		// Verificar que existan los keybinds
-		if (SaveData.data.leftBind   == null) SaveData.data.leftBind   = "A";
-		if (SaveData.data.downBind   == null) SaveData.data.downBind   = "S";
-		if (SaveData.data.upBind     == null) SaveData.data.upBind     = "W";
-		if (SaveData.data.rightBind  == null) SaveData.data.rightBind  = "D";
-		if (SaveData.data.killBind   == null) SaveData.data.killBind   = "R";
-		if (SaveData.data.acceptBind == null) SaveData.data.acceptBind = "ENTER";
-		if (SaveData.data.backBind   == null) SaveData.data.backBind   = "ESCAPE";
-		if (SaveData.data.pauseBind  == null) SaveData.data.pauseBind  = "ENTER";
-		if (SaveData.data.screenshotBind  == null) SaveData.data.screenshotBind  = "F12";
-		if (SaveData.data.cheatBind  == null) SaveData.data.cheatBind  = "SEVEN";
+		if (SaveData.data.leftBind == null)
+			SaveData.data.leftBind = "A";
+		if (SaveData.data.downBind == null)
+			SaveData.data.downBind = "S";
+		if (SaveData.data.upBind == null)
+			SaveData.data.upBind = "W";
+		if (SaveData.data.rightBind == null)
+			SaveData.data.rightBind = "D";
+		if (SaveData.data.killBind == null)
+			SaveData.data.killBind = "R";
+		if (SaveData.data.acceptBind == null)
+			SaveData.data.acceptBind = "ENTER";
+		if (SaveData.data.backBind == null)
+			SaveData.data.backBind = "ESCAPE";
+		if (SaveData.data.pauseBind == null)
+			SaveData.data.pauseBind = "ENTER";
+		if (SaveData.data.screenshotBind == null)
+			SaveData.data.screenshotBind = "F12";
+		if (SaveData.data.cheatBind == null)
+			SaveData.data.cheatBind = "SEVEN";
 
 		keys = [
 			SaveData.data.leftBind,
@@ -388,16 +525,16 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	function saveKeyBinds()
 	{
-		SaveData.data.leftBind   = keys[0];
-		SaveData.data.downBind   = keys[1];
-		SaveData.data.upBind     = keys[2];
-		SaveData.data.rightBind  = keys[3];
-		SaveData.data.killBind   = keys[4];
+		SaveData.data.leftBind = keys[0];
+		SaveData.data.downBind = keys[1];
+		SaveData.data.upBind = keys[2];
+		SaveData.data.rightBind = keys[3];
+		SaveData.data.killBind = keys[4];
 		SaveData.data.acceptBind = keys[5];
-		SaveData.data.backBind   = keys[6];
-		SaveData.data.pauseBind  = keys[7];
-		SaveData.data.screenshotBind  = keys[8];
-		SaveData.data.cheatBind  = keys[9];
+		SaveData.data.backBind = keys[6];
+		SaveData.data.pauseBind = keys[7];
+		SaveData.data.screenshotBind = keys[8];
+		SaveData.data.cheatBind = keys[9];
 
 		SaveData.flush();
 		PlayerSettings.player1.controls.loadKeyBinds();
@@ -410,13 +547,16 @@ class OptionsMenuState extends MusicBeatSubstate
 		optionValues.clear();
 		currentOptions = [];
 		curSelected = 0;
-		_optScrollY  = 0.0;
-		if (_scrollbarTrack != null) _scrollbarTrack.visible = false;
-		if (_scrollbarThumb != null) _scrollbarThumb.visible = false;
+		_optScrollY = 0.0;
+		if (_scrollbarTrack != null)
+			_scrollbarTrack.visible = false;
+		if (_scrollbarThumb != null)
+			_scrollbarThumb.visible = false;
 		bindingState = "select";
 		bindingIndicator.visible = false;
 		_editMode = false;
-		if (_editModeIndicator != null) _editModeIndicator.visible = false;
+		if (_editModeIndicator != null)
+			_editModeIndicator.visible = false;
 
 		var categoryName = categories[index];
 
@@ -514,14 +654,6 @@ class OptionsMenuState extends MusicBeatSubstate
 				}
 			},
 			{
-				name: "Camera Zoom",
-				get: function() return SaveData.data.camZoom ? "ON" : "OFF",
-				toggle: function()
-				{
-					SaveData.data.camZoom = !SaveData.data.camZoom;
-				}
-			},
-			{
 				name: "Show HUD",
 				get: function() return SaveData.data.HUD ? "OFF" : "ON",
 				toggle: function()
@@ -565,8 +697,7 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					applyFPSCap(_nextFPS(_getCurrentFPS()));
 				}
-			},
-			{
+			}, {
 				// ── VSync ────────────────────────────────────────────────────────
 				name: "VSync",
 				get: function()
@@ -596,7 +727,8 @@ class OptionsMenuState extends MusicBeatSubstate
 		//   • stage.frameRate = 0 → OpenFL deja de disparar ENTER_FRAME → juego congelado.
 		//   • En desktop el throttle real ya lo hace FrameLimiterAPI, no Lime.
 		var main = cast(openfl.Lib.current.getChildAt(0), Main);
-		if (main != null) main.setMaxFps(fps);
+		if (main != null)
+			main.setMaxFps(fps);
 
 		trace('[Options] FPS cap -> ' + (fps <= 0 ? 'Unlimited' : fps + ' FPS'));
 	}
@@ -632,7 +764,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					funkin.system.WindowManager.applyScaleModeByName(next);
 				}
 			},
-			#end
+			#else
 			{
 				name: "GPU Texture Caching",
 				get: function() return SaveData.data.gpuCaching ? "ON" : "OFF",
@@ -643,6 +775,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					SaveData.flush();
 				}
 			},
+			#end
 			{
 				name: "Low Memory Mode",
 				get: function() return SaveData.data.lowMemoryMode ? "ON" : "OFF",
@@ -693,14 +826,6 @@ class OptionsMenuState extends MusicBeatSubstate
 				toggle: function()
 				{
 					SaveData.data.specialVisualEffects = !SaveData.data.specialVisualEffects;
-				}
-			},
-			{
-				name: "Static Stage",
-				get: function() return SaveData.data.staticstage ? "ON" : "OFF",
-				toggle: function()
-				{
-					SaveData.data.staticstage = !SaveData.data.staticstage;
 				}
 			}
 		];
@@ -858,11 +983,11 @@ class OptionsMenuState extends MusicBeatSubstate
 	#if mobileC
 	/** Nombres de esquemas de control en el mismo orden que Config.getcontrolmode() devuelve */
 	static final MOBILE_SCHEME_NAMES:Array<String> = [
-		"VirtualPad Right",   // 0
-		"VirtualPad Left",    // 1
-		"Keyboard Only",      // 2
-		"VirtualPad Custom",  // 3
-		"Hitbox"              // 4
+		"VirtualPad Right", // 0
+		"VirtualPad Left", // 1
+		"Keyboard Only", // 2
+		"VirtualPad Custom", // 3
+		"Hitbox" // 4
 	];
 
 	function loadMobileControlsOptions()
@@ -914,7 +1039,9 @@ class OptionsMenuState extends MusicBeatSubstate
 					SaveData.data.mobileAlpha = v;
 					SaveData.flush();
 				},
-				toggle: function() {}
+				toggle: function()
+				{
+				}
 			},
 			{
 				name: "Edit Custom Layout",
@@ -966,21 +1093,20 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	// ── Fuentes disponibles para subtítulos ───────────────────────────────────
 	// Nombre visible | nombre real del archivo en assets/fonts/
-	static final SUBTITLE_FONT_NAMES:Array<String>  = ['VCR OSD',  'Funkin',      'Arial',    'Pixel',       'Bold'];
-	static final SUBTITLE_FONT_FILES:Array<String>  = ['vcr.ttf',  'Funkin.otf',  'arial.ttf','pixel.ttf',   'bold.ttf'];
-
+	static final SUBTITLE_FONT_NAMES:Array<String> = ['VCR OSD', 'Funkin', 'Arial', 'Pixel', 'Bold'];
+	static final SUBTITLE_FONT_FILES:Array<String> = ['vcr.ttf', 'Funkin.otf', 'arial.ttf', 'pixel.ttf', 'bold.ttf'];
 
 	// ── Colores de texto predefinidos ─────────────────────────────────────────
 	static final SUBTITLE_COLOR_NAMES:Array<String> = ['White', 'Yellow', 'Cyan', 'Lime', 'Pink', 'Orange'];
-	static final SUBTITLE_COLOR_VALUES:Array<Int>   = [0xFFFFFFFF, 0xFFFFFF00, 0xFF00FFFF, 0xFF00FF00, 0xFFFF69B4, 0xFFFF8C00];
+	static final SUBTITLE_COLOR_VALUES:Array<Int> = [0xFFFFFFFF, 0xFFFFFF00, 0xFF00FFFF, 0xFF00FF00, 0xFFFF69B4, 0xFFFF8C00];
 
 	// ── Idiomas de traducción ─────────────────────────────────────────────────
 	static final SUBTITLE_LANG_NAMES:Array<String> = [
-		'None', 'Spanish', 'English', 'French', 'German', 'Italian',
-		'Portuguese', 'Japanese', 'Korean', 'Chinese', 'Russian', 'Arabic'
+		      'None',  'Spanish', 'English',  'French',  'German', 'Italian',
+		'Portuguese', 'Japanese',  'Korean', 'Chinese', 'Russian',  'Arabic'
 	];
 	static final SUBTITLE_LANG_CODES:Array<String> = [
-		'',   'es', 'en', 'fr', 'de', 'it',
+		  '', 'es', 'en', 'fr', 'de', 'it',
 		'pt', 'ja', 'ko', 'zh', 'ru', 'ar'
 	];
 
@@ -1038,7 +1164,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					var sz:Int = SaveData.data.subtitleSize != null ? SaveData.data.subtitleSize : 26;
 					var idx = SUBTITLE_SIZES.indexOf(sz);
-					if (idx < 0) idx = SUBTITLE_SIZES.indexOf(26);
+					if (idx < 0)
+						idx = SUBTITLE_SIZES.indexOf(26);
 					idx = (idx - 1 + SUBTITLE_SIZES.length) % SUBTITLE_SIZES.length;
 					SaveData.data.subtitleSize = SUBTITLE_SIZES[idx];
 					_applySubtitleSettings();
@@ -1047,7 +1174,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					var sz:Int = SaveData.data.subtitleSize != null ? SaveData.data.subtitleSize : 26;
 					var idx = SUBTITLE_SIZES.indexOf(sz);
-					if (idx < 0) idx = SUBTITLE_SIZES.indexOf(26);
+					if (idx < 0)
+						idx = SUBTITLE_SIZES.indexOf(26);
 					idx = (idx + 1) % SUBTITLE_SIZES.length;
 					SaveData.data.subtitleSize = SUBTITLE_SIZES[idx];
 					_applySubtitleSettings();
@@ -1066,7 +1194,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					var c:Int = SaveData.data.subtitleColor != null ? SaveData.data.subtitleColor : 0xFFFFFFFF;
 					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
-					if (idx < 0) idx = 0;
+					if (idx < 0)
+						idx = 0;
 					idx = (idx - 1 + SUBTITLE_COLOR_VALUES.length) % SUBTITLE_COLOR_VALUES.length;
 					SaveData.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
 					_applySubtitleSettings();
@@ -1075,7 +1204,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					var c:Int = SaveData.data.subtitleColor != null ? SaveData.data.subtitleColor : 0xFFFFFFFF;
 					var idx = SUBTITLE_COLOR_VALUES.indexOf(c);
-					if (idx < 0) idx = 0;
+					if (idx < 0)
+						idx = 0;
 					idx = (idx + 1) % SUBTITLE_COLOR_VALUES.length;
 					SaveData.data.subtitleColor = SUBTITLE_COLOR_VALUES[idx];
 					_applySubtitleSettings();
@@ -1110,15 +1240,21 @@ class OptionsMenuState extends MusicBeatSubstate
 				get: function()
 				{
 					var p:String = SaveData.data.subtitlePosition != null ? SaveData.data.subtitlePosition : 'bottom';
-					return switch (p) { case 'top': "Top"; case 'center': "Center"; default: "Bottom"; };
+					return switch (p)
+					{
+						case 'top': "Top";
+						case 'center': "Center";
+						default: "Bottom";
+					};
 				},
 				toggle: function()
 				{
 					var p:String = SaveData.data.subtitlePosition != null ? SaveData.data.subtitlePosition : 'bottom';
-					SaveData.data.subtitlePosition = switch (p) {
+					SaveData.data.subtitlePosition = switch (p)
+					{
 						case 'bottom': 'top';
-						case 'top':    'center';
-						default:       'bottom';
+						case 'top': 'center';
+						default: 'bottom';
 					};
 					_applySubtitleSettings();
 				}
@@ -1150,7 +1286,15 @@ class OptionsMenuState extends MusicBeatSubstate
 					var f:Float = SaveData.data.subtitleFadeIn != null ? SaveData.data.subtitleFadeIn : 0.2;
 					var idx = 0;
 					var best = 999.0;
-					for (i in 0...steps.length) { var d = Math.abs(steps[i] - f); if (d < best) { best = d; idx = i; } }
+					for (i in 0...steps.length)
+					{
+						var d = Math.abs(steps[i] - f);
+						if (d < best)
+						{
+							best = d;
+							idx = i;
+						}
+					}
 					idx = (idx - 1 + steps.length) % steps.length;
 					SaveData.data.subtitleFadeIn = steps[idx];
 					_applySubtitleSettings();
@@ -1161,7 +1305,15 @@ class OptionsMenuState extends MusicBeatSubstate
 					var f:Float = SaveData.data.subtitleFadeIn != null ? SaveData.data.subtitleFadeIn : 0.2;
 					var idx = 0;
 					var best = 999.0;
-					for (i in 0...steps.length) { var d = Math.abs(steps[i] - f); if (d < best) { best = d; idx = i; } }
+					for (i in 0...steps.length)
+					{
+						var d = Math.abs(steps[i] - f);
+						if (d < best)
+						{
+							best = d;
+							idx = i;
+						}
+					}
 					idx = (idx + 1) % steps.length;
 					SaveData.data.subtitleFadeIn = steps[idx];
 					_applySubtitleSettings();
@@ -1180,7 +1332,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					var code:String = SaveData.data.subtitleTranslateLang != null ? SaveData.data.subtitleTranslateLang : '';
 					var idx = SUBTITLE_LANG_CODES.indexOf(code);
-					if (idx < 0) idx = 0;
+					if (idx < 0)
+						idx = 0;
 					idx = (idx - 1 + SUBTITLE_LANG_CODES.length) % SUBTITLE_LANG_CODES.length;
 					SaveData.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
 					SaveData.flush();
@@ -1189,7 +1342,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					var code:String = SaveData.data.subtitleTranslateLang != null ? SaveData.data.subtitleTranslateLang : '';
 					var idx = SUBTITLE_LANG_CODES.indexOf(code);
-					if (idx < 0) idx = 0;
+					if (idx < 0)
+						idx = 0;
 					idx = (idx + 1) % SUBTITLE_LANG_CODES.length;
 					SaveData.data.subtitleTranslateLang = SUBTITLE_LANG_CODES[idx];
 					SaveData.flush();
@@ -1221,7 +1375,8 @@ class OptionsMenuState extends MusicBeatSubstate
 			if (exists || file == 'vcr.ttf' || file == 'Funkin.otf')
 				available.push(file);
 		}
-		if (available.length == 0) available.push('vcr.ttf');
+		if (available.length == 0)
+			available.push('vcr.ttf');
 		return available;
 	}
 
@@ -1262,16 +1417,17 @@ class OptionsMenuState extends MusicBeatSubstate
 		// Fade in/out
 		if (SaveData.data.subtitleFadeIn != null)
 		{
-			sm.defaultFadeIn  = SaveData.data.subtitleFadeIn;
+			sm.defaultFadeIn = SaveData.data.subtitleFadeIn;
 			sm.defaultFadeOut = SaveData.data.subtitleFadeIn;
 		}
 
 		// Posición Y
 		var pos:String = SaveData.data.subtitlePosition != null ? SaveData.data.subtitlePosition : 'bottom';
-		sm.defaultY = switch (pos) {
-			case 'top':    60.0;
+		sm.defaultY = switch (pos)
+		{
+			case 'top': 60.0;
 			case 'center': -2.0; // valor especial: centrado vertical
-			default:       -1.0; // -1 = automático (cerca del fondo)
+			default: -1.0; // -1 = automático (cerca del fondo)
 		};
 	}
 
@@ -1294,8 +1450,10 @@ class OptionsMenuState extends MusicBeatSubstate
 	function createOptionTexts()
 	{
 		// Clear icon pools
-		if (_buttonIcons     != null) _buttonIcons.clear();
-		if (_checkboxSprites != null) _checkboxSprites.clear();
+		if (_buttonIcons != null)
+			_buttonIcons.clear();
+		if (_checkboxSprites != null)
+			_checkboxSprites.clear();
 
 		var isControlsTab = (categories[curCategory] == 'Controls');
 
@@ -1344,26 +1502,53 @@ class OptionsMenuState extends MusicBeatSubstate
 				valueText.ID = i;
 				valueText.scrollFactor.set();
 				optionValues.add(valueText);
+
+				isCheck = false;
 			}
-			// ── Boolean option: show checkbox sprite ─────────────────────────
+			// ── Boolean option: show animated checkbox sprite ────────────────
 			else if (isBool && _checksAtlas != null)
 			{
-				// Hide the text value
+				// Invisible placeholder so optionValues index stays in sync
 				var valueText:FlxText = new FlxText(0, 0, 0, '', 1);
 				valueText.ID = i;
 				valueText.visible = false;
 				valueText.scrollFactor.set();
 				optionValues.add(valueText);
 
-				// Show checkbox sprite
-				var cb = new FlxSprite(FlxG.width - 120, OPT_START_Y + (i * OPT_SPACING) - 8);
-				cb.loadGraphic(_checksAtlas,true, 36, 47);
-				var frameName = (rawVal == 'ON') ? 'check' : 'empty';
-				// Hard fallback by frame index if prefix matching fails
-				cb.animation.add('check', [1]);
-				cb.animation.add('empty', [0]);
-				cb.animation.play(frameName);
-				cb.scale.set(0.95,0.95);
+				isCheck = true;
+
+				var isOn = (rawVal == 'ON');
+
+				// Build the animated checkbox using the Sparrow atlas
+				var cb = new FlxSprite(FlxG.width - 120, OPT_START_Y + (i * OPT_SPACING) - 16);
+				cb.frames = _checksAtlas;
+
+				// Static end-states
+				cb.animation.addByPrefix('checked', 'checked', 1, false);
+				cb.animation.addByPrefix('unchecked', 'unchecked', 1, false);
+				// Intro transitions (24 fps feels snappy but not jarring)
+				cb.animation.addByPrefix('introchecked', 'introchecked', 24, false);
+				cb.animation.addByPrefix('introunchecked', 'introunchecked', 24, false);
+
+				// Settle to the matching static frame once the intro finishes
+				cb.animation.finishCallback = function(name:String)
+				{
+					if (name == 'introchecked')
+					{
+						cb.animation.play('checked', true);
+						FlxG.sound.play(Paths.sound('menus/options/check' + FlxG.random.int(1, 2)), 0.8);
+					}
+					if (name == 'introunchecked')
+					{
+						cb.animation.play('unchecked', true);
+						FlxG.sound.play(Paths.sound('menus/options/check' + FlxG.random.int(1, 2)), 0.8);
+					}
+				};
+
+				// Start directly on the correct stable state (no intro on first load)
+				cb.animation.play(isOn ? 'checked' : 'unchecked');
+
+				cb.scale.set(0.95, 0.95);
 				cb.updateHitbox();
 				cb.scrollFactor.set();
 				cb.antialiasing = SaveData.data.antialiasing;
@@ -1380,6 +1565,8 @@ class OptionsMenuState extends MusicBeatSubstate
 				valueText.ID = i;
 				valueText.scrollFactor.set();
 				optionValues.add(valueText);
+
+				isCheck = false;
 			}
 		}
 	}
@@ -1387,7 +1574,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	// Recalcula _optScrollY para que curSelected siempre sea visible
 	function _updateScroll()
 	{
-		if (currentOptions.length == 0) return;
+		if (currentOptions.length == 0)
+			return;
 
 		// Posición Y del item seleccionado (relativa al area, sin scroll)
 		var itemY:Float = curSelected * OPT_SPACING;
@@ -1400,8 +1588,10 @@ class OptionsMenuState extends MusicBeatSubstate
 
 		// Clamp: no desplazar más allá del contenido
 		var maxScroll:Float = Math.max(0, currentOptions.length * OPT_SPACING - OPT_VISIBLE_H);
-		if (_optScrollY < 0)   _optScrollY = 0;
-		if (_optScrollY > maxScroll) _optScrollY = maxScroll;
+		if (_optScrollY < 0)
+			_optScrollY = 0;
+		if (_optScrollY > maxScroll)
+			_optScrollY = maxScroll;
 
 		// Aplicar scroll a los textos
 		var clip = new flixel.math.FlxRect(0, OPT_START_Y, FlxG.width, OPT_VISIBLE_H);
@@ -1419,15 +1609,16 @@ class OptionsMenuState extends MusicBeatSubstate
 		});
 
 		// ── Actualizar flechas de scroll ─────────────────────────────────────
-		if (_scrollArrowUp   != null) _scrollArrowUp.visible   = (_optScrollY > 0);
+		if (_scrollArrowUp != null)
+			_scrollArrowUp.visible = (_optScrollY > 0);
 		if (_scrollArrowDown != null)
 		{
 			var maxScroll2:Float = Math.max(0, currentOptions.length * OPT_SPACING - OPT_VISIBLE_H);
 			_scrollArrowDown.visible = (_optScrollY < maxScroll2 - 1);
 		}
 		{
-			var totalH    = currentOptions.length * OPT_SPACING;
-			var needsBar  = totalH > OPT_VISIBLE_H;
+			var totalH = currentOptions.length * OPT_SPACING;
+			var needsBar = totalH > OPT_VISIBLE_H;
 			_scrollbarTrack.visible = needsBar;
 			_scrollbarThumb.visible = needsBar;
 			if (needsBar)
@@ -1544,7 +1735,8 @@ class OptionsMenuState extends MusicBeatSubstate
 
 			// Only update text for non-checkbox, non-hidden value texts
 			var rawVal = currentOptions[txt.ID].get();
-			if (txt.visible) txt.text = rawVal;
+			if (txt.visible)
+				txt.text = rawVal;
 		});
 
 		// Sync checkbox sprites state and selection highlight
@@ -1576,6 +1768,41 @@ class OptionsMenuState extends MusicBeatSubstate
 		StateScriptHandler.callOnScripts('onUpdate', [elapsed]);
 		#end
 
+		// ── Guard de input: esperar a que se suelten todas las teclas de ACCEPT ──
+		// Previene que el ENTER/SPACE usado para abrir el menú dispare
+		// una acción en el primer frame.
+		if (_inputGuard)
+		{
+			// BUG FIX #4: antes solo se bloqueaban ENTER/SPACE/Z hardcodeados.
+			// Si el jugador tiene ACCEPT mapeado a otra tecla (X, gamepad A, etc.)
+			// el guard no la detectaba y la primera opción se activaba sola.
+			// Agregamos controls.ACCEPT para cubrir cualquier binding configurado.
+			var acceptReleased = !FlxG.keys.pressed.ENTER
+				&& !FlxG.keys.pressed.SPACE
+				&& !FlxG.keys.pressed.Z
+				&& !controls.ACCEPT;
+			if (acceptReleased)
+				_inputGuard = false;
+			else
+				return;
+		}
+
+		// ── Actualizar shaders de fondo ───────────────────────────────────────
+		if (fromPause && _gridShader != null)
+		{
+			// Scroll horizontal: acumular tiempo * velocidad
+			_gridShader.uTime.value[0] += elapsed * 0.12;
+		}
+		else if (!fromPause && _bgMenuShader != null)
+		{
+			_optColorTimer += elapsed;
+			if (_optColorTimer >= OPT_COLOR_HOLD)
+			{
+				_optColorTimer = 0;
+				_startOptColorTransition();
+			}
+		}
+
 		// Si estamos esperando un keybind
 		if (bindingState == "binding")
 		{
@@ -1590,11 +1817,19 @@ class OptionsMenuState extends MusicBeatSubstate
 			var changed = false;
 			if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT)
 			{
-				if (opt.left != null) { opt.left(); changed = true; }
+				if (opt.left != null)
+				{
+					opt.left();
+					changed = true;
+				}
 			}
 			if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT)
 			{
-				if (opt.right != null) { opt.right(); changed = true; }
+				if (opt.right != null)
+				{
+					opt.right();
+					changed = true;
+				}
 			}
 			if (changed)
 			{
@@ -1607,7 +1842,12 @@ class OptionsMenuState extends MusicBeatSubstate
 			{
 				_editMode = false;
 				_editModeIndicator.visible = false;
-				FlxG.sound.play(Paths.sound('menus/confirmMenu'));
+				var _exitVal = (currentOptions != null && curSelected < currentOptions.length) ? currentOptions[curSelected].get() : '';
+				var _exitIsBool = (_exitVal == 'ON' || _exitVal == 'OFF');
+				if (!_exitIsBool)
+					FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
+				else
+					FlxG.sound.play(Paths.sound('menus/options/press' + FlxG.random.int(1, 2)), 0.7);
 			}
 			return;
 		}
@@ -1672,7 +1912,12 @@ class OptionsMenuState extends MusicBeatSubstate
 				return;
 			}
 
-			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
+			var _acceptVal = opt.get();
+			var _acceptBool = (_acceptVal == 'ON' || _acceptVal == 'OFF');
+			if (!_acceptBool)
+				FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
+			else
+				FlxG.sound.play(Paths.sound('menus/options/press' + FlxG.random.int(1, 2)), 0.7);
 			var optionName = opt.name;
 			opt.toggle();
 			updateOptionDisplay();
@@ -1734,7 +1979,7 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	function changeCategory(change:Int)
 	{
-		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.4);
+		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 		curCategory += change;
 
 		if (curCategory < 0)
@@ -1750,7 +1995,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		if (currentOptions.length == 0)
 			return;
 
-		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.4);
+		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 		curSelected += change;
 
 		if (curSelected < 0)
@@ -1827,19 +2072,22 @@ class OptionsMenuState extends MusicBeatSubstate
 	function isKeyValid(key:String, keyIndex:Int):Bool
 	{
 		// SPACE nunca se permite (se usa para UI)
-		if (key == "SPACE") return false;
+		if (key == "SPACE")
+			return false;
 
 		// Para controles de dirección (0-3) y RESET (4): no permitir teclas reservadas de sistema
 		if (keyIndex <= 4)
 		{
-			if (key == "ESCAPE" || key == "ENTER" || key == "BACKSPACE") return false;
+			if (key == "ESCAPE" || key == "ENTER" || key == "BACKSPACE")
+				return false;
 		}
 
 		// Para RESET (4): no puede coincidir con direcciones
 		if (keyIndex == 4)
 		{
 			for (i in 0...4)
-				if (keys[i] == key) return false;
+				if (keys[i] == key)
+					return false;
 		}
 
 		return true;
@@ -1941,8 +2189,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	 */
 	private function _applyLaneBackdropAlpha(alpha:Float):Void
 	{
-		if (funkin.gameplay.PlayState.instance != null
-			&& funkin.gameplay.PlayState.instance.laneBackdrop != null)
+		if (funkin.gameplay.PlayState.instance != null && funkin.gameplay.PlayState.instance.laneBackdrop != null)
 		{
 			funkin.gameplay.PlayState.instance.laneBackdrop.alpha = alpha;
 		}
@@ -1965,20 +2212,42 @@ class OptionsMenuState extends MusicBeatSubstate
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Syncs checkbox sprites and button icons after a value changes.
-	 * Call this instead of (or after) updateOptionDisplay() when a bool flips.
+	 * Syncs checkbox sprites state and selection highlight.
+	 * Plays the intro transition animation when the value has changed,
+	 * then the finishCallback (set in createOptionTexts) settles to the static frame.
 	 */
 	function syncCheckboxes():Void
 	{
-		if (_checkboxSprites == null) return;
+		if (_checkboxSprites == null)
+			return;
 		_checkboxSprites.forEach(function(cb:FlxSprite)
 		{
-			if (cb.ID >= currentOptions.length) return;
-			var val:String = currentOptions[cb.ID].get();
-			var frameName = (val == 'ON') ? 'check' : 'empty';
-			if (cb.animation.getByName(frameName) != null)
-				cb.animation.play(frameName);
-			cb.alpha  = (cb.ID == curSelected) ? 1.0 : 0.7;
+			if (cb.ID >= currentOptions.length)
+				return;
+
+			final isOn = (currentOptions[cb.ID].get() == 'ON');
+			final curName = (cb.animation.curAnim != null) ? cb.animation.curAnim.name : '';
+			final stableAnim = isOn ? 'checked' : 'unchecked';
+			final introAnim = isOn ? 'introchecked' : 'introunchecked';
+			final wrongStable = isOn ? 'unchecked' : 'checked';
+			final wrongIntro = isOn ? 'introunchecked' : 'introchecked';
+
+			if (curName == stableAnim || curName == introAnim)
+			{
+				// Already in the correct state or mid-transition — don't interrupt
+			}
+			else if (curName == wrongStable || curName == wrongIntro)
+			{
+				// Value just flipped → play the intro transition
+				cb.animation.play(introAnim, true);
+			}
+			else
+			{
+				// Unknown / uninitialised state — snap straight to stable
+				cb.animation.play(stableAnim, true);
+			}
+
+			cb.alpha = (cb.ID == curSelected) ? 1.0 : 0.7;
 		});
 	}
 
@@ -1987,10 +2256,12 @@ class OptionsMenuState extends MusicBeatSubstate
 	 */
 	function syncButtonIcons():Void
 	{
-		if (_buttonIcons == null || _gamepadAtlas == null) return;
+		if (_buttonIcons == null || _gamepadAtlas == null)
+			return;
 		_buttonIcons.forEach(function(icon:FlxSprite)
 		{
-			if (icon.ID >= currentOptions.length) return;
+			if (icon.ID >= currentOptions.length)
+				return;
 			var rawVal:String = currentOptions[icon.ID].get();
 			var frameName = _buttonNameToFrame(rawVal, _gamepadStyle);
 			if (frameName != null && icon.animation.getByName(frameName) == null)
@@ -2016,7 +2287,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		{
 			_buttonIcons.forEach(function(spr:FlxSprite)
 			{
-				spr.y      = OPT_START_Y + (spr.ID * OPT_SPACING) - _optScrollY - 4;
+				spr.y = OPT_START_Y + (spr.ID * OPT_SPACING) - _optScrollY - 4;
 				spr.visible = (spr.y >= OPT_START_Y - OPT_SPACING) && (spr.y < OPT_START_Y + OPT_VISIBLE_H);
 			});
 		}
@@ -2024,7 +2295,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		{
 			_checkboxSprites.forEach(function(spr:FlxSprite)
 			{
-				spr.y      = OPT_START_Y + (spr.ID * OPT_SPACING) - _optScrollY - 4;
+				spr.y = OPT_START_Y + (spr.ID * OPT_SPACING) - _optScrollY - 16;
 				spr.visible = (spr.y >= OPT_START_Y - OPT_SPACING) && (spr.y < OPT_START_Y + OPT_VISIBLE_H);
 			});
 		}
@@ -2039,7 +2310,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	 */
 	function _rebuildControlsIconAt(idx:Int, newKey:String):Void
 	{
-		if (_buttonIcons == null) return;
+		if (_buttonIcons == null)
+			return;
 
 		var frameName:Null<String> = (_gamepadAtlas != null) ? _buttonNameToFrame(newKey, _gamepadStyle) : null;
 
@@ -2047,7 +2319,8 @@ class OptionsMenuState extends MusicBeatSubstate
 		var existingIcon:FlxSprite = null;
 		_buttonIcons.forEach(function(spr:FlxSprite)
 		{
-			if (spr.ID == idx) existingIcon = spr;
+			if (spr.ID == idx)
+				existingIcon = spr;
 		});
 
 		if (frameName != null)
@@ -2076,19 +2349,24 @@ class OptionsMenuState extends MusicBeatSubstate
 				// Hide the text value for this slot
 				optionValues.forEach(function(txt:FlxText)
 				{
-					if (txt.ID == idx) { txt.text = ''; txt.visible = false; }
+					if (txt.ID == idx)
+					{
+						txt.text = '';
+						txt.visible = false;
+					}
 				});
 			}
 		}
 		else
 		{
 			// No icon for this key — hide icon sprite, show text fallback
-			if (existingIcon != null) existingIcon.visible = false;
+			if (existingIcon != null)
+				existingIcon.visible = false;
 			optionValues.forEach(function(txt:FlxText)
 			{
 				if (txt.ID == idx)
 				{
-					txt.text    = newKey;
+					txt.text = newKey;
 					txt.visible = true;
 				}
 			});
@@ -2128,7 +2406,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	 */
 	static function _loadGamepadAtlas(style:Null<String>):Null<flixel.graphics.frames.FlxAtlasFrames>
 	{
-		if (style == null) return null;
+		if (style == null)
+			return null;
 		#if sys
 		var pngPath = 'assets/images/menu/options/controls/$style.png';
 		var xmlPath = 'assets/images/menu/options/controls/$style.xml';
@@ -2138,8 +2417,14 @@ class OptionsMenuState extends MusicBeatSubstate
 			return null;
 		}
 		#end
-		try { return Paths.getSparrowAtlas('menu/options/controls/$style'); }
-		catch (_) { return null; }
+		try
+		{
+			return Paths.getSparrowAtlas('menu/options/controls/$style');
+		}
+		catch (_)
+		{
+			return null;
+		}
 	}
 
 	/**
@@ -2153,36 +2438,41 @@ class OptionsMenuState extends MusicBeatSubstate
 	 */
 	static function _buttonNameToFrame(keyName:String, style:Null<String>):Null<String>
 	{
-		if (style == null || keyName == null) return null;
+		if (style == null || keyName == null)
+			return null;
 		var k = keyName.toUpperCase();
 
 		// D-pad directions — same across all controllers
-		if (k == 'UP')    return 'up';
-		if (k == 'DOWN')  return 'down';
-		if (k == 'LEFT')  return 'left';
-		if (k == 'RIGHT') return 'right';
+		if (k == 'UP')
+			return 'up';
+		if (k == 'DOWN')
+			return 'down';
+		if (k == 'LEFT')
+			return 'left';
+		if (k == 'RIGHT')
+			return 'right';
 
 		switch (style)
 		{
 			case 'ps':
 				return switch (k)
 				{
-					case 'CROSS'  | 'X':            'X';
-					case 'CIRCLE' | 'B':            'circle';
-					case 'SQUARE' | 'Q':            'square';
-					case 'TRIANGLE' | 'T':          'triangle';
-					case 'OPTIONS' | 'START':       'options';
+					case 'CROSS' | 'X': 'X';
+					case 'CIRCLE' | 'B': 'circle';
+					case 'SQUARE' | 'Q': 'square';
+					case 'TRIANGLE' | 'T': 'triangle';
+					case 'OPTIONS' | 'START': 'options';
 					case 'SHARE' | 'SELECT' | 'BACK': 'share';
-					case 'PLAY' | 'TOUCHPAD':       'play';
+					case 'PLAY' | 'TOUCHPAD': 'play';
 					default: null;
 				};
 			case 'xbox':
 				return switch (k)
 				{
-					case 'A' | 'CROSS':             'A';
-					case 'B' | 'CIRCLE':            'B';
-					case 'X' | 'SQUARE':            'X';
-					case 'Y' | 'TRIANGLE':          'Y';
+					case 'A' | 'CROSS': 'A';
+					case 'B' | 'CIRCLE': 'B';
+					case 'X' | 'SQUARE': 'X';
+					case 'Y' | 'TRIANGLE': 'Y';
 					case 'START' | 'OPTIONS' | 'MENU': 'options';
 					case 'SELECT' | 'BACK' | 'SHARE': 'share';
 					default: null;
@@ -2190,21 +2480,65 @@ class OptionsMenuState extends MusicBeatSubstate
 			case 'switch':
 				return switch (k)
 				{
-					case 'A' | 'CROSS':             'A';
-					case 'B' | 'CIRCLE':            'B';
-					case 'X' | 'SQUARE':            'X';
-					case 'Y' | 'TRIANGLE':          'Y';
-					case 'HOME':                    'home';
+					case 'A' | 'CROSS': 'A';
+					case 'B' | 'CIRCLE': 'B';
+					case 'X' | 'SQUARE': 'X';
+					case 'Y' | 'TRIANGLE': 'Y';
+					case 'HOME': 'home';
 					case 'MINUS' | 'SELECT' | 'BACK': 'minus';
-					case 'PLUS'  | 'START'  | 'OPTIONS': 'plus';
-					case 'SCREEN' | 'CAPTURE':      'screen';
+					case 'PLUS' | 'START' | 'OPTIONS': 'plus';
+					case 'SCREEN' | 'CAPTURE': 'screen';
 					default: null;
 				};
-			default: return null;
+			default:
+				return null;
 		}
 	}
 
 	// === CLASE DE COMPATIBILIDAD PARA Main.hx ===
+
+	/**
+	 * Inicia la transición al siguiente color de paleta para el fondo del menú de opciones.
+	 */
+	function _startOptColorTransition():Void
+	{
+		if (_bgMenuShader == null)
+			return;
+
+		if (_optColorTween != null)
+		{
+			_optColorTween.cancel();
+			_optColorTween = null;
+		}
+
+		_optPaletteIdx = (_optPaletteIdx + 1) % OPT_PALETTE.length;
+		var nextIdx:Int = (_optPaletteIdx + 1) % OPT_PALETTE.length;
+
+		var cA = OPT_PALETTE[_optPaletteIdx];
+		var cB = OPT_PALETTE[nextIdx];
+		_bgMenuShader.setColorA(cA[0], cA[1], cA[2]);
+		_bgMenuShader.setColorB(cB[0], cB[1], cB[2]);
+		_bgMenuShader.setBlend(0.0);
+
+		var blendProxy = {v: 0.0};
+		_optColorTween = FlxTween.tween(blendProxy, {v: 1.0}, OPT_COLOR_TRANS, {
+			ease: FlxEase.sineInOut,
+			onUpdate: function(_)
+			{
+				if (_bgMenuShader != null)
+					_bgMenuShader.setBlend(blendProxy.v);
+			},
+			onComplete: function(_)
+			{
+				if (_bgMenuShader != null)
+				{
+					_bgMenuShader.setColorA(cB[0], cB[1], cB[2]);
+					_bgMenuShader.setBlend(0.0);
+				}
+				_optColorTween = null;
+			}
+		});
+	}
 
 	/**
 	 * Inicializa los valores por defecto de las opciones
@@ -2213,6 +2547,19 @@ class OptionsMenuState extends MusicBeatSubstate
 	public static function initSave():Void
 	{
 		OptionsData.initSave();
+	}
+
+	override function destroy()
+	{
+		// Cancelar tweens de color para evitar referencias colgantes
+		if (_optColorTween != null)
+		{
+			_optColorTween.cancel();
+			_optColorTween = null;
+		}
+		_bgMenuShader = null;
+		_gridShader = null;
+		super.destroy();
 	}
 }
 
@@ -2251,9 +2598,6 @@ class OptionsData
 		if (SaveData.data.HUD == null)
 			SaveData.data.HUD = false;
 
-		if (SaveData.data.camZoom == null)
-			SaveData.data.camZoom = false;
-
 		if (SaveData.data.flashing == null)
 			SaveData.data.flashing = false;
 
@@ -2262,9 +2606,6 @@ class OptionsData
 
 		if (SaveData.data.sickmode == null)
 			SaveData.data.sickmode = false;
-
-		if (SaveData.data.staticstage == null)
-			SaveData.data.staticstage = false;
 
 		if (SaveData.data.specialVisualEffects == null)
 			SaveData.data.specialVisualEffects = true;
@@ -2282,16 +2623,26 @@ class OptionsData
 		// Inicializar defaults aquí para que loadKeyBinds() nunca lea null
 		// (FlxKey.fromString(null) devuelve NONE=0, lo que puede disparar
 		// capturas accidentales si el ScreenshotPlugin se inicializa antes).
-		if (SaveData.data.leftBind   == null) SaveData.data.leftBind   = "A";
-		if (SaveData.data.downBind   == null) SaveData.data.downBind   = "S";
-		if (SaveData.data.upBind     == null) SaveData.data.upBind     = "W";
-		if (SaveData.data.rightBind  == null) SaveData.data.rightBind  = "D";
-		if (SaveData.data.killBind   == null) SaveData.data.killBind   = "R";
-		if (SaveData.data.acceptBind == null) SaveData.data.acceptBind = "ENTER";
-		if (SaveData.data.backBind   == null) SaveData.data.backBind   = "ESCAPE";
-		if (SaveData.data.pauseBind  == null) SaveData.data.pauseBind  = "ENTER";
-		if (SaveData.data.screenshotBind == null) SaveData.data.screenshotBind = "F12";
-		if (SaveData.data.cheatBind  == null) SaveData.data.cheatBind  = "SEVEN";
+		if (SaveData.data.leftBind == null)
+			SaveData.data.leftBind = "A";
+		if (SaveData.data.downBind == null)
+			SaveData.data.downBind = "S";
+		if (SaveData.data.upBind == null)
+			SaveData.data.upBind = "W";
+		if (SaveData.data.rightBind == null)
+			SaveData.data.rightBind = "D";
+		if (SaveData.data.killBind == null)
+			SaveData.data.killBind = "R";
+		if (SaveData.data.acceptBind == null)
+			SaveData.data.acceptBind = "ENTER";
+		if (SaveData.data.backBind == null)
+			SaveData.data.backBind = "ESCAPE";
+		if (SaveData.data.pauseBind == null)
+			SaveData.data.pauseBind = "ENTER";
+		if (SaveData.data.screenshotBind == null)
+			SaveData.data.screenshotBind = "F12";
+		if (SaveData.data.cheatBind == null)
+			SaveData.data.cheatBind = "SEVEN";
 
 		// ── PathsCache: GPU texture caching ──────────────────────────────────
 		// Por defecto activo en desktop (false en web/mobile sin context3D fiable).
@@ -2338,33 +2689,34 @@ class OptionsData
 class OffsetCalibrationState extends MusicBeatSubstate
 {
 	// ── Constantes de ritmo ───────────────────────────────────────────────────
-	static final BPM:Float         = 120.0;
-	static final BEAT_SEC:Float    = 60.0 / BPM;      // 0.5 s
-	static final MAX_TAPS:Int      = 8;
+	static final BPM:Float = 120.0;
+	static final BEAT_SEC:Float = 60.0 / BPM; // 0.5 s
+	static final MAX_TAPS:Int = 8;
 	static final CLICK_MUSIC:String = "offsetMusic";
 	static final CLICK_SOUND:String = "menus/chartingSounds/metronome";
 
 	// ── Estado del metrónomo ──────────────────────────────────────────────────
-	var _beatTimer:Float  = 0.0;
-	var _beatCount:Int    = 0;
+	var _beatTimer:Float = 0.0;
+	var _beatCount:Int = 0;
 
 	/** Timestamps de cada click (segundos absolutos desde apertura). */
 	var _clickTimes:Array<Float> = [];
 
 	/** Timestamps de cada tap del usuario. */
-	var _tapTimes:Array<Float>   = [];
+	var _tapTimes:Array<Float> = [];
 
 	/** Tiempo transcurrido desde que se abrió el substate. */
 	var _elapsed:Float = 0.0;
 
 	/** Countdown inicial de 2 s antes de empezar. */
-	var _countdown:Float  = 2.0;
-	var _counting:Bool    = true;
+	var _countdown:Float = 2.0;
+
+	var _counting:Bool = true;
 
 	// ── UI ────────────────────────────────────────────────────────────────────
 	var _panel:FlxSprite;
 	var _pulseDot:FlxSprite;
-	var _tapBar:FlxSprite;          // Barra de progreso de taps
+	var _tapBar:FlxSprite; // Barra de progreso de taps
 	var _tapBarFill:FlxSprite;
 	var _offsetTxt:FlxText;
 	var _tapsTxt:FlxText;
@@ -2411,8 +2763,11 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		add(bpmLabel);
 
 		// ── Instrucciones ─────────────────────────────────────────────────────
-		var instr = new FlxText(0, _panel.y + 100, FlxG.width,
-			"Press SPACE in sync with the metronome beat.\nRepeat " + MAX_TAPS + " times to calculate offset.", 20);
+		var instr = new FlxText(0, _panel.y
+			+ 100, FlxG.width,
+			"Press SPACE in sync with the metronome beat.\nRepeat "
+			+ MAX_TAPS
+			+ " times to calculate offset.", 20);
 		instr.setFormat(Paths.font("vcr.ttf"), 20, 0xFFCCCCCC, CENTER);
 		add(instr);
 
@@ -2470,15 +2825,13 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		add(_resultsTxt);
 
 		// ── Offset actual ─────────────────────────────────────────────────────
-		_offsetTxt = new FlxText(0, _panel.y + 462, FlxG.width,
-			"Current Offset: " + (SaveData.data.offset ?? 0) + " ms", 26);
+		_offsetTxt = new FlxText(0, _panel.y + 462, FlxG.width, "Current Offset: " + (SaveData.data.offset ?? 0) + " ms", 26);
 		_offsetTxt.setFormat(Paths.font("vcr.ttf"), 26, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
 		_offsetTxt.borderSize = 2;
 		add(_offsetTxt);
 
 		// ── Controles ─────────────────────────────────────────────────────────
-		var ctrl = new FlxText(0, _panel.y + 510, FlxG.width,
-			"SPACE: Tap  |  ← →: ±1 ms  |  R: Reset  |  ESC: Save & Back", 15);
+		var ctrl = new FlxText(0, _panel.y + 510, FlxG.width, "SPACE: Tap  |  ← →: ±1 ms  |  R: Reset  |  ESC: Save & Back", 15);
 		ctrl.setFormat(Paths.font("vcr.ttf"), 15, 0xFF888888, CENTER);
 		add(ctrl);
 
@@ -2489,7 +2842,8 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		_countdownTxt.screenCenter(Y);
 		add(_countdownTxt);
 
-		if (SaveData.data.offset == null) SaveData.data.offset = 0;
+		if (SaveData.data.offset == null)
+			SaveData.data.offset = 0;
 	}
 
 	override function update(elapsed:Float)
@@ -2510,7 +2864,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 				_counting = false;
 				_countdownTxt.visible = false;
 				_beatTimer = 0;
-				_elapsed   = 0;
+				_elapsed = 0;
 			}
 			return; // no input durante countdown
 		}
@@ -2521,16 +2875,16 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		{
 			_beatTimer -= BEAT_SEC;
 			_beatCount++;
-			FlxG.sound.play(Paths.soundRandom(CLICK_SOUND,1,2), 0.3);
+			FlxG.sound.play(Paths.soundRandom(CLICK_SOUND, 1, 2), 0.3);
 			_clickTimes.push(_elapsed - _beatTimer); // tiempo exacto del beat
 			_pulseDot.alpha = 1.0;
 			_pulseDot.scale.set(1.35, 1.35);
 		}
 
 		// Animar punto pulsante
-		_pulseDot.alpha   = FlxMath.lerp(_pulseDot.alpha,   0.12, elapsed * 9);
-		_pulseDot.scale.x = FlxMath.lerp(_pulseDot.scale.x, 1.0,  elapsed * 9);
-		_pulseDot.scale.y = FlxMath.lerp(_pulseDot.scale.y, 1.0,  elapsed * 9);
+		_pulseDot.alpha = FlxMath.lerp(_pulseDot.alpha, 0.12, elapsed * 9);
+		_pulseDot.scale.x = FlxMath.lerp(_pulseDot.scale.x, 1.0, elapsed * 9);
+		_pulseDot.scale.y = FlxMath.lerp(_pulseDot.scale.y, 1.0, elapsed * 9);
 		_pulseDot.updateHitbox();
 		_pulseDot.screenCenter(X);
 
@@ -2539,22 +2893,24 @@ class OffsetCalibrationState extends MusicBeatSubstate
 			_timelineTap.alpha = FlxMath.lerp(_timelineTap.alpha, 0.0, elapsed * 3);
 
 		// ── Input ─────────────────────────────────────────────────────────────
-		if (FlxG.keys.justPressed.SPACE) _doTap();
+		if (FlxG.keys.justPressed.SPACE)
+			_doTap();
 
 		if (FlxG.keys.justPressed.LEFT || FlxG.keys.justPressed.A)
 		{
 			SaveData.data.offset -= 1;
 			_updateOffsetTxt();
-			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
+			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 		}
 		if (FlxG.keys.justPressed.RIGHT || FlxG.keys.justPressed.D)
 		{
 			SaveData.data.offset += 1;
 			_updateOffsetTxt();
-			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.5);
+			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 		}
 
-		if (FlxG.keys.justPressed.R) _reset();
+		if (FlxG.keys.justPressed.R)
+			_reset();
 
 		if (FlxG.keys.justPressed.ESCAPE || controls.BACK)
 		{
@@ -2562,21 +2918,24 @@ class OffsetCalibrationState extends MusicBeatSubstate
 			SaveData.flush();
 			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 			funkin.system.CursorManager.hide();
-			MusicManager.playWithFade('freakyMenu', 0.7, 4.0);
+			if (!OptionsMenuState.fromPause)
+				MusicManager.playWithFade('configurator', 0.7, 4.0);
 			close();
 		}
 	}
 
 	function _doTap():Void
 	{
-		if (_beatCount == 0) return; // Esperar al menos un beat
+		if (_beatCount == 0)
+			return; // Esperar al menos un beat
 
 		// Calcular diferencia con el beat más cercano
 		var tapTime = _elapsed - _beatTimer; // tiempo absoluto del tap en la escala del metrónomo
-		var beatPhase = _beatTimer;           // fracción de beat actual (0 = justo en el beat)
+		var beatPhase = _beatTimer; // fracción de beat actual (0 = justo en el beat)
 		// Normalizar al rango [-BEAT_SEC/2, BEAT_SEC/2]
 		var diff = beatPhase;
-		if (diff > BEAT_SEC / 2) diff -= BEAT_SEC;
+		if (diff > BEAT_SEC / 2)
+			diff -= BEAT_SEC;
 		var diffMs = Std.int(diff * 1000);
 
 		_tapTimes.push(diffMs);
@@ -2588,13 +2947,11 @@ class OffsetCalibrationState extends MusicBeatSubstate
 
 		// Timeline visual: posición del tap relativa al beat
 		var lineW:Float = 500;
-		var halfBeat    = BEAT_SEC / 2;
-		var normDiff    = (diff / halfBeat) * 0.5; // -0.5 .. +0.5
-		_timelineTap.x  = _timelineBg.x + 247 + normDiff * lineW * 0.5;
+		var halfBeat = BEAT_SEC / 2;
+		var normDiff = (diff / halfBeat) * 0.5; // -0.5 .. +0.5
+		_timelineTap.x = _timelineBg.x + 247 + normDiff * lineW * 0.5;
 		_timelineTap.alpha = 1.0;
-		_timelineTap.color = diffMs < -20 ? 0xFF4488FF
-		                   : diffMs >  20 ? FlxColor.RED
-		                   :                FlxColor.LIME;
+		_timelineTap.color = diffMs < -20 ? 0xFF4488FF : diffMs > 20 ? FlxColor.RED : FlxColor.LIME;
 
 		// Feedback inmediato
 		if (Math.abs(diffMs) < 15)
@@ -2606,13 +2963,15 @@ class OffsetCalibrationState extends MusicBeatSubstate
 
 		FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
 
-		if (_tapTimes.length >= MAX_TAPS) _calculateOffset();
+		if (_tapTimes.length >= MAX_TAPS)
+			_calculateOffset();
 	}
 
 	function _calculateOffset():Void
 	{
 		var sum:Float = 0;
-		for (t in _tapTimes) sum += t;
+		for (t in _tapTimes)
+			sum += t;
 		var avg = Std.int(sum / _tapTimes.length);
 
 		SaveData.data.offset = avg;
@@ -2694,7 +3053,7 @@ class RatingPositionSubState extends FlxSubState
 	var _demoTimer:Float = 0.0;
 
 	// ── Mouse drag ────────────────────────────────────────────────────────────
-	var _dragging:Bool    = false;
+	var _dragging:Bool = false;
 	var _dragStartMouseX:Float = 0;
 	var _dragStartMouseY:Float = 0;
 	var _dragStartOffX:Null<Float> = 0;
@@ -2728,9 +3087,7 @@ class RatingPositionSubState extends FlxSubState
 		//   Todos los sprites de este substate deben ir a esa misma cámara para
 		//   aparecer encima y no quedar enterrados bajo el menú de opciones.
 		// • Fuera de gameplay: basta con la cámara por defecto.
-		_cam = OptionsMenuState.fromPause
-			? FlxG.cameras.list[FlxG.cameras.list.length - 1]
-			: FlxG.camera;
+		_cam = OptionsMenuState.fromPause ? FlxG.cameras.list[FlxG.cameras.list.length - 1] : FlxG.camera;
 
 		_offsetX = SaveData.data.ratingOffsetX != null ? SaveData.data.ratingOffsetX : 0;
 		_offsetY = SaveData.data.ratingOffsetY != null ? SaveData.data.ratingOffsetY : 0;
@@ -2746,8 +3103,8 @@ class RatingPositionSubState extends FlxSubState
 		_buildSimulatedHUD();
 
 		// ── Posición base ─────────────────────────────────────────────────────
-		_baseX = FlxG.width  * 0.55 - 40;
-		_baseY = FlxG.height * 0.5  - 90;
+		_baseX = FlxG.width * 0.55 - 40;
+		_baseY = FlxG.height * 0.5 - 90;
 
 		// Línea de referencia Y base
 		var refLine = new FlxSprite(0, _baseY).makeGraphic(FlxG.width, 1, 0xFF5555FF);
@@ -2836,8 +3193,7 @@ class RatingPositionSubState extends FlxSubState
 		_positionTxt.cameras = [_cam];
 		add(_positionTxt);
 
-		var hint = new FlxText(0, FlxG.height - 36, FlxG.width,
-			"WASD/Arrows: Move  |  SHIFT: Fast  |  Mouse Drag  |  R: Reset  |  ENTER/ESC: Save", 14);
+		var hint = new FlxText(0, FlxG.height - 36, FlxG.width, "WASD/Arrows: Move  |  SHIFT: Fast  |  Mouse Drag  |  R: Reset  |  ENTER/ESC: Save", 14);
 		hint.setFormat(Paths.font("vcr.ttf"), 14, 0xFF888888, CENTER);
 		hint.scrollFactor.set();
 		hint.cameras = [_cam];
@@ -2871,14 +3227,16 @@ class RatingPositionSubState extends FlxSubState
 			// Solo iniciar drag si el clic está sobre el rating preview
 			var mx = FlxG.mouse.x;
 			var my = FlxG.mouse.y;
-			if (mx >= _ratingPreview.x && mx <= _ratingPreview.x + _ratingPreview.width
-			&&  my >= _ratingPreview.y && my <= _ratingPreview.y + _ratingPreview.height + 50)
+			if (mx >= _ratingPreview.x
+				&& mx <= _ratingPreview.x + _ratingPreview.width
+				&& my >= _ratingPreview.y
+				&& my <= _ratingPreview.y + _ratingPreview.height + 50)
 			{
-				_dragging       = true;
+				_dragging = true;
 				_dragStartMouseX = mx;
 				_dragStartMouseY = my;
-				_dragStartOffX  = _offsetX;
-				_dragStartOffY  = _offsetY;
+				_dragStartOffX = _offsetX;
+				_dragStartOffY = _offsetY;
 			}
 		}
 
@@ -2896,23 +3254,44 @@ class RatingPositionSubState extends FlxSubState
 		// ── Teclado ───────────────────────────────────────────────────────────
 		if (!_dragging)
 		{
-			var fast  = FlxG.keys.pressed.SHIFT;
+			var fast = FlxG.keys.pressed.SHIFT;
 			var speed = fast ? FAST_SPEED : MOVE_SPEED;
 			var moved = false;
 
-			if (FlxG.keys.pressed.LEFT  || FlxG.keys.pressed.A) { _offsetX -= Std.int(speed); moved = true; }
-			if (FlxG.keys.pressed.RIGHT || FlxG.keys.pressed.D) { _offsetX += Std.int(speed); moved = true; }
-			if (FlxG.keys.pressed.UP    || FlxG.keys.pressed.W) { _offsetY -= Std.int(speed); moved = true; }
-			if (FlxG.keys.pressed.DOWN  || FlxG.keys.pressed.S) { _offsetY += Std.int(speed); moved = true; }
+			if (FlxG.keys.pressed.LEFT || FlxG.keys.pressed.A)
+			{
+				_offsetX -= Std.int(speed);
+				moved = true;
+			}
+			if (FlxG.keys.pressed.RIGHT || FlxG.keys.pressed.D)
+			{
+				_offsetX += Std.int(speed);
+				moved = true;
+			}
+			if (FlxG.keys.pressed.UP || FlxG.keys.pressed.W)
+			{
+				_offsetY -= Std.int(speed);
+				moved = true;
+			}
+			if (FlxG.keys.pressed.DOWN || FlxG.keys.pressed.S)
+			{
+				_offsetY += Std.int(speed);
+				moved = true;
+			}
 
 			if (FlxG.keys.justPressed.R)
 			{
-				_offsetX = 0; _offsetY = 0;
+				_offsetX = 0;
+				_offsetY = 0;
 				moved = true;
 				FlxG.sound.play(Paths.sound('menus/cancelMenu'), 0.6);
 			}
 
-			if (moved) { _applyPosition(); _updateUI(); }
+			if (moved)
+			{
+				_applyPosition();
+				_updateUI();
+			}
 		}
 
 		// Demo bounce
@@ -2924,17 +3303,17 @@ class RatingPositionSubState extends FlxSubState
 		// Cursor de mano cuando está sobre el rating
 		var mx = FlxG.mouse.x;
 		var my = FlxG.mouse.y;
-		var overPreview = (mx >= _ratingPreview.x && mx <= _ratingPreview.x + _ratingPreview.width
-		               &&  my >= _ratingPreview.y && my <= _ratingPreview.y + _ratingPreview.height + 50);
+		var overPreview = (mx >= _ratingPreview.x
+			&& mx <= _ratingPreview.x + _ratingPreview.width
+			&& my >= _ratingPreview.y
+			&& my <= _ratingPreview.y + _ratingPreview.height + 50);
 		FlxG.mouse.useSystemCursor = !overPreview;
 
 		// Sincronizar sickLabel y combo con ratingPreview.y (que puede estar en bounce)
 		_sickLabel.x = _ratingPreview.x;
 		_sickLabel.y = _ratingPreview.y + 20;
 		for (i in 0..._comboPreview.length)
-			_comboPreview[i].setPosition(
-				_ratingPreview.x + (44 * i) - 10 + 140,
-				_ratingPreview.y + _ratingPreview.height + 4);
+			_comboPreview[i].setPosition(_ratingPreview.x + (44 * i) - 10 + 140, _ratingPreview.y + _ratingPreview.height + 4);
 
 		if (FlxG.keys.justPressed.ENTER || FlxG.keys.justPressed.ESCAPE)
 		{
@@ -2993,7 +3372,7 @@ class RatingPositionSubState extends FlxSubState
 		}
 
 		_crosshairH.y = ry + _ratingPreview.height / 2;
-		_crosshairV.x = rx + _ratingPreview.width  / 2;
+		_crosshairV.x = rx + _ratingPreview.width / 2;
 	}
 
 	function _updateUI():Void

@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TextureAtlas imagePath="checks.png">
+	<!-- Created with Adobe Animate version 21.0.5.40714 -->
+	<!-- http://www.adobe.com/products/animate.html -->
+	<SubTexture name="checked0000" x="216" y="0" width="36" height="55"/>
+	<SubTexture name="introchecked0000" x="0" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0001" x="0" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0002" x="36" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0003" x="36" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0004" x="36" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0005" x="36" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0006" x="72" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0007" x="72" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0008" x="72" y="0" width="36" height="56"/>
+	<SubTexture name="introchecked0009" x="216" y="0" width="36" height="55"/>
+	<SubTexture name="introunchecked0000" x="108" y="0" width="36" height="56"/>
+	<SubTexture name="introunchecked0001" x="108" y="0" width="36" height="56"/>
+	<SubTexture name="introunchecked0002" x="108" y="0" width="36" height="56"/>
+	<SubTexture name="introunchecked0003" x="108" y="0" width="36" height="56"/>
+	<SubTexture name="introunchecked0004" x="108" y="0" width="36" height="56"/>
+	<SubTexture name="introunchecked0005" x="144" y="0" width="36" height="56"/>
+	<SubTexture name="unchecked0000" x="180" y="0" width="36" height="55"/>
+</TextureAtlas>

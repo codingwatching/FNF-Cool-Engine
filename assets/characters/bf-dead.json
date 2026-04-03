@@ -10,31 +10,27 @@
 			"prefix": "BF dies",
 			"framerate": 24,
 			"looped": false,
-			"offsetX": 0,
-			"offsetY": 0
+			"offsets": [0, 0]
 		},
 		{
 			"name": "deathLoop",
 			"prefix": "BF Dead Loop",
 			"framerate": 24,
 			"looped": true,
-			"offsetX": 0,
-			"offsetY": 0
+			"offsets": [0, 0]
 		},
 		{
 			"name": "deathConfirm",
 			"prefix": "BF Dead confirm",
 			"framerate": 24,
 			"looped": false,
-			"offsetX": 0,
-			"offsetY": 0
+			"offsets": [0, 0]
 		},
 		{
 			"assetPath": "bf/bfFakeOut",
 			"name": "fakeoutDeath",
 			"prefix": "fake out death BF",
-			"offsetX": -3,
-			"offsetY": -65,
+			"offsets": [-3, -65],
 			"framerate": 24,
 			"looped": false
 		}

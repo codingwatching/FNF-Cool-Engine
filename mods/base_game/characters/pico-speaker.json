@@ -3,41 +3,51 @@
 	"isFlxAnimate": true,
 	"animations": [
 		{
-			"offsetX": -78,
+			"offsets":[
+				-78,
+				52
+			],
 			"framerate": 24,
-			"offsetY": 52,
 			"prefix": "Pico shoot 1",
 			"name": "shoot1",
 			"looped": true
 		},
 		{
-			"offsetX": -78,
+			"offsets": [
+				-78,
+				-68
+			],
 			"framerate": 24,
-			"offsetY": -68,
 			"prefix": "Pico shoot 2",
 			"name": "shoot2",
 			"looped": true
 		},
 		{
-			"offsetX": 335,
+			"offsets": [
+				335,
+				-19
+			],
 			"framerate": 24,
-			"offsetY": -19,
 			"prefix": "Pico shoot 3",
 			"name": "shoot3",
 			"looped": true
 		},
 		{
-			"offsetX": 363,
+			"offsets": [
+				363,
+				60
+			],
 			"framerate": 24,
-			"offsetY": 60,
 			"prefix": "Pico shoot 4",
 			"name": "shoot4",
 			"looped": true
 		},
 		{
-			"offsetX": 335,
+			"offsets": [
+				335,
+				-19
+			],
 			"framerate": 24,
-			"offsetY": -19,
 			"prefix": "Pico shoot 3",
 			"looped": true,
 			"name": "shoot3-loop",
@@ -48,9 +58,11 @@
 			]
 		},
 		{
-			"offsetX": -78,
+			"offsets": [
+				-78,
+				52
+			],
 			"framerate": 24,
-			"offsetY": 52,
 			"prefix": "Pico shoot 1",
 			"looped": true,
 			"name": "shoot1-loop",
@@ -61,9 +73,11 @@
 			]
 		},
 		{
-			"offsetX": -78,
+			"offsets": [
+				-78,
+				-68
+			],
 			"framerate": 24,
-			"offsetY": -68,
 			"prefix": "Pico shoot 2",
 			"looped": true,
 			"name": "shoot2-loop",
@@ -74,9 +88,11 @@
 			]
 		},
 		{
-			"offsetX": 363,
+			"offsets": [
+				363,
+				61
+			],
 			"framerate": 24,
-			"offsetY": 61,
 			"prefix": "Pico shoot 4",
 			"looped": true,
 			"name": "shoot4-loop",

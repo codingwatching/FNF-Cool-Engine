@@ -3,7 +3,29 @@
   "author": "ninjamuffin99",
   "description": "Skin default FNF",
   "folder": "Default",
-
+  "colorAuto": true,
+  "colorDirections": [
+    {
+      "r": [0.761, 0.294, 0.600],
+      "g": [1.0, 1.0, 1.0],
+      "b": [0.235, 0.122, 0.337]
+    },
+    {
+      "r": [0.0, 1.0, 1.0],
+      "g": [1.0, 1.0, 1.0],
+      "b": [0.082, 0.259, 0.718]
+    },
+    {
+      "r": [0.071, 0.980, 0.020],
+      "g": [1.0, 1.0, 1.0],
+      "b": [0.039, 0.267, 0.278]
+    },
+    {
+      "r": [0.976, 0.224, 0.247],
+      "g": [1.0, 1.0, 1.0],
+      "b": [0.396, 0.063, 0.220]
+    }
+  ],
   "texture": {
     "path": "noteStrumline",
     "type": "sparrow",
@@ -24,39 +46,128 @@
     "scale": 0.7,
     "antialiasing": true
   },
-
   "confirmOffset": false,
   "holdStretch": 1.02,
-
   "animations": {
-    "left":         { "prefix": "noteLeft",  "framerate": 24, "offset": [35, 15] },
-    "down":         { "prefix": "noteDown",  "framerate": 24, "offset": [35, 15] },
-    "up":           { "prefix": "noteUp",    "framerate": 24, "offset": [35, 15] },
-    "right":        { "prefix": "noteRight", "framerate": 24, "offset": [35, 15] },
-
-    "leftHold":     { "indices": [0], "framerate": 24, "offset": [35, 15] },
-    "downHold":     { "indices": [2], "framerate": 24, "offset": [35, 15] },
-    "upHold":       { "indices": [4], "framerate": 24, "offset": [35, 15] },
-    "rightHold":    { "indices": [6], "framerate": 24, "offset": [35, 15] },
-
-    "leftHoldEnd":  { "indices": [1], "framerate": 24, "offset": [35, 15] },
-    "downHoldEnd":  { "indices": [3], "framerate": 24, "offset": [35, 15] },
-    "upHoldEnd":    { "indices": [5], "framerate": 24, "offset": [35, 15] },
-    "rightHoldEnd": { "indices": [7], "framerate": 24, "offset": [35, 15] },
-
-    "strumLeft":         { "prefix": "staticLeft",  "framerate": 24, "offset": [35, 25] },
-    "strumDown":         { "prefix": "staticDown",  "framerate": 24, "offset": [35, 25] },
-    "strumUp":           { "prefix": "staticUp",    "framerate": 24, "offset": [35, 25] },
-    "strumRight":        { "prefix": "staticRight", "framerate": 24, "offset": [35, 25] },
-
-    "strumLeftPress":    { "prefix": "pressLeft",   "framerate": 24, "offset": [50, 37] },
-    "strumDownPress":    { "prefix": "pressDown",   "framerate": 24, "offset": [50, 37] },
-    "strumUpPress":      { "prefix": "pressUp",     "framerate": 24, "offset": [48, 37] },
-    "strumRightPress":   { "prefix": "pressRight",  "framerate": 24, "offset": [50, 37] },
-
-    "strumLeftConfirm":  { "prefix": "confirmLeft",  "framerate": 24, "offset": [35, 25] },
-    "strumDownConfirm":  { "prefix": "confirmDown",  "framerate": 24, "offset": [35, 25] },
-    "strumUpConfirm":    { "prefix": "confirmUp",    "framerate": 24, "offset": [35, 25] },
-    "strumRightConfirm": { "prefix": "confirmRight", "framerate": 24, "offset": [35, 25] }
+    "left": {
+      "prefix": "noteLeft",
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "down": {
+      "prefix": "noteDown",
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "up": {
+      "prefix": "noteUp",
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "right": {
+      "prefix": "noteRight",
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "leftHold": {
+      "indices": [0],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "downHold": {
+      "indices": [2],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "upHold": {
+      "indices": [4],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "rightHold": {
+      "indices": [6],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "leftHoldEnd": {
+      "indices": [1],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "downHoldEnd": {
+      "indices": [3],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "upHoldEnd": {
+      "indices": [5],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "rightHoldEnd": {
+      "indices": [7],
+      "framerate": 24,
+      "offset": [5, -5]
+    },
+    "strumLeft": {
+      "prefix": "staticLeft",
+      "framerate": 24,
+      "offset": [-10, -20]
+    },
+    "strumDown": {
+      "prefix": "staticDown",
+      "framerate": 24,
+      "offset": [-10, -20]
+    },
+    "strumUp": {
+      "prefix": "staticUp",
+      "framerate": 24,
+      "offset": [-10, -20]
+    },
+    "strumRight": {
+      "prefix": "staticRight",
+      "framerate": 24,
+      "offset": [-10, -20]
+    },
+    "strumLeftPress": {
+      "prefix": "pressLeft",
+      "framerate": 24,
+      "offset": [4, -6]
+    },
+    "strumDownPress": {
+      "prefix": "pressDown",
+      "framerate": 24,
+      "offset": [4, -6]
+    },
+    "strumUpPress": {
+      "prefix": "pressUp",
+      "framerate": 24,
+      "offset": [4, -6]
+    },
+    "strumRightPress": {
+      "prefix": "pressRight",
+      "framerate": 24,
+      "offset": [4, -6]
+    },
+    "strumLeftConfirm": {
+      "prefix": "confirmLeft",
+      "framerate": 24,
+      "offset": [-10, -20]
+    },
+    "strumDownConfirm": {
+      "prefix": "confirmDown",
+      "framerate": 24,
+      "offset": [-10, -20]
+    },
+    "strumUpConfirm": {
+      "prefix": "confirmUp",
+      "framerate": 24,
+      "offset": [-10, -20]
+    },
+    "strumRightConfirm": {
+      "prefix": "confirmRight",
+      "framerate": 24,
+      "offset": [-10, -20]
+    }
   }
 }

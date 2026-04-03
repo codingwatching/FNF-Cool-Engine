@@ -14,11 +14,6 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxState;
 
-
-
-
-
-
 import flixel.group.FlxGroup;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
@@ -221,6 +216,7 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 	var unsavedDot    : FlxSprite;
 	var statusTxt     : FlxText;
 	var _unsavedDlg   : UnsavedChangesDialog = null;
+	var _windowCloseFn : Void->Void = null;
 
 	// ── UI - Timeline ─────────────────────────────────────────────────────────
 	var timelineGroup  : FlxGroup;
@@ -430,6 +426,16 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 		// Empezar pausa (el usuario decide cuándo reproducir)
 		isPlaying = false;
 		showStatus('PlayState Editor listo. SPACE=play  T=timeline  H=panel  G=viewport flotante  C=drag personajes');
+
+		// Window-close guard
+		#if sys
+		_windowCloseFn = function()
+		{
+			if (hasUnsaved)
+				try { savePSEData(); } catch (_) {}
+		};
+		lime.app.Application.current.window.onClose.add(_windowCloseFn);
+		#end
 
 		super.create();
 	}
@@ -3210,6 +3216,14 @@ class PlayStateEditorState extends funkin.states.MusicBeatState
 
 		// Restaurar camGame a pantalla completa para que no quede "pequeño" en el estado siguiente
 		if (camGame != null) { camGame.x = 0; camGame.y = 0; camGame.width = SW; camGame.height = SH; }
+
+		#if sys
+		if (_windowCloseFn != null)
+		{
+			try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); } catch (_) {}
+			_windowCloseFn = null;
+		}
+		#end
 
 		super.destroy();
 	}

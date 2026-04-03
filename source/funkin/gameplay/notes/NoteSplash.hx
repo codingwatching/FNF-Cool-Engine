@@ -29,7 +29,27 @@ class NoteSplash extends FlxSprite
 
 	/** Offset del JSON del splash, re-aplicado en cada setup(). */
 	private var _splashOffsetX:Float = 0.0;
+
 	private var _splashOffsetY:Float = 0.0;
+
+	/** Shader HSV reutilizado entre activaciones del pool (fallback colorHSV). */
+	private var _colorSwapShader:funkin.shaders.NoteColorSwapShader = null;
+
+	/** Shader RGB por paleta reutilizado entre activaciones del pool (colorDirections). Mismo enfoque que NightmareVision. */
+	private var _rgbShader:funkin.shaders.NoteRGBPaletteShader = null;
+
+	/** Dirección de la última activación, para detectar si hay que actualizar el shader. */
+	private var _lastShaderDir:Int = -1;
+
+	/**
+	 * Cache animList: animName → [offsetX, offsetY, flipX:0|1, flipY:0|1].
+	 * Construido por _loadFrames() cuando splashData.animList != null.
+	 * Usado en _playRandomAnim() para aplicar offsets y flipX al estilo personaje.
+	 */
+	private var _animListData:Map<String, Array<Float>> = null;
+
+	/** flipX base del sprite (antes de aplicar per-anim flipX del animList). */
+	private var _baseFlipX:Bool = false;
 
 	// ─────────────────────────────────────────────────────────────────────────
 
@@ -70,10 +90,7 @@ class NoteSplash extends FlxSprite
 
 		// Solo recargar atlas si el skin cambió o el bitmap fue destruido
 		@:privateAccess
-		var needsReload = (_loadedSplash != targetSplash)
-			|| frames == null
-			|| frames.parent == null
-			|| frames.parent.bitmap == null;
+		var needsReload = (_loadedSplash != targetSplash) || frames == null || frames.parent == null || frames.parent.bitmap == null;
 
 		if (needsReload)
 		{
@@ -98,15 +115,47 @@ class NoteSplash extends FlxSprite
 		_playRandomAnim(splashData, noteData);
 
 		// ── Shader de colorización automática ───────────────────────────────
-		if (splashData.colorAuto == true)
+		// FIX: si el splash.json no define colorAuto explícitamente (null),
+		// heredar el valor del note skin activo. Esto permite que con solo poner
+		// colorAuto:true en skin.json los splashes también se coloricen, sin
+		// necesitar un splash.json separado con el mismo campo.
+		// Un splash.json que ponga colorAuto:false sigue pudiendo forzar "sin color".
+		final effectiveColorAuto = splashData.colorAuto != null ? splashData.colorAuto : (NoteSkinSystem.getCurrentSkinData()?.colorAuto == true);
+		final effectiveColorDirs = splashData.colorDirections != null ? splashData.colorDirections : NoteSkinSystem.getCurrentSkinData()?.colorDirections;
+		final effectiveColorHSV  = splashData.colorHSV        != null ? splashData.colorHSV        : NoteSkinSystem.getCurrentSkinData()?.colorHSV;
+
+		if (effectiveColorAuto == true)
 		{
-			final mult      = (splashData.colorMult != null) ? splashData.colorMult : 1.0;
-			final customDir = (splashData.colorDirections != null && noteData < splashData.colorDirections.length)
-				? splashData.colorDirections[noteData] : null;
-			shader = new funkin.shaders.NoteRGBShader(noteData % 4, mult, customDir);
+			final dir = noteData % 4;
+
+			// PRIORIDAD 1: colorDirections → RGB palette shader (mismo enfoque que NightmareVision).
+			// Reemplaza los canales R/G/B de la textura con colores reales por dirección.
+			if (effectiveColorDirs != null && dir < effectiveColorDirs.length)
+			{
+				final cd = effectiveColorDirs[dir];
+				if (_rgbShader == null)
+					_rgbShader = new funkin.shaders.NoteRGBPaletteShader();
+				_rgbShader.setColors(cd.r, cd.g, cd.b);
+				_colorSwapShader = null;
+				_lastShaderDir = dir;
+				shader = _rgbShader;
+			}
+			else
+			{
+				// PRIORIDAD 2: colorHSV → HSV shift (fallback cuando no hay colorDirections).
+				final entry = (effectiveColorHSV != null && dir < effectiveColorHSV.length) ? effectiveColorHSV[dir] : {h: 0.0, s: 0.0, b: 0.0};
+				if (_colorSwapShader == null)
+					_colorSwapShader = new funkin.shaders.NoteColorSwapShader();
+				_colorSwapShader.applyEntry(entry);
+				_rgbShader = null;
+				_lastShaderDir = dir;
+				shader = _colorSwapShader;
+			}
 		}
 		else
 		{
+			_lastShaderDir = -1;
+			_rgbShader = null;
 			shader = null;
 		}
 	}
@@ -135,7 +184,8 @@ class NoteSplash extends FlxSprite
 	private function _loadFrames(splashData:NoteSplashData, splashName:String):Bool
 	{
 		var loaded = NoteSkinSystem.getSplashTexture(splashName);
-		if (loaded == null) return false;
+		if (loaded == null)
+			return false;
 
 		frames = loaded;
 
@@ -143,21 +193,38 @@ class NoteSplash extends FlxSprite
 		scale.set(assets.scale != null ? assets.scale : 1.0, assets.scale != null ? assets.scale : 1.0);
 		antialiasing = assets.antialiasing != null ? assets.antialiasing : true;
 
-		// Registrar animaciones para las 4 direcciones
-		if (animation != null) animation.destroyAnimations();
+		// Registrar animaciones para las 4 direcciones.
+		// Prioridad: animList (estilo personaje) → campo animations (legacy).
+		if (animation != null)
+			animation.destroyAnimations();
+		_animListData = null;
 
-		var anims = splashData.animations;
-		var framerate:Int = anims.framerate != null ? anims.framerate : 24;
 		var dirs = ["left", "down", "up", "right"];
-		var dirAnims = [anims.left, anims.down, anims.up, anims.right];
 
-		for (i in 0...4)
+		if (splashData.animList != null && splashData.animList.length > 0)
 		{
-			var animList:Array<String> = dirAnims[i];
-			if (animList == null) continue;
-			for (j in 0...animList.length)
+			// ── Sistema animList ───────────────────────────────────────────────
+			// Registrar TODAS las entradas del list tal cual.
+			// _playRandomAnim() las resuelve por dirección con resolveSplashNamesFromAnimList().
+			_animListData = NoteSkinSystem.loadAnimList(this, splashData.animList);
+			_baseFlipX = this.flipX;
+		}
+		else
+		{
+			// ── Sistema legacy ─────────────────────────────────────────────────
+			var anims = splashData.animations;
+			var framerate:Int = (anims != null && anims.framerate != null) ? anims.framerate : 24;
+
+			if (anims != null)
 			{
-				animation.addByPrefix('${dirs[i]}_$j', animList[j], framerate, false);
+				for (i in 0...4)
+				{
+					var animList:Array<String> = NoteSkinSystem.resolveSplashList(anims, i);
+					if (animList == null)
+						continue;
+					for (j in 0...animList.length)
+						animation.addByPrefix('${dirs[i]}_$j', animList[j], framerate, false);
+				}
 			}
 		}
 
@@ -181,21 +248,75 @@ class NoteSplash extends FlxSprite
 	private function _playRandomAnim(splashData:NoteSplashData, noteData:Int):Void
 	{
 		var dirs = ["left", "down", "up", "right"];
-		var dirAnims = [splashData.animations.left, splashData.animations.down,
-						splashData.animations.up, splashData.animations.right];
+		var animName:String = '';
+		var baseFps:Int = 24;
+		var range:Int = 2;
 
-		var animList:Array<String> = dirAnims[noteData];
-		if (animList == null || animList.length == 0) return;
-
-		var variant:Int = FlxG.random.int(0, animList.length - 1);
-		var animName:String = '${dirs[noteData]}_$variant';
-
-		if (animation.exists(animName))
+		if (_animListData != null && splashData.animList != null)
 		{
-			var range:Int = splashData.animations.randomFramerateRange != null ? splashData.animations.randomFramerateRange : 2;
-			var baseFps:Int = splashData.animations.framerate != null ? splashData.animations.framerate : 24;
+			// ── Sistema animList ─────────────────────────────────────────────────
+			var variants:Array<String> = NoteSkinSystem.resolveSplashNamesFromAnimList(splashData.animList, noteData);
+			if (variants == null || variants.length == 0)
+				return;
+
+			animName = variants[FlxG.random.int(0, variants.length - 1)];
+			if (!animation.exists(animName))
+				return;
+
+			// Resetear flipX al base antes de aplicar per-anim flipX
+			this.flipX = _baseFlipX;
+			this.flipY = false;
 
 			animation.play(animName, true);
+
+			// Offsets y flipX desde animListData
+			// FIX: centerOffsets() centra el gráfico (offset = width/2, height/2).
+			// _splashOffsetX/Y ya está en this.x/y desde setup() — NO añadir a offset.x
+			// porque Flixel lo RESTA al renderizar (→ positivo iba a la izquierda).
+			// Los offsets per-animación también van a this.x/y directamente:
+			//   positivo X = derecha ✓   positivo Y = abajo ✓
+			var data = _animListData.get(animName);
+			centerOffsets(); // centra gráfico sobre hitbox
+			if (data != null)
+			{
+				this.x += data[0]; // positivo → derecha
+				this.y += data[1]; // positivo → abajo
+				if (data[2] > 0.5)
+					this.flipX = !this.flipX;
+				if (data[3] > 0.5)
+					this.flipY = !this.flipY;
+			}
+
+			// FPS aleatorio usando la entrada del animList
+			for (entry in splashData.animList)
+			{
+				if (entry != null && entry.name == animName)
+				{
+					baseFps = entry.fps != null ? entry.fps : entry.framerate != null ? Std.int(entry.framerate) : 24;
+					break;
+				}
+			}
+		}
+		else
+		{
+			// ── Sistema legacy ────────────────────────────────────────────────────
+			var animList:Array<String> = NoteSkinSystem.resolveSplashList(splashData.animations, noteData);
+			if (animList == null || animList.length == 0)
+				return;
+
+			var variant:Int = FlxG.random.int(0, animList.length - 1);
+			animName = '${dirs[noteData]}_$variant';
+			if (!animation.exists(animName))
+				return;
+
+			range = splashData.animations.randomFramerateRange != null ? splashData.animations.randomFramerateRange : 2;
+			baseFps = splashData.animations.framerate != null ? splashData.animations.framerate : 24;
+		}
+
+		if (animName != '' && animation.exists(animName))
+		{
+			if (_animListData == null)
+				animation.play(animName, true); // legacy ya llamó play arriba si es animList
 			if (animation.curAnim != null)
 				animation.curAnim.frameRate = baseFps + FlxG.random.int(-range, range);
 		}

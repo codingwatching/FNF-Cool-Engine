@@ -390,6 +390,12 @@ class ChartingState extends funkin.states.MusicBeatState
 	var lastMetronomeBeat:Int = -1;
 	var autosaveTimer:Float = 0;
 
+	// ── Unsaved-changes tracking ──────────────────────────────────────────────
+	var _hasUnsaved:Bool = false;
+	var _unsavedDlg:funkin.debug.EditorDialogs.UnsavedChangesDialog = null;
+	var _unsavedDot:FlxSprite = null;
+	var _windowCloseFn:Void->Void = null;
+
 	// HITSOUND POR NOTA (durante reproducción)
 	var _hitsoundFiredNotes:Map<String, Bool> = new Map();
 	var _lastHitsoundTime:Float = -999;
@@ -534,6 +540,23 @@ class ChartingState extends funkin.states.MusicBeatState
 		// Estado inicial
 		changeSection();
 		updateGrid(); // ✨ Cargar todas las notas al inicio
+
+		// ── Window-close guard: mostrar diálogo si hay cambios sin guardar ──
+		#if sys
+		_windowCloseFn = function()
+		{
+			if (_hasUnsaved)
+			{
+				// No podemos bloquear el cierre sincrónicamente en desktop;
+				// guardamos automáticamente para no perder el trabajo.
+				try { LevelFile.saveDiff(_song.song,
+					(curDiffSuffix != null && curDiffSuffix != '') ? curDiffSuffix : '',
+					_song); }
+				catch (_) {}
+			}
+		};
+		lime.app.Application.current.window.onClose.add(_windowCloseFn);
+		#end
 
 		super.create();
 	}
@@ -1146,6 +1169,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			for (sec in _song.notes)
 				sec.sectionNotes = [];
 			updateGrid();
+			_markUnsaved();
 		});
 		tab_group_song.add(clearAllBtn);
 
@@ -1190,6 +1214,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			_song.notes[curSection].sectionNotes = [];
 			updateGrid();
+			_markUnsaved();
 		});
 		tab_group_section.add(clearBtn);
 
@@ -3660,7 +3685,7 @@ class ChartingState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				testChart();
+				_tryExitEditor(testChart);
 			}
 		}
 
@@ -4496,6 +4521,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		updateGrid();
 		showMessage('🔄 Section mirrored (P1 ↔ P2)', ACCENT_CYAN);
 		FlxG.sound.play(Paths.sound('menus/chartingSounds/stretchSNAP_UI'), 0.6);
+		_markUnsaved();
 	}
 
 	function mirrorHorizontal():Void
@@ -4521,6 +4547,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		updateGrid();
 		showMessage('↔️ Section flipped horizontally', ACCENT_CYAN);
+		_markUnsaved();
 	}
 
 	function saveUndoState(actionType:String, data:Dynamic):Void
@@ -4535,6 +4562,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		});
 
 		redoStack = [];
+		_markUnsaved();
 	}
 
 	function undo():Void
@@ -4642,6 +4670,7 @@ class ChartingState extends funkin.states.MusicBeatState
 		{
 			showMessage('💾 Saved → ${_song.song.toLowerCase()}$diff.level', ACCENT_SUCCESS);
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.6);
+			_markSaved();
 		}
 		else
 		{
@@ -4673,6 +4702,7 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		showMessage('✅ Chart saved successfully!', ACCENT_SUCCESS);
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.6);
+		_markSaved();
 	}
 
 	function onSaveCancel(_):Void
@@ -5071,6 +5101,61 @@ class ChartingState extends funkin.states.MusicBeatState
 				snd.stop();
 	}
 
+	// ─── Unsaved-changes helpers ──────────────────────────────────────────────
+
+	function _markUnsaved():Void
+	{
+		_hasUnsaved = true;
+	}
+
+	function _markSaved():Void
+	{
+		_hasUnsaved = false;
+	}
+
+	/**
+	 * Intenta salir del editor de vuelta a PlayState.
+	 * Si hay cambios sin guardar muestra el diálogo UnsavedChangesDialog.
+	 * onProceed: acción a ejecutar una vez confirmado (normalmente testChart/goBack).
+	 */
+	function _tryExitEditor(onProceed:Void->Void):Void
+	{
+		if (!_hasUnsaved)
+		{
+			onProceed();
+			return;
+		}
+
+		if (_unsavedDlg != null)
+			return; // ya hay un diálogo abierto
+
+		_unsavedDlg = new funkin.debug.EditorDialogs.UnsavedChangesDialog([camHUD]);
+
+		_unsavedDlg.onSaveAndExit = () ->
+		{
+			saveChart();
+			remove(_unsavedDlg, true);
+			_unsavedDlg = null;
+			onProceed();
+		};
+
+		_unsavedDlg.onSave = () ->
+		{
+			saveChart();
+			remove(_unsavedDlg, true);
+			_unsavedDlg = null;
+		};
+
+		_unsavedDlg.onExit = () ->
+		{
+			remove(_unsavedDlg, true);
+			_unsavedDlg = null;
+			onProceed();
+		};
+
+		add(_unsavedDlg);
+	}
+
 	/** Destruye y libera todos los tracks de vocales del editor. */
 	function _destroyChartVocals():Void
 	{
@@ -5164,6 +5249,17 @@ class ChartingState extends funkin.states.MusicBeatState
 
 		// ── State ─────────────────────────────────────────────────────────
 		lastSection = curSection;
+
+		// ── Quitar listener de cierre de ventana ───────────────────────────
+		#if sys
+		if (_windowCloseFn != null)
+		{
+			try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); }
+			catch (_) {}
+			_windowCloseFn = null;
+		}
+		#end
+		_unsavedDlg = null;
 
 		super.destroy();
 

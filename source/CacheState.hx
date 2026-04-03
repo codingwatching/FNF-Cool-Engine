@@ -88,13 +88,14 @@ class CacheState extends funkin.states.MusicBeatState
             assetsToCache.push({ type: SOUND, path: s });
 
         // Imágenes de UI esenciales
+        // Nota: soundtray/bars_* se excluyen del preload intencionalmente —
+        // cargamos lazy en el primer uso del SoundTray. Como SoundTray es un
+        // plugin persistente, sus FlxSprites mantienen useCount > 0 y FunkinCache
+        // los rescata en cada clearSecondLayer() sin necesidad de marcarlos permanentes.
+        // Eliminarlos aquí ahorra ~10 texturas cargadas durante el arranque.
         final images:Array<String> = [
             "UI/alphabet",
             "soundtray/volumebox",
-            "soundtray/bars_1", "soundtray/bars_2", "soundtray/bars_3",
-            "soundtray/bars_4", "soundtray/bars_5", "soundtray/bars_6",
-            "soundtray/bars_7", "soundtray/bars_8", "soundtray/bars_9",
-            "soundtray/bars_10",
             "menu/cursor/cursor-default"
         ];
         for (i in images)

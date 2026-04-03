@@ -23,11 +23,13 @@ class Note extends FlxSprite
 	public var prevNote:Note;
 	public var sustainLength:Float = 0;
 	public var isSustainNote:Bool = false;
+
 	/** Scale.y base de la pieza de sustain, calculado en setupSustainNote().
 	 *  NoteManager lo usa en la compensacion de rotacion sin acumulacion:
 	 *    note.scale.y = sustainBaseScaleY / cos(deformAngle)
 	 */
 	public var sustainBaseScaleY:Float = 1.0;
+
 	public var noteScore:Float = 1;
 	public var noteRating:String = 'sick';
 
@@ -71,6 +73,7 @@ class Note extends FlxSprite
 	 * 0.0 por defecto → sin efecto si la skin no define offsets de nota.
 	 */
 	public var noteOffsetX:Float = 0.0;
+
 	public var noteOffsetY:Float = 0.0;
 
 	// ── Cache de hit window ───────────────────────────────────────────────
@@ -79,14 +82,25 @@ class Note extends FlxSprite
 
 	/** Referencia directa al shader de glow para actualizar intensidad por proximidad. */
 	private var _glowShader:funkin.shaders.NoteGlowShader = null;
-	/** Shader de colorización automática (colorAuto:true en skin.json). Mutex con _glowShader. */
-	private var _rgbShader:funkin.shaders.NoteRGBShader = null;
 
+	/** Shader de colorización automática (colorAuto:true en skin.json). Mutex con _glowShader. */
+	private var _colorSwapShader:funkin.shaders.NoteColorSwapShader = null;
+
+	/** Shader RGB por paleta (colorAuto + colorDirections). Mismo enfoque que NightmareVision. Mutex con _colorSwapShader y _glowShader. */
+	private var _rgbShader:funkin.shaders.NoteRGBPaletteShader = null;
+
+	/**
+	 * Cache de datos de animList: animName → [offsetX, offsetY, flipX:0|1, flipY:0|1].
+	 * Construido por loadSkin() cuando skinData.animList != null.
+	 * Usado en _applyNoteAnim() para aplicar offsets y flipX al estilo personaje.
+	 */
+	private var _animListData:Map<String, Array<Float>> = null;
 
 	/** Distancia máxima (ms) desde la que empieza el glow de aproximación. */
-	static inline final GLOW_START_MS:Float  = 500.0;
+	static inline final GLOW_START_MS:Float = 500.0;
+
 	/** Distancia (ms) en la que el glow alcanza su máximo antes del hit. */
-	static inline final GLOW_PEAK_MS:Float   = 60.0;
+	static inline final GLOW_PEAK_MS:Float = 60.0;
 
 	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false)
 	{
@@ -112,29 +126,8 @@ class Note extends FlxSprite
 		// NOTA: los offsets de nota se construyen dentro de loadSkin() para que
 		// se reconstruyan automáticamente cuando la skin cambia (recycle).
 
-		// Glow de proximidad: shader propio en notas normales, no en sustain
-		// Si la skin tiene colorAuto:true → usar NoteRGBShader en su lugar (mutex)
-		final _skinData = NoteSkinSystem.getCurrentSkinData();
-		if (_skinData != null && _skinData.colorAuto == true)
-		{
-			final mult      = (_skinData.colorMult != null) ? _skinData.colorMult : 1.0;
-			final customDir = (_skinData.colorDirections != null && noteData < _skinData.colorDirections.length)
-				? _skinData.colorDirections[noteData] : null;
-			_rgbShader  = new funkin.shaders.NoteRGBShader(noteData % 4, mult, customDir);
-			_glowShader = null;
-			shader      = _rgbShader;
-		}
-		else if (!isSustainNote && funkin.graphics.shaders.ShaderManager.enabled)
-		{
-			_glowShader = funkin.shaders.NoteGlowShader.forDirection(noteData % 4, 0.0);
-			_rgbShader  = null;
-			shader      = _glowShader;
-		}
-		else
-		{
-			_glowShader = null;
-			_rgbShader  = null;
-		}
+		// Shader ya aplicado dentro de loadSkin() → no duplicar aquí.
+		// (loadSkin llama _applyShaderForSkin al final cuando !isSustainNote)
 
 		setupNoteDirection();
 
@@ -214,7 +207,8 @@ class Note extends FlxSprite
 		if (isSustainNote && NoteTypeManager.isCustomType(noteType))
 		{
 			final typeHoldFrames = NoteTypeManager.getHoldFrames(noteType);
-			if (typeHoldFrames != null) frames = typeHoldFrames;
+			if (typeHoldFrames != null)
+				frames = typeHoldFrames;
 		}
 
 		// BUGFIX CRÍTICO: si frames es null (asset faltante, XML roto, etc.)
@@ -238,29 +232,126 @@ class Note extends FlxSprite
 		antialiasing = tex.antialiasing != null ? tex.antialiasing : !isPixelNote;
 
 		// ── Animaciones ───────────────────────────────────────────────────
+		// Prioridad: animList (estilo personaje) → campo animations (legacy)
+
+		// ── Sistema animList ─────────────────────────────────────────────
+		if (skinData.animList != null && skinData.animList.length > 0)
+		{
+			// Registrar TODAS las entradas del animList en el sprite.
+			// Las entradas con noteID solo son relevantes para strums (StrumNote.hx),
+			// pero registrarlas aquí no hace daño — simplemente no se reproducen.
+			_animListData = NoteSkinSystem.loadAnimList(this, skinData.animList);
+		}
+
+		// ── Sistema legacy (adicional o principal si no hay animList) ─────
 		var anims = skinData.animations;
-		if (anims == null)
-			return;
+		if (anims != null)
+		{
+			// Claves de resolución por dirección — nombre específico → genérico → fallback
+			var scrollKeys = [
+				["left", "note", "allNotes"], ["down", "note", "allNotes"],
+				  ["up", "note", "allNotes"], ["right", "note", "allNotes"]
+			];
+			var holdKeys = [
+				["leftHold", "hold", "allHold"], ["downHold", "hold", "allHold"],
+				  ["upHold", "hold", "allHold"], ["rightHold", "hold", "allHold"]
+			];
+			var holdEndKeys = [
+				["leftHoldEnd", "holdEnd", "allHoldEnd"], ["downHoldEnd", "holdEnd", "allHoldEnd"],
+				  ["upHoldEnd", "holdEnd", "allHoldEnd"], ["rightHoldEnd", "holdEnd", "allHoldEnd"]
+			];
+
+			if (!isSustainNote)
+			{
+				for (i in 0...animArrows.length)
+				{
+					var def = NoteSkinSystem.resolveAnimDef(anims, scrollKeys[i]);
+					NoteSkinSystem.addAnimToSprite(this, animArrows[i] + 'Scroll', def);
+				}
+			}
+			else
+			{
+				for (i in 0...animArrows.length)
+				{
+					var holdDef = NoteSkinSystem.resolveAnimDef(anims, holdKeys[i]);
+					var holdEndDef = NoteSkinSystem.resolveAnimDef(anims, holdEndKeys[i]);
+					NoteSkinSystem.addAnimToSprite(this, animArrows[i] + 'hold', holdDef);
+					NoteSkinSystem.addAnimToSprite(this, animArrows[i] + 'holdend', holdEndDef);
+				}
+			}
+		}
 
 		if (!isSustainNote)
+			_applyShaderForSkin(skinData);
+	}
+
+	// ==================== SHADER HELPER ====================
+
+	/**
+	 * Aplica el shader correcto para la skin dada y la dirección actual (noteData).
+	 *
+	 * Prioridad:
+	 *   1. colorAuto:true en la skin  → NoteColorSwapShader con preset de dirección
+	 *   2. ShaderManager activo       → NoteGlowShader de proximidad
+	 *   3. Fallback                   → sin shader
+	 *
+	 * Centralizar aquí evita el bug donde el constructor y recycle() tomaban
+	 * `getCurrentSkinData()` sin `groupSkin`, lo que provocaba que notas
+	 * recicladas entre grupos CPU↔player aparecieran con la skin del grupo
+	 * equivocado cuando ambos grupos usan skins distintas.
+	 */
+	private function _applyShaderForSkin(skinData:NoteSkinSystem.NoteSkinData):Void
+	{
+		if (skinData != null && skinData.colorAuto == true)
 		{
-			// Animaciones de notas (las que bajan por la pantalla)
-			var defs = [anims.left, anims.down, anims.up, anims.right];
-			for (i in 0...animArrows.length)
-				NoteSkinSystem.addAnimToSprite(this, animArrows[i] + 'Scroll', defs[i]);
+			final dir = noteData % 4;
+
+			// PRIORIDAD 1: colorDirections → RGB palette shader (mismo enfoque que NightmareVision).
+			// Reemplaza los canales R/G/B de la textura con colores reales por dirección.
+			if (skinData.colorDirections != null && dir < skinData.colorDirections.length)
+			{
+				final cd = skinData.colorDirections[dir];
+				// GC FIX: reutilizar shader existente entre recycles.
+				if (_rgbShader == null)
+					_rgbShader = new funkin.shaders.NoteRGBPaletteShader();
+				_rgbShader.setColors(cd.r, cd.g, cd.b);
+				_colorSwapShader = null;
+				_glowShader = null;
+				shader = _rgbShader;
+				return;
+			}
+
+			// PRIORIDAD 2: colorHSV → HSV shift (fallback cuando no hay colorDirections).
+			final hsv = skinData.colorHSV;
+			final entry = (hsv != null && dir < hsv.length) ? hsv[dir] : {h: 0.0, s: 0.0, b: 0.0};
+			// GC FIX: reutilizar el shader existente en vez de `new` en cada recycle.
+			if (_colorSwapShader == null)
+				_colorSwapShader = new funkin.shaders.NoteColorSwapShader();
+			_colorSwapShader.applyEntry(entry);
+			_rgbShader = null;
+			_glowShader = null;
+			shader = _colorSwapShader;
+		}
+		else if (funkin.graphics.shaders.ShaderManager.enabled && (skinData.noteGlow == null || skinData.noteGlow == true))
+		{
+			final dir = noteData % 4;
+			if (_glowShader == null)
+				_glowShader = funkin.shaders.NoteGlowShader.forDirection(dir, 0.0);
+			else
+			{
+				_glowShader.intensity = 0.0;
+				_glowShader.pulse = 0.0;
+			}
+			_colorSwapShader = null;
+			_rgbShader = null;
+			shader = _glowShader;
 		}
 		else
 		{
-			// Hold pieces
-			var holdDefs = [anims.leftHold, anims.downHold, anims.upHold, anims.rightHold];
-			// Hold tails/ends
-			var holdEndDefs = [anims.leftHoldEnd, anims.downHoldEnd, anims.upHoldEnd, anims.rightHoldEnd];
-
-			for (i in 0...animArrows.length)
-			{
-				NoteSkinSystem.addAnimToSprite(this, animArrows[i] + 'hold', holdDefs[i]);
-				NoteSkinSystem.addAnimToSprite(this, animArrows[i] + 'holdend', holdEndDefs[i]);
-			}
+			_glowShader = null;
+			_colorSwapShader = null;
+			_rgbShader = null;
+			shader = null;
 		}
 	}
 
@@ -318,9 +409,7 @@ class Note extends FlxSprite
 		// de la skin global. Esto arregla que notas de grupos con skin diferente
 		// (p.ej. CPU con skin pixel, jugador con skin normal) aparezcan con la
 		// skin incorrecta al spawnear o reciclar notas del pool.
-		var skinData = (groupSkin != null && groupSkin != '')
-			? NoteSkinSystem.getCurrentSkinData(groupSkin)
-			: NoteSkinSystem.getCurrentSkinData();
+		var skinData = (groupSkin != null && groupSkin != '') ? NoteSkinSystem.getCurrentSkinData(groupSkin) : NoteSkinSystem.getCurrentSkinData();
 		if (skinData == null)
 			skinData = NoteSkinSystem.getCurrentSkinData(); // fallback a global
 		if (skinData.name != _loadedSkinName || isSustainNote != _loadedAsSustain)
@@ -329,9 +418,7 @@ class Note extends FlxSprite
 		{
 			// La skin no cambió pero noteData puede haber cambiado (nota reciclada
 			// a otra dirección). Re-calcular los offsets de nota para la nueva dirección.
-			var off = isSustainNote
-				? NoteSkinSystem.buildHoldNoteOffsets(skinData, noteData)
-				: NoteSkinSystem.buildNoteOffsets(skinData, noteData);
+			var off = isSustainNote ? NoteSkinSystem.buildHoldNoteOffsets(skinData, noteData) : NoteSkinSystem.buildNoteOffsets(skinData, noteData);
 			noteOffsetX = off[0];
 			noteOffsetY = off[1];
 		}
@@ -344,29 +431,12 @@ class Note extends FlxSprite
 
 			_applyNoteAnim(animArrows[noteData] + 'Scroll');
 
-			// Re-crear shader al reciclar (dirección puede haber cambiado)
-			final _rSkinData = NoteSkinSystem.getCurrentSkinData();
-			if (_rSkinData != null && _rSkinData.colorAuto == true)
-			{
-				final mult      = (_rSkinData.colorMult != null) ? _rSkinData.colorMult : 1.0;
-				final customDir = (_rSkinData.colorDirections != null && noteData < _rSkinData.colorDirections.length)
-					? _rSkinData.colorDirections[noteData] : null;
-				_rgbShader  = new funkin.shaders.NoteRGBShader(noteData % 4, mult, customDir);
-				_glowShader = null;
-				shader      = _rgbShader;
-			}
-			else if (funkin.graphics.shaders.ShaderManager.enabled)
-			{
-				_glowShader = funkin.shaders.NoteGlowShader.forDirection(noteData % 4, 0.0);
-				_rgbShader  = null;
-				shader      = _glowShader;
-			}
-			else
-			{
-				_glowShader = null;
-				_rgbShader  = null;
-				shader      = null;
-			}
+			// BUG FIX: Re-crear shader al reciclar (dirección puede haber cambiado).
+			// ANTES usaba getCurrentSkinData() sin argumento → ignoraba groupSkin
+			// → notas recicladas entre grupos (CPU↔player con skins distintas)
+			// recibían el shader de la skin GLOBAL en vez del shader de su grupo.
+			// Ahora usa `skinData` que ya fue resuelto arriba con el groupSkin correcto.
+			_applyShaderForSkin(skinData);
 		}
 		else
 		{
@@ -376,6 +446,10 @@ class Note extends FlxSprite
 			flipY = false;
 			flipX = false;
 			setupSustainNote();
+			// FIX: los hold pieces también necesitan colorización.
+			// Antes _applyShaderForSkin() solo se llamaba en el bloque !isSustainNote,
+			// así que los sustains siempre quedaban sin shader aunque colorAuto fuera true.
+			_applyShaderForSkin(skinData);
 		}
 	}
 
@@ -418,7 +492,6 @@ class Note extends FlxSprite
 			}
 		}
 
-
 		updateHitbox();
 		// Re-aplicar offset de skin: el updateHitbox() de arriba (para recalcular
 		// width y centrar x) llama centerOffsets() borrando el offset de _applyNoteAnim.
@@ -439,7 +512,6 @@ class Note extends FlxSprite
 					break;
 				}
 			}
-
 
 			// ── V-Slice style sustain height ────────────────────────────────────
 			// Fórmula anterior: scale.y *= stepCrochet/100 * 1.5 * speed
@@ -574,6 +646,19 @@ class Note extends FlxSprite
 		centerOffsets();
 		offset.x += noteOffsetX;
 		offset.y += noteOffsetY;
+
+		// Aplicar flipX/flipY del animList (solo en notas scroll — sustain maneja flipX por downscroll)
+		if (!isSustainNote && _animListData != null)
+		{
+			var data = _animListData.get(animName);
+			if (data != null && data.length >= 4)
+			{
+				if (data[2] > 0.5)
+					flipX = !flipX;
+				if (data[3] > 0.5)
+					flipY = !flipY;
+			}
+		}
 	}
 
 	/** Calcula la posición X base según mustPress y middlescroll. */
@@ -598,7 +683,7 @@ class Note extends FlxSprite
 			if (mustPress)
 			{
 				canBeHit = (strumTime > Conductor.songPosition - _hitWindowCache
-					&& strumTime < Conductor.songPosition + (_hitWindowCache / 2.7));
+					&& strumTime < Conductor.songPosition + _hitWindowCache);
 			}
 			else
 			{
@@ -625,19 +710,19 @@ class Note extends FlxSprite
 				// Curva cuadrática: sube despacio y acelera cerca del strum
 				final curved:Float = t * t;
 				_glowShader.intensity = curved * 0.75;
-				_glowShader.pulse     = (dist < GLOW_PEAK_MS) ? 1.0 : curved;
+				_glowShader.pulse = (dist < GLOW_PEAK_MS) ? 1.0 : curved;
 			}
 			else
 			{
 				_glowShader.intensity = 0.0;
-				_glowShader.pulse     = 0.0;
+				_glowShader.pulse = 0.0;
 			}
 		}
 		else if (_glowShader != null && (wasGoodHit || tooLate))
 		{
 			// Apagar glow una vez golpeada o perdida
 			_glowShader.intensity = 0.0;
-			_glowShader.pulse     = 0.0;
+			_glowShader.pulse = 0.0;
 		}
 	}
 }

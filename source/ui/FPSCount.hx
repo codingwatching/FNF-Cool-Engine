@@ -97,15 +97,15 @@ class FPSCount extends TextField
 			var mem:Float;
 			var gcMem:Float;
 			#if cpp
-			mem   = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE)    / (byteValue * byteValue));
-			gcMem = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_RESERVED) / (byteValue * byteValue));
+			mem   = cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE)    / (byteValue * byteValue);
+			gcMem = cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_RESERVED) / (byteValue * byteValue);
 			#else
-			mem   = Math.round(System.totalMemory / (byteValue * byteValue));
+			mem   = System.totalMemory / (byteValue * byteValue);
 			gcMem = mem;
 			#end
 			if (mem > memPeak) memPeak = mem;
 
-			var line1 = 'FPS: $showFps - Mem: ${mem}MB/${memPeak}MB - GC Mem: ${gcMem}MB';
+			var line1 = 'FPS: $showFps - Mem: ${formatMem(mem)}/${formatMem(memPeak)} - GC Mem: ${formatMem(gcMem)}';
 			#if (gl_stats && !disable_cffi && (!html5 || !canvas))
 			line1 += "  DC: " + Context3DStats.totalDrawCalls();
 			#end
@@ -114,5 +114,14 @@ class FPSCount extends TextField
 		}
 
 		cacheCount = validCount;
+	}
+
+	/** Muestra el valor en MB o GB (cuando supera 1000 MB). */
+	@:noCompletion
+	private inline function formatMem(mb:Float):String
+	{
+		if (mb >= 1000)
+			return (Math.round(mb / 10.24) / 100) + "GB";  // 2 decimales
+		return Math.round(mb) + "MB";
 	}
 }

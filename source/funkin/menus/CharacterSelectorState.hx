@@ -118,7 +118,7 @@ class CharacterSelectorState extends MusicBeatState
 
 		// ── BG ────────────────────────────────────────────────────────────────
 		bg = new FlxSprite();
-		try   { bg.loadGraphic(Paths.image('menu/menuDesat')); }
+		try   { bg.loadGraphic(Paths.image('menu/menuBG')); }
 		catch (_) { bg.makeGraphic(FlxG.width, FlxG.height, 0xFF0A0A14); }
 		bg.color = EditorTheme.current.bgDark;
 		bg.scrollFactor.set(0.1, 0.1);
@@ -621,7 +621,7 @@ class CharacterSelectorState extends MusicBeatState
 				{
 					seen.set(prefix, true);
 					result.push({ name: prefix, prefix: prefix,
-						framerate: framerate, looped: false, offsetX: 0, offsetY: 0 });
+						framerate: framerate, looped: false, offsets: [0,0] });
 				}
 			}
 		}
@@ -641,12 +641,12 @@ class CharacterSelectorState extends MusicBeatState
 			if (parsed.AN != null)
 				result.push({ name: parsed.AN.SN, prefix: parsed.AN.SN,
 					framerate: parsed.MD != null ? Std.int(parsed.MD.FRT) : 24,
-					looped: true, offsetX: 0, offsetY: 0 });
+					looped: true, offsets: [0,0] });
 			if (parsed.SD != null && parsed.SD.S != null)
 				for (sym in (cast parsed.SD.S : Array<Dynamic>))
 					result.push({ name: sym.SN, prefix: sym.SN,
 						framerate: parsed.MD != null ? Std.int(parsed.MD.FRT) : 24,
-						looped: false, offsetX: 0, offsetY: 0 });
+						looped: false, offsets: [0,0] });
 		}
 		catch (_:Dynamic) {}
 		#end
@@ -659,12 +659,12 @@ class CharacterSelectorState extends MusicBeatState
 	{
 		// Decidir animaciones: las importadas, o las de Dad como fallback
 		var anims:Array<AnimData> = (importedAnimData.length > 0) ? importedAnimData : [
-			{ name: "idle",      prefix: "Dad idle dance",     framerate: 24, looped: false, offsetX: 0,   offsetY: 0   },
-			{ name: "singLEFT",  prefix: "Dad Sing Note LEFT", framerate: 24, looped: false, offsetX: -10, offsetY: 10  },
-			{ name: "singDOWN",  prefix: "Dad Sing Note DOWN", framerate: 24, looped: false, offsetX: 0,   offsetY: -30 },
-			{ name: "singUP",    prefix: "Dad Sing Note UP",   framerate: 24, looped: false, offsetX: -6,  offsetY: 50  },
-			{ name: "singRIGHT", prefix: "Dad Sing Note RIGHT",framerate: 24, looped: false, offsetX: 0,   offsetY: 27  }
-		];
+			{ name: "idle",      prefix: "Dad idle dance",     framerate: 24, looped: false, offsets: [0,0] },
+			{ name: "singLEFT",  prefix: "Dad Sing Note LEFT", framerate: 24, looped: false, offsets: [-10,10] },
+			{ name: "singDOWN",  prefix: "Dad Sing Note DOWN", framerate: 24, looped: false, offsets: [0,-30] },
+			{ name: "singUP",    prefix: "Dad Sing Note UP",   framerate: 24, looped: false, offsets: [-6,50] },
+			{ name: "singRIGHT", prefix: "Dad Sing Note RIGHT",framerate: 24, looped: false, offsets: [0,27] }
+	  	];
 
 		// Decidir path: lo importado, o Dad como fallback
 		var spritePath = (importedSpritePath != "") ? importedSpritePath : DAD_PATH;

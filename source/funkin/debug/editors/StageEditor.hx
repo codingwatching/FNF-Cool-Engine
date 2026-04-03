@@ -100,7 +100,7 @@ class StageEditor extends funkin.states.MusicBeatState
 	var currentFilePath:String = '';
 	var hasUnsavedChanges:Bool = false;
 	var _unsavedDlg:UnsavedChangesDialog = null;
-
+	var _windowCloseFn:Void->Void = null;
 	/** True once stageData has been populated from disk or from loadJSON.
 	 *  When true, reloadStageView uses __fromData__ (in-memory) instead of disk. */
 	var _stageDataReady:Bool = false;
@@ -286,6 +286,16 @@ class StageEditor extends funkin.states.MusicBeatState
 		var T = EditorTheme.current;
 
 		funkin.system.CursorManager.show();
+
+		// Window-close guard — auto-guarda si hay cambios sin guardar
+		#if sys
+		_windowCloseFn = function()
+		{
+			if (hasUnsavedChanges)
+				try { saveJSON(); } catch (_) {}
+		};
+		lime.app.Application.current.window.onClose.add(_windowCloseFn);
+		#end
 		funkin.audio.MusicManager.play('chartEditorLoop/chartEditorLoop', 0.6);
 
 		// ── Cameras ───────────────────────────────────────────────────────────
@@ -3834,6 +3844,13 @@ class StageEditor extends funkin.states.MusicBeatState
 			stage.destroy();
 			stage = null;
 		}
+		#if sys
+		if (_windowCloseFn != null)
+		{
+			try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); } catch (_) {}
+			_windowCloseFn = null;
+		}
+		#end
 		super.destroy();
 	}
 }

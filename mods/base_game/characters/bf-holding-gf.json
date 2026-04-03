@@ -16,83 +16,103 @@
 	"animations": [
 		{
 			"framerate": 24,
-			"offsetX": 0,
 			"prefix": "BF idle dance",
-			"offsetY": 0,
 			"looped": false,
-			"name": "idle"
+			"name": "idle",
+			"offsets": [
+				0,
+				0
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -10,
 			"prefix": "poses/BF NOTE UP",
-			"offsetY": 10,
 			"looped": false,
-			"name": "singUP"
+			"name": "singUP",
+			"offsets": [
+				-10,
+				10
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -20,
 			"prefix": "poses/BF NOTE DOWN",
-			"offsetY": -40,
 			"looped": false,
-			"name": "singDOWN"
+			"name": "singDOWN",
+			"offsets": [
+				-20,
+				-40
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -10,
 			"prefix": "poses/BF NOTE LEFT",
-			"offsetY": -10,
 			"looped": false,
-			"name": "singLEFT"
+			"name": "singLEFT",
+			"offsets": [
+				-10,
+				-10
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -47,
 			"prefix": "poses/BF NOTE RIGHT",
-			"offsetY": -16,
 			"looped": false,
-			"name": "singRIGHT"
+			"name": "singRIGHT",
+			"offsets": [
+				-47,
+				-16
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -20,
 			"prefix": "poses/BF NOTE UP MISS",
-			"offsetY": 10,
 			"looped": false,
-			"name": "singUPmiss"
+			"name": "singUPmiss",
+			"offsets": [
+				-20,
+				10
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -20,
 			"prefix": "poses/BF NOTE DOWN MISS",
-			"offsetY": -50,
 			"looped": false,
-			"name": "singDOWNmiss"
+			"name": "singDOWNmiss",
+			"offsets": [
+				-20,
+				-50
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -10,
 			"prefix": "poses/BF NOTE LEFT MISS",
-			"offsetY": -40,
 			"looped": false,
-			"name": "singLEFTmiss"
+			"name": "singLEFTmiss",
+			"offsets": [
+				-10,
+				-40
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": -50,
 			"prefix": "poses/BF NOTE RIGHT MISS",
-			"offsetY": -20,
 			"looped": false,
-			"name": "singRIGHTmiss"
+			"name": "singRIGHTmiss",
+			"offsets": [
+				-50,
+				-20
+			]
 		},
 		{
 			"framerate": 24,
-			"offsetX": 6,
 			"prefix": "poses/BF catches GF",
-			"offsetY": 44,
 			"looped": false,
-			"name": "hey"
+			"name": "hey",
+			"offsets": [
+				6,
+				44
+			]
 		}
 	],
 	"isPlayer": true,

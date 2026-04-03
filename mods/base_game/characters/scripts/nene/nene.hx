@@ -307,16 +307,14 @@ function checkTrainPassing(raised:Bool):Void
 
 function transitionState():Void
 {
-    if (game == null) return;
-
     switch (currentState)
     {
         case 0: // DEFAULT
-            if (game.health <= VULTURE_THRESHOLD) currentState = STATE_PRE_RAISE;
+            if (health <= VULTURE_THRESHOLD) currentState = STATE_PRE_RAISE;
             checkTrainPassing(false);
 
         case 1: // PRE_RAISE
-            if (game.health > VULTURE_THRESHOLD)
+            if (health > VULTURE_THRESHOLD)
                 currentState = STATE_DEFAULT;
             else if (animationFinished)
             {
@@ -331,7 +329,7 @@ function transitionState():Void
             checkTrainPassing(true);
 
         case 3: // READY
-            if (game.health > VULTURE_THRESHOLD) currentState = STATE_LOWER;
+            if (health > VULTURE_THRESHOLD) currentState = STATE_LOWER;
             checkTrainPassing(true);
 
         case 4: // LOWER

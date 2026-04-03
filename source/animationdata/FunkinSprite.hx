@@ -590,7 +590,7 @@ class FunkinSprite extends FlxAnimate
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public function applyAnimOffset(offsetX:Float, offsetY:Float):Void
-		this.offset.set(offsetX, offsetY);
+		this.offset.set(-offsetX, -offsetY);
 
 	public function setScale(scaleX:Float, scaleY:Float):Void
 	{

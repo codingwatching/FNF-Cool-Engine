@@ -154,6 +154,7 @@ class SpriteEditorState extends MusicBeatState
     /** Whether the atlas has unsaved changes. */
     var _dirty:Bool = false;
     var _unsavedDlg:UnsavedChangesDialog = null;
+    var _windowCloseFn:Void->Void = null;
 
     // ── Selection ─────────────────────────────────────────────────────────────
     var _selIdx:Int  = -1;   // -1 = nothing selected
@@ -272,6 +273,16 @@ class SpriteEditorState extends MusicBeatState
 
         // ── Initial welcome message ───────────────────────────────────────────
         _setStatus("Welcome to Sprite Editor  ·  Import Tab → Load PNG+XML to begin", EditorTheme.current.accent);
+
+        // Window-close guard
+        #if sys
+        _windowCloseFn = function()
+        {
+            if (_dirty)
+                try { _saveXml(false); } catch (_) {}
+        };
+        lime.app.Application.current.window.onClose.add(_windowCloseFn);
+        #end
 
         super.create();
     }
@@ -1552,5 +1563,17 @@ class SpriteEditorState extends MusicBeatState
             _setStatus("✗ Save error: " + e, EditorTheme.current.error);
         }
         #end
+    }
+
+    override function destroy():Void
+    {
+        #if sys
+        if (_windowCloseFn != null)
+        {
+            try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); } catch (_) {}
+            _windowCloseFn = null;
+        }
+        #end
+        super.destroy();
     }
 }

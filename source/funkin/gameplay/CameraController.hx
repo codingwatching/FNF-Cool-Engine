@@ -184,20 +184,48 @@ class CameraController
 	 */
 	public function lock(?x:Float, ?y:Float):Void
 	{
-		// ── BUG FIX: cancelar el tween activo ANTES de poner locked=true ──────
-		// Si hay un panTo/tweenToTarget corriendo, su onComplete llama
-		//   if (!stayLocked) locked = false;
-		// lo que deshace el lock() que acaba de pedirse.
-		// Cancelando el tween aquí, el callback nunca se ejecuta.
 		if (_panTween != null)
 		{
 			_panTween.cancel();
 			_panTween = null;
 		}
 		locked = true;
-		_lockedPos.x = x ?? camFollow.x;
-		_lockedPos.y = y ?? camFollow.y;
+
+		// BUG FIX: antes usaba camFollow.x/y como posición de bloqueo.
+		// camFollow es el OBJETIVO del lerp — la cámara puede estar todavía
+		// a varios píxeles de él.  Usar camFollow.x hace que la cámara salte
+		// visiblemente a la posición del objetivo en lugar de quedarse donde está.
+		// Ahora usamos el CENTRO REAL de la cámara (scroll + medio viewport / zoom).
+		final actualX:Float = (camGame != null)
+			? camGame.scroll.x + camGame.width  * 0.5 / camGame.zoom
+			: camFollow.x;
+		final actualY:Float = (camGame != null)
+			? camGame.scroll.y + camGame.height * 0.5 / camGame.zoom
+			: camFollow.y;
+
+		_lockedPos.x = x ?? actualX;
+		_lockedPos.y = y ?? actualY;
+
+		// Mover camFollow al punto bloqueado para que cuando se llame unlock()
+		// y la cámara reanude el follow, parta exactamente de aquí sin salto.
 		camFollow.setPosition(_lockedPos.x, _lockedPos.y);
+
+		if (camGame != null)
+		{
+			// Snap inmediato del scroll al centro bloqueado.
+			camGame.scroll.set(
+				_lockedPos.x - camGame.width  * 0.5 / camGame.zoom,
+				_lockedPos.y - camGame.height * 0.5 / camGame.zoom
+			);
+
+			// BUG FIX: followLerp = 1.0 no snapa instantáneamente en framerates altos
+			// porque Flixel lo aplica como `lerp * elapsed * 60`, resultando en <1.0
+			// de movimiento por frame a >60fps. Usar un valor enorme (999) garantiza
+			// que `999 * elapsed * 60 >> 1` para cualquier framerate razonable,
+			// haciendo que el scroll siempre iguale camFollow en el mismo frame.
+			// Re-registrar el follow fuerza FlxCamera a limpiar su estado interno.
+			camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, 999.0);
+		}
 	}
 
 	/**
@@ -207,6 +235,10 @@ class CameraController
 	public function unlock():Void
 	{
 		locked = false;
+		// Restaurar el follow con el lerp normal. lock() re-registró con 999 para
+		// garantizar snap inmediato; aquí volvemos al lerp suave original.
+		if (camGame != null)
+			camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, followLerp);
 	}
 
 	/**

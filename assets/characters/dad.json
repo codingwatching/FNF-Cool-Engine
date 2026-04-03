@@ -3,41 +3,36 @@
 	"animations": [
 		{
 			"framerate": 24,
-			"offsetX": 0,
+			"offsets": [0, 0],
 			"prefix": "Dad idle dance",
-			"offsetY": 0,
 			"looped": false,
 			"name": "idle"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -40,
+			"offsets": [-40, -1],
 			"prefix": "Dad Sing Note DOWN",
-			"offsetY": -1,
 			"looped": false,
 			"name": "singDOWN"
 		},
 		{
 			"framerate": 24,
-			"offsetX": 21,
+			"offsets": [21, 4],
 			"prefix": "dad sing note right",
-			"offsetY": 4,
 			"looped": false,
 			"name": "singLEFT"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -48,
+			"offsets": [-48, 12],
 			"prefix": "Dad Sing Note LEFT",
-			"offsetY": 12,
 			"looped": false,
 			"name": "singRIGHT"
 		},
 		{
 			"framerate": 24,
-			"offsetX": -4,
+			"offsets": [-4, 30],
 			"prefix": "Dad Sing note UP",
-			"offsetY": 30,
 			"looped": false,
 			"name": "singUP"
 		}

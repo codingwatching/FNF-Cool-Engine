@@ -1,7 +1,6 @@
 package funkin.scripting;
 
 import haxe.Exception;
-
 // ── Compatibilidad hscript 2.4.x / 2.5.x ─────────────────────────────────────
 #if HSCRIPT_ALLOWED
 import hscript.Interp;
@@ -9,7 +8,6 @@ import hscript.Expr;
 // hscript.Expr.Error existe en 2.4+ como clase base de errores
 // En versiones muy antiguas puede no tener `.e` — usar Dynamic como fallback
 #end
-
 #if sys
 import sys.FileSystem;
 import sys.io.File;
@@ -40,26 +38,76 @@ using StringTools;
  * @author Cool Engine Team
  * @version 3.0.0
  */
-class HScriptInstance
+class HScriptInstance implements IScript
 {
-	public var name     : String;
-	public var path     : String;
-	public var active   : Bool   = true;
-	public var priority : Int    = 0;
-	public var tag      : String = '';
+	public var name:String;
+	public var path:String;
+	public var active:Bool = true;
+	public var priority:Int = 0;
+	public var tag:String = '';
+
+	// ── IScript contract ──────────────────────────────────────────────────────
+	// `id` y `filePath` cumplen el contrato de IScript exactamente:
+	//   • id       → var simple (lectura/escritura pública)
+	//   • filePath → (default, null) (escritura sólo interna)
+	// El constructor los sincroniza con `name` y `path` al crearse.
+
+	/** IScript.id — identificador del script (var simple, igual que IScript). */
+	public var id:String;
+
+	/** IScript.filePath — ruta al fuente, read-only desde fuera. */
+	public var filePath(default, null):Null<String>;
+
+	/** true si ocurrió un error irrecuperable que desactivó el script. */
+	public var errored:Bool = false;
+
+	/** Texto del último error, o null. */
+	public var lastError:Null<String> = null;
+
+	/** hasFunction — requerido por IScript. Comprueba caché + variables del intérprete. */
+	public function hasFunction(name:String):Bool
+	{
+		#if HSCRIPT_ALLOWED
+		if (interp == null)
+			return false;
+		final cached = _funcCache.get(name);
+		if (cached != null)
+			return cached != _MISSING;
+		final resolved = interp.variables.get(name);
+		return resolved != null && Reflect.isFunction(resolved);
+		#else
+		return false;
+		#end
+	}
 
 	/** Último valor devuelto por `call()`. */
-	public var returnValue : Dynamic = null;
+	public var returnValue:Dynamic = null;
 
 	/** Callback de error: (scriptName, funcName, error) → Void. */
-	public var onError : Null<String->String->Dynamic->Void> = null;
+	public var onError:Null<String->String->Dynamic->Void> = null;
 
 	#if HSCRIPT_ALLOWED
-	public var interp   : Null<Interp> = null;
-	public var program  : Null<Expr>   = null;
+	public var interp:Null<funkin.scripting.interp.FunkinInterp> = null;
+
+	/** Objeto de contexto automático (Stage o Character) */
+	public var scriptObject(get, set):Dynamic;
+
+	inline function get_scriptObject()
+		return interp != null ? interp.scriptObject : null;
+
+	inline function set_scriptObject(v:Dynamic)
+	{
+		if (interp != null)
+			interp.scriptObject = v;
+		return v;
+	}
+
+	public var program:Null<Expr> = null;
 
 	/** Cached source code — used for hot-reload and for pinpointing error lines. */
-	public var _source : String = '';
+	public var _source:String = '';
+
+	private var _reloading:Bool = false;
 
 	/**
 	 * Caché de funciones: mapea nombre → función (o _MISSING si no existe).
@@ -67,20 +115,23 @@ class HScriptInstance
 	 * cuando la función simplemente no está definida en el script.
 	 * Se invalida en hotReload() y dispose().
 	 */
-	var _funcCache : haxe.ds.StringMap<Dynamic> = new haxe.ds.StringMap();
+	var _funcCache:haxe.ds.StringMap<Dynamic> = new haxe.ds.StringMap();
 
 	/** Sentinel: indica que la función NO existe en este script. */
-	static final _MISSING : {} = {};
+	static final _MISSING:{} = {};
 	#end
 
 	// ── Constructor ───────────────────────────────────────────────────────────
 
 	public function new(name:String, path:String, priority:Int = 0, tag:String = '')
 	{
-		this.name     = name;
-		this.path     = path;
+		this.name = name;
+		this.path = path;
 		this.priority = priority;
-		this.tag      = tag;
+		this.tag = tag;
+		// Sincronizar con el contrato IScript
+		this.id = name;
+		this.filePath = path;
 	}
 
 	// ── Llamadas ──────────────────────────────────────────────────────────────
@@ -95,11 +146,19 @@ class HScriptInstance
 	 */
 	public function call(funcName:String, args:Array<Dynamic> = null):Dynamic
 	{
-		if (!active) return null;
+		if (!active)
+			return null;
+		// BUG FIX #8: bloquear llamadas mientras hotReload() re-ejecuta el programa.
+		// Sin este guard, onUpdate/onBeatHit del mismo frame acceden al intérprete
+		// en estado intermedio → crash cuando BF canta durante un hot-reload.
+		if (_reloading)
+			return null;
 
 		#if HSCRIPT_ALLOWED
-		if (interp == null) return null;
-		if (args == null)   args = [];
+		if (interp == null)
+			return null;
+		if (args == null)
+			args = [];
 
 		try
 		{
@@ -135,8 +194,16 @@ class HScriptInstance
 	public function callReturn<T>(funcName:String, args:Array<Dynamic> = null, fallback:T):T
 	{
 		final r = call(funcName, args);
-		if (r == null) return fallback;
-		try { return cast r; } catch(_) { return fallback; }
+		if (r == null)
+			return fallback;
+		try
+		{
+			return cast r;
+		}
+		catch (_)
+		{
+			return fallback;
+		}
 	}
 
 	/**
@@ -159,18 +226,29 @@ class HScriptInstance
 		{
 			interp.variables.set(varName, value);
 			// Si existía en el caché de funciones, invalidar: el valor cambió.
-			if (_funcCache.exists(varName)) _funcCache.remove(varName);
+			if (_funcCache.exists(varName))
+				_funcCache.remove(varName);
 		}
 		#end
 	}
 
-	/** Sets multiple variables at once from a map or anonymous struct. */
+	/**
+	 * Sets multiple variables at once from a map or anonymous struct.
+	 * FIX #4: invalida `_funcCache` para cada campo sobreescrito, igual que
+	 * hace `set()`, para que el caché no devuelva la versión anterior de una
+	 * función que se reemplazó con `setAll()`.
+	 */
 	public function setAll(vars:Dynamic):Void
 	{
 		#if HSCRIPT_ALLOWED
-		if (interp == null || vars == null) return;
+		if (interp == null || vars == null)
+			return;
 		for (field in Reflect.fields(vars))
+		{
 			interp.variables.set(field, Reflect.field(vars, field));
+			if (_funcCache.exists(field))
+				_funcCache.remove(field);
+		}
 		#end
 	}
 
@@ -178,7 +256,8 @@ class HScriptInstance
 	public function get(varName:String):Dynamic
 	{
 		#if HSCRIPT_ALLOWED
-		if (interp == null) return null;
+		if (interp == null)
+			return null;
 		return interp.variables.get(varName);
 		#else
 		return null;
@@ -189,7 +268,8 @@ class HScriptInstance
 	public function exists(varName:String):Bool
 	{
 		#if HSCRIPT_ALLOWED
-		if (interp == null) return false;
+		if (interp == null)
+			return false;
 		return interp.variables.exists(varName);
 		#else
 		return false;
@@ -220,15 +300,22 @@ class HScriptInstance
 	public function loadString(code:String):Bool
 	{
 		#if HSCRIPT_ALLOWED
-		if (code == null || code == '') return false;
+		if (code == null || code == '')
+			return false;
 		try
 		{
 			_source = code;
 			if (interp == null)
 			{
-				interp = new Interp();
+				interp = new funkin.scripting.interp.FunkinInterp();
 				#if HSCRIPT_ALLOWED
-				try { Reflect.setField(interp, 'allowMetadata', true); } catch(_) {}
+				try
+				{
+					Reflect.setField(interp, 'allowMetadata', true);
+				}
+				catch (_)
+				{
+				}
 				#end
 				ScriptAPI.expose(interp);
 			}
@@ -256,13 +343,18 @@ class HScriptInstance
 	public function hotReload():Bool
 	{
 		#if (HSCRIPT_ALLOWED && sys)
-		if (interp == null || path == null || path == '') return false;
-		if (!FileSystem.exists(path)) { trace('[HScript] hotReload: no existe "$path"'); return false; }
+		if (interp == null || path == null || path == '')
+			return false;
+		if (!FileSystem.exists(path))
+		{
+			trace('[HScript] hotReload: no existe "$path"');
+			return false;
+		}
 
 		try
 		{
-			_source  = File.getContent(path);
-			program  = ScriptHandler.parser.parseString(_source, path);
+			_source = File.getContent(path);
+			program = ScriptHandler.parser.parseString(_source, path);
 
 			// Re-exponer ScriptAPI (podría haber cambiado entre recargas)
 			ScriptAPI.expose(interp);
@@ -270,9 +362,23 @@ class HScriptInstance
 			// Invalidar caché de funciones — el script redefinió sus funciones
 			_funcCache.clear();
 
-			interp.execute(program);
-			call('onCreate');
-			call('postCreate');
+			// BUG FIX #8: bloquear call() durante la re-ejecución del programa.
+			// onUpdate/onBeatHit del mismo frame crashean si acceden al intérprete
+			// mientras interp.execute() está redefiniendo las funciones del script.
+			_reloading = true;
+			try
+			{
+				interp.execute(program);
+				call('onCreate');
+				call('postCreate');
+			}
+			catch (innerErr:Dynamic)
+			{
+				_reloading = false;
+				throw innerErr;
+			}
+			_reloading = false;
+
 			trace('[HScript] Hot-reloaded: $name');
 			return true;
 		}
@@ -297,10 +403,15 @@ class HScriptInstance
 	{
 		#if (HSCRIPT_ALLOWED && sys)
 		final resolved = _resolvePath(modulePath);
-		if (resolved == null) { trace('[HScript] require: not found "$modulePath"'); return null; }
+		if (resolved == null)
+		{
+			trace('[HScript] require: not found "$modulePath"');
+			return null;
+		}
 
 		final mod = ScriptHandler.loadScript(resolved, 'song');
-		if (mod == null || mod.interp == null) return null;
+		if (mod == null || mod.interp == null)
+			return null;
 
 		// BUG FIX: devolver objeto dinámico en lugar del StringMap crudo.
 		// mod.interp.variables es StringMap<Dynamic>. En C++/HL, Reflect.field
@@ -332,7 +443,7 @@ class HScriptInstance
 	public function dispose():Void
 	{
 		#if HSCRIPT_ALLOWED
-		interp  = null;
+		interp = null;
 		program = null;
 		_source = '';
 		_funcCache.clear();
@@ -344,10 +455,9 @@ class HScriptInstance
 
 	function _handleError(funcName:String, e:Dynamic):Void
 	{
-		var msg         = Std.string(e);
-		var lineNum     = -1;
+		var msg = Std.string(e);
+		var lineNum = -1;
 		var lineContent = '';
-
 		#if HSCRIPT_ALLOWED
 		try
 		{
@@ -358,24 +468,29 @@ class HScriptInstance
 			{
 				// Prefer a human-readable message derived from the ErrorDef enum
 				final defMsg = _formatErrorDef(Reflect.field(exprErr, 'e'));
-				if (defMsg != null && defMsg != '') msg = defMsg;
+				if (defMsg != null && defMsg != '')
+					msg = defMsg;
 
 				// hscript 2.5+ stores the line number directly in .line
 				if (Reflect.hasField(exprErr, 'line'))
 				{
 					final raw = Reflect.field(exprErr, 'line');
-					if (raw != null) lineNum = raw;
+					if (raw != null)
+						lineNum = raw;
 				}
 
 				// Fallback: derive line number from the pmin character offset
 				if (lineNum <= 0 && Reflect.hasField(exprErr, 'pmin'))
 				{
 					final pmin:Int = Reflect.field(exprErr, 'pmin');
-					if (pmin >= 0) lineNum = _lineFromOffset(_getSource(), pmin);
+					if (pmin >= 0)
+						lineNum = _lineFromOffset(_getSource(), pmin);
 				}
 			}
 		}
-		catch (_e:Dynamic) {}
+		catch (_e:Dynamic)
+		{
+		}
 		#end
 
 		// Pull the actual source line for context if we have a valid line number
@@ -390,8 +505,19 @@ class HScriptInstance
 		if (lineContent != '')
 			trace('  >> $lineContent');
 
+		// Actualizar contrato IScript
+		lastError = msg;
+		// No desactivar automáticamente — sólo errores de parsing/init son fatales.
+		// Los errores en call() son recuperables (la función simplemente devuelve null).
+
 		if (onError != null)
-			try { onError(name, funcName, e); } catch (_e:Dynamic) {}
+			try
+			{
+				onError(name, funcName, e);
+			}
+			catch (_e:Dynamic)
+			{
+			}
 	}
 
 	/**
@@ -421,43 +547,55 @@ class HScriptInstance
 	 */
 	static function _formatErrorDef(errDef:Dynamic):Null<String>
 	{
-		if (errDef == null) return null;
+		if (errDef == null)
+			return null;
 
 		// Structured path: works when errDef is a real hscript enum instance
 		try
 		{
-			final tag    = Type.enumConstructor(errDef);
+			final tag = Type.enumConstructor(errDef);
 			final params = Type.enumParameters(errDef);
 			return switch (tag)
 			{
-				case 'EUnknownVariable':   'Unknown variable "${params[0]}"';
-				case 'EInvalidAccess':     'Invalid field access "${params[0]}"';
-				case 'ECustom':            Std.string(params[0]);
-				case 'EUnexpected':        'Unexpected token "${params[0]}"';
-				case 'EUnterminatedString':  'Unterminated string literal';
+				case 'EUnknownVariable': 'Unknown variable "${params[0]}"';
+				case 'EInvalidAccess': 'Invalid field access "${params[0]}"';
+				case 'ECustom': Std.string(params[0]);
+				case 'EUnexpected': 'Unexpected token "${params[0]}"';
+				case 'EUnterminatedString': 'Unterminated string literal';
 				case 'EUnterminatedComment': 'Unterminated block comment';
-				case 'EInvalidOp':         'Invalid operator "${params[0]}"';
-				case 'EInvalidIterator':   'Invalid iterator "${params[0]}"';
-				case 'EInvalidChar':       'Invalid character (code ${params[0]})';
+				case 'EInvalidOp': 'Invalid operator "${params[0]}"';
+				case 'EInvalidIterator': 'Invalid iterator "${params[0]}"';
+				case 'EInvalidChar': 'Invalid character (code ${params[0]})';
 				default: Std.string(errDef);
 			};
 		}
-		catch (_e:Dynamic) {}
+		catch (_e:Dynamic)
+		{
+		}
 
 		// String-parse fallback for older hscript versions where enum casting fails
 		try
 		{
 			final s = Std.string(errDef);
-			if (s.startsWith('EUnknownVariable('))   return 'Unknown variable: ${s.substring(17, s.length - 1)}';
-			if (s.startsWith('EInvalidAccess('))      return 'Invalid field access: ${s.substring(15, s.length - 1)}';
-			if (s.startsWith('ECustom('))             return s.substring(8, s.length - 1);
-			if (s.startsWith('EUnexpected('))         return 'Unexpected token: ${s.substring(12, s.length - 1)}';
-			if (s == 'EUnterminatedString')           return 'Unterminated string literal';
-			if (s.startsWith('EInvalidOp('))          return 'Invalid operator: ${s.substring(11, s.length - 1)}';
-			if (s.startsWith('EInvalidIterator('))    return 'Invalid iterator: ${s.substring(17, s.length - 1)}';
+			if (s.startsWith('EUnknownVariable('))
+				return 'Unknown variable: ${s.substring(17, s.length - 1)}';
+			if (s.startsWith('EInvalidAccess('))
+				return 'Invalid field access: ${s.substring(15, s.length - 1)}';
+			if (s.startsWith('ECustom('))
+				return s.substring(8, s.length - 1);
+			if (s.startsWith('EUnexpected('))
+				return 'Unexpected token: ${s.substring(12, s.length - 1)}';
+			if (s == 'EUnterminatedString')
+				return 'Unterminated string literal';
+			if (s.startsWith('EInvalidOp('))
+				return 'Invalid operator: ${s.substring(11, s.length - 1)}';
+			if (s.startsWith('EInvalidIterator('))
+				return 'Invalid iterator: ${s.substring(17, s.length - 1)}';
 			return s;
 		}
-		catch (_e:Dynamic) {}
+		catch (_e:Dynamic)
+		{
+		}
 
 		return null;
 	}
@@ -468,11 +606,13 @@ class HScriptInstance
 	 */
 	static function _lineFromOffset(source:String, offset:Int):Int
 	{
-		if (offset <= 0 || source == '') return 1;
+		if (offset <= 0 || source == '')
+			return 1;
 		var line = 1;
 		final len = Std.int(Math.min(offset, source.length));
 		for (i in 0...len)
-			if (source.charAt(i) == '\n') line++;
+			if (source.charAt(i) == '\n')
+				line++;
 		return line;
 	}
 
@@ -482,10 +622,12 @@ class HScriptInstance
 	 */
 	static function _getSourceLine(source:String, lineNum:Int):String
 	{
-		if (source == '' || lineNum <= 0) return '';
+		if (source == '' || lineNum <= 0)
+			return '';
 		final lines = source.split('\n');
-		final idx   = lineNum - 1;
-		if (idx >= lines.length) return '';
+		final idx = lineNum - 1;
+		if (idx >= lines.length)
+			return '';
 		return StringTools.trim(lines[idx]);
 	}
 
@@ -493,29 +635,35 @@ class HScriptInstance
 	{
 		#if sys
 		// 1. Ruta absoluta
-		if (FileSystem.exists(rawPath)) return rawPath;
+		if (FileSystem.exists(rawPath))
+			return rawPath;
 
 		// 2. Relativa al directorio del script actual
 		if (path != null && path != '')
 		{
-			final dir = StringTools.contains(path, '/') ? path.substring(0, path.lastIndexOf('/') + 1)
-			                               : path.substring(0, path.lastIndexOf('\\') + 1);
+			final dir = StringTools.contains(path, '/') ? path.substring(0, path.lastIndexOf('/') + 1) : path.substring(0, path.lastIndexOf('\\') + 1);
 			final rel = dir + rawPath;
-			if (FileSystem.exists(rel)) return rel;
+			if (FileSystem.exists(rel))
+				return rel;
 			// Con extensión .hx
-			if (FileSystem.exists(rel + '.hx')) return rel + '.hx';
+			if (FileSystem.exists(rel + '.hx'))
+				return rel + '.hx';
 		}
 
 		// 3. Relativa a assets/
-		if (FileSystem.exists('assets/$rawPath'))          return 'assets/$rawPath';
-		if (FileSystem.exists('assets/$rawPath.hx'))       return 'assets/$rawPath.hx';
+		if (FileSystem.exists('assets/$rawPath'))
+			return 'assets/$rawPath';
+		if (FileSystem.exists('assets/$rawPath.hx'))
+			return 'assets/$rawPath.hx';
 
 		// 4. Relativa al mod activo
 		if (mods.ModManager.isActive())
 		{
 			final modPath = '${mods.ModManager.modRoot()}/$rawPath';
-			if (FileSystem.exists(modPath))       return modPath;
-			if (FileSystem.exists(modPath + '.hx')) return modPath + '.hx';
+			if (FileSystem.exists(modPath))
+				return modPath;
+			if (FileSystem.exists(modPath + '.hx'))
+				return modPath + '.hx';
 		}
 		#end
 		return null;

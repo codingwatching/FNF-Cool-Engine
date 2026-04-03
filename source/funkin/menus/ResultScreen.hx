@@ -250,6 +250,10 @@ class ResultScreen extends FlxSubState
 	{
 		StateScriptHandler.callOnScripts('onDestroy', []);
 		StateScriptHandler.clearStateScripts();
+		// Liberar el singleton de GameState ahora que ya mostramos las stats.
+		// PlayState dejó de hacerlo en su propio destroy() para que este
+		// estado pueda leer los valores correctos en create().
+		GameState.destroy();
 		super.destroy();
 	}
 
@@ -257,13 +261,6 @@ class ResultScreen extends FlxSubState
 
 	function _buildBg():Void
 	{
-		// Solid color base — SIEMPRE se crea primero a tamaño completo.
-		// BUGFIX fondo negro: en cpp/desktop, loadGraphic() con un archivo
-		// inexistente o inaccesible NO lanza excepción Haxe — OpenFL loguea
-		// [ERROR] silenciosamente y puede dejar el sprite con textura nula.
-		// El try/catch de abajo no atrapa eso. Solución: verificar existencia
-		// con Paths.exists() ANTES de llamar loadGraphic(), y si carga bien,
-		// redimensionar al tamaño de pantalla con setGraphicSize + updateHitbox.
 		bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, _getBgColor());
 		bg.scrollFactor.set(0, 0); // sin parallax para evitar bordes negros
 		bg.alpha = 0;
@@ -621,8 +618,8 @@ class ResultScreen extends FlxSubState
 		}
 
 		// Position: top-left, just below the top bar, near the score
-		highscoreNew.x    = 44;
-		highscoreNew.y    = -120; // starts off-screen above
+		highscoreNew.x    = -50;
+		highscoreNew.y    = -150; // starts off-screen above
 		highscoreNew.alpha = 0;
 		highscoreNew.scrollFactor.set(0, 0);
 		highscoreNew.antialiasing = (SaveData.data?.antialiasing ?? true);

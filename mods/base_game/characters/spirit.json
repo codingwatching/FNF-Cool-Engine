@@ -10,40 +10,50 @@
 			"prefix": "idle spirit_",
 			"framerate": 24,
 			"looped": false,
-			"offsetX": -220,
-			"offsetY": -280
+			"offsets": [
+				-220,
+				-280
+			]
 		},
 		{
 			"name": "singUP",
 			"prefix": "up_",
 			"framerate": 24,
 			"looped": false,
-			"offsetX": -220,
-			"offsetY": -240
+			"offsets": [
+				-220,
+				-240
+			]
 		},
 		{
 			"name": "singRIGHT",
 			"prefix": "right_",
 			"framerate": 24,
 			"looped": false,
-			"offsetX": -220,
-			"offsetY": -280
+			"offsets": [
+				-220,
+				-280
+			]
 		},
 		{
 			"name": "singLEFT",
 			"prefix": "left_",
 			"framerate": 24,
 			"looped": false,
-			"offsetX": -200,
-			"offsetY": -280
+			"offsets": [
+				-200,
+				-280
+			]
 		},
 		{
 			"name": "singDOWN",
 			"prefix": "spirit down_",
 			"framerate": 24,
 			"looped": false,
-			"offsetX": 170,
-			"offsetY": 110
+			"offsets": [
+				170,
+				110
+			]
 		}
 	]
 }

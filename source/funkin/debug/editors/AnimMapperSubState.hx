@@ -541,8 +541,7 @@ class AnimMapperSubState extends FlxSubState
 				prefix:    src.prefix,
 				framerate: src.framerate,
 				looped:    src.looped,
-				offsetX:   src.offsetX,
-				offsetY:   src.offsetY
+				offsets: [src.offsets[0], src.offsets[1]]
 			});
 		}
 		_onConfirm(result);

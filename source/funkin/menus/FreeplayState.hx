@@ -240,7 +240,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		bg = new FlxSprite();
 		try
 		{
-			bg.loadGraphic(Paths.image('menu/menuDesat'));
+			bg.loadGraphic(Paths.image('menu/menuBG'));
 		}
 		catch (_)
 		{

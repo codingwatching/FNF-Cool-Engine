@@ -43,8 +43,6 @@ import sys.FileSystem;
 import funkin.data.SaveData;
 #end
 
-
-
 class StoryMenuState extends funkin.states.MusicBeatState
 {
 	var scoreText:FlxText;
@@ -142,7 +140,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		// La única comprobación segura es verificar si el fichero existe.
 		bg = new FlxSprite();
 		#if sys
-		var _bgPath:String = Paths.image('menu/menuDesat');
+		var _bgPath:String = Paths.image('menu/menuBG');
 		if (sys.FileSystem.exists(_bgPath))
 		{
 			try
@@ -348,6 +346,23 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		StickerTransition.clearStickers();
 	}
 
+	function _formatScore(n:Float):String
+	{
+		var s = Std.string(Std.int(n));
+		var result = '';
+		var count = 0;
+		var i = s.length - 1;
+		while (i >= 0)
+		{
+			if (count > 0 && count % 3 == 0)
+				result = ',' + result;
+			result = s.charAt(i) + result;
+			count++;
+			i--;
+		}
+		return result;
+	}
+
 	// === CARGAR SEMANAS DESDE data/storymenu/weeks/*.json ===
 	function loadSongsData():Void
 	{
@@ -362,24 +377,28 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			{
 				for (modWeek in mods.compat.ModCompatLayer.getModSongsInfo())
 				{
-					var ws:Array<String> = cast (Reflect.field(modWeek, 'weekSongs') ?? []);
-					if (ws.length == 0) continue;
-					var sim:Array<Dynamic> = cast (Reflect.field(modWeek, 'showInStoryMode') ?? []);
+					var ws:Array<String> = cast(Reflect.field(modWeek, 'weekSongs') ?? []);
+					if (ws.length == 0)
+						continue;
+					var sim:Array<Dynamic> = cast(Reflect.field(modWeek, 'showInStoryMode') ?? []);
 					var storySongs:Array<String> = [];
-					for (j in 0...ws.length) {
+					for (j in 0...ws.length)
+					{
 						var show = sim.length == 0 || (j < sim.length && sim[j] == true);
-						if (show) storySongs.push(ws[j]);
+						if (show)
+							storySongs.push(ws[j]);
 					}
-					if (storySongs.length == 0) continue;
-					var cl:Array<String> = cast (Reflect.field(modWeek, 'color') ?? []);
+					if (storySongs.length == 0)
+						continue;
+					var cl:Array<String> = cast(Reflect.field(modWeek, 'color') ?? []);
 					_loadedWeeks.push({
-						id:             'psych_mod_${_loadedWeeks.length}',
-						weekName:       Reflect.field(modWeek, 'weekName') ?? 'Week',
-						weekPath:       Reflect.field(modWeek, 'weekPath') ?? '',
-						weekCharacters: cast (Reflect.field(modWeek, 'weekCharacters') ?? ['', 'bf', 'gf']),
-						weekSongs:      storySongs,
-						color:          (cl != null && cl.length > 0) ? cl[0] : '0xFFFFD900',
-						locked:         Reflect.field(modWeek, 'locked') == true
+						id: 'psych_mod_${_loadedWeeks.length}',
+						weekName: Reflect.field(modWeek, 'weekName') ?? 'Week',
+						weekPath: Reflect.field(modWeek, 'weekPath') ?? '',
+						weekCharacters: cast(Reflect.field(modWeek, 'weekCharacters') ?? ['', 'bf', 'gf']),
+						weekSongs: storySongs,
+						color: (cl != null && cl.length > 0) ? cl[0] : '0xFFFFD900',
+						locked: Reflect.field(modWeek, 'locked') == true
 					});
 				}
 				trace('[StoryMenuState] Psych mod: ${_loadedWeeks.length} weeks total.');
@@ -397,12 +416,12 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			return;
 		}
 
-		weekData       = [];
+		weekData = [];
 		weekCharacters = [];
-		weekNames      = [];
-		weekUnlocked   = [];
-		weekColors     = [];
-		weekPaths      = [];
+		weekNames = [];
+		weekUnlocked = [];
+		weekColors = [];
+		weekPaths = [];
 
 		for (week in _loadedWeeks)
 		{
@@ -413,15 +432,11 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			weekNames.push(week.weekName ?? 'Week');
 			weekPaths.push(week.weekPath ?? '');
 			weekUnlocked.push(!(week.locked == true));
-			weekCharacters.push(
-				(week.weekCharacters != null && week.weekCharacters.length >= 3)
-				? week.weekCharacters : ['', 'bf', 'gf']
-			);
+			weekCharacters.push((week.weekCharacters != null && week.weekCharacters.length >= 3) ? week.weekCharacters : ['', 'bf', 'gf']);
 
 			final colorStr = week.color ?? '0xFFFFD900';
 			final colorInt:Null<Int> = Std.parseInt(colorStr);
-			var color:FlxColor = (colorInt != null && colorInt != 0)
-				? (colorInt : FlxColor) : (0xFFFFD900 : FlxColor);
+			var color:FlxColor = (colorInt != null && colorInt != 0) ? (colorInt : FlxColor) : (0xFFFFD900 : FlxColor);
 			color.alpha = 255;
 			weekColors.push(color);
 		}
@@ -429,6 +444,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		bgcol = weekColors.length > 0 ? weekColors[0] : 0xFF0A0A0A;
 		trace('[StoryMenuState] ${weekData.length} weeks built.');
 	}
+
 	// === FUNCIÓN DE FALLBACK PARA CARGAR SEMANAS POR DEFECTO ===
 	function loadDefaultWeeks():Void
 	{
@@ -489,7 +505,7 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			if (Math.abs(intendedScore - lerpScore) < 10)
 				lerpScore = intendedScore;
 
-			scoreText.text = "LEVEL SCORE:" + lerpScore;
+			scoreText.text = "LEVEL SCORE:" + _formatScore(lerpScore);
 
 			// Actualizar título de la semana si es válido
 			// VALIDACIÓN TRIPLE: curWeek, weekNames, y txtWeekTitle

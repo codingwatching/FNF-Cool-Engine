@@ -2,84 +2,104 @@
 	"isFlxAnimate": true,
 	"animations": [
 		{
-			"offsetX": 0,
 			"framerate": 24,
 			"prefix": "Darnell Idle",
-			"offsetY": 0,
 			"name": "idle",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				0,
+				0
+			]
 		},
 		{
-			"offsetX": 30,
 			"framerate": 24,
 			"prefix": "darnell pose left",
-			"offsetY": 6,
 			"name": "singRIGHT",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				30,
+				6
+			]
 		},
 		{
-			"offsetX": 30,
 			"framerate": 24,
 			"prefix": "Darnell Pose Down",
-			"offsetY": -60,
 			"name": "singDOWN",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				30,
+				-60
+			]
 		},
 		{
-			"offsetX": 52,
 			"framerate": 24,
 			"prefix": "Darnell pose right",
-			"offsetY": 1,
 			"name": "singLEFT",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				52,
+				1
+			]
 		},
 		{
-			"offsetX": 60,
 			"framerate": 24,
 			"prefix": "Darnell pose up",
-			"offsetY": 70,
 			"name": "singUP",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				60,
+				70
+			]
 		},
 		{
-			"offsetX": 0,
 			"framerate": 24,
 			"prefix": "darnell laugh",
-			"offsetY": 0,
 			"name": "laughCutscene",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				0,
+				0
+			]
 		},
 		{
-			"offsetX": -3,
 			"framerate": 24,
 			"prefix": "Darnell lighting can",
-			"offsetY": -5,
 			"name": "lightCan",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				-3,
+				-5
+			]
 		},
 		{
-			"offsetX": 30,
 			"framerate": 24,
 			"prefix": "Darnell can kick up",
-			"offsetY": 30,
 			"name": "kickCan",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				30,
+				30
+			]
 		},
 		{
-			"offsetX": 0,
 			"framerate": 24,
 			"prefix": "Darnell knee action",
-			"offsetY": -20,
 			"name": "kneeCan",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				0,
+				-20
+			]
 		},
 		{
-			"offsetX": 0,
 			"framerate": 24,
 			"prefix": "Darnell Gets Pissed",
-			"offsetY": 0,
 			"name": "Darnell Gets Pissed",
-			"looped": false
+			"looped": false,
+			"offsets": [
+				0,
+				0
+			]
 		}
 	],
 	"isPlayer": false,

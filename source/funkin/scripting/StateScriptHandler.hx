@@ -7,7 +7,7 @@ import sys.FileSystem;
 import sys.io.File;
 
 #if HSCRIPT_ALLOWED
-import hscript.Interp;
+import funkin.scripting.interp.FunkinInterp;
 #end
 
 using StringTools;
@@ -126,9 +126,12 @@ class StateScriptHandler
 
 		try
 		{
-			@:privateAccess script._source = content;
-			script.program = ScriptHandler.parser.parseString(content, scriptPath);
-			script.interp  = new Interp();
+			// FIX: crear el interp y exponer ScriptAPI ANTES de parsear,
+			// para que processImports() pueda detectar proxies ya registrados
+			// (FlxColor, FlxEase, etc.) y no sobreescribirlos con la clase cruda.
+			// Antes el orden era: parse → create interp → expose → execute,
+			// lo que impedía que processImports() funcionara correctamente.
+			script.interp = new FunkinInterp();
 
 			ScriptAPI.expose(script.interp);
 			_exposeStateAPI(script.interp, state, script);
@@ -136,6 +139,14 @@ class StateScriptHandler
 			// Variables extra opcionales
 			if (extraVars != null)
 				script.setAll(extraVars);
+
+			// FIX: procesar imports ANTES de parsear, igual que ScriptHandler._createScript().
+			// Sin este paso, cualquier línea `import a.b.C;` en el script hacía que
+			// el parser de hscript lanzara un error (no soporta import), que antes
+			// se perdía porque el catch solo atrapaba haxe.Exception.
+			final processedContent = ScriptHandler.processImports(content, script.interp);
+			@:privateAccess script._source = processedContent;
+			script.program = ScriptHandler.parser.parseString(processedContent, scriptPath);
 
 			script.interp.execute(script.program);
 			script.call('onCreate');
@@ -146,9 +157,13 @@ class StateScriptHandler
 			trace('[StateScriptHandler] Loaded: $name (prio $priority)');
 			return script;
 		}
-		catch (e:Exception)
+		// FIX: capturar Dynamic en vez de haxe.Exception.
+		// Los errores de hscript en versiones anteriores a 2.5 son Dynamic,
+		// no subclases de haxe.Exception. Con catch (e:Exception) escapaban
+		// el catch sin loguearse, haciendo invisible la causa del fallo.
+		catch (e:Dynamic)
 		{
-			trace('[StateScriptHandler] Error "$name": ${e.message}');
+			trace('[StateScriptHandler] Error "$name": ${Std.string(e)}');
 			return null;
 		}
 		#else
@@ -156,6 +171,8 @@ class StateScriptHandler
 		#end
 	}
 
+	// FIX: añadir recursión a subdirectorios, igual que ScriptHandler._loadFolder().
+	// Sin este fix, scripts en subcarpetas de assets/states/{state}/ se ignoraban.
 	static function _loadFolder(folderPath:String, state:FlxState,
 		?extraVars:Map<String, Dynamic>):Array<HScriptInstance>
 	{
@@ -166,15 +183,22 @@ class StateScriptHandler
 
 		for (file in FileSystem.readDirectory(folderPath))
 		{
+			final fullPath = '$folderPath/$file';
+			if (FileSystem.isDirectory(fullPath))
+			{
+				for (s in _loadFolder(fullPath, state, extraVars))
+					loaded.push(s);
+				continue;
+			}
 			#if (LUA_ALLOWED && linc_luajit)
 			if (file.endsWith('.lua'))
 			{
-				loadLuaScript('$folderPath/$file', state, extraVars);
+				loadLuaScript(fullPath, state, extraVars);
 				continue;
 			}
 			#end
 			if (!file.endsWith('.hx') && !file.endsWith('.hscript')) continue;
-			final s = loadScript('$folderPath/$file', state, 0, extraVars);
+			final s = loadScript(fullPath, state, 0, extraVars);
 			if (s != null) loaded.push(s);
 		}
 
@@ -642,7 +666,7 @@ class StateScriptHandler
 	 *   setField('transitioning', true); // escribe un Bool del state
 	 *   var v = getField('curBeat');     // lee cualquier campo
 	 */
-	static function _exposeStateAPI(interp:Interp, state:FlxState, script:HScriptInstance):Void
+	static function _exposeStateAPI(interp:FunkinInterp, state:FlxState, script:HScriptInstance):Void
 	{
 		// ── 1. AUTO-REFLECT: exponer TODOS los campos de instancia del state ──
 		_reflectStateFields(interp, state);
@@ -830,7 +854,7 @@ class StateScriptHandler
 		'playSound','playMusic','stopMusic'
 	];
 
-	static function _reflectStateFields(interp:Interp, state:FlxState, refresh:Bool = false):Void
+	static function _reflectStateFields(interp:FunkinInterp, state:FlxState, refresh:Bool = false):Void
 	{
 		// Obtener todos los campos de instancia recorriendo la jerarquía completa.
 		// Type.getSuperClass() devuelve Class<Dynamic>, no Class<FlxState>, así que
@@ -894,9 +918,9 @@ class FunctionOverride
 			if (Reflect.isFunction(func))
 				return Reflect.callMethod(null, func, args);
 		}
-		catch (e:Exception)
+		catch (e:Dynamic)
 		{
-			trace('[FunctionOverride] Error "$funcName": ${e.message}');
+			trace('[FunctionOverride] Error "$funcName": ${Std.string(e)}');
 		}
 
 		return null;

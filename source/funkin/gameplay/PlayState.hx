@@ -366,8 +366,6 @@ class PlayState extends funkin.states.MusicBeatState
 
 			// Inyección mínima para onCreate: sólo game y SONG.
 			// El inject completo se hace después de que todos los sistemas estén listos.
-			ScriptHandler.setOnScripts('playState', this);
-			ScriptHandler.setOnScripts('game', this);
 			ScriptHandler.setOnScripts('SONG', SONG);
 			ScriptHandler.callOnScripts('onCreate', ScriptHandler._argsEmpty);
 		}
@@ -700,8 +698,6 @@ class PlayState extends funkin.states.MusicBeatState
 				ScriptHandler.loadCharacterScripts(char.curCharacter);
 				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'character', char);
 				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'char', char);
-				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'game', this);
-				ScriptHandler.setOnCharacterScripts(char.curCharacter, 'playState', this);
 				ScriptHandler.callOnCharacterScripts(char.curCharacter, 'postCreate', ScriptHandler._argsEmpty);
 				trace('[PlayState] Scripts de personaje cargados para "${char.curCharacter}"');
 			}
@@ -2134,8 +2130,14 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	private function onPlayerNoteHit(note:Note):Void
 	{
-		// Process hit
-		var noteDiff:Float = Math.abs(note.strumTime - Conductor.songPosition);
+		// Use the song position captured at the actual moment of the keypress,
+		// not the current frame position. When input buffering fires up to 100ms
+		// after the press, Conductor.songPosition has advanced and noteDiff would
+		// be artificially small, awarding Sick for what was really an early hit.
+		var _pressedAt:Float = inputHandler.pressSongPos[note.noteData];
+		var noteDiff:Float   = Math.abs(note.strumTime - (_pressedAt >= 0 ? _pressedAt : Conductor.songPosition));
+		// Consume the stored position so it can't be reused by a later note
+		inputHandler.pressSongPos[note.noteData] = -1;
 		// Regular note - GameState calcula el rating automáticamente
 		var rating:String = gameState.processNoteHit(noteDiff, note.isSustainNote);
 		if (scriptsEnabled)
@@ -3369,9 +3371,6 @@ class PlayState extends funkin.states.MusicBeatState
 			optimizationManager = null;
 		}
 
-		// NOTA: No llamar forceGC() aquí — clearUnusedMemory() al final del destroy
-		// ya hace Gc.run(true)+compact(). Llamarlo antes causaba un GC doble (~200ms extra).
-
 		// ── 7. Controllers
 		if (cameraController != null)
 		{
@@ -3409,8 +3408,6 @@ class PlayState extends funkin.states.MusicBeatState
 		strumsGroups = [];
 		strumsGroupMap.clear();
 		activeCharIndices = [];
-
-		GameState.destroy();
 
 		RatingManager.destroy();
 

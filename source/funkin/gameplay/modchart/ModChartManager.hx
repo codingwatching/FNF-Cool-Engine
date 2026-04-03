@@ -1923,7 +1923,24 @@ class ModChartManager
 
 	public function getState(groupId:String, strumIdx:Int):Null<StrumState>
 	{
-		var arr = states.get(groupId);
+		// BUG FIX #5: NoteManager uses "player"/"cpu" as fallback when
+		// allStrumsGroups is null. But states are keyed by the actual
+		// group.id (e.g. "bf", "dad", "player1"…).  Resolve aliases first.
+		var resolvedId = groupId;
+		if (!states.exists(groupId))
+		{
+			// Try to match by isCPU flag when the literal key isn't found
+			var wantCPU = (groupId == "cpu" || groupId == "opponent" || groupId == "dad" || groupId == "enemy");
+			for (g in strumsGroups)
+			{
+				if (g.isCPU == wantCPU)
+				{
+					resolvedId = g.id;
+					break;
+				}
+			}
+		}
+		var arr = states.get(resolvedId);
 		if (arr == null || strumIdx < 0 || strumIdx >= arr.length)
 			return null;
 		return arr[strumIdx];

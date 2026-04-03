@@ -24,8 +24,7 @@ typedef MenuCharacterAnimData =
 
 typedef MenuCharacterData =
 {
-	@:optional var offsetX:Float;          // offset X del sprite
-	@:optional var offsetY:Float;          // offset Y del sprite
+	@:optional var offsets:Array<Float>;   // [x, y] offset del sprite
 	@:optional var scale:Float;            // escala uniforme (1.0 = normal)
 	@:optional var antialiasing:Bool;      // suavizado
 	@:optional var flipX:Bool;             // voltear horizontalmente
@@ -104,11 +103,13 @@ class MenuCharacter extends FlxSprite
 		var data:MenuCharacterData = loadData(character);
 
 		// ── 3. Aplicar escala ─────────────────────────────────────────────────
+		// Siempre reset primero — sin esto el scale del personaje anterior persiste
+		scale.set(1.0, 1.0);
 		var sc:Float = (data.scale != null && data.scale > 0) ? data.scale : 1.0;
 		if (sc != 1.0)
 		{
-			scale.set(sc, sc);
-			setGraphicSize(Std.int(width * sc));
+			// setGraphicSize ya modifica scale internamente; no usar scale.set() junto
+			setGraphicSize(Std.int(frameWidth * sc));
 		}
 
 		// ── 4. Registrar animaciones ──────────────────────────────────────────
@@ -134,9 +135,9 @@ class MenuCharacter extends FlxSprite
 		updateHitbox();
 
 		// ── 7. Aplicar offset ─────────────────────────────────────────────────
-		var ox:Float = (data.offsetX != null) ? data.offsetX : 0;
-		var oy:Float = (data.offsetY != null) ? data.offsetY : 0;
-		offset.set(ox, oy);
+		var ox:Float = (data.offsets != null && data.offsets.length > 0) ? data.offsets[0] : 0;
+		var oy:Float = (data.offsets != null && data.offsets.length > 1) ? data.offsets[1] : 0;
+		offset.set(-ox, -oy);
 
 		visible = true;
 	}

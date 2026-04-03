@@ -82,6 +82,7 @@ class MenuEditor extends funkin.states.MusicBeatState
 	var _file        : FileReference;
 	var _music       : FlxSound;
 	var _unsavedDlg  : UnsavedChangesDialog = null;
+	var _windowCloseFn : Void->Void = null;
 
 	// Live objects in preview (index -> FlxBasic)
 	var _live : Map<Int,FlxBasic> = new Map();
@@ -158,6 +159,16 @@ class MenuEditor extends funkin.states.MusicBeatState
 		_buildPreviewGrid();
 		_rebuildPreview();
 		_refreshAll();
+
+		// Window-close guard
+		#if sys
+		_windowCloseFn = function()
+		{
+			if (_isDirty)
+				try { _save(); } catch (_) {}
+		};
+		lime.app.Application.current.window.onClose.add(_windowCloseFn);
+		#end
 
 		super.create();
 	}
@@ -1592,6 +1603,13 @@ class MenuEditor extends funkin.states.MusicBeatState
 		_closeCtx();
 		for (k in _live.keys()){var o=_live.get(k);if(o!=null&&o.alive)try{o.destroy();}catch(_){}}
 		_live.clear();
+		#if sys
+		if (_windowCloseFn != null)
+		{
+			try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); } catch (_) {}
+			_windowCloseFn = null;
+		}
+		#end
 		super.destroy();
 	}
 }

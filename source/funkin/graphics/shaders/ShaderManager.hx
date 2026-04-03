@@ -206,7 +206,7 @@ class ShaderManager
 	public static var vertPaths:Map<String, String>        = new Map();
 
 	/** Script shaders — .lua / .hx files in the shaders folder. */
-	public static var scriptShaders:Map<String, ScriptShader> = new Map();
+	public static var scriptShaders:Map<String, funkin.scripting.ScriptShader> = new Map();
 
 	static var _liveInstances:Map<String, Array<FunkinRuntimeShader>>                         = new Map();
 	static var _spriteToInstance:Map<FlxSprite, {name:String, instance:FunkinRuntimeShader}> = new Map();
@@ -274,7 +274,7 @@ class ShaderManager
 			// Don't overwrite a .frag with the same name — .frag takes priority
 			if (shaderPaths.exists(shaderName)) continue;
 
-			final ss = new ScriptShader(shaderName, fullPath);
+			final ss = new funkin.scripting.ScriptShader(shaderName, fullPath);
 			if (ss.load())
 			{
 				scriptShaders.set(shaderName, ss);

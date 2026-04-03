@@ -116,6 +116,7 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 
 	var hasUnsaved:Bool = false;
 	var _unsavedDlg:UnsavedChangesDialog = null;
+	var _windowCloseFn:Void->Void = null;
 	var pathIntro:String = '';
 	var pathOutro:String = '';
 
@@ -295,6 +296,16 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 
 		_autoLoad();
 		_recalcDuration();
+
+		// Window-close guard
+		#if sys
+		_windowCloseFn = function()
+		{
+			if (hasUnsaved)
+				try { _onSave(); } catch (_) {}
+		};
+		lime.app.Application.current.window.onClose.add(_windowCloseFn);
+		#end
 
 		super.create();
 	}
@@ -1209,6 +1220,18 @@ class CutsceneEditorState extends funkin.states.MusicBeatState
 
 	function _btnR(xr:Float, y:Float, w:Int, h:Int, lbl:String, col:Int, cb:Void->Void):_Btn
 		return _btn(xr - w, y, w, h, lbl, col, cb);
+
+	override function destroy():Void
+	{
+		#if sys
+		if (_windowCloseFn != null)
+		{
+			try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); } catch (_) {}
+			_windowCloseFn = null;
+		}
+		#end
+		super.destroy();
+	}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

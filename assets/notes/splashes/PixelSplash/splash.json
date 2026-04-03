@@ -7,7 +7,7 @@
     "type": "sparrow",
     "scale": 4.0,
     "antialiasing": false,
-    "offset": [100, 100]
+    "offset": [65,60]
   },
   "animations": {
     "left": ["purple1", "purple2","purple3"],
@@ -22,8 +22,8 @@
     "texturePrefix": "pixelNoteHoldCover",
     "textureType": "sparrow",
     "scale": 6.0,
-    "offset": [190,-40],
     "antialiasing": false,
+    "offset": [120,-37],
     "framerate": 24,
     "loopFramerate": 24,
     "startPrefix": "",

@@ -75,21 +75,61 @@ typedef NoteAnimDef =
 }
 
 /**
- * Todas las animaciones de una skin.
+ * Todas las animaciones de una skin de notas.
  *
- * Los campos son Dynamic para aceptar tanto el String shorthand como el
- * objeto NoteAnimDef completo. El helper addAnimToSprite() maneja ambos.
+ * El campo `animations` del JSON es COMPLETAMENTE LIBRE — puedes poner
+ * cualquier clave que quieras. El sistema las resuelve en este orden:
  *
- * Separación lógica:
- *   Notas (Scroll): left, down, up, right
- *   Hold pieces:    leftHold, downHold, upHold, rightHold
- *   Hold tails:     leftHoldEnd, downHoldEnd, upHoldEnd, rightHoldEnd
- *   Strum static:   strumLeft/Down/Up/Right
- *   Strum pressed:  strumLeft/Down/Up/RightPress
- *   Strum confirm:  strumLeft/Down/Up/RightConfirm
+ *  ┌─────────────────────────┬──────────────────────────────────────────────────────────┐
+ *  │ Slot interno            │ Cadena de búsqueda (de mayor a menor prioridad)          │
+ *  ├─────────────────────────┼──────────────────────────────────────────────────────────┤
+ *  │ nota scroll izq         │ "left"    → "note"  → "allNotes"                        │
+ *  │ nota scroll abajo       │ "down"    → "note"  → "allNotes"                        │
+ *  │ nota scroll arriba      │ "up"      → "note"  → "allNotes"                        │
+ *  │ nota scroll der         │ "right"   → "note"  → "allNotes"                        │
+ *  │ hold piece (dir N)      │ "{dir}Hold"  → "hold"    → "allHold"                    │
+ *  │ hold end   (dir N)      │ "{dir}HoldEnd"→"holdEnd" → "allHoldEnd"                 │
+ *  │ strum static (dir N)    │ "strum{Dir}" → "strum"   → "allStrum"                   │
+ *  │ strum press  (dir N)    │ "strum{Dir}Press"  → "strumPress"  → "allStrumPress"    │
+ *  │ strum confirm(dir N)    │ "strum{Dir}Confirm"→ "strumConfirm"→ "allStrumConfirm"  │
+ *  └─────────────────────────┴──────────────────────────────────────────────────────────┘
+ *
+ * Ejemplos de JSONs válidos:
+ *
+ *   // ① Animación única para todas las notas y strums:
+ *   "animations": {
+ *     "note":          "myNoteAnim",
+ *     "hold":          "myHoldPiece",
+ *     "holdEnd":       "myHoldEnd",
+ *     "strum":         "myStrumStatic",
+ *     "strumPress":    "myStrumPress",
+ *     "strumConfirm":  "myStrumConfirm"
+ *   }
+ *
+ *   // ② Por dirección (estilo clásico, sigue funcionando):
+ *   "animations": {
+ *     "left": "purple0", "down": "blue0", "up": "green0", "right": "red0",
+ *     "leftHold": "purple hold piece", ...
+ *   }
+ *
+ *   // ③ Mix — genérico + override para una dirección concreta:
+ *   "animations": {
+ *     "note":  "genericNote",
+ *     "left":  "specialLeftNote",
+ *     "hold":  "genericHold"
+ *   }
+ *
+ *   // ④ Campos con nombre completamente libre (se acceden con resolveAnimDef):
+ *   "animations": {
+ *     "myCustomAnim": { "prefix": "whatever", "framerate": 12 }
+ *   }
+ *
+ * NoteSkinSystem.resolveAnimDef(anims, keys) resuelve cualquier cadena
+ * de claves sobre el objeto libre — úsalo para acceder a animaciones extra.
  */
 typedef NoteSkinAnims =
 {
+	// ── Por dirección (nombres clásicos — siguen funcionando) ────────
 	var ?left:Dynamic;
 	var ?down:Dynamic;
 	var ?up:Dynamic;
@@ -114,6 +154,26 @@ typedef NoteSkinAnims =
 	var ?strumDownConfirm:Dynamic;
 	var ?strumUpConfirm:Dynamic;
 	var ?strumRightConfirm:Dynamic;
+	// ── Genéricos cortos (nuevos) — se aplican a TODAS las direcciones ─
+	/** Una sola animación para todas las notas scroll. */
+	var ?note:Dynamic;
+	/** Una sola animación para todos los hold pieces. */
+	var ?hold:Dynamic;
+	/** Una sola animación para todos los hold ends/tails. */
+	var ?holdEnd:Dynamic;
+	/** Una sola animación static para todos los strums. */
+	var ?strum:Dynamic;
+	/** Una sola animación press para todos los strums. */
+	var ?strumPress:Dynamic;
+	/** Una sola animación confirm para todos los strums. */
+	var ?strumConfirm:Dynamic;
+	// ── Alias "all*" (compatibilidad con el cambio anterior) ─────────
+	var ?allNotes:Dynamic;
+	var ?allHold:Dynamic;
+	var ?allHoldEnd:Dynamic;
+	var ?allStrum:Dynamic;
+	var ?allStrumPress:Dynamic;
+	var ?allStrumConfirm:Dynamic;
 }
 
 // Alias de compatibilidad — código que usaba NoteAnimations sigue compilando
@@ -174,18 +234,21 @@ typedef NoteSkinData =
 	var ?script:String;
 	// ── Colorización automática (shader RGB) ──────────────────────────
 	/**
-	 * Si es true, aplica NoteRGBShader a cada nota usando los presets de color
+	 * Si es true, aplica NoteColorSwapShader a cada nota usando los presets de color
 	 * estándar de FNF (Left=púrpura, Down=cian, Up=verde, Right=rojo).
 	 * Útil para sprites en escala de grises / neutros como NOTE_assets.png.
 	 */
 	var ?colorAuto:Bool;
+
+	var ?noteGlow:Bool;
+	
 	/** Intensidad del shader RGB (0.0–1.0). Default: 1.0. */
 	var ?colorMult:Float;
 	/**
 	 * Paleta de colores custom por dirección.
 	 * Array de 4 entradas (Left, Down, Up, Right), cada una con campos r/g/b
 	 * que son vectores [x,y,z] (columnas de la matriz de transformación de color).
-	 * Si es null, se usan los presets de NoteRGBShader.PRESETS.
+	 * Si es null, se usan los presets de NoteColorSwapShader.PRESETS.
 	 *
 	 * Ejemplo en skin.json:
 	 *   "colorDirections": [
@@ -196,9 +259,100 @@ typedef NoteSkinData =
 	 *   ]
 	 */
 	var ?colorDirections:Array<{ r:Array<Float>, g:Array<Float>, b:Array<Float> }>;
+	/**
+	 * Desplazamientos HSV por dirección (Left, Down, Up, Right).
+	 * Cada entrada: { h: rotación de tono 0–1, s: desplazamiento saturación, b: factor brillo }.
+	 * Cuando colorAuto es true y colorHSV está definido, el NoteColorSwapShader aplica
+	 * el preset correspondiente a la dirección de la nota en lugar del preset neutro.
+	 */
+	var ?colorHSV:Array<{ h:Float, s:Float, b:Float }>;
+	/**
+	 * Sistema de animaciones al estilo personaje — PRIORIDAD sobre el campo `animations`.
+	 * Permite definir animaciones con nombre, prefix, offsets, flipX y framerate custom,
+	 * igual que los personajes. Ver SkinAnimEntry para el formato completo.
+	 */
+	var ?animList:Array<SkinAnimEntry>;
 }
 
 // ── Splash (sistema independiente, no cambia) ─────────────────────────────────
+
+/**
+ * Definición de animación al estilo personaje (Character.hx AnimData).
+ *
+ * Permite definir animaciones con nombre, prefix, offsets, flipX y framerate
+ * custom — igual que los personajes del juego.
+ *
+ * ─── Uso en skin.json (notas / strums) ──────────────────────────────────────
+ *   "animList": [
+ *     { "name": "purpleScroll", "prefix": "purple0",         "fps": 24, "offsets": [0, 0] },
+ *     { "name": "blueScroll",   "prefix": "blue0",           "fps": 24 },
+ *     { "name": "purplehold",   "prefix": "purple hold piece","fps": 24 },
+ *     { "name": "purpleholdend","prefix": "purple hold end",  "fps": 24 },
+ *     // Strums — noteID filtra por dirección (0=left, 1=down, 2=up, 3=right)
+ *     { "name": "static",  "prefix": "arrowLEFT",    "noteID": 0 },
+ *     { "name": "pressed", "prefix": "left press",   "noteID": 0, "looped": false },
+ *     { "name": "confirm", "prefix": "left confirm", "noteID": 0, "offsets": [-13, -13] }
+ *   ]
+ *
+ * ─── Uso en splash.json (splash normal) ─────────────────────────────────────
+ *   "animList": [
+ *     { "name": "left_0",  "prefix": "noteSplash left 1",  "fps": 24, "offsets": [0, 0] },
+ *     { "name": "left_1",  "prefix": "noteSplash left 2",  "fps": 24 },
+ *     { "name": "down_0",  "prefix": "noteSplash down 1",  "fps": 24 },
+ *     { "name": "all_0",   "prefix": "noteSplash generic", "fps": 24 }   // fallback shared
+ *   ]
+ *   // Una sola splash para todas las dirs:
+ *   "animList": [
+ *     { "name": "all_0", "prefix": "noteSplash", "fps": 24 }
+ *   ]
+ *
+ * ─── Uso en holdCover (dentro de splash.json) ────────────────────────────────
+ *   "holdCover": {
+ *     "animList": [
+ *       { "name": "holdCoverStartPurple", "prefix": "holdCoverStart Purple", "fps": 24 },
+ *       { "name": "holdCoverPurple",      "prefix": "holdCover Purple",      "fps": 48, "looped": true },
+ *       { "name": "holdCoverEndPurple",   "prefix": "holdCoverEnd Purple",   "fps": 24 }
+ *     ]
+ *   }
+ *   // Un solo hold cover sin distinción de color (perColorTextures: false):
+ *   "holdCover": {
+ *     "perColorTextures": false,
+ *     "animList": [
+ *       { "name": "holdCoverStart", "prefix": "holdCoverStart", "fps": 24 },
+ *       { "name": "holdCover",      "prefix": "holdCover",      "fps": 48, "looped": true },
+ *       { "name": "holdCoverEnd",   "prefix": "holdCoverEnd",   "fps": 24 }
+ *     ]
+ *   }
+ */
+typedef SkinAnimEntry =
+{
+	/** Nombre INTERNO de la animación en el sprite (e.g. "purpleScroll", "static", "left_0"). */
+	var name:String;
+	/** Prefijo en el atlas sparrow / nombre del frame en el atlas. */
+	var prefix:String;
+	/** FPS. Default: 24. También acepta "framerate" (compatibilidad con AnimData). */
+	var ?fps:Int;
+	/** Alias de fps (compatible con el formato AnimData de personajes). */
+	var ?framerate:Float;
+	/** Si la animación hace loop. Default: false. También acepta "looped". */
+	var ?loop:Bool;
+	/** Alias de loop (compatible con el formato AnimData de personajes). */
+	var ?looped:Bool;
+	/** Offset [x, y] aplicado al reproducir esta animación. */
+	var ?offsets:Array<Float>;
+	/** Voltear horizontalmente. Default: false. */
+	var ?flipX:Bool;
+	/** Voltear verticalmente. Default: false. */
+	var ?flipY:Bool;
+	/** Índices específicos de frames (alternativo a prefix). */
+	var ?indices:Array<Int>;
+	/**
+	 * Solo para strums: noteID de la dirección (0=left,1=down,2=up,3=right).
+	 * null / ausente → aplica a TODAS las direcciones.
+	 * Se usa para filtrar entradas al cargar strums en StrumNote.hx.
+	 */
+	var ?noteID:Int;
+}
 
 typedef NoteSplashData =
 {
@@ -207,17 +361,27 @@ typedef NoteSplashData =
 	var ?description:String;
 	var ?folder:String;
 	var assets:NoteSplashAssets;
+	/** Sistema de animaciones legacy (prefijos por dirección). */
 	var animations:SplashAnimations;
+	/**
+	 * Sistema de animaciones al estilo personaje — PRIORIDAD sobre `animations`.
+	 * Nombres de variante: "{dir}_{N}" (ej. "left_0", "right_1") o "all_{N}" (fallback).
+	 * Una sola splash: usar "all_0" como nombre.
+	 */
+	var ?animList:Array<SkinAnimEntry>;
 	/** Configuración de los hold covers. Null = usar defaults hardcodeados. */
 	var ?holdCover:NoteHoldCoverData;
 	/** Nombre del archivo Lua/HScript en la carpeta del splash. Si es null, no se ejecuta. */
 	var ?script:String;
-	/** Si true, aplica NoteRGBShader al splash usando los presets de color estándar. */
+	/** Si true, aplica NoteColorSwapShader al splash usando los presets de color estándar. */
 	var ?colorAuto:Bool;
 	/** Intensidad del shader RGB (0.0–1.0). Default: 1.0. */
 	var ?colorMult:Float;
 	/** Paleta custom por dirección (igual que en NoteSkinData). */
 	var ?colorDirections:Array<{ r:Array<Float>, g:Array<Float>, b:Array<Float> }>;
+
+	/** Desplazamientos HSV por dirección (hereda del note skin si null). */
+	var ?colorHSV:Array<{ h:Float, s:Float, b:Float }>;
 }
 
 typedef NoteSplashAssets =
@@ -229,12 +393,24 @@ typedef NoteSplashAssets =
 	var ?offset:Array<Float>;
 }
 
+/**
+ * Animaciones de un splash skin.
+ *
+ * Cada campo directional es un Array de prefijos (se elige uno al azar).
+ * Todos son opcionales: si una dirección es null, se usa el campo "all".
+ *
+ * Ejemplos:
+ *   Compartida: { "all": ["note impact 1", "note impact 2"] }
+ *   Mixta:      { "all": ["genericImpact"], "left": ["specialLeft1", "specialLeft2"] }
+ */
 typedef SplashAnimations =
 {
-	var left:Array<String>;
-	var down:Array<String>;
-	var up:Array<String>;
-	var right:Array<String>;
+	var ?left:Array<String>;
+	var ?down:Array<String>;
+	var ?up:Array<String>;
+	var ?right:Array<String>;
+	/** Fallback: se usa cuando la dirección específica no está definida. */
+	var ?all:Array<String>;
 	var ?framerate:Int;
 	var ?randomFramerateRange:Int;
 }
@@ -307,6 +483,19 @@ typedef NoteHoldCoverData =
 
 	/** Prefijo de la animación de fin. Default: "holdCoverEnd". */
 	var ?endPrefix:String;
+
+	/**
+	 * Sistema de animaciones al estilo personaje — PRIORIDAD sobre startPrefix/loopPrefix/endPrefix.
+	 *
+	 * Los `name` de cada entrada deben coincidir con los nombres calculados por NoteHoldCover:
+	 *   e.g. "holdCoverStartPurple", "holdCoverPurple", "holdCoverEndPurple"
+	 * Con perColorTextures:false el sufijo de color está vacío:
+	 *   e.g. "holdCoverStart", "holdCover", "holdCoverEnd"
+	 *
+	 * Permite offsets, flipX y flipY por animación.
+	 * Una sola hold cover (sin distinción de color): usar perColorTextures:false.
+	 */
+	var ?animList:Array<SkinAnimEntry>;
 }
 
 // ==================== SISTEMA PRINCIPAL ====================
@@ -417,7 +606,7 @@ class NoteSkinSystem
 				// Expose skin context to the script
 				script.set('skinName',         name);
 				script.set('NoteSkinSystem',    funkin.gameplay.notes.NoteSkinSystem);
-				script.set('NoteRGBShader',     funkin.shaders.NoteRGBShader);
+				script.set('NoteColorSwapShader',     funkin.shaders.NoteColorSwapShader);
 				script.set('applyRGBShader',    funkin.gameplay.notes.NoteSkinSystem.applyRGBShader);
 				script.set('applyRGBColor',     funkin.gameplay.notes.NoteSkinSystem.applyRGBColor);
 				script.set('setRGBIntensity',   funkin.gameplay.notes.NoteSkinSystem.setRGBIntensity);
@@ -475,7 +664,7 @@ class NoteSkinSystem
 				// Expose splash context to the script
 				script.set('splashName',        name);
 				script.set('NoteSkinSystem',     funkin.gameplay.notes.NoteSkinSystem);
-				script.set('NoteRGBShader',      funkin.shaders.NoteRGBShader);
+				script.set('NoteColorSwapShader',      funkin.shaders.NoteColorSwapShader);
 				script.set('applyRGBShader',     funkin.gameplay.notes.NoteSkinSystem.applyRGBShader);
 				script.set('applyRGBColor',      funkin.gameplay.notes.NoteSkinSystem.applyRGBColor);
 				script.set('setRGBIntensity',    funkin.gameplay.notes.NoteSkinSystem.setRGBIntensity);
@@ -523,7 +712,7 @@ class NoteSkinSystem
 	// apliquen o quiten el shader RGB en runtime sobre cualquier sprite.
 
 	/**
-	 * Aplica NoteRGBShader a un sprite con los presets estándar o un preset custom.
+	 * Aplica NoteColorSwapShader a un sprite con los presets estándar o un preset custom.
 	 * Úsalo desde el script de la skin:
 	 *   applyRGBShader(note, noteData)           -- preset estándar
 	 *   applyRGBShader(note, noteData, 0.5)      -- intensidad reducida
@@ -534,11 +723,11 @@ class NoteSkinSystem
 		?customPreset:{ r:Array<Float>, g:Array<Float>, b:Array<Float> }):Void
 	{
 		if (sprite == null) return;
-		sprite.shader = new funkin.shaders.NoteRGBShader(direction % 4, mult, customPreset);
+		sprite.shader = new funkin.shaders.NoteColorSwapShader(direction % 4, mult, customPreset);
 	}
 
 	/**
-	 * Aplica NoteRGBShader a partir de un color hex (convierte automáticamente al preset).
+	 * Aplica NoteColorSwapShader a partir de un color hex (convierte automáticamente al preset).
 	 * Úsalo desde el script de la skin:
 	 *   applyRGBColor(note, 0xFF00FF00)       -- verde puro
 	 *   applyRGBColor(note, 0xC24B99)         -- púrpura FNF
@@ -547,17 +736,17 @@ class NoteSkinSystem
 		color:flixel.util.FlxColor, mult:Float = 1.0):Void
 	{
 		if (sprite == null) return;
-		sprite.shader = funkin.shaders.NoteRGBShader.fromColor(color, mult);
+		sprite.shader = funkin.shaders.NoteColorSwapShader.fromColor(color, mult);
 	}
 
 	/**
-	 * Cambia la intensidad del NoteRGBShader ya aplicado en un sprite (0.0–1.0).
-	 * No hace nada si el sprite no tiene un NoteRGBShader.
+	 * Cambia la intensidad del NoteColorSwapShader ya aplicado en un sprite (0.0–1.0).
+	 * No hace nada si el sprite no tiene un NoteColorSwapShader.
 	 */
 	public static function setRGBIntensity(sprite:flixel.FlxSprite, mult:Float):Void
 	{
 		if (sprite == null) return;
-		final s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
+		final s = Std.downcast(sprite.shader, funkin.shaders.NoteColorSwapShader);
 		if (s != null) s.intensity = mult;
 	}
 
@@ -567,13 +756,13 @@ class NoteSkinSystem
 	public static function removeRGBShader(sprite:flixel.FlxSprite):Void
 	{
 		if (sprite == null) return;
-		if (Std.isOfType(sprite.shader, funkin.shaders.NoteRGBShader))
+		if (Std.isOfType(sprite.shader, funkin.shaders.NoteColorSwapShader))
 			sprite.shader = null;
 	}
 
 	/**
-	 * Tween del color del NoteRGBShader de un sprite hacia un preset de dirección.
-	 * Si el sprite no tiene NoteRGBShader, se le aplica uno primero.
+	 * Tween del color del NoteColorSwapShader de un sprite hacia un preset de dirección.
+	 * Si el sprite no tiene NoteColorSwapShader, se le aplica uno primero.
 	 *
 	 * @param sprite     Sprite objetivo (nota, splash, hold cover...).
 	 * @param direction  Dirección destino (0=izq, 1=abajo, 2=arriba, 3=der).
@@ -586,25 +775,25 @@ class NoteSkinSystem
 		duration:Float = 0.25, ease:String = 'linear'):flixel.tweens.FlxTween
 	{
 		if (sprite == null) return null;
-		var s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
-		if (s == null) { s = new funkin.shaders.NoteRGBShader(direction); sprite.shader = s; }
+		var s = Std.downcast(sprite.shader, funkin.shaders.NoteColorSwapShader);
+		if (s == null) { s = new funkin.shaders.NoteColorSwapShader(direction); sprite.shader = s; }
 		return s.tweenToDirection(direction, duration, _ease(ease));
 	}
 
 	/**
-	 * Tween del color del NoteRGBShader de un sprite hacia un color hex.
+	 * Tween del color del NoteColorSwapShader de un sprite hacia un color hex.
 	 */
 	public static function tweenRGBToColor(sprite:flixel.FlxSprite,
 		color:flixel.util.FlxColor, duration:Float = 0.25, ease:String = 'linear'):flixel.tweens.FlxTween
 	{
 		if (sprite == null) return null;
-		var s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
-		if (s == null) { s = new funkin.shaders.NoteRGBShader(0, 1.0, funkin.shaders.NoteRGBShader.fromColor(color, 1.0).getCurrentPreset()); sprite.shader = s; }
+		var s = Std.downcast(sprite.shader, funkin.shaders.NoteColorSwapShader);
+		if (s == null) { s = new funkin.shaders.NoteColorSwapShader(0, 1.0, funkin.shaders.NoteColorSwapShader.fromColor(color, 1.0).getCurrentPreset()); sprite.shader = s; }
 		return s.tweenToColor(color, duration, _ease(ease));
 	}
 
 	/**
-	 * Tween de la intensidad del NoteRGBShader (efecto de pulso / flash).
+	 * Tween de la intensidad del NoteColorSwapShader (efecto de pulso / flash).
 	 * Muy útil en onBeatHit para hacer un flash de color en beat.
 	 *
 	 * Ejemplo de pulso en beat:
@@ -614,7 +803,7 @@ class NoteSkinSystem
 		fromMult:Float, toMult:Float, duration:Float = 0.2, ease:String = 'linear'):flixel.tweens.FlxTween
 	{
 		if (sprite == null) return null;
-		final s = Std.downcast(sprite.shader, funkin.shaders.NoteRGBShader);
+		final s = Std.downcast(sprite.shader, funkin.shaders.NoteColorSwapShader);
 		if (s == null) return null;
 		return s.tweenIntensity(fromMult, toMult, duration, _ease(ease));
 	}
@@ -648,6 +837,100 @@ class NoteSkinSystem
 	public static function forceReinit():Void
 	{
 		initialized = false;
+	}
+
+	// ==================== HOT-RELOAD (F5) ====================
+
+	/**
+	 * Recarga desde disco el skin.json de la skin activa y el splash.json
+	 * del splash activo, sin reinicializar todo el sistema.
+	 *
+	 * Uso típico: pulsar F5 en PlayState para ver cambios al JSON al instante.
+	 *
+	 * Devuelve true si al menos un archivo fue releído con éxito.
+	 * Solo funciona en builds de escritorio (#if sys).
+	 */
+	public static function reloadCurrentJsonsFromDisk():Bool
+	{
+		#if sys
+		var reloaded = false;
+
+		// ── Skin ────────────────────────────────────────────────────────────
+		final skinData = availableSkins.get(currentSkin);
+		if (skinData != null && skinData.folder != null)
+		{
+			final folder = skinData.folder;
+			final candidates:Array<String> = [];
+			final modRoot = mods.ModManager.modRoot();
+			if (modRoot != null)
+				candidates.push('$modRoot/notes/skins/$folder/skin.json');
+			candidates.push('$SKINS_PATH/$folder/skin.json');
+
+			for (configPath in candidates)
+			{
+				if (FileSystem.exists(configPath))
+				{
+					try
+					{
+						var newData:NoteSkinData = Json.parse(File.getContent(configPath));
+						newData.folder = folder;
+						// Quitar la entrada vieja (por si el nombre cambió) y registrar la nueva
+						availableSkins.remove(currentSkin);
+						availableSkins.set(newData.name, newData);
+						currentSkin = newData.name;
+						reloaded = true;
+						trace('[NoteSkinSystem] 🔄 Hot-reloaded skin "$currentSkin" desde $configPath');
+					}
+					catch (e:Dynamic)
+					{
+						trace('[NoteSkinSystem] Error hot-reload skin $configPath: $e');
+					}
+					break; // usar solo el primer candidato encontrado
+				}
+			}
+		}
+
+		// ── Splash ──────────────────────────────────────────────────────────
+		if (currentSplash != "Default" && currentSplash != null)
+		{
+			final splData = availableSplashes.get(currentSplash);
+			if (splData != null && splData.folder != null)
+			{
+				final folder = splData.folder;
+				final candidates:Array<String> = [];
+				final modRoot = mods.ModManager.modRoot();
+				if (modRoot != null)
+					candidates.push('$modRoot/notes/splashes/$folder/splash.json');
+				candidates.push('$SPLASHES_PATH/$folder/splash.json');
+
+				for (configPath in candidates)
+				{
+					if (FileSystem.exists(configPath))
+					{
+						try
+						{
+							var newData:NoteSplashData = Json.parse(File.getContent(configPath));
+							newData.folder = folder;
+							availableSplashes.remove(currentSplash);
+							availableSplashes.set(newData.name, newData);
+							currentSplash = newData.name;
+							reloaded = true;
+							trace('[NoteSkinSystem] 🔄 Hot-reloaded splash "$currentSplash" desde $configPath');
+						}
+						catch (e:Dynamic)
+						{
+							trace('[NoteSkinSystem] Error hot-reload splash $configPath: $e');
+						}
+						break;
+					}
+				}
+			}
+		}
+
+		return reloaded;
+		#else
+		return false;
+		#end
 	}
 
 	// ==================== INIT ====================
@@ -1404,15 +1687,47 @@ class NoteSkinSystem
 	public static function buildStrumOffsets(skinData:NoteSkinData, noteID:Int):Map<String, Array<Float>>
 	{
 		var map:Map<String, Array<Float>> = new Map();
-		if (skinData == null || skinData.animations == null) return map;
+		if (skinData == null) return map;
 
-		var anims = skinData.animations;
 		var i = Std.int(Math.abs(noteID)) % 4;
 
-		// Defs para este noteID
-		var staticDefs  = [anims.strumLeft,       anims.strumDown,       anims.strumUp,       anims.strumRight];
-		var pressDefs   = [anims.strumLeftPress,   anims.strumDownPress,  anims.strumUpPress,  anims.strumRightPress];
-		var confirmDefs = [anims.strumLeftConfirm, anims.strumDownConfirm,anims.strumUpConfirm,anims.strumRightConfirm];
+		// ── animList tiene prioridad ─────────────────────────────────────────
+		if (skinData.animList != null)
+		{
+			for (entry in skinData.animList)
+			{
+				if (entry == null || entry.name == null) continue;
+				// Filtrar por dirección: noteID coincide o null = todas las dirs
+				var entryDir:Null<Int> = entry.noteID;
+				if (entryDir != null && entryDir >= 0 && entryDir != i) continue;
+				// Solo añadir offset si es una animación de strum
+				if (entry.name != "static" && entry.name != "pressed" && entry.name != "confirm") continue;
+				if (entry.offsets != null && entry.offsets.length >= 2)
+					map.set(entry.name, [entry.offsets[0], entry.offsets[1]]);
+			}
+			// Si no hay confirm explícito, aplicar confirmOffset global
+			if (!map.exists("confirm"))
+			{
+				var useDefault = skinData.confirmOffset != null
+					? skinData.confirmOffset
+					: (skinData.offsetDefault != null ? skinData.offsetDefault : !(skinData.isPixel == true));
+				if (useDefault) map.set("confirm", [-13.0, -13.0]);
+			}
+			return map;
+		}
+
+		// ── Sistema legacy ───────────────────────────────────────────────────
+		if (skinData.animations == null) return map;
+
+		var anims = skinData.animations;
+
+		// Defs para este noteID — resueltas con la cadena de fallback libre
+		var strumDirs   = ["strumLeft",        "strumDown",        "strumUp",        "strumRight"];
+		var pressDirs   = ["strumLeftPress",   "strumDownPress",   "strumUpPress",   "strumRightPress"];
+		var confirmDirs = ["strumLeftConfirm", "strumDownConfirm", "strumUpConfirm", "strumRightConfirm"];
+		var staticDefs  = [for (d in strumDirs)   resolveAnimDef(anims, [d, "strum",         "allStrum"])];
+		var pressDefs   = [for (d in pressDirs)   resolveAnimDef(anims, [d, "strumPress",    "allStrumPress"])];
+		var confirmDefs = [for (d in confirmDirs) resolveAnimDef(anims, [d, "strumConfirm",  "allStrumConfirm"])];
 
 		// Helper: extrae offset de una def dinámica (String o NoteAnimDef)
 		inline function offsetOf(def:Dynamic):Array<Float>
@@ -1472,14 +1787,30 @@ class NoteSkinSystem
 	*/
 	public static function buildNoteOffsets(skinData:NoteSkinData, noteID:Int):Array<Float>
 	{
-		if (skinData == null || skinData.animations == null) return [0.0, 0.0];
+		if (skinData == null) return [0.0, 0.0];
 
-		var anims = skinData.animations;
 		var i = Std.int(Math.abs(noteID)) % 4;
 
-		// Defs de animación de nota scroll por dirección
-		var scrollDefs:Array<Dynamic> = [anims.left, anims.down, anims.up, anims.right];
-		var def:Dynamic = scrollDefs[i];
+		// ── animList tiene prioridad sobre el sistema legacy ─────────────────
+		if (skinData.animList != null)
+		{
+			var dirs = ["purple", "blue", "green", "red"];
+			// Buscar por nombre específico de dir, luego genérico "scroll"
+			for (key in [dirs[i] + "Scroll", "scroll"])
+			{
+				var data = getAnimListData(skinData.animList, key);
+				if (data != null) return [data[0], data[1]];
+			}
+		}
+
+		// ── Sistema legacy ───────────────────────────────────────────────────
+		if (skinData.animations == null) return [0.0, 0.0];
+		var anims = skinData.animations;
+
+		// Defs de animación de nota scroll — cadena de fallback libre
+		var scrollKeys = [["left","note","allNotes"],["down","note","allNotes"],
+						  ["up","note","allNotes"],["right","note","allNotes"]];
+		var def:Dynamic = resolveAnimDef(anims, scrollKeys[i]);
 
 		// Extraer offset del def (puede ser String shorthand → sin offset)
 		if (def != null && !Std.isOfType(def, String))
@@ -1502,10 +1833,29 @@ class NoteSkinSystem
 	 */
 	public static function buildHoldNoteOffsets(skinData:NoteSkinData, noteID:Int):Array<Float>
 	{
-		if (skinData == null || skinData.animations == null) return [0.0, 0.0];
+		if (skinData == null) return [0.0, 0.0];
+
+		var i = Std.int(Math.abs(noteID)) % 4;
+
+		// ── animList tiene prioridad ─────────────────────────────────────────
+		if (skinData.animList != null)
+		{
+			var dirs = ["purple", "blue", "green", "red"];
+			for (key in [dirs[i] + "holdend", dirs[i] + "hold", "holdend", "hold"])
+			{
+				var data = getAnimListData(skinData.animList, key);
+				if (data != null) return [data[0], data[1]];
+			}
+			// Fallback al offset de scroll en animList
+			var dirs2 = ["purple", "blue", "green", "red"];
+			var data = getAnimListData(skinData.animList, dirs2[i] + "Scroll");
+			if (data != null) return [data[0], data[1]];
+		}
+
+		// ── Sistema legacy ───────────────────────────────────────────────────
+		if (skinData.animations == null) return buildNoteOffsets(skinData, noteID);
 
 		var anims = skinData.animations;
-		var i = Std.int(Math.abs(noteID)) % 4;
 
 		// Helper inline
 		inline function offsetOf(def:Dynamic):Array<Float>
@@ -1516,14 +1866,16 @@ class NoteSkinSystem
 			return [Std.parseFloat(Std.string(arr[0])), Std.parseFloat(Std.string(arr[1]))];
 		}
 
-		// Defs de hold (piezas) y holdEnd (tail)
-		var holdDefs:Array<Dynamic>    = [anims.leftHold,    anims.downHold,    anims.upHold,    anims.rightHold];
-		var holdEndDefs:Array<Dynamic> = [anims.leftHoldEnd, anims.downHoldEnd, anims.upHoldEnd, anims.rightHoldEnd];
+		// Defs de hold (piezas) y holdEnd (tail) — cadena de fallback libre
+		var holdDirs    = ["leftHold",    "downHold",    "upHold",    "rightHold"];
+		var holdEndDirs = ["leftHoldEnd", "downHoldEnd", "upHoldEnd", "rightHoldEnd"];
+		var holdDef    = resolveAnimDef(anims, [holdDirs[i],    "hold",    "allHold"]);
+		var holdEndDef = resolveAnimDef(anims, [holdEndDirs[i], "holdEnd", "allHoldEnd"]);
 
 		// Preferir holdEnd si tiene offset, si no hold, si no fallback al scroll offset
-		var off = offsetOf(holdEndDefs[i]);
+		var off = offsetOf(holdEndDef);
 		if (off != null) return off;
-		off = offsetOf(holdDefs[i]);
+		off = offsetOf(holdDef);
 		if (off != null) return off;
 
 		// Fallback: mismo offset que la cabeza de nota para coherencia visual
@@ -1609,6 +1961,60 @@ class NoteSkinSystem
 		return d != null ? d.animations : null;
 	}
 
+	// ==================== HELPERS DE RESOLUCIÓN DE ANIMACIONES ====================
+
+	/**
+	 * Resuelve una definición de animación desde el objeto `animations` (Dynamic).
+	 * Prueba cada clave en orden y devuelve el primer valor no-null.
+	 *
+	 * Esto permite que el JSON sea completamente libre: el mismo método funciona
+	 * tanto con los nombres clásicos ("left", "strumLeftConfirm"…) como con los
+	 * nuevos genéricos ("note", "hold", "strum"…) o cualquier clave custom.
+	 *
+	 * Uso típico en Note.hx:
+	 *   var def = NoteSkinSystem.resolveAnimDef(anims, ["left", "note", "allNotes"]);
+	 *   NoteSkinSystem.addAnimToSprite(this, "leftScroll", def);
+	 *
+	 * @param anims  Objeto Dynamic del JSON (skinData.animations).
+	 * @param keys   Claves a probar en orden de prioridad.
+	 * @return  Primera definición no-null encontrada, o null si ninguna existe.
+	 */
+	public static function resolveAnimDef(anims:Dynamic, keys:Array<String>):Dynamic
+	{
+		if (anims == null) return null;
+		for (key in keys)
+		{
+			var val:Dynamic = Reflect.field(anims, key);
+			if (val != null) return val;
+		}
+		return null;
+	}
+
+	/**
+	 * Resuelve la lista de variantes de animación para un splash en una dirección.
+	 *
+	 * Orden de prioridad:
+	 *   1. Campo específico de dirección: "left" / "down" / "up" / "right"
+	 *   2. Campo genérico compartido:     "all"
+	 *
+	 * Esto permite un splash con una sola animación para todas las columnas:
+	 *   "animations": { "all": ["note impact 1", "note impact 2"] }
+	 * O con overrides por dirección:
+	 *   "animations": { "all": ["generic"], "left": ["specialLeft1", "specialLeft2"] }
+	 *
+	 * @param anims     Bloque animations del splash JSON.
+	 * @param noteData  Índice de dirección (0=left, 1=down, 2=up, 3=right).
+	 * @return Array de prefijos de animación, o null si no hay ninguno definido.
+	 */
+	public static function resolveSplashList(anims:SplashAnimations, noteData:Int):Array<String>
+	{
+		if (anims == null) return null;
+		var dirs = ["left", "down", "up", "right"];
+		var specific:Array<String> = Reflect.field(anims, dirs[noteData % 4]);
+		if (specific != null && specific.length > 0) return specific;
+		return anims.all;
+	}
+
 	// ==================== HELPER: AÑADIR ANIMACIÓN ====================
 
 	/**
@@ -1667,6 +2073,105 @@ class NoteSkinSystem
 		{
 			trace('[NoteSkinSystem] addAnimToSprite: "$animName" no tiene prefix ni indices — ignorado');
 		}
+	}
+
+	// ==================== ANIMLIST (ESTILO PERSONAJE) ====================
+
+	/**
+	 * Registra todas las animaciones de un SkinAnimEntry list en un FlxSprite.
+	 *
+	 * Acepta los campos `fps` o `framerate` (compatibilidad AnimData),
+	 * `loop` o `looped`, y aplica flipX/flipY cuando se reproduce (no al registrar).
+	 *
+	 * @return  Mapa animName → [offsetX, offsetY, flipX:0|1, flipY:0|1].
+	 *          Se usa en _applyNoteAnim / playAnim / _playRandomAnim para
+	 *          aplicar offsets y volteos por animación igual que los personajes.
+	 */
+	public static function loadAnimList(sprite:FlxSprite, list:Array<SkinAnimEntry>):Map<String, Array<Float>>
+	{
+		var offsetMap:Map<String, Array<Float>> = new Map();
+		if (sprite == null || list == null) return offsetMap;
+
+		for (entry in list)
+		{
+			if (entry == null || entry.name == null || entry.prefix == null) continue;
+
+			var fps:Int  = entry.fps      != null ? entry.fps
+			             : entry.framerate != null ? Std.int(entry.framerate) : 24;
+			var loop:Bool = entry.loop   != null ? entry.loop
+			              : entry.looped != null ? entry.looped : false;
+
+			if (entry.indices != null && entry.indices.length > 0)
+				sprite.animation.add(entry.name, entry.indices, fps, loop);
+			else
+				sprite.animation.addByPrefix(entry.name, entry.prefix, fps, loop);
+
+			var ox:Float = (entry.offsets != null && entry.offsets.length > 0) ? entry.offsets[0] : 0.0;
+			var oy:Float = (entry.offsets != null && entry.offsets.length > 1) ? entry.offsets[1] : 0.0;
+			var fx:Float = entry.flipX == true ? 1.0 : 0.0;
+			var fy:Float = entry.flipY == true ? 1.0 : 0.0;
+			offsetMap.set(entry.name, [ox, oy, fx, fy]);
+		}
+
+		return offsetMap;
+	}
+
+	/**
+	 * Obtiene los datos de una animación del animList: [offsetX, offsetY, flipX:0|1, flipY:0|1].
+	 * Devuelve null si la animación no existe en el list.
+	 */
+	public static function getAnimListData(list:Array<SkinAnimEntry>, animName:String):Array<Float>
+	{
+		if (list == null || animName == null) return null;
+		for (entry in list)
+			if (entry != null && entry.name == animName)
+			{
+				var ox:Float = (entry.offsets != null && entry.offsets.length > 0) ? entry.offsets[0] : 0.0;
+				var oy:Float = (entry.offsets != null && entry.offsets.length > 1) ? entry.offsets[1] : 0.0;
+				var fx:Float = entry.flipX == true ? 1.0 : 0.0;
+				var fy:Float = entry.flipY == true ? 1.0 : 0.0;
+				return [ox, oy, fx, fy];
+			}
+		return null;
+	}
+
+	/**
+	 * Resuelve los nombres de variante de splash del animList para una dirección.
+	 *
+	 * Prioridad:
+	 *   1. Entradas cuyo `name` comienza con "{dir}_"  (e.g. "left_0", "left_1")
+	 *   2. Entradas cuyo `name` comienza con "all_"    (fallback compartido)
+	 *   3. Si solo hay UNA entrada en el list → se usa para todas las dirs (single splash)
+	 *
+	 * @param list      animList del NoteSplashData.
+	 * @param noteData  Dirección (0=left, 1=down, 2=up, 3=right).
+	 * @return  Array con los nombres internos de las variantes, vacío si no hay nada.
+	 */
+	public static function resolveSplashNamesFromAnimList(list:Array<SkinAnimEntry>, noteData:Int):Array<String>
+	{
+		if (list == null || list.length == 0) return [];
+		var dirs = ["left", "down", "up", "right"];
+		var dir  = dirs[noteData % 4];
+
+		// 1. Variantes específicas de dirección: "left_0", "left_1", etc.
+		var specific:Array<String> = [];
+		for (entry in list)
+			if (entry != null && entry.name != null && entry.name.startsWith(dir + "_"))
+				specific.push(entry.name);
+		if (specific.length > 0) return specific;
+
+		// 2. Fallback compartido "all_N"
+		var all:Array<String> = [];
+		for (entry in list)
+			if (entry != null && entry.name != null && entry.name.startsWith("all_"))
+				all.push(entry.name);
+		if (all.length > 0) return all;
+
+		// 3. Single splash: una sola entrada → usar para todas las dirs
+		if (list.length == 1 && list[0] != null)
+			return [list[0].name];
+
+		return [];
 	}
 
 	// ==================== GETTERS DE SPLASH ====================

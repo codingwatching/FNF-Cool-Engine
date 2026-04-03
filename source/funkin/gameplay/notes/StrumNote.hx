@@ -26,6 +26,25 @@ class StrumNote extends FlxSprite
 	 */
 	private var _animOffsets:Map<String, Array<Float>> = new Map();
 
+	/**
+	 * Cache animList: animName → [offsetX, offsetY, flipX:0|1, flipY:0|1].
+	 * Construido por loadSkin() cuando skinData.animList != null.
+	 * Usado en playAnim() para aplicar offsets y flipX al estilo personaje.
+	 */
+	private var _animListData:Map<String, Array<Float>> = null;
+
+	/** flipX base del strum (antes de aplicar per-anim flipX del animList). */
+	private var _baseFlipX:Bool = false;
+
+	/**
+	 * Shader de colorización automática (colorAuto:true en skin.json).
+	 * Se reutiliza entre recargas de skin para evitar crear un objeto nuevo en cada frame.
+	 */
+	private var _colorSwapShader:funkin.shaders.NoteColorSwapShader = null;
+
+	/** Shader RGB por paleta (colorAuto + colorDirections). Mismo enfoque que NightmareVision. Mutex con _colorSwapShader. */
+	private var _rgbShader:funkin.shaders.NoteRGBPaletteShader = null;
+
 	public function new(x:Float, y:Float, noteID:Int = 0)
 	{
 		super(x, y);
@@ -37,12 +56,7 @@ class StrumNote extends FlxSprite
 
 		updateHitbox();
 		scrollFactor.set();
-		// FIX: usar playAnim() en lugar de animation.play() para que los
-		// _animOffsets de la skin (centerOffsets + offset de la anim 'static')
-		// se apliquen desde el primer frame. Sin esto los strums aparecen
-		// desplazados hasta que se reproduce otra animación y vuelven a 'static'.
 		playAnim('static');
-		// Los strums NO llevan NoteGlowShader — el glow de proximidad va en las notas entrantes
 	}
 
 	// ==================== CARGA DE SKIN ====================
@@ -96,43 +110,118 @@ class StrumNote extends FlxSprite
 		antialiasing = tex.antialiasing != null ? tex.antialiasing : !_isPixelSkin;
 
 		// ── Cargar animaciones ────────────────────────────────────────────
-		var anims = skinData.animations;
-		if (anims == null)
-		{
-			loadDefaultStrumAnimations();
-			return;
-		}
-
+		// Prioridad: animList (estilo personaje) → campo animations (legacy)
 		var i = Std.int(Math.abs(noteID));
 
-		var strumDefs = [anims.strumLeft, anims.strumDown, anims.strumUp, anims.strumRight];
-		var pressDefs = [
-			anims.strumLeftPress,
-			anims.strumDownPress,
-			anims.strumUpPress,
-			anims.strumRightPress
-		];
-		var confirmDefs = [
-			anims.strumLeftConfirm,
-			anims.strumDownConfirm,
-			anims.strumUpConfirm,
-			anims.strumRightConfirm
-		];
+		// ── Sistema animList ─────────────────────────────────────────────
+		if (skinData.animList != null && skinData.animList.length > 0)
+		{
+			_animListData = new Map();
+			for (entry in skinData.animList)
+			{
+				if (entry == null || entry.name == null || entry.prefix == null) continue;
+				// Solo cargar entradas de strum: static/pressed/confirm
+				if (entry.name != "static" && entry.name != "pressed" && entry.name != "confirm") continue;
+				// Filtrar por dirección: noteID coincide o null/negativo = todas las dirs
+				var entryDir:Null<Int> = entry.noteID;
+				if (entryDir != null && entryDir >= 0 && entryDir != i) continue;
 
-		// 'static' may loop freely; 'pressed' and 'confirm' must NOT loop so that
-		// animation.curAnim.finished becomes true and the auto-reset to 'static'
-		// fires correctly.  We pass overrideLoop=false for those two.
-		// Previously the code tried to set FlxAnimation.looped after registration,
-		// but that field is read-only in HaxeFlixel — this is the correct fix.
-		NoteSkinSystem.addAnimToSprite(this, 'static', strumDefs[i]);
-		NoteSkinSystem.addAnimToSprite(this, 'pressed', pressDefs[i], false);
-		NoteSkinSystem.addAnimToSprite(this, 'confirm', confirmDefs[i], false);
+				var fps:Int  = entry.fps      != null ? entry.fps
+				             : entry.framerate != null ? Std.int(entry.framerate) : 24;
+				var loop:Bool = (entry.name == "static")
+				             ? (entry.loop != null ? entry.loop : (entry.looped != null ? entry.looped : true))
+				             : false; // pressed/confirm NO deben hacer loop
+
+				if (entry.indices != null && entry.indices.length > 0)
+					animation.add(entry.name, entry.indices, fps, loop);
+				else
+					animation.addByPrefix(entry.name, entry.prefix, fps, loop);
+
+				// Cache offset/flipX para playAnim()
+				var ox:Float = (entry.offsets != null && entry.offsets.length > 0) ? entry.offsets[0] : 0.0;
+				var oy:Float = (entry.offsets != null && entry.offsets.length > 1) ? entry.offsets[1] : 0.0;
+				var fx:Float = entry.flipX == true ? 1.0 : 0.0;
+				var fy:Float = entry.flipY == true ? 1.0 : 0.0;
+				_animListData.set(entry.name, [ox, oy, fx, fy]);
+			}
+			_baseFlipX = this.flipX;
+		}
+
+		// ── Sistema legacy (si no hay animList o como respaldo) ───────────
+		var anims = skinData.animations;
+		if (anims != null && !animation.exists("static"))
+		{
+			var strumKeys   = ["strumLeft",        "strumDown",        "strumUp",        "strumRight"];
+			var pressKeys   = ["strumLeftPress",   "strumDownPress",   "strumUpPress",   "strumRightPress"];
+			var confirmKeys = ["strumLeftConfirm", "strumDownConfirm", "strumUpConfirm", "strumRightConfirm"];
+
+			var staticDef  = NoteSkinSystem.resolveAnimDef(anims, [strumKeys[i],   "strum",         "allStrum"]);
+			var pressDef   = NoteSkinSystem.resolveAnimDef(anims, [pressKeys[i],   "strumPress",    "allStrumPress"]);
+			var confirmDef = NoteSkinSystem.resolveAnimDef(anims, [confirmKeys[i], "strumConfirm",  "allStrumConfirm"]);
+
+			NoteSkinSystem.addAnimToSprite(this, 'static',  staticDef);
+			NoteSkinSystem.addAnimToSprite(this, 'pressed', pressDef,   false);
+			NoteSkinSystem.addAnimToSprite(this, 'confirm', confirmDef, false);
+		}
 
 		// Fallback si no se definió animación estática
 		if (!animation.exists('static'))
 		{
 			trace('[StrumNote] "static" no encontrada en skin "${skinData.name}" para noteID $noteID — cargando defaults');
 			loadDefaultStrumAnimations();
+		}
+
+		// FIX: aplicar shader de colorización automática si la skin lo pide.
+		// Antes esta función terminaba aquí sin tocar el shader, así que
+		// `colorAuto:true` en skin.json nunca tenía efecto en los strums.
+		_applyShaderForSkin(skinData);
+	}
+
+	/**
+	 * Aplica el shader correcto al strum según la skin activa.
+	 *
+	 * Prioridad (mismo orden que Note.hx para consistencia visual):
+	 *   1. colorAuto + colorDirections → NoteRGBPaletteShader (enfoque NightmareVision)
+	 *   2. colorAuto + colorHSV        → NoteColorSwapShader  (HSV shift, fallback)
+	 *   3. sin colorAuto               → sin shader
+	 */
+	function _applyShaderForSkin(skinData:NoteSkinSystem.NoteSkinData):Void
+	{
+		if (skinData != null && skinData.colorAuto == true)
+		{
+			final dir = noteID % 4;
+
+			// PRIORIDAD 1: colorDirections → RGB palette shader (igual que NightmareVision).
+			// Reemplaza canales R/G/B de la textura con colores reales por dirección.
+			if (skinData.colorDirections != null && dir < skinData.colorDirections.length)
+			{
+				final cd = skinData.colorDirections[dir];
+				// GC FIX: reutilizar shader entre recargas de skin.
+				if (_rgbShader == null)
+					_rgbShader = new funkin.shaders.NoteRGBPaletteShader();
+				_rgbShader.setColors(cd.r, cd.g, cd.b);
+				_colorSwapShader = null;
+				shader = _rgbShader;
+				return;
+			}
+
+			// PRIORIDAD 2: colorHSV → HSV shift (fallback cuando no hay colorDirections).
+			final mult = (skinData.colorMult != null) ? skinData.colorMult : 1.0;
+			if (_colorSwapShader == null)
+				_colorSwapShader = new funkin.shaders.NoteColorSwapShader(dir, mult, null);
+			else
+			{
+				_colorSwapShader.setDirection(dir, null);
+				_colorSwapShader.intensity = mult;
+			}
+			_rgbShader = null;
+			shader = _colorSwapShader;
+		}
+		else
+		{
+			_colorSwapShader = null;
+			_rgbShader = null;
+			shader = null;
 		}
 	}
 
@@ -168,7 +257,28 @@ class StrumNote extends FlxSprite
 		animation.play(animName, force);
 		centerOffsets();
 
-		// Aplicar offset de la skin para esta animación (pressed / confirm), si existe.
+		// ── animList: offsets + flipX al estilo personaje ─────────────────
+		if (_animListData != null)
+		{
+			var data = _animListData.get(animName);
+			if (data != null)
+			{
+				offset.x += data[0];
+				offset.y += data[1];
+				// flipX: XOR con el base igual que Character.hx
+				var animFlipX:Bool = data[2] > 0.5;
+				this.flipX = _baseFlipX != animFlipX;
+				if (data[3] > 0.5) this.flipY = !this.flipY;
+			}
+			else
+			{
+				// Sin datos específicos → restaurar flipX base
+				this.flipX = _baseFlipX;
+			}
+			return;
+		}
+
+		// ── Sistema legacy: offset de la skin para esta animación ─────────
 		var off = _animOffsets.get(animName);
 		if (off != null)
 		{

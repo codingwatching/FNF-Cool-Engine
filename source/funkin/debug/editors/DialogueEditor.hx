@@ -155,6 +155,7 @@ class DialogueEditor extends FlxState
 
 	var _isDirty    : Bool = false;
 	var _unsavedDlg : UnsavedChangesDialog = null;
+	var _windowCloseFn : Void->Void = null;
 
 	// === DATOS ===
 	var conversation:DialogueConversation;
@@ -209,6 +210,16 @@ class DialogueEditor extends FlxState
 		add(_themeBtn);
 
 		funkin.system.CursorManager.show();
+
+		// Window-close guard
+		#if sys
+		_windowCloseFn = function()
+		{
+			if (_isDirty)
+				try { saveConversation(); } catch (_) {}
+		};
+		lime.app.Application.current.window.onClose.add(_windowCloseFn);
+		#end
 
 		super.create();
 
@@ -1843,6 +1854,18 @@ class DialogueEditor extends FlxState
 				addMessage();
 			}
 		}
+	}
+
+	override function destroy():Void
+	{
+		#if sys
+		if (_windowCloseFn != null)
+		{
+			try { lime.app.Application.current.window.onClose.remove(_windowCloseFn); } catch (_) {}
+			_windowCloseFn = null;
+		}
+		#end
+		super.destroy();
 	}
 }
 

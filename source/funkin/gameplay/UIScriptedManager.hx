@@ -101,8 +101,8 @@ class UIScriptedManager extends FlxGroup
 	{
 		// Buscar en el mod activo primero, luego en assets/.
 		// Soporta .hx y .lua (.lua tiene prioridad si existe):
-		//   mods/{mod}/data/ui/{name}/script.lua|hx
-		//   assets/data/ui/{name}/script.lua|hx
+		//   mods/{mod}/data/hud/{name}/script.lua|hx
+		//   assets/data/hud/{name}/script.lua|hx
 		var path:String = null;
 		var isLua:Bool = false;
 
@@ -111,10 +111,10 @@ class UIScriptedManager extends FlxGroup
 		{
 			final modRoot = mods.ModManager.modRoot();
 			for (candidate in [
-				'$modRoot/data/ui/$name/script.lua',
-				'$modRoot/data/ui/$name/script.hx',
-				'$modRoot/assets/data/ui/$name/script.lua',
-				'$modRoot/assets/data/ui/$name/script.hx'
+				'$modRoot/data/hud/$name/script.lua',
+				'$modRoot/data/hud/$name/script.hx',
+				'$modRoot/assets/data/hud/$name/script.lua',
+				'$modRoot/assets/data/hud/$name/script.hx'
 			])
 			{
 				if (FileSystem.exists(candidate))
@@ -129,7 +129,7 @@ class UIScriptedManager extends FlxGroup
 		if (mods.ModManager.isActive())
 		{
 			final modRoot = mods.ModManager.modRoot();
-			for (candidate in ['$modRoot/data/ui/$name/script.hx', '$modRoot/assets/data/ui/$name/script.hx'])
+			for (candidate in ['$modRoot/data/hud/$name/script.hx', '$modRoot/assets/data/hud/$name/script.hx'])
 			{
 				if (FileSystem.exists(candidate))
 				{
@@ -143,7 +143,7 @@ class UIScriptedManager extends FlxGroup
 		if (path == null)
 		{
 			#if (LUA_ALLOWED && linc_luajit && sys)
-			for (candidate in ['assets/data/ui/$name/script.lua', 'assets/data/ui/$name/script.hx'])
+			for (candidate in ['assets/data/hud/$name/script.lua', 'assets/data/hud/$name/script.hx'])
 				if (FileSystem.exists(candidate))
 				{
 					path = candidate;
@@ -151,7 +151,7 @@ class UIScriptedManager extends FlxGroup
 					break;
 				}
 			#elseif sys
-			final assetPath = 'assets/data/ui/$name/script.hx';
+			final assetPath = 'assets/data/hud/$name/script.hx';
 			if (FileSystem.exists(assetPath))
 				path = assetPath;
 			#end

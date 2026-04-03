@@ -2750,6 +2750,7 @@ class ScriptAPI
 			try
 			{
 				final vars = Reflect.field(scriptInterp, 'variables');
+
 				if (vars == null) return;
 				Reflect.callMethod(vars, Reflect.field(vars, 'set'), ['character', char]);
 				Reflect.callMethod(vars, Reflect.field(vars, 'set'), ['game', funkin.gameplay.PlayState.instance]);
