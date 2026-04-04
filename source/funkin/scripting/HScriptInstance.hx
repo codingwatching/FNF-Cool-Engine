@@ -510,6 +510,12 @@ class HScriptInstance implements IScript
 		// No desactivar automáticamente — sólo errores de parsing/init son fatales.
 		// Los errores en call() son recuperables (la función simplemente devuelve null).
 
+		// ── In-game error popup (non-blocking) ────────────────────────────────
+		// Shows a floating panel on top of the game without freezing or crashing.
+		// The player/modder can dismiss it with [x] or Escape and keep playing.
+		final popupMsg = lineContent != '' ? '$msg\n\n>> $lineContent' : msg;
+		ScriptErrorNotifier.notify(name, funcName, popupMsg, lineNum);
+
 		if (onError != null)
 			try
 			{

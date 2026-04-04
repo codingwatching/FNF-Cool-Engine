@@ -111,7 +111,9 @@ class TitleState extends funkin.states.MusicBeatState
 	{
 		super.create(); // DEBE ir primero: inicializa cámaras y grupos de Flixel
 
-		PlayerSettings.init();
+		// PlayerSettings.init() ya fue llamado en Main.initializeGameSystems()
+		// y en CacheState (eliminado). Llamarlo aquí por tercera vez recrea
+		// controles y lee disco innecesariamente → eliminado.
 		
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.getGraphic('menu/menuBGtitle'));
 		// Escalar para cubrir toda la pantalla (fix 1080p y cualquier resolucion)

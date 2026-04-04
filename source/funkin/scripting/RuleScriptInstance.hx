@@ -2271,6 +2271,21 @@ BossBar = Class {
 			return null;
 	}
 
+	/**
+	 * Devuelve el FlxTweenManager de gameplay si estamos en PlayState,
+	 * o el globalManager si no. Así los tweens de scripts se congelan
+	 * automáticamente cuando el jugador pausa la partida.
+	 */
+	static inline function _tweenMgr():flixel.tweens.FlxTween.FlxTweenManager
+		return funkin.gameplay.PlayState.gameplayTweens ?? flixel.tweens.FlxTween.globalManager;
+
+	/**
+	 * Devuelve el FlxTimerManager de gameplay si estamos en PlayState,
+	 * o el globalManager si no.
+	 */
+	static inline function _timerMgr():flixel.util.FlxTimer.FlxTimerManager
+		return funkin.gameplay.PlayState.gameplayTimers ?? flixel.util.FlxTimer.globalManager;
+
 	static function _ease(n:String):Float->Float
 		return switch n
 		{
@@ -3526,7 +3541,7 @@ BossBar = Class {
 		final dur = Lua.tonumber(l, 2);
 		final ease = Lua.gettop(l) > 2 ? Lua.tostring(l, 3) : 'linear';
 		Lua.settop(l, 0);
-		flixel.tweens.FlxTween.tween(flixel.FlxG.camera, {zoom: z}, dur, {ease: _ease(ease)});
+		_tweenMgr().tween(flixel.FlxG.camera, {zoom: z}, dur, {ease: _ease(ease)});
 		return 0;
 	}
 
@@ -3563,7 +3578,7 @@ BossBar = Class {
 		final y = Lua.tonumber(l, 2);
 		final dur = Lua.tonumber(l, 3);
 		Lua.settop(l, 0);
-		flixel.tweens.FlxTween.tween(flixel.FlxG.camera.scroll, {x: x, y: y}, dur);
+		_tweenMgr().tween(flixel.FlxG.camera.scroll, {x: x, y: y}, dur);
 		return 0;
 	}
 
@@ -3686,7 +3701,7 @@ BossBar = Class {
 			return 0;
 		final props:Dynamic = {};
 		Reflect.setField(props, field, to);
-		final tw = flixel.tweens.FlxTween.tween(obj, props, dur, {ease: _ease(ease)});
+		final tw = _tweenMgr().tween(obj, props, dur, {ease: _ease(ease)});
 		_pushOOP(l, tw);
 		return 1;
 	}
@@ -3701,7 +3716,7 @@ BossBar = Class {
 		final obj = _reg.get(h);
 		if (obj == null)
 			return 0;
-		final tw = flixel.tweens.FlxTween.color(obj, dur, from, to);
+		final tw = _tweenMgr().color(obj, dur, from, to);
 		_pushOOP(l, tw);
 		return 1;
 	}
@@ -3730,7 +3745,7 @@ BossBar = Class {
 		final obj = _reg.get(h);
 		if (obj == null)
 			return 0;
-		final tw = flixel.tweens.FlxTween.tween(obj, {angle: to}, dur, {ease: _ease(ease)});
+		final tw = _tweenMgr().tween(obj, {angle: to}, dur, {ease: _ease(ease)});
 		_pushOOP(l, tw);
 		return 1;
 	}
@@ -3746,7 +3761,7 @@ BossBar = Class {
 		final obj = _reg.get(h);
 		if (obj == null)
 			return 0;
-		final tw = flixel.tweens.FlxTween.tween(obj, {x: tx, y: ty}, dur, {ease: _ease(ease)});
+		final tw = _tweenMgr().tween(obj, {x: tx, y: ty}, dur, {ease: _ease(ease)});
 		_pushOOP(l, tw);
 		return 1;
 	}
@@ -3761,7 +3776,7 @@ BossBar = Class {
 		final obj = _reg.get(h);
 		if (obj == null)
 			return 0;
-		final tw = flixel.tweens.FlxTween.tween(obj, {alpha: to}, dur, {ease: _ease(ease)});
+		final tw = _tweenMgr().tween(obj, {alpha: to}, dur, {ease: _ease(ease)});
 		_pushOOP(l, tw);
 		return 1;
 	}
@@ -3776,7 +3791,7 @@ BossBar = Class {
 		final obj = _reg.get(h);
 		if (obj == null)
 			return 0;
-		final tw = flixel.tweens.FlxTween.tween(obj, {'scale.x': to, 'scale.y': to}, dur, {ease: _ease(ease)});
+		final tw = _tweenMgr().tween(obj, {'scale.x': to, 'scale.y': to}, dur, {ease: _ease(ease)});
 		_pushOOP(l, tw);
 		return 1;
 	}
@@ -3790,7 +3805,7 @@ BossBar = Class {
 		final ease = Lua.gettop(l) > 4 ? Lua.tostring(l, 5) : 'linear';
 		Lua.settop(l, 0);
 		final luaRef = _sCurrentLua;
-		final tw = flixel.tweens.FlxTween.num(from, to, dur, {ease: _ease(ease)}, function(v:Float)
+		final tw = _tweenMgr().num(from, to, dur, {ease: _ease(ease)}, function(v:Float)
 		{
 			Lua.getglobal(luaRef, cbName);
 			if (Lua.type(luaRef, -1) == 6)
@@ -3813,7 +3828,7 @@ BossBar = Class {
 		final loops = Lua.gettop(l) > 2 ? Std.int(Lua.tonumber(l, 3)) : 1;
 		Lua.settop(l, 0);
 		final luaRef = _sCurrentLua;
-		final t = new flixel.util.FlxTimer();
+		final t = new flixel.util.FlxTimer(_timerMgr());
 		t.start(dur, function(_)
 		{
 			Lua.getglobal(luaRef, cbName);

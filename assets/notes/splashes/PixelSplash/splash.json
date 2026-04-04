@@ -7,7 +7,7 @@
     "type": "sparrow",
     "scale": 4.0,
     "antialiasing": false,
-    "offset": [65,60]
+    "offset": [95,90]
   },
   "animations": {
     "left": ["purple1", "purple2","purple3"],
@@ -23,7 +23,7 @@
     "textureType": "sparrow",
     "scale": 6.0,
     "antialiasing": false,
-    "offset": [120,-37],
+    "offset": [160,6],
     "framerate": 24,
     "loopFramerate": 24,
     "startPrefix": "",

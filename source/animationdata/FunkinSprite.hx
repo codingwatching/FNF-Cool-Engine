@@ -70,15 +70,24 @@ class FunkinSprite extends FlxAnimate
 	var _usedAtlases:Array<FlxAnimateFrames> = [];
 
 	/**
+	 * Set de identidad para O(1) duplicate-check en _trackAtlas().
+	 * Antes: _usedAtlases.contains(atlas) era O(n) — llamado en cada carga de frame.
+	 * Ahora: _usedAtlasSet.exists(atlas) es O(1) con hashing por referencia.
+	 */
+	var _usedAtlasSet:haxe.ds.ObjectMap<FlxAnimateFrames, Bool> = new haxe.ds.ObjectMap();
+
+	/**
 	 * Registra un atlas como "en uso" por esta instancia y marca
 	 * destroyOnNoUse = false para evitar que Flixel lo destruya antes de tiempo.
 	 */
 	function _trackAtlas(atlas:FlxAnimateFrames):Void
 	{
 		if (atlas == null || atlas.parent == null) return;
-		if (_usedAtlases.contains(atlas)) return;
+		// OPT: ObjectMap lookup O(1) vs Array.contains O(n)
+		if (_usedAtlasSet.exists(atlas)) return;
 		atlas.parent.destroyOnNoUse = false;
 		_usedAtlases.push(atlas);
+		_usedAtlasSet.set(atlas, true);
 	}
 
 	/**
@@ -93,6 +102,7 @@ class FunkinSprite extends FlxAnimate
 			atlas.parent.destroyOnNoUse = true;
 		}
 		_usedAtlases = [];
+		_usedAtlasSet = new haxe.ds.ObjectMap();
 	}
 
 	override public function destroy():Void

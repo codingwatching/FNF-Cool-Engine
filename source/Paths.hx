@@ -274,9 +274,11 @@ class Paths
 	{
 		final path = resolve('images/$key.png', IMAGE);
 		#if sys
-		// Si el archivo existe en disco pero NO en el manifest de OpenFL
-		// (ocurre con mods no recompilados), lo registramos en el cache de
-		// OpenFL para que loadGraphic() / getSparrowAtlas() lo encuentren.
+		// Si el archivo existe en disco pero NO está almacenado realmente en los
+		// mapas internos del caché de OpenFL (ocurre con mods no recompilados,
+		// y también después de Assets.cache.clear() durante cambio de mod),
+		// lo registramos para que loadGraphic() / getSparrowAtlas() lo encuentren.
+		//
 		if (FileSystem.exists(path) && !OpenFlAssets.exists(path, IMAGE))
 		{
 			try
@@ -285,7 +287,10 @@ class Paths
 				if (bmp != null)
 					openfl.utils.Assets.cache.setBitmapData(path, bmp);
 			}
-			catch (e:Dynamic) { trace('[Paths] image() cache register failed for "$path": $e'); }
+			catch (e:Dynamic)
+			{
+				trace('[Paths] image() cache register failed for "$path": $e');
+			}
 		}
 		#end
 		return path;
@@ -312,9 +317,12 @@ class Paths
 				try
 				{
 					final snd = openfl.media.Sound.fromFile(path);
-					if (snd != null) openfl.utils.Assets.cache.setSound(path, snd);
+					if (snd != null)
+						openfl.utils.Assets.cache.setSound(path, snd);
 				}
-				catch (e:Dynamic) {}
+				catch (e:Dynamic)
+				{
+				}
 			}
 			return path;
 		}
@@ -355,9 +363,12 @@ class Paths
 				try
 				{
 					final snd = openfl.media.Sound.fromFile(path);
-					if (snd != null) openfl.utils.Assets.cache.setSound(path, snd);
+					if (snd != null)
+						openfl.utils.Assets.cache.setSound(path, snd);
 				}
-				catch (e:Dynamic) {}
+				catch (e:Dynamic)
+				{
+				}
 			}
 			return path;
 		}
@@ -1008,8 +1019,12 @@ class Paths
 	public static function clearAllCaches():Void
 	{
 		clearCache();
-		cache.forceFullClear();
+		cache.forceFullClear(); // incluye _modPathCache.clear() (fix mod-switch)
 		clearFlxBitmapCache();
+		// ── FIX: garantizar limpieza de _modPathCache aunque forceFullClear()
+		// sea llamado desde un path que no pase por destroy() ────────────────
+		// La doble llamada es barata (solo asigna un nuevo Map vacío).
+		cache.clearModPathCache();
 	}
 
 	/**
@@ -1087,7 +1102,12 @@ class Paths
 					return Bitmap.fromImage(img);
 			}
 			#end
-			if (!path.startsWith('mods/') && !path.startsWith('/') && OpenFlAssets.exists(path, IMAGE))
+			// BUGFIX (Bug 2 parte 2): la condición anterior excluía rutas de mod
+			// (`mods/...`) del fallback OpenFlAssets, dejando sin registro en
+			// FunkinCache los assets cuya carga Lime falló silenciosamente.
+			// FunkinCache.getBitmapData() tiene su propio loader de disco que
+			// funciona para cualquier path literal → quitar la exclusión `mods/`.
+			if (!path.startsWith('/') && OpenFlAssets.exists(path, IMAGE))
 				return OpenFlAssets.getBitmapData(path);
 		}
 		catch (e:Dynamic)
@@ -1366,7 +1386,8 @@ class Paths
 		// Todos los mods instalados y habilitados
 		for (mod in ModManager.installedMods)
 		{
-			if (!ModManager.isEnabled(mod.id)) continue;
+			if (!ModManager.isEnabled(mod.id))
+				continue;
 			final modRoot = '${ModManager.MODS_FOLDER}/${mod.id}';
 			for (v in _songFolderVariants(song))
 				for (base in ['$modRoot/songs', '$modRoot/assets/songs'])

@@ -676,28 +676,27 @@ class Note extends FlxSprite
 	{
 		super.update(elapsed);
 
-		if (Math.abs(Conductor.songPosition - _lastSongPos) > 10)
+		// ── canBeHit para notas del jugador ──────────────────────────────────
+		// NOTA: las notas de jugador (mustPress) ya NO calculan canBeHit aquí.
+		// Lo hace NoteManager._updateNoteGroup() con el songPosition correcto
+		// del frame actual, eliminando el lag de 1 frame que desplazaba la
+		// ventana de hit hacia atrás y hacía que el área "exacta" apareciera
+		// mucho antes de donde visualmente llega la nota al strum.
+		//
+		// Para notas CPU mantenemos el wasGoodHit aquí como seguridad
+		// (NoteManager también lo gestiona, pero no cuesta nada).
+		if (!mustPress)
 		{
-			_lastSongPos = Conductor.songPosition;
-
-			if (mustPress)
-			{
-				canBeHit = (strumTime > Conductor.songPosition - _hitWindowCache
-					&& strumTime < Conductor.songPosition + _hitWindowCache);
-			}
-			else
-			{
-				canBeHit = false;
-				if (strumTime <= Conductor.songPosition)
-					wasGoodHit = true;
-			}
+			canBeHit = false;
+			if (strumTime <= Conductor.songPosition)
+				wasGoodHit = true;
 		}
 
 		if (tooLate && alpha > 0.3)
 			alpha = 0.3;
 
 		// ── Glow de proximidad ────────────────────────────────────────────────
-		// Cuanto más cerca esté la nota del strum, más brilla.
+		// Actualizado cada frame (sin threshold de 10ms) para máxima suavidad.
 		// Solo en notas de jugador que aún no han sido golpeadas.
 		if (_glowShader != null && mustPress && !wasGoodHit && !tooLate)
 		{

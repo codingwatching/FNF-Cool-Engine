@@ -32,6 +32,7 @@ class MemoryUtil
 	// ── Estado del GC ─────────────────────────────────────────────────────────
 
 	/** Número de llamadas a pauseGC() sin su correspondiente resumeGC(). */
+	@:allow(funkin.cache.FunkinCache)
 	public static var disableCount(default, null):Int = 0;
 
 	// ── GC control ───────────────────────────────────────────────────────────

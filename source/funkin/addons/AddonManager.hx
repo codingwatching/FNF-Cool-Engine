@@ -6,6 +6,7 @@ import sys.io.File;
 #end
 import haxe.Json;
 import funkin.scripting.HScriptInstance;
+import mods.ModManager;
 
 using StringTools;
 
@@ -121,6 +122,24 @@ class AddonManager
 		loadedAddons.sort((a, b) -> (b.info.priority ?? 0) - (a.info.priority ?? 0));
 		trace('[AddonManager] ${loadedAddons.length} addons cargados.');
 		#end
+
+		// ── Fix 5: notificar cambios de mod a los addons ──────────────────────
+		// ModManager.onModChanged es un slot único. Lo encadenamos de forma
+		// segura: si ya había un listener previo, lo preservamos y lo llamamos
+		// después del nuestro (no lo sobreescribimos silenciosamente).
+		final _prev = ModManager.onModChanged;
+		ModManager.onModChanged = function(newMod:String)
+		{
+			// 1. Propagar al listener previo si existía
+			if (_prev != null)
+				try { _prev(newMod); } catch (e:Dynamic) { trace('[AddonManager] onModChanged prev error: $e'); }
+
+			// 2. Notificar a todos los addons cargados.
+			//    Los addons pueden usar este hook para limpiar estado propio,
+			//    re-registrar sistemas o simplemente ignorarlo si no les afecta.
+			broadcastHook('onModSwitch', [newMod]);
+			trace('[AddonManager] onModSwitch broadcast → ${loadedAddons.length} addons (mod="${newMod ?? "base"}")');
+		};
 	}
 
 	// ── Hook dispatch ──────────────────────────────────────────────────────

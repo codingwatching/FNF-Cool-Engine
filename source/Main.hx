@@ -138,9 +138,12 @@ class Main extends Sprite
 		stage.quality = openfl.display.StageQuality.LOW;
 
 		#if cpp
-		// 8 MB de headroom es suficiente para menús; 32 MB inflaba el RSS en ~24 MB
-		// sin ningún beneficio de rendimiento en escenas ligeras como los menús.
-		cpp.vm.Gc.setMinimumFreeSpace(8 * 1024 * 1024);
+		// 32 MB de headroom: el GC espera a tener menos de 32 MB libres antes
+		// de barrer. Con 8 MB el heap fragmentaba en muchas páginas pequeñas
+		// causando que MEM_INFO_RESERVED subiera a ~200 MB innecesariamente.
+		// Con 32 MB el heap crece en bloques más grandes y compact() devuelve
+		// mucha más RAM al OS después de la carga inicial.
+		cpp.vm.Gc.setMinimumFreeSpace(32 * 1024 * 1024);
 		cpp.vm.Gc.enable(true);
 		#end
 

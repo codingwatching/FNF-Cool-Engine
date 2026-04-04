@@ -4,11 +4,11 @@ import coolui.CoolUIState;
 import funkin.data.Conductor.BPMChangeEvent;
 import funkin.data.Conductor;
 import flixel.FlxG;
-import flixel.addons.transition.FlxTransitionableState;
-
-import flixel.math.FlxRect;
 import flixel.util.FlxTimer;
 import data.PlayerSettings;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+import flixel.util.FlxColor;
 import flixel.FlxCamera;
 #if mobileC
 import ui.FlxVirtualPad;
@@ -49,6 +49,12 @@ class MusicBeatState extends CoolUIState
 
 	// Cache BPM incremental
 	private var _bpmIdx:Int = 0;
+
+	// ─── Dev-mode pitch/speed control (teclas 4 / 5) ─────────────────────────
+	private var _devPitch:Float        = 1.0;
+	private var _devToastText:flixel.text.FlxText  = null;
+	private var _devToastTween:flixel.tweens.FlxTween = null;
+	private var _devToastCam:flixel.FlxCamera      = null;
 
 	inline function get_controls():Controls
 		return PlayerSettings.player1.controls;
@@ -106,7 +112,10 @@ class MusicBeatState extends CoolUIState
 		StateTransition.onStateCreated();
 
 		if (mods.ModManager.developerMode)
+		{
 			GameDevConsole.init();
+			_setupDevToast();
+		}
 
 		// ── Limpiar watcher del state anterior y configurar el nuevo ──────────
 		JsonWatcher.clear();
@@ -144,7 +153,9 @@ class MusicBeatState extends CoolUIState
 				if (++_menuFlushFrames < 5) return;
 				FlxG.stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _onMenuFlush);
 				funkin.cache.PathsCache.instance.flushGPUCache();
-				cpp.vm.Gc.run(false); // ciclo leve — no compact() para no causar stutter en menús
+				// OPT: collectMinor = GC leve sin compact() — no causa stutter en menús.
+				// Centralizado en MemoryUtil para consistencia con el resto del engine.
+				funkin.system.MemoryUtil.collectMinor();
 			}
 			FlxG.stage.addEventListener(openfl.events.Event.ENTER_FRAME, _onMenuFlush);
 		}
@@ -168,6 +179,18 @@ class MusicBeatState extends CoolUIState
 				funkin.gameplay.objects.stages.Stage.clearStageCache();
 				GameDevConsole.log('[HotReload] F6 → JSON caches (chars + stages) limpiados.', 0xFF69F0AE);
 				trace('[MusicBeatState] F6 → JSON caches (chars + stages) limpiados.');
+			}
+
+			// ── 4 / 5: Bajar / subir pitch+velocidad ─────────────────────────────
+			if (FlxG.keys.justPressed.FOUR)
+			{
+				_devPitch = flixel.math.FlxMath.roundDecimal(Math.max(0.1, _devPitch - 0.1), 1);
+				_applyDevPitch();
+			}
+			if (FlxG.keys.justPressed.FIVE)
+			{
+				_devPitch = flixel.math.FlxMath.roundDecimal(Math.min(3.0, _devPitch + 0.1), 1);
+				_applyDevPitch();
 			}
 
 			// ── F5: Reiniciar state (developer mode) ─────────────────────────────
@@ -308,8 +331,76 @@ class MusicBeatState extends CoolUIState
 	}
 	#end
 
+	// ─── Dev-mode toast helpers ───────────────────────────────────────────────
+
+	/**
+	 * Crea la cámara overlay y el texto de toast para el control de pitch/velocidad.
+	 * Solo se llama si developerMode = true.
+	 */
+	private function _setupDevToast():Void
+	{
+		// Cámara dedicada para el toast (siempre encima de todo, sin fondo)
+		_devToastCam = new flixel.FlxCamera();
+		_devToastCam.bgColor.alpha = 0;
+		FlxG.cameras.add(_devToastCam, false);
+
+		// Texto pegado al borde superior derecho
+		_devToastText = new flixel.text.FlxText(0, 12, FlxG.width - 14, '', 22);
+		_devToastText.setFormat(null, 22, FlxColor.WHITE, RIGHT);
+		_devToastText.setBorderStyle(flixel.text.FlxText.FlxTextBorderStyle.OUTLINE, FlxColor.BLACK, 2);
+		_devToastText.alpha = 0;
+		_devToastText.scrollFactor.set(0, 0);
+		_devToastText.cameras = [_devToastCam];
+		add(_devToastText);
+	}
+
+	/**
+	 * Aplica _devPitch al audio activo y muestra el toast de velocidad.
+	 */
+	private function _applyDevPitch():Void
+	{
+		// ── Aplicar pitch al instrumental ────────────────────────────────────
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.pitch = _devPitch;
+
+		// ── Aplicar pitch a las vocales si estamos en PlayState ──────────────
+		var ps = Std.downcast(this, funkin.gameplay.PlayState);
+		if (ps != null)
+		{
+			if (ps.vocals != null)
+				ps.vocals.pitch = _devPitch;
+			for (v in ps.vocalsPerChar)
+				if (v != null) v.pitch = _devPitch;
+		}
+
+		// ── Toast arriba a la derecha ─────────────────────────────────────────
+		if (_devToastText != null)
+		{
+			_devToastText.text = '⚡ Speed: ${_devPitch}x';
+			_devToastText.alpha = 1.0;
+			if (_devToastTween != null) _devToastTween.cancel();
+			_devToastTween = FlxTween.tween(
+				_devToastText,
+				{ alpha: 0 },
+				0.4,
+				{ startDelay: 1.2, ease: FlxEase.quadIn }
+			);
+		}
+
+		GameDevConsole.log('[DevMode] 4/5 → Pitch/Speed = ${_devPitch}x', 0xFFFFCC00);
+		trace('[MusicBeatState] Dev pitch → ${_devPitch}x');
+	}
+
 	function _onDestroy():Void
 	{
+		// Limpiar cámara overlay del dev toast
+		if (_devToastCam != null)
+		{
+			FlxG.cameras.remove(_devToastCam, true);
+			_devToastCam = null;
+		}
+		_devToastText  = null;
+		_devToastTween = null;
 		// Garantía de seguridad: limpiar blockInput al salir de cualquier state.
 		// Si OptionsMenuState (u otro state con inputs de texto) lo dejó en true
 		// por salir de forma inesperada, la tecla 0 quedaría bloqueada para siempre.
@@ -351,6 +442,17 @@ class MusicBeatState extends CoolUIState
 			funkin.gameplay.objects.character.Character.clearCharCaches();
 			funkin.gameplay.objects.stages.Stage.clearStageCache();
 
+			// ── Reload de skins/splashes de notas ──────────────────────────────
+			// Recarga los JSONs activos desde disco y fuerza re-descubrimiento
+			// de todas las skins en el próximo init, para que los cambios a
+			// skin.json / splash.json surtan efecto al reiniciar con F5.
+			#if sys
+			final skinReloaded = funkin.gameplay.notes.NoteSkinSystem.reloadCurrentJsonsFromDisk();
+			if (skinReloaded)
+				GameDevConsole.log('[HotReload] Note skin / splash JSONs reloaded from disk.', 0xFF69F0AE);
+			#end
+			funkin.gameplay.notes.NoteSkinSystem.forceReinit();
+
 			// Si estamos en PlayState, recargar el SONG desde disco antes de resetear.
 			// Esto permite editar el .json del chart y ver los cambios al reiniciar.
 			#if sys
@@ -368,12 +470,12 @@ class MusicBeatState extends CoolUIState
 					if (reloaded != null)
 					{
 						funkin.gameplay.PlayState.SONG = reloaded;
-						GameDevConsole.log('[HotReload] Chart "$songName$diffSuffix" recargado desde disco.', 0xFF69F0AE);
+						GameDevConsole.log('[HotReload] Chart "$songName$diffSuffix" reloaded from disk.', 0xFF69F0AE);
 					}
 				}
 				catch (e:Dynamic)
 				{
-					GameDevConsole.log('[HotReload] Error recargando chart: $e', 0xFFFF5252);
+					GameDevConsole.log('[HotReload] Error reloaded chart: $e', 0xFFFF5252);
 				}
 			}
 			#end

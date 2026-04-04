@@ -11,6 +11,7 @@ import funkin.gameplay.objects.hud.Highscore;
 import data.PlayerSettings;
 import funkin.states.LoadingState;
 import funkin.graphics.shaders.ShaderManager;
+import funkin.scripting.ScriptHandler;
 
 using StringTools;
 
@@ -37,10 +38,13 @@ class CacheState extends funkin.states.MusicBeatState
 
         funkin.system.CursorManager.hide();
 
-        Highscore.load();
-        KeyBinds.keyCheck();
-        PlayerSettings.init();
-        PlayerSettings.player1.controls.loadKeyBinds();
+        // ── Estas llamadas YA ocurrieron en Main.initializeGameSystems() ────
+        // Highscore.load()          → ya llamado en initializeSaveSystem()
+        // KeyBinds.keyCheck()       → ya llamado en initializeGameSystems()
+        // PlayerSettings.init()     → ya llamado en initializeGameSystems()
+        // Llamarlas de nuevo recrea objetos estáticos y re-lee disco sin necesidad,
+        // contribuyendo al RSS elevado al arrancar.
+        // ─────────────────────────────────────────────────────────────────────
 
         // FIX: 'FPSCap' es un campo obsoleto — el engine ya usa 'fpsTarget'.
         // CacheState no debe sobreescribir el framerate que Main.initializeFramerate()
@@ -67,6 +71,15 @@ class CacheState extends funkin.states.MusicBeatState
 
         // ── Lista mínima de assets esenciales ──────────────────────────────
         buildEssentialList();
+
+        // ── Scripts globales del mod activo ────────────────────────────────
+        // Al llegar aquí ModManager.activeMod ya apunta al nuevo mod
+        // (setActive() se llamó en ModSelectorState antes del fade).
+        // Rescannear global scripts garantiza que los menús del nuevo mod
+        // (TitleState, MainMenu, FreeplayState…) ya tengan sus hooks cargados.
+        // Sin esto, mods/nuevo/scripts/global/ no se registran hasta que
+        // arranca PlayState (Fix 1 — global scripts en cambio de mod).
+        ScriptHandler.loadGlobalScripts();
 
         totalAssets = assetsToCache.length;
         super.create();
@@ -155,6 +168,15 @@ class CacheState extends funkin.states.MusicBeatState
         loadingComplete = true;
         loadingText.text = "Ready!";
         loadingPercentage.text = "100%";
+
+        // ── Compactar el heap GC después de la carga inicial ────────────────
+        // Gc.run(true) + Gc.compact() devuelven páginas libres al OS.
+        // Sin esto, hxcpp mantiene reservadas ~150-200 MB de páginas vacías
+        // desde el arranque, inflando MEM_INFO_RESERVED aunque el uso real
+        // (MEM_INFO_USAGE) sea solo ~50-80 MB.
+        // Se llama ANTES del primer timer para que el compact() ocurra mientras
+        // la barra ya muestra 100% (sin stutter visible en gameplay).
+        funkin.system.MemoryUtil.collectMajor();
 
         new FlxTimer().start(0.4, function(_)
         {

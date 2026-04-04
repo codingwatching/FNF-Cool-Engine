@@ -2,6 +2,7 @@ package funkin.cache;
 
 import flixel.FlxG;
 import flixel.graphics.FlxGraphic;
+import funkin.assets.AssetOptimizer;
 import openfl.display.BitmapData;
 import openfl.media.Sound;
 
@@ -128,6 +129,9 @@ class PathsCache
 
 	// ── Caché de paths de mod ─────────────────────────────────────────────────
 	// Evita llamar a ModManager.resolveInMod en cada carga repetida.
+	// Se mantiene entre sesiones (el mod activo no cambia al rotar state).
+	// Se limita a _MOD_PATH_CACHE_MAX entradas para evitar crecimiento ilimitado.
+	static inline final _MOD_PATH_CACHE_MAX : Int = 512;
 	var _modPathCache : Map<String, String> = [];
 
 	// ── Métricas de hit rate ──────────────────────────────────────────────────
@@ -243,6 +247,7 @@ class PathsCache
 	 */
 	public function rotateSession():Void
 	{
+		// ── Gráficos ──────────────────────────────────────────────────────────
 		// _currentGraphics y _previousGraphics son `final` — no se pueden reasignar.
 		// Copiar current → previous y limpiar current en su lugar.
 		_previousGraphics.clear();
@@ -251,6 +256,42 @@ class PathsCache
 		_currentGraphics.clear();
 		_graphicCount = 0;
 		// Nota: _permanentGraphics NO se rota — nunca se destruyen.
+
+		// ── FIX Bug 1: LRU crece sin límite ───────────────────────────────────
+		// _lruOrder acumulaba todos los keys de todas las sesiones anteriores.
+		// _touchLRU hace indexOf+splice O(n) sobre ese array creciente → lag.
+		// Al rotar sesión el LRU debe reiniciarse junto con _currentGraphics.
+		_lruOrder = [];
+
+		// ── FIX Bug 2: sonidos nunca rotaban → retención indefinida de Sound ──
+		// FunkinCache llama s.close() sobre los Sound de la capa anterior, pero
+		// PathsCache._currentSounds seguía sosteniendo esas referencias cerradas,
+		// impidiendo que el GC las recolectara. Se rota igual que los gráficos.
+		_previousSounds.clear();
+		for (k => s in _currentSounds)
+			_previousSounds.set(k, s);
+		_currentSounds.clear();
+		_soundCount = 0;
+
+		// _modPathCache se conserva entre sesiones: el mod activo no cambia al
+		// rotar state, así que las entradas siguen siendo válidas y reutilizarlas
+		// evita re-llamar ModManager.resolveInMod para cada asset en la nueva sesión.
+		// El tamaño se controla en resolveWithMod() con _MOD_PATH_CACHE_MAX.
+	}
+
+	/**
+	 * Libera las referencias a gráficos de la sesión anterior.
+	 * Llamar desde FunkinCache.postStateSwitch DESPUÉS de que clearSecondLayer()
+	 * haya destruido los BitmapData vía removeByKey + dispose().
+	 * En ese punto ningún gráfico de _previousGraphics es rescatable (sus bitmaps
+	 * ya fueron dispuestos), así que retener los wrappers FlxGraphic solo gasta RAM.
+	 */
+	public function clearPreviousGraphics():Void
+		_previousGraphics.clear();
+
+	public function clearPreviousSounds():Void
+	{
+		_previousSounds.clear();
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -433,6 +474,8 @@ class PathsCache
 	/**
 	 * Resuelve el path real de un asset teniendo en cuenta el mod activo.
 	 * Usa _modPathCache para evitar llamadas repetidas a ModManager.
+	 * El caché se limita a _MOD_PATH_CACHE_MAX entradas; cuando se llena,
+	 * se descarta la mitad más antigua para evitar crecimiento ilimitado.
 	 *
 	 * @return Path del archivo en el mod, o null si no existe override en el mod.
 	 */
@@ -447,19 +490,42 @@ class PathsCache
 			final modPath = mods.ModManager.resolveInMod(id);
 			if (modPath != null && sys.FileSystem.exists(modPath))
 			{
-				_modPathCache.set(id, modPath);
+				_setModPathCache(id, modPath);
 				return modPath;
 			}
 		}
 		catch (_:Dynamic) {}
 		#end
-		_modPathCache.set(id, ''); // cache miss
+		_setModPathCache(id, ''); // cache miss — evita re-llamar ModManager
 		return null;
+	}
+
+	/**
+	 * Inserta una entrada en _modPathCache respetando el límite de tamaño.
+	 * Cuando se alcanza _MOD_PATH_CACHE_MAX, elimina la mitad de las entradas
+	 * más antiguas (las primeras en el orden de iteración del Map).
+	 */
+	inline function _setModPathCache(id:String, value:String):Void
+	{
+		if (_modPathCache.exists(id)) { _modPathCache.set(id, value); return; }
+		// Evictar la mitad cuando el mapa está lleno
+		if (_count(_modPathCache) >= _MOD_PATH_CACHE_MAX)
+		{
+			final half    = _MOD_PATH_CACHE_MAX >> 1;
+			var   removed = 0;
+			final keys    = _modPathCache.keys();
+			while (removed < half && keys.hasNext())
+			{
+				_modPathCache.remove(keys.next());
+				removed++;
+			}
+		}
+		_modPathCache.set(id, value);
 	}
 
 	/** Invalida el caché de paths de mod (llamar al cambiar de mod). */
 	public function clearModPathCache():Void
-		_modPathCache = [];
+		_modPathCache.clear();
 
 
 	/**
@@ -604,6 +670,23 @@ class PathsCache
 		try
 		{
 			g = FlxGraphic.fromAssetKey(key, false, null, true);
+
+			// BUGFIX (Bug 1): después de Assets.cache.clear(), FunkinCache.hasBitmapData()
+			// devuelve true vía el fallback FileSystem.exists(). fromAssetKey lo detecta
+			// como "asset presente" y llama getBitmapData(), pero si la clave es corta
+			// ("UI/alphabet") FileSystem.exists("UI/alphabet")=false → getBitmapData()=null
+			// → fromBitmapData(null) devuelve un FlxGraphic con bitmap=null en vez de null.
+			// Guardar ese gráfico muerto en _currentGraphics causaría:
+			//   hasValidGraphic() → true (objeto != null) → se devuelve el gráfico
+			//   → FlxAtlasFrames con bitmap=null → null-object crash en primer render.
+			// Solución: detectar bitmap=null, purgar la entrada huérfana de FlxG.bitmap
+			// y caer al bloque de carga desde disco.
+			if (g != null && g.bitmap == null)
+			{
+				trace('[PathsCache] fromAssetKey devolvió FlxGraphic con bitmap=null para "$key" — descartando y recargando desde disco.');
+				try { @:privateAccess FlxG.bitmap.removeKey(key); } catch (_:Dynamic) {}
+				g = null;
+			}
 		}
 		catch (e:Dynamic)
 		{
@@ -614,9 +697,14 @@ class PathsCache
 				trace('[PathsCache] fromAssetKey falló para "$key", intentando carga directa desde disco...');
 				try
 				{
-					final bitmap = BitmapData.fromFile(key);
+					var bitmap = BitmapData.fromFile(key);
 					if (bitmap != null)
+					{
+						// Optimización de textura: elimina canal alpha si no se usa
+						// (ahorra ~25% VRAM en sprites sin transparencia) — runtime lossless.
+						bitmap = AssetOptimizer.optimizeBitmapData(bitmap);
 						g = FlxGraphic.fromBitmapData(bitmap, false, key, true);
+					}
 				}
 				catch (e2:Dynamic) { trace('[PathsCache] Error en carga directa de "$key": $e2'); }
 			}
@@ -648,9 +736,13 @@ class PathsCache
 						final resolved2 = pathResolver(key);
 						if (resolved2 != null && FileSystem.exists(resolved2))
 						{
-							final bitmap2 = BitmapData.fromFile(resolved2);
+							var bitmap2 = BitmapData.fromFile(resolved2);
 							if (bitmap2 != null)
+							{
+								// Misma optimización que el intento 2.
+								bitmap2 = AssetOptimizer.optimizeBitmapData(bitmap2);
 								g = FlxGraphic.fromBitmapData(bitmap2, false, key, true);
+							}
 						}
 					}
 					catch (_:Dynamic) {}
@@ -670,6 +762,14 @@ class PathsCache
 
 		g.persist = true;
 
+		// ── AssetOptimizer: runtime bitmap optimization ───────────────────────
+		// Elimina el canal alpha de texturas que no lo usan → ahorra ~25% VRAM.
+		// Se ejecuta aquí (después de cargar, antes del upload GPU) para que
+		// _forceGPURender suba ya la versión optimizada. Lossless: solo cambia
+		// el formato interno de ARGB a RGB; los pixels visibles son idénticos.
+		if (g.bitmap != null)
+			g.bitmap = AssetOptimizer.optimizeBitmapData(g.bitmap);
+
 		// GPU pre-render: llama getTexture() para registrar la textura en el pipeline de OpenFL.
 		// El upload real de pixels ocurre en el PRIMER DRAW CALL del render thread.
 		// NO llamamos disposeImage() aquí — los pixels deben existir hasta ese primer draw.
@@ -679,6 +779,14 @@ class PathsCache
 
 		_currentGraphics.set(key, g);
 		_graphicCount++;
+		// FIX Bug 3: los graficos cargados desde disco (no rescates) no se añadían
+		// al LRU, por lo que _evictIfNeeded() no podía evictarlos nunca.
+		// Resultado: maxGraphics se ignoraba para cargas nuevas → crecimiento ilimitado.
+		if (!permanent)
+		{
+			_addToLRU(key);
+			_evictIfNeeded();
+		}
 		return g;
 	}
 
@@ -840,6 +948,13 @@ class PathsCache
 		_previousSounds.clear();
 		_graphicCount = 0;
 		_soundCount   = 0;
+		// ── FIX: limpiar el cache de paths de mod al destruir ─────────────────
+		// destroy() se llama desde forceFullClear() durante cambio de mod.
+		// Sin esto, _modPathCache retiene los paths del mod anterior y
+		// resolveWithMod() devuelve rutas del mod viejo en el nuevo mod,
+		// haciendo que assets como getSparrowAtlas carguen del folder incorrecto
+		// hasta reiniciar el juego.
+		_modPathCache.clear();
 	}
 
 	/** Limpieza de assets de un contexto específico (p.ej. "freeplay"). */
@@ -990,7 +1105,8 @@ class PathsCache
 
 	/** String compacto para el overlay de debug. */
 	public function debugString():String
-		return 'Cache: ${_count(_currentGraphics)} tex / ${_count(_currentSounds)} snd';
+		// OPT: _graphicCount/_soundCount son contadores O(1) — evita _count() O(n).
+		return 'Cache: $_graphicCount tex / $_soundCount snd';
 
 	/** Stats completos (alias de getStats). */
 	public function fullStats():String

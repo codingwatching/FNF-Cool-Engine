@@ -482,6 +482,14 @@ class ScriptHandler
 			trace('[ScriptHandler] Error loading "$scriptName$lineInfo": ${Std.string(e)}');
 			if (isLua)
 				trace('[ScriptHandler] Transpiled code:\n$content');
+
+			// ── In-game popup for load / parse failures ──────────────────────
+			// Parse errors fire immediately (the script never ran).
+			// 'load' is the function context because no function was called yet.
+			ScriptErrorNotifier.notify(
+				scriptName, 'load', Std.string(e),
+				lineInfo == '' ? -1 : Std.parseInt(lineInfo.substr(1)));
+
 			return null;
 		}
 		#else

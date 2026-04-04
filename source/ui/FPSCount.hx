@@ -32,10 +32,11 @@ class FPSCount extends TextField
 	@:noCompletion private var byteValue:Int32 = 1024;
 
 	// ── Ring buffer: 2000 slots (cubre hasta 2000fps en 1 segundo) ──
-	static inline var RING_CAP:Int = 2000;
+	static inline var RING_CAP:Int = 2000; // 1 segundo a 120fps (era 2000 → innecesario)
+
 	@:noCompletion private var _ring:Array<Float>;
-	@:noCompletion private var _ringHead:Int = 0;   // siguiente posición de escritura
-	@:noCompletion private var _ringFill:Int = 0;   // cuántas entradas válidas hay
+	@:noCompletion private var _ringHead:Int = 0; // siguiente posición de escritura
+	@:noCompletion private var _ringFill:Int = 0; // cuántas entradas válidas hay
 
 	public function new(x:Float = 10, y:Float = 10, color:Int = 0xFFFFFF)
 	{
@@ -47,16 +48,13 @@ class FPSCount extends TextField
 		byteValue = 1000;
 		#end
 
-		currentFPS   = 0;
-		selectable   = false;
+		currentFPS = 0;
+		selectable = false;
 		mouseEnabled = false;
-		defaultTextFormat = new TextFormat(
-			openfl.utils.Assets.getFont(Paths.font("Funkin.otf")).fontName,
-			16, color
-		);
-		visible  = true;
+		defaultTextFormat = new TextFormat(openfl.utils.Assets.getFont(Paths.font("Funkin.otf")).fontName, 16, color);
+		visible = true;
 		autoSize = openfl.text.TextFieldAutoSize.LEFT;
-		text     = "FPS: 0 - Mem: 0MB/0MB - GC Mem: 0MB";
+		text = "FPS: 0 | Mem: 0MB/0MB - GC: 0MB";
 
 		// Pre-alocar buffer una sola vez — cero alocaciones en el game loop
 		_ring = [for (_ in 0...RING_CAP) 0.0];
@@ -68,44 +66,64 @@ class FPSCount extends TextField
 	private function _onFrame(_:Event):Void
 	{
 		var now:Float = openfl.Lib.getTimer();
-		var dt:Float  = now - currentTime;
-		currentTime   = now;
+		currentTime = now;
 
-		// ── Escribir en el ring buffer (O(1), sin alocación) ─────────────────
+		// ── Escribir timestamp en el ring buffer (O(1)) ───────────────────
 		_ring[_ringHead] = now;
 		_ringHead = (_ringHead + 1) % RING_CAP;
-		if (_ringFill < RING_CAP) _ringFill++;
+		if (_ringFill < RING_CAP)
+			_ringFill++;
 
-		// ── Contar frames dentro del último segundo ───────────────────────────
+		// ── Contar frames en el último segundo ────────────────────────────
+		// Se recorre hacia atrás desde la entrada más reciente hasta encontrar
+		// un timestamp más viejo de 1 segundo. Con RING_CAP=120 son máx 120
+		// iteraciones (<<1ms), seguro hacerlo cada frame.
 		var cutoff:Float = now - 1000.0;
 		var validCount:Int = 0;
 		for (k in 0..._ringFill)
 		{
 			var idx:Int = ((_ringHead - 1 - k) % RING_CAP + RING_CAP) % RING_CAP;
-			if (_ring[idx] < cutoff) break;
+			if (_ring[idx] < cutoff)
+				break;
 			validCount++;
 		}
 
 		currentFPS = validCount;
 
-		if (currentFPS > showFps)        { showFps = currentFPS; textColor = 0x17FF00; }
-		else if (currentFPS < showFps)   { textColor = 0xFF4444; showFps = currentFPS; }
-		else                             { textColor = 0xFFFFFF; }
+		if (currentFPS > showFps)
+		{
+			showFps = currentFPS;
+			textColor = 0x17FF00;
+		}
+		else if (currentFPS < showFps)
+		{
+			textColor = 0xFF4444;
+			showFps = currentFPS;
+		}
+		else
+		{
+			textColor = 0xFFFFFF;
+		}
 
 		if (validCount != cacheCount && visible)
 		{
 			var mem:Float;
 			var gcMem:Float;
 			#if cpp
-			mem   = cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE)    / (byteValue * byteValue);
-			gcMem = cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_RESERVED) / (byteValue * byteValue);
+			// MEM_INFO_USAGE  = objetos vivos en heap (RAM real usada por el juego).
+			// MEM_INFO_CURRENT = heap GC total (usado + páginas libres del GC).
+			// MEM_INFO_RESERVED = reserva del OS (puede ser 3-5x el uso real → engañoso).
+			// Mostramos USAGE/CURRENT para dar una lectura honesta sin alarmar.
+			mem = cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE) / (byteValue * byteValue);
+			gcMem = cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_CURRENT) / (byteValue * byteValue);
 			#else
-			mem   = System.totalMemory / (byteValue * byteValue);
+			mem = System.totalMemory / (byteValue * byteValue);
 			gcMem = mem;
 			#end
-			if (mem > memPeak) memPeak = mem;
+			if (mem > memPeak)
+				memPeak = mem;
 
-			var line1 = 'FPS: $showFps - Mem: ${formatMem(mem)}/${formatMem(memPeak)} - GC Mem: ${formatMem(gcMem)}';
+			var line1 = 'FPS: $showFps | Mem: ${formatMem(mem)}/${formatMem(memPeak)} - GC: ${formatMem(gcMem)}';
 			#if (gl_stats && !disable_cffi && (!html5 || !canvas))
 			line1 += "  DC: " + Context3DStats.totalDrawCalls();
 			#end
@@ -121,7 +139,7 @@ class FPSCount extends TextField
 	private inline function formatMem(mb:Float):String
 	{
 		if (mb >= 1000)
-			return (Math.round(mb / 10.24) / 100) + "GB";  // 2 decimales
+			return (Math.round(mb / 10.24) / 100) + "GB"; // 2 decimales
 		return Math.round(mb) + "MB";
 	}
 }

@@ -76,7 +76,10 @@ class Conductor
 			if (section.changeBPM && section.bpm != curBPM)
 			{
 				curBPM = section.bpm;
-				bpmChangeMap.push({stepTime: totalSteps, songTime: totalPos, bpm: curBPM});
+				// OPT: pre-computar stepDuration (60000/bpm/4) una sola vez por evento.
+				// getStepAtTime() y getTimeAtStep() lo leen directo sin dividir cada vez.
+				final dur = 60000.0 / curBPM / 4.0;
+				bpmChangeMap.push({stepTime: totalSteps, songTime: totalPos, bpm: curBPM, stepDuration: dur});
 			}
 			final delta = section.lengthInSteps;
 			totalSteps += delta;
@@ -154,32 +157,23 @@ class Conductor
 
 	/**
 	 * Convierte ms a steps, respetando cambios de BPM.
-	 * Complejidad: O(log n) gracias a la búsqueda binaria.
+	 * Complejidad: O(log n) búsqueda binaria + O(1) cálculo directo.
+	 *
+	 * OPT v3.1: el loop interno anterior recalculaba stepTime desde cero (O(n)).
+	 * bpmChangeMap[idx].stepTime YA es el acumulado exacto hasta ese cambio —
+	 * se lee directo sin iterar. stepDuration pre-computado evita la división.
 	 */
 	public static function getStepAtTime(time:Float):Float
 	{
 		final idx = _binarySearchByTime(time);
 
 		if (idx < 0)
-		{
-			// Antes del primer cambio de BPM — usar BPM base
 			return time / (60000.0 / bpm / 4.0);
-		}
 
-		// Acumular steps hasta el cambio encontrado
-		var step:Float = 0;
-		var lastBpm:Float = bpm;
-		var lastTime:Float = 0;
-
-		for (i in 0...(idx + 1))
-		{
-			final ch = bpmChangeMap[i];
-			step += (ch.songTime - lastTime) / (60000.0 / lastBpm / 4.0);
-			lastBpm = ch.bpm;
-			lastTime = ch.songTime;
-		}
-		step += (time - lastTime) / (60000.0 / lastBpm / 4.0);
-		return step;
+		final ch = bpmChangeMap[idx];
+		// ch.stepTime = steps acumulados hasta este evento (precomputado en mapBPMChanges)
+		// ch.stepDuration = ms por step a este BPM (precomputado)
+		return ch.stepTime + (time - ch.songTime) / ch.stepDuration;
 	}
 
 	/**
@@ -202,29 +196,22 @@ class Conductor
 
 	/**
 	 * Convierte steps a ms, respetando cambios de BPM.
-	 * Inversa de getStepAtTime().
+	 * Inversa de getStepAtTime(). Complejidad: O(log n) + O(1).
+	 *
+	 * OPT v3.1: mismo principio que getStepAtTime() — ch.songTime y ch.stepDuration
+	 * ya están precomputados en mapBPMChanges(), no hace falta el loop anterior.
 	 */
 	public static function getTimeAtStep(targetStep:Float):Float
 	{
 		final idx = _binarySearchByStep(targetStep);
 
-		var time:Float = 0;
-		var lastBpm:Float = bpm;
-		var lastStep:Float = 0;
+		if (idx < 0)
+			return targetStep * (60000.0 / bpm / 4.0);
 
-		if (idx >= 0)
-		{
-			for (i in 0...(idx + 1))
-			{
-				final ch = bpmChangeMap[i];
-				time += (ch.stepTime - lastStep) * (60000.0 / lastBpm / 4.0);
-				lastBpm = ch.bpm;
-				lastStep = ch.stepTime;
-			}
-		}
-
-		time += (targetStep - lastStep) * (60000.0 / lastBpm / 4.0);
-		return time;
+		final ch = bpmChangeMap[idx];
+		// ch.songTime = ms acumulados hasta este evento (precomputado)
+		// ch.stepDuration = ms por step a este BPM (precomputado)
+		return ch.songTime + (targetStep - ch.stepTime) * ch.stepDuration;
 	}
 
 	/**
@@ -245,4 +232,7 @@ typedef BPMChangeEvent =
 	var stepTime:Int;
 	var songTime:Float;
 	var bpm:Float;
+	/** ms por step a este BPM. Pre-computado en mapBPMChanges() para evitar
+	 *  divisiones repetidas en getStepAtTime() / getTimeAtStep(). */
+	var stepDuration:Float;
 }

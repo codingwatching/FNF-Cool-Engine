@@ -1470,7 +1470,7 @@ class FreeplaySongText extends FlxText
 	public function new(x:Float, y:Float, text:String = '', fontSize:Int = FONT_SIZE_DEFAULT)
 	{
 		super(x, y, 0, text, fontSize);
-		font = Paths.font('Funkin.otf');
+		font = Paths.font('5by7.ttf');
 		color = FlxColor.WHITE;
 		antialiasing = true;
 		_applyFilters();

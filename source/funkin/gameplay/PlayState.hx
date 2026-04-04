@@ -78,9 +78,25 @@ class PlayState extends funkin.states.MusicBeatState
 	// === SINGLETON ===
 	public static var instance:PlayState = null;
 
+	// ─── Managers dedicados de gameplay (se pausan al abrir el PauseSubState) ──
+	/** FlxTweenManager exclusivo del gameplay. Usar en lugar de FlxTween.tween()
+	 *  para que los tweens se congelen automáticamente al pausar. */
+	public static var gameplayTweens:flixel.tweens.FlxTweenManager = null;
+
+	/** FlxTimerManager exclusivo del gameplay. Usar en lugar de new FlxTimer()
+	 *  para que los timers se congelen automáticamente al pausar. */
+	public static var gameplayTimers:flixel.util.FlxTimerManager = null;
+
 	// === STATIC DATA ===
 	public static var SONG:SwagSong;
 	public static var curStage:String = '';
+
+	/**
+	 * Versión en minúsculas de SONG.song, cacheada en create() para evitar
+	 * llamar toLowerCase() en cada uso (Fix 6 — se repetía en 6 sitios distintos).
+	 * Usar este campo en lugar de `SONG.song.toLowerCase()` o `SONG?.song?.toLowerCase()`.
+	 */
+	public var songId:String = '';
 	public static var isStoryMode:Bool = false;
 	public static var storyWeek:Int = 0;
 	public static var storyPlaylist:Array<String> = [];
@@ -374,6 +390,10 @@ class PlayState extends funkin.states.MusicBeatState
 		if (SONG.stage == null)
 			SONG.stage = 'stage_week1';
 
+		// Cachear el nombre de la canción en minúsculas una sola vez (Fix 6).
+		// Sustituye los 6 `SONG.song.toLowerCase()` / `SONG?.song?.toLowerCase()` dispersos.
+		songId = SONG.song != null ? SONG.song.toLowerCase() : '';
+
 		curStage = SONG.stage;
 		Paths.currentStage = curStage; // sync Paths para resolución de assets de stage
 
@@ -482,6 +502,12 @@ class PlayState extends funkin.states.MusicBeatState
 		Paths.clearPreviousSession();
 
 		super.create();
+
+		// ── Managers dedicados de gameplay (pausables independientemente del UI) ──
+		gameplayTweens = new flixel.tweens.FlxTweenManager();
+		FlxG.plugins.addPlugin(gameplayTweens);
+		gameplayTimers = new flixel.util.FlxTimerManager();
+		FlxG.plugins.addPlugin(gameplayTimers);
 
 		if (scriptsEnabled)
 		{
@@ -1463,10 +1489,10 @@ class PlayState extends funkin.states.MusicBeatState
 			var runSpriteCutscene:Void->Void = null;
 			runSpriteCutscene = function()
 			{
-				if (cutKey != null && SpriteCutscene.exists(cutKey, SONG?.song?.toLowerCase()))
+				if (cutKey != null && SpriteCutscene.exists(cutKey, songId))
 				{
 					inCutscene = true;
-					SpriteCutscene.create(this, cutKey, SONG?.song?.toLowerCase(), function()
+					SpriteCutscene.create(this, cutKey, songId, function()
 					{
 						inCutscene = false;
 						fixInstandVocals();
@@ -1898,6 +1924,12 @@ class PlayState extends funkin.states.MusicBeatState
 		persistentUpdate = false;
 		persistentDraw = true;
 		paused = true;
+
+		// ── Congelar tweens y timers del gameplay ─────────────────────────────
+		// Los managers del PauseSubState (FlxTween.globalManager) siguen activos
+		// para que sus animaciones funcionen. Solo se congela el gameplay.
+		if (gameplayTweens != null) gameplayTweens.active = false;
+		if (gameplayTimers != null) gameplayTimers.active = false;
 
 		// BUGFIX: FlxTimer corre via FlxTimerManager (plugin global) y sigue
 		// contando aunque persistentUpdate=false. Pausar el timer del countdown
@@ -2557,7 +2589,7 @@ class PlayState extends funkin.states.MusicBeatState
 			if (shouldResync)
 			{
 				// BUGFIX: Si el audio ya está reproduciéndose (PauseSubState llamó
-				// FlxG.sound.resume() antes de close()), NO llamar resyncVocals():
+				// FlxG.sound.resume() antes de close()), NO llamar resyncVocals():</p
 				// resyncVocals() usaría play() que en Flash haría el warmup de FPS,
 				// pero en nativos (OpenAL) siempre usa resume() — sin stutter.
 				// Cuando el audio ya está activo solo hay que sincronizar el Conductor.
@@ -2567,6 +2599,10 @@ class PlayState extends funkin.states.MusicBeatState
 					resyncVocals(); // audio detenido por algún motivo: resync completo
 			}
 			paused = false;
+
+			// ── Reanudar managers de gameplay ────────────────────────────────
+			if (gameplayTweens != null) gameplayTweens.active = true;
+			if (gameplayTimers != null) gameplayTimers.active = true;
 
 			// BUGFIX: Reanudar el timer del countdown si estaba corriendo cuando
 			// se pausó. Sin esto el countdown queda congelado al volver del pause.
@@ -2634,10 +2670,15 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler._argsStep[0] = curStep;
 			ScriptHandler.callOnScripts('onStepHit', ScriptHandler._argsStep);
 
-			// Section change
-			var section = Math.floor(curStep / 16);
+			// OPT: >> 4 equivale a Math.floor(x / 16) para enteros no-negativos
+			// sin pasar por Float — evita la conversión int→float→floor→int.
+			// OPT: _argsOne reutiliza el array pre-allocado en vez de new Array cada vez.
+			final section:Int = curStep >> 4;
 			if (section != cachedSectionIndex)
-				ScriptHandler.callOnScripts('onSectionHit', [section]);
+			{
+				ScriptHandler._argsOne[0] = section;
+				ScriptHandler.callOnScripts('onSectionHit', ScriptHandler._argsOne);
+			}
 		}
 
 		// Resync music - MEJORADO
@@ -2814,10 +2855,10 @@ class PlayState extends funkin.states.MusicBeatState
 			var runSpriteCutscene:Void->Void = null;
 			runSpriteCutscene = function()
 			{
-				if (cutKey != null && SpriteCutscene.exists(cutKey, SONG?.song?.toLowerCase()))
+				if (cutKey != null && SpriteCutscene.exists(cutKey, songId))
 				{
 					isCutscene = true;
-					SpriteCutscene.create(this, cutKey, SONG?.song?.toLowerCase(), function()
+					SpriteCutscene.create(this, cutKey, songId, function()
 					{
 						runOutroVideo();
 					});
@@ -2935,13 +2976,12 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	public function getSection(step:Int):SwagSection
 	{
-		var sectionIndex = Math.floor(step / 16);
+		// OPT: >> 4 = divide por 16 sin pasar por Float.
+		final sectionIndex:Int = step >> 4;
 
-		// Cache hit
 		if (cachedSectionIndex == sectionIndex && cachedSection != null)
 			return cachedSection;
 
-		// Cache miss
 		cachedSectionIndex = sectionIndex;
 		cachedSection = (SONG.notes[sectionIndex] != null) ? SONG.notes[sectionIndex] : null;
 
@@ -2955,9 +2995,9 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	public function getSectionAsClass(step:Int):Section
 	{
-		final sectionIndex = Math.floor(step / 16);
+		// OPT: >> 4 en vez de Math.floor(step / 16) — mismo resultado, sin float.
+		final sectionIndex:Int = step >> 4;
 
-		// Cache hit — misma sección, mismo objeto
 		if (_cachedSectionClassIdx == sectionIndex && _cachedSectionClass != null)
 			return _cachedSectionClass;
 
@@ -3315,6 +3355,18 @@ class PlayState extends funkin.states.MusicBeatState
 		// ── Quitar listener global de foco ───────────────────────────────────
 		FlxG.signals.focusLost.remove(_onGlobalFocusLost);
 
+		// ── Limpiar managers de gameplay ─────────────────────────────────────
+		if (gameplayTweens != null)
+		{
+			FlxG.plugins.remove(gameplayTweens);
+			gameplayTweens = null;
+		}
+		if (gameplayTimers != null)
+		{
+			FlxG.plugins.remove(gameplayTimers);
+			gameplayTimers = null;
+		}
+
 		// ── 1. Resetear estáticas ────────────────────────────────────────────────
 		instance = null;
 		isPlaying = false;
@@ -3499,8 +3551,7 @@ class PlayState extends funkin.states.MusicBeatState
 	 */
 	private function checkForDialogue(type:String = 'intro'):Bool
 	{
-		var songName = SONG.song.toLowerCase();
-		var dialoguePath = Paths.resolve('songs/${songName}/${type}.json');
+		var dialoguePath = Paths.resolve('songs/${songId}/${type}.json');
 
 		#if sys
 		return sys.FileSystem.exists(dialoguePath);
@@ -3525,13 +3576,11 @@ class PlayState extends funkin.states.MusicBeatState
 	{
 		isCutscene = true;
 
-		var songName = SONG.song.toLowerCase();
-
 		var doof:DialogueBoxImproved = null;
 
 		try
 		{
-			doof = new DialogueBoxImproved(songName);
+			doof = new DialogueBoxImproved(songId);
 		}
 		catch (e:Dynamic)
 		{

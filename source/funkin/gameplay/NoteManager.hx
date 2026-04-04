@@ -311,15 +311,30 @@ class NoteManager
 					var floorSus:Int = Math.floor(susLength / Conductor.stepCrochet);
 					for (susNote in 0...floorSus)
 					{
-						// BUGFIX: antes el primer piece se spawneaba en daStrumTime + stepCrochet,
-						// dejando un hueco visual de exactamente un step entre la cabeza de la nota
-						// y el inicio de la cadena sustain. A velocidades de scroll altas (o BPMs
-						// bajos) este hueco se hace muy visible ("gran espacio").
+						// Espaciado clásico: pieza 0 en daStrumTime + 1 step,
+						// pieza 1 en daStrumTime + 2 steps, etc.
 						//
-						// Ahora susNote=0 → strumTime = daStrumTime (mismo que la cabeza).
-						// El primer body piece se ancla en la posición de la cabeza y NoteManager
-						// lo estira dinámicamente hasta el siguiente step (snake scaling), eliminando
-						// el hueco sin acortar la longitud total visual de la cadena.
+						// BUGFIX (Bug 1 — zona de golpe prematura):
+						//   La fórmula anterior era:
+						//     daStrumTime + (stepCrochet * susNote) + stepCrochet * 0.5
+						//   El `+ stepCrochet * 0.5` desplazaba TODAS las piezas media step
+						//   hacia adelante en el tiempo, haciendo que:
+						//     a) cada pieza cruzara la strum line media step antes → la
+						//        comprobación de miss/hit (`songPosition > strumTime + hitWindow`)
+						//        se disparaba media step antes de lo real.
+						//     b) el clipRect empezaba a recortar el sustain antes de tiempo.
+						//
+						// BUGFIX (Bug 2 — duración errónea del hold splash):
+						//   handleSustainNoteHit() calcula el holdEndTime fallback (cuando
+						//   la cabeza se pierde) leyendo los strumTime raw de las piezas
+						//   spawneadas. Con el offset de +0.5 step, el chainEnd quedaba
+						//   0.5 steps más tarde de lo correcto → el hold cover se extendía
+						//   media step extra después del final real del sustain.
+						//
+						// Fórmula correcta: pieza[N].strumTime = head.strumTime + step * (N+1)
+						// Espaciado uniforme de un step entre piezas, sin offset fraccional.
+
+						// este no es el problema
 						unspawnNotes.push({
 							strumTime: daStrumTime + (Conductor.stepCrochet * susNote) + Conductor.stepCrochet * 0.5,
 							noteData: daNoteData,
@@ -536,6 +551,18 @@ class NoteManager
 
 			updateNotePosition(note, songPosition);
 
+			// ── canBeHit — calculado aquí con el songPosition correcto ─────
+			// FIX: antes se calculaba en Note.update() con el songPosition del
+			// frame ANTERIOR (el Conductor se actualiza después de super.update).
+			// Eso desplazaba la ventana de hit ~1 frame hacia atrás, haciendo
+			// que el área de "sick" apareciera visualmente mucho antes de donde
+			// la nota llega al strum. Ahora se usa el songPosition actual.
+			if (note.mustPress)
+			{
+				final _hw:Float = note.isSustainNote ? hitWindow * 1.05 : hitWindow;
+				note.canBeHit = (note.strumTime > songPosition - _hw && note.strumTime < songPosition + _hw);
+			}
+
 			// ── CPU notes ──────────────────────────────────────────────────
 			if (!note.mustPress && note.strumTime <= songPosition)
 			{
@@ -576,6 +603,9 @@ class NoteManager
 						{
 							note.alpha = 0.0;
 							note.tooLate = true;
+
+							if (heldNotes.exists(dir))
+								releaseHoldNote(dir);
 
 							// Contar UN miss por grupo de hold, no uno por pieza
 							if (!_missedHoldDir[dir])
@@ -659,10 +689,10 @@ class NoteManager
 					{
 						var cover = renderer.startHoldCover(dir, strum.x
 							- strum.offset.x
-							+ strum.frameWidth * strum.scale.x * 0.5,
+							+ strum.frameWidth * 0.5,
 							strum.y
 							- strum.offset.y
-							+ strum.frameHeight * strum.scale.y * 0.5, false, note.strumsGroupIndex, holdSplashCPU);
+							+ strum.frameHeight * 0.5, false, note.strumsGroupIndex, holdSplashCPU);
 						if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0)
 						{
 							_holdCoverSet.set(cover, true);
@@ -785,7 +815,7 @@ class NoteManager
 		// strumLineY como fallback para no crashear y mantener comportamiento previo.
 		var strum = getStrumForDirection(note.noteData, note.strumsGroupIndex, note.mustPress);
 
-		final _refY:Float = (strum != null) ? strum.y - strum.offset.y + strum.frameHeight * strum.scale.y * 0.5 : strumLineY;
+		final _refY:Float = (strum != null) ? strum.y - strum.offset.y + strum.frameHeight * 0.5 : strumLineY;
 
 		// ── Leer modificadores per-nota del ModChartManager (si existe) ────────
 		var _modState:funkin.gameplay.modchart.StrumState = null;
@@ -1071,7 +1101,7 @@ class NoteManager
 		}
 
 		if (note.isSustainNote)
-			note.y = noteY + (_effectiveDownscroll ? -10 : 10); // pequeño offset para bajar los sustains (direccional)
+			note.y = noteY + (_effectiveDownscroll ? -20 : 20); // offset para desplazar sustains y que se aprecien mejor
 
 		if (note.isSustainNote)
 		{
@@ -1180,9 +1210,9 @@ class NoteManager
 					// cruzaba el strum, pero visualmente el sprite aún no había llegado —
 					// el sustain desaparecía antes de llegar a la mitad visual del strum.
 					final _noteVisTop:Float = note.y - note.offset.y;
-					if (_noteVisTop < _strumCenter + 60)
+					if (_noteVisTop < _strumCenter)
 					{
-						final _clipFrameY:Float = (_strumCenter + 60 - _noteVisTop) / note.scale.y;
+						final _clipFrameY:Float = (_strumCenter - _noteVisTop) / note.scale.y;
 						final _clipH:Float = note.frameHeight - _clipFrameY;
 						if (_clipH > 0 && _clipFrameY >= 0)
 						{
@@ -1323,10 +1353,10 @@ class NoteManager
 					var holdSplashPlayer = NoteTypeManager.getHoldSplashName(note.noteType);
 					var cover = renderer.startHoldCover(direction, strum.x
 						- strum.offset.x
-						+ strum.frameWidth * strum.scale.x * 0.5,
+						+ strum.frameWidth * 0.5,
 						strum.y
 						- strum.offset.y
-						+ strum.frameHeight * strum.scale.y * 0.5, true, note.strumsGroupIndex, holdSplashPlayer);
+						+ strum.frameHeight * 0.5, true, note.strumsGroupIndex, holdSplashPlayer);
 					// BUGFIX: indexOf evita doble-add de covers pre-calentados que ya
 					// están en el grupo → doble update/draw causaba animación duplicada.
 					if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0)
@@ -1524,8 +1554,8 @@ class NoteManager
 			if (strum == null)
 				continue;
 
-			final cx:Float = strum.x - strum.offset.x + strum.frameWidth * strum.scale.x * 0.5;
-			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * strum.scale.y * 0.5;
+			final cx:Float = strum.x - strum.offset.x + strum.frameWidth * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * 0.5;
 
 			// Key formula mirrors NoteRenderer.startHoldCover / stopHoldCover
 			final key:Int = dir + note.strumsGroupIndex * 8;
@@ -1542,8 +1572,8 @@ class NoteManager
 			if (strum == null)
 				continue;
 
-			final cx:Float = strum.x - strum.offset.x + strum.frameWidth * strum.scale.x * 0.5;
-			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * strum.scale.y * 0.5;
+			final cx:Float = strum.x - strum.offset.x + strum.frameWidth * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * 0.5;
 
 			// Key formula: CPU side = +4 offset in NoteRenderer
 			final key:Int = dir + 4 + _cpuHoldGroupIdx[dir] * 8;

@@ -93,7 +93,33 @@ class FunkinCache extends AssetCache
 
 		FlxG.signals.postStateSwitch.add(function()
 		{
+			// ── FIX Bug 4: disableCount puede desincronizarse ─────────────────
+			// Si PlayState es destruido por excepción/crash antes de llegar a su
+			// destroy(), resumeGC() nunca se llama y disableCount queda en 1+.
+			// El GC permanece desactivado para todas las sesiones siguientes →
+			// la RAM sube sin parar. Este reset forzado es la red de seguridad.
+			if (MemoryUtil.disableCount > 0)
+			{
+				trace('[FunkinCache] WARN: disableCount=${MemoryUtil.disableCount} al cambiar state — GC forzado a reactivar.');
+				@:privateAccess MemoryUtil.disableCount = 0;
+				@:privateAccess MemoryUtil._enableGC();
+			}
+
 			instance.clearSecondLayer();
+
+			// ── Limpiar wrappers FlxGraphic huérfanos de PathsCache ───────────────
+			// clearSecondLayer() ya dispuso los BitmapData nativos vía removeByKey().
+			// PathsCache._previousGraphics sigue sosteniendo los wrappers FlxGraphic
+			// (con bitmap=null). Liberarlos aquí, DESPUÉS de clearSecondLayer(),
+			// para que el GC pueda recogerlos en el collectMajor() siguiente.
+			funkin.cache.PathsCache.instance.clearPreviousGraphics();
+
+			// ── Limpiar sonidos huérfanos de PathsCache ───────────────────────
+			// clearSecondLayer() ya cerró los Sound natives vía s.close().
+			// PathsCache._previousSounds aún sostenía esas referencias cerradas,
+			// bloqueando al GC. Llamar aquí, DESPUÉS de clearSecondLayer().
+			funkin.cache.PathsCache.instance.clearPreviousSounds();
+
 			// Major + compact para devolver páginas al OS y reducir MEM_INFO_RESERVED.
 			// Se llama DESPUÉS del switch (nuevo estado ya activo), no durante gameplay.
 			// Si el nuevo estado es PlayState, el CountDown enmascara el stutter inicial.
@@ -282,6 +308,20 @@ class FunkinCache extends AssetCache
 		#end
 	}
 
+	/**
+	 * Returns true ONLY when the bitmap is actually held in one of the in-memory maps.
+	 *
+	 * BUGFIX (Bug 2 — mod-switch re-registration):
+	 * `hasBitmapData()` has a filesystem fallback (`FileSystem.exists(id)`) that makes
+	 * `OpenFlAssets.exists(path, IMAGE)` return true even AFTER `Assets.cache.clear()`.
+	 * Code that guards registration with `!OpenFlAssets.exists(path, IMAGE)` therefore
+	 * never re-registers the bitmap — the condition is always false post-clear.
+	 * Use this method instead of `hasBitmapData` / `OpenFlAssets.exists` whenever you
+	 * need to know whether the bitmap is really cached in RAM (not just on disk).
+	 */
+	public inline function isBitmapInMaps(id:String):Bool
+		return bitmapData.exists(id) || bitmapData2.exists(id) || _permanentBitmaps.exists(id);
+
 	public override function setBitmapData(id:String, bitmapDataValue:BitmapData):Void
 	{
 		if (!bitmapData.exists(id)) _bitmapCount++;
@@ -436,16 +476,14 @@ class FunkinCache extends AssetCache
 	// HELPERS
 	// ══════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * Delega en PathsCache.resolveWithMod para que TODAS las resoluciones de
+	 * path de mod pasen por el único caché compartido (_modPathCache).
+	 * Antes, esta función llamaba a ModManager.resolveInMod directamente,
+	 * duplicando el trabajo e ignorando el caché de PathsCache.
+	 */
 	static function _resolveModPath(id:String):Null<String>
 	{
-		#if sys
-		try
-		{
-			final modPath = mods.ModManager.resolveInMod(id);
-			if (modPath != null && sys.FileSystem.exists(modPath)) return modPath;
-		}
-		catch (_:Dynamic) {}
-		#end
-		return null;
+		return funkin.cache.PathsCache.instance.resolveWithMod(id);
 	}
 }

@@ -15,6 +15,9 @@ import openfl.events.KeyboardEvent as OflKeyboardEvent;
 import lime.app.Application as LimeApp;
 import mods.ModManager;
 import mods.ModManager.ModInfo;
+import funkin.cache.FunkinCache;
+import funkin.gameplay.notes.NoteTypeManager;
+import funkin.scripting.events.EventRegistry;
 import funkin.transitions.StateTransition;
 import funkin.states.MusicBeatState;
 import funkin.data.GlobalConfig;
@@ -1152,11 +1155,45 @@ class ModSelectorState extends MusicBeatState
 
 		#if cpp _stopVideo(); #end
 
-		// Limpiar todo el estado de audio ANTES de cambiar de state,
-		// para que CoreAudio no retenga FlxSounds muertos de esta sesión.
+		// ── Limpieza completa de estado antes del cambio de mod ──────────────
+		// El orden importa: audio primero (libera FlxSounds activos), luego
+		// assets (texturas/atlas/bitmaps), luego caches de datos (note types,
+		// events). Por último reset de estado estático residual.
+
+		// 1. Audio: para y libera todos los FlxSounds de la sesión anterior.
 		funkin.audio.CoreAudio.flushForModSwitch();
 
+		// 2. Assets visuales: atlasCache + PathsCache + FlxG.bitmap + OpenFL cache.
 		Paths.forceClearCache();
+		// ── FIX: limpiar explícitamente el cache de paths de mod ─────────────
+		// forceClearCache() → PathsCache.destroy() ya limpia _modPathCache (fix),
+		// pero esta llamada doble garantiza que si se llama desde otro lugar que
+		// no pase por destroy(), el cache tampoco quede sucio con rutas del mod
+		// anterior. getSparrowAtlas y similares resolverán correctamente al nuevo
+		// mod sin necesitar reiniciar el juego.
+		funkin.cache.PathsCache.instance.clearModPathCache();
+
+		// 3. Permanentes de OpenFL (fonts, texturas UI marcadas como permanentes
+		//    del mod anterior). FunkinCache.clearAll() va más allá de forceClearCache()
+		//    que solo llama PathsCache.destroy() — también limpia _permanentBitmaps
+		//    y _permanentSounds del lado AssetCache.
+		if (FunkinCache.instance != null)
+			FunkinCache.instance.clearAll();
+
+		// 4. Cache de tipos de nota: _types, _scripts, _frames, _configs.
+		//    Sin esto, un note type con el mismo nombre en el mod anterior
+		//    podría colarse porque _configs lo tiene en memoria.
+		NoteTypeManager.clearCache();
+
+		// 5. Definiciones de eventos personalizados del mod anterior.
+		//    EventRegistry.reload() re-escanea la carpeta del nuevo mod activo.
+		EventRegistry.reload();
+
+		// 6. Reset del stage estático: PlayState.create() lo sobreescribe, pero
+		//    el valor anterior puede afectar resoluciones de Paths intermedias
+		//    durante CacheState (ej: Paths.stageSprite busca en currentStage).
+		Paths.currentStage = 'stage_week1';
+
 		#if cpp cpp.vm.Gc.run(true); #end
 		#if hl hl.Gc.major(); #end
 

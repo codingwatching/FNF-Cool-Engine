@@ -38,6 +38,7 @@ class DataInfoUI extends Sprite
 
 	/** @deprecated Mantener compatibilidad con código que lee .gpuEnabled */
 	public static var gpuEnabled:Bool = true;
+
 	public static var saveData:Dynamic = null;
 
 	private var _bg:Shape;
@@ -55,7 +56,7 @@ class DataInfoUI extends Sprite
 	{
 		super();
 
-		saveData   = _getSaveData();
+		saveData = _getSaveData();
 		gpuEnabled = (saveData?.gpuRendering ?? true);
 
 		// Fondo semitransparente — se redimensiona cada frame con el contenido
@@ -69,16 +70,13 @@ class DataInfoUI extends Sprite
 
 		// Watermark "Developer Mode"
 		_devLabel = new TextField();
-		_devLabel.selectable   = false;
+		_devLabel.selectable = false;
 		_devLabel.mouseEnabled = false;
-		_devLabel.defaultTextFormat = new TextFormat(
-			openfl.utils.Assets.getFont(Paths.font("Funkin.otf")).fontName,
-			16, 0xFFFFFF
-		);
+		_devLabel.defaultTextFormat = new TextFormat(openfl.utils.Assets.getFont(Paths.font("Funkin.otf")).fontName, 16, 0xFFFFFF);
 		_devLabel.autoSize = openfl.text.TextFieldAutoSize.LEFT;
-		_devLabel.text     = "Developer Mode";
-		_devLabel.x        = PAD_X;
-		_devLabel.visible  = false;
+		_devLabel.text = "Developer Mode";
+		_devLabel.x = PAD_X;
+		_devLabel.visible = false;
 		addChild(_devLabel);
 
 		// Panel de info del sistema (oculto por defecto)
@@ -93,7 +91,8 @@ class DataInfoUI extends Sprite
 
 		// Restaurar estado previo
 		var showExpanded = saveData?.showDebugStats ?? false;
-		if (showExpanded) _setExpanded(true);
+		if (showExpanded)
+			_setExpanded(true);
 
 		this.x = x;
 		this.y = y;
@@ -116,14 +115,14 @@ class DataInfoUI extends Sprite
 		var devMode = mods.ModManager.developerMode;
 
 		_devLabel.visible = devMode;
-		_devLabel.y       = fps.y + fps.textHeight + 1;
+		_devLabel.y = fps.y + fps.textHeight + 1;
 
 		var contentW:Float = fps.textWidth + PAD_X * 2;
 		if (devMode && _devLabel.textWidth + PAD_X * 2 > contentW)
 			contentW = _devLabel.textWidth + PAD_X * 2;
 
-		var fpsH:Float    = fps.textHeight;
-		var labelH:Float  = devMode ? (_devLabel.textHeight + 1) : 0;
+		var fpsH:Float = fps.textHeight;
+		var labelH:Float = devMode ? (_devLabel.textHeight + 1) : 0;
 		var collapsedH:Float = PAD_Y + fpsH + labelH + PAD_Y;
 
 		var totalH:Float;
@@ -131,9 +130,10 @@ class DataInfoUI extends Sprite
 		{
 			var panelsTop:Float = collapsedH;
 			systemPanel.y = panelsTop;
-			statsPanel.y  = panelsTop + SystemPanel.HEIGHT + 4;
+			statsPanel.y = panelsTop + SystemPanel.HEIGHT + 4;
 			totalH = panelsTop + SystemPanel.HEIGHT + StatsPanel.HEIGHT + 8;
-			if (contentW < 230) contentW = 230;
+			if (contentW < 230)
+				contentW = 230;
 		}
 		else
 		{
@@ -165,18 +165,20 @@ class DataInfoUI extends Sprite
 	public function toggleExpanded():Void
 	{
 		_setExpanded(!_expanded);
-		if (saveData != null) saveData.showDebugStats = _expanded;
+		if (saveData != null)
+			saveData.showDebugStats = _expanded;
 	}
 
 	private function _setExpanded(v:Bool):Void
 	{
-		_expanded           = v;
+		_expanded = v;
 		systemPanel.visible = v;
-		statsPanel.visible  = v;
+		statsPanel.visible = v;
 	}
 
 	/** Toggle legacy para compatibilidad (antes se llamaba toggleGPUStats). */
-	public inline function toggleGPUStats():Void toggleExpanded();
+	public inline function toggleGPUStats():Void
+		toggleExpanded();
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -224,21 +226,24 @@ class GameplayDebugOverlay extends Sprite
 	private var _fpsRef:FPSCount;
 
 	// Paneles
-	private var _leftPanel :DebugPanel;
+	private var _leftPanel:DebugPanel;
 	private var _rightPanel:DebugPanel;
 
 	// Ring buffer para la gráfica de FPS
 	private static inline var GRAPH_SAMPLES:Int = 120;
+
 	private var _fpsRing:Array<Int>;
 	private var _fpsRingHead:Int = 0;
 
 	// Canvas de la gráfica
 	private var _graph:Shape;
+
 	private static inline var GRAPH_W:Int = 210;
 	private static inline var GRAPH_H:Int = 36;
 
 	// Throttle de actualización del texto
 	private static inline var TEXT_INTERVAL:Float = 0.12;
+
 	private var _textElapsed:Float = 0;
 
 	public var shown(default, null):Bool = false;
@@ -252,7 +257,7 @@ class GameplayDebugOverlay extends Sprite
 
 		// Panel izquierdo: gráfica + info de gameplay
 		_leftPanel = new DebugPanel(GRAPH_W + 10, 10, 0x000000, 0.72);
-		_graph     = new Shape();
+		_graph = new Shape();
 		_leftPanel.addChild(_graph);
 		addChild(_leftPanel);
 
@@ -272,7 +277,7 @@ class GameplayDebugOverlay extends Sprite
 
 	public function toggle():Void
 	{
-		shown   = !shown;
+		shown = !shown;
 		visible = shown;
 	}
 
@@ -280,22 +285,23 @@ class GameplayDebugOverlay extends Sprite
 
 	private function _onFrame(_:Event):Void
 	{
-		if (!shown) return;
+		if (!shown)
+			return;
 
 		var stageW:Float = openfl.Lib.current.stage.stageWidth;
 
 		var fpsBottom:Float = 10;
-		
+
 		if (_fpsRef != null)
 		{
 			if (_fpsRef.parent != null)
 			{
 				// Casteamos el padre para acceder a sus variables (systemPanel, statsPanel)
 				var parentUI:DataInfoUI = cast(_fpsRef.parent, DataInfoUI);
-				
+
 				// Partimos de la Y base de DataInfoUI
-				fpsBottom = parentUI.y; 
-				
+				fpsBottom = parentUI.y;
+
 				if (parentUI.systemPanel.visible)
 				{
 					// Si F3 (System/Stats) está expandido, bajamos hasta debajo de las stats
@@ -305,12 +311,12 @@ class GameplayDebugOverlay extends Sprite
 				{
 					// Si F3 está cerrado, solo contamos FPS y Developer Mode
 					fpsBottom += _fpsRef.y + _fpsRef.height;
-					
+
 					if (mods.ModManager.developerMode)
 					{
 						fpsBottom += 18; // Altura del _devLabel
 					}
-					
+
 					fpsBottom += 4; // Padding final del fondo negro
 				}
 			}
@@ -346,7 +352,7 @@ class GameplayDebugOverlay extends Sprite
 		}
 
 		// Redimensionar paneles al contenido real
-		var leftH:Float  = GRAPH_H + 8 + _leftPanel.label.textHeight + 10;
+		var leftH:Float = GRAPH_H + 8 + _leftPanel.label.textHeight + 10;
 		var rightH:Float = _rightPanel.label.textHeight + 12;
 		_leftPanel.resize(_leftPanel.panelW, leftH);
 		_rightPanel.resize(_rightPanel.panelW, rightH);
@@ -356,10 +362,10 @@ class GameplayDebugOverlay extends Sprite
 
 	private function _drawGraph():Void
 	{
-		var g          = _graph.graphics;
+		var g = _graph.graphics;
 		var targetFps:Int = FlxG.drawFramerate > 0 ? FlxG.drawFramerate : 60;
-		var barW:Float    = GRAPH_W / GRAPH_SAMPLES;
-		var maxH:Float    = GRAPH_H - 2;
+		var barW:Float = GRAPH_W / GRAPH_SAMPLES;
+		var maxH:Float = GRAPH_H - 2;
 
 		g.clear();
 
@@ -384,20 +390,25 @@ class GameplayDebugOverlay extends Sprite
 		// Barras
 		for (i in 0...GRAPH_SAMPLES)
 		{
-			var idx:Int    = (_fpsRingHead + i) % GRAPH_SAMPLES;
-			var fps:Int    = _fpsRing[idx];
-			if (fps <= 0)  continue;
+			var idx:Int = (_fpsRingHead + i) % GRAPH_SAMPLES;
+			var fps:Int = _fpsRing[idx];
+			if (fps <= 0)
+				continue;
 
 			var ratio:Float = Math.min(fps / targetFps, 1.5);
-			var bh:Float    = Math.max(1.0, ratio * maxH);
-			var bx:Float    = i * barW;
-			var by:Float    = GRAPH_H - bh;
+			var bh:Float = Math.max(1.0, ratio * maxH);
+			var bx:Float = i * barW;
+			var by:Float = GRAPH_H - bh;
 
 			var col:Int;
-			if      (ratio >= 0.95) col = 0x00EE55;
-			else if (ratio >= 0.65) col = 0xFFCC00;
-			else if (ratio >= 0.40) col = 0xFF7700;
-			else                    col = 0xFF2222;
+			if (ratio >= 0.95)
+				col = 0x00EE55;
+			else if (ratio >= 0.65)
+				col = 0xFFCC00;
+			else if (ratio >= 0.40)
+				col = 0xFF7700;
+			else
+				col = 0xFF2222;
 
 			g.beginFill(col, 0.90);
 			g.drawRect(bx, by, Math.max(1.0, barW - 0.5), bh);
@@ -416,23 +427,34 @@ class GameplayDebugOverlay extends Sprite
 
 		// Estado actual
 		var stateName = 'Unknown';
-		try { stateName = Type.getClassName(Type.getClass(FlxG.state)); }
-		catch (_:Dynamic) {}
+		try
+		{
+			stateName = Type.getClassName(Type.getClass(FlxG.state));
+		}
+		catch (_:Dynamic)
+		{
+		}
 		var dot = stateName.lastIndexOf('.');
-		if (dot >= 0) stateName = stateName.substr(dot + 1);
+		if (dot >= 0)
+			stateName = stateName.substr(dot + 1);
 		lines.push('State: $stateName');
 
 		// Info de gameplay (solo en PlayState)
 		var ps:funkin.gameplay.PlayState = null;
-		try { ps = cast(FlxG.state, funkin.gameplay.PlayState); }
-		catch (_:Dynamic) {}
+		try
+		{
+			ps = cast(FlxG.state, funkin.gameplay.PlayState);
+		}
+		catch (_:Dynamic)
+		{
+		}
 
 		if (ps != null)
 		{
-			var pos:Float  = funkin.data.Conductor.songPosition;
-			var step:Int   = Reflect.field(ps, 'curStep') ?? 0;
-			var beat:Int   = Reflect.field(ps, 'curBeat') ?? 0;
-			var bpm:Float  = funkin.data.Conductor.bpm;
+			var pos:Float = funkin.data.Conductor.songPosition;
+			var step:Int = Reflect.field(ps, 'curStep') ?? 0;
+			var beat:Int = Reflect.field(ps, 'curBeat') ?? 0;
+			var bpm:Float = funkin.data.Conductor.bpm;
 			var crochet:Float = funkin.data.Conductor.crochet;
 
 			var posStr = (pos < 0 ? '-' : '') + Std.int(Math.abs(pos)) + 'ms';
@@ -441,8 +463,8 @@ class GameplayDebugOverlay extends Sprite
 
 			if (ps.cameraController != null)
 			{
-				var cc  = ps.cameraController;
-				var cf  = cc.camFollow;
+				var cc = ps.cameraController;
+				var cf = cc.camFollow;
 				var lck = cc.locked ? ' [LOCKED]' : '';
 				lines.push('CamFollow: (${Std.int(cf.x)}, ${Std.int(cf.y)})');
 				lines.push('Target: ${cc.currentTarget}$lck');
@@ -465,8 +487,7 @@ class GameplayDebugOverlay extends Sprite
 		var lines:Array<String> = [];
 
 		// VRAM
-		var vram = SystemInfo.initialized && SystemInfo.vRAM != 'Unknown'
-			? SystemInfo.vRAM : 'N/A';
+		var vram = SystemInfo.initialized && SystemInfo.vRAM != 'Unknown' ? SystemInfo.vRAM : 'N/A';
 		lines.push('VRAM: $vram');
 
 		// Texturas en caché
@@ -483,7 +504,7 @@ class GameplayDebugOverlay extends Sprite
 		}
 
 		// Cámaras y objetos
-		var camCount  = FlxG.cameras.list != null ? FlxG.cameras.list.length : 0;
+		var camCount = FlxG.cameras.list != null ? FlxG.cameras.list.length : 0;
 		lines.push('Cameras: $camCount');
 
 		var objCount = 0;
@@ -492,13 +513,20 @@ class GameplayDebugOverlay extends Sprite
 			if (FlxG.state != null && FlxG.state.members != null)
 				objCount = FlxG.state.members.length;
 		}
-		catch (_:Dynamic) {}
+		catch (_:Dynamic)
+		{
+		}
 		lines.push('State members: $objCount');
 
 		// Info de cámara del PlayState
 		var ps:funkin.gameplay.PlayState = null;
-		try { ps = cast(FlxG.state, funkin.gameplay.PlayState); }
-		catch (_:Dynamic) {}
+		try
+		{
+			ps = cast(FlxG.state, funkin.gameplay.PlayState);
+		}
+		catch (_:Dynamic)
+		{
+		}
 
 		if (ps != null && ps.cameraController != null)
 		{
@@ -515,27 +543,34 @@ class GameplayDebugOverlay extends Sprite
 		}
 
 		// Scripts activos
-		var hxCount  = 0;
+		var hxCount = 0;
 		var luaCount = 0;
 		try
 		{
 			var sh = funkin.scripting.ScriptHandler;
-			for (_ in sh.globalScripts) hxCount++;
-			for (_ in sh.stageScripts)  hxCount++;
-			for (_ in sh.songScripts)   hxCount++;
-			for (_ in sh.uiScripts)     hxCount++;
-			for (_ in sh.charScripts)   hxCount++;
+			for (_ in sh.globalScripts)
+				hxCount++;
+			for (_ in sh.stageScripts)
+				hxCount++;
+			for (_ in sh.songScripts)
+				hxCount++;
+			for (_ in sh.uiScripts)
+				hxCount++;
+			for (_ in sh.charScripts)
+				hxCount++;
 			luaCount = sh.globalLuaScripts.length
-			         + sh.stageLuaScripts.length
-			         + sh.songLuaScripts.length
-			         + sh.uiLuaScripts.length
-			         + sh.charLuaScripts.length;
+				+ sh.stageLuaScripts.length
+				+ sh.songLuaScripts.length
+				+ sh.uiLuaScripts.length
+				+ sh.charLuaScripts.length;
 		}
-		catch (_:Dynamic) {}
+		catch (_:Dynamic)
+		{
+		}
 		lines.push('Scripts: HScript×$hxCount   Lua×$luaCount');
 
 		// Mod activo, versión de Script API y estado de Developer Mode
-		var modId  = mods.ModManager.activeMod ?? '(none)';
+		var modId = mods.ModManager.activeMod ?? '(none)';
 		var devStr = mods.ModManager.developerMode ? ' [DEV MODE]' : '';
 		lines.push('Mod: $modId$devStr');
 		lines.push('Script API: v6.0.0');
@@ -558,6 +593,7 @@ class GameplayDebugOverlay extends Sprite
 class DebugPanel extends Sprite
 {
 	public var panelW(default, null):Float;
+
 	private var _panelH:Float;
 	private var _bg:Shape;
 
@@ -570,8 +606,8 @@ class DebugPanel extends Sprite
 	{
 		super();
 
-		panelW   = w;
-		_panelH  = h;
+		panelW = w;
+		_panelH = h;
 		_bgColor = bgColor;
 		_bgAlpha = bgAlpha;
 
@@ -580,14 +616,14 @@ class DebugPanel extends Sprite
 		addChild(_bg);
 
 		label = new TextField();
-		label.selectable   = false;
+		label.selectable = false;
 		label.mouseEnabled = false;
 		label.defaultTextFormat = new TextFormat('_sans', 10, 0xEEEEEE);
-		label.multiline    = true;
-		label.wordWrap     = false;
-		label.autoSize     = openfl.text.TextFieldAutoSize.LEFT;
-		label.x            = 6;
-		label.y            = 5;
+		label.multiline = true;
+		label.wordWrap = false;
+		label.autoSize = openfl.text.TextFieldAutoSize.LEFT;
+		label.x = 6;
+		label.y = 5;
 		addChild(label);
 	}
 
@@ -596,8 +632,9 @@ class DebugPanel extends Sprite
 
 	public function resize(w:Float, h:Float):Void
 	{
-		if (Math.abs(w - panelW) < 1 && Math.abs(h - _panelH) < 1) return;
-		panelW  = w;
+		if (Math.abs(w - panelW) < 1 && Math.abs(h - _panelH) < 1)
+			return;
+		panelW = w;
 		_panelH = h;
 		_drawBG(w, h);
 	}
@@ -627,15 +664,15 @@ class SystemPanel extends TextField
 	{
 		super();
 
-		this.x            = x + 4;
-		this.y            = y;
-		this.width        = 210;
-		this.height       = HEIGHT;
-		this.selectable   = false;
+		this.x = x + 4;
+		this.y = y;
+		this.width = 210;
+		this.height = HEIGHT;
+		this.selectable = false;
 		this.mouseEnabled = false;
 		this.defaultTextFormat = new TextFormat("_sans", 9, 0xAADDFF);
-		this.multiline    = true;
-		this.wordWrap     = false;
+		this.multiline = true;
+		this.wordWrap = false;
 
 		if (SystemInfo.initialized)
 			_fill();
@@ -661,23 +698,32 @@ class SystemPanel extends TextField
 	{
 		var lines:Array<String> = [];
 
-		if (SystemInfo.osName  != "Unknown") lines.push('OS:  ${SystemInfo.osName}');
-		if (SystemInfo.cpuName != "Unknown") lines.push('CPU: ${SystemInfo.cpuName}');
+		if (SystemInfo.osName != "Unknown")
+			lines.push('OS:  ${SystemInfo.osName}');
+		if (SystemInfo.cpuName != "Unknown")
+			lines.push('CPU: ${SystemInfo.cpuName}');
 
 		var gpuLine = '';
-		if (SystemInfo.gpuName != "Unknown") gpuLine += 'GPU: ${SystemInfo.gpuName}';
-		if (SystemInfo.vRAM    != "Unknown") gpuLine += '  VRAM: ${SystemInfo.vRAM}';
-		if (gpuLine.length > 0) lines.push(gpuLine);
+		if (SystemInfo.gpuName != "Unknown")
+			gpuLine += 'GPU: ${SystemInfo.gpuName}';
+		if (SystemInfo.vRAM != "Unknown")
+			gpuLine += '  VRAM: ${SystemInfo.vRAM}';
+		if (gpuLine.length > 0)
+			lines.push(gpuLine);
 
 		if (SystemInfo.gpuMaxTextureSize != "Unknown")
 			lines.push('    Max tex: ${SystemInfo.gpuMaxTextureSize}');
 
 		var ramLine = '';
-		if (SystemInfo.totalRAM != "Unknown") ramLine = 'RAM: ${SystemInfo.totalRAM}';
-		if (SystemInfo.ramType.length > 0)    ramLine += '  ${SystemInfo.ramType}';
-		if (ramLine.length > 0) lines.push(ramLine);
+		if (SystemInfo.totalRAM != "Unknown")
+			ramLine = 'RAM: ${SystemInfo.totalRAM}';
+		if (SystemInfo.ramType.length > 0)
+			ramLine += '  ${SystemInfo.ramType}';
+		if (ramLine.length > 0)
+			lines.push(ramLine);
 
-		if (lines.length == 0) lines.push("(System info not available)");
+		if (lines.length == 0)
+			lines.push("(System info not available)");
 		this.text = lines.join("\n");
 		_filled = true;
 	}
@@ -701,16 +747,16 @@ class StatsPanel extends TextField
 	{
 		super();
 
-		this.x            = x + 4;
-		this.y            = y;
-		this.width        = 210;
-		this.height       = HEIGHT;
-		this.selectable   = false;
+		this.x = x + 4;
+		this.y = y;
+		this.width = 210;
+		this.height = HEIGHT;
+		this.selectable = false;
 		this.mouseEnabled = false;
-		this.defaultTextFormat = new TextFormat("_sans", 9, 0x00FF88);
-		this.multiline    = true;
-		this.wordWrap     = false;
-		this.text         = "Stats loading...";
+		this.defaultTextFormat = new TextFormat(openfl.utils.Assets.getFont(Paths.font("Funkin.otf")).fontName, 16, 0xFFFFFF);
+		this.multiline = true;
+		this.wordWrap = false;
+		this.text = "Stats loading...";
 
 		addEventListener(Event.ENTER_FRAME, _onEnter);
 	}
@@ -718,7 +764,8 @@ class StatsPanel extends TextField
 	private function _onEnter(e:Event):Void
 	{
 		_elapsed += FlxG.elapsed;
-		if (_elapsed < UPDATE_INTERVAL) return;
+		if (_elapsed < UPDATE_INTERVAL)
+			return;
 		_elapsed = 0;
 		_refresh();
 	}
@@ -727,39 +774,41 @@ class StatsPanel extends TextField
 	{
 		var lines:Array<String> = [];
 
-		var ww   = WindowManager.windowWidth;
-		var wh   = WindowManager.windowHeight;
+		var ww = WindowManager.windowWidth;
+		var wh = WindowManager.windowHeight;
 		var mode = WindowManager.scaleMode;
 		lines.push('Win: ${ww}×${wh}  Scale: $mode${WindowManager.isFullscreen ? " [FS]" : ""}');
 
-		lines.push('Game: ${FlxG.width}×${FlxG.height}  FPS target: ${FlxG.updateFramerate}');
+		lines.push('Game: ${FlxG.width}×${FlxG.height} | FPS target: ${FlxG.updateFramerate}');
 
 		var drawCalls = 0;
-		var sprites   = 0;
-		var culled    = 0;
+		var sprites = 0;
+		var culled = 0;
 		try
 		{
 			var ps = cast(FlxG.state, funkin.gameplay.PlayState);
 			if (ps?.optimizationManager?.gpuRenderer != null)
 			{
 				drawCalls = ps.optimizationManager.gpuRenderer.drawCalls;
-				sprites   = ps.optimizationManager.gpuRenderer.spritesRendered;
-				culled    = ps.optimizationManager.gpuRenderer.spritesCulled;
+				sprites = ps.optimizationManager.gpuRenderer.spritesRendered;
+				culled = ps.optimizationManager.gpuRenderer.spritesCulled;
 			}
 		}
-		catch (_:Dynamic) {}
+		catch (_:Dynamic)
+		{
+		}
 
 		lines.push('GPU: DC=$drawCalls  Spr=$sprites  Cull=$culled');
 
 		#if cpp
-		var usedMB = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE)    / (1024 * 1024));
+		var usedMB = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE) / (1024 * 1024));
 		var peakMB = Math.round(cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_RESERVED) / (1024 * 1024));
 		#else
 		var usedMB = Math.round(openfl.system.System.totalMemory / (1024 * 1024));
 		var peakMB = usedMB;
 		#end
 		var gcPaused = funkin.system.MemoryUtil.disableCount > 0;
-		lines.push('Mem: ${usedMB}/${peakMB} MB  GC: ${gcPaused ? "paused" : "active"}');
+		lines.push('Mem: ${usedMB}/${peakMB} MB | GC: ${gcPaused ? "paused" : "active"}');
 
 		if (AudioConfig.loaded)
 			lines.push('Audio: ${AudioConfig.debugString()}');
@@ -775,24 +824,31 @@ class StatsPanel extends TextField
 // ─────────────────────────────────────────────────────────────────────────────
 // GPUStatsText — alias legacy
 // ─────────────────────────────────────────────────────────────────────────────
+
 @:deprecated("Use StatsPanel. GPUStatsText will remain as an empty alias.")
 class GPUStatsText extends TextField
 {
 	public static function getSaveData():Dynamic
 	{
-		if (FlxG.save != null && FlxG.save.data != null) return FlxG.save.data;
+		if (FlxG.save != null && FlxG.save.data != null)
+			return FlxG.save.data;
 		return null;
 	}
 
 	public function new(x:Float, y:Float)
 	{
 		super();
-		this.x = x; this.y = y;
-		this.selectable = false; this.mouseEnabled = false;
-		this.width = 10; this.height = 10;
+		this.x = x;
+		this.y = y;
+		this.selectable = false;
+		this.mouseEnabled = false;
+		this.width = 10;
+		this.height = 10;
 		this.visible = false;
 	}
 
 	/** @deprecated No-op. */
-	public function updateStats():Void {}
+	public function updateStats():Void
+	{
+	}
 }
