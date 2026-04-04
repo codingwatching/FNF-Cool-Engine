@@ -28,6 +28,7 @@ class CameraController
 	// === FOLLOW OBJECT ===
 	// Expuesto para que EventManager pueda leerlo si hace falta.
 	public var camFollow:FlxObject;
+
 	private var camPos:FlxPoint;
 
 	// === CHARACTERS ===
@@ -43,9 +44,9 @@ class CameraController
 
 	// === INITIAL STATE (for restart/rewind) ===
 	// Saved at construction time so resetToInitial() can fully restore the camera.
-	private var _initialTarget : String = 'opponent';
-	private var _initialZoom   : Float  = 1.05;
-	private var _initialLerp   : Float  = 0.04;
+	private var _initialTarget:String = 'opponent';
+	private var _initialZoom:Float = 1.05;
+	private var _initialLerp:Float = 0.04;
 
 	// === LERP SPEED del follow ===
 	// Puede sobreescribirse por evento (Camera Follow, value2).
@@ -53,15 +54,16 @@ class CameraController
 
 	// === ZOOM ===
 	public var defaultZoom:Float = 1.05;
-	public var zoomEnabled:Bool  = false;
+	public var zoomEnabled:Bool = false;
+
 	private var zoomTween:FlxTween;
 	private var _panTween:FlxTween;
 
 	// === NOTE MOVEMENT OFFSETS ===
 	public var dadOffsetX:Int = 0;
 	public var dadOffsetY:Int = 0;
-	public var bfOffsetX:Int  = 0;
-	public var bfOffsetY:Int  = 0;
+	public var bfOffsetX:Int = 0;
+	public var bfOffsetY:Int = 0;
 
 	// === STAGE CAMERA OFFSETS ===
 	// Definidos en el stage JSON como cameraBoyfriend / cameraDad / cameraGirlfriend.
@@ -70,16 +72,19 @@ class CameraController
 	//   opponent → +150 X, -100 Y  (cámara más a la derecha para el oponente)
 	//   gf       →    0 X,  -80 Y
 	// Los stages que definen cameraBoyfriend/cameraDad en su JSON sobreescriben estos valores.
-	public var stageOffsetBf:FlxPoint  = new FlxPoint(-100, -100);
+	public var stageOffsetBf:FlxPoint = new FlxPoint(-100, -100);
 	public var stageOffsetDad:FlxPoint = new FlxPoint(150, -100);
+
 	/** Offset de cámara para GF (camera_girlfriend en Psych). */
-	public var stageOffsetGf:FlxPoint  = new FlxPoint(0, -80);
+	public var stageOffsetGf:FlxPoint = new FlxPoint(0, -80);
 
 	/** Offset adicional pasado por el evento (campo x/y de FocusCamera en V-Slice). */
 	var _extraOffsetX:Float = 0.0;
+
 	var _extraOffsetY:Float = 0.0;
 
 	// === CONFIG ===
+
 	/**
 	 * Cuando `true`, el follow de la cámara está bloqueado: `updateFollowPosition`
 	 * es un no-op y camFollow se queda donde está (o en _lockedPos si se usó lock()).
@@ -89,28 +94,31 @@ class CameraController
 
 	/** Posición de mundo a la que se bloqueó la cámara (solo válida cuando locked=true). */
 	private var _lockedPos:FlxPoint = new FlxPoint(0, 0);
+
 	/**
 	 * Velocidad del lerp de cámara. Equivalente a camera_speed en Psych.
 	 * Se inicializa a 2.4 (default de Cool Engine). PlayState lo sobreescribe
 	 * con currentStage.cameraSpeed * BASE_LERP_SPEED tras cargar el stage.
 	 */
 	public var lerpSpeed:Float = 2.4;
+
 	public static inline var BASE_LERP_SPEED:Float = 2.4;
 	private static inline var NOTE_OFFSET_AMOUNT:Float = 30.0;
 
+	private var _savedLerp:Float = 0.04; // Valor inicial por si acaso
+
 	// ─────────────────────────────────────────────────────────────
 
-	public function new(camGame:FlxCamera, camHUD:FlxCamera,
-		boyfriend:Character, dad:Character, ?gf:Character)
+	public function new(camGame:FlxCamera, camHUD:FlxCamera, boyfriend:Character, dad:Character, ?gf:Character)
 	{
-		this.camGame    = camGame;
-		this.camHUD     = camHUD;
-		this.boyfriend  = boyfriend;
-		this.dad        = dad;
-		this.gf         = gf;
+		this.camGame = camGame;
+		this.camHUD = camHUD;
+		this.boyfriend = boyfriend;
+		this.dad = dad;
+		this.gf = gf;
 
 		camFollow = new FlxObject(0, 0, 1, 1);
-		camPos    = new FlxPoint();
+		camPos = new FlxPoint();
 
 		// Escalar defaultZoom según resolución (fix 1080p: 1280/1920 = 1.5×)
 		defaultZoom *= Main.resolutionScale();
@@ -121,8 +129,8 @@ class CameraController
 
 		// Save initial state so resetToInitial() can fully restore it on rewind/restart.
 		_initialTarget = currentTarget;
-		_initialZoom   = defaultZoom;
-		_initialLerp   = followLerp;
+		_initialZoom = defaultZoom;
+		_initialLerp = followLerp;
 
 		// Posición inicial: sobre el oponente (target por defecto).
 		_snapToTarget();
@@ -146,9 +154,9 @@ class CameraController
 	 */
 	public function setTarget(target:String, extraOffX:Float = 0.0, extraOffY:Float = 0.0, snap:Bool = true):Void
 	{
-		currentTarget  = resolveTarget(target);
-		_extraOffsetX  = extraOffX;
-		_extraOffsetY  = extraOffY;
+		currentTarget = resolveTarget(target);
+		_extraOffsetX = extraOffX;
+		_extraOffsetY = extraOffY;
 		trace('[CameraController] Target → $currentTarget (extraOff=${extraOffX},${extraOffY} snap=$snap locked=$locked)');
 
 		// Siempre snapear camFollow al nuevo target — la transición suave la
@@ -191,17 +199,9 @@ class CameraController
 		}
 		locked = true;
 
-		// BUG FIX: antes usaba camFollow.x/y como posición de bloqueo.
-		// camFollow es el OBJETIVO del lerp — la cámara puede estar todavía
-		// a varios píxeles de él.  Usar camFollow.x hace que la cámara salte
-		// visiblemente a la posición del objetivo en lugar de quedarse donde está.
-		// Ahora usamos el CENTRO REAL de la cámara (scroll + medio viewport / zoom).
-		final actualX:Float = (camGame != null)
-			? camGame.scroll.x + camGame.width  * 0.5 / camGame.zoom
-			: camFollow.x;
-		final actualY:Float = (camGame != null)
-			? camGame.scroll.y + camGame.height * 0.5 / camGame.zoom
-			: camFollow.y;
+		// En HaxeFlixel, el centro lógico no requiere dividirse por el zoom.
+		final actualX:Float = (camGame != null) ? camGame.scroll.x + camGame.width * 0.5 : camFollow.x;
+		final actualY:Float = (camGame != null) ? camGame.scroll.y + camGame.height * 0.5 : camFollow.y;
 
 		_lockedPos.x = x ?? actualX;
 		_lockedPos.y = y ?? actualY;
@@ -212,18 +212,11 @@ class CameraController
 
 		if (camGame != null)
 		{
+			_savedLerp = camGame.followLerp;
 			// Snap inmediato del scroll al centro bloqueado.
-			camGame.scroll.set(
-				_lockedPos.x - camGame.width  * 0.5 / camGame.zoom,
-				_lockedPos.y - camGame.height * 0.5 / camGame.zoom
-			);
+			camGame.scroll.set(_lockedPos.x - camGame.width * 0.5, _lockedPos.y - camGame.height * 0.5);
 
-			// BUG FIX: followLerp = 1.0 no snapa instantáneamente en framerates altos
-			// porque Flixel lo aplica como `lerp * elapsed * 60`, resultando en <1.0
-			// de movimiento por frame a >60fps. Usar un valor enorme (999) garantiza
-			// que `999 * elapsed * 60 >> 1` para cualquier framerate razonable,
-			// haciendo que el scroll siempre iguale camFollow en el mismo frame.
-			// Re-registrar el follow fuerza FlxCamera a limpiar su estado interno.
+			// Re-registrar el follow para forzar a FlxCamera a limpiar su estado interno.
 			camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, 999.0);
 		}
 	}
@@ -235,10 +228,11 @@ class CameraController
 	public function unlock():Void
 	{
 		locked = false;
-		// Restaurar el follow con el lerp normal. lock() re-registró con 999 para
-		// garantizar snap inmediato; aquí volvemos al lerp suave original.
+
 		if (camGame != null)
-			camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, followLerp);
+		{
+			camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, _savedLerp);
+		}
 	}
 
 	/**
@@ -266,8 +260,7 @@ class CameraController
 	 * @param keepLocked  Si true, la cámara queda locked al terminar (default false).
 	 * @param onComplete  Callback opcional al terminar el tween.
 	 */
-	public function panTo(x:Float, y:Float, ?duration:Float, ?ease:Float->Float,
-		?keepLocked:Bool, ?onComplete:Void->Void):Void
+	public function panTo(x:Float, y:Float, ?duration:Float, ?ease:Float->Float, ?keepLocked:Bool, ?onComplete:Void->Void):Void
 	{
 		var dur:Float = duration ?? 0.6;
 		var easeFunc = ease ?? FlxEase.sineInOut;
@@ -276,16 +269,21 @@ class CameraController
 		// Bloquar mientras dura el tween para que updateFollowPosition no lo cancele
 		locked = true;
 
-		if (_panTween != null) { _panTween.cancel(); _panTween = null; }
-
-		_panTween = FlxTween.tween(camFollow, { x: x, y: y }, dur,
+		if (_panTween != null)
 		{
+			_panTween.cancel();
+			_panTween = null;
+		}
+
+		_panTween = FlxTween.tween(camFollow, {x: x, y: y}, dur, {
 			ease: easeFunc,
 			onComplete: function(t)
 			{
 				_panTween = null;
-				if (!stayLocked) locked = false;
-				if (onComplete != null) onComplete();
+				if (!stayLocked)
+					locked = false;
+				if (onComplete != null)
+					onComplete();
 			}
 		});
 	}
@@ -299,7 +297,8 @@ class CameraController
 	public function tweenToTarget(duration:Float, ?ease:Float->Float):Void
 	{
 		final dest = _computeTargetPos();
-		if (dest == null) return;
+		if (dest == null)
+			return;
 		panTo(dest.x, dest.y, duration, ease ?? FlxEase.sineOut);
 		dest.put();
 	}
@@ -313,8 +312,9 @@ class CameraController
 	 */
 	public function centerBetweenChars(?snap:Bool):Void
 	{
-		if (boyfriend == null || dad == null) return;
-		var bfMid  = boyfriend.getMidpoint();
+		if (boyfriend == null || dad == null)
+			return;
+		var bfMid = boyfriend.getMidpoint();
 		var dadMid = dad.getMidpoint();
 		var cx = (bfMid.x + dadMid.x) * 0.5;
 		var cy = (bfMid.y + dadMid.y) * 0.5;
@@ -336,22 +336,30 @@ class CameraController
 	public function resetToInitial():Void
 	{
 		// Cancel any active zoom tween first
-		if (zoomTween != null) { zoomTween.cancel(); zoomTween = null; }
-		if (_panTween  != null) { _panTween.cancel();  _panTween  = null; }
+		if (zoomTween != null)
+		{
+			zoomTween.cancel();
+			zoomTween = null;
+		}
+		if (_panTween != null)
+		{
+			_panTween.cancel();
+			_panTween = null;
+		}
 
-		locked        = false;
+		locked = false;
 
 		currentTarget = _initialTarget;
-		defaultZoom   = _initialZoom;
-		followLerp    = _initialLerp;
-		zoomEnabled   = false;
-		dadOffsetX    = 0;
-		dadOffsetY    = 0;
-		bfOffsetX     = 0;
-		bfOffsetY     = 0;
+		defaultZoom = _initialZoom;
+		followLerp = _initialLerp;
+		zoomEnabled = false;
+		dadOffsetX = 0;
+		dadOffsetY = 0;
+		bfOffsetX = 0;
+		bfOffsetY = 0;
 
-		camGame.zoom        = defaultZoom;
-		camGame.followLerp  = followLerp;
+		camGame.zoom = defaultZoom;
+		camGame.followLerp = followLerp;
 
 		_snapToTarget();
 		trace('[CameraController] resetToInitial → target=$currentTarget zoom=$defaultZoom');
@@ -366,8 +374,8 @@ class CameraController
 	public function snapshotInitialState():Void
 	{
 		_initialTarget = currentTarget;
-		_initialZoom   = defaultZoom;
-		_initialLerp   = followLerp;
+		_initialZoom = defaultZoom;
+		_initialLerp = followLerp;
 		trace('[CameraController] snapshotInitialState → target=$_initialTarget zoom=$_initialZoom lerp=$_initialLerp');
 	}
 
@@ -392,13 +400,15 @@ class CameraController
 	private function updateFollowPosition(elapsed:Float):Void
 	{
 		// Si la cámara está bloqueada, no mover camFollow en absoluto.
-		if (locked) return;
+		if (locked)
+			return;
 		// ── Target 'both': centrar entre bf y dad ─────────────────────────
 		if (currentTarget == 'both')
 		{
-			if (boyfriend == null || dad == null) return;
+			if (boyfriend == null || dad == null)
+				return;
 
-			var bfMid  = boyfriend.getMidpoint();
+			var bfMid = boyfriend.getMidpoint();
 			var dadMid = dad.getMidpoint();
 
 			var midX = (bfMid.x + dadMid.x) * 0.5;
@@ -417,7 +427,8 @@ class CameraController
 
 		// ── Target normal ─────────────────────────────────────────────────
 		var targetChar = getTargetCharacter();
-		if (targetChar == null) return;
+		if (targetChar == null)
+			return;
 
 		var targetPos = targetChar.getMidpoint();
 
@@ -428,10 +439,10 @@ class CameraController
 		// Stage offset (cameraBoyfriend/cameraDad/cameraGirlfriend del stage.json).
 		var stageOff = switch (currentTarget)
 		{
-			case 'player':   stageOffsetBf;
+			case 'player': stageOffsetBf;
 			case 'opponent': stageOffsetDad;
-			case 'gf':       stageOffsetGf;
-			default:         stageOffsetDad;
+			case 'gf': stageOffsetGf;
+			default: stageOffsetDad;
 		};
 		targetPos.x += stageOff.x + _extraOffsetX;
 		targetPos.y += stageOff.y + _extraOffsetY;
@@ -456,16 +467,17 @@ class CameraController
 	private function _computeTargetPos():Null<flixel.math.FlxPoint>
 	{
 		var targetChar = getTargetCharacter();
-		if (targetChar == null) return null;
+		if (targetChar == null)
+			return null;
 		var pos = targetChar.getMidpoint();
 		pos.x += targetChar.cameraOffset[0];
 		pos.y += targetChar.cameraOffset[1];
 		var stageOff = switch (currentTarget)
 		{
-			case 'player':   stageOffsetBf;
+			case 'player': stageOffsetBf;
 			case 'opponent': stageOffsetDad;
-			case 'gf':       stageOffsetGf;
-			default:         stageOffsetDad;
+			case 'gf': stageOffsetGf;
+			default: stageOffsetDad;
 		};
 		pos.x += stageOff.x + _extraOffsetX;
 		pos.y += stageOff.y + _extraOffsetY;
@@ -476,46 +488,43 @@ class CameraController
 	{
 		var lerpVal:Float = FlxMath.bound(elapsed * 3.125, 0, 1);
 		camGame.zoom = FlxMath.lerp(camGame.zoom, defaultZoom, lerpVal);
-		camHUD.zoom  = FlxMath.lerp(camHUD.zoom,  1.0,         lerpVal);
+		camHUD.zoom = FlxMath.lerp(camHUD.zoom, 1.0, lerpVal);
 	}
 
 	/** Mueve camFollow instantáneamente al target actual (sin lerp). */
 	private function _snapToTarget():Void
 	{
 		// Si la cámara está bloqueada, nunca mover camFollow desde aquí.
-		if (locked) return;
+		if (locked)
+			return;
 
 		// ── Target 'both': snap al centro entre bf y dad ──────────────────
 		if (currentTarget == 'both')
 		{
-			if (boyfriend == null || dad == null) return;
-			var bfMid  = boyfriend.getMidpoint();
+			if (boyfriend == null || dad == null)
+				return;
+			var bfMid = boyfriend.getMidpoint();
 			var dadMid = dad.getMidpoint();
-			camFollow.setPosition(
-				(bfMid.x + dadMid.x) * 0.5,
-				(bfMid.y + dadMid.y) * 0.5
-			);
+			camFollow.setPosition((bfMid.x + dadMid.x) * 0.5, (bfMid.y + dadMid.y) * 0.5);
 			bfMid.put();
 			dadMid.put();
 			return;
 		}
 
 		var targetChar = getTargetCharacter();
-		if (targetChar == null) return;
+		if (targetChar == null)
+			return;
 
 		var mid = targetChar.getMidpoint();
 		// BUG FIX: igual que en updateFollowPosition, GF necesita su propio stageOffset.
 		var stageOff = switch (currentTarget)
 		{
-			case 'player':   stageOffsetBf;
+			case 'player': stageOffsetBf;
 			case 'opponent': stageOffsetDad;
-			case 'gf':       stageOffsetGf;
-			default:         stageOffsetDad;
+			case 'gf': stageOffsetGf;
+			default: stageOffsetDad;
 		};
-		camFollow.setPosition(
-			mid.x + targetChar.cameraOffset[0] + stageOff.x + _extraOffsetX,
-			mid.y + targetChar.cameraOffset[1] + stageOff.y + _extraOffsetY
-		);
+		camFollow.setPosition(mid.x + targetChar.cameraOffset[0] + stageOff.x + _extraOffsetX, mid.y + targetChar.cameraOffset[1] + stageOff.y + _extraOffsetY);
 		mid.put();
 	}
 
@@ -523,10 +532,10 @@ class CameraController
 	{
 		return switch (currentTarget)
 		{
-			case 'player':   boyfriend;
+			case 'player': boyfriend;
 			case 'opponent': dad;
-			case 'gf':       gf;
-			default:         dad;
+			case 'gf': gf;
+			default: dad;
 		};
 	}
 
@@ -535,10 +544,10 @@ class CameraController
 	{
 		return switch (raw.toLowerCase().trim())
 		{
-			case 'player'   | 'bf' | 'boyfriend':          'player';
-			case 'opponent' | 'dad' | 'enemy':             'opponent';
-			case 'gf'       | 'girlfriend':                 'gf';
-			case 'both'     | 'center' | 'middle' | 'all': 'both';
+			case 'player' | 'bf' | 'boyfriend': 'player';
+			case 'opponent' | 'dad' | 'enemy': 'opponent';
+			case 'gf' | 'girlfriend': 'gf';
+			case 'both' | 'center' | 'middle' | 'all': 'both';
 			default: raw;
 		};
 	}
@@ -549,14 +558,15 @@ class CameraController
 
 	public function bumpZoom():Void
 	{
-		if (!zoomEnabled) return;
+		if (!zoomEnabled)
+			return;
 		// El límite de bump se escala con la resolución para mantener
 		// la misma "sensación" visual que en 720p.
 		var bumpLimit:Float = 1.35 * Main.resolutionScale();
 		if (camGame.zoom < bumpLimit)
 		{
 			camGame.zoom += 0.015 * Main.resolutionScale();
-			camHUD.zoom  += 0.03;
+			camHUD.zoom += 0.03;
 		}
 	}
 
@@ -567,10 +577,14 @@ class CameraController
 
 		switch (noteData)
 		{
-			case 0: camX = -NOTE_OFFSET_AMOUNT;
-			case 1: camY =  NOTE_OFFSET_AMOUNT;
-			case 2: camY = -NOTE_OFFSET_AMOUNT;
-			case 3: camX =  NOTE_OFFSET_AMOUNT;
+			case 0:
+				camX = -NOTE_OFFSET_AMOUNT;
+			case 1:
+				camY = NOTE_OFFSET_AMOUNT;
+			case 2:
+				camY = -NOTE_OFFSET_AMOUNT;
+			case 3:
+				camX = NOTE_OFFSET_AMOUNT;
 		}
 
 		if (character == dad)
@@ -587,13 +601,16 @@ class CameraController
 
 	public function resetOffsets():Void
 	{
-		dadOffsetX = 0; dadOffsetY = 0;
-		bfOffsetX  = 0; bfOffsetY  = 0;
+		dadOffsetX = 0;
+		dadOffsetY = 0;
+		bfOffsetX = 0;
+		bfOffsetY = 0;
 	}
 
 	public function tweenZoomIn():Void
 	{
-		if (zoomTween != null) zoomTween.cancel();
+		if (zoomTween != null)
+			zoomTween.cancel();
 		zoomTween = FlxTween.tween(camGame, {zoom: defaultZoom}, 1, {ease: FlxEase.elasticInOut});
 	}
 
@@ -607,8 +624,16 @@ class CameraController
 
 	public function destroy():Void
 	{
-		if (zoomTween != null) { zoomTween.cancel(); zoomTween = null; }
-		if (_panTween  != null) { _panTween.cancel();  _panTween  = null; }
+		if (zoomTween != null)
+		{
+			zoomTween.cancel();
+			zoomTween = null;
+		}
+		if (_panTween != null)
+		{
+			_panTween.cancel();
+			_panTween = null;
+		}
 		camPos.put();
 		stageOffsetBf.put();
 		stageOffsetDad.put();
