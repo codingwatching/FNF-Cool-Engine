@@ -455,75 +455,116 @@ class HScriptInstance implements IScript
 
 	function _handleError(funcName:String, e:Dynamic):Void
 	{
-		var msg = Std.string(e);
-		var lineNum = -1;
-		var lineContent = '';
-		#if HSCRIPT_ALLOWED
+		// ── Capa exterior: garantizar que SIEMPRE mostramos algo aunque todo falle ──
+		// Si cualquier bloque interior lanza una excepción secundaria, el catch
+		// externo lo captura y escribe al menos en stderr.
 		try
 		{
-			// hscript.Expr.Error carries structured position info we can use
-			// to show the exact failing line and a readable error description.
-			final exprErr = cast(e, hscript.Expr.Error);
-			if (exprErr != null)
-			{
-				// Prefer a human-readable message derived from the ErrorDef enum
-				final defMsg = _formatErrorDef(Reflect.field(exprErr, 'e'));
-				if (defMsg != null && defMsg != '')
-					msg = defMsg;
+			var msg = "(error desconocido)";
+			var lineNum = -1;
+			var lineContent = '';
 
-				// hscript 2.5+ stores the line number directly in .line
-				if (Reflect.hasField(exprErr, 'line'))
-				{
-					final raw = Reflect.field(exprErr, 'line');
-					if (raw != null)
-						lineNum = raw;
-				}
+			// ── Convertir el error a string ───────────────────────────────────
+			try { msg = Std.string(e); } catch (_se:Dynamic) {}
 
-				// Fallback: derive line number from the pmin character offset
-				if (lineNum <= 0 && Reflect.hasField(exprErr, 'pmin'))
-				{
-					final pmin:Int = Reflect.field(exprErr, 'pmin');
-					if (pmin >= 0)
-						lineNum = _lineFromOffset(_getSource(), pmin);
-				}
-			}
-		}
-		catch (_e:Dynamic)
-		{
-		}
-		#end
-
-		// Pull the actual source line for context if we have a valid line number
-		if (lineNum > 0)
-			lineContent = _getSourceLine(_getSource(), lineNum);
-
-		// Format: [HScript] Error in myScript:42 (onUpdate) → Unknown variable "foo"
-		final location = lineNum > 0 ? '$name:$lineNum' : name;
-		trace('[HScript] Error in $location ($funcName) → $msg');
-
-		// Print the offending source line so the user can see exactly what failed
-		if (lineContent != '')
-			trace('  >> $lineContent');
-
-		// Actualizar contrato IScript
-		lastError = msg;
-		// No desactivar automáticamente — sólo errores de parsing/init son fatales.
-		// Los errores en call() son recuperables (la función simplemente devuelve null).
-
-		// ── In-game error popup (non-blocking) ────────────────────────────────
-		// Shows a floating panel on top of the game without freezing or crashing.
-		// The player/modder can dismiss it with [x] or Escape and keep playing.
-		final popupMsg = lineContent != '' ? '$msg\n\n>> $lineContent' : msg;
-		ScriptErrorNotifier.notify(name, funcName, popupMsg, lineNum);
-
-		if (onError != null)
+			// ── Extraer info estructurada de hscript.Expr.Error ───────────────
+			#if HSCRIPT_ALLOWED
 			try
 			{
-				onError(name, funcName, e);
+				final exprErr = cast(e, hscript.Expr.Error);
+				if (exprErr != null)
+				{
+					try
+					{
+						final defMsg = _formatErrorDef(Reflect.field(exprErr, 'e'));
+						if (defMsg != null && defMsg != '')
+							msg = defMsg;
+					}
+					catch (_fmtErr:Dynamic) {}
+
+					try
+					{
+						if (Reflect.hasField(exprErr, 'line'))
+						{
+							final raw = Reflect.field(exprErr, 'line');
+							if (raw != null) lineNum = raw;
+						}
+					}
+					catch (_lineErr:Dynamic) {}
+
+					try
+					{
+						if (lineNum <= 0 && Reflect.hasField(exprErr, 'pmin'))
+						{
+							final pmin:Int = Reflect.field(exprErr, 'pmin');
+							if (pmin >= 0)
+								lineNum = _lineFromOffset(_getSource(), pmin);
+						}
+					}
+					catch (_pminErr:Dynamic) {}
+				}
 			}
-			catch (_e:Dynamic)
+			catch (_castErr:Dynamic) {}
+			#end
+
+			// ── Extraer línea de fuente ───────────────────────────────────────
+			if (lineNum > 0)
+				try { lineContent = _getSourceLine(_getSource(), lineNum); } catch (_) {}
+
+			// ── Trace ─────────────────────────────────────────────────────────
+			try
 			{
+				final location = lineNum > 0 ? '$name:$lineNum' : (name ?? "?");
+				final fn = funcName ?? "?";
+				trace('[HScript] Error in $location ($fn) → $msg');
+				if (lineContent != '')
+					trace('  >> $lineContent');
 			}
+			catch (_traceErr:Dynamic) {}
+
+			// ── Actualizar contrato IScript ───────────────────────────────────
+			try { lastError = msg; } catch (_) {}
+
+			// ── Popup in-game (no bloqueante) ─────────────────────────────────
+			// ScriptErrorNotifier tiene su propia capa de try/catch interna,
+			// pero lo envolvemos también aquí por si la construcción del Sprite
+			// OpenFL falla por un estado de render corrupto.
+			try
+			{
+				final popupMsg = lineContent != '' ? '$msg\n\n>> $lineContent' : msg;
+				final safeScript = (name != null) ? name : "?";
+				final safeFunc = (funcName != null) ? funcName : "?";
+				ScriptErrorNotifier.notify(safeScript, safeFunc, popupMsg, lineNum);
+			}
+			catch (_notifyErr:Dynamic)
+			{
+				// Si el popup falla, escribir en stderr como último recurso
+				try
+				{
+					Sys.stderr().writeString('[HScript][popup-failed] Error in ${name ?? "?"} (${funcName ?? "?"}) → $msg\n');
+				}
+				catch (_) {}
+			}
+
+			// ── onError callback ──────────────────────────────────────────────
+			if (onError != null)
+				try { onError(name, funcName, e); } catch (_e2:Dynamic) {}
+		}
+		catch (_outerErr:Dynamic)
+		{
+			// Fallback absoluto: el manejador de error falló internamente.
+			// Intentar escribir cualquier info disponible a stderr.
+			try
+			{
+				var fallback = "[HScript] _handleError falló internamente.\n";
+				try { fallback += "  Script:   " + Std.string(name) + "\n"; } catch (_) {}
+				try { fallback += "  Función:  " + Std.string(funcName) + "\n"; } catch (_) {}
+				try { fallback += "  Error:    " + Std.string(e) + "\n"; } catch (_) {}
+				try { fallback += "  Causa:    " + Std.string(_outerErr) + "\n"; } catch (_) {}
+				Sys.stderr().writeString(fallback);
+			}
+			catch (_) {}
+		}
 	}
 
 	/**

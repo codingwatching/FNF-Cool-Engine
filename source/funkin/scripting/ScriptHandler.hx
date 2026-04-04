@@ -479,16 +479,25 @@ class ScriptHandler
 			{
 			}
 
-			trace('[ScriptHandler] Error loading "$scriptName$lineInfo": ${Std.string(e)}');
+			var errorStr = "(error desconocido)";
+			try { errorStr = Std.string(e); } catch (_) {}
+
+			trace('[ScriptHandler] Error loading "$scriptName$lineInfo": $errorStr');
 			if (isLua)
-				trace('[ScriptHandler] Transpiled code:\n$content');
+				try { trace('[ScriptHandler] Transpiled code:\n$content'); } catch (_) {}
 
 			// ── In-game popup for load / parse failures ──────────────────────
-			// Parse errors fire immediately (the script never ran).
-			// 'load' is the function context because no function was called yet.
-			ScriptErrorNotifier.notify(
-				scriptName, 'load', Std.string(e),
-				lineInfo == '' ? -1 : Std.parseInt(lineInfo.substr(1)));
+			// Envuelto en try/catch — si el popup falla el juego no debe crashear.
+			try
+			{
+				ScriptErrorNotifier.notify(
+					scriptName, 'load', errorStr,
+					lineInfo == '' ? -1 : Std.parseInt(lineInfo.substr(1)));
+			}
+			catch (_notifyErr:Dynamic)
+			{
+				try { Sys.stderr().writeString('[ScriptError][load] $scriptName$lineInfo → $errorStr\n'); } catch (_) {}
+			}
 
 			return null;
 		}
@@ -993,10 +1002,12 @@ class ScriptHandler
 	{
 		for (script in layer)
 		{
-			if (script.active)
+			if (script != null && script.active)
 			{
 				#if HSCRIPT_ALLOWED
-				script.call(func, args);
+				// script.call() ya tiene try/catch interno, pero si el objeto
+				// script en sí es un null object reference esto también lo captura.
+				try { script.call(func, args); } catch (_layerErr:Dynamic) {}
 				#end
 			}
 		}
@@ -1106,11 +1117,15 @@ class ScriptHandler
 	{
 		for (script in layer)
 		{
-			if (!script.active)
+			if (script == null || !script.active)
 				continue;
-			final r = script.call(funcName, args);
-			if (r != null && r != defaultValue)
-				return r;
+			try
+			{
+				final r = script.call(funcName, args);
+				if (r != null && r != defaultValue)
+					return r;
+			}
+			catch (_layerErr:Dynamic) {}
 		}
 		return null;
 	}

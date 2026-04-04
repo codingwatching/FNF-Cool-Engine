@@ -13,54 +13,6 @@ env:
   LIME_VERSION:   "8.3.1"
   OPENFL_VERSION: "9.3.0"
 
-# ── Anchors ───────────────────────────────────────────────────────────────────
-# GitHub Actions ignores unknown top-level keys, so these are safe to use.
-x-steps:
-  checkout: &checkout
-    uses: actions/checkout@v4
-    with: { submodules: recursive }
-
-  # shell: bash makes this reusable on Windows too
-  lock-versions: &lock-versions
-    name: Lock library versions
-    shell: bash
-    run: |
-      haxelib set lime          ${{ env.LIME_VERSION }}
-      haxelib set openfl        ${{ env.OPENFL_VERSION }}
-      haxelib set flixel        6.1.2
-      haxelib set flixel-addons 4.0.1
-
-  setup-lime: &setup-lime
-    name: Setup Lime
-    shell: bash
-    run: haxelib run lime setup -y
-
-  setup-haxe: &setup-haxe
-    name: Install Haxe ${{ env.HAXE_VERSION }}
-    uses: krdlab/setup-haxe@v1
-    with: { haxe-version: "${{ env.HAXE_VERSION }}" }
-
-  upload-win: &upload-win
-    uses: actions/upload-artifact@v4
-    with:
-      name: CoolEngine-Windows
-      path: export/release/windows/bin/
-      if-no-files-found: error
-
-  upload-mac: &upload-mac
-    uses: actions/upload-artifact@v4
-    with:
-      name: CoolEngine-macOS
-      path: export/release/mac/bin/
-      if-no-files-found: error
-
-  upload-linux: &upload-linux
-    uses: actions/upload-artifact@v4
-    with:
-      name: CoolEngine-Linux
-      path: export/release/linux/bin/
-      if-no-files-found: error
-
 jobs:
 
   # ══════════════════════════════════════════════════════════════════════════
@@ -70,9 +22,15 @@ jobs:
     name: "Build — Windows"
     runs-on: windows-latest
     steps:
-      - *checkout
+      # Anchors are defined here (first job) and reused by reference in later jobs.
+      - &checkout
+        uses: actions/checkout@v4
+        with: { submodules: recursive }
 
-      - *setup-haxe
+      - &setup-haxe
+        name: Install Haxe ${{ env.HAXE_VERSION }}
+        uses: krdlab/setup-haxe@v1
+        with: { haxe-version: "${{ env.HAXE_VERSION }}" }
 
       - name: Install MSVC build tools
         uses: microsoft/setup-msbuild@v2
@@ -99,15 +57,30 @@ jobs:
           haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis             --never
           haxelib git hxvlc          https://github.com/MAJigsaw77/hxvlc.git           --never
 
-      - *lock-versions
-      - *setup-lime
+      - &lock-versions
+        name: Lock library versions
+        shell: bash
+        run: |
+          haxelib set lime          ${{ env.LIME_VERSION }}
+          haxelib set openfl        ${{ env.OPENFL_VERSION }}
+          haxelib set flixel        6.1.2
+          haxelib set flixel-addons 4.0.1
+
+      - &setup-lime
+        name: Setup Lime
+        shell: bash
+        run: haxelib run lime setup -y
 
       - name: Build (Windows release)
         shell: cmd
         run: haxelib run lime build windows -final
 
       - name: Upload Windows build
-      -  *upload-win
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoolEngine-Windows
+          path: export/release/windows/bin/
+          if-no-files-found: error
 
   # ══════════════════════════════════════════════════════════════════════════
   # macOS (arm64)
@@ -182,7 +155,11 @@ jobs:
         run: arch -arm64 haxelib run lime build mac -final
 
       - name: Upload macOS build
-      -  *upload-mac
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoolEngine-macOS
+          path: export/release/mac/bin/
+          if-no-files-found: error
 
   # ══════════════════════════════════════════════════════════════════════════
   # LINUX
@@ -241,7 +218,11 @@ jobs:
         run: haxelib run lime build linux -final
 
       - name: Upload Linux build
-      -  *upload-linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoolEngine-Linux
+          path: export/release/linux/bin/
+          if-no-files-found: error
 
   # ══════════════════════════════════════════════════════════════════════════
   # ANDROID

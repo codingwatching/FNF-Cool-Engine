@@ -75,34 +75,63 @@ class ScriptErrorNotifier
 	 */
 	public static function notify(scriptName:String, funcName:String, message:String, lineNum:Int = -1):Void
 	{
-		// Deduplicate: same script + same message → just bump a counter
-		for (entry in _queue)
+		// ── Capa exterior de seguridad ────────────────────────────────────────
+		// Si CUALQUIER cosa aquí adentro lanza (Sprite creation, stage null,
+		// TextField, etc.), el catch externo escribe a stderr como último recurso
+		// y NO propaga la excepción al caller.
+		try
 		{
-			if (entry.script == scriptName && entry.msg == message)
+			// Null-guard de parámetros — un script dañado puede pasar null
+			if (scriptName == null) scriptName = "?";
+			if (funcName  == null) funcName  = "?";
+			if (message   == null) message   = "(sin mensaje)";
+
+			// Deduplicate: same script + same message → just bump a counter
+			for (entry in _queue)
 			{
-				entry.count++;
-				// Update the badge on the active overlay if it's this entry
-				if (_isShowing && _queue.length > 0 && _queue[0] == entry)
-					_refreshBadge();
-				return;
+				if (entry.script == scriptName && entry.msg == message)
+				{
+					entry.count++;
+					// Update the badge on the active overlay if it's this entry
+					if (_isShowing && _queue.length > 0 && _queue[0] == entry)
+						try { _refreshBadge(); } catch (_) {}
+					return;
+				}
 			}
+
+			if (_queue.length >= MAX_QUEUE)
+				return; // silently drop; game is already telling the dev plenty
+
+			_queue.push({
+				script : scriptName,
+				func   : funcName,
+				msg    : message,
+				line   : lineNum,
+				count  : 1
+			});
+
+			if (!_isShowing)
+				try { _showNext(); } catch (_showErr:Dynamic)
+				{
+					// Si _showNext falla (ej. OpenFL no disponible), al menos trazar
+					try { trace('[ScriptErrorNotifier] No se pudo mostrar popup: ' + Std.string(_showErr)); } catch (_) {}
+				}
+			else
+				try { _refreshBadge(); } catch (_) {}
 		}
-
-		if (_queue.length >= MAX_QUEUE)
-			return; // silently drop; game is already telling the dev plenty
-
-		_queue.push({
-			script : scriptName,
-			func   : funcName,
-			msg    : message,
-			line   : lineNum,
-			count  : 1
-		});
-
-		if (!_isShowing)
-			_showNext();
-		else
-			_refreshBadge(); // update "N more…" counter on current card
+		catch (_outerErr:Dynamic)
+		{
+			// Fallback absoluto: escribir en stderr el error del script
+			// incluso si todo lo de OpenFL falló.
+			try
+			{
+				var s = "[ScriptError] " + scriptName + " (" + funcName + ")";
+				if (lineNum > 0) s += ":" + lineNum;
+				s += " → " + message + "\n";
+				Sys.stderr().writeString(s);
+			}
+			catch (_) {}
+		}
 	}
 
 	// ── INTERNAL ──────────────────────────────────────────────────────────────
@@ -122,14 +151,24 @@ class ScriptErrorNotifier
 	{
 		_destroyOverlay();
 
-		final stage = Lib.current.stage;
+		// ── Null-guard doble: Lib.current puede ser null antes de createGame() ──
+		var stage = null;
+		try
+		{
+			if (Lib.current != null)
+				stage = Lib.current.stage;
+		}
+		catch (_libErr:Dynamic) {}
+
 		if (stage == null) return;
 
+		// ── Construir toda la UI en un try/catch ──────────────────────────────
+		// TextField, Shape y Sprite pueden lanzar en contextos de render dañados.
+		try
+		{
 		// Measure how tall the text will be so the panel grows if needed
 		final msgLines  = _countLines(entry.msg, Std.int(PANEL_W - PADDING * 2), 13);
 		final panelH    = Math.min(PANEL_H_MAX, PANEL_H_BASE + (msgLines - 3) * 16);
-
-		_overlay = new Sprite();
 		_overlay.mouseEnabled  = true;
 		_overlay.mouseChildren = true;
 
@@ -250,6 +289,21 @@ class ScriptErrorNotifier
 		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _onFrame, false, 999);
 
 		stage.addChild(_overlay);
+		} // end try buildOverlay
+		catch (_buildErr:Dynamic)
+		{
+			// Si la construcción del panel OpenFL falla, limpiar lo que se haya
+			// creado a medias y escribir el error en stderr como mínimo garantizado.
+			try { _destroyOverlay(); } catch (_) {}
+			_isShowing = false;
+			try
+			{
+				var s = "[ScriptError][popup-failed] " + entry.script + " (" + entry.func + ") → " + entry.msg + "\n";
+				try { Sys.stderr().writeString(s); } catch (_) {}
+				trace(s);
+			}
+			catch (_) {}
+		}
 	}
 
 	private static function _refreshBadge():Void
@@ -270,10 +324,19 @@ class ScriptErrorNotifier
 
 	private static function _onClose(?_:MouseEvent):Void
 	{
-		_queue.shift();
-		_destroyOverlay();
-		_isShowing = false;
-		_showNext();
+		try
+		{
+			_queue.shift();
+			_destroyOverlay();
+			_isShowing = false;
+			_showNext();
+		}
+		catch (_closeErr:Dynamic)
+		{
+			// Asegurar que el estado queda limpio aunque _showNext falle
+			try { _overlay = null; } catch (_) {}
+			_isShowing = false;
+		}
 	}
 
 	private static function _onKey(e:openfl.events.KeyboardEvent):Void
@@ -292,14 +355,19 @@ class ScriptErrorNotifier
 	private static function _destroyOverlay():Void
 	{
 		if (_overlay == null) return;
-		final stage = Lib.current.stage;
-		if (stage != null)
+		try
 		{
-			stage.removeEventListener(openfl.events.Event.ENTER_FRAME,          _onFrame);
-			stage.removeEventListener(openfl.events.KeyboardEvent.KEY_DOWN,     _onKey);
-			if (_overlay.parent != null)
-				_overlay.parent.removeChild(_overlay);
+			var stage = null;
+			try { if (Lib.current != null) stage = Lib.current.stage; } catch (_) {}
+			if (stage != null)
+			{
+				try { stage.removeEventListener(openfl.events.Event.ENTER_FRAME,      _onFrame); } catch (_) {}
+				try { stage.removeEventListener(openfl.events.KeyboardEvent.KEY_DOWN, _onKey);   } catch (_) {}
+			}
+			if (_overlay != null && _overlay.parent != null)
+				try { _overlay.parent.removeChild(_overlay); } catch (_) {}
 		}
+		catch (_) {}
 		_overlay = null;
 	}
 

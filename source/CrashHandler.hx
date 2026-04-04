@@ -82,10 +82,19 @@ class CrashHandler
 
 		_staticInfo = _buildStaticInfo();
 
-		// Hook 1: errores Haxe/OpenFL (throw, etc.)
+		// Hook 1: errores Haxe/OpenFL (throw, null object reference, etc.)
+		//
+		// PRIORIDAD ALTA (1000): OpenFL puede registrar su propio handler de
+		// UncaughtErrorEvent con prioridad 0 durante el bootstrap (si
+		// openfl_enable_handle_error estuviese activo). Sin prioridad alta,
+		// el handler de OpenFL dispara primero y puede silenciar el evento
+		// con stopImmediatePropagation() antes de que CrashHandler lo vea.
+		// Con priority=1000 garantizamos que CrashHandler siempre va primero.
 		Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(
 			UncaughtErrorEvent.UNCAUGHT_ERROR,
-			_onUncaughtError
+			_onUncaughtError,
+			false,  // useCapture
+			1000    // priority — mayor que el default 0 de OpenFL
 		);
 
 		// Hook 2: C++ null ptr, stack overflow, assert
@@ -101,20 +110,52 @@ class CrashHandler
 	 */
 	public static function report(error:Dynamic, ?context:String, fatal:Bool = false) : Void
 	{
-		var stack   = CallStack.exceptionStack(true);
-		var message = _buildReport(Std.string(error), context, stack.length > 0 ? stack : CallStack.callStack());
+		// Envolver todo el cuerpo — cualquier cosa puede fallar si el caller
+		// nos pasa un objeto roto o el runtime está en estado parcial.
+		var message : String = "";
+		try
+		{
+			var stack = [];
+			try { stack = CallStack.exceptionStack(true); } catch (_se:Dynamic) {}
+			if (stack.length == 0)
+				try { stack = CallStack.callStack(); } catch (_cs:Dynamic) {}
+
+			var errorStr : String = "";
+			try { errorStr = Std.string(error); } catch (_e:Dynamic) { errorStr = "(error no serializable)"; }
+
+			var ctx : Null<String> = null;
+			try { ctx = context; } catch (_) {}
+
+			message = _buildReport(errorStr, ctx, stack);
+		}
+		catch (_reportErr:Dynamic)
+		{
+			try { message = "COOL ENGINE — ERROR\n" + Std.string(error); } catch (_) { message = "COOL ENGINE — ERROR"; }
+		}
 
 		#if sys
-		Sys.println(message);
-		var path = _saveLog(message);
-		if (path != null) Sys.println('[CrashHandler] Log → ${Path.normalize(path)}');
+		try { Sys.println(message); } catch (_) {}
+		try
+		{
+			var path = _saveLog(message);
+			if (path != null) Sys.println('[CrashHandler] Log → ${haxe.io.Path.normalize(path)}');
+		}
+		catch (_) {}
 		#end
 
 		if (fatal)
-			_showAndExit(message);
+		{
+			try { _showAndExit(message); } catch (_)
+			{
+				try { _nativeDialog(_truncate(message, 2000), "Cool Engine — Error Fatal"); } catch (_) {}
+				#if sys try { Sys.exit(1); } catch (_) {} #end
+			}
+		}
 		#if debug
 		else
-			_nativeDialog('[NON-FATAL]\n\n' + message, "Cool Engine — Error no fatal");
+		{
+			try { _nativeDialog('[NON-FATAL]\n\n' + message, "Cool Engine — Error no fatal"); } catch (_) {}
+		}
 		#end
 	}
 
@@ -127,15 +168,52 @@ class CrashHandler
 		if (_handling) return;
 		_handling = true;
 
-		var stack   = CallStack.exceptionStack(true);
-		var message = _buildReport(Std.string(e.error), "UncaughtErrorEvent", stack);
+		// ── Construir el reporte de forma defensiva ───────────────────────────
+		// CallStack.exceptionStack() puede lanzar si el runtime está dañado.
+		// _buildReport() crea StringBuf (GC); envolvemos cada paso por separado.
+		var message : String = "COOL ENGINE — UNCAUGHT ERROR\n(error al construir reporte)";
+		try
+		{
+			var stack = [];
+			try { stack = CallStack.exceptionStack(true); } catch (_se:Dynamic) {}
 
+			var errorStr : String = "";
+			try { errorStr = Std.string(e.error); } catch (_es:Dynamic) { errorStr = "(error desconocido)"; }
+
+			message = _buildReport(errorStr, "UncaughtErrorEvent", stack);
+		}
+		catch (_reportErr:Dynamic)
+		{
+			// _buildReport falló — construir mínimo plano
+			try
+			{
+				var errorStr = "";
+				try { errorStr = Std.string(e.error); } catch (_) {}
+				message = "COOL ENGINE — UNCAUGHT ERROR\n\n" + errorStr;
+			}
+			catch (_) {}
+		}
+
+		// ── Guardar log ───────────────────────────────────────────────────────
 		#if sys
-		Sys.println(message);
-		_saveLog(message);
+		try { Sys.println(message); } catch (_) {}
+		try { _saveLog(message); } catch (_) {}
 		#end
 
-		_showAndExit(message);
+		// ── Mostrar diálogo y salir ───────────────────────────────────────────
+		try
+		{
+			_showAndExit(message);
+		}
+		catch (_exitErr:Dynamic)
+		{
+			// _showAndExit falló — intentar diálogo directo y salir igualmente
+			try { _nativeDialog(_truncate(message, 2000), "Cool Engine — Error Fatal"); } catch (_) {}
+			try { Sys.stderr().writeString("=== FATAL UNCAUGHT ERROR ===\n" + message + "\n"); } catch (_) {}
+			#if sys
+			try { Sys.exit(1); } catch (_) {}
+			#end
+		}
 	}
 
 	/**
@@ -153,45 +231,78 @@ class CrashHandler
 		if (_handling) return;
 		_handling = true;
 
+		// ── REGLA CRÍTICA: cada bloque va en su propio try/catch independiente.
+		// Si el heap de Haxe está corrupto por un null ptr, incluso crear un
+		// String con + puede fallar. Ningún bloque puede matar al siguiente.
+
 		// ── 1. Reporte ────────────────────────────────────────────────────────
-		var report =
-			"===========================================\n" +
-			"       COOL ENGINE — CRASH REPORT\n" +
-			"===========================================\n\n" +
-			"Tipo     : C++ Critical Error\n" +
-			"           (null object reference / stack overflow / assert)\n\n" +
-			_staticInfo +
-			"\n--- Mensaje de C++ ---\n" +
-			cppMessage +
-			"\n\n===========================================\n" +
-			"Reporta este error en:\n" +
-			REPORT_URL + "\n" +
-			"===========================================\n";
+		// Usar literales cortos y concatenar en pasos pequeños.
+		// Cada operación está aislada; si falla, se usa un fallback hardcodeado.
+		var report : String = "COOL ENGINE — CRASH REPORT\nC++ Critical Error\n";
+		try
+		{
+			// Null-guard de _staticInfo por si init() nunca se llamó
+			var si = _staticInfo;
+			if (si == null) si = "(system info unavailable)";
+			var cpp = cppMessage;
+			if (cpp == null) cpp = "(no message)";
+			report =
+				"===========================================\n" +
+				"       COOL ENGINE — CRASH REPORT\n" +
+				"===========================================\n\n" +
+				"Tipo     : C++ Critical Error\n" +
+				"           (null object reference / stack overflow / assert)\n\n" +
+				si +
+				"\n--- Mensaje de C++ ---\n" +
+				cpp +
+				"\n\n===========================================\n" +
+				"Reporta este error en:\n" +
+				REPORT_URL + "\n" +
+				"===========================================\n";
+		}
+		catch (_buildErr:Dynamic)
+		{
+			// El reporte mínimo hardcodeado ya está asignado arriba.
+			// Intentar agregar el mensaje C++ de forma segura:
+			try { report += "\n" + Std.string(cppMessage); } catch (_) {}
+		}
 
 		// ── 2. Guardar log ────────────────────────────────────────────────────
-		// Sys.time() = epoch como Float, tipo valor → sin GC.
+		// Sys.time() = Float, tipo valor, sin GC → más seguro que Date.now().
 		var logPath : String = "";
 		#if sys
 		try
 		{
-			if (!FileSystem.exists(CRASH_DIR))
-				FileSystem.createDirectory(CRASH_DIR);
+			var dir = CRASH_DIR;
+			if (dir == null || dir == "") dir = "./crash/";
+			if (!FileSystem.exists(dir))
+				FileSystem.createDirectory(dir);
 			var ts = Std.string(Std.int(Sys.time()));
-			logPath = CRASH_DIR + LOG_PREFIX + ts + ".txt";
+			logPath = dir + LOG_PREFIX + ts + ".txt";
 			File.saveContent(logPath, report + "\n");
 		}
-		catch (_) {}
+		catch (_logErr:Dynamic) { logPath = ""; }
 		#end
 
 		// ── 3. Diálogo nativo ─────────────────────────────────────────────────
-		var dialogMessage = _truncate(report, 2000);
-		if (logPath != "") dialogMessage += '\n\nLog guardado en:\n$logPath';
-		_nativeDialog(dialogMessage, "Cool Engine — Error Fatal");
+		try
+		{
+			var dialogMessage = _truncate(report, 2000);
+			if (logPath != null && logPath != "")
+				try { dialogMessage += '\n\nLog guardado en:\n$logPath'; } catch (_) {}
+			_nativeDialog(dialogMessage, "Cool Engine — Error Fatal");
+		}
+		catch (_dlgErr:Dynamic)
+		{
+			// Último recurso: stderr — siempre disponible aunque el runtime esté muy dañado
+			try { Sys.stderr().writeString("=== FATAL C++ CRASH ===\n" + report + "\n"); } catch (_) {}
+		}
 
 		// ── 4. Abrir carpeta ──────────────────────────────────────────────────
-		if (logPath != "") _openCrashFolder(CRASH_DIR);
+		try { if (logPath != null && logPath != "") _openCrashFolder(CRASH_DIR); } catch (_) {}
 
-		Sys.exit(1);
+		// ── 5. Salir ──────────────────────────────────────────────────────────
+		try { Sys.exit(1); } catch (_) {}
 	}
 	#end
 
@@ -212,6 +323,10 @@ class CrashHandler
 	 */
 	private static function _nativeDialog(message:String, title:String) : Void
 	{
+		// Null-guard: si message o title son null el replace crashea con NullObjectRef.
+		if (message == null) message = "(sin mensaje)";
+		if (title   == null) title   = "Cool Engine — Error";
+
 		var shown = false;
 
 		#if (sys && windows)
@@ -424,16 +539,25 @@ class CrashHandler
 		#if sys
 		try
 		{
-			if (!FileSystem.exists(CRASH_DIR))
-				FileSystem.createDirectory(CRASH_DIR);
-			var ts   = Date.now().toString().replace(" ", "_").replace(":", "-");
-			var path = CRASH_DIR + LOG_PREFIX + ts + ".txt";
-			File.saveContent(path, content + "\n");
+			var dir = CRASH_DIR;
+			if (dir == null || dir == "") dir = "./crash/";
+			if (!FileSystem.exists(dir))
+				FileSystem.createDirectory(dir);
+			// Intentar formato legible; si Date falla por runtime dañado, usar Sys.time()
+			var ts = "";
+			try { ts = Date.now().toString().replace(" ", "_").replace(":", "-"); }
+			catch (_dateErr:Dynamic)
+			{
+				try { ts = Std.string(Std.int(Sys.time())); } catch (_) { ts = "unknown"; }
+			}
+			var safeContent = (content != null) ? content : "(contenido vacío)";
+			var path = dir + LOG_PREFIX + ts + ".txt";
+			File.saveContent(path, safeContent + "\n");
 			return path;
 		}
 		catch (e:Dynamic)
 		{
-			try { Sys.println("[CrashHandler] No se pudo guardar el log: " + e); } catch (_) {}
+			try { Sys.println("[CrashHandler] No se pudo guardar el log: " + Std.string(e)); } catch (_) {}
 		}
 		#end
 		return null;
@@ -445,17 +569,28 @@ class CrashHandler
 		try { DiscordClient.shutdown(); } catch (_) {}
 		#end
 
-		var logPath   = _saveLog(message);
-		var dialogMsg = _truncate(message, 2800);
-		if (logPath != null)
-			dialogMsg += '\n\n─────────────────────\nLog guardado en:\n${Path.normalize(logPath)}';
+		var logPath : Null<String> = null;
+		try { logPath = _saveLog(message); } catch (_) {}
 
-		_nativeDialog(dialogMsg, "Cool Engine — Error Fatal");
+		var dialogMsg : String = "(sin mensaje)";
+		try
+		{
+			dialogMsg = _truncate(message, 2800);
+			if (logPath != null)
+				dialogMsg += '\n\n─────────────────────\nLog guardado en:\n${Path.normalize(logPath)}';
+		}
+		catch (_) { try { dialogMsg = message; } catch (_) {} }
 
-		if (logPath != null) _openCrashFolder(CRASH_DIR);
+		try { _nativeDialog(dialogMsg, "Cool Engine — Error Fatal"); } catch (_)
+		{
+			// Si el diálogo nativo falla, escribir al menos en stderr
+			try { Sys.stderr().writeString("=== FATAL ERROR ===\n" + message + "\n"); } catch (_) {}
+		}
+
+		try { if (logPath != null) _openCrashFolder(CRASH_DIR); } catch (_) {}
 
 		#if sys
-		Sys.exit(1);
+		try { Sys.exit(1); } catch (_) {}
 		#end
 	}
 
