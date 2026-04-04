@@ -311,30 +311,6 @@ class NoteManager
 					var floorSus:Int = Math.floor(susLength / Conductor.stepCrochet);
 					for (susNote in 0...floorSus)
 					{
-						// Espaciado clásico: pieza 0 en daStrumTime + 1 step,
-						// pieza 1 en daStrumTime + 2 steps, etc.
-						//
-						// BUGFIX (Bug 1 — zona de golpe prematura):
-						//   La fórmula anterior era:
-						//     daStrumTime + (stepCrochet * susNote) + stepCrochet * 0.5
-						//   El `+ stepCrochet * 0.5` desplazaba TODAS las piezas media step
-						//   hacia adelante en el tiempo, haciendo que:
-						//     a) cada pieza cruzara la strum line media step antes → la
-						//        comprobación de miss/hit (`songPosition > strumTime + hitWindow`)
-						//        se disparaba media step antes de lo real.
-						//     b) el clipRect empezaba a recortar el sustain antes de tiempo.
-						//
-						// BUGFIX (Bug 2 — duración errónea del hold splash):
-						//   handleSustainNoteHit() calcula el holdEndTime fallback (cuando
-						//   la cabeza se pierde) leyendo los strumTime raw de las piezas
-						//   spawneadas. Con el offset de +0.5 step, el chainEnd quedaba
-						//   0.5 steps más tarde de lo correcto → el hold cover se extendía
-						//   media step extra después del final real del sustain.
-						//
-						// Fórmula correcta: pieza[N].strumTime = head.strumTime + step * (N+1)
-						// Espaciado uniforme de un step entre piezas, sin offset fraccional.
-
-						// este no es el problema
 						unspawnNotes.push({
 							strumTime: daStrumTime + (Conductor.stepCrochet * susNote) + Conductor.stepCrochet * 0.5,
 							noteData: daNoteData,
@@ -657,13 +633,9 @@ class NoteManager
 			onCPUNoteHit(note);
 		// Solo animar el strum en la nota cabeza, NO en las piezas de sustain.
 		handleStrumAnimation(note.noteData, note.strumsGroupIndex, false);
-		// Guardar tiempo de fin del hold para la CPU al golpear el HEAD note.
-		// FIX: usar Math.max en lugar de sobrescribir directamente. Si hay dos holds
-		// solapados en la misma dirección y el segundo termina antes que el primero,
-		// la asignación directa cortaba el loop del cover del primer hold prematuramente.
+		
 		if (!note.isSustainNote && note.sustainLength > 0)
 		{
-			// BUG FIX: igual que en hitNote() — restar offset para raw time comparison
 			var newEnd = note.strumTime + note.sustainLength - SaveData.data.offset;
 			if (cpuHoldEndTimes[note.noteData] < 0)
 				cpuHoldEndTimes[note.noteData] = newEnd;
@@ -961,19 +933,11 @@ class NoteManager
 
 			note.x = _noteX;
 
-			// ── Sustain deformation — NightmareVision-style dynamic snake ────────
-			// Instead of the old 1/cos rigid-column correction, we compute the
-			// ACTUAL pixel position of the "next" step (strumTime + stepCrochet)
-			// applying every modifier at that time-offset, then derive:
-			//   • angle  = atan2(dy, dx) − 90   (same formula as NV's PlayState)
-			//   • scale.y = real Euclidean distance / frameHeight  (body pieces only)
-			//
-			// This ensures sustain pieces bend, stretch and connect seamlessly
-			// under any modchart effect (drunk, wave, zigzag, tipsy, etc.) without
-			// gaps or visible "chunking". The tail cap keeps its base scale.
 			if (note.isSustainNote)
 			{
-				final _sustainFlip:Bool = _effectiveDownscroll;
+				var _sustainFlip:Bool = _effectiveDownscroll;
+				if (SaveData.data.downscroll)
+					_sustainFlip = !_effectiveDownscroll;
 				note.flipX = _sustainFlip;
 				note.flipY = _sustainFlip;
 
@@ -1257,16 +1221,9 @@ class NoteManager
 			return;
 		note.wasGoodHit = true;
 		handleStrumAnimation(note.noteData, note.strumsGroupIndex, true);
-		// Guardar el tiempo de fin del hold al golpear el HEAD note.
-		// BUG FIX: no sobreescribir si ya hay un hold activo para esta dirección.
-		// FIX: usar Math.max para que holds solapados en la misma dirección no se
-		// corten mutuamente. Si ya existe un tiempo de fin más tardío, lo respetamos.
+
 		if (!note.isSustainNote && note.sustainLength > 0)
 		{
-			// BUG FIX: note.strumTime ya incluye SaveData.data.offset (sumado en Note.new/recycle),
-			// pero Conductor.songPosition NO lo incluye (es el tiempo raw de la música).
-			// Sin restar el offset, el hold terminaría `offset` ms tarde de lo correcto,
-			// haciendo que holdCovers y sustains se destruyan/acaben visualmente tarde.
 			var newEnd = note.strumTime + note.sustainLength - SaveData.data.offset;
 			if (!holdEndTimes.exists(note.noteData))
 				holdEndTimes.set(note.noteData, newEnd);
@@ -1280,12 +1237,6 @@ class NoteManager
 			else if (_cachedNoteSplashes && _noteSplashesEnabled && renderer != null)
 				createNormalSplash(note, true);
 		}
-		// BUGFIX: Las notas sustain NO se eliminan aquí — quedan en el grupo
-		// para que el clipRect de updateNotePosition las vaya ocultando
-		// conforme cruzan la línea de strums. Antes se eliminaban de inmediato
-		// cuando canBeHit && playerHeld, haciendo que desaparecieran ~hitWindow
-		// ms (≈90px) antes de llegar visualmente al strum. Solo las notas normales
-		// (cabeza de hold y notas simples) se eliminan inmediatamente.
 		if (!note.isSustainNote)
 			removeNote(note);
 		if (onNoteHit != null)

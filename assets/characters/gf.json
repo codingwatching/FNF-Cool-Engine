@@ -69,7 +69,7 @@
 			"prefix": "GF Dancing Beat Hair blowing",
 			"indices": [0, 1, 2, 3],
 			"framerate": 24,
-			"looped": true,
+			"looped": false,
 			"offsets": [45, -8]
 		},
 		{
@@ -84,7 +84,7 @@
 			"name": "scared",
 			"prefix": "GF FEAR ",
 			"framerate": 24,
-			"looped": true,
+			"looped": false,
 			"offsets": [-2, -17]
 		}
 	]

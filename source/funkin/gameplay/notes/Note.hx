@@ -123,12 +123,6 @@ class Note extends FlxSprite
 		NoteSkinSystem.init();
 		loadSkin(NoteSkinSystem.getCurrentSkinData());
 
-		// NOTA: los offsets de nota se construyen dentro de loadSkin() para que
-		// se reconstruyan automáticamente cuando la skin cambia (recycle).
-
-		// Shader ya aplicado dentro de loadSkin() → no duplicar aquí.
-		// (loadSkin llama _applyShaderForSkin al final cuando !isSustainNote)
-
 		setupNoteDirection();
 
 		if (isSustainNote && prevNote != null)
@@ -282,7 +276,14 @@ class Note extends FlxSprite
 		}
 
 		if (!isSustainNote)
+		{
 			_applyShaderForSkin(skinData);
+			if (SaveData.data.downscroll)
+			{
+				flipX = true;
+				flipY = true;
+			}
+		}
 	}
 
 	// ==================== SHADER HELPER ====================
@@ -378,12 +379,6 @@ class Note extends FlxSprite
 		this.noteType = '';
 		this.alpha = sustainNote ? 0.6 : 1.0;
 		this.visible = true;
-		// BUGFIX: limpiar clipRect al reciclar. Si esta nota fue una nota larga
-		// cerca del strum en su vida anterior, el clipRect queda asignado. Sin
-		// reset, la nueva nota aparece recortada hasta que updateNotePosition()
-		// vuelve a calcular el clip — pero si la nota es saltada en ese frame
-		// por el bug de splice (ya corregido en _updateNoteGroup), el clipRect
-		// antiguo persiste y la nota larga nueva es visible con recorte incorrecto.
 		this.clipRect = null;
 
 		x = _calcBaseX(mustHitNote) + (swagWidth * noteData);
@@ -395,20 +390,9 @@ class Note extends FlxSprite
 
 		revive();
 
-		// Resetear offsets de nota — se recalculan en loadSkin() si la skin o tipo cambia,
-		// y también en el bloque de restauración de animación abajo si la skin no cambió.
 		noteOffsetX = 0.0;
 		noteOffsetY = 0.0;
 
-		// ── Recargar skin si cambió nombre O si cambió el tipo (sustain↔normal) ────
-		// BUGFIX: el tipo de nota puede cambiar si el pool de NoteRenderer mezcla
-		// sustain y normales. loadSkin registra animaciones distintas según isSustainNote,
-		// así que hay que recargar también cuando cambia el tipo aunque la skin sea igual.
-		//
-		// groupSkin: si el grupo de strums tiene una skin propia, usarla en lugar
-		// de la skin global. Esto arregla que notas de grupos con skin diferente
-		// (p.ej. CPU con skin pixel, jugador con skin normal) aparezcan con la
-		// skin incorrecta al spawnear o reciclar notas del pool.
 		var skinData = (groupSkin != null && groupSkin != '') ? NoteSkinSystem.getCurrentSkinData(groupSkin) : NoteSkinSystem.getCurrentSkinData();
 		if (skinData == null)
 			skinData = NoteSkinSystem.getCurrentSkinData(); // fallback a global
@@ -416,8 +400,6 @@ class Note extends FlxSprite
 			loadSkin(skinData); // loadSkin() ya recalcula noteOffsetX/Y
 		else
 		{
-			// La skin no cambió pero noteData puede haber cambiado (nota reciclada
-			// a otra dirección). Re-calcular los offsets de nota para la nueva dirección.
 			var off = isSustainNote ? NoteSkinSystem.buildHoldNoteOffsets(skinData, noteData) : NoteSkinSystem.buildNoteOffsets(skinData, noteData);
 			noteOffsetX = off[0];
 			noteOffsetY = off[1];
@@ -431,11 +413,6 @@ class Note extends FlxSprite
 
 			_applyNoteAnim(animArrows[noteData] + 'Scroll');
 
-			// BUG FIX: Re-crear shader al reciclar (dirección puede haber cambiado).
-			// ANTES usaba getCurrentSkinData() sin argumento → ignoraba groupSkin
-			// → notas recicladas entre grupos (CPU↔player con skins distintas)
-			// recibían el shader de la skin GLOBAL en vez del shader de su grupo.
-			// Ahora usa `skinData` que ya fue resuelto arriba con el groupSkin correcto.
 			_applyShaderForSkin(skinData);
 		}
 		else
@@ -472,12 +449,12 @@ class Note extends FlxSprite
 	{
 		noteScore * 0.2;
 		alpha = 0.6;
-
-		if (SaveData.data.downscroll)
-		{
-			flipY = true;
-			flipX = true;
-		}
+		/*
+			if (SaveData.data.downscroll)
+			{
+				flipY = true;
+				flipX = true;
+		}*/
 
 		x += width / 2;
 
@@ -513,21 +490,6 @@ class Note extends FlxSprite
 				}
 			}
 
-			// ── V-Slice style sustain height ────────────────────────────────────
-			// Fórmula anterior: scale.y *= stepCrochet/100 * 1.5 * speed
-			// → Asumía frameHeight = 30px para que la pieza cubriera exactamente la
-			//   distancia stepCrochet * 0.45 * speed. Con skins de otros tamaños o
-			//   velocidades muy altas aparecían huecos entre la cabeza y el cuerpo.
-			//
-			// Fórmula nueva (inspirada en SustainTrail.sustainHeight de V-Slice):
-			//   targetHeight = stepCrochet * PIXELS_PER_MS * speed
-			//   donde PIXELS_PER_MS = 0.45 (la misma constante de NoteManager)
-			//   scale.y = targetHeight / frameHeight
-			//
-			// Esto garantiza que la pieza cubre exactamente los píxeles que avanza
-			// una nota en stepCrochet ms, sin asumir tamaño de sprite.
-			// _skinHoldStretch añade un pequeño solapamiento (definido en la skin JSON,
-			// e.g. 1.05) para eliminar el gap visible con velocidades muy altas.
 			if (prevNote.frameHeight > 0)
 			{
 				final targetHeight:Float = Conductor.stepCrochet * 0.45 * PlayState.SONG.speed;
@@ -676,15 +638,6 @@ class Note extends FlxSprite
 	{
 		super.update(elapsed);
 
-		// ── canBeHit para notas del jugador ──────────────────────────────────
-		// NOTA: las notas de jugador (mustPress) ya NO calculan canBeHit aquí.
-		// Lo hace NoteManager._updateNoteGroup() con el songPosition correcto
-		// del frame actual, eliminando el lag de 1 frame que desplazaba la
-		// ventana de hit hacia atrás y hacía que el área "exacta" apareciera
-		// mucho antes de donde visualmente llega la nota al strum.
-		//
-		// Para notas CPU mantenemos el wasGoodHit aquí como seguridad
-		// (NoteManager también lo gestiona, pero no cuesta nada).
 		if (!mustPress)
 		{
 			canBeHit = false;

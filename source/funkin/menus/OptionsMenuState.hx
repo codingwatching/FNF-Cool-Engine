@@ -2729,6 +2729,8 @@ class OffsetCalibrationState extends MusicBeatSubstate
 	var _timelineBeat:FlxSprite;
 	var _timelineTap:FlxSprite;
 
+	var _cam:flixel.FlxCamera;
+
 	override function create()
 	{
 		super.create();
@@ -2736,30 +2738,36 @@ class OffsetCalibrationState extends MusicBeatSubstate
 
 		MusicManager.playWithFade(CLICK_MUSIC, 0.7, 4.0);
 
+		_cam = OptionsMenuState.fromPause ? FlxG.cameras.list[FlxG.cameras.list.length - 1] : FlxG.camera;
+
 		// ── Fondo oscuro ──────────────────────────────────────────────────────
 		var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF000000);
 		bg.alpha = 0.88;
+		bg.cameras = [_cam];
 		add(bg);
 
 		// ── Panel central ─────────────────────────────────────────────────────
 		_panel = new FlxSprite(0, 0).makeGraphic(820, 580, 0xFF141428);
 		_panel.screenCenter();
+		_panel.cameras = [_cam];
 		add(_panel);
 
 		// Borde del panel
 		var border = new FlxSprite(_panel.x - 2, _panel.y - 2).makeGraphic(824, 584, 0xFF5555FF);
 		border.alpha = 0.4;
-		addBehindSprite(_panel, border);
+		border.cameras = [_cam];
 		add(border);
 
 		// ── Título ────────────────────────────────────────────────────────────
 		var title = new FlxText(0, _panel.y + 24, FlxG.width, "OFFSET CALIBRATION", 38);
 		title.setFormat(Paths.font("vcr.ttf"), 38, FlxColor.WHITE, CENTER, OUTLINE, 0xFF5555FF);
 		title.borderSize = 2;
+		title.cameras = [_cam];
 		add(title);
 
 		var bpmLabel = new FlxText(0, _panel.y + 68, FlxG.width, "♩ = " + Std.int(BPM) + " BPM", 18);
 		bpmLabel.setFormat(Paths.font("vcr.ttf"), 18, 0xFF8888FF, CENTER);
+		bpmLabel.cameras = [_cam];
 		add(bpmLabel);
 
 		// ── Instrucciones ─────────────────────────────────────────────────────
@@ -2769,70 +2777,85 @@ class OffsetCalibrationState extends MusicBeatSubstate
 			+ MAX_TAPS
 			+ " times to calculate offset.", 20);
 		instr.setFormat(Paths.font("vcr.ttf"), 20, 0xFFCCCCCC, CENTER);
+		instr.cameras = [_cam];
 		add(instr);
 
 		// ── Punto pulsante central ────────────────────────────────────────────
 		_pulseDot = new FlxSprite(0, _panel.y + 200).makeGraphic(80, 80, 0xFF5555FF);
 		_pulseDot.screenCenter(X);
 		_pulseDot.alpha = 0.15;
+		_pulseDot.cameras = [_cam];
 		add(_pulseDot);
 
 		// ── Línea de tiempo (diff visual entre tap y beat) ────────────────────
 		_timelineBg = new FlxSprite(0, _panel.y + 305).makeGraphic(500, 6, 0xFF333355);
 		_timelineBg.screenCenter(X);
+		_timelineBg.cameras = [_cam];
 		add(_timelineBg);
 
 		// Marcador central (= beat perfecto)
 		var centerMark = new FlxSprite(_timelineBg.x + 247, _panel.y + 296).makeGraphic(6, 24, 0xFF5555FF);
+		centerMark.cameras = [_cam];
 		add(centerMark);
 
 		// Indicador de beat (azul, siempre en el centro)
 		_timelineBeat = new FlxSprite(_timelineBg.x + 247, _panel.y + 299).makeGraphic(6, 18, 0xFF4488FF);
+		_timelineBeat.cameras = [_cam];
 		add(_timelineBeat);
 
 		// Indicador de tap (amarillo, se mueve según el error)
 		_timelineTap = new FlxSprite(_timelineBg.x + 247, _panel.y + 299).makeGraphic(6, 18, FlxColor.YELLOW);
+		_timelineTap.cameras = [_cam];
 		_timelineTap.alpha = 0;
 		add(_timelineTap);
 
 		var earlyLabel = new FlxText(_timelineBg.x - 2, _panel.y + 315, 50, "EARLY", 11);
+		earlyLabel.cameras = [_cam];
 		earlyLabel.setFormat(Paths.font("vcr.ttf"), 11, 0xFF8888CC, LEFT);
 		add(earlyLabel);
 		var lateLabel = new FlxText(_timelineBg.x + 460, _panel.y + 315, 50, "LATE", 11);
+		lateLabel.cameras = [_cam];
 		lateLabel.setFormat(Paths.font("vcr.ttf"), 11, 0xFF8888CC, RIGHT);
 		add(lateLabel);
 
 		// ── Barra de progreso de taps ─────────────────────────────────────────
 		_tapBar = new FlxSprite(0, _panel.y + 345).makeGraphic(500, 16, 0xFF222244);
 		_tapBar.screenCenter(X);
+		_tapBar.cameras = [_cam];
 		add(_tapBar);
 		_tapBarFill = new FlxSprite(_tapBar.x, _tapBar.y).makeGraphic(4, 16, 0xFF5555FF);
+		_tapBarFill.cameras = [_cam];
 		add(_tapBarFill);
 
 		// ── Textos de estado ─────────────────────────────────────────────────
 		_tapsTxt = new FlxText(0, _panel.y + 368, FlxG.width, "Taps: 0 / " + MAX_TAPS, 20);
 		_tapsTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
+		_tapsTxt.cameras = [_cam];
 		add(_tapsTxt);
 
 		_feedbackTxt = new FlxText(0, _panel.y + 396, FlxG.width, "", 18);
 		_feedbackTxt.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
 		_feedbackTxt.borderSize = 1;
+		_feedbackTxt.cameras = [_cam];
 		add(_feedbackTxt);
 
 		_resultsTxt = new FlxText(0, _panel.y + 422, FlxG.width, "", 22);
 		_resultsTxt.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.LIME, CENTER, OUTLINE, FlxColor.BLACK);
 		_resultsTxt.borderSize = 2;
+		_resultsTxt.cameras = [_cam];
 		add(_resultsTxt);
 
 		// ── Offset actual ─────────────────────────────────────────────────────
 		_offsetTxt = new FlxText(0, _panel.y + 462, FlxG.width, "Current Offset: " + (SaveData.data.offset ?? 0) + " ms", 26);
 		_offsetTxt.setFormat(Paths.font("vcr.ttf"), 26, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
 		_offsetTxt.borderSize = 2;
+		_offsetTxt.cameras = [_cam];
 		add(_offsetTxt);
 
 		// ── Controles ─────────────────────────────────────────────────────────
 		var ctrl = new FlxText(0, _panel.y + 510, FlxG.width, "SPACE: Tap  |  ← →: ±1 ms  |  R: Reset  |  ESC: Save & Back", 15);
 		ctrl.setFormat(Paths.font("vcr.ttf"), 15, 0xFF888888, CENTER);
+		ctrl.cameras = [_cam];
 		add(ctrl);
 
 		// ── Countdown overlay ─────────────────────────────────────────────────
@@ -2840,6 +2863,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		_countdownTxt.setFormat(Paths.font("vcr.ttf"), 90, FlxColor.WHITE, CENTER, OUTLINE, 0xFF5555FF);
 		_countdownTxt.borderSize = 4;
 		_countdownTxt.screenCenter(Y);
+		_countdownTxt.cameras = [_cam];
 		add(_countdownTxt);
 
 		if (SaveData.data.offset == null)
@@ -3003,12 +3027,6 @@ class OffsetCalibrationState extends MusicBeatSubstate
 	{
 		_offsetTxt.text = "Current Offset: " + (SaveData.data.offset ?? 0) + " ms";
 	}
-
-	/** Añade un sprite justo detrás de otro en la display list. */
-	function addBehindSprite(target:FlxSprite, spr:FlxSprite):Void
-	{
-		// simplificado — spr ya se añade antes que _panel, así que queda detrás
-	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3059,12 +3077,6 @@ class RatingPositionSubState extends FlxSubState
 	var _dragStartOffX:Null<Float> = 0;
 	var _dragStartOffY:Null<Float> = 0;
 
-	// BUGFIX: cámara que se usará para TODOS los sprites de este substate.
-	// Cuando el editor se abre desde gameplay (fromPause), OptionsMenuState
-	// ya se renderiza en la última cámara (camHUD/pausa). Si RatingPositionSubState
-	// añade sus sprites a la cámara por defecto (camGame), quedan por detrás del
-	// menú de opciones. Asignando la misma cámara a todos los sprites se garantiza
-	// que el editor aparezca en la capa correcta (encima de todo lo demás).
 	var _cam:flixel.FlxCamera;
 
 	var posX:Float = 0;
@@ -3081,12 +3093,6 @@ class RatingPositionSubState extends FlxSubState
 	{
 		super.create();
 
-		// BUGFIX: determinar la cámara correcta.
-		// • Desde gameplay (fromPause=true): OptionsMenuState usa la última cámara
-		//   de la lista (normalmente camHUD o una cámara dedicada al pause).
-		//   Todos los sprites de este substate deben ir a esa misma cámara para
-		//   aparecer encima y no quedar enterrados bajo el menú de opciones.
-		// • Fuera de gameplay: basta con la cámara por defecto.
 		_cam = OptionsMenuState.fromPause ? FlxG.cameras.list[FlxG.cameras.list.length - 1] : FlxG.camera;
 
 		_offsetX = SaveData.data.ratingOffsetX != null ? SaveData.data.ratingOffsetX : 0;

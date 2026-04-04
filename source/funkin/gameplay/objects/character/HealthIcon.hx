@@ -1,13 +1,12 @@
 package funkin.gameplay.objects.character;
 
 import flixel.FlxG;
-import flixel.FlxSprite;
+import animationdata.FunkinSprite;
 import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxAtlasFrames;
 import funkin.scripting.HScriptInstance;
 import funkin.scripting.ScriptHandler;
 import mods.ModManager;
-
 #if sys
 import sys.FileSystem;
 import sys.io.File;
@@ -70,12 +69,12 @@ using StringTools;
  *    onDestroy()
  */
 @:keep
-class HealthIcon extends FlxSprite
+class HealthIcon extends FunkinSprite
 {
 	// ── pública ──────────────────────────────────────────────────────────────
 
 	/** Sprite al que seguir (p.ej. la barra de salud). */
-	public var sprTracker:FlxSprite;
+	public var sprTracker:flixel.FlxSprite;
 
 	/** Nombre del personaje actualmente cargado. */
 	public var characterName(default, null):String = '';
@@ -88,17 +87,17 @@ class HealthIcon extends FlxSprite
 
 	/** Offset de posición relativo a sprTracker (por defecto 10, -30). */
 	public var trackerOffsetX:Float = 10;
+
 	public var trackerOffsetY:Float = -30;
 
 	/** Offset adicional por animación (leído del JSON si existe). */
 	public var animOffsets:Map<String, Array<Float>> = [];
 
 	// ── privada ───────────────────────────────────────────────────────────────
-
-	var _isPlayer:Bool   = false;
-	var _isAnimated:Bool = false;    // true → atlas sparrow
+	var _isPlayer:Bool = false;
+	var _isAnimated:Bool = false; // true → atlas sparrow
 	var _script:Null<HScriptInstance> = null;
-	var _iconConfig:Null<Dynamic>     = null;
+	var _iconConfig:Null<Dynamic> = null;
 	/** Script Lua opcional (assets/characters/scripts/{char}/healthicon/). */
 	#if (LUA_ALLOWED && linc_luajit)
 	var _luaScript:Null<funkin.scripting.RuleScriptInstance> = null;
@@ -131,12 +130,12 @@ class HealthIcon extends FlxSprite
 		_destroyScript();
 		animation.destroyAnimations();
 		animOffsets.clear();
-		_iconConfig  = null;
-		_isAnimated  = false;
+		_iconConfig = null;
+		_isAnimated = false;
 		currentState = 'normal';
 
 		characterName = char;
-		_isPlayer     = isPlayer;
+		_isPlayer = isPlayer;
 
 		_loadIcon(char);
 		_loadScript(char);
@@ -153,7 +152,8 @@ class HealthIcon extends FlxSprite
 	 */
 	public function setState(state:String):Void
 	{
-		if (state == currentState) return;
+		if (state == currentState)
+			return;
 
 		var oldState = currentState;
 		currentState = state;
@@ -162,7 +162,8 @@ class HealthIcon extends FlxSprite
 		if (_script != null)
 		{
 			var cancelled = _script.callBool('onStateChange', [state, oldState]);
-			if (cancelled) return;
+			if (cancelled)
+				return;
 		}
 
 		// Notificar script Lua del icono
@@ -207,8 +208,7 @@ class HealthIcon extends FlxSprite
 		super.update(elapsed);
 
 		if (sprTracker != null)
-			setPosition(sprTracker.x + sprTracker.width + trackerOffsetX,
-			            sprTracker.y + trackerOffsetY);
+			setPosition(sprTracker.x + sprTracker.width + trackerOffsetX, sprTracker.y + trackerOffsetY);
 
 		if (_script != null)
 			_script.call('onUpdate', [elapsed]);
@@ -234,7 +234,8 @@ class HealthIcon extends FlxSprite
 	{
 		// 1 · Buscar JSON de config
 		var jsonPath = _resolveAsset('icons/icon-$char.json');
-		if (jsonPath == null) jsonPath = _resolveAsset('icons/$char.json');
+		if (jsonPath == null)
+			jsonPath = _resolveAsset('icons/$char.json');
 
 		if (jsonPath != null)
 		{
@@ -244,13 +245,12 @@ class HealthIcon extends FlxSprite
 
 		// 2 · Atlas animado (XML sparrow)
 		var atlasXml = _resolveAsset('icons/icon-$char.xml');
-		if (atlasXml == null) atlasXml = _resolveAsset('icons/$char.xml');
+		if (atlasXml == null)
+			atlasXml = _resolveAsset('icons/$char.xml');
 
 		if (atlasXml != null)
 		{
-			var imgKey = atlasXml.endsWith('.xml')
-				? atlasXml.substr(0, atlasXml.length - 4)
-				: atlasXml;
+			var imgKey = atlasXml.endsWith('.xml') ? atlasXml.substr(0, atlasXml.length - 4) : atlasXml;
 			// Strip full path to get logical key for Paths
 			var logicalKey = _pathToLogicalKey(imgKey);
 			_loadAnimatedAtlas(logicalKey);
@@ -267,11 +267,21 @@ class HealthIcon extends FlxSprite
 	{
 		#if sys
 		var raw:String;
-		try   { raw = File.getContent(jsonPath); }
-		catch (e) { _loadLegacySheet(characterName); return; }
+		try
+		{
+			raw = File.getContent(jsonPath);
+		}
+		catch (e)
+		{
+			_loadLegacySheet(characterName);
+			return;
+		}
 
 		var cfg:Dynamic;
-		try   { cfg = Json.parse(raw); }
+		try
+		{
+			cfg = Json.parse(raw);
+		}
 		catch (e)
 		{
 			FlxG.log.warn('[HealthIcon] JSON inválido ($jsonPath): $e');
@@ -291,19 +301,28 @@ class HealthIcon extends FlxSprite
 		else
 		{
 			var graphic = _getGraphicForKey(imgKey);
-			if (graphic == null) { _loadLegacySheet(characterName); return; }
+			if (graphic == null)
+			{
+				_loadLegacySheet(characterName);
+				return;
+			}
 			antialiasing = cfg.antialias != false;
 			loadGraphic(graphic, true, 150, 150);
 			_addLegacyAnims(Math.floor(graphic.width / 150));
 		}
 
-		if (cfg.scale   != null) { scale.set(cfg.scale, cfg.scale); updateHitbox(); }
+		if (cfg.scale != null)
+		{
+			scale.set(cfg.scale, cfg.scale);
+			updateHitbox();
+		}
 		if (cfg.offsets != null)
 		{
-			for (state in ['normal','losing','winning'])
+			for (state in ['normal', 'losing', 'winning'])
 			{
 				var o:Dynamic = Reflect.field(cfg.offsets, state);
-				if (o != null) animOffsets.set(state, [o[0], o[1]]);
+				if (o != null)
+					animOffsets.set(state, [o[0], o[1]]);
 			}
 		}
 		#else
@@ -316,14 +335,23 @@ class HealthIcon extends FlxSprite
 	function _loadAnimatedAtlas(imgKey:String, ?animDefs:Dynamic):Void
 	{
 		var atlas:FlxAtlasFrames = null;
-		try   { atlas = Paths.getSparrowAtlas(imgKey); }
-		catch (e) {}
+		try
+		{
+			atlas = Paths.getSparrowAtlas(imgKey);
+		}
+		catch (e)
+		{
+		}
 
-		if (atlas == null) { _loadLegacySheet(characterName); return; }
+		if (atlas == null)
+		{
+			_loadLegacySheet(characterName);
+			return;
+		}
 
 		antialiasing = true;
-		frames       = atlas;
-		_isAnimated  = true;
+		frames = atlas;
+		_isAnimated = true;
 
 		if (animDefs != null)
 		{
@@ -331,9 +359,10 @@ class HealthIcon extends FlxSprite
 			for (state in ['normal', 'losing', 'winning'])
 			{
 				var def:Dynamic = Reflect.field(animDefs, state);
-				if (def == null) continue;
-				var fps:Int    = def.fps  != null ? Std.int(def.fps)  : 24;
-				var loop:Bool  = def.loop != null ? def.loop           : false;
+				if (def == null)
+					continue;
+				var fps:Int = def.fps != null ? Std.int(def.fps) : 24;
+				var loop:Bool = def.loop != null ? def.loop : false;
 				var prefix:String = def.prefix != null ? def.prefix : state;
 				animation.addByPrefix(state, prefix, fps, loop);
 			}
@@ -355,14 +384,16 @@ class HealthIcon extends FlxSprite
 
 	function _loadLegacySheet(char:String):Void
 	{
-		var iconKey  = 'icons/icon-$char';
-		var graphic  = _getGraphicForKey(iconKey);
+		var iconKey = 'icons/icon-$char';
+		var graphic = _getGraphicForKey(iconKey);
 
 		// Psych: icono sin prefijo "icon-"
-		if (graphic == null) graphic = _getGraphicForKey('icons/$char');
+		if (graphic == null)
+			graphic = _getGraphicForKey('icons/$char');
 
 		// Fallback al icono genérico
-		if (graphic == null) graphic = _getGraphicForKey('icons/icon-face');
+		if (graphic == null)
+			graphic = _getGraphicForKey('icons/icon-face');
 
 		if (graphic == null)
 		{
@@ -379,20 +410,20 @@ class HealthIcon extends FlxSprite
 	{
 		if (frameCount >= 3)
 		{
-			animation.add('normal',  [0], 0, false);
-			animation.add('losing',  [1], 0, false);
+			animation.add('normal', [0], 0, false);
+			animation.add('losing', [1], 0, false);
 			animation.add('winning', [2], 0, false);
 		}
 		else if (frameCount == 2)
 		{
-			animation.add('normal',  [0], 0, false);
-			animation.add('losing',  [1], 0, false);
+			animation.add('normal', [0], 0, false);
+			animation.add('losing', [1], 0, false);
 			animation.add('winning', [0], 0, false);
 		}
 		else
 		{
-			animation.add('normal',  [0], 0, false);
-			animation.add('losing',  [0], 0, false);
+			animation.add('normal', [0], 0, false);
+			animation.add('losing', [0], 0, false);
 			animation.add('winning', [0], 0, false);
 		}
 	}
@@ -410,7 +441,8 @@ class HealthIcon extends FlxSprite
 		var path = Paths.image(key);
 
 		#if sys
-		if (!FileSystem.exists(path)) return null;
+		if (!FileSystem.exists(path))
+			return null;
 		var g = Paths.getGraphic(key);
 		if (g == null)
 		{
@@ -420,10 +452,13 @@ class HealthIcon extends FlxSprite
 				if (bmp != null)
 				{
 					g = FlxGraphic.fromBitmapData(bmp, false, path, true);
-					if (g != null) g.persist = true;
+					if (g != null)
+						g.persist = true;
 				}
 			}
-			catch (e) {}
+			catch (e)
+			{
+			}
 		}
 		return g;
 		#else
@@ -435,7 +470,8 @@ class HealthIcon extends FlxSprite
 	function _pathToLogicalKey(path:String):String
 	{
 		// Si empieza por "assets/", quitar ese prefijo
-		if (path.startsWith('assets/')) path = path.substr(7);
+		if (path.startsWith('assets/'))
+			path = path.substr(7);
 		// Si empieza por "mods/{mod}/", quitar ese prefijo también
 		var modRoot = ModManager.modRoot();
 		if (modRoot != null && path.startsWith(modRoot + '/'))
@@ -452,7 +488,8 @@ class HealthIcon extends FlxSprite
 		#if sys
 		// mod override
 		var modPath = ModManager.resolveInMod(relPath);
-		if (modPath != null) return modPath;
+		if (modPath != null)
+			return modPath;
 		// base assets
 		var basePath = 'assets/$relPath';
 		return FileSystem.exists(basePath) ? basePath : null;
@@ -473,11 +510,7 @@ class HealthIcon extends FlxSprite
 		var hxPath = _findHxPath(char);
 		if (hxPath != null)
 		{
-			_script = ScriptHandler.loadScriptNoInit(hxPath, 'healthicon', [
-				'icon'     => this,
-				'char'     => char,
-				'isPlayer' => _isPlayer,
-			]);
+			_script = ScriptHandler.loadScriptNoInit(hxPath, 'healthicon', ['icon' => this, 'char' => char, 'isPlayer' => _isPlayer,]);
 			if (_script != null)
 			{
 				_script.call('onCreate');
@@ -493,7 +526,7 @@ class HealthIcon extends FlxSprite
 		if (luaPath != null)
 		{
 			_luaScript = new funkin.scripting.RuleScriptInstance('healthicon_$char', luaPath);
-			_luaScript.set('char',     char);
+			_luaScript.set('char', char);
 			_luaScript.set('isPlayer', _isPlayer);
 			_luaScript.call('onCreate', []);
 			trace('[HealthIcon] Lua cargado para "$char": $luaPath');
@@ -524,7 +557,8 @@ class HealthIcon extends FlxSprite
 		candidates.push('assets/characters/$char/healthicon.hx');
 
 		for (p in candidates)
-			if (sys.FileSystem.exists(p)) return p;
+			if (sys.FileSystem.exists(p))
+				return p;
 		#end
 		return null;
 	}
@@ -549,7 +583,8 @@ class HealthIcon extends FlxSprite
 		candidates.push('assets/characters/$char/healthicon.lua');
 
 		for (p in candidates)
-			if (sys.FileSystem.exists(p)) return p;
+			if (sys.FileSystem.exists(p))
+				return p;
 		#end
 		return null;
 	}

@@ -3,53 +3,72 @@ package funkin.data;
 import flixel.FlxG;
 
 /**
-	* SaveData — A typed layer on top of FlxG.save.data.
-	*
-	* ─── Why it exists ──────────────────────────── ──────────────────────────────
-	*
-	* FlxG.save.data is a dynamic object: any field can be written to without
-
-	* the compiler notifying you. These types of problems:
-	*
-	* 1. Silent typos: `FlxG.save.data.antialiasing = true` compiles and saves
-	* 	to a field that is never read, while `antialiasing` remains null.
-	*
-	* 2. Scattered migrations: each refactor renames a field and leaves migration code scattered throughout the project (see FPSCap → fpsTarget).
-	* 	This class solves both:
-
-	* • `SaveData.data` returns FlxG.save.data cast to the typedef `SaveDataFields`,
-
-	* resulting in autocompletion and compile-time type errors.
-
-	* • `SaveData.migrate()` centralizes ALL migrations in one place.
-
-	* Call it once at startup (in Main, after FlxG.save.bind). *
-	* ─── Usage ────────────────────────────────── ──────────────────────────────────
-	*
-	* Read: var fps = SaveData.data.fpsTarget ?? 60;
-	* Write: SaveData.data.antialiasing = true; SaveData.flush();
-
-	* Flush: SaveData.flush(); // equivalent to FlxG.save.flush()
-	*
-	* ─── Adding a New Field ───────────────────────── ─────────────────────────
-	*
-	* 1. Declare the field in `SaveDataFields` with `@:optional` and the correct type.
-
-	* 2. If renaming an existing field, add a rule in `migrate()`.
-	* 3. Do not directly edit FlxG.save.data — always use SaveData.data.
-	*
-	* @author  Cool Engine Team
-	* @since   0.6.1
+ * SaveData — A typed layer on top of FlxG.save.data.
+ *
+ * ─── Why it exists ────────────────────────────────────────────────────────────
+ *
+ * FlxG.save.data is a dynamic object: any field can be written to without
+ * the compiler notifying you. These types of problems:
+ *
+ * 1. Silent typos: `FlxG.save.data.antialiasing = true` compiles and saves
+ *    to a field that is never read, while `antialiasing` remains null.
+ *
+ * 2. Scattered migrations: each refactor renames a field and leaves migration
+ *    code scattered throughout the project (see FPSCap → fpsTarget).
+ *
+ * This class solves both:
+ *   • `SaveData.data` returns FlxG.save.data cast to `SaveDataFields`,
+ *     giving autocompletion and compile-time type errors for core fields.
+ *   • `SaveData.migrate()` centralises ALL migrations in one place.
+ *   • `SaveData.register*(key, default)` lets scripts and sub-systems declare
+ *     their own persistent fields without touching the typedef.
+ *     Auto-initialisation happens at `init()` time — one call, zero boilerplate.
+ *
+ * ─── Usage (core fields) ──────────────────────────────────────────────────────
+ *
+ *   Read:  var fps = SaveData.data.fpsTarget ?? 60;
+ *   Write: SaveData.data.antialiasing = true;  SaveData.flush();
+ *
+ * ─── Usage (dynamic / script fields) ─────────────────────────────────────────
+ *
+ *   // Declare once — anywhere in the codebase, before init() is called.
+ *   SaveData.registerBool("myMod_coolFeature", false);
+ *   SaveData.registerInt("myMod_highStreak", 0);
+ *   SaveData.registerFloat("myMod_speed", 1.0);
+ *   SaveData.registerString("myMod_skin", "default");
+ *
+ *   // Read (returns the registered default if never saved before):
+ *   var on = SaveData.getBool("myMod_coolFeature");
+ *
+ *   // Write:
+ *   SaveData.setBool("myMod_coolFeature", true);
+ *   SaveData.flush();
+ *
+ * ─── Startup order ────────────────────────────────────────────────────────────
+ *
+ *   FlxG.save.bind(...);        // 1 — bind the save slot
+ *   SaveData.migrate();         // 2 — rename / clean obsolete fields
+ *   SaveData.init();            // 3 — auto-create any missing registered fields
+ *
+ * ─── Adding a new core field ──────────────────────────────────────────────────
+ *
+ *   1. Declare it in `SaveDataFields` with `@:optional` and the correct type.
+ *   2. If renaming an existing field, add a rule in `migrate()`.
+ *   3. Never write directly to FlxG.save.data — always use SaveData.data.
+ *
+ * @author  Cool Engine Team
+ * @since   0.6.1
  */
-// ─── Typedef typing ──────────────────────────────────────────────────────────
+
+// ─── Typedef ─────────────────────────────────────────────────────────────────
 
 /**
-	* All fields that the engine saves in FlxG.save.data.
-	* Each field is optional (Null<T>) because it may not exist in older saves.
-
-	* Naming convention:
-	* • Strict camelCase.
-	* • Deprecated fields are marked with the comment "@deprecated" and the new name.
+ * All fields that the engine saves in FlxG.save.data.
+ * Each field is optional (Null<T>) because it may not exist in older saves.
+ *
+ * Naming convention:
+ *   • Strict camelCase.
+ *   • Deprecated fields carry a "@deprecated" comment with the new name.
  */
 typedef SaveDataFields =
 {
@@ -137,7 +156,7 @@ typedef SaveDataFields =
 	/** Offset X of the rating text. */
 	@:optional var ratingOffsetX:Null<Float>;
 
-	/** Offset and rating text. */
+	/** Offset Y of the rating text. */
 	@:optional var ratingOffsetY:Null<Float>;
 
 	/** Song ratings per key (serialized Map<String,Float>). */
@@ -160,7 +179,8 @@ typedef SaveDataFields =
 	/** Core audio muted. */
 	@:optional var coreMuted:Null<Bool>;
 
-	// ── Subtitles ───────────────────────────────────────────────────────────
+	// ── Subtitles ────────────────────────────────────────────────────────────
+
 	@:optional var subtitlesEnabled:Null<Bool>;
 	@:optional var subtitleFont:Null<String>;
 	@:optional var subtitleSize:Null<Int>;
@@ -172,6 +192,7 @@ typedef SaveDataFields =
 	@:optional var subtitleTranslateLang:Null<String>;
 
 	// ── Controls ────────────────────────────────────────────────────────────
+
 	@:optional var upBind:Null<String>;
 	@:optional var downBind:Null<String>;
 	@:optional var leftBind:Null<String>;
@@ -184,11 +205,12 @@ typedef SaveDataFields =
 	@:optional var cheatBind:Null<String>;
 
 	// ── Mobile ───────────────────────────────────────────────────────────────
+
 	@:optional var mobileAlpha:Null<Float>;
 	@:optional var mobilePadLayout:Null<String>;
 	@:optional var touchIndicator:Null<Bool>;
 
-	// ── Game progress ────────────────────────────────────────────────────
+	// ── Game progress ────────────────────────────────────────────────────────
 
 	/** Unlocked Weeks (Serialized Array<Bool>). */
 	@:optional var weekUnlocked:Null<Dynamic>;
@@ -197,6 +219,7 @@ typedef SaveDataFields =
 	@:optional var songScores:Null<Dynamic>;
 
 	// ── Modchart / scripting ─────────────────────────────────────────────────
+
 	@:optional var modchart_last:Null<String>;
 	@:optional var modchart_script:Null<String>;
 	@:optional var ruleScriptData:Null<Dynamic>;
@@ -206,46 +229,280 @@ typedef SaveDataFields =
 
 class SaveData
 {
-	// ── Typed Access ──────────────────────────────────────────────────────
+	// ── Typed access ─────────────────────────────────────────────────────────
 
 	/**
-	 * Typed access to FlxG.save.data.
+	 * Typed access to FlxG.save.data cast as SaveDataFields.
 	 *
-	 * Reads and writes directly to the same object as FlxG.save.data:
-	 * The cast is only for compiler information; there is no data copying.
-	 * 
-	 * SaveData.data.antialiasing = true; 
-	 * SaveData.flush();
+	 * The cast is compiler-only — no data is copied.
+	 * Always call `flush()` after writing.
 	 */
 	public static var data(get, never):SaveDataFields;
 
 	static inline function get_data():SaveDataFields
 		return (cast FlxG.save.data : SaveDataFields);
 
-	// ── Persistence ────────────────────────────────────────────────────────
+	// ── Default registry ─────────────────────────────────────────────────────
 
-	/** The save persists on disk. Equivalent to FlxG.save.flush(). */
+	/**
+	 * Default values for every registered dynamic field.
+	 * Key   → save-data field name (String).
+	 * Value → the default (Bool / Int / Float / String / Dynamic).
+	 *
+	 * Populated by registerBool / registerInt / registerFloat / registerString.
+	 * Applied to FlxG.save.data during init().
+	 */
+	static var _defaults:Map<String, Dynamic> = [];
+
+	// ── Registration ─────────────────────────────────────────────────────────
+
+	/**
+	 * Register a Bool field with a default value.
+	 *
+	 * Call this before `SaveData.init()` — typically at class static-init time
+	 * or inside a script's `onCreate` / module init hook.
+	 *
+	 * ```haxe
+	 * SaveData.registerBool("myMod_enabled", true);
+	 * ```
+	 *
+	 * If the field already exists in the save file its stored value is kept;
+	 * the default is only written when the field is missing (null).
+	 */
+	public static inline function registerBool(key:String, defaultValue:Bool):Void
+		_defaults.set(key, defaultValue);
+
+	/**
+	 * Register an Int field with a default value.
+	 *
+	 * ```haxe
+	 * SaveData.registerInt("myMod_streak", 0);
+	 * ```
+	 */
+	public static inline function registerInt(key:String, defaultValue:Int):Void
+		_defaults.set(key, defaultValue);
+
+	/**
+	 * Register a Float field with a default value.
+	 *
+	 * ```haxe
+	 * SaveData.registerFloat("myMod_speed", 1.5);
+	 * ```
+	 */
+	public static inline function registerFloat(key:String, defaultValue:Float):Void
+		_defaults.set(key, defaultValue);
+
+	/**
+	 * Register a String field with a default value.
+	 *
+	 * ```haxe
+	 * SaveData.registerString("myMod_skin", "default");
+	 * ```
+	 */
+	public static inline function registerString(key:String, defaultValue:String):Void
+		_defaults.set(key, defaultValue);
+
+	/**
+	 * Register any Dynamic field with a default value.
+	 *
+	 * Use this for Arrays, Maps, or anonymous objects that scripts need to persist.
+	 *
+	 * ```haxe
+	 * SaveData.registerDynamic("myMod_config", { volume: 1.0, skin: "cool" });
+	 * ```
+	 */
+	public static inline function registerDynamic(key:String, defaultValue:Dynamic):Void
+		_defaults.set(key, defaultValue);
+
+	// ── Dynamic accessors ────────────────────────────────────────────────────
+
+	/**
+	 * Read a Bool field by key.
+	 * Returns the registered default (or `false`) if the field is null.
+	 *
+	 * ```haxe
+	 * var on = SaveData.getBool("myMod_enabled");
+	 * ```
+	 */
+	public static function getBool(key:String):Bool
+	{
+		var raw:Dynamic = Reflect.field(FlxG.save.data, key);
+		if (raw != null)
+			return (raw : Bool);
+		var def:Dynamic = _defaults.get(key);
+		return (def != null) ? (def : Bool) : false;
+	}
+
+	/**
+	 * Write a Bool field by key and persist to disk.
+	 *
+	 * ```haxe
+	 * SaveData.setBool("myMod_enabled", true);
+	 * ```
+	 */
+	public static function setBool(key:String, value:Bool):Void
+	{
+		Reflect.setField(FlxG.save.data, key, value);
+		flush();
+	}
+
+	/**
+	 * Read an Int field by key.
+	 * Returns the registered default (or `0`) if the field is null.
+	 */
+	public static function getInt(key:String):Int
+	{
+		var raw:Dynamic = Reflect.field(FlxG.save.data, key);
+		if (raw != null)
+			return (raw : Int);
+		var def:Dynamic = _defaults.get(key);
+		return (def != null) ? (def : Int) : 0;
+	}
+
+	/**
+	 * Write an Int field by key and persist to disk.
+	 */
+	public static function setInt(key:String, value:Int):Void
+	{
+		Reflect.setField(FlxG.save.data, key, value);
+		flush();
+	}
+
+	/**
+	 * Read a Float field by key.
+	 * Returns the registered default (or `0.0`) if the field is null.
+	 */
+	public static function getFloat(key:String):Float
+	{
+		var raw:Dynamic = Reflect.field(FlxG.save.data, key);
+		if (raw != null)
+			return (raw : Float);
+		var def:Dynamic = _defaults.get(key);
+		return (def != null) ? (def : Float) : 0.0;
+	}
+
+	/**
+	 * Write a Float field by key and persist to disk.
+	 */
+	public static function setFloat(key:String, value:Float):Void
+	{
+		Reflect.setField(FlxG.save.data, key, value);
+		flush();
+	}
+
+	/**
+	 * Read a String field by key.
+	 * Returns the registered default (or `""`) if the field is null.
+	 */
+	public static function getString(key:String):String
+	{
+		var raw:Dynamic = Reflect.field(FlxG.save.data, key);
+		if (raw != null)
+			return (raw : String);
+		var def:Dynamic = _defaults.get(key);
+		return (def != null) ? (def : String) : "";
+	}
+
+	/**
+	 * Write a String field by key and persist to disk.
+	 */
+	public static function setString(key:String, value:String):Void
+	{
+		Reflect.setField(FlxG.save.data, key, value);
+		flush();
+	}
+
+	/**
+	 * Read any Dynamic field by key.
+	 * Returns the registered default (or `null`) if the field is null.
+	 */
+	public static function getDynamic(key:String):Dynamic
+	{
+		var raw:Dynamic = Reflect.field(FlxG.save.data, key);
+		if (raw != null)
+			return raw;
+		return _defaults.get(key);
+	}
+
+	/**
+	 * Write any Dynamic field by key and persist to disk.
+	 */
+	public static function setDynamic(key:String, value:Dynamic):Void
+	{
+		Reflect.setField(FlxG.save.data, key, value);
+		flush();
+	}
+
+	// ── Persistence ──────────────────────────────────────────────────────────
+
+	/** Persist the save to disk. Equivalent to FlxG.save.flush(). */
 	public static inline function flush():Void
 		FlxG.save.flush();
 
-	// ── Centralized migration ───────────────────────────────────────────────
+	// ── Init (auto-create registered fields) ─────────────────────────────────
 
 	/**
-		* Migrate obsolete fields to the current name and clean up any leftover data.
+	 * Auto-initialise every registered field that is currently null in the save.
+	 *
+	 * Call this ONCE at startup, after `migrate()`:
+	 *
+	 * ```haxe
+	 * FlxG.save.bind(...);
+	 * SaveData.migrate();
+	 * SaveData.init();
+	 * ```
+	 *
+	 * Scripts that call `register*()` before this point will have their fields
+	 * initialised here automatically — no manual boilerplate required.
+	 */
+	public static function init():Void
+	{
+		var dirty = false;
 
-		* Must be called ONLY ONCE at application startup, after
+		for (key => defaultValue in _defaults)
+		{
+			if (Reflect.field(FlxG.save.data, key) == null)
+			{
+				trace('[SaveData] init: auto-creating "$key" = $defaultValue');
+				Reflect.setField(FlxG.save.data, key, defaultValue);
+				dirty = true;
+			}
+		}
 
-		 `FlxG.save.bind(...)`.
-		* *
-		* ─── Migration History ──────────────────────────────────────────
+		if (dirty)
+		{
+			flush();
+			trace('[SaveData] init: ${_defaults.keys().hasNext() ? "campos inicializados y persistidos." : ""}');
+		}
+		else
+		{
+			trace('[SaveData] init: todos los campos ya estaban inicializados.');
+		}
+	}
 
-		* 0.6.1 FPSCap → fpsTarget (field renamed)
-		* 0.6.1 shaders → shadersEnabled (field renamed)
+	// ── Centralized migration ─────────────────────────────────────────────────
 
-		* ─────────────────────────────────────────────────────────────────────────
-		*
-		* To add a future migration, add an `if` block following the
-		  same pattern: check the old field, copy The new one nullifies the old one.
+	/**
+	 * Migrate obsolete fields to their current name and clean up leftover data.
+	 *
+	 * Call ONCE at startup, after `FlxG.save.bind(...)` and before `init()`.
+	 *
+	 * ─── Migration History ────────────────────────────────────────────────────
+	 *   0.6.1  FPSCap        → fpsTarget        (field renamed)
+	 *   0.6.1  shaders       → shadersEnabled    (field renamed)
+	 * ─────────────────────────────────────────────────────────────────────────
+	 *
+	 * To add a future migration follow this pattern:
+	 *
+	 * ```haxe
+	 * if (data.oldField != null && data.newField == null)
+	 * {
+	 *     trace('[SaveData] migrate: oldField → newField');
+	 *     data.newField = data.oldField;
+	 *     data.oldField = null;
+	 *     dirty = true;
+	 * }
+	 * ```
 	 */
 	public static function migrate():Void
 	{
@@ -256,7 +513,7 @@ class SaveData
 		{
 			trace('[SaveData] migrate: FPSCap(${data.FPSCap}) → fpsTarget');
 			data.fpsTarget = data.FPSCap;
-			data.FPSCap = null;
+			data.FPSCap    = null;
 			dirty = true;
 		}
 
@@ -265,19 +522,11 @@ class SaveData
 		{
 			trace('[SaveData] migrate: shaders(${data.shaders}) → shadersEnabled');
 			data.shadersEnabled = data.shaders;
-			data.shaders = null;
+			data.shaders        = null;
 			dirty = true;
 		}
 
-		// ── Add future migrations here ───────────────────────────────
-		// Pattern:
-		//   if (data.oldField != null && data.oldField == null)
-		//   {
-		//       trace('[SaveData] migrate: oldField → newField');
-		//       data.newField = data.oldField;
-		//       data.oldField = null;
-		//       dirty = true;
-		//   }
+		// ── Add future migrations here ────────────────────────────────────────
 
 		if (dirty)
 		{

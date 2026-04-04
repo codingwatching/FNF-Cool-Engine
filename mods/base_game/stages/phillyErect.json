@@ -1,0 +1,239 @@
+{
+	"dadPosition": [
+		278,
+		400
+	],
+	"gfPosition": [
+		426,
+		95
+	],
+	"_comment": "Scripts stage",
+	"scripts": [
+		"philly_stage.hx"
+	],
+	"cameraDad":[
+		-50,
+		-40
+	],
+	"cameraBoyfriend":[
+		-50,
+		-40
+	],
+	"gfVersion": "gf",
+	"isPixelStage": false,
+	"name": "phillyErect",
+	"boyfriendPosition": [
+		938.999999984371,
+		442.999999989254
+	],
+	"defaultZoom": 1.1,
+	"elements": [
+		{
+			"aboveChars": false,
+			"asset": "sky",
+			"zIndex": 0,
+			"position": [
+				-170,
+				-60
+			],
+			"visible": true,
+			"scale": [
+				1,
+				1
+			],
+			"type": "sprite",
+			"color": null,
+			"flipX": false,
+			"angle": null,
+			"name": "sky",
+			"flipY": false,
+			"antialiasing": true,
+			"scrollFactor": [
+				0.1,
+				0.1
+			],
+			"alpha": 1
+		},
+		{
+			"aboveChars": false,
+			"asset": "city",
+			"zIndex": 1,
+			"position": [
+				-283,
+				-7
+			],
+			"visible": true,
+			"type": "sprite",
+			"scale": [
+				0.85,
+				0.85
+			],
+			"color": null,
+			"flipX": false,
+			"angle": null,
+			"name": "city",
+			"flipY": false,
+			"antialiasing": true,
+			"scrollFactor": [
+				0.3,
+				0.3
+			],
+			"alpha": 1
+		},
+		{
+			"type": "group",
+			"zIndex": 2,
+			"name": "phillyCityLights",
+			"assetLibrary": "philly",
+			"members": [
+				{
+					"asset": "win0",
+					"scrollFactor": [
+						0.3,
+						0.3
+					],
+					"scale": [
+						0.85,
+						0.85
+					],
+					"position": [
+						-100,
+						-40
+					]
+				},
+				{
+					"asset": "win1",
+					"scrollFactor": [
+						0.3,
+						0.3
+					],
+					"scale": [
+						0.85,
+						0.85
+					],
+					"position": [
+						-100,
+						-40
+					]
+				},
+				{
+					"asset": "win2",
+					"scrollFactor": [
+						0.3,
+						0.3
+					],
+					"scale": [
+						0.85,
+						0.85
+					],
+					"position": [
+						-100,
+						-40
+					]
+				},
+				{
+					"asset": "win3",
+					"scrollFactor": [
+						0.3,
+						0.3
+					],
+					"scale": [
+						0.85,
+						0.85
+					],
+					"position": [
+						-100,
+						-40
+					]
+				},
+				{
+					"asset": "win4",
+					"scrollFactor": [
+						0.3,
+						0.3
+					],
+					"scale": [
+						0.85,
+						0.85
+					],
+					"position": [
+						-100,
+						-40
+					]
+				}
+			]
+		},
+		{
+			"asset": "behindTrain",
+			"zIndex": 3,
+			"aboveChars": false,
+			"position": [
+				-298,
+				100
+			],
+			"type": "sprite",
+			"scale": [
+				1,
+				1
+			],
+			"visible": true,
+			"name": "behindTrain",
+			"angle": null,
+			"flipX": false,
+			"color": null,
+			"scrollFactor": [
+				1,
+				1
+			],
+			"antialiasing": true,
+			"flipY": false,
+			"alpha": 1
+		},
+		{
+			"asset": "train",
+			"zIndex": 4,
+			"aboveChars": false,
+			"assetLibrary": "philly",
+			"position": [
+				2000,
+				314
+			],
+			"type": "sprite",
+			"scale": [
+				1,
+				1
+			],
+			"visible": true,
+			"name": "train",
+			"angle": null,
+			"flipX": false,
+			"color": null,
+			"scrollFactor": [
+				1,
+				1
+			],
+			"antialiasing": true,
+			"flipY": false,
+			"alpha": 1
+		},
+		{
+			"asset": "street",
+			"antialiasing": true,
+			"zIndex": 5,
+			"position": [
+				-292,
+				92
+			],
+			"type": "sprite",
+			"name": "street"
+		},
+		{
+			"asset": "train_passes",
+			"volume": 1,
+			"type": "sound",
+			"assetLibrary": "philly",
+			"looped": false,
+			"name": "trainSound"
+		}
+	]
+}
