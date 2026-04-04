@@ -1562,6 +1562,13 @@ class PlayState extends funkin.states.MusicBeatState
 			StateTransition.switchState(new ChartingState());
 		}
 
+		// Teclas 4/5: bajar/subir playback rate (solo durante la canción activa)
+		if (!startingSong && generatedMusic && !paused)
+		{
+			if (FlxG.keys.justPressed.FOUR) playbackRate -= 0.25;
+			if (FlxG.keys.justPressed.FIVE) playbackRate += 0.25;
+		}
+
 		if (FlxG.keys.justPressed.F8 && startedCountdown && canPause)
 		{
 			ModChartEditorState.pendingManager = modChartManager;
@@ -1581,6 +1588,19 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler._argsUpdatePost[0] = elapsed;
 			ScriptHandler.callOnScripts('onUpdatePost', ScriptHandler._argsUpdatePost);
 		}
+	}
+
+	public var playbackRate(default, set):Float = 1.0;
+
+	function set_playbackRate(v:Float):Float
+	{
+		v = Math.max(0.25, Math.min(4.0, v));
+		playbackRate = v;
+		FlxG.timeScale = v; // escala tweens, timers y elapsed → scripts/eventos aceleran igual
+
+		if (noteManager != null)
+			noteManager.targetScrollRate = v;
+		return v;
 	}
 
 	private function updateDebugControls():Void
@@ -2195,6 +2215,8 @@ class PlayState extends funkin.states.MusicBeatState
 			return;
 		}
 
+		playbackRate = 1.0;
+
 		canPause = false;
 		if (FlxG.sound.music != null)
 			funkin.audio.CoreAudio.setInstVolume(0.0);
@@ -2660,6 +2682,9 @@ class PlayState extends funkin.states.MusicBeatState
 
 		optimizationManager?.destroy();
 		optimizationManager = null;
+
+		FlxG.timeScale = 1.0;
+		playbackRate = 1.0;
 
 		cameraController?.destroy();
 		cameraController = null;

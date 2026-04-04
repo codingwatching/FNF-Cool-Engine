@@ -275,7 +275,12 @@ class CameraController
 			_panTween = null;
 		}
 
-		_panTween = FlxTween.tween(camFollow, {x: x, y: y}, dur, {
+		// FIX: usar gameplayTweens en vez del manager global de FlxTween.
+		// El manager global sigue tickeando aunque persistentUpdate=false (pause),
+		// por lo que el pan continuaba moviéndose con el juego pausado.
+		// gameplayTweens.active = false se activa en PlayState.pauseMenu() → se congela.
+		final _mgr = PlayState.gameplayTweens ?? FlxTween.globalManager;
+		_panTween = _mgr.tween(camFollow, {x: x, y: y}, dur, {
 			ease: easeFunc,
 			onComplete: function(t)
 			{
@@ -611,7 +616,9 @@ class CameraController
 	{
 		if (zoomTween != null)
 			zoomTween.cancel();
-		zoomTween = FlxTween.tween(camGame, {zoom: defaultZoom}, 1, {ease: FlxEase.elasticInOut});
+		// FIX: misma razón que _panTween — manager global no se pausa.
+		final _mgr = PlayState.gameplayTweens ?? FlxTween.globalManager;
+		zoomTween = _mgr.tween(camGame, {zoom: defaultZoom}, 1, {ease: FlxEase.elasticInOut});
 	}
 
 	public function shake(intensity:Float = 0.05, duration:Float = 0.1):Void

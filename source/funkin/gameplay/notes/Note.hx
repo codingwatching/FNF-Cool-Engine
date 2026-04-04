@@ -30,6 +30,14 @@ class Note extends FlxSprite
 	 */
 	public var sustainBaseScaleY:Float = 1.0;
 
+	// ── Speed-transition lerp state (escrito por NoteManager) ─────────────
+	/** Y de partida cuando empieza una transición de scroll speed. -1 = sin transición. */
+	public var _lerpFromY:Float       = -1.0;
+	/** scale.y de partida de este sustain al inicio de la transición. */
+	public var _lerpFromScaleY:Float  = -1.0;
+	/** Progreso 0→1 del lerp de velocidad. 1.0 = sin transición activa. */
+	public var _lerpT:Float           = 1.0;
+
 	public var noteScore:Float = 1;
 	public var noteRating:String = 'sick';
 
@@ -380,6 +388,10 @@ class Note extends FlxSprite
 		this.alpha = sustainNote ? 0.6 : 1.0;
 		this.visible = true;
 		this.clipRect = null;
+		// Resetear estado de transición de velocidad — la nota empieza sin lerp
+		this._lerpFromY      = -1.0;
+		this._lerpFromScaleY = -1.0;
+		this._lerpT          = 1.0;
 
 		x = _calcBaseX(mustHitNote) + (swagWidth * noteData);
 		y = -2000;

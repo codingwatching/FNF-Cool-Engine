@@ -212,7 +212,7 @@ jobs:
       # -UStatus lo undefine antes de que hxcpp incluya los headers de X11.
       - name: Fix X11 Status typedef conflict
         run: |
-          sed -i 's|</project>|<compilerflag value="-UStatus" />\n</project>|' project.xml
+          sed -i 's|</project>|<compilerflag value="-UStatus" />\n</project>|' project.hxp
 
       - name: Build (Linux release)
         run: haxelib run lime build linux -final

@@ -4,6 +4,7 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
+import flixel.tweens.FlxEase;
 import funkin.gameplay.notes.Note;
 import funkin.gameplay.notes.NoteRenderer;
 import funkin.gameplay.notes.NoteSplash;
@@ -98,6 +99,22 @@ class NoteManager
 	/** Último valor de _scrollSpeed con el que se calcularon los sustainBaseScaleY.
 	 *  Si cambia (modchart o evento de velocidad), recalculamos todos los sustains activos. */
 	private var _lastSustainSpeed:Float = -1.0;
+
+	// ── Playback-rate lerp (suaviza la transición cuando el jugador cambia velocidad) ─
+
+	/**
+	 * Multiplicador de velocidad de reproducción pedido desde PlayState (teclas 4/5).
+	 * NoteManager interpola _scrollSpeed hacia (0.45 × songSpeed × targetScrollRate)
+	 * cada frame para hacer la transición suave.
+	 * Valor inicial 1.0 = velocidad normal.
+	 */
+	public var targetScrollRate:Float = 1.0;
+
+	/** true mientras _scrollSpeed está siendo interpolado hacia targetScrollRate. */
+	private var _scrollTransitioning:Bool = false;
+
+	/** _scrollSpeed al inicio de la transición activa (para calcular el from de cada nota). */
+	private var _scrollSpeedAtTransStart:Float = 0.45;
 
 	// === SAVE.DATA CACHE (evita acceso Dynamic en hot loop) ===
 	// Se actualizan en generateNotes() y cuando cambia la configuración.
@@ -331,6 +348,46 @@ class NoteManager
 
 	public function update(songPosition:Float):Void
 	{
+		final targetSpeed:Float = 0.45 * FlxMath.roundDecimal(songSpeed * targetScrollRate, 2);
+		final speedDiff:Float   = targetSpeed - _scrollSpeed;
+
+		if (Math.abs(speedDiff) > 0.0005)
+		{
+			// Usar elapsed real (sin escala de timeScale) para que el lerp siempre
+			// tarde ~0.15 s en tiempo de pantalla independientemente del rate.
+			final rawElapsed:Float = FlxG.elapsed / (FlxG.timeScale > 0 ? FlxG.timeScale : 1.0);
+			final alpha:Float      = Math.min(1.0, rawElapsed * 12.0); // ~0.08 s a 60 fps
+			_scrollSpeed = _scrollSpeed + speedDiff * alpha;
+
+			if (!_scrollTransitioning)
+			{
+				// Primera vez que entramos en transición: guardar el Y y scale.y
+				// actuales de TODAS las notas vivas como punto de partida del lerp.
+				_scrollTransitioning      = true;
+				_scrollSpeedAtTransStart  = _scrollSpeed;
+
+				for (note in sustainNotes.members)
+				{
+					if (note == null || !note.alive) continue;
+					note._lerpFromY      = note.y;
+					note._lerpFromScaleY = note.scale.y;
+					note._lerpT          = 0.0;
+				}
+				for (note in notes.members)
+				{
+					if (note == null || !note.alive) continue;
+					note._lerpFromY      = note.y;
+					note._lerpFromScaleY = note.scale.y;
+					note._lerpT          = 0.0;
+				}
+			}
+		}
+		else
+		{
+			_scrollSpeed         = targetSpeed;
+			_scrollTransitioning = false;
+		}
+
 		spawnNotes(songPosition);
 		updateActiveNotes(songPosition);
 		updateStrumAnimations();
@@ -349,20 +406,6 @@ class NoteManager
 		}
 	}
 
-	/**
-	 * Libera holds cuyas piezas de sustain ya se consumieron.
-	 * IMPORTANTE: revisa tanto notes.members (spawneadas) como unspawnNotes
-	 * (futuras). Sin el check de unspawnNotes, holds largos se liberaban
-	 * prematuramente porque las piezas futuras aún no estaban en el grupo.
-	 */
-	/**
-	 * Libera holds cuyo tiempo de fin (strumTime + sustainLength del head note)
-	 * ya fue alcanzado por songPosition.
-	 *
-	 * FIX: antes usaba _hasPendingSustain que esperaba a que las notas salieran
-	 * de pantalla. Ahora usamos el tiempo exacto de fin, que es conocido desde
-	 * que golpeamos el head note. Esto dispara playEnd() en el momento correcto.
-	 */
 	private function autoReleaseFinishedHolds():Void
 	{
 		final songPos = Conductor.songPosition;
@@ -744,12 +787,21 @@ class NoteManager
 			var newSY = calcScaleY(note);
 			if (newSY > 0 && newSY != note.sustainBaseScaleY)
 			{
-				note.sustainBaseScaleY = newSY;
-				note.scale.y = newSY;
-				note.updateHitbox();
-				// Re-aplicar offset de skin: updateHitbox() llama centerOffsets() que lo resetea
-				note.offset.x += note.noteOffsetX;
-				note.offset.y += note.noteOffsetY;
+				if (_scrollTransitioning)
+				{
+					if (note._lerpFromScaleY < 0.0)   // aún no tiene from: usar el actual
+						note._lerpFromScaleY = note.scale.y;
+					// No tocamos note.scale.y — el lerp de updateNotePosition lo actualiza gradualmente
+				}
+				else
+				{
+					// Cambio instantáneo (evento de chart, modchart): saltar directo
+					note.scale.y = newSY;
+					note.updateHitbox();
+					note.offset.x += note.noteOffsetX;
+					note.offset.y += note.noteOffsetY;
+				}
+				note.sustainBaseScaleY = newSY; // siempre actualizar el target
 			}
 		}
 	}
@@ -787,7 +839,7 @@ class NoteManager
 		// strumLineY como fallback para no crashear y mantener comportamiento previo.
 		var strum = getStrumForDirection(note.noteData, note.strumsGroupIndex, note.mustPress);
 
-		final _refY:Float = (strum != null) ? strum.y - strum.offset.y + strum.frameHeight * 0.5 : strumLineY;
+		final _refY:Float = (strum != null) ? strum.y - strum.offset.y + strum.height * 0.5 : strumLineY;
 
 		// ── Leer modificadores per-nota del ModChartManager (si existe) ────────
 		var _modState:funkin.gameplay.modchart.StrumState = null;
@@ -838,6 +890,16 @@ class NoteManager
 				_noteYOffset += _modState.wave * Math.sin(songPosition * 0.001 * _modState.waveSpeed - note.strumTime * 0.001);
 		}
 		noteY += _noteYOffset;
+
+		if (_scrollTransitioning && note._lerpFromY >= 0.0 && note._lerpT < 1.0)
+		{
+			// Avanzar el progreso del lerp usando tiempo real (sin escalar por timeScale)
+			// para que la animación dure ~0.15 s de pantalla sin importar el rate.
+			final rawElapsed:Float = FlxG.elapsed / (FlxG.timeScale > 0 ? FlxG.timeScale : 1.0);
+			note._lerpT = Math.min(1.0, note._lerpT + rawElapsed * 12.0);
+			final easedT:Float = FlxEase.quartOut(note._lerpT);
+			noteY = note._lerpFromY + (noteY - note._lerpFromY) * easedT;
+		}
 
 		// Para notas normales, Y es directo
 		if (!note.isSustainNote)
@@ -1065,7 +1127,30 @@ class NoteManager
 		}
 
 		if (note.isSustainNote)
+		{
+			// ── Lerp de posición Y del sustain ───────────────────────────────
+			// Igual que las notas normales, interpola desde _lerpFromY si hay
+			// una transición activa.  El _lerpT ya fue avanzado en el bloque
+			// de notas normales de arriba para ESTA nota (mismo frame de update).
+			// No lo avanzamos de nuevo aquí — solo leemos el valor ya calculado.
+			if (_scrollTransitioning && note._lerpFromY >= 0.0 && note._lerpT < 1.0)
+			{
+				final easedT:Float = FlxEase.quartOut(note._lerpT);
+				noteY = note._lerpFromY + (noteY - note._lerpFromY) * easedT;
+
+				// ── Lerp de scale.y del sustain ───────────────────────────────
+				// Mientras la transición no terminó, interpolamos también el
+				// scale.y para que el cuerpo del hold se estire/encoja gradualmente
+				// sin saltos bruscos ni gaps/solapamientos visibles.
+				if (note._lerpFromScaleY > 0.0)
+				{
+					final targetSY:Float = note.sustainBaseScaleY; // target ya recalculado
+					note.scale.y = note._lerpFromScaleY + (targetSY - note._lerpFromScaleY) * easedT;
+				}
+			}
+
 			note.y = noteY + (_effectiveDownscroll ? -20 : 20); // offset para desplazar sustains y que se aprecien mejor
+		}
 
 		if (note.isSustainNote)
 		{
@@ -1091,7 +1176,7 @@ class NoteManager
 					else
 					{
 						_sustainClipRect.x = 0;
-						_sustainClipRect.width = note.frameWidth * 2;
+						_sustainClipRect.width = note.width * 2;
 						_sustainClipRect.height = _clipH;
 						_sustainClipRect.y = note.frameHeight - _clipH;
 						if (note.clipRect == null)
@@ -1115,7 +1200,7 @@ class NoteManager
 					else
 					{
 						_sustainClipRect.x = 0;
-						_sustainClipRect.width = note.frameWidth * 2;
+						_sustainClipRect.width = note.width * 2;
 						_sustainClipRect.y = _clipFrameY;
 						_sustainClipRect.height = _clipH;
 						if (note.clipRect == null)
@@ -1150,7 +1235,7 @@ class NoteManager
 						else
 						{
 							_sustainClipRect.x = 0;
-							_sustainClipRect.width = note.frameWidth * 2;
+							_sustainClipRect.width = note.width * 2;
 							_sustainClipRect.height = _clipH;
 							_sustainClipRect.y = note.frameHeight - _clipH;
 							if (note.clipRect == null)
@@ -1181,7 +1266,7 @@ class NoteManager
 						if (_clipH > 0 && _clipFrameY >= 0)
 						{
 							_sustainClipRect.x = 0;
-							_sustainClipRect.width = note.frameWidth * 2;
+							_sustainClipRect.width = note.width * 2;
 							_sustainClipRect.y = _clipFrameY;
 							_sustainClipRect.height = _clipH;
 							if (note.clipRect == null)
@@ -1505,8 +1590,8 @@ class NoteManager
 			if (strum == null)
 				continue;
 
-			final cx:Float = strum.x - strum.offset.x + strum.frameWidth * 0.5;
-			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * 0.5;
+			final cx:Float = strum.x - strum.offset.x + strum.width * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.height * 0.5;
 
 			// Key formula mirrors NoteRenderer.startHoldCover / stopHoldCover
 			final key:Int = dir + note.strumsGroupIndex * 8;
@@ -1523,8 +1608,8 @@ class NoteManager
 			if (strum == null)
 				continue;
 
-			final cx:Float = strum.x - strum.offset.x + strum.frameWidth * 0.5;
-			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * 0.5;
+			final cx:Float = strum.x - strum.offset.x + strum.width * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.height * 0.5;
 
 			// Key formula: CPU side = +4 offset in NoteRenderer
 			final key:Int = dir + 4 + _cpuHoldGroupIdx[dir] * 8;
