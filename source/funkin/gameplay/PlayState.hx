@@ -1015,8 +1015,10 @@ class PlayState extends funkin.states.MusicBeatState
 			}
 
 			babyArrow.x = xPos;
-			babyArrow.alpha = 0;
-			FlxTween.tween(babyArrow, {alpha: targetAlpha}, 0.5, {startDelay: 0.5 + (0.2 * i)});
+			if (!isStoryMode){
+				babyArrow.alpha = 0;
+				FlxTween.tween(babyArrow, {alpha: targetAlpha}, 0.5, {startDelay: 0.5 + (0.2 * i)});
+			}
 			babyArrow.animation.play('static');
 			babyArrow.cameras = [camHUD];
 			strumLineNotes.add(babyArrow);

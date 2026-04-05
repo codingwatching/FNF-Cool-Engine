@@ -24,6 +24,16 @@ class Note extends FlxSprite
 	public var sustainLength:Float = 0;
 	public var isSustainNote:Bool = false;
 
+	/**
+	 * true si esta pieza de sustain es la cola (holdend). false = hold piece o nota normal.
+	 * Se asigna en setupSustainNote() y se resetea en recycle().
+	 * NoteManager lo usa en updateNotePosition() para detectar el tail cap sin depender
+	 * de curAnim?.name, que puede ser null por un frame durante transiciones de animación
+	 * y causar el bug de "flash de holdend" donde el scale.y de tail se aplica incorrectamente
+	 * a una pieza hold body por un frame.
+	 */
+	public var isTailCap:Bool = false;
+
 	/** Scale.y base de la pieza de sustain, calculado en setupSustainNote().
 	 *  NoteManager lo usa en la compensacion de rotacion sin acumulacion:
 	 *    note.scale.y = sustainBaseScaleY / cos(deformAngle)
@@ -58,6 +68,15 @@ class Note extends FlxSprite
 
 	/** Nombre de la skin actualmente cargada. Usado para detectar cambios en recycle(). */
 	private var _loadedSkinName:String = '';
+
+	/**
+	 * Nombre de la skin cargada actualmente — solo lectura.
+	 * NoteRenderer lo usa como clave de pool para garantizar que las notas
+	 * del pool de skin "A" nunca se reciclen como notas de skin "B" sin
+	 * pasar por loadSkin(), eliminando el bug de skin cross-contamination.
+	 */
+	public var loadedSkinName(get, never):String;
+	inline function get_loadedSkinName():String return _loadedSkinName;
 
 	/** Tipo con el que se cargó la skin: true=sustain, false=normal. Si cambia hay que recargar animaciones. */
 	private var _loadedAsSustain:Bool = false;
@@ -388,6 +407,7 @@ class Note extends FlxSprite
 		this.alpha = sustainNote ? 0.6 : 1.0;
 		this.visible = true;
 		this.clipRect = null;
+		this.isTailCap = false; // se reasignará en setupSustainNote() si corresponde
 		// Resetear estado de transición de velocidad — la nota empieza sin lerp
 		this._lerpFromY      = -1.0;
 		this._lerpFromScaleY = -1.0;
@@ -477,6 +497,7 @@ class Note extends FlxSprite
 				// BUGFIX: check existence para no disparar WARNING si la skin
 				// aún no tiene esta animación registrada
 				_applyNoteAnim(animArrows[i] + 'holdend');
+				isTailCap = true; // esta pieza es la cola — NoteManager lo usa para scale.y
 				break;
 			}
 		}
@@ -498,6 +519,7 @@ class Note extends FlxSprite
 				if (prevNote.noteData == i)
 				{
 					prevNote._applyNoteAnim(animArrows[i] + 'hold');
+					prevNote.isTailCap = false; // ya no es cola — NoteManager usará scale.y euclidiano
 					break;
 				}
 			}
@@ -633,6 +655,18 @@ class Note extends FlxSprite
 					flipY = !flipY;
 			}
 		}
+	}
+
+	/**
+	 * Convierte esta pieza de sustain de holdend → hold body inmediatamente.
+	 * NoteManager lo llama en spawnNotes() cuando ya sabe que el siguiente raw
+	 * es un sustain contiguo, evitando el flash de holdend de 1 frame que ocurría
+	 * cuando piezas consecutivas entraban en la ventana de spawn en frames distintos.
+	 */
+	public function confirmHoldPiece():Void
+	{
+		_applyNoteAnim(animArrows[noteData] + 'hold');
+		isTailCap = false;
 	}
 
 	/** Calcula la posición X base según mustPress y middlescroll. */

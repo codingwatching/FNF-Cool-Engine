@@ -195,6 +195,14 @@ class NoteManager
 	/** ClipRect reutilizable para sustains en downscroll — elimina `new FlxRect()` por frame */
 	private var _sustainClipRect:flixel.math.FlxRect = new flixel.math.FlxRect();
 
+	// ── Fade suave de sustains (sin trozos) ──────────────────────────────────
+	// Cada frame calculamos el alpha mínimo de fade por dirección+jugador y lo
+	// aplicamos en el FRAME SIGUIENTE a todos los trozos de esa dirección.
+	// Así toda la cadena de sustain se desvanece junta como una sola pieza.
+	// Índice: noteData*2 + (mustPress ? 0 : 1)  → 8 slots (4 dirs × 2 jugadores).
+	private var _holdFadeAlpha:Array<Float> = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+	private var _holdFadeAlphaNext:Array<Float> = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+
 	public function new(notes:FlxTypedGroup<Note>, playerStrums:FlxTypedGroup<FlxSprite>, cpuStrums:FlxTypedGroup<FlxSprite>,
 			splashes:FlxTypedGroup<NoteSplash>, holdCovers:FlxTypedGroup<NoteHoldCover>, ?playerStrumsGroup:StrumsGroup, ?cpuStrumsGroup:StrumsGroup,
 			?allStrumsGroups:Array<StrumsGroup>, ?sustainNotes:FlxTypedGroup<Note>)
@@ -349,42 +357,44 @@ class NoteManager
 	public function update(songPosition:Float):Void
 	{
 		final targetSpeed:Float = 0.45 * FlxMath.roundDecimal(songSpeed * targetScrollRate, 2);
-		final speedDiff:Float   = targetSpeed - _scrollSpeed;
+		final speedDiff:Float = targetSpeed - _scrollSpeed;
 
 		if (Math.abs(speedDiff) > 0.0005)
 		{
 			// Usar elapsed real (sin escala de timeScale) para que el lerp siempre
 			// tarde ~0.15 s en tiempo de pantalla independientemente del rate.
 			final rawElapsed:Float = FlxG.elapsed / (FlxG.timeScale > 0 ? FlxG.timeScale : 1.0);
-			final alpha:Float      = Math.min(1.0, rawElapsed * 12.0); // ~0.08 s a 60 fps
+			final alpha:Float = Math.min(1.0, rawElapsed * 12.0); // ~0.08 s a 60 fps
 			_scrollSpeed = _scrollSpeed + speedDiff * alpha;
 
 			if (!_scrollTransitioning)
 			{
 				// Primera vez que entramos en transición: guardar el Y y scale.y
 				// actuales de TODAS las notas vivas como punto de partida del lerp.
-				_scrollTransitioning      = true;
-				_scrollSpeedAtTransStart  = _scrollSpeed;
+				_scrollTransitioning = true;
+				_scrollSpeedAtTransStart = _scrollSpeed;
 
 				for (note in sustainNotes.members)
 				{
-					if (note == null || !note.alive) continue;
-					note._lerpFromY      = note.y;
+					if (note == null || !note.alive)
+						continue;
+					note._lerpFromY = note.y;
 					note._lerpFromScaleY = note.scale.y;
-					note._lerpT          = 0.0;
+					note._lerpT = 0.0;
 				}
 				for (note in notes.members)
 				{
-					if (note == null || !note.alive) continue;
-					note._lerpFromY      = note.y;
+					if (note == null || !note.alive)
+						continue;
+					note._lerpFromY = note.y;
 					note._lerpFromScaleY = note.scale.y;
-					note._lerpT          = 0.0;
+					note._lerpT = 0.0;
 				}
 			}
 		}
 		else
 		{
-			_scrollSpeed         = targetSpeed;
+			_scrollSpeed = targetSpeed;
 			_scrollTransitioning = false;
 		}
 
@@ -520,6 +530,22 @@ class NoteManager
 			note.alpha = raw.isSustainNote ? 0.6 : 1.0;
 
 			_prevSpawnedNote.set(_pnKey, note);
+
+			// BUG FIX 1 — Flash de holdend al spawnar ("tarda en pensar")
+			// Cuando este trozo de sustain entra en la ventana de spawn sin que el
+			// siguiente trozo haya entrado en el mismo frame, el nodo queda con
+			// isTailCap=true (animación holdend) hasta que el frame siguiente spawnea
+			// el sucesor y setupSustainNote() lo convierte a hold → flash de 1 frame.
+			// Solución: mirar hacia delante en unspawnNotes. Si el siguiente raw es un
+			// sustain contiguo (misma dirección + mismo grupo), este trozo NO es el tail
+			// → llamar confirmHoldPiece() ya, antes de añadirlo al grupo visible.
+			if (raw.isSustainNote && _unspawnIdx < unspawnNotes.length)
+			{
+				final _nextRaw = unspawnNotes[_unspawnIdx];
+				if (_nextRaw.isSustainNote && _nextRaw.noteData == raw.noteData && _nextRaw.strumsGroupIndex == raw.strumsGroupIndex)
+					note.confirmHoldPiece();
+			}
+
 			// Sustain notes van al grupo separado (se dibuja ANTES que notes →
 			// las notas normales siempre quedan por encima visualmente).
 			if (raw.isSustainNote)
@@ -542,6 +568,43 @@ class NoteManager
 		{
 			_lastSustainSpeed = _scrollSpeed;
 			_recalcAllSustainScales();
+		}
+
+		// BUG FIX 3 — Pre-pasada de fade: sin doble buffer, sin lag, sin parpadeo.
+		// El doble buffer causaba que en el frame N de entrada a la zona de fade
+		// _holdFadeAlpha seguia valiendo 1.0 (del frame N-1) -> nota a full alpha,
+		// y en el frame N+1 saltaba bruscamente al valor calculado -> flash visible.
+		// Solucion: calcular el alpha minimo de la cadena de hold en ESTA frame
+		// a partir de note.y del frame anterior (error < 1px a 60fps, imperceptible).
+		// updateNotePosition() lee _holdFadeAlpha[] en el mismo frame -> sin lag.
+		for (_hfi in 0...8)
+			_holdFadeAlpha[_hfi] = 1.0;
+		{
+			final _sm = sustainNotes.members;
+			final _sl = _sm.length;
+			final _FZ = 60.0;
+			final _SHC = 35.0;
+			for (_pi in 0..._sl)
+			{
+				final _pn = _sm[_pi];
+				if (_pn == null || !_pn.alive || !_pn.isSustainNote || _pn.wasGoodHit || _pn.tooLate)
+					continue;
+				final _ps = getStrumForDirection(_pn.noteData, _pn.strumsGroupIndex, _pn.mustPress);
+				if (_ps == null)
+					continue;
+				final _pRefY:Float = _ps.y - _ps.offset.y + _ps.height * 0.5;
+				final _pSH:Float = Math.min(_ps.height * 0.5, _SHC);
+				var _pFront:Float = downscroll ? _pRefY - (_pn.y - _pn.offset.y + _pn.height) : (_pn.y - _pn.offset.y) - _pRefY;
+				final _pSlot:Int = _pn.noteData * 2 + (_pn.mustPress ? 0 : 1);
+				if (_pFront < _pSH)
+					_holdFadeAlpha[_pSlot] = 0.0;
+				else if (_pFront < _pSH + _FZ)
+				{
+					final _pff:Float = FlxMath.bound((_pFront - _pSH) / _FZ, 0.0, 1.0);
+					if (_pff < _holdFadeAlpha[_pSlot])
+						_holdFadeAlpha[_pSlot] = _pff;
+				}
+			}
 		}
 
 		// Limpiar el set de miss-por-hold al inicio de cada frame
@@ -676,7 +739,7 @@ class NoteManager
 			onCPUNoteHit(note);
 		// Solo animar el strum en la nota cabeza, NO en las piezas de sustain.
 		handleStrumAnimation(note.noteData, note.strumsGroupIndex, false);
-		
+
 		if (!note.isSustainNote && note.sustainLength > 0)
 		{
 			var newEnd = note.strumTime + note.sustainLength - SaveData.data.offset;
@@ -702,12 +765,10 @@ class NoteManager
 					var holdSplashCPU = NoteTypeManager.getHoldSplashName(note.noteType);
 					if (_cachedHoldCoverEnabled)
 					{
-						var cover = renderer.startHoldCover(dir, strum.x
-							- strum.offset.x
-							+ strum.frameWidth * 0.5,
-							strum.y
-							- strum.offset.y
-							+ strum.frameHeight * 0.5, false, note.strumsGroupIndex, holdSplashCPU);
+						// FIX: strum.width/height incluyen scale; frameWidth/Height son px sin escalar.
+						// Usar dims escaladas para coincidir con _updateHoldCoverPositions().
+						var cover = renderer.startHoldCover(dir, strum.x - strum.offset.x + strum.width * 0.5,
+							strum.y - strum.offset.y + strum.height * 0.5, false, note.strumsGroupIndex, holdSplashCPU);
 						if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0)
 						{
 							_holdCoverSet.set(cover, true);
@@ -789,7 +850,7 @@ class NoteManager
 			{
 				if (_scrollTransitioning)
 				{
-					if (note._lerpFromScaleY < 0.0)   // aún no tiene from: usar el actual
+					if (note._lerpFromScaleY < 0.0) // aún no tiene from: usar el actual
 						note._lerpFromScaleY = note.scale.y;
 					// No tocamos note.scale.y — el lerp de updateNotePosition lo actualiza gradualmente
 				}
@@ -1068,8 +1129,7 @@ class NoteManager
 				// Body pieces stretch to exactly fill the gap between this piece
 				// and the next. Tail caps keep their base scale (they're the end
 				// graphic and shouldn't stretch).
-				final _animName:String = note.animation.curAnim?.name ?? '';
-				final _isTailCap:Bool = _animName.endsWith('holdend');
+				final _isTailCap:Bool = note.isTailCap;
 
 				if (!_isTailCap)
 				{
@@ -1087,17 +1147,12 @@ class NoteManager
 		// Solo aplica a notas del jugador que no fueron golpeadas
 		if (note.mustPress && !note.wasGoodHit && !note.isSustainNote)
 		{
-			// Distancia desde el centro del strum hacia la dirección "pasada"
-			// En upscroll: las notas vienen de abajo, pasan el strum hacia arriba (Y decrece)
-			// En downscroll: las notas vienen de arriba, pasan el strum hacia abajo (Y crece)
 			var distPast:Float;
 			if (downscroll)
-				distPast = note.y - strumLineY; // positivo = debajo del strum (pasó)
+				distPast = note.y - strumLineY;
 			else
-				distPast = strumLineY - note.y; // positivo = encima del strum (pasó)
+				distPast = strumLineY - note.y;
 
-			// Start fading 50px before the strum line, reach alpha 0 at 120px after.
-			// The earlier FADE_START makes sustain tails disappear more smoothly.
 			final FADE_START:Float = -50.0;
 			final FADE_END:Float = 120.0;
 			if (distPast > FADE_START)
@@ -1111,37 +1166,23 @@ class NoteManager
 		// ── Modificadores Y per-nota (antes de asignar Y final) ──────────────
 		if (_modState != null && !note.isSustainNote)
 		{
-			// NOTE_OFFSET_Y: offset plano
 			if (_modState.noteOffsetY != 0)
 				note.y += _modState.noteOffsetY;
 
-			// DRUNK_Y: onda senoidal en Y por strumTime.
-			// Fase ligeramente distinta a drunkX para que no sean idénticas.
 			if (_modState.drunkY != 0)
 				note.y += _modState.drunkY * Math.sin(note.strumTime * 0.001 * _modState.drunkFreq + songPosition * 0.001);
 
-			// BUMPY: toda la columna oscila al mismo tiempo (mismo phase para todas las notas).
-			// A diferencia de DRUNK_Y, no depende del strumTime individual.
 			if (_modState.bumpy != 0)
 				note.y += _modState.bumpy * Math.sin(songPosition * 0.001 * _modState.bumpySpeed);
 		}
 
 		if (note.isSustainNote)
 		{
-			// ── Lerp de posición Y del sustain ───────────────────────────────
-			// Igual que las notas normales, interpola desde _lerpFromY si hay
-			// una transición activa.  El _lerpT ya fue avanzado en el bloque
-			// de notas normales de arriba para ESTA nota (mismo frame de update).
-			// No lo avanzamos de nuevo aquí — solo leemos el valor ya calculado.
 			if (_scrollTransitioning && note._lerpFromY >= 0.0 && note._lerpT < 1.0)
 			{
 				final easedT:Float = FlxEase.quartOut(note._lerpT);
 				noteY = note._lerpFromY + (noteY - note._lerpFromY) * easedT;
 
-				// ── Lerp de scale.y del sustain ───────────────────────────────
-				// Mientras la transición no terminó, interpolamos también el
-				// scale.y para que el cuerpo del hold se estire/encoja gradualmente
-				// sin saltos bruscos ni gaps/solapamientos visibles.
 				if (note._lerpFromScaleY > 0.0)
 				{
 					final targetSY:Float = note.sustainBaseScaleY; // target ya recalculado
@@ -1149,23 +1190,25 @@ class NoteManager
 				}
 			}
 
-			note.y = noteY + (_effectiveDownscroll ? -20 : 20); // offset para desplazar sustains y que se aprecien mejor
+			final _sustainYOffset:Float = Conductor.stepCrochet * 0.45 * _effectiveSpeed;
+			note.y = noteY + (_effectiveDownscroll ? -_sustainYOffset : _sustainYOffset);
+
+			if (!note.tooLate)
+			{
+				final _fadeSlot:Int = note.noteData * 2 + (note.mustPress ? 0 : 1);
+				note.alpha *= _holdFadeAlpha[_fadeSlot];
+			}
 		}
 
 		if (note.isSustainNote)
 		{
 			if (note.wasGoodHit && strum != null)
 			{
-				// V-Slice style: clip puramente vertical — la componente X del vector
-				// causaba sobre-recorte (el sustain desaparecía pasada la mitad del strum).
-				// Usamos la misma fórmula que el path !wasGoodHit para cada dirección de scroll.
 				final _sy:Float = _refY;
 				final _noteVisTop:Float = note.y - note.offset.y;
 
 				if (_effectiveDownscroll)
 				{
-					// Downscroll: sustain con flipY, el fondo visual apunta al strum.
-					// Conservar la porción POR ENCIMA del strum (igual que !wasGoodHit downscroll).
 					final _clipH:Float = (_sy - _noteVisTop) / note.scale.y;
 					if (_clipH <= 0)
 					{
@@ -1387,12 +1430,9 @@ class NoteManager
 				if (strum != null)
 				{
 					var holdSplashPlayer = NoteTypeManager.getHoldSplashName(note.noteType);
-					var cover = renderer.startHoldCover(direction, strum.x
-						- strum.offset.x
-						+ strum.frameWidth * 0.5,
-						strum.y
-						- strum.offset.y
-						+ strum.frameHeight * 0.5, true, note.strumsGroupIndex, holdSplashPlayer);
+					// FIX: strum.width/height incluyen scale; frameWidth/Height son px sin escalar.
+					var cover = renderer.startHoldCover(direction, strum.x - strum.offset.x + strum.width * 0.5,
+						strum.y - strum.offset.y + strum.height * 0.5, true, note.strumsGroupIndex, holdSplashPlayer);
 					// BUGFIX: indexOf evita doble-add de covers pre-calentados que ya
 					// están en el grupo → doble update/draw causaba animación duplicada.
 					if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0)

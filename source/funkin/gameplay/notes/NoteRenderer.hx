@@ -47,14 +47,18 @@ class NoteRenderer
     public var noteSpeed:Float = 1.0;
 
     // OPTIMIZATION: pools separados para sustain vs normal.
-    // BUGFIX: mezclarlos causaba que note.recycle() cambiara isSustainNote sin
-    // recargar animaciones → WARNING "No animation called 'purpleScroll'" etc.
-    // 24 + 24 = 48 objetos poolados — suficiente para canciones densas.
-    // El valor anterior (50+50=100) mantenía demasiados FlxSprites vivos con
-    // sus texturas, contribuyendo a la presión de RAM durante gameplay.
-    private var notePool:Array<Note>    = [];   // notas normales (cabeza)
-    private var sustainPool:Array<Note> = [];   // hold pieces + tails
-    private var maxPoolSize:Int = 24;
+    // BUGFIX skin cross-contamination: los pools ahora están separados por skin name.
+    // Antes: un solo Array<Note> compartido → una nota de skin "cpuSkin" podía salir
+    // del pool y asignarse a un personaje con skin "playerSkin". Si recycle() no
+    // detectaba el cambio (campo _loadedSkinName stale, nombre coincidente, etc.),
+    // la nota se mostraba con la skin incorrecta ("es rarísimo" pero reproducible).
+    // Ahora: Map<skinName → Array<Note>> por tipo → una nota de skin X solo se
+    // reutiliza para skin X. Si no hay nota disponible de la skin pedida, se busca
+    // en otros pools (recycle() la actualizará) o se crea nueva.
+    // Clave "" = skin global (groupSkin null/vacío).
+    private var _notePoolMap:Map<String, Array<Note>>    = new Map();
+    private var _sustainPoolMap:Map<String, Array<Note>> = new Map();
+    private var maxPoolSize:Int = 24;  // máximo por skin-pool
 
     // OPTIMIZATION: pool de splashes de hit normales
     private var splashPool:Array<NoteSplash> = [];
@@ -87,32 +91,68 @@ class NoteRenderer
 
     // ─────────────────────────── NOTE POOL ───────────────────────────────────
 
+    /** Devuelve o inicializa el sub-pool para la skin dada (key "" = global). */
+    private inline function _getPool(skinKey:String, isSustain:Bool):Array<Note>
+    {
+        final map = isSustain ? _sustainPoolMap : _notePoolMap;
+        var pool = map.get(skinKey);
+        if (pool == null) { pool = []; map.set(skinKey, pool); }
+        return pool;
+    }
+
     /**
      * Obtener nota del pool o crear una nueva.
+     *
+     * POOL STRATEGY (per-skin):
+     *   1. Buscar en el pool exacto de la skin pedida → recycle sin cambiar skin.
+     *   2. Si está vacío, buscar en cualquier otro pool → recycle cargará la skin nueva.
+     *   3. Si todos vacíos, new Note() + loadSkin().
+     *
+     * Esto evita que una nota de skin "cpuSkin" se devuelva visualmente
+     * con esa skin cuando el caller la espera con skin "playerSkin".
      */
     public function getNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false, ?groupSkin:String):Note
     {
         var note:Note = null;
-        final pool = sustainNote ? sustainPool : notePool;
+        final skinKey:String = (groupSkin != null && groupSkin != '') ? groupSkin : '';
+        final poolMap = sustainNote ? _sustainPoolMap : _notePoolMap;
 
-        if (pool.length > 0)
+        // 1. Pool de la skin exacta pedida
+        final exactPool = _getPool(skinKey, sustainNote);
+        if (exactPool.length > 0)
         {
-            note = pool.pop();
+            note = exactPool.pop();
             note.recycle(strumTime, noteData, prevNote, sustainNote, mustHitNote, groupSkin);
             pooledNotes++;
         }
         else
         {
-            note = new Note(strumTime, noteData, prevNote, sustainNote, mustHitNote);
-            // Para notas nuevas (no del pool) también hay que aplicar la skin del
-            // grupo, ya que new Note() usa getCurrentSkinData() sin contexto de grupo.
-            if (groupSkin != null && groupSkin != '')
+            // 2. Cualquier otro pool disponible (recycle() cargará la skin correcta)
+            var foundAny = false;
+            for (pool in poolMap)
             {
-                var skinData = funkin.gameplay.notes.NoteSkinSystem.getCurrentSkinData(groupSkin);
-                if (skinData != null)
-                    note.loadSkin(skinData);
+                if (pool.length > 0)
+                {
+                    note = pool.pop();
+                    note.recycle(strumTime, noteData, prevNote, sustainNote, mustHitNote, groupSkin);
+                    pooledNotes++;
+                    foundAny = true;
+                    break;
+                }
             }
-            createdNotes++;
+
+            // 3. Sin notas en el pool: crear nueva
+            if (!foundAny)
+            {
+                note = new Note(strumTime, noteData, prevNote, sustainNote, mustHitNote);
+                if (groupSkin != null && groupSkin != '')
+                {
+                    var skinData = funkin.gameplay.notes.NoteSkinSystem.getCurrentSkinData(groupSkin);
+                    if (skinData != null)
+                        note.loadSkin(skinData);
+                }
+                createdNotes++;
+            }
         }
 
         if (useBatching && noteBatcher != null)
@@ -122,25 +162,28 @@ class NoteRenderer
     }
 
     /**
-     * Reciclar nota — devolverla al pool.
+     * Reciclar nota — devolverla al pool de su skin actual.
+     * Usando note.loadedSkinName como clave, la nota vuelve al pool correcto
+     * y solo será tomada por futuras notas de la misma skin.
      */
     public function recycleNote(note:Note):Void
     {
         if (note == null) return;
-
-        // Hold cover lifecycle is managed by direction in NoteManager.releaseHoldNote()
 
         if (useBatching && noteBatcher != null)
             noteBatcher.removeNoteFromBatch(note);
 
         try
         {
-            final pool = note.isSustainNote ? sustainPool : notePool;
+            // Clave del pool = skin cargada en la nota (loadedSkinName es public getter)
+            final skinKey:String = (note.loadedSkinName != null && note.loadedSkinName != '') ? note.loadedSkinName : '';
+            final pool = _getPool(skinKey, note.isSustainNote);
+
             if (pool.length < maxPoolSize)
             {
                 note.kill();
                 note.visible = false;
-                note.active = false;
+                note.active  = false;
                 pool.push(note);
             }
             else
@@ -353,8 +396,11 @@ class NoteRenderer
 
     public function getPoolStats():String
     {
-        var stats = 'Notes: ${notePool.length + sustainPool.length}/$maxPoolSize';
-        stats += ' (normal: ${notePool.length} sustain: ${sustainPool.length}';
+        var normalCount = 0;
+        var sustainCount = 0;
+        for (p in _notePoolMap)    normalCount  += p.length;
+        for (p in _sustainPoolMap) sustainCount += p.length;
+        var stats = 'Notes: ${normalCount + sustainCount} (normal: $normalCount sustain: $sustainCount';
         stats += ' pooled: $pooledNotes created: $createdNotes)\n';
         stats += 'Splashes: ${splashPool.length}/$maxSplashPoolSize';
         stats += ' (pooled: $pooledSplashes created: $createdSplashes)\n';
@@ -376,15 +422,20 @@ class NoteRenderer
      */
     public function prewarmPools(normalCount:Int = 8, sustainCount:Int = 16):Void
     {
-        // Create dummy notes that immediately go back into the pool.
+        // Precalentar con la skin global (clave "") — suficiente para el inicio.
+        // Las notas con skins de grupo se crean en el primer spawn (getNote step 3)
+        // y luego quedan en su pool de skin correspondiente para los siguientes ciclos.
+        final normalPool  = _getPool('', false);
+        final sustainPool = _getPool('', true);
+
         for (i in 0...normalCount)
         {
-            if (notePool.length >= maxPoolSize) break;
+            if (normalPool.length >= maxPoolSize) break;
             try
             {
                 var n = new Note(0, i % 4, null, false, false);
-                n.kill(); // mark as dead so it's safe to recycle later
-                notePool.push(n);
+                n.kill();
+                normalPool.push(n);
             }
             catch (_:Dynamic) {}
         }
@@ -399,13 +450,12 @@ class NoteRenderer
             }
             catch (_:Dynamic) {}
         }
-        trace('[NoteRenderer] Pool pre-warmed: ${notePool.length} normal + ${sustainPool.length} sustain notes');
+        trace('[NoteRenderer] Pool pre-warmed: ${normalPool.length} normal + ${sustainPool.length} sustain notes (skin global)');
     }
 
     public function clearPools():Void
     {
         // Hold covers activos — solo kill, NO destroy
-        // (están en grpHoldCovers que PlayState destruirá correctamente)
         for (dir in activeHoldCovers.keys())
         {
             var cover = activeHoldCovers.get(dir);
@@ -413,14 +463,16 @@ class NoteRenderer
         }
         activeHoldCovers.clear();
 
-        // Note pool — estas notas NO están en ningún FlxGroup → destruir
-        for (note in notePool)
-            if (note != null) note.destroy();
-        notePool = [];
+        // Note pools por skin — estas notas NO están en ningún FlxGroup → destruir
+        for (pool in _notePoolMap)
+            for (note in pool)
+                if (note != null) note.destroy();
+        _notePoolMap.clear();
 
-        for (note in sustainPool)
-            if (note != null) note.destroy();
-        sustainPool = [];
+        for (pool in _sustainPoolMap)
+            for (note in pool)
+                if (note != null) note.destroy();
+        _sustainPoolMap.clear();
 
         // Splash pool — están en grpNoteSplashes → solo kill, NO destroy
         for (splash in splashPool)

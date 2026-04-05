@@ -618,7 +618,7 @@ class ResultScreen extends FlxSubState
 		}
 
 		// Position: top-left, just below the top bar, near the score
-		highscoreNew.x    = -50;
+		highscoreNew.x    = -350;
 		highscoreNew.y    = -150; // starts off-screen above
 		highscoreNew.alpha = 0;
 		highscoreNew.scrollFactor.set(0, 0);
@@ -768,7 +768,7 @@ class ResultScreen extends FlxSubState
 			new FlxTimer().start(3.2, function(_)
 			{
 				if (highscoreNew == null) return;
-				highscoreNew.y = -highscoreNew.height - 10;
+				highscoreNew.y = -highscoreNew.height - 60;
 				highscoreNew.alpha = 1;
 				highscoreNew.animation.play('new', true);
 				FlxTween.tween(highscoreNew, {y: 78}, 0.55, {ease: FlxEase.elasticOut});
@@ -1224,7 +1224,7 @@ class ScoreDigit extends FlxText
 	public function setDigit(n:Int):Void
 	{
 		_target = n;
-		text    = (n < 0) ? '' : Std.string(n);
+		text    = (n < 0) ? '' : '0';
 	}
 
 	public function animateShuffle():Void

@@ -335,24 +335,63 @@ class NoteHoldCover extends FlxSprite
 					_playLoop();
 
 			case STATE_END_PENDING:
-				// START terminó mientras esperábamos el end → ahora reproducir END
+				// START terminó mientras esperábamos el end → ahora reproducir END.
 				// Cuando startAnim == loopAnim no hay animación de start separada;
 				// en ese caso END_PENDING no debería ocurrir (playStart va directo a LOOP).
-				// Por seguridad: si estamos en loop y animation.finished=false simplemente
-				// esperamos a que playEnd() sea llamado de nuevo desde el exterior.
-				if (_startAnim != _loopAnim && animation.name == _startAnim && animation.finished)
+				// Por seguridad: si la animación actual ya terminó O si el nombre ya
+				// no es el de start (caso raro pero posible), pasar a END directamente.
+				if (_startAnim != _loopAnim)
+				{
+					if (animation.name == _startAnim && animation.finished)
+						_playEnd();
+					else if (animation.name != _startAnim)
+					{
+						// FIX: animación cambió inesperadamente mientras esperábamos.
+						// Ir a END de todas formas para no quedar en END_PENDING eterno.
+						_playEnd();
+					}
+				}
+				else
+				{
+					// startAnim == loopAnim: no hay start separado → ir a END directamente.
 					_playEnd();
+				}
 
 			case STATE_END:
-				// AUTO-KILL cuando el end termina
-				if (animation.name == _endAnim && animation.finished)
+				// AUTO-KILL cuando el end termina.
+				// FIX: comprobación robusta:
+				//   1. Si el nombre de la animación actual ya no es _endAnim (fue
+				//      reemplazada externamente), matar el cover para no quedar en END eterno.
+				//   2. Si la animación está en loop (skin mal configurada), matar igualmente.
+				//   3. Si finished es true, ciclo de vida normal → matar.
+				if (animation.name == _endAnim)
+				{
+					if (animation.finished)
+						_killSelf();
+					// Si curAnim es looped (debería ser false tras _playEnd, pero por
+					// seguridad) matamos también para evitar que el cover quede en loop de end.
+					else if (animation.curAnim != null && animation.curAnim.looped)
+						_killSelf();
+				}
+				else
+				{
+					// La animación actual ya no es la de end → matar de inmediato.
 					_killSelf();
+				}
 
 			case STATE_LOOP:
 				// looped=true se encarga solo — nada que hacer aquí
 
 			default:
 		}
+
+		// FIX 1-frame offset: siempre re-aplicar la posición al FINAL del update,
+		// después de que super.update() y cualquier transición de animación hayan
+		// actualizado las dimensiones internas de Flixel (width/height/offset).
+		// Esto corrige el salto de 1 frame que se veía al cambiar de animación
+		// porque animation.play() resetea internamente el offset del sprite.
+		if (alive)
+			_applyPosition();
 	}
 
 	// ─── PRIVADAS ─────────────────────────────────────────────────────────────
@@ -457,6 +496,13 @@ class NoteHoldCover extends FlxSprite
 		if (_loopAnim != '' && animation.getByName(_loopAnim) != null)
 		{
 			animation.play(_loopAnim, true);
+			// FIX 1-frame offset glitch: animation.play() llama a updateHitbox()
+			// internamente, lo que resetea width/height al tamaño del primer frame
+			// de la nueva animación. Actualizar _cachedW/_cachedH aquí asegura que
+			// _applyPosition() centre el cover sobre el strum usando las dimensiones
+			// correctas de la animación de loop, no las del start que podría ser distinto.
+			if (width  > 0) _cachedW = width;
+			if (height > 0) _cachedH = height;
 			_applyAnimListExtras(_loopAnim);
 		}
 	}
@@ -468,6 +514,15 @@ class NoteHoldCover extends FlxSprite
 		if (_endAnim != '' && animation.getByName(_endAnim) != null)
 		{
 			animation.play(_endAnim, true);
+			// FIX: si el animList o la skin tienen loop:true en el end, la animación
+			// nunca termina y animation.finished nunca es true → el cover queda vivo
+			// eternamente en STATE_END reproduciendo el loop de fin.
+			// Forzar looped=false aquí para garantizar que el cover muera al terminar.
+			if (animation.curAnim != null)
+				animation.curAnim.looped = false;
+			// FIX 1-frame offset: refrescar dimensiones cacheadas igual que en _playLoop()
+			if (width  > 0) _cachedW = width;
+			if (height > 0) _cachedH = height;
 			_applyAnimListExtras(_endAnim);
 		}
 		else
