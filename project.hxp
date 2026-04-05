@@ -35,6 +35,14 @@ class Project extends HXProject
   static final TEMPLATES_DIR:String = "templates";
   static final SWITCH_APP_ID:String = "0x0100f6c013bbc000";
 
+  /**
+   * Source and output paths for the external crash reporter.
+   * CrashWatcher.cs is compiled during lime build (Windows only) and the
+   * resulting .exe is bundled as an asset so it lands next to the game binary.
+   */
+  static final WATCHER_SRC:String = "tools/CrashWatcher.cs";
+  static final WATCHER_EXE:String = "tools/CrashWatcher.exe";
+
   public function new()
   {
     super();
@@ -169,6 +177,22 @@ class Project extends HXProject
     assets.push(new Asset("art/readme.txt",    "do NOT readme.txt",   null, false, true));
     assets.push(new Asset("CHANGELOG.md",      "CHANGELOG.md",        null, false, true));
 
+    // ── External crash reporter (Windows only) ────────────────────────────────
+    //
+    // CrashWatcher.exe monitors the game's process from the outside.
+    // If the game crashes (exit code ≠ 0), it reads the crash log written by
+    // CrashHandler.hx and shows a proper error window — guaranteed, because it
+    // runs in its own process with a clean heap independent of the game's state.
+    //
+    // We compile it here, during the HXP evaluation phase (before any C++
+    // compilation starts), using the C# compiler that ships with .NET Framework
+    // on every Windows installation since Vista.
+    //
+    // The resulting .exe is then registered as a non-embedded asset so Lime
+    // copies it into the bin directory alongside the game executable.
+    if (isWindows())
+      _buildCrashWatcher();
+
     // Prebuild: sincronizar mods editados de vuelta al árbol fuente.
     // Ejecutado aquí directamente (no via preBuildCallbacks) porque CommandHelper
     // no existe en hxp 1.3.1 y preBuildCallbacks tiene API inestable entre versiones.
@@ -185,6 +209,156 @@ class Project extends HXProject
         Sys.command("bash", ["-c", "cp -rn " + binDir + "/mods/. mods/"]);
     }
   }
+
+  // ── CrashWatcher build ───────────────────────────────────────────────────────
+
+  /**
+   * Compiles tools/CrashWatcher.cs into tools/CrashWatcher.exe using the C#
+   * compiler (csc.exe) bundled with .NET Framework, then registers the output
+   * as a non-embedded Lime asset so it is copied into the game's bin directory.
+   *
+   * Skips recompilation if the .exe already exists and is newer than the .cs
+   * source, matching the behaviour of a normal incremental build system.
+   *
+   * Safe to call unconditionally — every failure prints a warning and continues;
+   * the game still builds and runs, falling back to the in-process crash dialogs.
+   *
+   * Called only on Windows (isWindows() guard at the call site).
+   */
+  function _buildCrashWatcher():Void
+  {
+    // ── 1. Verify the source file exists ─────────────────────────────────────
+    if (!sys.FileSystem.exists(WATCHER_SRC))
+    {
+      Sys.println('[project.hxp] WARNING: $WATCHER_SRC not found — CrashWatcher will not be bundled.');
+      return;
+    }
+
+    // ── 2. Skip if already up-to-date ────────────────────────────────────────
+    // Compare last-modified timestamps.  sys.FileSystem.stat() returns seconds
+    // since epoch, so a simple greater-than comparison is sufficient.
+    if (sys.FileSystem.exists(WATCHER_EXE))
+    {
+      var srcMtime = sys.FileSystem.stat(WATCHER_SRC).mtime.getTime();
+      var exeMtime = sys.FileSystem.stat(WATCHER_EXE).mtime.getTime();
+      if (exeMtime >= srcMtime)
+      {
+        Sys.println('[project.hxp] CrashWatcher.exe is up-to-date — skipping compilation.');
+        _registerWatcherAsset();
+        return;
+      }
+    }
+
+    // ── 3. Locate csc.exe ─────────────────────────────────────────────────────
+    // .NET Framework 4.x ships csc.exe in a well-known path on every Windows
+    // version since Vista.  We prefer the 64-bit runtime when available.
+    var csc = _findCsc();
+    if (csc == null)
+    {
+      Sys.println('[project.hxp] WARNING: csc.exe not found. Install .NET Framework 4.x.');
+      Sys.println('             CrashWatcher will not be bundled in this build.');
+      return;
+    }
+    Sys.println('[project.hxp] CrashWatcher: compiling with $csc');
+
+    // ── 4. Ensure output directory exists ────────────────────────────────────
+    var outDir = "tools";
+    if (!sys.FileSystem.exists(outDir))
+      sys.FileSystem.createDirectory(outDir);
+
+    // ── 5. Compile ───────────────────────────────────────────────────────────
+    // /target:winexe  → no console window pops up when the watcher runs.
+    // /optimize+      → smaller, faster binary.
+    // /platform:anycpu → runs as 64-bit on 64-bit Windows (matches game).
+    // References are always available on a stock Windows install.
+    //
+    // IMPORTANT: csc.exe (the old .NET Framework compiler) uses '/' as its
+    // switch prefix character, so any '/' inside an argument gets parsed as
+    // a switch separator.  Passing "tools/CrashWatcher.cs" makes csc read
+    // "tools" as one token and "CrashWatcher.cs" as the source file, silently
+    // dropping the subdirectory.  Fix: use backslashes for all paths sent to csc.
+    var nativeSrc = WATCHER_SRC.split("/").join("\\");
+    var nativeOut = WATCHER_EXE.split("/").join("\\");
+
+    var ret = Sys.command(csc, [
+      "/target:winexe",
+      "/optimize+",
+      "/platform:anycpu",
+      "/reference:System.Windows.Forms.dll",
+      "/reference:System.Drawing.dll",
+      '/out:$nativeOut',
+      nativeSrc,
+    ]);
+
+    if (ret != 0)
+    {
+      Sys.println('[project.hxp] WARNING: CrashWatcher compilation failed (csc exit code $ret).');
+      Sys.println('             The game will still build, but the external crash reporter');
+      Sys.println('             will not be included. Fix the error above and rebuild.');
+      return;
+    }
+
+    Sys.println('[project.hxp] CrashWatcher compiled → $WATCHER_EXE');
+
+    // ── 6. Register as Lime asset ─────────────────────────────────────────────
+    _registerWatcherAsset();
+  }
+
+  /**
+   * Adds CrashWatcher.exe to Lime's asset list as a non-embedded file.
+   * The target path "CrashWatcher.exe" (no sub-directory) tells Lime to copy
+   * it directly into the bin folder alongside the game executable — the same
+   * way plugins/ and dlls/ assets land in the output root.
+   *
+   * Only called when the .exe actually exists on disk.
+   */
+  function _registerWatcherAsset():Void
+  {
+    if (!sys.FileSystem.exists(WATCHER_EXE))
+    {
+      Sys.println('[project.hxp] WARNING: $WATCHER_EXE missing — cannot register as asset.');
+      return;
+    }
+    // embed=false, visible=true → Lime copies it to bin, not into a data blob.
+    assets.push(new Asset(WATCHER_EXE, "CrashWatcher.exe", null, false, true));
+    Sys.println('[project.hxp] CrashWatcher.exe registered as build asset.');
+  }
+
+  /**
+   * Searches for csc.exe in the standard .NET Framework installation paths.
+   * Returns the full path string if found, or null if not found.
+   *
+   * Search order:
+   *   1. Framework64\v4.0.30319   (64-bit runtime, preferred)
+   *   2. Framework\v4.0.30319     (32-bit runtime, always present)
+   *   3. PATH via where.exe        (Roslyn csc from Visual Studio / Build Tools)
+   */
+  static function _findCsc():Null<String>
+  {
+    var windir = Sys.getEnv("windir") ?? Sys.getEnv("WINDIR") ?? "C:\\Windows";
+
+    var candidates = [
+      '$windir\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe',
+      '$windir\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe',
+    ];
+
+    for (path in candidates)
+      if (sys.FileSystem.exists(path)) return path;
+
+    // Last resort: ask where.exe (finds Roslyn csc from VS / Build Tools)
+    try
+    {
+      var proc  = new sys.io.Process("where", ["csc.exe"]);
+      var found = proc.stdout.readLine().trim();
+      proc.close();
+      if (found.length > 0 && sys.FileSystem.exists(found)) return found;
+    }
+    catch (_) {}
+
+    return null;
+  }
+
+  // ── Asset helpers ────────────────────────────────────────────────────────────
 
   // Helpers para addAssetPath con parámetro embed named (HXP no soporta named args directamente)
   function addAssetPath(path:String, ?rename:String, ?exclude:String, embed:Bool = false):Void
@@ -375,7 +549,14 @@ class Project extends HXProject
       dependencies.push(new Dependency("opengl32",     ""));
     }
     if (isLinux())
+    {
       dependencies.push(new Dependency("GL", ""));
+
+      // FIX: X11 define 'typedef int Status', que colisiona con el parámetro
+      // 'int Status' que hxcpp genera en FlxKeyManager.h.
+      // -UStatus lo undefine antes de que hxcpp incluya los headers de X11.
+      compilerFlags.push("-UStatus");
+    }
   }
 
   // ── Android ──────────────────────────────────────────────────────────────────
@@ -442,7 +623,7 @@ class Project extends HXProject
       icons.push(new Icon("art/iconOG.png", 256));
     }
     // Switch: no icon API in standard Lime — handled via platform templates
-    // Linux: sin iconos — el gestor de ventanas los toma del .desktop entry
+    // Linux: sin iconos — el gestor de ventanas los toman del .desktop entry
   }
 
   // ── Runtime environment fix ──────────────────────────────────────────────────

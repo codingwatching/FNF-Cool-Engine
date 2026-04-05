@@ -141,16 +141,6 @@ jobs:
       - name: Rebuild Lime for arm64
         run: arch -arm64 haxelib run lime rebuild mac
 
-      # FIX: macOS 14 deprecated CGLSetParameter/CGLGetParameter with type 'int'
-      # for the second argument; now requires the enum CGLContextParameter.
-      # kCGLCPSwapInterval is a legacy int literal → explicit cast required.
-      - name: Fix CGLContextParameter cast (VSyncAPI)
-        run: |
-          find . -name "VSyncAPI.cpp" -exec sed -i '' \
-            -e 's/CGLSetParameter(ctx, kCGLCPSwapInterval/CGLSetParameter(ctx, (CGLContextParameter)kCGLCPSwapInterval/g' \
-            -e 's/CGLGetParameter(ctx, kCGLCPSwapInterval/CGLGetParameter(ctx, (CGLContextParameter)kCGLCPSwapInterval/g' \
-            {} \;
-
       - name: Build (macOS release)
         run: arch -arm64 haxelib run lime build mac -final
 

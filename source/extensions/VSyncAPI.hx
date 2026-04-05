@@ -157,7 +157,7 @@ class VSyncAPI
         CGLContextObj ctx = CGLGetCurrentContext();
         if (ctx) {
             GLint interval = enable ? 1 : 0;
-            CGLSetParameter(ctx, kCGLCPSwapInterval, &interval);
+            CGLSetParameter(ctx, (CGLContextParameter)kCGLCPSwapInterval, &interval);
         }
     ')
     public static function setVSync(enable:Bool):Void {}
@@ -166,7 +166,7 @@ class VSyncAPI
         CGLContextObj ctx = CGLGetCurrentContext();
         if (ctx) {
             GLint interval = 0;
-            CGLGetParameter(ctx, kCGLCPSwapInterval, &interval);
+            CGLGetParameter(ctx, (CGLContextParameter)kCGLCPSwapInterval, &interval);
             return interval > 0;
         }
         return false;
