@@ -339,22 +339,10 @@ class Main extends Sprite
 
 		if (use1080p)
 		{
-			// Zoom fisico 1.5 => output 1920x1080, coordenadas internas 1280x720
 			zoom = 1.5;
 		}
 		else
 		{
-			// BUG FIX: el auto-detect anterior leía stageWidth/stageHeight del monitor
-			// (ej. 1920x1080) y calculaba zoom = 1.5, luego sobreescribía gameWidth y
-			// gameHeight con Math.ceil(stageW/zoom). En monitores no exactamente 16:9
-			// (1280x800, 1920x1200, etc.) esto producía valores como gameHeight=800.
-			// Después, window.resize(1280,720) forzaba la ventana a 1280x720, y
-			// RatioScaleMode tenía que encoger un canvas de 1280x800 para caber en
-			// 1280x720 → escala 0.9x → el juego aparecía un 10% más pequeño con
-			// barras negras a los lados. En Flixel 5+ el parámetro zoom ni siquiera
-			// se pasa a FlxGame, así que el auto-detect no servía de nada.
-			// Solución: zoom=1.0 fijo en desktop. La ventana siempre será 1280x720
-			// y RatioScaleMode la escalará correctamente al tamaño de pantalla.
 			zoom = 1.0;
 		}
 
