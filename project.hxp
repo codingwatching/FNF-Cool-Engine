@@ -553,6 +553,12 @@ class Project extends HXProject
       dependencies.push(new Dependency("GL", ""));
       config.push("compiler-flag", "-UStatus");
     }
+    if (isMac())
+    {
+      dependencies.push(new Dependency("OpenGL.framework", ""));
+      dependencies.push(new Dependency("CoreVideo.framework", ""));
+      dependencies.push(new Dependency("AppKit.framework", ""));
+    }
   }
 
   // ── Android ──────────────────────────────────────────────────────────────────

@@ -46,19 +46,41 @@ class NoteRenderer
     public var strumLineY:Float = 50;
     public var noteSpeed:Float = 1.0;
 
-    // OPTIMIZATION: pools separados para sustain vs normal.
-    // BUGFIX skin cross-contamination: los pools ahora están separados por skin name.
-    // Antes: un solo Array<Note> compartido → una nota de skin "cpuSkin" podía salir
-    // del pool y asignarse a un personaje con skin "playerSkin". Si recycle() no
-    // detectaba el cambio (campo _loadedSkinName stale, nombre coincidente, etc.),
-    // la nota se mostraba con la skin incorrecta ("es rarísimo" pero reproducible).
-    // Ahora: Map<skinName → Array<Note>> por tipo → una nota de skin X solo se
-    // reutiliza para skin X. Si no hay nota disponible de la skin pedida, se busca
-    // en otros pools (recycle() la actualizará) o se crea nueva.
-    // Clave "" = skin global (groupSkin null/vacío).
+    // ── Pools por skin (estrictos, sin fallback cross-skin) ───────────────────
+    //
+    // POLÍTICA: cada skin key tiene su propio sub-pool. Una nota de skin "A"
+    // NUNCA sale del pool para ser usada como skin "B". Si el pool de la skin
+    // pedida está vacío → new Note() directamente, sin cruzar pools.
+    //
+    // Esto elimina definitivamente el bug de cross-contamination:
+    //  · Antes había un fallback "tomar del pool de cualquier otra skin y dejar
+    //    que recycle() la recargue". Eso causaba que en el frame de spawn la
+    //    nota tuviera la textura/shader de la skin anterior hasta que loadSkin()
+    //    terminaba de actualizarse, produciendo flashes de skin incorrecta y
+    //    errores de RGB shader cuando los tipos de shader no coincidían.
+    //  · Ahora: pool estricto por skin → la nota que sale del pool ya tiene
+    //    la skin correcta, cero trabajo extra en recycle().
+    //
+    // MEMORIA:
+    //  · maxPoolSize subió de 24→32 por sub-pool para compensar la ausencia del
+    //    fallback (en charts densos de una sola skin el pool se reutiliza más).
+    //  · _totalPoolCap = cap GLOBAL entre todos los sub-pools de todos los tipos.
+    //    Si el total supera este valor, recycleNote() destruye en vez de guardar,
+    //    evitando que charts con muchas skins distintas (modcharts con 8+ grupos)
+    //    acumulen centenares de Note objects inactivos en RAM.
     private var _notePoolMap:Map<String, Array<Note>>    = new Map();
     private var _sustainPoolMap:Map<String, Array<Note>> = new Map();
-    private var maxPoolSize:Int = 24;  // máximo por skin-pool
+    private var maxPoolSize:Int    = 32;   // máximo por sub-pool de skin
+    private var _totalPoolCap:Int  = 128;  // cap global de notas en todos los pools
+
+    /** Total de notas actualmente guardadas en todos los sub-pools. O(n_skins). */
+    private inline function _totalPooled():Int
+    {
+        var t = 0;
+        for (p in _notePoolMap)    t += p.length;
+        for (p in _sustainPoolMap) t += p.length;
+        return t;
+    }
 
     // OPTIMIZATION: pool de splashes de hit normales
     private var splashPool:Array<NoteSplash> = [];
@@ -103,21 +125,22 @@ class NoteRenderer
     /**
      * Obtener nota del pool o crear una nueva.
      *
-     * POOL STRATEGY (per-skin):
-     *   1. Buscar en el pool exacto de la skin pedida → recycle sin cambiar skin.
-     *   2. Si está vacío, buscar en cualquier otro pool → recycle cargará la skin nueva.
-     *   3. Si todos vacíos, new Note() + loadSkin().
+     * POOL STRATEGY (estricta, sin fallback cross-skin):
+     *   1. Buscar en el pool exacto de la skin pedida.
+     *      Si hay una nota disponible → recycle() (no cambia skin).
+     *   2. Pool vacío → new Note() con la skin correcta desde el inicio.
+     *      Nunca se toma prestada una nota de otra skin.
      *
-     * Esto evita que una nota de skin "cpuSkin" se devuelva visualmente
-     * con esa skin cuando el caller la espera con skin "playerSkin".
+     * Esto garantiza que la nota que sale del pool ya tiene la skin, shader
+     * y texturas correctas SIN necesidad de recargar nada en recycle(),
+     * eliminando flashes de skin incorrecta y errores de RGB shader.
      */
     public function getNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false, ?groupSkin:String):Note
     {
         var note:Note = null;
         final skinKey:String = (groupSkin != null && groupSkin != '') ? groupSkin : '';
-        final poolMap = sustainNote ? _sustainPoolMap : _notePoolMap;
 
-        // 1. Pool de la skin exacta pedida
+        // 1. Pool estricto de la skin pedida
         final exactPool = _getPool(skinKey, sustainNote);
         if (exactPool.length > 0)
         {
@@ -127,32 +150,16 @@ class NoteRenderer
         }
         else
         {
-            // 2. Cualquier otro pool disponible (recycle() cargará la skin correcta)
-            var foundAny = false;
-            for (pool in poolMap)
+            // 2. Pool vacío — crear nota nueva con la skin correcta desde el inicio.
+            // new Note() carga la skin global; después si hay groupSkin la sobreescribimos.
+            note = new Note(strumTime, noteData, prevNote, sustainNote, mustHitNote);
+            if (groupSkin != null && groupSkin != '')
             {
-                if (pool.length > 0)
-                {
-                    note = pool.pop();
-                    note.recycle(strumTime, noteData, prevNote, sustainNote, mustHitNote, groupSkin);
-                    pooledNotes++;
-                    foundAny = true;
-                    break;
-                }
+                var skinData = funkin.gameplay.notes.NoteSkinSystem.getCurrentSkinData(groupSkin);
+                if (skinData != null)
+                    note.loadSkin(skinData);
             }
-
-            // 3. Sin notas en el pool: crear nueva
-            if (!foundAny)
-            {
-                note = new Note(strumTime, noteData, prevNote, sustainNote, mustHitNote);
-                if (groupSkin != null && groupSkin != '')
-                {
-                    var skinData = funkin.gameplay.notes.NoteSkinSystem.getCurrentSkinData(groupSkin);
-                    if (skinData != null)
-                        note.loadSkin(skinData);
-                }
-                createdNotes++;
-            }
+            createdNotes++;
         }
 
         if (useBatching && noteBatcher != null)
@@ -162,9 +169,13 @@ class NoteRenderer
     }
 
     /**
-     * Reciclar nota — devolverla al pool de su skin actual.
-     * Usando note.loadedSkinName como clave, la nota vuelve al pool correcto
-     * y solo será tomada por futuras notas de la misma skin.
+     * Reciclar nota — devolverla al pool estricto de su skin actual.
+     *
+     * Doble cap:
+     *  · maxPoolSize: límite por sub-pool de skin (evita que una skin muy usada
+     *    acumule docenas de notas inactivas).
+     *  · _totalPoolCap: límite global entre todos los pools (protege charts con
+     *    muchas skins distintas → modcharts densos no se comen la RAM).
      */
     public function recycleNote(note:Note):Void
     {
@@ -175,11 +186,11 @@ class NoteRenderer
 
         try
         {
-            // Clave del pool = skin cargada en la nota (loadedSkinName es public getter)
             final skinKey:String = (note.loadedSkinName != null && note.loadedSkinName != '') ? note.loadedSkinName : '';
             final pool = _getPool(skinKey, note.isSustainNote);
 
-            if (pool.length < maxPoolSize)
+            // Guardar solo si no se superan los caps; destruir en caso contrario.
+            if (pool.length < maxPoolSize && _totalPooled() < _totalPoolCap)
             {
                 note.kill();
                 note.visible = false;

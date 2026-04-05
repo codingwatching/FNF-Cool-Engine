@@ -302,14 +302,15 @@ class Note extends FlxSprite
 			}
 		}
 
-		if (!isSustainNote)
+		// BUGFIX RGB: el shader (colorAuto/RGB/glow) debe aplicarse a AMBOS tipos de nota.
+		// Antes solo se aplicaba cuando !isSustainNote, así que los sustains recién creados
+		// (vía constructor, no recycle) nunca recibían el shader → sustains sin colorear
+		// aunque la skin tuviera colorAuto:true o colorDirections definidos.
+		_applyShaderForSkin(skinData);
+		if (!isSustainNote && SaveData.data.downscroll)
 		{
-			_applyShaderForSkin(skinData);
-			if (SaveData.data.downscroll)
-			{
-				flipX = true;
-				flipY = true;
-			}
+			flipX = true;
+			flipY = true;
 		}
 	}
 
@@ -709,11 +710,14 @@ class Note extends FlxSprite
 				final curved:Float = t * t;
 				_glowShader.intensity = curved * 0.75;
 				_glowShader.pulse = (dist < GLOW_PEAK_MS) ? 1.0 : curved;
+				// Proximidad lineal suavizada: alimenta el bloom de blanco en el shader
+				_glowShader.proximity = curved;
 			}
 			else
 			{
 				_glowShader.intensity = 0.0;
 				_glowShader.pulse = 0.0;
+				_glowShader.proximity = 0.0;
 			}
 		}
 		else if (_glowShader != null && (wasGoodHit || tooLate))
@@ -721,6 +725,7 @@ class Note extends FlxSprite
 			// Apagar glow una vez golpeada o perdida
 			_glowShader.intensity = 0.0;
 			_glowShader.pulse = 0.0;
+			_glowShader.proximity = 0.0;
 		}
 	}
 }

@@ -285,6 +285,13 @@ class NoteHoldCover extends FlxSprite
 			_state = STATE_START;
 			visible = true;
 			animation.play(_startAnim, true);
+			// FIX 1-frame glitch: animation.play() cambia _curAnim pero NO commitea el frame
+			// a _sprite.frame hasta el siguiente animation.update(elapsed). Por tanto,
+			// width/height siguen siendo los del frame anterior. update(0) fuerza el commit
+			// sin avanzar frames para que _cachedW/_cachedH sean correctos ya.
+			animation.update(0);
+			if (width  > 0) _cachedW = width;
+			if (height > 0) _cachedH = height;
 			_applyAnimListExtras(_startAnim);
 		}
 		else
@@ -390,8 +397,7 @@ class NoteHoldCover extends FlxSprite
 		// actualizado las dimensiones internas de Flixel (width/height/offset).
 		// Esto corrige el salto de 1 frame que se veía al cambiar de animación
 		// porque animation.play() resetea internamente el offset del sprite.
-		if (alive)
-			_applyPosition();
+		_applyPosition();
 	}
 
 	// ─── PRIVADAS ─────────────────────────────────────────────────────────────
@@ -496,11 +502,11 @@ class NoteHoldCover extends FlxSprite
 		if (_loopAnim != '' && animation.getByName(_loopAnim) != null)
 		{
 			animation.play(_loopAnim, true);
-			// FIX 1-frame offset glitch: animation.play() llama a updateHitbox()
-			// internamente, lo que resetea width/height al tamaño del primer frame
-			// de la nueva animación. Actualizar _cachedW/_cachedH aquí asegura que
-			// _applyPosition() centre el cover sobre el strum usando las dimensiones
-			// correctas de la animación de loop, no las del start que podría ser distinto.
+			// FIX 1-frame glitch: animation.play() cambia _curAnim pero NO commitea
+			// _sprite.frame hasta el siguiente animation.update(elapsed) que ocurre
+			// dentro de super.update(). Mientras tanto width/height son de la anim anterior.
+			// update(0) fuerza el commit sin avanzar frames.
+			animation.update(0);
 			if (width  > 0) _cachedW = width;
 			if (height > 0) _cachedH = height;
 			_applyAnimListExtras(_loopAnim);
@@ -520,7 +526,8 @@ class NoteHoldCover extends FlxSprite
 			// Forzar looped=false aquí para garantizar que el cover muera al terminar.
 			if (animation.curAnim != null)
 				animation.curAnim.looped = false;
-			// FIX 1-frame offset: refrescar dimensiones cacheadas igual que en _playLoop()
+			// FIX 1-frame glitch: mismo que en _playLoop() — update(0) commitea el frame.
+			animation.update(0);
 			if (width  > 0) _cachedW = width;
 			if (height > 0) _cachedH = height;
 			_applyAnimListExtras(_endAnim);

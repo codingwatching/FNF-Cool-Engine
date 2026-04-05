@@ -57,6 +57,57 @@ typedef StrumState =
 	var noteAlpha:Float;
 }
 
+// ─── Contexto de posición de nota (hook onNotePosition) ──────────────────────
+
+/**
+ * Objeto pasado a onNotePosition() en cada frame por nota.
+ * El script modifica x/y/angle/alpha/scaleY; el engine los aplica después.
+ *
+ * ⚠️  El objeto SE REUTILIZA entre frames. No guardar referencias a él.
+ *
+ * Uso en HScript:
+ *   function onNotePosition(ctx) {
+ *       ctx.x += Math.sin(ctx.strumTime * 0.01) * 80;
+ *       ctx.y += Math.cos(ctx.songPosition * 0.002) * 30;
+ *   }
+ *
+ * Uso en Lua:
+ *   function onNotePosition(ctx)
+ *       ctx.x = ctx.x + math.sin(ctx.strumTime * 0.01) * 80
+ *       ctx.angle = ctx.angle + math.sin(ctx.beat * math.pi) * 15
+ *   end
+ */
+typedef NotePositionContext =
+{
+	/** Dirección 0-3 (izq/abajo/arriba/der) */
+	var noteData:Int;
+	/** Tiempo de la nota en ms desde el inicio de la canción */
+	var strumTime:Float;
+	/** Posición actual de la canción en ms */
+	var songPosition:Float;
+	/** Beat actual (songPosition / crochet) */
+	var beat:Float;
+	/** true = nota del jugador, false = CPU */
+	var isPlayer:Bool;
+	/** true = pieza de hold/sustain, false = nota normal */
+	var isSustain:Bool;
+	/** ID del grupo de strums al que pertenece la nota (ej. "bf", "dad") */
+	var groupId:String;
+	/** Multiplicador de velocidad de scroll efectivo */
+	var scrollMult:Float;
+	// ── Valores modificables ──────────────────────────────────────────────────
+	/** Posición X en píxeles — MODIFICAR para mover la nota horizontalmente */
+	var x:Float;
+	/** Posición Y en píxeles — MODIFICAR para mover la nota verticalmente */
+	var y:Float;
+	/** Rotación en grados — MODIFICAR para rotar la nota */
+	var angle:Float;
+	/** Transparencia 0.0-1.0 — MODIFICAR para cambiar alpha */
+	var alpha:Float;
+	/** Escala Y del sustain (solo sustains) — MODIFICAR para cambiar longitud */
+	var scaleY:Float;
+}
+
 // ─── Estado de cámara ─────────────────────────────────────────────────────────
 
 typedef CameraModState =
@@ -220,10 +271,44 @@ class ModChartManager
 	private var activeTweens:Array<ActiveTween> = [];
 	private var _finishedTweens:Array<ActiveTween> = [];
 
-	private var currentBeat:Float = 0;
+	/** Beat actual — público para que NoteManager pueda leerlo en el hook de posición. */
+	public var currentBeat:Float = 0;
 	private var songPosition:Float = 0;
 
 	public var enabled:Bool = true;
+
+	// ── Hook de posición de notas ─────────────────────────────────────────────
+
+	/**
+	 * Contexto preallocado para onNotePosition.
+	 * Reutilizado cada frame por nota → cero allocations en el path caliente.
+	 */
+	public var noteCtx:NotePositionContext = {
+		noteData: 0, strumTime: 0.0, songPosition: 0.0, beat: 0.0,
+		isPlayer: true, isSustain: false, groupId: '',
+		scrollMult: 1.0, x: 0.0, y: 0.0, angle: 0.0, alpha: 1.0, scaleY: 1.0
+	};
+
+	/**
+	 * true si algún script cargado define onNotePosition.
+	 * NoteManager lo comprueba antes de llamar al hook para evitar overhead
+	 * cuando ningún script usa esta característica.
+	 */
+	public var hasNotePositionHook:Bool = false;
+
+	/**
+	 * Llama a onNotePosition() en todos los scripts cargados.
+	 * Solo llamar si hasNotePositionHook == true.
+	 */
+	public inline function callNotePositionHook(ctx:NotePositionContext):Void
+	{
+		#if HSCRIPT_ALLOWED
+		_callHScript('onNotePosition', [ctx]);
+		#end
+		#if (LUA_ALLOWED && linc_luajit)
+		_callLua('onNotePosition', [ctx]);
+		#end
+	}
 
 	public static var instance:ModChartManager = null;
 
@@ -973,6 +1058,9 @@ class ModChartManager
 
 			data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
 			pending = data.events.copy();
+			// Detectar si el script define onNotePosition para evitar overhead innecesario
+			if (interp.variables.exists('onNotePosition'))
+				hasNotePositionHook = true;
 			trace('[ModChartManager] HScript cargado: "$path"');
 			return true;
 		}
@@ -1015,6 +1103,9 @@ class ModChartManager
 			_luaScript = lua;
 			data.events.sort((a, b) -> a.beat < b.beat ? -1 : (a.beat > b.beat ? 1 : 0));
 			pending = data.events.copy();
+			// Con Lua activo habilitamos el hook: _callLua falla silenciosamente
+			// si onNotePosition no está definida, así que el overhead es mínimo.
+			hasNotePositionHook = true;
 			trace('[ModChartManager] Lua cargado: "$path"');
 			return true;
 		}

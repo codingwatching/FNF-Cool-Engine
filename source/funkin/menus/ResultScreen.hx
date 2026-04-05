@@ -441,6 +441,7 @@ class ResultScreen extends FlxSubState
 
 		bf = new funkin.gameplay.objects.character.Character(-220, FlxG.height * 0.28, charId);
 		bf.scrollFactor.set(0, 0);
+		bf.visible = false;
 		add(bf);
 
 		_pulseSprites.push(bf);
@@ -459,8 +460,8 @@ class ResultScreen extends FlxSubState
 		rankSprite.antialiasing = (SaveData.data?.antialiasing ?? true);
 		rankSprite.updateHitbox();
 		rankSprite.screenCenter(X);
-		rankSprite.x += 160;
-		rankSprite.y  = -rankSprite.height - 40;
+		rankSprite.x += 360;
+		rankSprite.y  = -rankSprite.height - 100;
 		rankSprite.scrollFactor.set(0, 0);
 		rankSprite.alpha = 0;
 		add(rankSprite);
@@ -618,7 +619,7 @@ class ResultScreen extends FlxSubState
 		}
 
 		// Position: top-left, just below the top bar, near the score
-		highscoreNew.x    = -350;
+		highscoreNew.x    = -250;
 		highscoreNew.y    = -150; // starts off-screen above
 		highscoreNew.alpha = 0;
 		highscoreNew.scrollFactor.set(0, 0);
@@ -768,7 +769,7 @@ class ResultScreen extends FlxSubState
 			new FlxTimer().start(3.2, function(_)
 			{
 				if (highscoreNew == null) return;
-				highscoreNew.y = -highscoreNew.height - 60;
+				highscoreNew.y = -highscoreNew.height - 120;
 				highscoreNew.alpha = 1;
 				highscoreNew.animation.play('new', true);
 				FlxTween.tween(highscoreNew, {y: 78}, 0.55, {ease: FlxEase.elasticOut});
@@ -1083,7 +1084,7 @@ class ResultScreen extends FlxSubState
 			'isStoryMode' => PlayState.isStoryMode,
 			'songName'    => PlayState.SONG?.song ?? '',
 			'difficulty'  => PlayState.storyDifficulty,
-			'ratingState' => this,
+			'resultScreen' => this,
 			'currentRank' => currentRank,
 			'rankConfig'  => rankConfig
 		]);

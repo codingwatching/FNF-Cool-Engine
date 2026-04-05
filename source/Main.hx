@@ -342,39 +342,45 @@ class Main extends Sprite
 			// Zoom fisico 1.5 => output 1920x1080, coordenadas internas 1280x720
 			zoom = 1.5;
 		}
-		else if (zoom == -1)
+		else
 		{
-			var rawW:Int = Lib.current.stage.stageWidth;
-			var rawH:Int = Lib.current.stage.stageHeight;
-			// En Android el stage puede reportar dimensiones en portrait antes de aplicar
-			// la orientación landscape, lo que provoca que SDL envíe un buffer con transform
-			// incorrecto → BLASTBufferQueue lo rechaza → Null Object Reference → crash.
-			// Forzamos landscape: el lado mayor siempre es el ancho.
-			#if android
-			var stageW:Int = Std.int(Math.max(rawW, rawH));
-			var stageH:Int = Std.int(Math.min(rawW, rawH));
-			#else
-			var stageW:Int = rawW;
-			var stageH:Int = rawH;
-			#end
-
-			// FIX Bug #4: Some devices report 0×0 before the surface is created.
-			// Math.min(0/1280, 0/720) = 0.0, then ceil(0/0.0) = NaN → Int overflow → crash.
-			// Fall back to 1:1 zoom so FlxGame gets valid integer dimensions.
-			if (stageW <= 0 || stageH <= 0)
-			{
-				zoom       = 1.0;
-				gameWidth  = GAME_WIDTH;
-				gameHeight = GAME_HEIGHT;
-			}
-			else
-			{
-				zoom = Math.min(stageW / gameWidth, stageH / gameHeight);
-				if (zoom <= 0) zoom = 1.0;  // extra guard against any other degenerate value
-				gameWidth  = Math.ceil(stageW / zoom);
-				gameHeight = Math.ceil(stageH / zoom);
-			}
+			// BUG FIX: el auto-detect anterior leía stageWidth/stageHeight del monitor
+			// (ej. 1920x1080) y calculaba zoom = 1.5, luego sobreescribía gameWidth y
+			// gameHeight con Math.ceil(stageW/zoom). En monitores no exactamente 16:9
+			// (1280x800, 1920x1200, etc.) esto producía valores como gameHeight=800.
+			// Después, window.resize(1280,720) forzaba la ventana a 1280x720, y
+			// RatioScaleMode tenía que encoger un canvas de 1280x800 para caber en
+			// 1280x720 → escala 0.9x → el juego aparecía un 10% más pequeño con
+			// barras negras a los lados. En Flixel 5+ el parámetro zoom ni siquiera
+			// se pasa a FlxGame, así que el auto-detect no servía de nada.
+			// Solución: zoom=1.0 fijo en desktop. La ventana siempre será 1280x720
+			// y RatioScaleMode la escalará correctamente al tamaño de pantalla.
+			zoom = 1.0;
 		}
+
+		// Nota: en Android se mantiene el auto-detect porque la "ventana" es siempre
+		// pantalla completa y las dimensiones del stage son las físicas del dispositivo.
+		#if android
+		var rawW:Int = Lib.current.stage.stageWidth;
+		var rawH:Int = Lib.current.stage.stageHeight;
+		// Forzar landscape en Android (el stage puede reportar portrait antes de la orientación)
+		var stageW:Int = Std.int(Math.max(rawW, rawH));
+		var stageH:Int = Std.int(Math.min(rawW, rawH));
+
+		if (stageW <= 0 || stageH <= 0)
+		{
+			zoom       = 1.0;
+			gameWidth  = GAME_WIDTH;
+			gameHeight = GAME_HEIGHT;
+		}
+		else
+		{
+			zoom = Math.min(stageW / gameWidth, stageH / gameHeight);
+			if (zoom <= 0) zoom = 1.0;
+			gameWidth  = Math.ceil(stageW / zoom);
+			gameHeight = Math.ceil(stageH / zoom);
+		}
+		#end
 	}
 
 	private function createGame():Void

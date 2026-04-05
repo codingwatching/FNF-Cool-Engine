@@ -853,6 +853,14 @@ class OptionsMenuState extends MusicBeatSubstate
 				}
 			},
 			{
+				name: "Sustain Penalty",
+				get: function() return SaveData.data.sustainMiss ? "ON" : "OFF",
+				toggle: function()
+				{
+					SaveData.data.sustainMiss = !SaveData.data.sustainMiss;
+				}
+			},
+			{
 				name: "Ghost Tapping",
 				get: function() return SaveData.data.ghosttap ? "ON" : "OFF",
 				toggle: function()
@@ -2572,6 +2580,9 @@ class OptionsData
 	{
 		if (SaveData.data.downscroll == null)
 			SaveData.data.downscroll = false;
+
+		if (SaveData.data.sustainMiss == null)
+			SaveData.data.sustainMiss = true;
 
 		// ── Display / Resolution ──────────────────────────────────────────────
 		if (SaveData.data.renderResolution == null)

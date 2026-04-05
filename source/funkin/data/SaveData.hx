@@ -115,6 +115,11 @@ typedef SaveDataFields =
 	/** Downscroll enabled. */
 	@:optional var downscroll:Null<Bool>;
 
+	/**
+	 * Sustain Penalty enabled.
+	 */
+	@:optional var sustainMiss:Null<Bool>;
+
 	/** Middlescroll enabled. */
 	@:optional var middlescroll:Null<Bool>;
 

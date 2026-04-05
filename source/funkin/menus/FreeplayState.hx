@@ -875,10 +875,15 @@ class FreeplayState extends funkin.states.MusicBeatState
 		var rightP = controls.RIGHT_P;
 		var accepted = FlxG.keys.justPressed.ENTER;
 		var space = FlxG.keys.justPressed.SPACE;
-		if (songs.length == 0)
+
+		switch (songs.length)
 		{
-			accepted = false;
-			space = false;
+			case 0:
+				accepted = false;
+				space = false;
+			case 1:
+				upP = false;
+				downP = false;
 		}
 
 		#if HSCRIPT_ALLOWED
