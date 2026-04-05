@@ -271,7 +271,9 @@ jobs:
           EOF
 
       - name: Build (Android release)
-        run: haxelib run lime build android -final
+        run: |
+          export GRADLE_OPTS="-Xmx4g -Dorg.gradle.jvmargs='-Xmx4g -XX:MaxMetaspaceSize=512m'"
+          haxelib run lime build android -final -nosign
 
       # FIX: sin keystore la APK puede quedar en debug/ o como -unsigned.
       # Buscamos cualquier .apk bajo outputs/ en vez de hardcodear la ruta.
