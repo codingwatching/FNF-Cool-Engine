@@ -551,11 +551,7 @@ class Project extends HXProject
     if (isLinux())
     {
       dependencies.push(new Dependency("GL", ""));
-
-      // FIX: X11 define 'typedef int Status', que colisiona con el parámetro
-      // 'int Status' que hxcpp genera en FlxKeyManager.h.
-      // -UStatus lo undefine antes de que hxcpp incluya los headers de X11.
-      compilerFlags.push("-UStatus");
+      config.push("compiler-flag", "-UStatus");
     }
   }
 
