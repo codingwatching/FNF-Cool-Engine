@@ -96,7 +96,7 @@ using StringTools;
 extern "C" __declspec(dllimport) unsigned long __stdcall GetCurrentProcessId(void);
 #endif
 ')
-#elseif (cpp && (linux || mac))
+#elseif (cpp && (linux || mac || android))
 @:cppInclude("unistd.h")
 #end
 class CrashHandler

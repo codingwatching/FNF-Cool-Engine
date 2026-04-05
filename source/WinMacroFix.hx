@@ -515,6 +515,17 @@ class WinMacroFix
 			}
 		}
 
+		if (Context.defined('linux')) 
+		{
+			// Inject #undef Status directly into the generated C++ header
+			var linuxMeta = '@:headerCode("#ifdef Status\\n#undef Status\\n#endif")';
+			
+			// Apply the metadata to the FlxKeyManager class
+			Compiler.addGlobalMetadata("flixel.input.FlxKeyManager", linuxMeta, true, true, false);
+			
+			trace('[MacroFix] @:headerCode X11 fix registered for FlxKeyManager');
+		}
+
 		// ══════════════════════════════════════════════════════════════════════
 		//  SECONDARY / FALLBACK (v6) — onAfterGenerate patches
 		// ══════════════════════════════════════════════════════════════════════
