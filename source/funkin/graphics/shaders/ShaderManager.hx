@@ -86,7 +86,7 @@ class ShaderManager
 		// En movil diferimos la compilacion GL al siguiente frame para no bloquear
 		// la transicion visible. applyToCamera() es null-safe mientras bloom==null.
 		#if (mobileC || android || ios)
-		flixel.util.FlxTimer.wait(0, function(_)
+		flixel.util.FlxTimer.wait(0, function()
 		{
 			_createCameraShaders();
 			applyToCamera(); // aplicar ahora que bloom ya esta listo
