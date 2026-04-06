@@ -195,13 +195,18 @@ class CacheState extends funkin.states.MusicBeatState
         // Aplicar FPS guardado
         funkin.data.EngineSettings.applyFPS();
 
-        // FIX (ventana pequeña): forzar tamaño 1080p
+        // FIX (ventana pequeña): centrar la ventana en pantalla.
+        // En móvil win.move() puede reiniciar el contexto GL (Android) o
+        // generar un reencuadre indeseado (iOS) → se omite en móvil.
+        #if (!mobileC && !android && !ios)
         funkin.data.EngineSettings.ensureWindowSize();
+        #end
 
         // ── Shaders ────────────────────────────────────────────────────────
-        // init() lee FlxG.save.data.shadersEnabled, crea los shaders y se
-        // engancha a postStateSwitch para re-aplicarse en cada estado
-        // automáticamente. Solo necesitas esta línea — no más setup en otros states.
+        // init() lee FlxG.save.data.shadersEnabled, registra el hook postStateSwitch
+        // y escanea shaders runtime. En móvil, _createCameraShaders() (la parte lenta,
+        // compilacion GLSL en el driver) se difiere al siguiente frame via FlxTimer
+        // para no bloquear la transicion visible — ver ShaderManager.init().
         ShaderManager.init();
         ShaderManager.applyMenuPreset();
 

@@ -66,17 +66,34 @@ class ShaderManager
 
 	/**
 	 * Inicializar UNA VEZ en CacheState.goToTitle().
-	 * Combina la inicialización de efectos de cámara + escaneo de shaders runtime.
+	 * Combina la inicializacion de efectos de camara + escaneo de shaders runtime.
+	 *
+	 * En movil (Android / iOS), new BloomShader() lanza la compilacion GLSL
+	 * en el driver de la GPU. En GPUs Mali y Adreno lentas esto bloquea el hilo
+	 * principal 2-3 s. Para evitar el freeze visible, la creacion de shaders de
+	 * camara se difiere al primer frame siguiente via FlxTimer.wait(0): en ese
+	 * momento el usuario ya esta en la pantalla de carga de TitleState y el
+	 * bloqueo es imperceptible. applyToCamera() es null-safe mientras bloom==null.
 	 */
 	public static function init():Void
 	{
-		// ── Efectos de cámara ──────────────────────────────────────────────────
+		// ── Efectos de camara ──────────────────────────────────────────────────
 		if (FlxG.save.data.shadersEnabled != null)
 			enabled = (FlxG.save.data.shadersEnabled == true);
 		else
 			enabled = true;
 
+		// En movil diferimos la compilacion GL al siguiente frame para no bloquear
+		// la transicion visible. applyToCamera() es null-safe mientras bloom==null.
+		#if (mobileC || android || ios)
+		flixel.util.FlxTimer.wait(0, function(_)
+		{
+			_createCameraShaders();
+			applyToCamera(); // aplicar ahora que bloom ya esta listo
+		});
+		#else
 		_createCameraShaders();
+		#end
 
 		if (!_hooked)
 		{
@@ -97,7 +114,7 @@ class ShaderManager
 		};
 
 		trace('[ShaderManager] Inicializado. enabled=$enabled, ${Lambda.count(shaderPaths)} shaders runtime disponibles');
-		applyToCamera();
+		applyToCamera(); // no-op seguro si bloom todavia es null (movil deferred)
 	}
 
 	// ─── Toggle ───────────────────────────────────────────────────────────────
@@ -116,6 +133,8 @@ class ShaderManager
 
 	/**
 	 * Aplica (o elimina) los efectos de cámara (bloom, filmGrain).
+	 * Null-safe: si bloom es null (móvil deferred todavía no compilado), limpia
+	 * los filtros y sale sin crashear.
 	 * @param cam  null = FlxG.camera
 	 */
 	public static function applyToCamera(?cam:FlxCamera):Void
@@ -123,7 +142,7 @@ class ShaderManager
 		if (!initialized) init();
 		if (cam == null) cam = FlxG.camera;
 
-		if (!enabled)
+		if (!enabled || bloom == null)
 		{
 			CameraUtil.clearFilters(cam);
 			return;

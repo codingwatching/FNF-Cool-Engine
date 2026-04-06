@@ -1411,6 +1411,93 @@ class FreeplayState extends funkin.states.MusicBeatState
 	{
 		return num; // group index from freeplayList.json
 	}
+
+	override function destroy()
+	{
+		// ── Cancelar tweens activos ANTES de nullear referencias ─────────────
+		// Si no se cancelan, los callbacks de FlxTween se disparan después de
+		// que el state fue destruido → crash o referencias a objetos muertos.
+		if (colorTween != null)
+		{
+			colorTween.cancel();
+			colorTween = null;
+		}
+		if (albumArt != null)    FlxTween.cancelTweensOf(albumArt);
+		if (albumTextSpr != null) FlxTween.cancelTweensOf(albumTextSpr);
+
+		// ── discSpr: puede estar en medio de un tween de salida ──────────────
+		// El tween tiene un onComplete que intenta discSpr.destroy().
+		// Si destroy() llega antes que el tween termine, el callback se ejecuta
+		// sobre un objeto ya muerto. Cancelamos y destruimos aquí.
+		if (discSpr != null)
+		{
+			FlxTween.cancelTweensOf(discSpr);
+			remove(discSpr, true);
+			discSpr.destroy();
+			discSpr = null;
+		}
+
+		// ── FIX Bug 3a: iconArray acumulaba HealthIcon sin destruir ──────────
+		// Flixel los destruye eventualmente, pero el GC no los recoge antes del
+		// siguiente create() → la RAM sube con cada ciclo FreeplayState → PlayState.
+		for (icon in iconArray)
+			if (icon != null) icon.destroy();
+		iconArray = [];
+
+		// ── diffPills: clear() solo los saca del grupo sin destruirlos ────────
+		// Cada píldora es un FlxSprite con bitmap propio (makeGraphic).
+		// Sin destroy() explícito los bitmaps quedan vivos en el cache de OpenFL.
+		if (diffPills != null)
+		{
+			diffPills.forEach(function(s) if (s != null) s.destroy(), true);
+			diffPills.clear();
+		}
+		// diffTexts son FlxText añadidos directamente al state — super.destroy()
+		// los limpia vía members, pero vaciamos la referencia local igualmente.
+		diffTexts = [];
+
+		// ── Soltar la lista de canciones ────────────────────────────────────
+		// songs[] y freeplayData son la mayor fuente de RAM persistente entre
+		// visitas. freeplayData (static) se limpia en resetStaticState() al
+		// cambiar de mod; songs (instance) se libera aquí.
+		songs = [];
+
+		// ── FIX Bug 3b: preview de inst. con persist=true ───────────────────
+		// instSnd se creaba como FlxSound local, se añadía a FlxG.sound.list
+		// y se asignaba a FlxG.sound.music con persist=true (vía
+		// CoreAudio.playPreloadedMusic). Sin stop() ese sound nunca se liberaba:
+		// cada vuelta al FreeplayState dejaba el anterior flotando en memoria.
+		if (funkin.audio.CoreAudio.menuTrack == '__preview__')
+			funkin.audio.CoreAudio.stopMenu();
+
+		instPlaying = -1;
+
+		super.destroy();
+	}
+
+	/**
+	 * Resetea todo el estado estático de FreeplayState.
+	 * Debe llamarse desde ModSelectorState al cambiar de mod, ANTES de
+	 * switchState(new CacheState()), para que el nuevo mod arranque limpio:
+	 *   - freeplayData = null  → se recargará desde el nuevo mod en el próximo create()
+	 *   - coolColors   = []   → los colores son específicos de cada mod
+	 *   - curSelected  = 0    → el índice viejo puede quedar fuera de rango
+	 *   - curDifficulty = 1   → reset a "Normal"
+	 */
+	public static function resetStaticState():Void
+	{
+		freeplayData    = null;
+		coolColors      = [];
+		curSelected     = 0;
+		curDifficulty   = 1;
+		instPlaying     = -1;
+		// Resetear dificultades al default estándar del engine.
+		// difficultyStuff se sobreescribe en _buildDifficultyStuff() al cargar
+		// una canción, pero si permaneciera con dificultades del mod anterior,
+		// PauseSubState / Highscore.resolveSuffix() leerían sufijos incorrectos
+		// antes de que FreeplayState haga el primer _buildDifficultyStuff().
+		difficultyStuff = [['Easy', '-easy'], ['Normal', ''], ['Hard', '-hard']];
+	}
 }
 
 // ── SongMetadata ──────────────────────────────────────────────────────────────

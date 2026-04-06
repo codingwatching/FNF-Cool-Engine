@@ -734,7 +734,10 @@ class Paths
 	 * El FlxAtlasFrames se cachea separadamente (es sólo metadata de frames).
 	 */
 	public static function getSparrowAtlas(key:String):FlxAtlasFrames
-		return _cachedAtlas(key, () -> _sparrow(image(key), resolve('images/$key.xml')));
+	{
+		final path:String = image(key);
+		return _cachedAtlas(path, () -> _sparrow(path, resolve('images/$key.xml')));
+	}
 
 	public static function characterSprite(key:String):FlxAtlasFrames
 		return _cachedAtlas('char_$key', () -> _loadCharacterSpriteAtlas(key));
@@ -1021,9 +1024,6 @@ class Paths
 		clearCache();
 		cache.forceFullClear(); // incluye _modPathCache.clear() (fix mod-switch)
 		clearFlxBitmapCache();
-		// ── FIX: garantizar limpieza de _modPathCache aunque forceFullClear()
-		// sea llamado desde un path que no pase por destroy() ────────────────
-		// La doble llamada es barata (solo asigna un nuevo Map vacío).
 		cache.clearModPathCache();
 	}
 
@@ -1129,7 +1129,8 @@ class Paths
 		if (cacheEnabled && atlasCache.exists(key))
 		{
 			final cached = atlasCache.get(key);
-			if (_atlasValid(cached))
+			final parentOwned = cached?.parent == null || cache.hasValidGraphic(cached.parent.key);
+			if (_atlasValid(cached) && parentOwned)
 			{
 				// Rescue: si el FlxGraphic del atlas está en _previousGraphics,
 				// moverlo a _currentGraphics para que sobreviva esta sesión.
@@ -1137,7 +1138,7 @@ class Paths
 					cache.rescueFromPrevious(cached.parent.key, cached.parent);
 				return cached;
 			}
-			// Inválido → limpiar y recargar
+			// Inválido o pertenece a sesión anterior → limpiar y recargar
 			atlasCache.remove(key);
 			atlasCount--;
 		}

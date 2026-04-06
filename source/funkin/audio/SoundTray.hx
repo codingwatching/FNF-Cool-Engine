@@ -309,7 +309,10 @@ class SoundTray extends FlxBasic
         // que puede ser 0 si está muteado) para que el unmute restaure correctamente.
         FlxG.save.data.volume = isMuted ? volumeBeforeMute : funkin.audio.CoreAudio.masterVolume;
         FlxG.save.data.muted  = isMuted;
-        FlxG.save.flush();
+        // FIX: SoundTray escribía 'volume'/'muted' pero CoreAudio.loadVolume() lee
+        // 'coreVolume'/'coreMuted'. Al arrancar nunca encontraba el valor guardado
+        // y restauraba vol=1.0 siempre. Sincronizar ambos campos en cada guardado.
+        funkin.audio.CoreAudio.saveVolume();
     }
 
     private function loadVolume():Void

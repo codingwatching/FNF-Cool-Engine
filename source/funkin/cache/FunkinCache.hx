@@ -120,6 +120,13 @@ class FunkinCache extends AssetCache
 			// bloqueando al GC. Llamar aquí, DESPUÉS de clearSecondLayer().
 			funkin.cache.PathsCache.instance.clearPreviousSounds();
 
+			// ── Limpiar FlxGraphics huérfanos del pool interno de Flixel ─────────
+			// clearSecondLayer() + clearPreviousGraphics() liberaron las referencias
+			// de PathsCache/FunkinCache, pero FlxBitmapFrontEnd sigue con wrappers
+			// cuyo useCount=0 y bitmap=null. clearUnused() los expulsa del pool
+			// antes del GC para que collectMajor() los recoja en la misma pasada.
+			try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
+
 			// Major + compact para devolver páginas al OS y reducir MEM_INFO_RESERVED.
 			// Se llama DESPUÉS del switch (nuevo estado ya activo), no durante gameplay.
 			// Si el nuevo estado es PlayState, el CountDown enmascara el stutter inicial.
@@ -179,7 +186,13 @@ class FunkinCache extends AssetCache
 			#if lime LimeAssets.cache.image.remove(k); #end
 			// CRÍTICO: dispose() libera la textura nativa (GPU/Stage3D).
 			// Sin esto el wrapper Haxe se GC-ea pero la VRAM/RAM nativa queda retenida.
-			if (b != null) try { b.dispose(); } catch (_:Dynamic) {}
+			// FIX Bug 2: no destruir BitmapData que PathsCache considera permanentes.
+			// FunkinCache solo veía useCount de FlxG.bitmap; si el useCount era 0
+			// en ese instante (e.g. entre frames) llamaba dispose() aunque el asset
+			// estuviera en _permanentGraphics de PathsCache → textura destruida,
+			// recarga innecesaria y subida de RAM en cada visita a FreeplayState.
+			if (b != null && !funkin.cache.PathsCache.instance.isPermanent(k))
+				try { b.dispose(); } catch (_:Dynamic) {}
 			bitmapData2.remove(k);
 			if (onEvict != null) try { onEvict(k, 'bitmap'); } catch (_:Dynamic) {}
 		}

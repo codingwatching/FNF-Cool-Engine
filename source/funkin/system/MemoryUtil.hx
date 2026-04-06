@@ -72,12 +72,18 @@ class MemoryUtil
 	 * Fuerza un ciclo completo del GC + compactación del heap.
 	 * Llamar al volver al menú principal o después de una carga pesada.
 	 * Evitar durante gameplay — provoca un stutter visible.
+	 *
+	 * NOTA MÓVIL: Gc.compact() bloquea el hilo principal en Android.
+	 * Con RAMs lentas puede superar el límite ANR de 5 s y el OS mata el proceso.
+	 * En móvil solo hacemos Gc.run(true) — libera objetos sin compactar páginas.
 	 */
 	public static function collectMajor():Void
 	{
 		#if cpp
 		Gc.run(true);
+		#if !mobile
 		Gc.compact();
+		#end
 		#elseif hl
 		Gc.major();
 		#end

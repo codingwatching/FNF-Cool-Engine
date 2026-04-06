@@ -69,7 +69,8 @@ typedef TitleScreenData = {
 
 class TitleState extends funkin.states.MusicBeatState
 {
-	static var initialized:Bool = false;
+	/** Puesto a false por ModSelectorState al cambiar de mod para reproducir el intro del nuevo mod. */
+	public static var initialized:Bool = false;
 
 	var blackScreen:FlxSprite;
 	var credGroup:FlxGroup;

@@ -213,6 +213,15 @@ class Main extends Sprite
 		// V-Slice style: plugin de volumen rebindable.
 		funkin.audio.VolumePlugin.initialize();
 
+		// save volume
+		final _saveVolumeOnExit = function(_:openfl.events.Event) {
+			funkin.audio.CoreAudio.saveVolume();
+		};
+		stage.addEventListener(openfl.events.Event.DEACTIVATE, _saveVolumeOnExit);
+		#if (desktop || cpp)
+		stage.addEventListener(openfl.events.Event.CLOSE, _saveVolumeOnExit);
+		#end
+
 		// ── BUGFIX (Flixel git): forzar curva de volumen lineal ───────────────
 		// CoreAudio gestiona su propio volumen directamente sobre FlxSound.volume,
 		// pero dejamos la curva lineal por si algún SFX usa FlxG.sound.play().
@@ -346,12 +355,33 @@ class Main extends Sprite
 			zoom = 1.0;
 		}
 
-		// Nota: en Android se mantiene el auto-detect porque la "ventana" es siempre
+		// Nota: en Android/iOS se mantiene el auto-detect porque la "ventana" es siempre
 		// pantalla completa y las dimensiones del stage son las físicas del dispositivo.
 		#if android
 		var rawW:Int = Lib.current.stage.stageWidth;
 		var rawH:Int = Lib.current.stage.stageHeight;
 		// Forzar landscape en Android (el stage puede reportar portrait antes de la orientación)
+		var stageW:Int = Std.int(Math.max(rawW, rawH));
+		var stageH:Int = Std.int(Math.min(rawW, rawH));
+
+		if (stageW <= 0 || stageH <= 0)
+		{
+			zoom       = 1.0;
+			gameWidth  = GAME_WIDTH;
+			gameHeight = GAME_HEIGHT;
+		}
+		else
+		{
+			zoom = Math.min(stageW / gameWidth, stageH / gameHeight);
+			if (zoom <= 0) zoom = 1.0;
+			gameWidth  = Math.ceil(stageW / zoom);
+			gameHeight = Math.ceil(stageH / zoom);
+		}
+		#elseif ios
+		// iOS — misma lógica que Android: el stage siempre reporta dimensiones físicas
+		// reales del dispositivo en landscape (UIInterfaceOrientationLandscape).
+		var rawW:Int = Lib.current.stage.stageWidth;
+		var rawH:Int = Lib.current.stage.stageHeight;
 		var stageW:Int = Std.int(Math.max(rawW, rawH));
 		var stageH:Int = Std.int(Math.min(rawW, rawH));
 

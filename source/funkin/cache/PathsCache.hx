@@ -321,6 +321,7 @@ class PathsCache
 				_hits++;
 				_currentGraphics.set(key, g);
 				_graphicCount++;
+				_flushPendingExclusion(key);
 				_addToLRU(key);
 				_evictIfNeeded();
 				#if (cpp && !hl)
@@ -602,6 +603,7 @@ class PathsCache
 			{
 				_currentGraphics.set(key, g);
 				_graphicCount++;
+				_flushPendingExclusion(key);
 						return g;
 			}
 			// Caer al bloque de bitmapData / retorno nulo abajo
@@ -614,6 +616,7 @@ class PathsCache
 				if (allowGPU) _forceGPURender(g);
 				_currentGraphics.set(key, g);
 				_graphicCount++;
+				_flushPendingExclusion(key);
 			}
 			return g;
 		}
@@ -642,17 +645,36 @@ class PathsCache
 			}
 			else
 			{
-				existing.persist = true;
-				_currentGraphics.set(key, existing);
-				_graphicCount++;
-				// BUGFIX (crash FlxDrawQuadsItem::render):
-				// FlxG.bitmap todavía contiene FlxGraphics de la sesión anterior —
-				// no se limpian hasta postStateSwitch → clearPreviousSession().
-				// Su BitmapData fue movido a bitmapData2 por moveToSecondLayer().
-				// Si no lo rescatamos aquí, clearSecondLayer() llama dispose() sobre él
-				// mientras este FlxGraphic (ya en _currentGraphics) sigue usándolo →
-				// bitmap dispuesto en el primer frame de render → crash.
-						return existing;
+				// MOD-SWITCH STALE HIT GUARD:
+				// After destroy(), _currentGraphics and _permanentGraphics are both empty.
+				// FlxG.bitmap may still hold persist=true FlxGraphics from the previous mod
+				// session — they survived because Flixel only evicts non-persist entries.
+				// Accepting them here would stamp the old-mod bitmap as current and serve
+				// wrong textures to the new mod without any origin check.
+				// Fix: if the key is not registered in either of our own maps, this graphic
+				// is a stale survivor — evict it from FlxG.bitmap and fall through to a
+				// fresh disk load so the new mod gets its own texture.
+				if (!_currentGraphics.exists(key) && !_permanentGraphics.exists(key))
+				{
+					trace('[PathsCache] FlxG.bitmap stale hit for "$key" (not owned by current session) — evicting and reloading.');
+					@:privateAccess FlxG.bitmap.removeKey(key);
+					existing = null;
+					// Fall through to fresh disk load below.
+				}
+				else
+				{
+					existing.persist = true;
+					_currentGraphics.set(key, existing);
+					_graphicCount++;
+					// BUGFIX (crash FlxDrawQuadsItem::render):
+					// FlxG.bitmap todavía contiene FlxGraphics de la sesión anterior —
+					// no se limpian hasta postStateSwitch → clearPreviousSession().
+					// Su BitmapData fue movido a bitmapData2 por moveToSecondLayer().
+					// Si no lo rescatamos aquí, clearSecondLayer() llama dispose() sobre él
+					// mientras este FlxGraphic (ya en _currentGraphics) sigue usándolo →
+					// bitmap dispuesto en el primer frame de render → crash.
+					return existing;
+				}
 			}
 		}
 
@@ -779,6 +801,7 @@ class PathsCache
 
 		_currentGraphics.set(key, g);
 		_graphicCount++;
+		_flushPendingExclusion(key);
 		// FIX Bug 3: los graficos cargados desde disco (no rescates) no se añadían
 		// al LRU, por lo que _evictIfNeeded() no podía evictarlos nunca.
 		// Resultado: maxGraphics se ignoraba para cargas nuevas → crecimiento ilimitado.
@@ -833,7 +856,7 @@ class PathsCache
 		{
 			final s = _previousSounds.get(key);
 			_previousSounds.remove(key);
-			if (s != null) { _currentSounds.set(key, s); _soundCount++; }
+			if (s != null) { _currentSounds.set(key, s); _soundCount++; _flushPendingExclusion(key); }
 			return s;
 		}
 
@@ -876,6 +899,7 @@ class PathsCache
 
 		_currentSounds.set(key, sound);
 		_soundCount++;
+		_flushPendingExclusion(key);
 		return sound;
 	}
 
@@ -1004,6 +1028,38 @@ class PathsCache
 		if (!_pendingExclusions.contains(key))
 			_pendingExclusions.push(key);
 	}
+
+	/**
+	 * Comprueba si una clave está en la lista de exclusiones pendientes y,
+	 * si el asset ya fue registrado en current, lo promueve a permanente
+	 * y lo elimina de la lista pendiente.
+	 *
+	 * FIX Bug 1 — _pendingExclusions nunca se procesaban:
+	 * addExclusion() anotaba la key pero nadie la promovía a permanente cuando
+	 * el asset se cargaba después. Resultado: los assets de UI del CacheState
+	 * nunca quedaban como permanentes en PathsCache, se recargaban desde disco
+	 * en cada vuelta a FreeplayState y la memoria subía con cada visita.
+	 * Llamar este método desde _loadGraphic/_loadSound y desde las rutas de
+	 * rescate de cacheGraphic/cacheSound cierra ese hueco.
+	 */
+	inline function _flushPendingExclusion(key:String):Void
+	{
+		final idx = _pendingExclusions.indexOf(key);
+		if (idx < 0) return;
+		_pendingExclusions.splice(idx, 1);
+		final g = _currentGraphics.get(key);
+		if (g != null) { _permanentGraphics.set(key, g); return; }
+		final s = _currentSounds.get(key);
+		if (s != null) _permanentSounds.set(key, s);
+	}
+
+	/**
+	 * Devuelve true si la key está marcada como permanente en PathsCache.
+	 * Usado por FunkinCache.clearSecondLayer() para no destruir assets que
+	 * PathsCache considera permanentes aunque su FlxGraphic.useCount sea 0.
+	 */
+	public inline function isPermanent(key:String):Bool
+		return _permanentGraphics.exists(key) || _permanentSounds.exists(key);
 
 	/** Libera assets de la sesión anterior. FunkinCache maneja la destrucción real. */
 	public function clearStoredMemory():Void

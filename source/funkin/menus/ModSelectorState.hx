@@ -1194,6 +1194,80 @@ class ModSelectorState extends MusicBeatState
 		//    durante CacheState (ej: Paths.stageSprite busca en currentStage).
 		Paths.currentStage = 'stage_week1';
 
+		// 7. Reset del estado estático de FreeplayState.
+		//    freeplayData contiene la songlist del mod anterior (puede ser grande).
+		//    coolColors guarda los colores parseados de esas canciones.
+		//    curSelected/curDifficulty pueden quedar fuera de rango en el nuevo mod.
+		//    Sin este reset, al entrar al FreeplayState del nuevo mod se mostraría
+		//    la lista anterior hasta que loadSongsData() la sobreescriba, y la RAM
+		//    del mod anterior no se liberaría hasta el primer GC tras el create().
+		funkin.menus.FreeplayState.resetStaticState();
+
+		// 8. JSONs y paths de personajes del mod anterior.
+		//    _dataCache/_pathCache guardan el JSON parseado y la ruta resuelta por
+		//    ModCompatLayer para cada personaje. Sin limpiarlos, un personaje con el
+		//    mismo nombre en el nuevo mod usaría el JSON del anterior.
+		//    releasePrecachePool() destruye dummies de precacheo que pueden retener
+		//    atlas de VRAM del mod viejo.
+		funkin.gameplay.objects.character.Character.clearCharCaches();
+
+		// 9. JSONs de stages del mod anterior.
+		//    Stage._dataCache guarda el JSON parseado por nombre de stage.
+		//    Sin esto, stages con el mismo nombre en mods distintos colisionan.
+		funkin.gameplay.objects.stages.Stage.clearStageCache();
+
+		// 10. Lista de personajes y stages disponibles.
+		//     CharacterList escanea el sistema de archivos una sola vez y cachea el
+		//     resultado. Al cambiar de mod, la lista es obsoleta (nuevo mod puede
+		//     tener personajes distintos). reload() forza el re-escaneo.
+		funkin.gameplay.objects.character.CharacterList.reload();
+
+		// 11. Sistema de noteskins.
+		//     NoteSkinSystem cachea skins/splashes y los scripts asociados.
+		//     forceReinit() resetea `initialized` + `_lastInitMod` para que el
+		//     siguiente acceso haga un escaneo limpio del nuevo mod.
+		funkin.gameplay.notes.NoteSkinSystem.forceReinit();
+
+		// 12. Configuración de ratings (ventanas de timing, nombres, display).
+		//     RatingManager la carga desde ratings.json del mod activo.
+		//     Sin reload(), el nuevo mod heredaría la config del anterior.
+		funkin.gameplay.RatingManager.reload();
+
+		// 13. Datos de créditos.
+		//     CreditsDataHandler los cachea hasta la primera llamada a reload().
+		//     Sin esto, los créditos del mod anterior aparecen en el nuevo mod.
+		funkin.menus.credits.CreditsDataHandler.reload();
+
+		// 14. BitmapData del fondo del menú de opciones.
+		//     OptionsMenuState._cachedMenuBG cachea un snapshot del BG para el
+		//     blur shader. Si el nuevo mod tiene un BG distinto, el snapshot
+		//     quedaría obsoleto y aparecería el fondo del mod anterior.
+		funkin.menus.OptionsMenuState._cachedMenuBG = null;
+
+		// 15. Animaciones de intro de menús.
+		//     TitleState.initialized evita reproducir el intro dos veces en la
+		//     misma sesión. Al cambiar de mod queremos que el nuevo mod muestre
+		//     su propio intro (puede tener TitleState scriptado distinto).
+		//     MainMenuState.firstStart / finishedFunnyMove controlan la animación
+		//     de entrada del menú principal — igual, debe resetearse para el nuevo mod.
+		funkin.menus.TitleState.initialized         = false;
+		funkin.menus.MainMenuState.firstStart        = true;
+		funkin.menus.MainMenuState.finishedFunnyMove = false;
+
+		// 16. songInfo estático del FreeplayEditorState.
+		//     Sin reset apunta a la lista del mod anterior; la próxima apertura
+		//     del editor mostraría canciones del mod viejo.
+		funkin.debug.editors.FreeplayEditorState.songInfo = null;
+
+		// 17. weekUnlocked del StoryMenuState.
+		//     Array estático con el estado de bloqueo de cada semana.
+		//     buildWeeksFromJSON() lo reconstruye en cada create(), pero si por
+		//     algún motivo falla antes, un array stale del mod anterior podría
+		//     dejar weeks bloqueadas/desbloqueadas incorrectamente.
+		funkin.menus.StoryMenuState.weekUnlocked = [];
+
+		Paths.clearAllCaches();
+
 		#if cpp cpp.vm.Gc.run(true); #end
 		#if hl hl.Gc.major(); #end
 

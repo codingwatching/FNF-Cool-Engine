@@ -169,7 +169,8 @@ class OptionsMenuState extends MusicBeatSubstate
 	 * un freeze visible de ~300-500ms. Con el caché, las aperturas siguientes
 	 * son instantáneas y la primera solo paga el costo una vez por sesión.
 	 */
-	private static var _cachedMenuBG:openfl.display.BitmapData = null;
+	/** Nulleado por ModSelectorState al cambiar de mod para forzar recarga del BG. */
+	public static var _cachedMenuBG:openfl.display.BitmapData = null;
 
 	// ── Controller icon atlas ─────────────────────────────────────────────────
 
@@ -747,24 +748,7 @@ class OptionsMenuState extends MusicBeatSubstate
 	function loadGraphicsOptions()
 	{
 		currentOptions = [
-			#if mobileC
-			{
-				name: "Widescreen",
-				get: function()
-				{
-					var s = SaveData.data.scaleMode;
-					return (s == 'widescreen') ? "ON" : "OFF";
-				},
-				toggle: function()
-				{
-					var cur = SaveData.data.scaleMode;
-					var next = (cur == 'widescreen') ? 'letterbox' : 'widescreen';
-					SaveData.data.scaleMode = next;
-					SaveData.flush();
-					funkin.system.WindowManager.applyScaleModeByName(next);
-				}
-			},
-			#else
+			#if !mobileC
 			{
 				name: "GPU Texture Caching",
 				get: function() return SaveData.data.gpuCaching ? "ON" : "OFF",
@@ -792,8 +776,12 @@ class OptionsMenuState extends MusicBeatSubstate
 				toggle: function()
 				{
 					SaveData.data.shaders = !SaveData.data.shaders;
+					if (funkin.graphics.shaders.ShaderManager.initialized)
+						funkin.graphics.shaders.ShaderManager.setEnabled(SaveData.data.shaders);
+					SaveData.flush();
 				}
 			},
+			#if !mobileC
 			{
 				name: "Streamed Music",
 				get: function() return SaveData.data.streamedMusic ? "ON" : "OFF",
@@ -804,6 +792,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					SaveData.flush();
 				}
 			},
+			#end
 			{
 				name: "Anti-Aliasing",
 				get: function() return SaveData.data.antialiasing ? "ON" : "OFF",
@@ -2595,7 +2584,10 @@ class OptionsData
 			SaveData.data.shaders = true;
 
 		if (SaveData.data.vsync == null)
-			SaveData.data.vsync = false;
+			// En móvil el VSync evita el tearing sin coste apreciable porque
+			// el framerate ya está fijado a 60 fps. En desktop se deja OFF
+			// para no forzar la sincronía a quien usa un monitor de alta frecuencia.
+			SaveData.data.vsync = #if (android || ios || mobileC) true #else false #end;
 
 		if (SaveData.data.accuracyDisplay == null)
 			SaveData.data.accuracyDisplay = true;

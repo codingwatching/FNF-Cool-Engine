@@ -173,8 +173,14 @@ class ScriptHandler
 			_loadFolder('$r/custom_notetypes', 'global');
 		}
 		#end
-		_loadFolder('assets/data/scripts/global', 'global');
-		_loadFolder('assets/data/scripts/events', 'global');
+		// FIX (Android): el working directory no es el root del APK, por lo que
+		// rutas relativas como 'assets/...' pueden fallar en sys.FileSystem.exists().
+		// Usamos Sys.programPath() para construir una ruta absoluta garantizada.
+		#if sys
+		final base = haxe.io.Path.directory(Sys.programPath());
+		_loadFolder('$base/assets/data/scripts/global', 'global');
+		_loadFolder('$base/assets/data/scripts/events', 'global');
+		#end
 		trace('[ScriptHandler v4] Global scripts loaded.');
 	}
 
