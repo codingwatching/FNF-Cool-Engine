@@ -117,17 +117,17 @@ function onUpdate(elapsed)
 	var mist5 = stage.getElement("mist5");
 
 	if (mist0 != null)
-		mist0.y = 660 + (Math.sin(_timer * 0.35) * 70);
+		mist0.y = 860 + (Math.sin(_timer * 0.35) * 70);
 	if (mist1 != null)
-		mist1.y = 500 + (Math.sin(_timer * 0.30) * 80);
+		mist1.y = 700 + (Math.sin(_timer * 0.30) * 80);
 	if (mist2 != null)
-		mist2.y = 540 + (Math.sin(_timer * 0.40) * 60);
+		mist2.y = 740 + (Math.sin(_timer * 0.40) * 60);
 	if (mist3 != null)
-		mist3.y = 230 + (Math.sin(_timer * 0.30) * 70);
+		mist3.y = 430 + (Math.sin(_timer * 0.30) * 70);
 	if (mist4 != null)
-		mist4.y = 170 + (Math.sin(_timer * 0.35) * 50);
+		mist4.y = 370 + (Math.sin(_timer * 0.35) * 50);
 	if (mist5 != null)
-		mist5.y = -80 + (Math.sin(_timer * 0.08) * 100);
+		mist5.y = 180 + (Math.sin(_timer * 0.08) * 100);
 
 	// Actualizar rain shader
 	if (rainShader != null)

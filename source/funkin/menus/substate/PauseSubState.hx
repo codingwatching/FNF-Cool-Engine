@@ -93,18 +93,6 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		isCutsceneMode = cutsceneMode;
 
-		// ── Cámara ────────────────────────────────────────────────────────────
-		// FIX: Siempre creamos una cámara propia para el pause menu.
-		//
-		// Antes se reutilizaba la última cámara del stack, lo que causaba dos bugs:
-		//  1. Durante una SpriteCutscene, la última cámara es _camCutscene con
-		//     zoom variable (ej. 0.66) → el menú aparecía deformado/pequeño.
-		//  2. El makeGraphic(1,1) del bg se escala con setGraphicSize(FlxG.width,
-		//     FlxG.height), pero si la cámara tiene zoom != 1 el rect se encoge.
-		//
-		// Con una cámara propia forzada a zoom=1 ambos bugs desaparecen.
-		// En cutscene-de-video aún necesitamos insertarla DESPUÉS del bitmap
-		// del video (que está fuera de Flixel), de ahí el if especial.
 		if (isCutsceneMode && VideoManager.isPlaying)
 		{
 			_pauseCam  = new flixel.FlxCamera();
@@ -141,10 +129,13 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		bg.cameras = [_pauseCam];
 		add(bg);
 
+		var rawSongName:String = PlayState.SONG.song;
+		var formattedSongName:String = rawSongName.charAt(0).toUpperCase() + rawSongName.substring(1);
+
 		// Info de la canción (esquina superior derecha)
-		levelInfo = new FlxText(FlxG.width - 400, 20, 380, PlayState.SONG.song, 32);
+		levelInfo = new FlxText(FlxG.width - 400, 20, 380, formattedSongName, 32);
 		levelInfo.scrollFactor.set();
-		levelInfo.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+		levelInfo.setFormat(Paths.font("Funkin.otf"), 32, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelInfo.borderSize = 2;
 		levelInfo.antialiasing = true;
 		levelInfo.updateHitbox();
@@ -202,9 +193,8 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		helpText.cameras = [_pauseCam];
 		add(helpText);
 
-		FlxTween.tween(helpText, {alpha: 0.7}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.7});
+		FlxTween.tween(helpText, {alpha: 0.85}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.7});
 
-		// Cargar el modo inicial
 		switchMode(isCutsceneMode ? Cutscene : Standard);
 	}
 

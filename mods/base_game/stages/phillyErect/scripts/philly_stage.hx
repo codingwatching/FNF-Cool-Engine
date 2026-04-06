@@ -1,7 +1,6 @@
 var trainSound = null;
-var phillyCityLights = null;
+var lightWindow = null;
 var train = null;
-var curLight:Int = 0;
 var trainMoving:Bool = false;
 var trainCooldown:Int = 0;
 var SATURATION = -16;
@@ -13,28 +12,36 @@ var CONTRAST = 0;
 // INICIALIZACIÓN
 // ==========================================
 
-function onCreate()
-{
+var lightColors:Array<FlxColor> = [0xFFB66F43, 0xFF329A6D, 0xFF932C28, 0xFF2663AC, 0xFF502D64];
+
+function onCreate() {
 	trace('[Philly Stage] Script cargado');
 
 	// Esperar a que el stage esté listo
 	// Se llamará onStageCreate cuando esté disponible
 }
 
-function onStageCreate()
-{
+function onStageCreate() {
 	trace('[Philly Stage] Stage creado, obteniendo elementos...');
 
 	// Obtener elementos del stage
-	if (stage != null)
-	{
+	if (stage != null) {
 		trainSound = stage.getSound('trainSound');
-		phillyCityLights = stage.getGroup('phillyCityLights');
+		lightWindow = stage.getElement('phillyCityLights');
 		train = stage.getElement('train');
+
+		if (lightWindow != null) {
+			lightWindow.color = 0xFF000000;
+		}
+
+		if (train != null) {
+			train.x = 2000;
+			train.visible = false;
+		}
 
 		trace('[Philly Stage] Elementos inicializados:');
 		trace('  - trainSound: ' + (trainSound != null));
-		trace('  - phillyCityLights: ' + (phillyCityLights != null));
+		trace('  - phillyCityLights: ' + (lightWindow != null));
 		trace('  - train: ' + (train != null));
 	}
 
@@ -45,28 +52,43 @@ function onStageCreate()
 // BEAT HIT - LUCES Y TREN
 // ==========================================
 
-function onBeatHit(beat)
-{
+var transitioninCurse:Bool = false;
+
+function onBeatHit(beat) {
 	if (!trainMoving)
 		trainCooldown += 1;
 
-	if (beat % 4 == 0 && phillyCityLights != null)
-	{
-		phillyCityLights.forEach(function(light:FlxSprite)
-		{
-			light.visible = false;
+	if (beat % 8 == 0) {
+		FlxTween.color(lightWindow, 1.3, lightWindow.color, 0xFF000000, {
+			ease: FlxEase.quadInOut,
+			onComplete: function(twn:FlxTween) {
+				var nextColor = lightColors[FlxG.random.int(0, lightColors.length - 1)];
+				FlxTween.color(lightWindow, 1.3, 0xFF000000, nextColor, {
+					ease: FlxEase.quadInOut
+				});
+			}
 		});
-
-		curLight = FlxG.random.int(0, phillyCityLights.length - 1);
-		phillyCityLights.members[curLight].visible = true;
 	}
 
-	if (beat % 8 == 4 && FlxG.random.bool(30) && !trainMoving && trainCooldown > 8)
-	{
+	switch (trainMoving) {
+		case true:
+			gf.setAnimReplace('danceLeft', 'hairBlow');
+			gf.setAnimReplace('danceRight', 'hairBlow');
+	}
+
+	if (beat % 8 == 4 && FlxG.random.bool(30) && !trainMoving && trainCooldown > 8) {
 		trainCooldown = FlxG.random.int(-4, 0);
 		trainMoving = true;
 		if (trainSound != null)
 			trainSound.play(true);
+
+		new FlxTimer().start(4.4, function(tmr:FlxTimer) {
+			if (train != null) {
+				train.x = 2000;
+				train.visible = true;
+				trainMoving = true;
+			}
+		});
 	}
 }
 
@@ -76,31 +98,24 @@ function onBeatHit(beat)
 
 var _shadersApplied:Bool = false;
 
-function onUpdate(elapsed)
-{
-	if (trainMoving && train != null)
-	{
-		train.x -= 150;
-		train.visible = false;
+function onUpdate(elapsed) {
+	if (trainMoving && train != null) {
+		train.x -= 2000 * elapsed;
+		if (train.x < -4200) {
+			train.visible = false;
+			trainMoving = false;
+			trace('[Philly Stage] Train finished passing');
 
-		if (train.x < -4000)
-		{
-			train.visible = true;
-			new FlxTimer().start(2, function(tmr:FlxTimer)
-			{
-				FlxTween.tween(train, {x: 2000}, 3, {type: FlxTweenType.ONESHOT});
-				trainMoving = false;
-			});
+			gf.clearAnimReplacements();
+			gf.playAnim('hairFall',true);
 		}
 	}
 
-	if (!_shadersApplied)
-	{
+	if (!_shadersApplied) {
 		var bf = chars.bf();
 		var dad = chars.dad();
 		var gf = chars.gf();
-		if (bf != null && dad != null && gf != null)
-		{
+		if (bf != null && dad != null && gf != null) {
 			_shadersApplied = true;
 			_applyTo(bf, BRIGHTNESS, HUE, CONTRAST, SATURATION);
 			_applyTo(dad, BRIGHTNESS, HUE, CONTRAST, SATURATION);
@@ -109,21 +124,17 @@ function onUpdate(elapsed)
 	}
 }
 
-function _applyTo(char, brightness, hue, contrast, saturation)
-{
+function _applyTo(char, brightness, hue, contrast, saturation) {
 	if (char == null)
 		return;
 	ShaderManager.applyShader(char, 'adjustColor');
 	var sh = char.shader;
-	if (sh != null)
-	{
+	if (sh != null) {
 		sh.setFloat('brightness', brightness);
 		sh.setFloat('hue', hue);
 		sh.setFloat('contrast', contrast);
 		sh.setFloat('saturation', saturation);
-	}
-	else
-	{
+	} else {
 		var cs = ShaderManager.getShader('adjustColor');
 		if (cs == null)
 			return;
@@ -142,8 +153,7 @@ function _applyTo(char, brightness, hue, contrast, saturation)
 // CLEANUP
 // ==========================================
 
-function onDestroy()
-{
+function onDestroy() {
 	trace('[Philly Stage] Limpiando...');
 
 	// Detener sonido si está reproduciendo

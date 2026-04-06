@@ -11,11 +11,11 @@
 	"scripts": [
 		"philly_stage.hx"
 	],
-	"cameraDad":[
+	"cameraDad": [
 		-50,
 		-40
 	],
-	"cameraBoyfriend":[
+	"cameraBoyfriend": [
 		-50,
 		-40
 	],
@@ -81,86 +81,22 @@
 			"alpha": 1
 		},
 		{
-			"type": "group",
+			"type": "sprite",
 			"zIndex": 2,
 			"name": "phillyCityLights",
 			"assetLibrary": "philly",
-			"members": [
-				{
-					"asset": "win0",
-					"scrollFactor": [
-						0.3,
-						0.3
-					],
-					"scale": [
-						0.85,
-						0.85
-					],
-					"position": [
-						-100,
-						-40
-					]
-				},
-				{
-					"asset": "win1",
-					"scrollFactor": [
-						0.3,
-						0.3
-					],
-					"scale": [
-						0.85,
-						0.85
-					],
-					"position": [
-						-100,
-						-40
-					]
-				},
-				{
-					"asset": "win2",
-					"scrollFactor": [
-						0.3,
-						0.3
-					],
-					"scale": [
-						0.85,
-						0.85
-					],
-					"position": [
-						-100,
-						-40
-					]
-				},
-				{
-					"asset": "win3",
-					"scrollFactor": [
-						0.3,
-						0.3
-					],
-					"scale": [
-						0.85,
-						0.85
-					],
-					"position": [
-						-100,
-						-40
-					]
-				},
-				{
-					"asset": "win4",
-					"scrollFactor": [
-						0.3,
-						0.3
-					],
-					"scale": [
-						0.85,
-						0.85
-					],
-					"position": [
-						-100,
-						-40
-					]
-				}
+			"asset": "win",
+			"scrollFactor": [
+				0.3,
+				0.3
+			],
+			"scale": [
+				0.85,
+				0.85
+			],
+			"position": [
+				-215,
+				105
 			]
 		},
 		{

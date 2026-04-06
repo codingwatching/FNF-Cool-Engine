@@ -421,7 +421,7 @@ class PlayState extends funkin.states.MusicBeatState
 		if (scriptsEnabled)
 		{
 			ScriptHandler.injectPlayState(this);
-			ScriptHandler.callOnNonStageScripts('onStageCreate', ScriptHandler._argsEmpty);
+			ScriptHandler.callOnNonStageScripts('postStageCreate', ScriptHandler._argsEmpty);
 			ScriptHandler.callOnScripts('postCreate', ScriptHandler._argsEmpty);
 
 			if (metaData != null && metaData.artist != null && metaData.artist != '')
@@ -541,6 +541,9 @@ class PlayState extends funkin.states.MusicBeatState
 		currentStage = new Stage(curStage);
 		currentStage.cameras = [camGame];
 		_assignStageCameras(currentStage, [camGame]);
+
+		if (scriptsEnabled)
+			ScriptHandler.callOnNonStageScripts('onStageCreate', ScriptHandler._argsEmpty);
 
 		loadCharacters();
 
