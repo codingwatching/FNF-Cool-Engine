@@ -141,6 +141,15 @@ class NoteManager
 	private var cpuStrumsGroup:StrumsGroup;
 	private var allStrumsGroups:Array<StrumsGroup>;
 
+	// ── Exposición pública mínima para ModchartHoldMesh ──────────────────────
+
+	/**
+	 * Grupos de strums disponibles (read-only).
+	 * Usado por ModchartHoldMesh para resolver el groupId por strumsGroupIndex.
+	 */
+	public var strumsGroups(get, never):Array<StrumsGroup>;
+	inline function get_strumsGroups():Array<StrumsGroup> return allStrumsGroups;
+
 	// OPTIMIZACIÓN: Caché de strums por dirección — evita forEach O(n) por nota por frame.
 	// Antes: 20 notas × 1 forEach × 4 iteraciones = 80 iteraciones+closures/frame.
 	// Ahora: lookup O(1) directo en el Map.
@@ -183,6 +192,13 @@ class NoteManager
 	private var _dynCullDist:Float   = 2000.0;
 
 	private var _scrollSpeed:Float = 0.45;
+
+	/**
+	 * Velocidad de scroll actual (read-only, incluye songSpeed × targetScrollRate).
+	 * Usado por ModchartHoldMesh para evaluar posiciones del path.
+	 */
+	public var scrollSpeed(get, never):Float;
+	inline function get_scrollSpeed():Float return _scrollSpeed;
 
 	/** Último valor de _scrollSpeed con el que se calcularon los sustainBaseScaleY.
 	 *  Si cambia (modchart o evento de velocidad), recalculamos todos los sustains activos. */
@@ -1675,6 +1691,13 @@ class NoteManager
 	 * El forEach anterior creaba una closure nueva cada llamada — ahora es solo
 	 * un Map lookup. Con 20 notas en pantalla esto elimina ~80 closures por frame.
 	 */
+	/**
+	 * Alias público de getStrumForDirection para ModchartHoldMesh.
+	 * Inline → sin coste en runtime vs. llamar directamente al privado.
+	 */
+	public inline function getStrumForDir(direction:Int, strumsGroupIndex:Int, isPlayer:Bool):FlxSprite
+		return getStrumForDirection(direction, strumsGroupIndex, isPlayer);
+
 	private function getStrumForDirection(direction:Int, strumsGroupIndex:Int, isPlayer:Bool):FlxSprite
 	{
 		// Grupos adicionales (strumsGroupIndex >= 2) — caché por grupo

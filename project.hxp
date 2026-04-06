@@ -161,10 +161,13 @@ class Project extends HXProject
     }
 
     // DLLs / plugins nativos de Windows
+    // Solo se incluyen los plugins de VLC estrictamente necesarios para
+    // reproducir MP4 (H.264 + AAC/MP3/AC3).  El resto se omite del output,
+    // reduciendo el build de ~149 MB a ~15-25 MB.
     if (isWindows())
     {
-      addAssetPath("plugins/", "");
-      addAssetPath("dlls/",    "");
+      addVLCPlugins();
+      addAssetPath("dlls/", "");
     }
 
     // Extras
@@ -571,6 +574,9 @@ class Project extends HXProject
     config.set("android.minimum-sdk-version", 21);
     config.set("android.install-location",    "auto");
 
+    config.set("android.resizeable-activity", "false");
+    config.push("android.meta-data", "android.max_aspect=2.4");
+
     // Permisos Android: se añaden via config (HXProject no tiene androidPermissions)
     var perms = [
       "android.permission.INTERNET",
@@ -683,4 +689,126 @@ class Project extends HXProject
   function isDesktop():Bool  return platformType == PlatformType.DESKTOP;
   function isMobile():Bool   return platformType == PlatformType.MOBILE;
   function isCPP():Bool      return defines.exists("cpp");
+
+  // ── VLC plugin whitelist ─────────────────────────────────────────────────────
+  //
+  // hxvlc trae ~149 MB de plugins de VLC, la mayoría innecesarios para un juego.
+  // Esta función solo registra como assets los plugins requeridos para reproducir
+  // vídeos MP4 (H.264 / AAC / MP3 / AC3 / DTS) en Windows, dejando el resto
+  // fuera del output y reduciendo el tamaño del build un ~85-90 %.
+  //
+  // Si en algún momento necesitas soporte para otro formato (MKV, WebM, etc.)
+  // añade el plugin correspondiente a la lista NEEDED_PLUGINS.
+  //
+  // Ejecuta `lime build windows` normalmente — no se elimina nada del disco,
+  // simplemente se omiten los archivos no incluidos en la lista.
+
+  function addVLCPlugins():Void
+  {
+    final PLUGINS_DIR = "plugins/plugins";
+
+    if (!sys.FileSystem.exists(PLUGINS_DIR))
+    {
+      Sys.println('[project.hxp] WARNING: folder "$PLUGINS_DIR/" not found — skipping plugins VLC.');
+      return;
+    }
+
+    // ── Lista blanca: los únicos plugins que se copian al output ─────────────
+    // Acceso a archivos locales
+    // Demuxers MP4 / AVI / MKV básico
+    // Decodificación de video: H.264 vía libavcodec (ffmpeg) y nativo
+    // Decodificación de audio: AAC, MP3, AC3, DTS
+    // Salida de video en Windows: D3D11 y vmem (usado por hxvlc internamente)
+    // Salida de audio en Windows: DirectSound y WASAPI
+    // Empaquetadores (packetizers) necesarios para el pipeline H.264/MPEG-4
+    // Misc: null output (requerido por libvlc core en algunos paths)
+    final NEEDED_PLUGINS:Array<String> = [
+      // — Acceso —
+      "libaccess_file_plugin.dll",
+      "libmemstream_plugin.dll",
+
+      // — Demux —
+      "libmp4_plugin.dll",
+      "libavi_plugin.dll",
+      "libmkv_plugin.dll",
+
+      // — Decodificación vídeo —
+      "libavcodec_plugin.dll",
+      "libh264_plugin.dll",
+      "libhevc_plugin.dll",
+
+      // — Decodificación audio —
+      "libaraw_plugin.dll",
+      "libmpgatofixed32_plugin.dll",
+      "liba52_plugin.dll",
+      "libdca_plugin.dll",
+      "libavcodec_plugin.dll",   // también maneja AAC vía ffmpeg
+
+      // — Salida vídeo (Windows) —
+      "libdirect3d11_plugin.dll",
+      "libdirect3d_plugin.dll",
+      "libvmem_plugin.dll",
+      "libyuv_plugin.dll",
+
+      // — Salida audio (Windows) —
+      "libdirectsound_plugin.dll",
+      "libwasapi_plugin.dll",
+
+      // — Packetizers —
+      "libpacketizer_h264_plugin.dll",
+      "libpacketizer_hevc_plugin.dll",
+      "libpacketizer_mpeg4audio_plugin.dll",
+      "libpacketizer_mpegaudio_plugin.dll",
+
+      // — Misc core —
+      "libnull_plugin.dll",
+    ];
+
+    // Construir un Set para búsquedas O(1)
+    var needed = new haxe.ds.StringMap<Bool>();
+    for (name in NEEDED_PLUGINS)
+      needed.set(name.toLowerCase(), true);
+
+    var included = 0;
+    var skipped  = 0;
+
+    _addVLCPluginsRecursive(PLUGINS_DIR, "plugins", needed, included, skipped);
+
+    Sys.println('[project.hxp] VLC plugins: $included included, $skipped omitted.');
+  }
+
+  function _addVLCPluginsRecursive(
+      dir     : String,
+      target  : String,
+      needed  : haxe.ds.StringMap<Bool>,
+      included: Int,
+      skipped : Int
+  ):Void
+  {
+    for (entry in sys.FileSystem.readDirectory(dir))
+    {
+      var fullPath   = '$dir/$entry';
+      var targetPath = target == "" ? entry : '$target/$entry';
+
+      if (sys.FileSystem.isDirectory(fullPath))
+      {
+        _addVLCPluginsRecursive(fullPath, targetPath, needed, included, skipped);
+      }
+      else
+      {
+        var lowerName = entry.toLowerCase();
+        // Incluir siempre archivos que no sean .dll (e.g. .cat, .manifest)
+        // y los .dll que están en la lista blanca.
+        if (!lowerName.endsWith(".dll") || needed.exists(lowerName))
+        {
+          assets.push(new Asset(fullPath, targetPath, null, false, true));
+          included++;
+        }
+        else
+        {
+          skipped++;
+        }
+      }
+    }
+  }
 }

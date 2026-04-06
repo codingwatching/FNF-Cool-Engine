@@ -30,6 +30,16 @@ class CacheState extends funkin.states.MusicBeatState
     var loadingComplete:Bool = false;
     var barMaxWidth:Float = 0;
 
+    // En Android procesar 1 asset por frame para no bloquear el hilo principal.
+    // Cargar 8 a la vez (comportamiento desktop) congela el render loop en móvil
+    // porque cada getGraphic/getSound es síncrono y los assets pesados (UI/alphabet)
+    // pueden tardar >100ms, disparando el watchdog ANR del sistema.
+    #if (android || mobileC)
+    static inline final ASSETS_PER_FRAME:Int = 1;
+    #else
+    static inline final ASSETS_PER_FRAME:Int = 8;
+    #end
+
     override function create()
     {
         // NOTA: PathsCache.beginSession() es llamado automáticamente por la señal
@@ -121,9 +131,9 @@ class CacheState extends funkin.states.MusicBeatState
 
         if (loadingComplete) return;
 
-        // Procesar hasta 8 assets por frame (lista corta → termina rápido)
+        // Procesar hasta ASSETS_PER_FRAME assets por frame
         var processed = 0;
-        while (processed < 8 && currentAssetIndex < totalAssets)
+        while (processed < ASSETS_PER_FRAME && currentAssetIndex < totalAssets)
         {
             cacheAsset(assetsToCache[currentAssetIndex]);
             currentAssetIndex++;

@@ -990,7 +990,10 @@ class FreeplayState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, true);
+				// ── Restaurar música de menú sin forceRestart ────────────────
+				// Igual que en changeSelection: CoreAudio restaurará la posición
+				// guardada cuando rearranca girlfriendsRingtone.
+				MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, false);
 				instPlaying = -1;
 				if (discSpr != null)
 					FlxTween.tween(discSpr, {x: FlxG.width + 50}, 0.4, {
@@ -1076,7 +1079,13 @@ class FreeplayState extends funkin.states.MusicBeatState
 		#if sys
 		if (change != 0 && instPlaying != -1)
 		{
-			MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, true);
+			// ── Restaurar música de menú sin forceRestart ────────────────────
+			// CoreAudio guarda la posición de la música cuando el preview la
+			// interrumpió. Pasando forceRestart=false, playMenu() detecta que
+			// menuTrack != track (porque era '__preview__') y la reinicia, pero
+			// luego aplica la posición guardada → la música continúa desde donde
+			// estaba en lugar de saltar al inicio (el "lagazo" anterior).
+			MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, false);
 			instPlaying = -1;
 			if (discSpr != null)
 			{
@@ -1306,9 +1315,17 @@ class FreeplayState extends funkin.states.MusicBeatState
 	{
 		if (diffPills == null)
 			return;
+		// ── Destruir los sprites de la vuelta anterior ────────────────────
+		// diffPills.clear() solo los saca del grupo sin liberar sus bitmaps.
+		// Cada píldora tiene un makeGraphic() propio; sin destroy() el bitmap
+		// queda en el heap cada vez que se llama a _rebuildDiffPills().
+		diffPills.forEach(function(s) { if (s != null) { remove(s, true); s.destroy(); } }, true);
 		diffPills.clear();
 		for (t in diffTexts)
+		{
 			remove(t);
+			t.destroy();
+		}
 		diffTexts = [];
 		var pillY = CARD_Y + 234;
 		var pillH = 26;

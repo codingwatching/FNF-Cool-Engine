@@ -96,7 +96,7 @@ class ModManager
 	static var STD_FOLDERS = [
 		'characters', 'cutscenes', 'data', 'fonts', 'images',
 		'music', 'notes', 'shaders', 'songs',
-		'sounds', 'stages', 'states'
+		'sounds', 'stages', 'states', 'scripts'
 	];
 
 	private static var _enabledMap:Map<String, Bool> = new Map();

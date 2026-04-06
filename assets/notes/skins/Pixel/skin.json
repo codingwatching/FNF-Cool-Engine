@@ -3,6 +3,7 @@
     "author": "ninjamuffin99",
     "description": "Default pixel/week 6 note skin",
     "folder": "Pixel",
+    "noteGlow": false,
     "isPixel": true,
     "confirmOffset": false,
     "sustainOffset": 30.0,

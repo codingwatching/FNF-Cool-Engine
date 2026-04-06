@@ -32,6 +32,7 @@ import funkin.data.Song.CharacterSlotData;
 import funkin.data.Song.StrumsGroupData;
 // NUEVO: Import de batching
 import funkin.gameplay.notes.NoteBatcher;
+import funkin.gameplay.notes.ModchartHoldMesh;
 // Gameplay modules
 import funkin.gameplay.*;
 // Scripting
@@ -160,6 +161,9 @@ class PlayState extends funkin.states.MusicBeatState
 
 	// ── MODCHART ──
 	public var modChartManager:ModChartManager;
+
+	/** Renderizador de holds curvados cuando hay modificadores activos. */
+	public var holdMesh:ModchartHoldMesh;
 
 	private var gfSpeed:Int = 1;
 
@@ -384,6 +388,10 @@ class PlayState extends funkin.states.MusicBeatState
 		modChartManager = new ModChartManager(strumsGroups);
 		modChartManager.data.song = SONG.song;
 		modChartManager.loadFromFile(SONG.song);
+
+		// Conectar modchart ↔ noteManager y holdMesh ahora que ambos existen.
+		noteManager.modManager = modChartManager;
+		holdMesh.noteManager = noteManager;
 
 		generateSong();
 
@@ -730,6 +738,12 @@ class PlayState extends funkin.states.MusicBeatState
 		sustainNotes.cameras = [camHUD];
 		add(sustainNotes);
 
+		// Mesh de holds curvados (modchart). Se inserta entre sustainNotes y notes
+		// para que las piezas body queden debajo de los heads. noteManager se asigna
+		// después de setupControllers(); cam ya está disponible aquí.
+		holdMesh = new ModchartHoldMesh(null, camHUD);
+		add(holdMesh);
+
 		notes = new FlxTypedGroup<Note>();
 		notes.cameras = [camHUD];
 		add(notes);
@@ -746,6 +760,7 @@ class PlayState extends funkin.states.MusicBeatState
 		{
 			strumLineNotes.visible = false;
 			sustainNotes.visible = false;
+			holdMesh.visible = false;
 			notes.visible = false;
 			grpNoteSplashes.visible = false;
 			grpHoldCovers.visible = false;
@@ -2694,6 +2709,9 @@ class PlayState extends funkin.states.MusicBeatState
 		noteManager?.destroy();
 		noteManager = null;
 
+		holdMesh?.destroy();
+		holdMesh = null;
+
 		modChartManager?.destroy();
 		modChartManager = null;
 
@@ -2708,11 +2726,17 @@ class PlayState extends funkin.states.MusicBeatState
 		NoteSkinSystem.restoreGlobalSplash();
 		NoteSkinSystem.destroyScripts();
 		heldNotes.clear();
+		heldNotes = null;
 
-		characterSlots = [];
-		strumsGroups = [];
+		// resize(0) reutiliza el array existente sin allocar — más eficiente que = []
+		characterSlots.resize(0);
+		characterSlots = null;
+		strumsGroups.resize(0);
+		strumsGroups = null;
 		strumsGroupMap.clear();
-		activeCharIndices = [];
+		strumsGroupMap = null;
+		activeCharIndices.resize(0);
+		activeCharIndices = null;
 
 		RatingManager.destroy();
 
@@ -2722,21 +2746,42 @@ class PlayState extends funkin.states.MusicBeatState
 		countdown?.destroy();
 		countdown = null;
 
-		// Hooks
+		// Hooks: resize(0) evita alloc de nuevo array vacío
 		onBeatHitHooks.clear();
 		onStepHitHooks.clear();
 		onUpdateHooks.clear();
 		onNoteHitHooks.clear();
 		onNoteMissHooks.clear();
-		_beatHookArr = [];
-		_stepHookArr = [];
-		_updateHookArr = [];
-		_noteHitHookArr = [];
-		_noteMissHookArr = [];
+		_beatHookArr.resize(0);
+		_stepHookArr.resize(0);
+		_updateHookArr.resize(0);
+		_noteHitHookArr.resize(0);
+		_noteMissHookArr.resize(0);
+		_beatHookArr   = null;
+		_stepHookArr   = null;
+		_updateHookArr = null;
+		_noteHitHookArr  = null;
+		_noteMissHookArr = null;
 
-		_cachedSectionClass = null;
+		_cachedSectionClass    = null;
 		_cachedSectionClassIdx = -2;
+		cachedSection          = null;
 
+		// Nullear objetos de escena grandes ANTES de super.destroy() para que el GC
+		// pueda reclamar la memoria mientras seguimos controlando el estado.
+		// FPS Plus hace lo mismo en su switchState() con removeSound().
+		laneBackdrop = null;
+		scoreManager = null;
+		gameState    = null;
+		uiManager    = null;
+		skinSystem   = null;
+		boyfriend    = null;
+		dad          = null;
+		gf           = null;
+		currentStage = null;
+
+		// Resumir el GC ANTES de super.destroy(): con el GC activo, el destructor
+		// de FlxTypedGroup liberará las notas del pool en el mismo frame.
 		if (_gcPausedForSong)
 		{
 			_gcPausedForSong = false;
@@ -2744,6 +2789,14 @@ class PlayState extends funkin.states.MusicBeatState
 		}
 
 		super.destroy();
+
+		// Nullear grupos DESPUÉS de super.destroy() (super los destruye internamente)
+		notes          = null;
+		sustainNotes   = null;
+		strumLineNotes = null;
+		playerStrums   = null;
+		grpNoteSplashes = null;
+		grpHoldCovers   = null;
 
 		StickerTransition.invalidateCache();
 		Paths.clearUnusedMemory();
@@ -2916,6 +2969,11 @@ class PlayState extends funkin.states.MusicBeatState
 	override public function onFocus():Void
 	{
 		super.onFocus();
+		// Compactar el GC al recuperar foco (FPS Plus hace Utils.gc() aquí).
+		// Libera fragmentación acumulada durante la pausa sin coste perceptible.
+		#if cpp
+		cpp.vm.Gc.compact();
+		#end
 		if (FlxG.sound.music != null && !startingSong && generatedMusic && !paused)
 		{
 			final t = FlxG.sound.music.time;
@@ -2999,8 +3057,9 @@ class PlayState extends funkin.states.MusicBeatState
 			snd.destroy();
 		}
 		vocalsPerChar.clear();
-		_vocalsPlayerKeys = [];
-		_vocalsOpponentKeys = [];
+		// Vaciar las arrays de keys sin reasignar (evita GC pressure)
+		_vocalsPlayerKeys.resize(0);
+		_vocalsOpponentKeys.resize(0);
 		_usingPerCharVocals = false;
 	}
 

@@ -8,7 +8,9 @@
 #   lime build windows      <- Windows (cpp)
 #   lime build linux        <- Linux (cpp)
 #   lime build html5        <- HTML5
+#   lime build android      <- Android
 #   lime test mac           <- Compila y ejecuta en Mac
+
 #
 # Lime usa Project.xml como configuración real.
 # Este .hxml existe para que editores como VSCode/HaxeDevelop

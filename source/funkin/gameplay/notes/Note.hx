@@ -123,10 +123,9 @@ class Note extends FlxSprite
 	 */
 	private var _animListData:Map<String, Array<Float>> = null;
 
-	/** Distancia máxima (ms) desde la que empieza el glow de aproximación. */
-	static inline final GLOW_START_MS:Float = 500.0;
-
-	/** Distancia (ms) en la que el glow alcanza su máximo antes del hit. */
+	/** Distancia (ms) dentro de la safe zone en la que el glow alcanza su máximo.
+	 *  Igual que FPS Plus: el glow se activa exactamente cuando canBeHit = true
+	 *  (dentro de safeZoneOffset), y hace flash total en los últimos 60 ms. */
 	static inline final GLOW_PEAK_MS:Float = 60.0;
 
 	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false)
@@ -695,36 +694,32 @@ class Note extends FlxSprite
 		if (tooLate && alpha > 0.3)
 			alpha = 0.3;
 
-		// ── Glow de proximidad ────────────────────────────────────────────────
-		// Actualizado cada frame (sin threshold de 10ms) para máxima suavidad.
-		// Solo en notas de jugador que aún no han sido golpeadas.
-		if (_glowShader != null && mustPress && !wasGoodHit && !tooLate)
+		// ── Glow (comportamiento idéntico a FPS Plus) ─────────────────────────
+		// FPS Plus activa el glow ÚNICAMENTE cuando canBeHit = true (dentro de
+		// safeZoneOffset), solo en notas normales (no sustains), y lo apaga
+		// en cuanto tooLate o wasGoodHit.  El shader añade la rampa de proximidad
+		// dentro de esa ventana — lo que FPS Plus hace con frames de animación
+		// lo hacemos aquí en GLSL sin cambiar el atlas.
+		if (_glowShader != null && mustPress && canBeHit && !isSustainNote && !wasGoodHit && !tooLate)
 		{
+			// Proximidad dentro de la safe zone: 0 al entrar, 1 justo en el strum.
+			// Usamos _hitWindowCache (ya calculado) como denominador igual que
+			// FPS Plus usa safeZoneOffset para determinar canBeHit.
 			final dist:Float = strumTime - Conductor.songPosition;
-
-			if (dist > 0 && dist < GLOW_START_MS)
-			{
-				// t = 0 lejos, t = 1 justo en el strum
-				final t:Float = 1.0 - (dist / GLOW_START_MS);
-				// Curva cuadrática: sube despacio y acelera cerca del strum
-				final curved:Float = t * t;
-				_glowShader.intensity = curved * 0.75;
-				_glowShader.pulse = (dist < GLOW_PEAK_MS) ? 1.0 : curved;
-				// Proximidad lineal suavizada: alimenta el bloom de blanco en el shader
-				_glowShader.proximity = curved;
-			}
-			else
-			{
-				_glowShader.intensity = 0.0;
-				_glowShader.pulse = 0.0;
-				_glowShader.proximity = 0.0;
-			}
+			final safeZone:Float = _hitWindowCache > 0 ? _hitWindowCache : Conductor.safeZoneOffset;
+			final t:Float = Math.max(0.0, 1.0 - (dist / safeZone));
+			// Curva cuadrática: suave al entrar, explosiva al llegar al strum
+			final curved:Float = t * t;
+			_glowShader.intensity = 0.35 + curved * 0.40;
+			_glowShader.pulse     = (dist < GLOW_PEAK_MS) ? 1.0 : curved;
+			_glowShader.proximity = curved;
 		}
-		else if (_glowShader != null && (wasGoodHit || tooLate))
+		else if (_glowShader != null && (_glowShader.intensity > 0.0))
 		{
-			// Apagar glow una vez golpeada o perdida
+			// Apagar glow: nota fuera de rango, golpeada o perdida.
+			// Solo escribe los uniforms si hay algo que apagar (evita writes redundantes).
 			_glowShader.intensity = 0.0;
-			_glowShader.pulse = 0.0;
+			_glowShader.pulse     = 0.0;
 			_glowShader.proximity = 0.0;
 		}
 	}

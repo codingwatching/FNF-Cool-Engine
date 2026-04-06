@@ -175,6 +175,14 @@ class CoreAudio extends FlxBasic
 	/** Track de menú activa. '' si no hay. */
 	public static var menuTrack(default, null):String = '';
 
+	/**
+	 * Nombre de la track de menú que fue interrumpida por un preview.
+	 * Se restaura cuando el preview termina y esa misma track vuelve a pedirse.
+	 */
+	private static var _savedMenuTrack:String   = '';
+	/** Posición (ms) de la música de menú cuando fue interrumpida por un preview. */
+	private static var _savedMenuPosition:Float = 0.0;
+
 	// ── Registro interno de sounds + baseVolume ───────────────────────────────
 
 	/**
@@ -305,7 +313,9 @@ class CoreAudio extends FlxBasic
 
 		// Parar música de menú
 		_stopMenuInternal();
-		menuTrack = '';
+		menuTrack          = '';
+		_savedMenuTrack    = '';
+		_savedMenuPosition = 0.0;
 
 		// Vaciar el registry — cualquier FlxSound que siga ahí es de la sesión anterior
 		for (snd => _ in _registry)
@@ -418,6 +428,13 @@ class CoreAudio extends FlxBasic
 			&& FlxG.sound.music != null && FlxG.sound.music.playing)
 			return;
 
+		// Si la nueva pista es distinta a la guardada, descartar posición salvada.
+		if (_savedMenuTrack != track)
+		{
+			_savedMenuTrack   = '';
+			_savedMenuPosition = 0.0;
+		}
+
 		_stopMenuInternal();
 		menuTrack = track;
 
@@ -432,6 +449,16 @@ class CoreAudio extends FlxBasic
 			FlxG.sound.music.persist = true;
 			_ensureInList(FlxG.sound.music);
 			register(FlxG.sound.music, volume);   // baseVolume = el "volumen de menú"
+
+			// ── Restaurar posición interrumpida por un preview ──────────────
+			// Si el jugador abrió un preview y luego volvió a la música de menú,
+			// se retoma desde donde estaba en lugar de reiniciar desde 0.
+			if (_savedMenuTrack == track && _savedMenuPosition > 0)
+			{
+				FlxG.sound.music.time = _savedMenuPosition;
+				_savedMenuTrack    = '';
+				_savedMenuPosition = 0.0;
+			}
 		}
 	}
 
@@ -444,6 +471,13 @@ class CoreAudio extends FlxBasic
 			&& FlxG.sound.music != null && FlxG.sound.music.playing)
 			return;
 
+		// Si la nueva pista es distinta a la guardada, descartar posición salvada.
+		if (_savedMenuTrack != track)
+		{
+			_savedMenuTrack   = '';
+			_savedMenuPosition = 0.0;
+		}
+
 		_stopMenuInternal();
 		menuTrack = track;
 
@@ -454,6 +488,15 @@ class CoreAudio extends FlxBasic
 		if (FlxG.sound.music == null) return;
 		FlxG.sound.music.persist = true;
 		_ensureInList(FlxG.sound.music);
+
+		// Restaurar posición interrumpida (no tiene sentido hacer fade-in desde 0
+		// cuando simplemente volvemos al punto donde dejamos la música).
+		if (_savedMenuTrack == track && _savedMenuPosition > 0)
+		{
+			FlxG.sound.music.time = _savedMenuPosition;
+			_savedMenuTrack    = '';
+			_savedMenuPosition = 0.0;
+		}
 
 		// Registrar con baseVolume=0 y hacer fade manual sobre el baseVolume
 		register(FlxG.sound.music, 0.0);
@@ -629,11 +672,32 @@ class CoreAudio extends FlxBasic
 	{
 		if (FlxG.sound.music != null)
 		{
-			unregister(FlxG.sound.music);
-			FlxG.sound.list.remove(FlxG.sound.music, false);
-			FlxG.sound.music.persist = false;
-			FlxG.sound.music.stop();
+			// ── Guardar posición de menú si se interrumpe por un preview ─────
+			// Así, al volver a la misma track, se retoma desde donde estaba
+			// en lugar de reiniciar desde 0 (el "lagazo" al parar preview).
+			if (menuTrack != '' && menuTrack != '__preview__')
+			{
+				_savedMenuTrack    = menuTrack;
+				_savedMenuPosition = FlxG.sound.music.time;
+			}
+
+			final isPreview = (menuTrack == '__preview__');
+			final snd = FlxG.sound.music;
+			unregister(snd);
+			FlxG.sound.list.remove(snd, false);
+			snd.persist = false;
+			snd.stop();
 			FlxG.sound.music = null;   // evitar referencias fantasma al cambiar state
+
+			// ── Liberar buffer OGG de los previews (evita acumulación RAM) ──
+			// Los previews son FlxSounds creados on-demand por FreeplayState
+			// con loadEmbedded() — cada canción descomprime el OGG entero en RAM.
+			// Sin destroy() explícito el buffer persiste hasta el siguiente GC
+			// mayor, pudiendo acumular varios MB por cada canción previsuada.
+			if (isPreview)
+			{
+				try { snd.destroy(); } catch (_:Dynamic) {}
+			}
 		}
 	}
 

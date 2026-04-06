@@ -109,23 +109,27 @@
         "prefix": "start",
         "fps": 24,
         "offsets": [
-          20,
-          20
+          40,
+          40
         ]
       },
       {
         "name": "holdCover",
         "prefix": "loop",
         "fps": 48,
-        "looped": true
+        "looped": true,
+        "offsets": [
+          20,
+          25
+        ]
       },
       {
         "name": "holdCoverEnd",
         "prefix": "end",
         "fps": 24,
         "offsets": [
-          -44,
-          -30
+          -45,
+          -35
         ]
       }
     ]
