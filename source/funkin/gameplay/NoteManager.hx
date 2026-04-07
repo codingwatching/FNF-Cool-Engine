@@ -335,12 +335,16 @@ class NoteManager
 
 	/**
 	 * Cache de strumCenterY y visualCenter indexado por (noteData + strumsGroupIndex*4 + mustPress*16).
-	 * Se vacía al inicio de cada frame en updateActiveNotes() y se llena lazily.
-	 * Evita recalcular strum.y - strum.offset.y + strum.height*0.5 por cada nota activa.
-	 * Con 8 strums × 20 notas = 160 restas/sumas redundantes por frame eliminadas.
+	 * OPTIMIZACIÓN v2: reemplaza Map<Int,Float> por arrays fijos con sentinel NaN.
+	 *   • Map.clear() 60×/s hacía rehash interno → pequeñas allocations cada frame.
+	 *   • Array fijo: clear = 128 float assignments (~128 B de memoria contigua) = un memset.
+	 *   • Lookup: array[key] vs Map.get(key) → sin hash, sin branch de colisión.
+	 * Key space: noteData(0-3) + strumsGroupIndex(0-15)*4 + mustPress(0|16) ≤ 79. Array de 128 es seguro.
+	 * Sentinel Math.NaN: Math.isNaN(x) es una comparación de bit exacta en C++, coste cero.
 	 */
-	private var _frameCenterYCache:Map<Int, Float> = [];
-	private var _frameVisualCenterCache:Map<Int, Float> = [];
+	private static inline final _FRAME_CACHE_SIZE:Int = 128;
+	private var _frameCenterYCache:Array<Float>      = [for (_ in 0..._FRAME_CACHE_SIZE) Math.NaN];
+	private var _frameVisualCenterCache:Array<Float> = [for (_ in 0..._FRAME_CACHE_SIZE) Math.NaN];
 
 	public function new(notes:FlxTypedGroup<Note>, playerStrums:FlxTypedGroup<FlxSprite>, cpuStrums:FlxTypedGroup<FlxSprite>,
 			splashes:FlxTypedGroup<NoteSplash>, holdCovers:FlxTypedGroup<NoteHoldCover>, ?playerStrumsGroup:StrumsGroup, ?cpuStrumsGroup:StrumsGroup,
@@ -768,8 +772,12 @@ class NoteManager
 		}
 
 		// Limpiar caches de posición de strums — se rellenan lazily nota a nota este frame.
-		_frameCenterYCache.clear();
-		_frameVisualCenterCache.clear();
+		// OPTIMIZACIÓN: array fill con NaN vs Map.clear() → sin rehash, sin alloc.
+		for (_ci in 0..._FRAME_CACHE_SIZE)
+		{
+			_frameCenterYCache[_ci]      = Math.NaN;
+			_frameVisualCenterCache[_ci] = Math.NaN;
+		}
 
 		_missedHoldDir[0] = false;
 		_missedHoldDir[1] = false;
@@ -950,7 +958,8 @@ class NoteManager
 					{
 						// FIX: strum.width/height incluyen scale; frameWidth/Height son px sin escalar.
 						// Usar dims escaladas para coincidir con _updateHoldCoverPositions().
-						var cover = renderer.startHoldCover(dir, strum.x - strum.offset.x + strum.width * 0.5, strum.y - strum.offset.y + strum.height * 0.5,
+						// FIX (v-slice parity): centro gráfico = frameWidth/Height * scale, no hitbox width/height.
+					var cover = renderer.startHoldCover(dir, strum.x - strum.offset.x + strum.frameWidth * strum.scale.x * 0.5, strum.y - strum.offset.y + strum.frameHeight * strum.scale.y * 0.5,
 							false, note.strumsGroupIndex, holdSplashCPU);
 						if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0)
 						{
@@ -1009,23 +1018,29 @@ class NoteManager
 		if (conductor.stepCrochet <= 0)
 			return;
 
-		// Calcular el scale.y correcto para el nuevo speed
-		// Fórmula igual que Note.setupSustainNote() con V-Slice approach
+		// Calcular el scale.y correcto para el speed efectivo actual.
+		// FIX: antes usaba songSpeed (base fija) en lugar de _scrollSpeed
+		// (_scrollSpeed = 0.45 * songSpeed * targetScrollRate), así que el tail cap
+		// nunca se adaptaba cuando el jugador cambiaba el scroll rate o un evento
+		// de chart alteraba la velocidad. Ahora usamos _scrollSpeed directamente:
+		//   targetH = stepCrochet * _scrollSpeed  ≡  stepCrochet * 0.45 * effectiveSpeed
 		inline function calcScaleY(note:funkin.gameplay.notes.Note):Float
 		{
 			if (note.frameHeight <= 0)
 				return note.sustainBaseScaleY; // sin datos de frame
-			final _speed:Float = songSpeed;
-			final _stretch:Float = note._skinHoldStretch; // campo público en Note
-			final _extra:Float = (_speed > 3.0) ? ((_speed - 3.0) * 0.02) : 0.0;
-			final targetH:Float = conductor.stepCrochet * 0.45 * _speed;
+			final _stretch:Float = note._skinHoldStretch;
+			// Derivar el multiplicador de velocidad efectivo para el _extra de alta velocidad.
+			final _effectiveSpeed:Float = _scrollSpeed / 0.45;
+			final _extra:Float = (_effectiveSpeed > 3.0) ? ((_effectiveSpeed - 3.0) * 0.02) : 0.0;
+			// _scrollSpeed ya incluye 0.45, así que: stepCrochet * _scrollSpeed = stepCrochet * 0.45 * effectiveSpeed
+			final targetH:Float = conductor.stepCrochet * _scrollSpeed;
 			return (targetH * (_stretch + _extra)) / note.frameHeight;
 		}
 
 		// Iterar sobre todos los sustains activos en el grupo de notas largas
 		for (note in sustainNotes.members)
 		{
-			if (note == null || !note.alive || !note.isSustainNote)
+			if (note == null || !note.alive || !note.isSustainNote || note.isTailCap)
 				continue;
 			// Solo piezas hold (no las colas/tails — tienen frameHeight distinto)
 			var newSY = calcScaleY(note);
@@ -1086,23 +1101,34 @@ class NoteManager
 		final _strumCacheKey:Int = note.noteData + note.strumsGroupIndex * 4 + (note.mustPress ? 0 : 16);
 
 		var strumCenterY:Float;
-		if (_frameCenterYCache.exists(_strumCacheKey))
-			strumCenterY = _frameCenterYCache.get(_strumCacheKey);
-		else
 		{
-			strumCenterY = (strum != null) ? strum.y - strum.offset.y + strum.height * 0.5 : strumLineY;
-			_frameCenterYCache.set(_strumCacheKey, strumCenterY);
+			final _cached = _frameCenterYCache[_strumCacheKey];
+			if (Math.isNaN(_cached))
+			{
+				strumCenterY = (strum != null) ? strum.y : strumLineY;
+				_frameCenterYCache[_strumCacheKey] = strumCenterY;
+			}
+			else
+				strumCenterY = _cached;
 		}
 
 		final _refY:Float = strumCenterY;
 
 		var visualCenter:Float;
-		if (_frameVisualCenterCache.exists(_strumCacheKey))
-			visualCenter = _frameVisualCenterCache.get(_strumCacheKey);
-		else
 		{
-			visualCenter = (strum != null) ? strum.y - strum.offset.y + (strum.frameHeight * strum.scale.y) * 0.5 : strumCenterY;
-			_frameVisualCenterCache.set(_strumCacheKey, visualCenter);
+			final _cachedVC = _frameVisualCenterCache[_strumCacheKey];
+			if (Math.isNaN(_cachedVC))
+			{
+				// BUG FIX: restar strum.offset.y para que el punto de clip sea estable
+				// independientemente del scale del strum (beat bumps, modchart scale, etc.).
+				// Sin esto: strum.height = frameHeight * scale.y, así que visualCenter se
+				// desplazaba hacia abajo durante beat bumps cuando scale.y > 1.
+				// Correcto: strum.y - offset.y + height/2 = strum.y + frameHeight/2 (constante).
+				visualCenter = strumCenterY - strum.offset.y + (strum.height / 2);
+				_frameVisualCenterCache[_strumCacheKey] = visualCenter;
+			}
+			else
+				visualCenter = _cachedVC;
 		}
 
 		// ── Leer modificadores per-nota del ModChartManager (si existe) ────────
@@ -1142,8 +1168,6 @@ class NoteManager
 			if (_modState.drunkY != 0)
 				_noteYOffset += _modState.drunkY * Math.sin(note.strumTime * 0.001 * _modState.drunkFreq + songPosition * 0.0008);
 
-			// BUMPY: todas las notas del strum oscilan en Y juntas según songPosition.
-			// Produce una ola "en bloque" que baja y sube todas las notas al mismo tiempo.
 			if (_modState.bumpy != 0)
 				_noteYOffset += _modState.bumpy * Math.sin(songPosition * 0.001 * _modState.bumpySpeed);
 
@@ -1423,125 +1447,93 @@ class NoteManager
 
 		if (note.isSustainNote)
 		{
-			if (note.wasGoodHit && strum != null)
+			if (note.tooLate)
 			{
-				final _sy:Float = visualCenter;
-				final _noteVisTop:Float = note.y - note.offset.y;
+				// Nota fallida: sin clipRect — se ve completa mientras sale de pantalla.
+				// Sin este bypass, el bloque de clip la cortaría en el strum,
+				// la volvería invisible y al cruzarlo aparecería de nuevo scrolleando.
+				note.clipRect = null;
+			}
+			else
+			{
+				// Enfoque NoteManager2: threshold unificado en la MITAD del strum,
+				// usando Note.swagWidth * 0.5 como offset fijo respecto a strumLineY.
+				// Se aplica igual a wasGoodHit y !wasGoodHit — lógica uniforme para
+				// player y CPU, upscroll y downscroll.
+				// BUG FIX: usar _effectiveDownscroll (= downscroll XOR modchart invert)
+				// para que el clip sea correcto cuando el mod INVERT está activo.
+				final halfStrum:Float = funkin.gameplay.notes.Note.swagWidth * 0.5;
+				final strumLineThreshold:Float = _effectiveDownscroll
+					? strumLineY - halfStrum   // downscroll: threshold desplazado hacia arriba
+					: strumLineY + halfStrum;  // upscroll:   threshold desplazado hacia dentro del strum
+
 				if (_effectiveDownscroll)
 				{
-					final _clipH:Float = (_sy - _noteVisTop) / note.scale.y;
-					if (_clipH <= 0)
+					// Downscroll: la nota baja de arriba → strum. Cortamos el fondo
+					// cuando cruza strumLineThreshold.
+					final noteBottom:Float = note.y + note.height;
+					if (noteBottom >= strumLineThreshold)
 					{
-						note.clipRect = null;
-						note.visible = false;
-						removeNote(note);
-					}
-					else
-					{
-						_sustainClipRect.x = 0;
-						_sustainClipRect.width = _noteWidth2;
-						_sustainClipRect.height = _clipH;
-						_sustainClipRect.y = note.frameHeight - _clipH;
-						if (note.clipRect == null)
-							note.clipRect = new flixel.math.FlxRect();
-						note.clipRect.copyFrom(_sustainClipRect);
-						note.clipRect = note.clipRect;
-					}
-				}
-				else
-				{
-					// Upscroll: sustain sube, el top visual cruza el strum.
-					// Recortar la parte que ya pasó por encima del strum (igual que !wasGoodHit upscroll).
-					final _clipFrameY:Float = Math.max(0, (_sy - _noteVisTop) / note.scale.y);
-					final _clipH:Float = note.frameHeight - _clipFrameY;
-					if (_clipH <= 0)
-					{
-						note.clipRect = null;
-						note.visible = false;
-						removeNote(note);
-					}
-					else
-					{
-						_sustainClipRect.x = 0;
-						_sustainClipRect.width = _noteWidth2;
-						_sustainClipRect.y = _clipFrameY;
-						_sustainClipRect.height = _clipH;
-						if (note.clipRect == null)
-							note.clipRect = new flixel.math.FlxRect();
-						note.clipRect.copyFrom(_sustainClipRect);
-						note.clipRect = note.clipRect;
-					}
-				}
-			}
-			else if (!note.wasGoodHit)
-			{
-				if (note.tooLate)
-				{
-					// Nota fallida: sin clipRect — se ve completa mientras sale de pantalla.
-					// Sin este bypass, el bloque de !wasGoodHit la cortaría en el strum,
-					// la volvería invisible y al cruzarlo aparecería de nuevo scrolleando.
-					note.clipRect = null;
-				}
-				else
-				{
-					final _strumCenter:Float = visualCenter;
-
-					if (downscroll)
-					{
-						final _noteVisBottom:Float = note.y - note.offset.y + note.height;
-						if (_noteVisBottom >= _strumCenter)
+						var clipH:Float = (strumLineThreshold - note.y) / note.scale.y;
+						if (clipH <= 0)
 						{
-							// Inicio visual del sprite
-							final _noteVisTop:Float = note.y - note.offset.y;
-							final _clipH:Float = (_strumCenter - _noteVisTop) / note.scale.y;
-							if (_clipH <= 0)
+							note.clipRect = null;
+							if (note.wasGoodHit)
 							{
-								note.clipRect = null;
-							}
-							else
-							{
-								_sustainClipRect.x = 0;
-								_sustainClipRect.width = _noteWidth2;
-								_sustainClipRect.height = _clipH;
-								_sustainClipRect.y = note.frameHeight - _clipH;
-								if (note.clipRect == null)
-									note.clipRect = new flixel.math.FlxRect();
-								note.clipRect.copyFrom(_sustainClipRect);
-								note.clipRect = note.clipRect;
+								note.visible = false;
+								removeNote(note);
 							}
 						}
 						else
 						{
+							_sustainClipRect.x      = 0;
+							_sustainClipRect.width  = _noteWidth2;
+							_sustainClipRect.height = clipH;
+							_sustainClipRect.y      = note.frameHeight - clipH;
+							if (note.clipRect == null)
+								note.clipRect = new flixel.math.FlxRect();
+							note.clipRect.copyFrom(_sustainClipRect);
+							note.clipRect = note.clipRect;
+						}
+					}
+					else
+					{
+						note.clipRect = null;
+					}
+				}
+				else
+				{
+					// Upscroll: la nota sube hacia el strum (Y decrece).
+					// Cortamos la parte superior que ya cruzó strumLineThreshold.
+					if (note.y < strumLineThreshold)
+					{
+						var clipY:Float = (strumLineThreshold - note.y) / note.scale.y;
+						var clipH:Float = note.frameHeight - clipY;
+						if (clipH > 0 && clipY >= 0)
+						{
+							_sustainClipRect.x      = 0;
+							_sustainClipRect.width  = _noteWidth2;
+							_sustainClipRect.y      = clipY;
+							_sustainClipRect.height = clipH;
+							if (note.clipRect == null)
+								note.clipRect = new flixel.math.FlxRect();
+							note.clipRect.copyFrom(_sustainClipRect);
+							note.clipRect = note.clipRect;
+						}
+						else
+						{
+							// Nota completamente por encima del strum: ocultar si ya fue consumida.
+							if (note.wasGoodHit)
+							{
+								note.visible = false;
+								removeNote(note);
+							}
 							note.clipRect = null;
 						}
 					}
 					else
 					{
-						final _noteVisTop:Float = note.y - note.offset.y;
-						if (_noteVisTop < _strumCenter)
-						{
-							final _clipFrameY:Float = (_strumCenter - _noteVisTop) / note.scale.y;
-							final _clipH:Float = note.frameHeight - _clipFrameY;
-							if (_clipH > 0 && _clipFrameY >= 0)
-							{
-								_sustainClipRect.x = 0;
-								_sustainClipRect.width = _noteWidth2;
-								_sustainClipRect.y = _clipFrameY;
-								_sustainClipRect.height = _clipH;
-								if (note.clipRect == null)
-									note.clipRect = new flixel.math.FlxRect();
-								note.clipRect.copyFrom(_sustainClipRect);
-								note.clipRect = note.clipRect;
-							}
-							else
-							{
-								note.clipRect = null;
-							}
-						}
-						else
-						{
-							note.clipRect = null;
-						}
+						note.clipRect = null;
 					}
 				}
 			}
@@ -1643,7 +1635,8 @@ class NoteManager
 					// FIX: strum.width/height incluyen scale; frameWidth/Height son px sin escalar.
 					// Usar dims escaladas y descontar strum.offset para coincidir con el centro
 					// visual real (igual que la llamada equivalente en handleCPUNote, linea ~876).
-					var cover = renderer.startHoldCover(direction, strum.x - strum.offset.x + strum.width * 0.5, strum.y - strum.offset.y + strum.height * 0.5, true, note.strumsGroupIndex,
+					// FIX (v-slice parity): centro gráfico = frameWidth/Height * scale.
+					var cover = renderer.startHoldCover(direction, strum.x - strum.offset.x + strum.frameWidth * strum.scale.x * 0.5, strum.y - strum.offset.y + strum.frameHeight * strum.scale.y * 0.5, true, note.strumsGroupIndex,
 						holdSplashPlayer);
 					if (cover != null && !_holdCoverSet.exists(cover) && holdCovers.members.indexOf(cover) < 0)
 					{
@@ -1679,7 +1672,10 @@ class NoteManager
 		if (strum != null)
 		{
 			var splashName = NoteTypeManager.getSplashName(note.noteType);
-			var splash = renderer.spawnSplash(strum.x, strum.y, note.noteData, splashName);
+			// FIX (v-slice parity): pasar la esquina del GRÁFICO (strum.x - offset.x, strum.y - offset.y),
+			// no la del hitbox (strum.x, strum.y). V-Slice posiciona el splash en la misma X
+			// que el strum receptor (posición gráfica), no en la esquina del hitbox de Flixel.
+			var splash = renderer.spawnSplash(strum.x - strum.offset.x, strum.y - strum.offset.y, note.noteData, splashName);
 			if (splash != null)
 				splashes.add(splash);
 		}
@@ -1930,8 +1926,8 @@ class NoteManager
 			if (strum == null)
 				continue;
 
-			final cx:Float = strum.x - strum.offset.x + strum.width * 0.5;
-			final cy:Float = strum.y - strum.offset.y + strum.height * 0.5;
+			final cx:Float = strum.x - strum.offset.x + strum.frameWidth  * strum.scale.x * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * strum.scale.y * 0.5;
 
 			// Key formula mirrors NoteRenderer.startHoldCover / stopHoldCover
 			final key:Int = dir + note.strumsGroupIndex * 8;
@@ -1948,8 +1944,8 @@ class NoteManager
 			if (strum == null)
 				continue;
 
-			final cx:Float = strum.x - strum.offset.x + strum.width * 0.5;
-			final cy:Float = strum.y - strum.offset.y + strum.height * 0.5;
+			final cx:Float = strum.x - strum.offset.x + strum.frameWidth  * strum.scale.x * 0.5;
+			final cy:Float = strum.y - strum.offset.y + strum.frameHeight * strum.scale.y * 0.5;
 
 			// Key formula: CPU side = +4 offset in NoteRenderer
 			final key:Int = dir + 4 + _cpuHoldGroupIdx[dir] * 8;

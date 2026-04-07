@@ -115,7 +115,7 @@ class ModchartHoldMesh extends FlxBasic {
 	 */
 	@:inline
 	function _hasCurve(st:StrumState):Bool
-		return st.drunkX != 0 || st.drunkY != 0 || st.wave != 0 || st.bumpy != 0 || st.tipsy != 0 || st.zigzag != 0;
+		return st.drunkX != 0 || st.drunkY != 0 || st.wave != 0 || st.bumpy != 0 || st.tipsy != 0 || st.zigzag != 0 || st.flipX > 0.5;
 
 	/**
 	 * Calcula la posición X en pantalla de un punto del path a tiempo `t`.
@@ -131,16 +131,19 @@ class ModchartHoldMesh extends FlxBasic {
 	@:inline
 	function _evalX(t:Float, songPos:Float, st:StrumState, strumX:Float, strumW:Float, noteW:Float):Float {
 		var nx:Float = strumX + (strumW - noteW) * 0.5 + st.noteOffsetX;
+		// FIX: cuando flipX está activo los desplazamientos X deben invertirse
+		// para que el mesh siga al sprite (que también se renderiza en espejo).
+		var xSign:Float = (st.flipX > 0.5) ? -1.0 : 1.0;
 
 		if (st.drunkX != 0)
-			nx += st.drunkX * Math.sin(t * 0.001 * st.drunkFreq + songPos * 0.0008);
+			nx += xSign * st.drunkX * Math.sin(t * 0.001 * st.drunkFreq + songPos * 0.0008);
 
 		if (st.tipsy != 0)
-			nx += st.tipsy * Math.sin(songPos * 0.001 * st.tipsySpeed);
+			nx += xSign * st.tipsy * Math.sin(songPos * 0.001 * st.tipsySpeed);
 
 		if (st.zigzag != 0) {
 			var zz:Float = Math.sin(t * 0.001 * st.zigzagFreq * Math.PI);
-			nx += st.zigzag * (zz >= 0 ? 1.0 : -1.0);
+			nx += xSign * st.zigzag * (zz >= 0 ? 1.0 : -1.0);
 		}
 
 		return nx;
@@ -200,8 +203,8 @@ class ModchartHoldMesh extends FlxBasic {
 				if (note == null || !note.alive)
 					continue;
 
-				// Solo piezas body de sustain (no head, no tail cap)
-				if (!note.isSustainNote || note.isTailCap)
+				// Solo piezas sustain (body y tail cap — ambos entran al mesh)
+				if (!note.isSustainNote)
 					continue;
 
 				// wasGoodHit: dejar que el sprite con clipRect maneje el recorte
@@ -264,19 +267,46 @@ class ModchartHoldMesh extends FlxBasic {
 				// ── Obtener textura del atlas ────────────────────────────────
 
 				var graphic = note.graphic;
-				if (graphic == null || graphic.bitmap == null)
+				if (graphic == null)
 					continue;
 
-				var fr = note.frame.frame; // FlxRect dentro del atlas
-				var bw:Float = graphic.bitmap.width;
-				var bh:Float = graphic.bitmap.height;
-				var uL:Float = fr.x / bw;
-				var uR:Float = (fr.x + fr.width) / bw;
-				var vT:Float = fr.y / bh;
-				var vB:Float = (fr.y + fr.height) / bh;
+				// Bug 4 fix: usar frame.uv (coordenadas normalizadas precalculadas por
+				// HaxeFlixel) en lugar de dividir frame.frame manualmente entre
+				// bitmap.width/height. frame.uv es lo que usa el renderer interno de
+				// FlxSprite, por lo que siempre está sincronizado con el atlas real.
+				var frameUV = note.frame.uv;
+				var uL:Float = #if (flixel >= "6.1.0") frameUV.left   #else frameUV.x      #end;
+				var uR:Float = #if (flixel >= "6.1.0") frameUV.right  #else frameUV.y      #end;
+				var vT:Float = #if (flixel >= "6.1.0") frameUV.top    #else frameUV.width  #end;
+				var vB:Float = #if (flixel >= "6.1.0") frameUV.bottom #else frameUV.height #end;
 				var vRng:Float = vB - vT;
 
-				var halfW:Float = noteW * 0.5;
+				// Bug 2 fix: leer la rotación del frame en el atlas.
+				// TexturePacker rota sprites 90° para ganar eficiencia de empaquetado.
+				// Sin este fix los UVs se asignan como si angle==0 y el hold aparece
+				// con la textura cortada o visualmente cizallada.
+				var frameAngle:Float = switch (note.frame.angle) {
+					case ANGLE_90:                -90.0;
+					case ANGLE_270 | ANGLE_NEG_90:  90.0;
+					default:                         0.0;
+				};
+				var _uvCosA:Float = 1.0;
+				var _uvSinA:Float = 0.0;
+				var _uvUCen:Float = 0.0;
+				var _uvVCen:Float = 0.0;
+				var _frameRotated:Bool = (frameAngle != 0.0);
+				if (_frameRotated) {
+					var rad = frameAngle * (Math.PI / 180.0);
+					_uvCosA = Math.cos(rad);
+					_uvSinA = Math.sin(rad);
+					_uvUCen = (uL + uR) * 0.5;
+					_uvVCen = (vT + vB) * 0.5;
+				}
+
+				// Bug 1 fix: usar el ancho recortado del frame (texels reales en el atlas)
+				// note.width = sourceSize × scale, que incluye padding transparente.
+				// frame.frame.width × scale.x es el ancho real de los texels.
+				var halfW:Float = note.frame.frame.width * note.scale.x * 0.5;
 
 				// ── Rellenar buffers de vértices y UV ────────────────────────
 				//
@@ -338,14 +368,38 @@ class ModchartHoldMesh extends FlxBasic {
 					// UV: interpolar V de vT a vB a lo largo de la pieza
 					var vTop2:Float = vT + (s / HOLD_SUBS) * vRng;
 					var vBot2:Float = vT + ((s + 1) / HOLD_SUBS) * vRng;
-					_uvts[vi] = uL;
-					_uvts[vi + 1] = vTop2;
-					_uvts[vi + 2] = uR;
-					_uvts[vi + 3] = vTop2;
-					_uvts[vi + 4] = uL;
-					_uvts[vi + 5] = vBot2;
-					_uvts[vi + 6] = uR;
-					_uvts[vi + 7] = vBot2;
+
+					if (!_frameRotated) {
+						// Caso rápido: sin rotación de atlas (ANGLE_0, el más común)
+						_uvts[vi]     = uL;    _uvts[vi + 1] = vTop2; // TL
+						_uvts[vi + 2] = uR;    _uvts[vi + 3] = vTop2; // TR
+						_uvts[vi + 4] = uL;    _uvts[vi + 5] = vBot2; // BL
+						_uvts[vi + 6] = uR;    _uvts[vi + 7] = vBot2; // BR
+					} else {
+						// Bug 2 fix: rotar las 4 esquinas UV alrededor del centro del frame.
+						// Necesario cuando TexturePacker rotó el sprite 90° en el atlas.
+						// Inline para evitar allocs (sin array temporal).
+
+						// TL: (uL, vTop2)
+						var du:Float = uL    - _uvUCen; var dv:Float = vTop2 - _uvVCen;
+						_uvts[vi]     = du * _uvCosA - dv * _uvSinA + _uvUCen;
+						_uvts[vi + 1] = du * _uvSinA + dv * _uvCosA + _uvVCen;
+
+						// TR: (uR, vTop2)
+						du = uR - _uvUCen; dv = vTop2 - _uvVCen;
+						_uvts[vi + 2] = du * _uvCosA - dv * _uvSinA + _uvUCen;
+						_uvts[vi + 3] = du * _uvSinA + dv * _uvCosA + _uvVCen;
+
+						// BL: (uL, vBot2)
+						du = uL - _uvUCen; dv = vBot2 - _uvVCen;
+						_uvts[vi + 4] = du * _uvCosA - dv * _uvSinA + _uvUCen;
+						_uvts[vi + 5] = du * _uvSinA + dv * _uvCosA + _uvVCen;
+
+						// BR: (uR, vBot2)
+						du = uR - _uvUCen; dv = vBot2 - _uvVCen;
+						_uvts[vi + 6] = du * _uvCosA - dv * _uvSinA + _uvUCen;
+						_uvts[vi + 7] = du * _uvSinA + dv * _uvCosA + _uvVCen;
+					}
 				}
 
 				// ── Enviar al pipeline de HaxeFlixel ─────────────────────────

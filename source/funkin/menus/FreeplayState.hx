@@ -550,7 +550,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 			}
 			else
 			{
-				albumArt.loadGraphic(Paths.image(_cacheKey));
+				albumArt.loadGraphic(Paths.getGraphic(_cacheKey));
 			}
 			albumArt.setGraphicSize(ALBUM_SZ, ALBUM_SZ);
 			albumArt.updateHitbox();

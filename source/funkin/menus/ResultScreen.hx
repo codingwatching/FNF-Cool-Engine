@@ -764,7 +764,7 @@ class ResultScreen extends FlxSubState {
 			new FlxTimer().start(3.2, function(_) {
 				if (highscoreNew == null)
 					return;
-				highscoreNew.y = -highscoreNew.height - 320;
+				highscoreNew.y = -highscoreNew.height - 520;
 				highscoreNew.alpha = 1;
 				highscoreNew.animation.play('new', true);
 				FlxTween.tween(highscoreNew, {y: 78}, 0.55, {ease: FlxEase.elasticOut});

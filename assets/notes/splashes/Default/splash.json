@@ -79,8 +79,8 @@
     "scale": 1.0,
     "antialiasing": true,
     "offset": [
-      0,
-      0
+      40,
+      40
     ]
   },
   "animations": {
@@ -109,8 +109,8 @@
         "prefix": "start",
         "fps": 24,
         "offsets": [
-          40,
-          40
+          20,
+          20
         ]
       },
       {
@@ -119,8 +119,8 @@
         "fps": 48,
         "looped": true,
         "offsets": [
-          20,
-          25
+          0,
+          0
         ]
       },
       {

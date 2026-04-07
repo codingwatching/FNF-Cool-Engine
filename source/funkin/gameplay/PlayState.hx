@@ -737,15 +737,17 @@ class PlayState extends funkin.states.MusicBeatState
 
 		add(strumLineNotes);
 
+// FIX race condition draw order: holdMesh PRIMERO → oculta sprites rectos antes de que sustainNotes los renderice.
+		// Orden correcto cada frame:
+		//   1. holdMesh.draw()     → renderiza mesh curvo + pone visible=false en notas curvadas
+		//   2. sustainNotes.draw() → notas curvadas ya tienen visible=false → no renderizan sprite recto
+		// noteManager se asigna después de setupControllers(); cam ya está disponible aquí.
+		holdMesh = new ModchartHoldMesh(null, camHUD);
+		add(holdMesh);
+
 		sustainNotes = new FlxTypedGroup<Note>();
 		sustainNotes.cameras = [camHUD];
 		add(sustainNotes);
-
-		// Mesh de holds curvados (modchart). Se inserta entre sustainNotes y notes
-		// para que las piezas body queden debajo de los heads. noteManager se asigna
-		// después de setupControllers(); cam ya está disponible aquí.
-		holdMesh = new ModchartHoldMesh(null, camHUD);
-		add(holdMesh);
 
 		notes = new FlxTypedGroup<Note>();
 		notes.cameras = [camHUD];

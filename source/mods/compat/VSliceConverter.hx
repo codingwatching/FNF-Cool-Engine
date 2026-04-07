@@ -447,11 +447,25 @@ class VSliceConverter
 				 *   2  = girlfriend (GF)
 				 *  -1  = posición absoluta (x,y)
 				 *
+				 * "value" puede ser:
+				 *   • Un número puro  → { "v": 1 }  — es el charIdx directamente.
+				 *   • Un objeto       → { "v": { "char": 1, "x": 0, "y": 0, … } }
+				 *
 				 * Formato de value en Cool Engine:
 				 *   "target|offsetX|offsetY|duration|ease"
 				 *   (campos opcionales; solo target es obligatorio)
 				 */
-				final charIdx:Int = value != null ? Std.int(_float(value.char, 0)) : 0;
+				// BUG FIX: cuando value es un número puro (v: 0, v: 1, v: 2),
+				// ese número ES el charIdx. Leer value.char en un número siempre
+				// devuelve null → charIdx = 0 → siempre BF, ignorando al oponente/GF.
+				final isPlainNumber:Bool = value != null && Std.isOfType(value, Float);
+				final charIdx:Int = if (value == null)
+					0;
+				else if (isPlainNumber)
+					Std.int(_float(value, 0));
+				else
+					Std.int(_float(value.char, 0));
+
 				final target = switch (charIdx)
 				{
 					case -1: 'position';
@@ -460,14 +474,14 @@ class VSliceConverter
 					case 2:  'gf';
 					default: 'bf';
 				};
-				final offX:Float   = value != null ? _float(value.x, 0.0) : 0.0;
-				final offY:Float   = value != null ? _float(value.y, 0.0) : 0.0;
-				final dur:Float    = value != null ? _float(value.duration, 0.0) : 0.0;
+				final offX:Float   = (!isPlainNumber && value != null) ? _float(value.x, 0.0) : 0.0;
+				final offY:Float   = (!isPlainNumber && value != null) ? _float(value.y, 0.0) : 0.0;
+				final dur:Float    = (!isPlainNumber && value != null) ? _float(value.duration, 0.0) : 0.0;
 				// Construir ease completo: "expo" + "Out" → "expoOut"
-				var ease:String = value != null ? _str(value.ease, '') : '';
+				var ease:String = (!isPlainNumber && value != null) ? _str(value.ease, '') : '';
 				if (ease != '' && ease != 'CLASSIC' && ease != 'INSTANT' && ease != 'linear')
 				{
-					final easeDir:String = value != null ? _str(value.easeDir, '') : '';
+					final easeDir:String = (!isPlainNumber && value != null) ? _str(value.easeDir, '') : '';
 					if (easeDir != '') ease = ease + easeDir;
 				}
 

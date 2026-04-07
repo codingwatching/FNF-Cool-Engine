@@ -7,7 +7,7 @@
     "type": "sparrow",
     "scale": 4.0,
     "antialiasing": false,
-    "offset": [85,80]
+    "offset": [35,30]
   },
   "animations": {
     "left": ["purple1", "purple2","purple3"],
