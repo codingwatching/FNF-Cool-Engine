@@ -228,6 +228,13 @@ class ModChartManager
 	private var strumsGroups:Array<StrumsGroup>;
 	private var states:Map<String, Array<StrumState>> = new Map();
 
+	/** Caché de resolución de alias → groupId real.
+	 *  getState() hace un scan O(n) de strumsGroups cuando el groupId literal
+	 *  ("player"/"cpu"/…) no existe como clave en `states`. Este Map guarda el
+	 *  resultado para convertir ese scan en O(1) en todos los frames siguientes.
+	 *  Se invalida en captureBasePositions() y replaceStrumsGroups(). */
+	private var _aliasCache:Map<String, String> = new Map();
+
 	public var camState:CameraModState = {
 		zoom: 0,
 		offsetX: 0,
@@ -835,12 +842,14 @@ class ModChartManager
 	public function replaceStrumsGroups(newGroups:Array<StrumsGroup>):Void
 	{
 		this.strumsGroups = newGroups;
+		_aliasCache.clear(); // los grupos cambiaron → invalidar resolución de alias
 		captureBasePositions();
 	}
 
 	public function captureBasePositions():Void
 	{
 		states.clear();
+		_aliasCache.clear(); // strumsGroups cambió → alias anteriores son inválidos
 		for (group in strumsGroups)
 		{
 			var arr:Array<StrumState> = [];
@@ -2020,15 +2029,27 @@ class ModChartManager
 		var resolvedId = groupId;
 		if (!states.exists(groupId))
 		{
-			// Try to match by isCPU flag when the literal key isn't found
-			var wantCPU = (groupId == "cpu" || groupId == "opponent" || groupId == "dad" || groupId == "enemy");
-			for (g in strumsGroups)
+			// OPTIMIZACIÓN: consultar caché antes de hacer el scan O(n).
+			// En el caso común (groupId = "player"/"cpu") el scan solo ocurre
+			// la primera vez; todas las llamadas siguientes son O(1).
+			var cached = _aliasCache.get(groupId);
+			if (cached != null)
 			{
-				if (g.isCPU == wantCPU)
+				resolvedId = cached;
+			}
+			else
+			{
+				// Try to match by isCPU flag when the literal key isn't found
+				var wantCPU = (groupId == "cpu" || groupId == "opponent" || groupId == "dad" || groupId == "enemy");
+				for (g in strumsGroups)
 				{
-					resolvedId = g.id;
-					break;
+					if (g.isCPU == wantCPU)
+					{
+						resolvedId = g.id;
+						break;
+					}
 				}
+				_aliasCache.set(groupId, resolvedId);
 			}
 		}
 		var arr = states.get(resolvedId);

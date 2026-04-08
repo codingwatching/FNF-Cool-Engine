@@ -178,6 +178,23 @@ class CameraController
 		camGame.followLerp = lerp;
 	}
 
+	/**
+	 * Cancela cualquier pan tween activo, desbloquea el follow y snapeaa
+	 * camFollow al target actual.
+	 * Llamar desde EventManager antes de setTarget() en eventos tipo snap
+	 * (sin duration) para que un FocusCamera CLASSIC/snap no quede bloqueado
+	 * por un pan largo que aún esté en curso.
+	 */
+	public function cancelPan():Void
+	{
+		if (_panTween != null)
+		{
+			_panTween.cancel();
+			_panTween = null;
+		}
+		locked = false;
+	}
+
 	// ─────────────────────────────────────────────────────────────
 	//  LOCK / UNLOCK
 	// ─────────────────────────────────────────────────────────────

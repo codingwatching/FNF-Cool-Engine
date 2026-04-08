@@ -420,6 +420,18 @@ class MusicBeatState extends CoolUIState
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onDestroy', []);
 		StateScriptHandler.clearStateScripts();
+
+		// ── Limpiar capas de scripts de gameplay ──────────────────────────────
+		// FunkinCache.preStateSwitch ya hace esto como red de seguridad, pero
+		// llamarlo aquí también (en el destroy del state) garantiza que los
+		// callbacks de scripts (onDestroy, etc.) no se disparen en el nuevo state.
+		// En PlayState.destroy() estas ya fueron limpiadas antes → no-ops.
+		// En cualquier otro state que haya cargado scripts de song/stage/char
+		// (poco usual), esto cierra el hueco.
+		funkin.scripting.ScriptHandler.clearSongScripts();
+		funkin.scripting.ScriptHandler.clearStageScripts();
+		funkin.scripting.ScriptHandler.clearCharScripts();
+		funkin.scripting.ScriptHandler.clearMenuScripts();
 		#end
 	}
 

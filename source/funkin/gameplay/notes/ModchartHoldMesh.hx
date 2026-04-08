@@ -275,9 +275,9 @@ class ModchartHoldMesh extends FlxBasic {
 				// bitmap.width/height. frame.uv es lo que usa el renderer interno de
 				// FlxSprite, por lo que siempre está sincronizado con el atlas real.
 				var frameUV = note.frame.uv;
-				var uL:Float = #if (flixel >= "6.1.0") frameUV.left   #else frameUV.x      #end;
-				var uR:Float = #if (flixel >= "6.1.0") frameUV.right  #else frameUV.y      #end;
-				var vT:Float = #if (flixel >= "6.1.0") frameUV.top    #else frameUV.width  #end;
+				var uL:Float = #if (flixel >= "6.1.0") frameUV.left #else frameUV.x #end;
+				var uR:Float = #if (flixel >= "6.1.0") frameUV.right #else frameUV.y #end;
+				var vT:Float = #if (flixel >= "6.1.0") frameUV.top #else frameUV.width #end;
 				var vB:Float = #if (flixel >= "6.1.0") frameUV.bottom #else frameUV.height #end;
 				var vRng:Float = vB - vT;
 
@@ -286,9 +286,9 @@ class ModchartHoldMesh extends FlxBasic {
 				// Sin este fix los UVs se asignan como si angle==0 y el hold aparece
 				// con la textura cortada o visualmente cizallada.
 				var frameAngle:Float = switch (note.frame.angle) {
-					case ANGLE_90:                -90.0;
-					case ANGLE_270 | ANGLE_NEG_90:  90.0;
-					default:                         0.0;
+					case ANGLE_90: -90.0;
+					case ANGLE_270: 90.0;
+					default: 0.0;
 				};
 				var _uvCosA:Float = 1.0;
 				var _uvSinA:Float = 0.0;
@@ -371,32 +371,40 @@ class ModchartHoldMesh extends FlxBasic {
 
 					if (!_frameRotated) {
 						// Caso rápido: sin rotación de atlas (ANGLE_0, el más común)
-						_uvts[vi]     = uL;    _uvts[vi + 1] = vTop2; // TL
-						_uvts[vi + 2] = uR;    _uvts[vi + 3] = vTop2; // TR
-						_uvts[vi + 4] = uL;    _uvts[vi + 5] = vBot2; // BL
-						_uvts[vi + 6] = uR;    _uvts[vi + 7] = vBot2; // BR
+						_uvts[vi] = uL;
+						_uvts[vi + 1] = vTop2; // TL
+						_uvts[vi + 2] = uR;
+						_uvts[vi + 3] = vTop2; // TR
+						_uvts[vi + 4] = uL;
+						_uvts[vi + 5] = vBot2; // BL
+						_uvts[vi + 6] = uR;
+						_uvts[vi + 7] = vBot2; // BR
 					} else {
 						// Bug 2 fix: rotar las 4 esquinas UV alrededor del centro del frame.
 						// Necesario cuando TexturePacker rotó el sprite 90° en el atlas.
 						// Inline para evitar allocs (sin array temporal).
 
 						// TL: (uL, vTop2)
-						var du:Float = uL    - _uvUCen; var dv:Float = vTop2 - _uvVCen;
-						_uvts[vi]     = du * _uvCosA - dv * _uvSinA + _uvUCen;
+						var du:Float = uL - _uvUCen;
+						var dv:Float = vTop2 - _uvVCen;
+						_uvts[vi] = du * _uvCosA - dv * _uvSinA + _uvUCen;
 						_uvts[vi + 1] = du * _uvSinA + dv * _uvCosA + _uvVCen;
 
 						// TR: (uR, vTop2)
-						du = uR - _uvUCen; dv = vTop2 - _uvVCen;
+						du = uR - _uvUCen;
+						dv = vTop2 - _uvVCen;
 						_uvts[vi + 2] = du * _uvCosA - dv * _uvSinA + _uvUCen;
 						_uvts[vi + 3] = du * _uvSinA + dv * _uvCosA + _uvVCen;
 
 						// BL: (uL, vBot2)
-						du = uL - _uvUCen; dv = vBot2 - _uvVCen;
+						du = uL - _uvUCen;
+						dv = vBot2 - _uvVCen;
 						_uvts[vi + 4] = du * _uvCosA - dv * _uvSinA + _uvUCen;
 						_uvts[vi + 5] = du * _uvSinA + dv * _uvCosA + _uvVCen;
 
 						// BR: (uR, vBot2)
-						du = uR - _uvUCen; dv = vBot2 - _uvVCen;
+						du = uR - _uvUCen;
+						dv = vBot2 - _uvVCen;
 						_uvts[vi + 6] = du * _uvCosA - dv * _uvSinA + _uvUCen;
 						_uvts[vi + 7] = du * _uvSinA + dv * _uvCosA + _uvVCen;
 					}

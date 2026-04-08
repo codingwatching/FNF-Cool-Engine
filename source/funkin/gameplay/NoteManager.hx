@@ -346,6 +346,24 @@ class NoteManager
 	private var _frameCenterYCache:Array<Float>      = [for (_ in 0..._FRAME_CACHE_SIZE) Math.NaN];
 	private var _frameVisualCenterCache:Array<Float> = [for (_ in 0..._FRAME_CACHE_SIZE) Math.NaN];
 
+	/**
+	 * Caché de frame: `modManager != null && modManager.enabled`.
+	 * updateNotePosition() evalúa esta condición varias veces por nota (escalado,
+	 * alpha, offsets X/Y, hook de posición). Con 20+ notas activas eso son 80-120
+	 * dereferences de puntero + comparaciones por frame — eliminadas con un bool plano.
+	 * Se recalcula UNA VEZ al inicio de updateActiveNotes() y updatePositionsForRewind().
+	 */
+	private var _frameModEnabled:Bool = false;
+
+	/**
+	 * Caché de frame: `allStrumsGroups != null ? allStrumsGroups.length : 0`.
+	 * updateNotePosition() comprueba `allStrumsGroups != null && note.strumsGroupIndex < allStrumsGroups.length`
+	 * para resolver el groupId del modchart. Con el count en un Int local se elimina
+	 * el null-check y el .length por nota.
+	 * Se recalcula UNA VEZ al inicio de updateActiveNotes() y updatePositionsForRewind().
+	 */
+	private var _frameGroupCount:Int = 0;
+
 	public function new(notes:FlxTypedGroup<Note>, playerStrums:FlxTypedGroup<FlxSprite>, cpuStrums:FlxTypedGroup<FlxSprite>,
 			splashes:FlxTypedGroup<NoteSplash>, holdCovers:FlxTypedGroup<NoteHoldCover>, ?playerStrumsGroup:StrumsGroup, ?cpuStrumsGroup:StrumsGroup,
 			?allStrumsGroups:Array<StrumsGroup>, ?sustainNotes:FlxTypedGroup<Note>)
@@ -651,17 +669,21 @@ class NoteManager
 	}
 
 	/**
-	 * Devuelve true si quedan piezas de sustain pendientes para una dirección,
-	 * buscando tanto en las notas ya spawneadas como en las futuras (arrays SOA _raw*).
-	 * Sin revisar los datos futuros, los holds largos se liberaban prematuramente.
-	 */
-	/**
 	 * Devuelve true si quedan piezas de sustain AÚN NO COMPLETADAS para esta dirección.
 	 *
 	 * FIX: antes comprobaba `n.alive` y esperaba a que los sustains se salieran de pantalla.
 	 * Ahora comprueba `!n.wasGoodHit && !n.tooLate` — la hold termina en cuanto la última
 	 * pieza de sustain cruza la ventana de hit (wasGoodHit=true), no cuando sale de pantalla.
 	 * Esto dispara la animación de fin del hold cover en el momento correcto.
+	 *
+	 * OPTIMIZACIÓN — salida anticipada en el scan de datos futuros:
+	 * Los arrays SOA están ordenados por strumTime. Dentro de un hold, todas las piezas
+	 * de sustain para una dirección son consecutivas en el tiempo. Si durante el scan
+	 * encontramos una HEAD NOTE (isSustain=false) para la misma dirección y lado, significa
+	 * que ya pasamos todas las piezas del hold actual — el siguiente hold empieza después.
+	 * Condición: las piezas no spawneadas del hold actual tienen strumTime ANTERIOR al de
+	 * la siguiente head note, así que siempre se encuentran primero en el scan.
+	 * → break seguro: el hold activo no tiene piezas pendientes en el array crudo.
 	 */
 	private function _hasPendingSustain(dir:Int, isPlayer:Bool, members:Array<Note>, len:Int):Bool
 	{
@@ -672,12 +694,20 @@ class NoteManager
 			if (n != null && n.alive && n.isSustainNote && n.noteData == dir && n.mustPress == isPlayer && !n.wasGoodHit && !n.tooLate)
 				return true;
 		}
-		// 2. Notas futuras aún no spawneadas — CRÍTICO para holds largos
+		// 2. Notas futuras aún no spawneadas — CRÍTICO para holds largos.
+		//    Salida anticipada: al topar con una head note de la misma dirección/lado
+		//    sabemos que el hold actual ya terminó y que el siguiente aún no empieza.
 		for (i in _unspawnIdx..._rawTotal)
 		{
 			final pk = _rawPacked[i];
-			if (_pIsSustain(pk) && _pNoteData(pk) == dir && _pMustHit(pk) == isPlayer)
-				return true;
+			if (_pNoteData(pk) == dir && _pMustHit(pk) == isPlayer)
+			{
+				if (_pIsSustain(pk)) return true;
+				// Head note encontrada para este dir — las piezas del hold activo
+				// habrían aparecido antes (tiempo menor) en el array ordenado.
+				// No hay más piezas pendientes del hold actual: salida anticipada.
+				break;
+			}
 		}
 		return false;
 	}
@@ -770,6 +800,11 @@ class NoteManager
 			_lastSustainSpeed = _scrollSpeed;
 			_recalcAllSustainScales();
 		}
+
+		// Cachés de frame: recalcular UNA vez antes de iterar las notas.
+		// updateNotePosition() los consulta varias veces por nota — sin alloc, sin null-check repetido.
+		_frameModEnabled = modManager != null && modManager.enabled;
+		_frameGroupCount = (allStrumsGroups != null) ? allStrumsGroups.length : 0;
 
 		// Limpiar caches de posición de strums — se rellenan lazily nota a nota este frame.
 		// OPTIMIZACIÓN: array fill con NaN vs Map.clear() → sin rehash, sin alloc.
@@ -1135,10 +1170,10 @@ class NoteManager
 		var _modState:funkin.gameplay.modchart.StrumState = null;
 
 		var _noteGroupId:String = note.mustPress ? "player" : "cpu";
-		if (modManager != null && modManager.enabled)
+		if (_frameModEnabled)
 		{
 			// Resolver el groupId a partir del strumsGroupIndex de la nota
-			if (allStrumsGroups != null && note.strumsGroupIndex < allStrumsGroups.length)
+			if (note.strumsGroupIndex < _frameGroupCount)
 				_noteGroupId = allStrumsGroups[note.strumsGroupIndex].id;
 			_modState = modManager.getState(_noteGroupId, note.noteData);
 		}
@@ -1417,7 +1452,7 @@ class NoteManager
 			}
 		}
 
-		if (modManager != null && modManager.hasNotePositionHook)
+		if (_frameModEnabled && modManager.hasNotePositionHook)
 		{
 			final ctx = modManager.noteCtx;
 			ctx.noteData = note.noteData;
@@ -1728,39 +1763,40 @@ class NoteManager
 		final slen = smembers.length;
 		final gapThresh:Float = Conductor.stepCrochet * 2.0;
 
-		// Paso 1: inicio de cadena = strumTime minimo entre piezas elegibles
-		var chainStart:Float = Math.POSITIVE_INFINITY;
+		// Recopilar los strumTimes de las piezas elegibles — O(n).
+		// ANTES: paso 2 era un while/found que reescaneaba n veces → O(n²).
+		// AHORA: ordenar una vez O(k log k) y extender en un único paso lineal O(k),
+		// con k = piezas elegibles de esta dirección (típicamente ≪ n total).
+		var eligible:Array<Float> = [];
 		for (i in 0...slen)
 		{
 			final n = smembers[i];
 			if (n == null || !n.alive || !n.isSustainNote || n.noteData != dir || n.wasGoodHit || n.tooLate)
 				continue;
-			if (n.strumTime < chainStart)
-				chainStart = n.strumTime;
+			eligible.push(n.strumTime);
 		}
-		if (!Math.isFinite(chainStart))
+
+		if (eligible.length == 0)
 		{
 			_sustainChainMissedEndTime[dir] = -1.0;
 			return; // nada que marcar
 		}
 
-		// Paso 2: extender el fin de cadena pieza a pieza
-		var chainEnd:Float = chainStart;
-		var found:Bool = true;
-		while (found)
+		// Ordenar una sola vez — necesario para que el break del paso siguiente sea correcto.
+		eligible.sort((a, b) -> a < b ? -1 : a > b ? 1 : 0);
+
+		var chainStart:Float = eligible[0];
+		var chainEnd:Float   = chainStart;
+
+		// Paso único: recorrer en orden ascendente.
+		// La lista está ordenada → en cuanto hay un hueco podemos cortar.
+		for (i in 1...eligible.length)
 		{
-			found = false;
-			for (i in 0...slen)
-			{
-				final n = smembers[i];
-				if (n == null || !n.alive || !n.isSustainNote || n.noteData != dir || n.wasGoodHit || n.tooLate)
-					continue;
-				if (n.strumTime > chainEnd && n.strumTime <= chainEnd + gapThresh)
-				{
-					chainEnd = n.strumTime;
-					found = true;
-				}
-			}
+			final t = eligible[i];
+			if (t <= chainEnd + gapThresh)
+				chainEnd = t;
+			else
+				break; // hueco detectado — imposible extender más sin backtrack
 		}
 
 		// Guardar el limite para spawnNotes() y para el reset en hitNote()
@@ -1801,6 +1837,9 @@ class NoteManager
 	 */
 	public function updatePositionsForRewind(songPosition:Float):Void
 	{
+		// Sincronizar cachés de frame: updateNotePosition() los necesita aunque no pasemos por updateActiveNotes().
+		_frameModEnabled = modManager != null && modManager.enabled;
+		_frameGroupCount = (allStrumsGroups != null) ? allStrumsGroups.length : 0;
 		_rewindUpdateGroup(sustainNotes.members, sustainNotes.members.length, songPosition);
 		if (sustainNotes != notes)
 			_rewindUpdateGroup(notes.members, notes.members.length, songPosition);

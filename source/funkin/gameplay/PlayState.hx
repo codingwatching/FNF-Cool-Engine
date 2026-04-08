@@ -2705,6 +2705,11 @@ class PlayState extends funkin.states.MusicBeatState
 		optimizationManager?.destroy();
 		optimizationManager = null;
 
+		vocalsPerChar.clear();
+		vocalsPerChar = null;
+
+		//SONG = null;
+
 		FlxG.timeScale = 1.0;
 		playbackRate = 1.0;
 
@@ -2747,6 +2752,9 @@ class PlayState extends funkin.states.MusicBeatState
 
 		_destroySoundPoolItems(_hitSounds);
 		_destroySoundPoolItems(_missSounds);
+
+		_hitSounds = null;
+		_missSounds = null;
 
 		countdown?.destroy();
 		countdown = null;

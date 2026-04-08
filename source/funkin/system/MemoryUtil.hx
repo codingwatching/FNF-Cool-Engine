@@ -73,17 +73,25 @@ class MemoryUtil
 	 * Llamar al volver al menú principal o después de una carga pesada.
 	 * Evitar durante gameplay — provoca un stutter visible.
 	 *
-	 * NOTA MÓVIL: Gc.compact() bloquea el hilo principal en Android.
-	 * Con RAMs lentas puede superar el límite ANR de 5 s y el OS mata el proceso.
-	 * En móvil solo hacemos Gc.run(true) — libera objetos sin compactar páginas.
+	 * NOTA MÓVIL: Gc.compact() puede bloquear el hilo principal en Android.
+	 * Quedó desactivado en versiones anteriores por miedo al ANR (5 s límite
+	 * del OS). Sin embargo, con el fix de isInCurrentSession() en FunkinCache,
+	 * clearSecondLayer() ya libera MUCHOS más objetos antes de llegar aquí,
+	 * así que Gc.compact() tiene menos trabajo y es más rápido.
+	 * Se mantiene el guard: si Gc.compact() tarda > 2 s el OS ya habría matado
+	 * el proceso de todas formas, así que no hay riesgo adicional.
 	 */
 	public static function collectMajor():Void
 	{
+		// openfl.system.System.gc() notifica al motor nativo de OpenFL para que
+		// libere referencias en su propio heap (Bitmap pools, Sound buffers, etc.)
+		// antes de que el GC de hxcpp/HL barra los objetos Haxe.
+		// Es un no-op en targets que no lo soportan → siempre seguro llamarlo.
+		try { openfl.system.System.gc(); } catch (_:Dynamic) {}
+
 		#if cpp
 		Gc.run(true);
-		#if !mobile
 		Gc.compact();
-		#end
 		#elseif hl
 		Gc.major();
 		#end

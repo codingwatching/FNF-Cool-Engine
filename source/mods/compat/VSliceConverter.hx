@@ -485,6 +485,16 @@ class VSliceConverter
 					if (easeDir != '') ease = ease + easeDir;
 				}
 
+				// HaxeFlixel no tiene variantes In/Out para smoothStep ni smootherStep —
+				// solo existe la función base. Normalizar para evitar que Reflect.field()
+				// devuelva null y el tween no se dispare.
+				ease = switch (ease.toLowerCase())
+				{
+					case 'smoothstepinout' | 'smoothstepin' | 'smoothstepout': 'smoothStep';
+					case 'smootherstepinout' | 'smootherstepin' | 'smootherstepout': 'smootherStep';
+					default: ease;
+				};
+
 				// CLASSIC = snap del follow point sin tween (comportamiento por defecto).
 				// INSTANT = snap instantáneo (duración 0).
 				// Ambos se traducen a un Camera Follow simple sin duration/ease.

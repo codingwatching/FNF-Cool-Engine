@@ -82,14 +82,15 @@ class CacheState extends funkin.states.MusicBeatState
         // ── Lista mínima de assets esenciales ──────────────────────────────
         buildEssentialList();
 
-        // ── Scripts globales del mod activo ────────────────────────────────
-        // Al llegar aquí ModManager.activeMod ya apunta al nuevo mod
-        // (setActive() se llamó en ModSelectorState antes del fade).
-        // Rescannear global scripts garantiza que los menús del nuevo mod
-        // (TitleState, MainMenu, FreeplayState…) ya tengan sus hooks cargados.
-        // Sin esto, mods/nuevo/scripts/global/ no se registran hasta que
-        // arranca PlayState (Fix 1 — global scripts en cambio de mod).
-        ScriptHandler.loadGlobalScripts();
+        // ── Scripts globales ────────────────────────────────────────────────
+        // FIX (Android): ScriptHandler.loadGlobalScripts() usaba Sys.programPath()
+        // + FileSystem.readDirectory() síncrono, lo que en Android puede tardar
+        // varios segundos bloqueando el hilo GL y congelando la barra en ~7%.
+        // Solución: se registra como un paso más de la cadena de carga (tipo SCRIPTS),
+        // de modo que el render loop tiene garantizado al menos 1 frame renderizado
+        // antes de ejecutarlo. El comportamiento lógico es idéntico al anterior:
+        // los scripts quedan listos antes de entrar a TitleState.
+        assetsToCache.push({ type: SCRIPTS, path: '' });
 
         totalAssets = assetsToCache.length;
         super.create();
@@ -168,6 +169,13 @@ class CacheState extends funkin.states.MusicBeatState
                     final g = Paths.getGraphic(asset.path);
                     if (g != null)
                         Paths.cache.addExclusion(path);
+
+                case SCRIPTS:
+                    // FIX (Android): ejecutado aquí, después de que el render loop
+                    // ya pintó al menos un frame, evitando el freeze en ~7%.
+                    // Rescannear global scripts garantiza que los menús del mod activo
+                    // (TitleState, MainMenu, FreeplayState…) ya tengan sus hooks.
+                    ScriptHandler.loadGlobalScripts();
             }
         }
         catch (_:Dynamic) {}
@@ -227,4 +235,4 @@ class CacheState extends funkin.states.MusicBeatState
 
 typedef AssetInfo = { var type:AssetType; var path:String; }
 
-enum AssetType { SOUND; IMAGE; }
+enum AssetType { SOUND; IMAGE; SCRIPTS; }

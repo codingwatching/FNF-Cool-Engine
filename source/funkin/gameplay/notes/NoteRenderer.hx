@@ -73,14 +73,11 @@ class NoteRenderer
     private var maxPoolSize:Int    = 32;   // máximo por sub-pool de skin
     private var _totalPoolCap:Int  = 128;  // cap global de notas en todos los pools
 
-    /** Total de notas actualmente guardadas en todos los sub-pools. O(n_skins). */
-    private inline function _totalPooled():Int
-    {
-        var t = 0;
-        for (p in _notePoolMap)    t += p.length;
-        for (p in _sustainPoolMap) t += p.length;
-        return t;
-    }
+    /** Contador O(1) del total de notas guardadas en todos los sub-pools.
+     *  Reemplaza el antiguo _totalPooled() que iteraba todos los pools en cada
+     *  recycleNote() — O(n_skins) → O(1). Se incrementa en recycleNote() y se
+     *  decrementa en getNote() al reciclar. Se resetea a 0 en clearPools(). */
+    private var _totalPooledCount:Int = 0;
 
     // OPTIMIZATION: pool de splashes de hit normales
     private var splashPool:Array<NoteSplash> = [];
@@ -145,6 +142,7 @@ class NoteRenderer
         if (exactPool.length > 0)
         {
             note = exactPool.pop();
+            _totalPooledCount--;
             note.recycle(strumTime, noteData, prevNote, sustainNote, mustHitNote, groupSkin);
             pooledNotes++;
         }
@@ -190,12 +188,13 @@ class NoteRenderer
             final pool = _getPool(skinKey, note.isSustainNote);
 
             // Guardar solo si no se superan los caps; destruir en caso contrario.
-            if (pool.length < maxPoolSize && _totalPooled() < _totalPoolCap)
+            if (pool.length < maxPoolSize && _totalPooledCount < _totalPoolCap)
             {
                 note.kill();
                 note.visible = false;
                 note.active  = false;
                 pool.push(note);
+                _totalPooledCount++;
             }
             else
             {
@@ -484,6 +483,7 @@ class NoteRenderer
             for (note in pool)
                 if (note != null) note.destroy();
         _sustainPoolMap.clear();
+        _totalPooledCount = 0;
 
         // Splash pool — están en grpNoteSplashes → solo kill, NO destroy
         for (splash in splashPool)

@@ -86,9 +86,48 @@ class FunkinCache extends AssetCache
 
 		FlxG.signals.preStateSwitch.add(function()
 		{
+			// ── Paso 0: expulsar FlxGraphics muertos ANTES de rotar ───────────
+			// Si el state anterior dejó FlxGraphics con useCount=0 en el pool de
+			// Flixel (sprites destruidos pero gráfico aún referenciado), deben
+			// eliminarse ANTES de moverlos a SECOND para que clearSecondLayer()
+			// no los evalúe ni intente rescatarlos.
+			try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
+
+			// ── Paso 1: rotar capas de assets ─────────────────────────────────
 			instance.moveToSecondLayer();
 			funkin.cache.PathsCache.instance.rotateSession();
 			FunkinSprite.clearAllCaches();
+
+			// ── Paso 2: detener todos los FlxSounds no persistentes ───────────
+			// Flixel destruye los sounds de la lista en el switch, pero no cierra
+			// el buffer nativo de OpenFL hasta que el GC los recoge (puede tardar
+			// varios frames). Llamar stop() explícitamente cierra el canal de audio
+			// inmediatamente y evita que los sonidos de menú/gameplay sigan
+			// consumiendo buffers PCM durante la transición.
+			// persist=true indica que el sound debe sobrevivir el cambio de state
+			// (e.g. música de fondo que continúa) — esos se respetan.
+			try
+			{
+				for (snd in FlxG.sound.list)
+					if (snd != null && !snd.persist)
+						try { snd.stop(); } catch (_:Dynamic) {}
+			}
+			catch (_:Dynamic) {}
+
+			// ── Paso 3: limpiar capas de scripts de la sesión anterior ────────
+			// Red de seguridad: si PlayState.destroy() no llegó a ejecutarse
+			// (crash, excepción, resetState mid-frame), las capas de scripts
+			// song/stage/char siguen activas y sus callbacks se dispararían en el
+			// nuevo state. Limpiarlas aquí garantiza un arranque limpio.
+			// globalScripts NO se limpia — son permanentes toda la sesión.
+			try
+			{
+				funkin.scripting.ScriptHandler.clearSongScripts();
+				funkin.scripting.ScriptHandler.clearStageScripts();
+				funkin.scripting.ScriptHandler.clearCharScripts();
+				funkin.scripting.ScriptHandler.clearMenuScripts();
+			}
+			catch (_:Dynamic) {}
 		});
 
 		FlxG.signals.postStateSwitch.add(function()
@@ -120,12 +159,26 @@ class FunkinCache extends AssetCache
 			// bloqueando al GC. Llamar aquí, DESPUÉS de clearSecondLayer().
 			funkin.cache.PathsCache.instance.clearPreviousSounds();
 
+			Paths.pruneAtlasCache();
+
 			// ── Limpiar FlxGraphics huérfanos del pool interno de Flixel ─────────
 			// clearSecondLayer() + clearPreviousGraphics() liberaron las referencias
 			// de PathsCache/FunkinCache, pero FlxBitmapFrontEnd sigue con wrappers
 			// cuyo useCount=0 y bitmap=null. clearUnused() los expulsa del pool
 			// antes del GC para que collectMajor() los recoja en la misma pasada.
 			try { FlxG.bitmap.clearUnused(); } catch (_:Dynamic) {}
+
+			// ── Purgar cachés de audio de OpenFL/Lime ─────────────────────────
+			// clearSecondLayer() llama s.close() sobre los Sound individuales,
+			// pero los bundles de library 'songs' y 'music' registrados en
+			// LimeAssets conservan sus buffers PCM aunque los Sound estén cerrados.
+			// clear('songs') + clear('music') libera esos buffers de golpe.
+			// Se llama DESPUÉS de clearSecondLayer() para no cerrar sonidos
+			// que el nuevo state ya rescató (están en CURRENT, no en SECOND).
+			#if lime
+			try { lime.utils.Assets.cache.clear('songs');  } catch (_:Dynamic) {}
+			try { lime.utils.Assets.cache.clear('music');  } catch (_:Dynamic) {}
+			#end
 
 			// Major + compact para devolver páginas al OS y reducir MEM_INFO_RESERVED.
 			// Se llama DESPUÉS del switch (nuevo estado ya activo), no durante gameplay.
@@ -168,7 +221,24 @@ class FunkinCache extends AssetCache
 		{
 			if (_permanentBitmaps.exists(k)) continue;
 			final graphic = FlxG.bitmap.get(k);
-			if (graphic != null && (graphic.useCount > 0 || graphic.persist))
+			// BUG FIX CRÍTICO — antes: `graphic.persist` era siempre `true` para
+			// TODOS los FlxGraphic gestionados por PathsCache, por lo que NINGÚN
+			// asset de la capa SECOND se descartaba nunca: todos se rescataban a
+			// CURRENT aunque el nuevo state no los necesitara, duplicando la RAM
+			// usada en cada cambio de state.
+			//
+			// Solución: rescatar solo si:
+			//   a) useCount > 0: un FlxSprite del nuevo state tiene referencia activa
+			//   b) isInCurrentSession(): PathsCache ya incorporó el asset a la
+			//      sesión actual (lo rescató de _previous o lo cargó de nuevo)
+			//
+			// graphic.persist sigue a `true` — es necesario para que Flixel no lo
+			// evicte por su cuenta. Pero FunkinCache ya no lo usa como criterio de
+			// rescate; usa PathsCache como fuente de verdad.
+			final shouldRescue = graphic != null
+				&& (graphic.useCount > 0
+					|| funkin.cache.PathsCache.instance.isInCurrentSession(k));
+			if (shouldRescue)
 			{
 				// Aún en uso → rescatar a CURRENT
 				bitmapData.set(k, b);

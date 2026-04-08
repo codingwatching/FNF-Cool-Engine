@@ -24,28 +24,22 @@ using StringTools;
 // ─────────────────────────────────────────────────────────────────────────────
 // Modos del menú de pausa
 // ─────────────────────────────────────────────────────────────────────────────
-enum PauseMode
-{
-	Standard;   // Gameplay normal
+enum PauseMode {
+	Standard; // Gameplay normal
 	Difficulty; // Submenú de cambio de dificultad
-	Cutscene;   // Pausado durante cutscene de video
+	Cutscene; // Pausado durante cutscene de video
 }
 
-class PauseSubState extends funkin.states.MusicBeatSubstate
-{
+class PauseSubState extends funkin.states.MusicBeatSubstate {
 	var grpMenuShit:FlxTypedGroup<Alphabet>;
 
 	// Entradas base para cada modo
-	static final ENTRIES_STANDARD:Array<String> = [
-		'Resume', 'Restart Song', 'Change Difficulty', 'Options', 'Exit to menu'
-	];
-	static final ENTRIES_CUTSCENE:Array<String> = [
-		'Resume', 'Skip Cutscene', 'Exit to menu'
-	];
+	static final ENTRIES_STANDARD:Array<String> = ['Resume', 'Restart Song', 'Change Difficulty', 'Options', 'Exit to menu'];
+	static final ENTRIES_CUTSCENE:Array<String> = ['Resume', 'Skip Cutscene', 'Exit to menu'];
 
 	var menuItems:Array<String> = [];
-	var curSelected:Int         = 0;
-	var currentMode:PauseMode   = Standard;
+	var curSelected:Int = 0;
+	var currentMode:PauseMode = Standard;
 
 	/** true si se abrió durante una cutscene de video. */
 	var isCutsceneMode:Bool = false;
@@ -87,28 +81,24 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	/**
 	 * @param cutsceneMode  Pasar `true` cuando se pausa durante un video en curso.
 	 */
-	public function new(?cutsceneMode:Bool = false)
-	{
+	public function new(?cutsceneMode:Bool = false) {
 		super();
 
 		isCutsceneMode = cutsceneMode;
 
-		if (isCutsceneMode && VideoManager.isPlaying)
-		{
-			_pauseCam  = new flixel.FlxCamera();
+		if (isCutsceneMode && VideoManager.isPlaying) {
+			_pauseCam = new flixel.FlxCamera();
 			_pauseCam.bgColor = flixel.util.FlxColor.TRANSPARENT;
-			_pauseCam.zoom    = 1.0;
+			_pauseCam.zoom = 1.0;
 			FlxG.cameras.add(_pauseCam, false);
-			_ownedCam  = true;
-		}
-		else
-		{
+			_ownedCam = true;
+		} else {
 			// Normal mode: cámara propia para garantizar zoom=1 siempre.
-			_pauseCam  = new flixel.FlxCamera();
+			_pauseCam = new flixel.FlxCamera();
 			_pauseCam.bgColor = flixel.util.FlxColor.TRANSPARENT;
-			_pauseCam.zoom    = 1.0;
+			_pauseCam.zoom = 1.0;
 			FlxG.cameras.add(_pauseCam, false);
-			_ownedCam  = true;
+			_ownedCam = true;
 		}
 		cameras = [_pauseCam];
 
@@ -145,7 +135,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		levelDifficulty = new FlxText(FlxG.width - 400, 60, 380, "Difficulty: " + CoolUtil.difficultyString(), 24);
 		levelDifficulty.scrollFactor.set();
-		levelDifficulty.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+		levelDifficulty.setFormat(Paths.font('Funkin.otf'), 32, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelDifficulty.borderSize = 1.5;
 		levelDifficulty.antialiasing = true;
 		levelDifficulty.updateHitbox();
@@ -155,7 +145,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		levelDeaths = new FlxText(FlxG.width - 400, 95, 380, "Deaths: " + GameState.deathCounter, 20);
 		levelDeaths.scrollFactor.set();
-		levelDeaths.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+		levelDeaths.setFormat(Paths.font('Funkin.otf'), 32, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelDeaths.borderSize = 1.5;
 		levelDeaths.antialiasing = true;
 		levelDeaths.alpha = 0;
@@ -164,7 +154,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 		levelAuthor = new FlxText(FlxG.width - 400, 125, 380, "Artist: " + GameState.listArtist, 20);
 		levelAuthor.scrollFactor.set();
-		levelAuthor.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+		levelAuthor.setFormat(Paths.font('Funkin.otf'), 32, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
 		levelAuthor.borderSize = 1.5;
 		levelAuthor.antialiasing = true;
 		levelAuthor.alpha = 0;
@@ -172,11 +162,11 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		add(levelAuthor);
 
 		// Tweens de entrada
-		FlxTween.tween(bg,              {alpha: 0.7},                          0.4, {ease: FlxEase.quartInOut});
-		FlxTween.tween(levelInfo,       {alpha: 1, x: levelInfo.x + 10},       0.4, {ease: FlxEase.quartInOut, startDelay: 0.3});
+		FlxTween.tween(bg, {alpha: 0.7}, 0.4, {ease: FlxEase.quartInOut});
+		FlxTween.tween(levelInfo, {alpha: 1, x: levelInfo.x + 10}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.3});
 		FlxTween.tween(levelDifficulty, {alpha: 1, x: levelDifficulty.x + 10}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.4});
-		FlxTween.tween(levelDeaths,     {alpha: 1, x: levelDeaths.x + 10},     0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
-		FlxTween.tween(levelAuthor,     {alpha: 1, x: levelAuthor.x + 10},     0.4, {ease: FlxEase.quartInOut, startDelay: 0.6});
+		FlxTween.tween(levelDeaths, {alpha: 1, x: levelDeaths.x + 10}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
+		FlxTween.tween(levelAuthor, {alpha: 1, x: levelAuthor.x + 10}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.6});
 
 		// Grupo de ítems del menú
 		grpMenuShit = new FlxTypedGroup<Alphabet>();
@@ -184,9 +174,8 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		add(grpMenuShit);
 
 		// Texto de ayuda (parte inferior)
-		helpText = new FlxText(20, FlxG.height - 40, FlxG.width - 40,
-			"ENTER: Select  |  ARROWS: Navigate  |  ESC: Resume", 16);
-		helpText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
+		helpText = new FlxText(20, FlxG.height - 40, FlxG.width - 40, "ENTER: Select  |  ARROWS: Navigate  |  ESC: Resume", 16);
+		helpText.setFormat(Paths.font("Funkin.otf"), 22, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		helpText.scrollFactor.set();
 		helpText.antialiasing = true;
 		helpText.alpha = 0;
@@ -202,19 +191,19 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	// Update
 	// ─────────────────────────────────────────────────────────────────────────
 
-	override function update(elapsed:Float)
-	{
+	override function update(elapsed:Float) {
 		if (pauseMusic != null && pauseMusic.volume < 0.5)
 			pauseMusic.volume += 0.01 * elapsed;
 
 		super.update(elapsed);
 
-		if (controls.UP_P)   changeSelection(-1);
-		if (controls.DOWN_P) changeSelection(1);
+		if (controls.UP_P)
+			changeSelection(-1);
+		if (controls.DOWN_P)
+			changeSelection(1);
 
 		// ESC / BACK: volver al menú padre o hacer resume
-		if (FlxG.keys.justPressed.ESCAPE || controls.BACK)
-		{
+		if (FlxG.keys.justPressed.ESCAPE || controls.BACK) {
 			if (currentMode == Difficulty)
 				switchMode(Standard);
 			else
@@ -222,10 +211,10 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 			return;
 		}
 
-		if (controls.ACCEPT && !OptionsMenuState.isOpenOptions)
-		{
+		if (controls.ACCEPT && !OptionsMenuState.isOpenOptions) {
 			// Guard contra spam: ignorar si ya se eligió una opción
-			if (_acted) return;
+			if (_acted)
+				return;
 			_acted = true;
 
 			var daSelected:String = menuItems[curSelected];
@@ -234,14 +223,12 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 			StateScriptHandler.callOnScripts('onMenuItemSelected', [daSelected, curSelected]);
 			#end
 
-			switch (daSelected)
-			{
+			switch (daSelected) {
 				case "Resume":
 					_doResume();
 
 				case "Restart Song":
-					if (PlayState.instance != null)
-					{
+					if (PlayState.instance != null) {
 						// BUGFIX: Poner paused=false ANTES de close() para que
 						// PlayState.closeSubState() no llame a resyncVocals() mientras
 						// el audio ya fue pausado por startRewindRestart().
@@ -275,18 +262,15 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 					if (PlayState.instance != null)
 						PlayState.instance.paused = false;
 					_soundHandled = true; // la transición gestiona el audio, no queremos resume aquí
-					if (StickerTransition.enabled){
-						if (PlayState.isStoryMode){
+					if (StickerTransition.enabled) {
+						if (PlayState.isStoryMode) {
 							StickerTransition.setCurrentContext(PlayState.storyWeek, PlayState.storyPlaylist[0]);
-							StickerTransition.start(() ->
-							{
+							StickerTransition.start(() -> {
 								StateTransition.switchState(new StoryMenuState());
 							});
-						}
-						else{
+						} else {
 							StickerTransition.setCurrentContext(PlayState.storyWeek, PlayState.storyPlaylist[0]);
-							StickerTransition.start(() ->
-							{
+							StickerTransition.start(() -> {
 								StateTransition.switchState(new FreeplayState());
 							});
 						}
@@ -302,8 +286,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 
 				default:
 					// Toggle Bot Play (devmode)
-					if (daSelected.startsWith("BotPlay"))
-					{
+					if (daSelected.startsWith("BotPlay")) {
 						PlayState.isBotPlay = !PlayState.isBotPlay;
 						// Actualizar label en el menú
 						menuItems[curSelected] = PlayState.isBotPlay ? "BotPlay ON" : "BotPlay OFF";
@@ -312,8 +295,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 						return;
 					}
 					// Selección de dificultad generada dinámicamente
-					if (currentMode == Difficulty)
-					{
+					if (currentMode == Difficulty) {
 						_soundHandled = true; // FlxG.resetState() o close() gestionan el audio
 						_applyDifficulty(daSelected);
 					}
@@ -325,21 +307,18 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	// Cambio de modo
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function switchMode(mode:PauseMode):Void
-	{
+	function switchMode(mode:PauseMode):Void {
 		currentMode = mode;
 		curSelected = 0;
 
-		switch (mode)
-		{
+		switch (mode) {
 			case Standard:
 				menuItems = ENTRIES_STANDARD.copy();
 				// Añadir "Skip Song" en modo historia con playlist > 1
 				if (PlayState.storyPlaylist.length > 1 && PlayState.isStoryMode)
 					menuItems.insert(2, "Skip Song");
 				// Añadir "Bot Play" si el Developer Mode está activo
-				if (mods.ModManager.developerMode)
-				{
+				if (mods.ModManager.developerMode) {
 					var botLabel = PlayState.isBotPlay ? "BotPlay ON" : "BotPlay OFF";
 					menuItems.insert(menuItems.length - 3, botLabel);
 				}
@@ -352,8 +331,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 				// Usar las dificultades reales de la canción actual (detectadas por
 				// FreeplayState/Song.getAvailableDifficulties), no las 3 hardcodeadas.
 				final diffs = funkin.menus.FreeplayState.difficultyStuff;
-				for (i in 0...diffs.length)
-				{
+				for (i in 0...diffs.length) {
 					// diffs[i][0] = label de display (ej: "Easy", "Nightmare")
 					var label:String = diffs[i][0];
 					if (i == PlayState.storyDifficulty)
@@ -366,21 +344,19 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		_rebuildMenu();
 	}
 
-	function _rebuildMenu():Void
-	{
-		if (grpMenuShit != null)
-		{
+	function _rebuildMenu():Void {
+		if (grpMenuShit != null) {
 			for (item in grpMenuShit.members)
-				if (item != null) FlxTween.cancelTweensOf(item);
+				if (item != null)
+					FlxTween.cancelTweensOf(item);
 			grpMenuShit.clear();
 		}
 
-		for (i in 0...menuItems.length)
-		{
+		for (i in 0...menuItems.length) {
 			var songText:Alphabet = new Alphabet(0, (70 * i) + 30, menuItems[i], true, false);
 			songText.isMenuItem = true;
-			songText.targetY    = i;
-			songText.alpha      = 0;
+			songText.targetY = i;
+			songText.alpha = 0;
 			grpMenuShit.add(songText);
 
 			var targetAlpha = (i == curSelected) ? 1.0 : 0.6;
@@ -402,17 +378,13 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	 * Solo llama FlxG.sound.resume() si la pausa vino de gameplay normal
 	 * (no de un video), para no arrancar la música en medio de una cutscene.
 	 */
-	function _doResume():Void
-	{
+	function _doResume():Void {
 		_soundHandled = true;
-		if (isCutsceneMode && VideoManager.isPlaying)
-		{
+		if (isCutsceneMode && VideoManager.isPlaying) {
 			// Volvemos a un video: solo reanudar el video.
 			// FlxG.sound.pause/resume NO se llamaron, así que no hay nada que restaurar.
 			VideoManager.resume();
-		}
-		else
-		{
+		} else {
 			// Pausa normal de gameplay: restaurar todos los sonidos.
 			FlxG.sound.resume();
 		}
@@ -427,15 +399,13 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	 * Skip cutscene: para el video y reanuda el gameplay.
 	 * La música empezará cuando el countdown termine normalmente.
 	 */
-	function _skipCutscene():Void
-	{
+	function _skipCutscene():Void {
 		// Restaurar estado de PlayState ANTES de stop() para que el callback
 		// de finishCallback (que llama startCountdown) encuentre el estado correcto.
-		if (PlayState.instance != null)
-		{
+		if (PlayState.instance != null) {
 			PlayState.instance.inCutscene = false;
-			PlayState.instance.canPause   = true;
-			PlayState.instance.paused     = false;
+			PlayState.instance.canPause = true;
+			PlayState.instance.paused = false;
 		}
 
 		// stop() → kill() → finishCallback() → startCountdown() / continueAfterSong()
@@ -448,18 +418,20 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	/**
 	 * Aplica la dificultad elegida del submenú y reinicia la canción.
 	 */
-	function _applyDifficulty(label:String):Void
-	{
+	function _applyDifficulty(label:String):Void {
 		// Quitar el marcador "  ◀" si aparece
 		var cleanLabel = label.split("  ◀")[0];
 		final diffs = funkin.menus.FreeplayState.difficultyStuff;
 		var idx = -1;
 		for (i in 0...diffs.length)
-			if (diffs[i][0] == cleanLabel) { idx = i; break; }
-		if (idx == -1) return;
+			if (diffs[i][0] == cleanLabel) {
+				idx = i;
+				break;
+			}
+		if (idx == -1)
+			return;
 
-		if (idx == PlayState.storyDifficulty)
-		{
+		if (idx == PlayState.storyDifficulty) {
 			// Misma dificultad: restart normal sin recargar chart
 			if (PlayState.instance != null)
 				PlayState.instance.startRewindRestart();
@@ -491,11 +463,9 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	// closeSubState override
 	// ─────────────────────────────────────────────────────────────────────────
 
-	override function closeSubState():Void
-	{
+	override function closeSubState():Void {
 		super.closeSubState();
-		if (funkin.menus.OptionsMenuState.pendingRewind)
-		{
+		if (funkin.menus.OptionsMenuState.pendingRewind) {
 			funkin.menus.OptionsMenuState.pendingRewind = false;
 			if (PlayState.instance != null)
 				FlxG.resetState();
@@ -506,21 +476,35 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	// Destroy
 	// ─────────────────────────────────────────────────────────────────────────
 
-	override function destroy()
-	{
-		if (bg != null)             { FlxTween.cancelTweensOf(bg);              bg = null; }
-		if (levelInfo != null)      { FlxTween.cancelTweensOf(levelInfo);       levelInfo = null; }
-		if (levelDifficulty != null){ FlxTween.cancelTweensOf(levelDifficulty); levelDifficulty = null; }
-		if (levelDeaths != null)    { FlxTween.cancelTweensOf(levelDeaths);     levelDeaths = null; }
-		if (levelAuthor != null)    { FlxTween.cancelTweensOf(levelAuthor);     levelAuthor = null; }
-		if (helpText != null)       { FlxTween.cancelTweensOf(helpText);        helpText = null; }
+	override function destroy() {
+		if (bg != null) {
+			FlxTween.cancelTweensOf(bg);
+			bg = null;
+		}
+		if (levelInfo != null) {
+			FlxTween.cancelTweensOf(levelInfo);
+			levelInfo = null;
+		}
+		if (levelDifficulty != null) {
+			FlxTween.cancelTweensOf(levelDifficulty);
+			levelDifficulty = null;
+		}
+		if (levelDeaths != null) {
+			FlxTween.cancelTweensOf(levelDeaths);
+			levelDeaths = null;
+		}
+		if (levelAuthor != null) {
+			FlxTween.cancelTweensOf(levelAuthor);
+			levelAuthor = null;
+		}
+		if (helpText != null) {
+			FlxTween.cancelTweensOf(helpText);
+			helpText = null;
+		}
 
-		if (grpMenuShit != null)
-		{
-			for (item in grpMenuShit.members)
-			{
-				if (item != null)
-				{
+		if (grpMenuShit != null) {
+			for (item in grpMenuShit.members) {
+				if (item != null) {
 					FlxTween.cancelTweensOf(item);
 					FlxTween.cancelTweensOf(item.scale);
 				}
@@ -528,8 +512,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 			grpMenuShit = null;
 		}
 
-		if (pauseMusic != null)
-		{
+		if (pauseMusic != null) {
 			pauseMusic.stop();
 			FlxG.sound.list.remove(pauseMusic, true);
 			pauseMusic.destroy();
@@ -539,8 +522,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		super.destroy();
 
 		// Remove the camera we created (cutscene mode only) so it doesn't leak.
-		if (_ownedCam && _pauseCam != null)
-		{
+		if (_ownedCam && _pauseCam != null) {
 			FlxG.cameras.remove(_pauseCam, true);
 			_pauseCam = null;
 			_ownedCam = false;
@@ -557,11 +539,9 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 	// Helpers privados
 	// ─────────────────────────────────────────────────────────────────────────
 
-	private static function _cleanSoundList():Void
-	{
+	private static function _cleanSoundList():Void {
 		var i = FlxG.sound.list.length - 1;
-		while (i >= 0)
-		{
+		while (i >= 0) {
 			var s = FlxG.sound.list.members[i];
 			if (s != null && !s.alive)
 				FlxG.sound.list.remove(s, true);
@@ -569,20 +549,21 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 		}
 	}
 
-	function changeSelection(change:Int = 0, silent:Bool = false):Void
-	{
-		if (grpMenuShit == null) return;
+	function changeSelection(change:Int = 0, silent:Bool = false):Void {
+		if (grpMenuShit == null)
+			return;
 
 		if (!silent)
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.4);
 
 		curSelected += change;
-		if (curSelected < 0)                 curSelected = menuItems.length - 1;
-		if (curSelected >= menuItems.length) curSelected = 0;
+		if (curSelected < 0)
+			curSelected = menuItems.length - 1;
+		if (curSelected >= menuItems.length)
+			curSelected = 0;
 
 		var bullShit:Int = 0;
-		for (item in grpMenuShit.members)
-		{
+		for (item in grpMenuShit.members) {
 			item.targetY = bullShit - curSelected;
 			bullShit++;
 
@@ -592,9 +573,7 @@ class PauseSubState extends funkin.states.MusicBeatSubstate
 			item.alpha = (item.targetY == 0) ? 1.0 : 0.6;
 
 			FlxTween.cancelTweensOf(item.scale);
-			FlxTween.tween(item.scale,
-				{x: item.targetY == 0 ? 1.1 : 1.0, y: item.targetY == 0 ? 1.1 : 1.0},
-				0.1, {ease: FlxEase.quadOut});
+			FlxTween.tween(item.scale, {x: item.targetY == 0 ? 1.1 : 1.0, y: item.targetY == 0 ? 1.1 : 1.0}, 0.1, {ease: FlxEase.quadOut});
 		}
 
 		#if HSCRIPT_ALLOWED

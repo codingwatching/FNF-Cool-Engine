@@ -103,9 +103,21 @@ class EventManager
 
 			if (v1.contains('|'))
 			{
-				final parts = v1.split('|');
-				v1 = parts[0].trim();
-				v2 = parts.length > 1 ? parts[1].trim() : '';
+				final firstPipe = v1.indexOf('|');
+				final rest = v1.substring(firstPipe + 1);
+				if (rest.contains('|'))
+				{
+					// Valor multi-pipe (Camera Follow con offsets/duration/ease, Camera Zoom con ease, etc.)
+					// Dejar v1 intacto — el handler built-in lo parsea él mismo con split('|').
+					// Si se pre-partiera aquí, los campos extra (offsetY, duration, ease) se perderían
+					// silenciosamente y v2 recibiría el offsetX, que el handler interpreta como lerp speed.
+				}
+				else
+				{
+					// Formato clásico dos-campos: "v1|v2" (Change Character, Camera Shake, etc.)
+					v1 = v1.substring(0, firstPipe).trim();
+					v2 = rest.trim();
+				}
 			}
 
 			final e    = new EventData();
@@ -269,6 +281,8 @@ class EventManager
 				{
 					// Formato: "target|offsetX|offsetY|duration|ease"
 					// Todos los campos salvo target son opcionales.
+					// NOTA: loadNewFormat preserva el string completo en v1 para este evento
+					// (no lo parte en v1/v2), de modo que parts contiene todos los segmentos.
 					final parts = v1.split('|');
 					final target  = parts[0].trim();
 					final offX    = parts.length > 1 ? Std.parseFloat(parts[1]) : Math.NaN;
@@ -278,22 +292,34 @@ class EventManager
 
 					final extraOffX = Math.isNaN(offX) ? 0.0 : offX;
 					final extraOffY = Math.isNaN(offY) ? 0.0 : offY;
+					final hasDur    = !Math.isNaN(dur) && dur > 0;
 
-					game.cameraController.setTarget(target, extraOffX, extraOffY);
-
-					// Si tiene duration/ease, tweenea en lugar del lerp normal
-					if (!Math.isNaN(dur) && dur > 0)
+					if (hasDur)
 					{
+						// Evento con tween: cambiar target y animar hacia él.
+						// setTarget() snapeará camFollow si no está bloqueado;
+						// tweenToTarget() iniciará el pan (cancelando cualquier tween previo).
+						game.cameraController.setTarget(target, extraOffX, extraOffY);
 						var easeFunc:Null<Float->Float> = null;
 						if (ease != '')
 							easeFunc = Reflect.field(flixel.tweens.FlxEase, ease);
-						// Solo tweenear si tenemos una función de ease válida.
-						// Si el nombre no existe en FlxEase simplemente hacer lerp normal.
+						// Solo tweenear si la función de ease es válida.
+						// Si el nombre no existe en FlxEase, usar lerp normal (no tween).
 						if (easeFunc != null)
 							game.cameraController.tweenToTarget(dur, easeFunc);
 					}
+					else
+					{
+						// Evento snap (sin duration): cancelar cualquier pan tween activo
+						// para que la cámara salte inmediatamente al nuevo target, incluso
+						// si había un pan largo en curso (e.g. FocusCamera CLASSIC en V-Slice).
+						game.cameraController.cancelPan();
+						game.cameraController.setTarget(target, extraOffX, extraOffY);
+					}
 
-					// v2 legacy: lerp speed
+					// v2 legacy: lerp speed (solo para eventos del formato antiguo sin pipes en v1)
+					// Con el nuevo formato multi-pipe, v2 siempre es '' para Camera Follow,
+					// así que este bloque solo actúa en eventos legacy explícitos.
 					if (v2 != '')
 					{
 						final lerp = Std.parseFloat(v2);
@@ -319,7 +345,9 @@ class EventManager
 			case 'camera zoom', 'zoom camera':
 				if (game != null && game.cameraController != null)
 				{
-					final zoom = Std.parseFloat(v1);
+					// v1 puede ser "zoom" (simple) o "zoom|duration|ease|mode" (multi-pipe desde V-Slice).
+					// Parsear solo el primer segmento para obtener el valor de zoom.
+					final zoom = Std.parseFloat(v1.split('|')[0]);
 					if (!Math.isNaN(zoom)) game.cameraController.defaultZoom = zoom;
 					game.cameraController.zoomEnabled = true;
 				}

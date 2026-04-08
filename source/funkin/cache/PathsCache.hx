@@ -84,8 +84,8 @@ class PathsCache
 		{
 			// Mobile tiene RAM más limitada — límites más bajos incluso en modo normal
 			#if (mobileC || android || ios)
-			instance.maxGraphics = v ? 20 : 40;
-			instance.maxSounds   = v ? 16 : 32;
+			instance.maxGraphics = v ? 12 : 25;
+			instance.maxSounds   = v ? 10 : 20;
 			#else
 			instance.maxGraphics = v ? 30 : 80;
 			instance.maxSounds   = v ? 24 : 64;
@@ -106,10 +106,14 @@ class PathsCache
 
 	// ── Límites de caché ──────────────────────────────────────────────────────
 	// Desktop: 80 texturas / 64 sonidos.
-	// Mobile (Android/iOS): 40 / 32 — RAM más limitada y sin swap.
+	// Mobile (Android/iOS): 25 / 20 — RAM muy limitada, sin swap real.
+	// Con el fix de isInCurrentSession(), los assets no usados por el nuevo
+	// state se destruyen en clearSecondLayer(), así que el LRU actúa solo
+	// sobre assets DENTRO de la sesión activa. 25 sigue siendo suficiente para
+	// gameplay normal (personajes + escenario + UI ≈ 15-20 texturas activas).
 
-	public var maxGraphics:Int = #if (mobileC || android || ios) 40 #else 80 #end;
-	public var maxSounds:Int   = #if (mobileC || android || ios) 32 #else 64 #end;
+	public var maxGraphics:Int = #if (mobileC || android || ios) 25 #else 80 #end;
+	public var maxSounds:Int   = #if (mobileC || android || ios) 20 #else 64 #end;
 
 	// ── Tricapa de texturas ───────────────────────────────────────────────────
 
@@ -1052,6 +1056,22 @@ class PathsCache
 		final s = _currentSounds.get(key);
 		if (s != null) _permanentSounds.set(key, s);
 	}
+
+	/**
+	 * Devuelve true si la key está en la sesión ACTUAL de PathsCache
+	 * (ya sea como permanente o como asset cargado en este state).
+	 *
+	 * Usado por FunkinCache.clearSecondLayer() para decidir qué assets de la
+	 * capa SECOND rescatar a CURRENT. Solo se rescatan los que el nuevo state
+	 * realmente necesita — los demás se destruyen para liberar RAM.
+	 *
+	 * Por qué NO usar `graphic.persist`:
+	 *   PathsCache establece `g.persist = true` en TODOS los FlxGraphics para
+	 *   que Flixel no los evicte por su cuenta. Si FunkinCache usara ese flag
+	 *   como criterio de rescate, NUNCA liberaría nada en el cambio de state.
+	 */
+	public inline function isInCurrentSession(key:String):Bool
+		return _permanentGraphics.exists(key) || _currentGraphics.exists(key);
 
 	/**
 	 * Devuelve true si la key está marcada como permanente en PathsCache.

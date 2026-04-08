@@ -48,7 +48,12 @@ class FunkinSprite extends FlxAnimate
 	static var _frameCache:Map<String, FlxAtlasFrames>  = [];
 	static var _atlasResCache:Map<String, Null<String>> = [];
 	static var _frameLRU:Array<String>                  = [];
-	static final MAX_FRAME_CACHE = 30;
+	// Mobile: 12 — cada FlxAtlasFrames con su atlas puede retener una referencia
+	// al FlxGraphic subyacente, impidiendo que clearSecondLayer() lo libere.
+	// Con isInCurrentSession() ya no es un problema, pero limitar el LRU evita
+	// que FunkinSprite acumule docenas de atlases de personajes en sesiones largas.
+	// Desktop: 30 — RAM abundante, el LRU actúa como warm cache entre estados.
+	static final MAX_FRAME_CACHE:Int = #if (android || mobileC || ios) 12 #else 30 #end;
 
 	/**
 	 * Caché de FlxAnimateFrames individuales por carpeta.

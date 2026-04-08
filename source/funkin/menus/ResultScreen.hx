@@ -622,7 +622,7 @@ class ResultScreen extends FlxSubState {
 
 		// Position: top-left, just below the top bar, near the score
 		highscoreNew.x = -210;
-		highscoreNew.y = -150; // starts off-screen above
+		highscoreNew.y = -350; // starts off-screen above
 		highscoreNew.alpha = 0;
 		highscoreNew.scrollFactor.set(0, 0);
 		highscoreNew.antialiasing = (SaveData.data?.antialiasing ?? true);
@@ -724,6 +724,9 @@ class ResultScreen extends FlxSubState {
 
 		// Step 7 (2.8s): Rank drops in
 		new FlxTimer().start(2.8, function(_) {
+
+			FlxG.sound.play(Paths.sound('menus/confirmMenu'));
+
 			var targetY:Float = (currentRank == 'SS' || currentRank == 'S') ? 90 : 130;
 			FlxTween.tween(rankSprite, {y: targetY, alpha: 1}, 0.75, {
 				ease: FlxEase.elasticOut,
@@ -767,7 +770,7 @@ class ResultScreen extends FlxSubState {
 				highscoreNew.y = -highscoreNew.height - 520;
 				highscoreNew.alpha = 1;
 				highscoreNew.animation.play('new', true);
-				FlxTween.tween(highscoreNew, {y: 78}, 0.55, {ease: FlxEase.elasticOut});
+				FlxTween.tween(highscoreNew, {y: 0}, 0.55, {ease: FlxEase.elasticOut});
 			});
 		}
 
@@ -1231,6 +1234,7 @@ class ScoreDigit extends FlxText {
 			} else {
 				cur = (cur + 1) % 10;
 				text = Std.string(cur);
+				FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.4);
 			}
 		}, ticks);
 	}
