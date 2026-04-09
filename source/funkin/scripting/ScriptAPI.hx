@@ -467,10 +467,12 @@ class ScriptAPI
 			'CppAPI'            => extensions.CppAPI,
 			// Shaders
 			'ShaderManager'     => _shaderManagerProxy(),
+			'ShaderHandle'      => funkin.graphics.shaders.ShaderHandle,
 			'WaveEffect'        => funkin.graphics.shaders.custom.WaveEffect,
 			'WiggleEffect'      => funkin.graphics.shaders.custom.WiggleEffect,
 			'BlendModeEffect'   => funkin.graphics.shaders.custom.BlendModeEffect,
 			'OverlayShader'     => funkin.graphics.shaders.custom.OverlayShader,
+			'DropShadowShader'  => funkin.graphics.shaders.custom.DropShadowShader,
 			// Funkin gameplay
 			'PlayState'         => funkin.gameplay.PlayState,
 			'Countdown'         => funkin.gameplay.Countdown,
@@ -991,6 +993,13 @@ class ScriptAPI
 		interp.variables.set('BlendModeEffect',  funkin.graphics.shaders.custom.BlendModeEffect);
 		interp.variables.set('OverlayShader',    funkin.graphics.shaders.custom.OverlayShader);
 		interp.variables.set('DropShadowShader', funkin.graphics.shaders.custom.DropShadowShader);
+		interp.variables.set('ShaderHandle', {
+			// Constructor: new ShaderHandle('wave') — instanciable desde HScript
+			create: function(shaderName:String):funkin.graphics.shaders.ShaderHandle
+				return new funkin.graphics.shaders.ShaderHandle(shaderName)
+		});
+		// Expose ShaderHandle class directly so HScript "new ShaderHandle(...)" works
+		interp.variables.set('ShaderHandleClass', funkin.graphics.shaders.ShaderHandle);
 
 		// WiggleEffect — object wrapper para usar en scripts fácilmente
 		interp.variables.set('wiggleEffect', {
@@ -3109,22 +3118,28 @@ class ScriptAPI
 	static function _shaderManagerProxy():Dynamic
 	{
 		return {
-			applyShader          : funkin.graphics.shaders.ShaderManager.applyShader,
-			applyShaderToCamera  : funkin.graphics.shaders.ShaderManager.applyShaderToCamera,
-			registerInstance     : funkin.graphics.shaders.ShaderManager.registerInstance,
-			unregisterInstance   : funkin.graphics.shaders.ShaderManager.unregisterInstance,
-			removeShader         : funkin.graphics.shaders.ShaderManager.removeShader,
-			setShaderParam       : funkin.graphics.shaders.ShaderManager.setShaderParam,
-			setShaderParamInt    : funkin.graphics.shaders.ShaderManager.setShaderParamInt,
-			clearSpriteShaders   : funkin.graphics.shaders.ShaderManager.clearSpriteShaders,
-			loadShader           : funkin.graphics.shaders.ShaderManager.loadShader,
-			getShader            : funkin.graphics.shaders.ShaderManager.getShader,
-			registerInline       : funkin.graphics.shaders.ShaderManager.registerInline,
-			getAvailableShaders  : funkin.graphics.shaders.ShaderManager.getAvailableShaders,
-			scanShaders          : funkin.graphics.shaders.ShaderManager.scanShaders,
-			reloadShader         : funkin.graphics.shaders.ShaderManager.reloadShader,
-			reloadAllShaders     : funkin.graphics.shaders.ShaderManager.reloadAllShaders,
-			clear                : funkin.graphics.shaders.ShaderManager.clear,
+			applyShader             : funkin.graphics.shaders.ShaderManager.applyShader,
+			applyShaderToCamera     : funkin.graphics.shaders.ShaderManager.applyShaderToCamera,
+			applyPostProcessToCamera: funkin.graphics.shaders.ShaderManager.applyPostProcessToCamera,
+			removeShaderFromCamera  : funkin.graphics.shaders.ShaderManager.removeShaderFromCamera,
+			registerInstance        : funkin.graphics.shaders.ShaderManager.registerInstance,
+			unregisterInstance      : funkin.graphics.shaders.ShaderManager.unregisterInstance,
+			removeShader            : funkin.graphics.shaders.ShaderManager.removeShader,
+			setShaderParam          : funkin.graphics.shaders.ShaderManager.setShaderParam,
+			setShaderParamInt       : funkin.graphics.shaders.ShaderManager.setShaderParamInt,
+			flushPending            : funkin.graphics.shaders.ShaderManager.flushPending,
+			clearSpriteShaders      : funkin.graphics.shaders.ShaderManager.clearSpriteShaders,
+			loadShader              : funkin.graphics.shaders.ShaderManager.loadShader,
+			getShader               : funkin.graphics.shaders.ShaderManager.getShader,
+			registerInline          : funkin.graphics.shaders.ShaderManager.registerInline,
+			getAvailableShaders     : funkin.graphics.shaders.ShaderManager.getAvailableShaders,
+			scanShaders             : funkin.graphics.shaders.ShaderManager.scanShaders,
+			reloadShader            : funkin.graphics.shaders.ShaderManager.reloadShader,
+			reloadAllShaders        : funkin.graphics.shaders.ShaderManager.reloadAllShaders,
+			clear                   : funkin.graphics.shaders.ShaderManager.clear,
+			// Factory — crea un ShaderHandle instanciable desde scripts
+			createHandle: function(shaderName:String):funkin.graphics.shaders.ShaderHandle
+				return new funkin.graphics.shaders.ShaderHandle(shaderName),
 		};
 	}
 

@@ -100,6 +100,11 @@ class MainMenuState extends funkin.states.MusicBeatState
 		MusicManager.play('freakyMenu', 0.7);
 		#end
 
+		#if HSCRIPT_ALLOWED
+		StateScriptHandler.init();
+		StateScriptHandler.loadStateScripts('MainMenuState', this);
+		StateScriptHandler.callOnScripts('onCreate', []);
+
 		persistentUpdate = persistentDraw = true;
 
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Bitmap.fromFile(Paths.image('menu/menuBG')));
@@ -129,11 +134,6 @@ class MainMenuState extends funkin.states.MusicBeatState
 
 		menuItems = new FlxTypedGroup<FlxSprite>();
 		add(menuItems);
-
-		#if HSCRIPT_ALLOWED
-		StateScriptHandler.init();
-		StateScriptHandler.loadStateScripts('MainMenuState', this);
-		StateScriptHandler.callOnScripts('onCreate', []);
 
 		// Obtener items custom
 		var customItems = StateScriptHandler.callOnScriptsReturn('getCustomMenuItems', [], null);
@@ -212,11 +212,11 @@ class MainMenuState extends funkin.states.MusicBeatState
 		addVirtualPad(UP_DOWN, A_B);
 		#end
 
-		StickerTransition.clearStickers();
-
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('postCreate', []);
 		#end
+		
+		StickerTransition.clearStickers();
 
 		super.create();
 	}

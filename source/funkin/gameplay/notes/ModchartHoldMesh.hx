@@ -131,19 +131,28 @@ class ModchartHoldMesh extends FlxBasic {
 	@:inline
 	function _evalX(t:Float, songPos:Float, st:StrumState, strumX:Float, strumW:Float, noteW:Float):Float {
 		var nx:Float = strumX + (strumW - noteW) * 0.5 + st.noteOffsetX;
-		// FIX: cuando flipX está activo los desplazamientos X deben invertirse
-		// para que el mesh siga al sprite (que también se renderiza en espejo).
-		var xSign:Float = (st.flipX > 0.5) ? -1.0 : 1.0;
 
+		// Aplicar modificadores SIN invertir el signo — igual que NoteManager.
+		// El mirror de flipX se aplica al final sobre el resultado total, no
+		// negando cada desplazamiento individualmente (eso solo refleja las ondas
+		// pero deja la posición base sin espejear, causando el desalineamiento).
 		if (st.drunkX != 0)
-			nx += xSign * st.drunkX * Math.sin(t * 0.001 * st.drunkFreq + songPos * 0.0008);
+			nx += st.drunkX * Math.sin(t * 0.001 * st.drunkFreq + songPos * 0.0008);
 
 		if (st.tipsy != 0)
-			nx += xSign * st.tipsy * Math.sin(songPos * 0.001 * st.tipsySpeed);
+			nx += st.tipsy * Math.sin(songPos * 0.001 * st.tipsySpeed);
 
 		if (st.zigzag != 0) {
 			var zz:Float = Math.sin(t * 0.001 * st.zigzagFreq * Math.PI);
-			nx += xSign * st.zigzag * (zz >= 0 ? 1.0 : -1.0);
+			nx += st.zigzag * (zz >= 0 ? 1.0 : -1.0);
+		}
+
+		// FIX: mirror completo después de todos los modificadores, igual que
+		// NoteManager:  _noteX = strumCenter - (_noteX - strumCenter + noteW/2) - noteW/2
+		// Sin este mirror el mesh queda desplazado respecto al sprite en flipX.
+		if (st.flipX > 0.5) {
+			final strumCenter:Float = strumX + strumW * 0.5;
+			nx = strumCenter - (nx - strumCenter + noteW * 0.5) - noteW * 0.5;
 		}
 
 		return nx;
@@ -156,7 +165,7 @@ class ModchartHoldMesh extends FlxBasic {
 	 * @param t         strumTime del punto a evaluar (ms)
 	 * @param songPos   posición actual de la canción (ms)
 	 * @param st        StrumState con los valores de los modificadores
-	 * @param refY      centro Y del receptor (strum.y - strum.offset.y + strum.height*0.5)
+	 * @param refY      strum.y del receptor (igual que _refY en NoteManager.updateNotePosition)
 	 * @param effSpeed  velocidad de scroll efectiva (scrollSpeed × scrollMult)
 	 * @param effDown   true si el scroll efectivo es downscroll
 	 */
@@ -247,7 +256,13 @@ class ModchartHoldMesh extends FlxBasic {
 				var strumW:Float = strum.width;
 				var noteW:Float = note.width;
 				// Centro Y del receptor (igual que NoteManager, línea ~1067)
-				var refY:Float = strum.y - strum.offset.y + strum.height * 0.5;
+				// FIX: usar strum.y directamente — igual que NoteManager._refY = strum.y.
+				// Antes se usaba (strum.y - strum.offset.y + strum.height*0.5), que es
+				// el centro visual del sprite pero NO la referencia que usa NoteManager
+				// para posicionar las notas/sustains. Esa diferencia causaba que el mesh
+				// apareciera desplazado en Y respecto a los sprites (especialmente notorio
+				// con beat bumps o skins con offset grande).
+				var refY:Float = strum.y;
 
 				// ── Muestrear path: HOLD_SUBS+1 puntos ──────────────────────
 				//

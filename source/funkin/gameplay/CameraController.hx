@@ -19,8 +19,7 @@ using StringTools;
  * que se cambia EXCLUSIVAMENTE a través del evento "Camera Follow"
  * del EventManager. No hay ninguna lógica de mustHitSection aquí.
  */
-class CameraController
-{
+class CameraController {
 	// === CAMERAS ===
 	public var camGame:FlxCamera;
 	public var camHUD:FlxCamera;
@@ -57,7 +56,18 @@ class CameraController
 	public var zoomEnabled:Bool = false;
 
 	private var zoomTween:FlxTween;
-	private var _panTween:FlxTween;
+
+	// Pan manual — sin tween manager, inmune a pausas/limpiezas externas.
+	private var _panActive:Bool = false;
+	private var _panFromX:Float = 0.0;
+	private var _panFromY:Float = 0.0;
+	private var _panToX:Float = 0.0;
+	private var _panToY:Float = 0.0;
+	private var _panDuration:Float = 0.6;
+	private var _panElapsed:Float = 0.0;
+	private var _panEase:Float->Float;
+	private var _panOnComplete:Void->Void;
+	private var _panKeepLocked:Bool = false;
 
 	// === NOTE MOVEMENT OFFSETS ===
 	public var dadOffsetX:Int = 0;
@@ -105,12 +115,17 @@ class CameraController
 	public static inline var BASE_LERP_SPEED:Float = 2.4;
 	private static inline var NOTE_OFFSET_AMOUNT:Float = 30.0;
 
-	private var _savedLerp:Float = 0.04; // Valor inicial por si acaso
+	private var _savedLerp:Float = 0.04;
+
+	// When lock() is called while a panTo is active, we don't kill the pan.
+	// Instead we store the lock request and apply it the moment the pan ends.
+	private var _pendingLock:Bool = false;
+	private var _pendingLockX:Float = Math.NaN;
+	private var _pendingLockY:Float = Math.NaN;
 
 	// ─────────────────────────────────────────────────────────────
 
-	public function new(camGame:FlxCamera, camHUD:FlxCamera, boyfriend:Character, dad:Character, ?gf:Character)
-	{
+	public function new(camGame:FlxCamera, camHUD:FlxCamera, boyfriend:Character, dad:Character, ?gf:Character) {
 		this.camGame = camGame;
 		this.camHUD = camHUD;
 		this.boyfriend = boyfriend;
@@ -152,8 +167,7 @@ class CameraController
 	 *                  Para CLASSIC de V-Slice usar snap=true: el follow point salta
 	 *                  al nuevo target y solo camGame.follow() hace el lerp suave.
 	 */
-	public function setTarget(target:String, extraOffX:Float = 0.0, extraOffY:Float = 0.0, snap:Bool = true):Void
-	{
+	public function setTarget(target:String, extraOffX:Float = 0.0, extraOffY:Float = 0.0, snap:Bool = true):Void {
 		currentTarget = resolveTarget(target);
 		_extraOffsetX = extraOffX;
 		_extraOffsetY = extraOffY;
@@ -172,8 +186,7 @@ class CameraController
 	 * Actualizar lerp speed del follow.
 	 * Llamar desde EventManager si se especifica value2 en el evento.
 	 */
-	public function setFollowLerp(lerp:Float):Void
-	{
+	public function setFollowLerp(lerp:Float):Void {
 		followLerp = lerp;
 		camGame.followLerp = lerp;
 	}
@@ -185,13 +198,29 @@ class CameraController
 	 * (sin duration) para que un FocusCamera CLASSIC/snap no quede bloqueado
 	 * por un pan largo que aún esté en curso.
 	 */
-	public function cancelPan():Void
-	{
-		if (_panTween != null)
-		{
-			_panTween.cancel();
-			_panTween = null;
-		}
+	public function cancelPan():Void {
+		// Si hay un pan activo, NO lo cancelamos: dejamos que termine en su destino.
+		// El target ya se actualiza vía setTarget(), que respeta locked=true.
+		// cancelPan() solo limpia estado residual cuando NO hay pan en curso.
+		if (_panActive)
+			return;
+
+		_pendingLock = false;
+		_pendingLockX = Math.NaN;
+		_pendingLockY = Math.NaN;
+		locked = false;
+	}
+
+	/**
+	 * Cancela el pan incondicionalmente aunque esté en curso.
+	 * Usar solo cuando realmente se necesite interrumpir (restart, rewind).
+	 */
+	public function forceCancel():Void {
+		_panActive = false;
+		_panOnComplete = null;
+		_pendingLock = false;
+		_pendingLockX = Math.NaN;
+		_pendingLockY = Math.NaN;
 		locked = false;
 	}
 
@@ -200,41 +229,51 @@ class CameraController
 	// ─────────────────────────────────────────────────────────────
 
 	/**
-	 * Bloquea el follow de la cámara en su posición actual (o en x/y si se pasan).
-	 * Mientras está bloqueada, los eventos de "Camera Follow" y el lerp normal
-	 * no mueven camFollow — la cámara se queda quieta en ese punto.
+	 * Locks the camera at its current position (or at x/y if supplied).
 	 *
-	 * @param x  Posición X de mundo opcional. Si null usa la posición actual de camFollow.
-	 * @param y  Posición Y de mundo opcional. Si null usa la posición actual de camFollow.
+	 * If a panTo() is currently running, the lock is DEFERRED — the pan plays
+	 * to completion first, then the lock is applied automatically. This guarantees
+	 * that panTo always has higher priority than lock, so cinematic pans are never
+	 * cut short by a simultaneous lock event.
+	 *
+	 * To cancel a pan AND lock immediately, call cancelPan() first, then lock().
+	 *
+	 * @param x  World X to lock on. If null, uses the camera's current center X.
+	 * @param y  World Y to lock on. If null, uses the camera's current center Y.
 	 */
-	public function lock(?x:Float, ?y:Float):Void
-	{
-		if (_panTween != null)
-		{
-			_panTween.cancel();
-			_panTween = null;
+	public function lock(?x:Float, ?y:Float):Void {
+		// ── Pan is active → queue the lock, don't kill the pan ───────────────
+		if (_panActive) {
+			_pendingLock = true;
+			_pendingLockX = x ?? Math.NaN;
+			_pendingLockY = y ?? Math.NaN;
+			return;
 		}
+
+		// ── No active pan → apply immediately ────────────────────────────────
+		_applyLock(x, y);
+	}
+
+	/** Internal: applies the lock unconditionally. Called by lock() and by panTo's onComplete. */
+	private function _applyLock(?x:Float, ?y:Float):Void {
+		_pendingLock = false;
+		_pendingLockX = Math.NaN;
+		_pendingLockY = Math.NaN;
+
 		locked = true;
 
-		// En HaxeFlixel, el centro lógico no requiere dividirse por el zoom.
 		final actualX:Float = (camGame != null) ? camGame.scroll.x + camGame.width * 0.5 : camFollow.x;
 		final actualY:Float = (camGame != null) ? camGame.scroll.y + camGame.height * 0.5 : camFollow.y;
 
 		_lockedPos.x = x ?? actualX;
 		_lockedPos.y = y ?? actualY;
 
-		// Mover camFollow al punto bloqueado para que cuando se llame unlock()
-		// y la cámara reanude el follow, parta exactamente de aquí sin salto.
 		camFollow.setPosition(_lockedPos.x, _lockedPos.y);
 
-		if (camGame != null)
-		{
+		if (camGame != null) {
 			_savedLerp = camGame.followLerp;
-			// Snap inmediato del scroll al centro bloqueado.
 			camGame.scroll.set(_lockedPos.x - camGame.width * 0.5, _lockedPos.y - camGame.height * 0.5);
-
-			// Re-registrar el follow para forzar a FlxCamera a limpiar su estado interno.
-			camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, 999.0);
+			camGame.target = null;
 		}
 	}
 
@@ -242,12 +281,10 @@ class CameraController
 	 * Desbloquea el follow. La cámara vuelve a lerpar hacia el personaje
 	 * definido por currentTarget desde la siguiente llamada a update().
 	 */
-	public function unlock():Void
-	{
+	public function unlock():Void {
 		locked = false;
 
-		if (camGame != null)
-		{
+		if (camGame != null) {
 			camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, _savedLerp);
 		}
 	}
@@ -259,55 +296,92 @@ class CameraController
 	 * @param x  Posición X de mundo.
 	 * @param y  Posición Y de mundo.
 	 */
-	public function moveTo(x:Float, y:Float):Void
-	{
+	public function moveTo(x:Float, y:Float):Void {
 		camFollow.setPosition(x, y);
 	}
 
 	/**
-	 * Tweenea camFollow suavemente hacia (x, y) durante `duration` segundos.
-	 * Bloquea el follow automáticamente mientras dura el tween para que el
-	 * lerp hacia el personaje no lo cancele; lo desbloquea al terminar salvo
-	 * que se pase keepLocked=true.
+	 * Smoothly pans the camera to a world position over `duration` seconds.
 	 *
-	 * @param x           Posición X de mundo destino.
-	 * @param y           Posición Y de mundo destino.
-	 * @param duration    Duración del tween en segundos (default 0.6).
-	 * @param ease        Función de ease (default FlxEase.sineInOut).
-	 * @param keepLocked  Si true, la cámara queda locked al terminar (default false).
-	 * @param onComplete  Callback opcional al terminar el tween.
+	 * @param x           World X destination (camera center).
+	 * @param y           World Y destination (camera center).
+	 * @param duration    Tween duration in seconds (default 0.6).
+	 * @param ease        Ease function (default FlxEase.sineInOut).
+	 * @param keepLocked  If true the camera stays locked after the tween (default false).
+	 * @param onComplete  Optional callback fired when the tween finishes.
 	 */
-	public function panTo(x:Float, y:Float, ?duration:Float, ?ease:Float->Float, ?keepLocked:Bool, ?onComplete:Void->Void):Void
-	{
-		var dur:Float = duration ?? 0.6;
-		var easeFunc = ease ?? FlxEase.sineInOut;
-		var stayLocked:Bool = keepLocked ?? false;
+	public function panTo(x:Float, y:Float, ?duration:Float, ?ease:Float->Float, ?keepLocked:Bool, ?onComplete:Void->Void):Void {
+		var dur:Float = (duration != null && duration > 0) ? duration : 0.6;
 
-		// Bloquar mientras dura el tween para que updateFollowPosition no lo cancele
+		// Cancelar pan anterior si había uno en curso.
+		_panActive = false;
+		_panOnComplete = null;
+
 		locked = true;
+		_savedLerp = followLerp; // guardar el lerp lógico, NO camGame.followLerp
 
-		if (_panTween != null)
-		{
-			_panTween.cancel();
-			_panTween = null;
-		}
+		// Desconectar el follow y ANULAR el lerp interno de FlxCamera.
+		// Sin esto, algunas versiones (custom FNF) siguen aplicando lerp hacia
+		// _scrollTarget cada frame aunque target == null, creando una fuerza
+		// contraria al pan que lo "congela" a mitad de camino.
+		camGame.target = null;
+		camGame.followLerp = 0;
 
-		// FIX: usar gameplayTweens en vez del manager global de FlxTween.
-		// El manager global sigue tickeando aunque persistentUpdate=false (pause),
-		// por lo que el pan continuaba moviéndose con el juego pausado.
-		// gameplayTweens.active = false se activa en PlayState.pauseMenu() → se congela.
-		final _mgr = PlayState.gameplayTweens ?? FlxTween.globalManager;
-		_panTween = _mgr.tween(camFollow, {x: x, y: y}, dur, {
-			ease: easeFunc,
-			onComplete: function(t)
-			{
-				_panTween = null;
-				if (!stayLocked)
-					locked = false;
-				if (onComplete != null)
-					onComplete();
+		// Pre-posicionar camFollow en el destino: cuando el pan termine y reconectemos
+		// follow, camFollow ya está ahí y no hay salto ni lerp residual.
+		camFollow.setPosition(x, y);
+
+		// Guardar desde/hasta en scroll-space.
+		// FORMULA CORRECTA: x - width*0.5 (sin dividir por zoom).
+		// FlxCamera LOCKON centra con esta fórmula; dividir por zoom desfasaba
+		// el destino y causaba un salto al reconectar el follow.
+		_panFromX = camGame.scroll.x;
+		_panFromY = camGame.scroll.y;
+		_panToX   = x - camGame.width  * 0.5;
+		_panToY   = y - camGame.height * 0.5;
+
+		_panDuration   = dur;
+		_panElapsed    = 0.0;
+		_panEase       = ease ?? FlxEase.sineInOut;
+		_panOnComplete = onComplete;
+		_panKeepLocked = keepLocked ?? false;
+
+		// Activar — a partir de aquí _tickPan() lo conduce desde update().
+		_panActive = true;
+	}
+
+	/** Llamado cada frame desde update() mientras _panActive == true. */
+	private function _tickPan(elapsed:Float):Void {
+		// Re-afirmar cada frame por si PlayState u otro sistema reactiva el follow.
+		camGame.target = null;
+		camGame.followLerp = 0;
+
+		_panElapsed += elapsed;
+		var t:Float = Math.min(_panElapsed / _panDuration, 1.0);
+		var et:Float = _panEase(t);
+
+		camGame.scroll.x = _panFromX + (_panToX - _panFromX) * et;
+		camGame.scroll.y = _panFromY + (_panToY - _panFromY) * et;
+
+		if (t >= 1.0) {
+			_panActive = false;
+
+			if (_pendingLock) {
+				var px = Math.isNaN(_pendingLockX) ? null : _pendingLockX;
+				var py = Math.isNaN(_pendingLockY) ? null : _pendingLockY;
+				_applyLock(px, py);
+			} else if (!_panKeepLocked) {
+				locked = false;
+				// camFollow ya está en el destino → reconectar sin salto.
+				camGame.followLerp = _savedLerp;
+				camGame.follow(camFollow, FlxCameraFollowStyle.LOCKON, _savedLerp);
 			}
-		});
+
+			var cb = _panOnComplete;
+			_panOnComplete = null;
+			if (cb != null)
+				cb();
+		}
 	}
 
 	/**
@@ -316,8 +390,7 @@ class CameraController
 	 * desde el personaje activo en lugar de una posición fija.
 	 * Usado por FocusCamera V-Slice con ease/duration.
 	 */
-	public function tweenToTarget(duration:Float, ?ease:Float->Float):Void
-	{
+	public function tweenToTarget(duration:Float, ?ease:Float->Float):Void {
 		final dest = _computeTargetPos();
 		if (dest == null)
 			return;
@@ -332,8 +405,7 @@ class CameraController
 	 * @param snap  Si true (default) mueve camFollow instantáneamente.
 	 *              Si false aplica un panTo suave de 0.6s.
 	 */
-	public function centerBetweenChars(?snap:Bool):Void
-	{
+	public function centerBetweenChars(?snap:Bool):Void {
 		if (boyfriend == null || dad == null)
 			return;
 		var bfMid = boyfriend.getMidpoint();
@@ -355,21 +427,19 @@ class CameraController
 	 * DESPUÉS de que EventManager.rewindToStart() haya marcado los eventos como
 	 * no disparados, para que la cámara quede donde estaba al inicio de la canción.
 	 */
-	public function resetToInitial():Void
-	{
+	public function resetToInitial():Void {
 		// Cancel any active zoom tween first
-		if (zoomTween != null)
-		{
+		if (zoomTween != null) {
 			zoomTween.cancel();
 			zoomTween = null;
 		}
-		if (_panTween != null)
-		{
-			_panTween.cancel();
-			_panTween = null;
-		}
+		_panActive = false;
+		_panOnComplete = null;
 
 		locked = false;
+		_pendingLock = false;
+		_pendingLockX = Math.NaN;
+		_pendingLockY = Math.NaN;
 
 		currentTarget = _initialTarget;
 		defaultZoom = _initialZoom;
@@ -393,8 +463,7 @@ class CameraController
 	 * (defaultCamZoom, stageOffsets, lerpSpeed) para que resetToInitial()
 	 * vuelva al punto correcto tras un rewind.
 	 */
-	public function snapshotInitialState():Void
-	{
+	public function snapshotInitialState():Void {
 		_initialTarget = currentTarget;
 		_initialZoom = defaultZoom;
 		_initialLerp = followLerp;
@@ -409,8 +478,9 @@ class CameraController
 	 * Llamar desde PlayState.update() cada frame.
 	 * Ya NO recibe mustHitSection — el target se controla por eventos.
 	 */
-	public function update(elapsed:Float):Void
-	{
+	public function update(elapsed:Float):Void {
+		if (_panActive)
+			_tickPan(elapsed);
 		updateFollowPosition(elapsed);
 		lerpZoom(elapsed);
 	}
@@ -419,14 +489,12 @@ class CameraController
 	//  INTERNOS
 	// ─────────────────────────────────────────────────────────────
 
-	private function updateFollowPosition(elapsed:Float):Void
-	{
+	private function updateFollowPosition(elapsed:Float):Void {
 		// Si la cámara está bloqueada, no mover camFollow en absoluto.
 		if (locked)
 			return;
 		// ── Target 'both': centrar entre bf y dad ─────────────────────────
-		if (currentTarget == 'both')
-		{
+		if (currentTarget == 'both') {
 			if (boyfriend == null || dad == null)
 				return;
 
@@ -459,8 +527,7 @@ class CameraController
 		targetPos.y += targetChar.cameraOffset[1];
 
 		// Stage offset (cameraBoyfriend/cameraDad/cameraGirlfriend del stage.json).
-		var stageOff = switch (currentTarget)
-		{
+		var stageOff = switch (currentTarget) {
 			case 'player': stageOffsetBf;
 			case 'opponent': stageOffsetDad;
 			case 'gf': stageOffsetGf;
@@ -486,16 +553,14 @@ class CameraController
 	 * Calcula la posición destino del follow para el target actual.
 	 * Devuelve un FlxPoint pooled — el caller debe llamar .put().
 	 */
-	private function _computeTargetPos():Null<flixel.math.FlxPoint>
-	{
+	private function _computeTargetPos():Null<flixel.math.FlxPoint> {
 		var targetChar = getTargetCharacter();
 		if (targetChar == null)
 			return null;
 		var pos = targetChar.getMidpoint();
 		pos.x += targetChar.cameraOffset[0];
 		pos.y += targetChar.cameraOffset[1];
-		var stageOff = switch (currentTarget)
-		{
+		var stageOff = switch (currentTarget) {
 			case 'player': stageOffsetBf;
 			case 'opponent': stageOffsetDad;
 			case 'gf': stageOffsetGf;
@@ -506,23 +571,20 @@ class CameraController
 		return pos;
 	}
 
-	private function lerpZoom(elapsed:Float):Void
-	{
+	private function lerpZoom(elapsed:Float):Void {
 		var lerpVal:Float = FlxMath.bound(elapsed * 3.125, 0, 1);
 		camGame.zoom = FlxMath.lerp(camGame.zoom, defaultZoom, lerpVal);
 		camHUD.zoom = FlxMath.lerp(camHUD.zoom, 1.0, lerpVal);
 	}
 
 	/** Mueve camFollow instantáneamente al target actual (sin lerp). */
-	private function _snapToTarget():Void
-	{
+	private function _snapToTarget():Void {
 		// Si la cámara está bloqueada, nunca mover camFollow desde aquí.
 		if (locked)
 			return;
 
 		// ── Target 'both': snap al centro entre bf y dad ──────────────────
-		if (currentTarget == 'both')
-		{
+		if (currentTarget == 'both') {
 			if (boyfriend == null || dad == null)
 				return;
 			var bfMid = boyfriend.getMidpoint();
@@ -539,8 +601,7 @@ class CameraController
 
 		var mid = targetChar.getMidpoint();
 		// BUG FIX: igual que en updateFollowPosition, GF necesita su propio stageOffset.
-		var stageOff = switch (currentTarget)
-		{
+		var stageOff = switch (currentTarget) {
 			case 'player': stageOffsetBf;
 			case 'opponent': stageOffsetDad;
 			case 'gf': stageOffsetGf;
@@ -550,10 +611,8 @@ class CameraController
 		mid.put();
 	}
 
-	private function getTargetCharacter():Character
-	{
-		return switch (currentTarget)
-		{
+	private function getTargetCharacter():Character {
+		return switch (currentTarget) {
 			case 'player': boyfriend;
 			case 'opponent': dad;
 			case 'gf': gf;
@@ -562,10 +621,8 @@ class CameraController
 	}
 
 	/** Normaliza aliases a los cuatro nombres canónicos. */
-	private function resolveTarget(raw:String):String
-	{
-		return switch (raw.toLowerCase().trim())
-		{
+	private function resolveTarget(raw:String):String {
+		return switch (raw.toLowerCase().trim()) {
 			case 'player' | 'bf' | 'boyfriend': 'player';
 			case 'opponent' | 'dad' | 'enemy': 'opponent';
 			case 'gf' | 'girlfriend': 'gf';
@@ -578,27 +635,23 @@ class CameraController
 	//  ZOOM Y EFECTOS
 	// ─────────────────────────────────────────────────────────────
 
-	public function bumpZoom():Void
-	{
+	public function bumpZoom():Void {
 		if (!zoomEnabled)
 			return;
 		// El límite de bump se escala con la resolución para mantener
 		// la misma "sensación" visual que en 720p.
 		var bumpLimit:Float = 1.35 * Main.resolutionScale();
-		if (camGame.zoom < bumpLimit)
-		{
+		if (camGame.zoom < bumpLimit) {
 			camGame.zoom += 0.015 * Main.resolutionScale();
 			camHUD.zoom += 0.03;
 		}
 	}
 
-	public function applyNoteOffset(character:Character, noteData:Int):Void
-	{
+	public function applyNoteOffset(character:Character, noteData:Int):Void {
 		var camX:Float = 0;
 		var camY:Float = 0;
 
-		switch (noteData)
-		{
+		switch (noteData) {
 			case 0:
 				camX = -NOTE_OFFSET_AMOUNT;
 			case 1:
@@ -609,28 +662,23 @@ class CameraController
 				camX = NOTE_OFFSET_AMOUNT;
 		}
 
-		if (character == dad)
-		{
+		if (character == dad) {
 			dadOffsetX = Std.int(camX);
 			dadOffsetY = Std.int(camY);
-		}
-		else if (character == boyfriend)
-		{
+		} else if (character == boyfriend) {
 			bfOffsetX = Std.int(camX);
 			bfOffsetY = Std.int(camY);
 		}
 	}
 
-	public function resetOffsets():Void
-	{
+	public function resetOffsets():Void {
 		dadOffsetX = 0;
 		dadOffsetY = 0;
 		bfOffsetX = 0;
 		bfOffsetY = 0;
 	}
 
-	public function tweenZoomIn():Void
-	{
+	public function tweenZoomIn():Void {
 		if (zoomTween != null)
 			zoomTween.cancel();
 		// FIX: misma razón que _panTween — manager global no se pausa.
@@ -646,18 +694,13 @@ class CameraController
 
 	// ─────────────────────────────────────────────────────────────
 
-	public function destroy():Void
-	{
-		if (zoomTween != null)
-		{
+	public function destroy():Void {
+		if (zoomTween != null) {
 			zoomTween.cancel();
 			zoomTween = null;
 		}
-		if (_panTween != null)
-		{
-			_panTween.cancel();
-			_panTween = null;
-		}
+		_panActive = false;
+		_panOnComplete = null;
 		camPos.put();
 		stageOffsetBf.put();
 		stageOffsetDad.put();

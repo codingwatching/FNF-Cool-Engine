@@ -134,7 +134,7 @@ class ScriptHandler
 			{
 				Reflect.setField(_parser, 'allowMetadata', true);
 			}
-			catch (_)
+			catch (_e:Dynamic)
 			{
 			}
 		}
@@ -486,11 +486,11 @@ class ScriptHandler
 			}
 
 			var errorStr = "(error desconocido)";
-			try { errorStr = Std.string(e); } catch (_) {}
+			try { errorStr = Std.string(e); } catch (_e:Dynamic) {}
 
 			trace('[ScriptHandler] Error loading "$scriptName$lineInfo": $errorStr');
 			if (isLua)
-				try { trace('[ScriptHandler] Transpiled code:\n$content'); } catch (_) {}
+				try { trace('[ScriptHandler] Transpiled code:\n$content'); } catch (_e:Dynamic) {}
 
 			// ── In-game popup for load / parse failures ──────────────────────
 			// Envuelto en try/catch — si el popup falla el juego no debe crashear.
@@ -502,7 +502,7 @@ class ScriptHandler
 			}
 			catch (_notifyErr:Dynamic)
 			{
-				try { Sys.stderr().writeString('[ScriptError][load] $scriptName$lineInfo → $errorStr\n'); } catch (_) {}
+				try { Sys.stderr().writeString('[ScriptError][load] $scriptName$lineInfo → $errorStr\n'); } catch (_e:Dynamic) {}
 			}
 
 			return null;
@@ -583,7 +583,7 @@ class ScriptHandler
 				if (!Reflect.isFunction(v))
 					vars.set(field, v);
 			}
-			catch (_)
+			catch (_e:Dynamic)
 			{
 			}
 		}
@@ -597,7 +597,7 @@ class ScriptHandler
 				if (!Reflect.isFunction(v))
 					vars.set(field, v);
 			}
-			catch (_)
+			catch (_e:Dynamic)
 			{
 			}
 		}
