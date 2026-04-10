@@ -770,7 +770,7 @@ class ResultScreen extends FlxSubState {
 				highscoreNew.y = -highscoreNew.height - 520;
 				highscoreNew.alpha = 1;
 				highscoreNew.animation.play('new', true);
-				FlxTween.tween(highscoreNew, {y: 0}, 0.55, {ease: FlxEase.elasticOut});
+				FlxTween.tween(highscoreNew, {y: 20}, 0.55, {ease: FlxEase.elasticOut});
 			});
 		}
 
