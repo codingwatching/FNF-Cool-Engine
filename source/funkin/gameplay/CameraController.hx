@@ -318,23 +318,13 @@ class CameraController {
 		_panOnComplete = null;
 
 		locked = true;
-		_savedLerp = followLerp; // guardar el lerp lógico, NO camGame.followLerp
+		_savedLerp = followLerp;
 
-		// Desconectar el follow y ANULAR el lerp interno de FlxCamera.
-		// Sin esto, algunas versiones (custom FNF) siguen aplicando lerp hacia
-		// _scrollTarget cada frame aunque target == null, creando una fuerza
-		// contraria al pan que lo "congela" a mitad de camino.
 		camGame.target = null;
 		camGame.followLerp = 0;
 
-		// Pre-posicionar camFollow en el destino: cuando el pan termine y reconectemos
-		// follow, camFollow ya está ahí y no hay salto ni lerp residual.
 		camFollow.setPosition(x, y);
 
-		// Guardar desde/hasta en scroll-space.
-		// FORMULA CORRECTA: x - width*0.5 (sin dividir por zoom).
-		// FlxCamera LOCKON centra con esta fórmula; dividir por zoom desfasaba
-		// el destino y causaba un salto al reconectar el follow.
 		_panFromX = camGame.scroll.x;
 		_panFromY = camGame.scroll.y;
 		_panToX   = x - camGame.width  * 0.5;
@@ -346,7 +336,6 @@ class CameraController {
 		_panOnComplete = onComplete;
 		_panKeepLocked = keepLocked ?? false;
 
-		// Activar — a partir de aquí _tickPan() lo conduce desde update().
 		_panActive = true;
 	}
 

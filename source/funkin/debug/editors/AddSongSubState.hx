@@ -337,6 +337,7 @@ class AddSongSubState extends FlxSubState
 			needsVoices = !needsVoices;
 			_refreshVoicesToggle();
 			_rebuildVocalSlots();
+			_repositionSlotControls();
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.6);
 		}, 0.42);
 		needsVoicesToggleText = _toggleTxt(g, cx + 437, cy + 20, 0.44);
@@ -388,6 +389,7 @@ class AddSongSubState extends FlxSubState
 			splitVocals = !splitVocals;
 			_refreshSplitToggle();
 			_rebuildVocalSlots();
+			_repositionSlotControls();
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.6);
 		}, 0.45);
 		var splitToggleText = _toggleTxt(g, cx + 287, cy, 0.46);
@@ -1744,6 +1746,8 @@ class AddSongSubState extends FlxSubState
 		titleText.text = (editMode ? "EDIT: " : "ADD: ") + stepTitles[currentStep - 1];
 
 		updateStatus(_stepHint(currentStep));
+
+		if (currentStep == STEP_FILES) _rebuildVocalSlots();
 	}
 
 	/** Fuerza el alpha de todos los FlxSprite en el grupo al valor dado. */
@@ -1843,6 +1847,8 @@ class AddSongSubState extends FlxSubState
 	{
 		var startOff:Float = dir > 0 ? 80 : -80;
 		_setGroupVisible(g, true);
+
+		if (groupIdx == 0) _rebuildVocalSlots();
 
 		var origMap = (groupIdx >= 0 && groupIdx < _stepOrigX.length) ? _stepOrigX[groupIdx] : null;
 
