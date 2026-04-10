@@ -129,7 +129,14 @@ class ScriptHandler
 			_parser = new Parser();
 			_parser.allowTypes = true;
 			_parser.allowJSON = true;
-			// allowMetadata fue añadido en hscript 2.5. Guard seguro:
+			try
+			{
+				Reflect.setField(_parser, 'allowInterp', true);
+			}
+			catch (_e:Dynamic)
+			{
+			}
+			
 			try
 			{
 				Reflect.setField(_parser, 'allowMetadata', true);

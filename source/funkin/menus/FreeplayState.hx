@@ -38,6 +38,7 @@ import funkin.data.FreeplayList.FreeplaySongEntry;
 import funkin.gameplay.PlayState;
 import funkin.data.Conductor;
 import funkin.data.CoolUtil;
+import animationdata.FunkinSprite;
 
 using StringTools;
 
@@ -96,7 +97,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 	// ── Album art (bottom-right) ───────────────────────────────────────────────
 	var albumArt:FlxSprite; // static cover image
-	var albumTextSpr:FlxSprite; // animated title text atlas
+	var albumTextSpr:FunkinSprite; // animated title text atlas
 	var _curAlbumKey:String = '';
 	var _curAlbumTextKey:String = '';
 
@@ -386,7 +387,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		albumArt.scrollFactor.set();
 		add(albumArt);
 
-		albumTextSpr = new FlxSprite();
+		albumTextSpr = new FunkinSprite();
 		albumTextSpr.makeGraphic(1, 1, FlxColor.TRANSPARENT);
 		albumTextSpr.alpha = 0;
 		albumTextSpr.scrollFactor.set();
@@ -591,15 +592,15 @@ class FreeplayState extends funkin.states.MusicBeatState
 			{
 				try
 				{
-					albumTextSpr.frames = Paths.getSparrowAtlas('menu/freeplay/albums/$textKey');
-					albumTextSpr.animation.addByPrefix('idle', 'idle', 24, true);
-					albumTextSpr.animation.addByPrefix('switch', 'switch', 24, false);
+					albumTextSpr.loadAsset('menu/freeplay/albums/$textKey');
+					albumTextSpr.addAnim('idle', 'idle', 24, true);
+					albumTextSpr.addAnim('switch', 'switch', 24, false);
 					albumTextSpr.setGraphicSize(Std.int(albumTextSpr.width * 0.9));
 					albumTextSpr.updateHitbox();
 					albumTextSpr.x = FlxG.width + 10;
 					albumTextSpr.y = ATEXT_Y;
 					albumTextSpr.alpha = 0;
-					albumTextSpr.animation.play('switch', true);
+					albumTextSpr.playAnim('switch', true);
 					FlxTween.tween(albumTextSpr, {
 						alpha: 1.0,
 						x: ALBUM_X - albumTextSpr.width / 2 + 50
@@ -608,8 +609,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 						startDelay: 0.05,
 						onComplete: function(_)
 						{
-							if (albumTextSpr.animation.getByName('idle') != null)
-								albumTextSpr.animation.play('idle', true);
+							if (albumTextSpr.hasAnim('idle'))
+								albumTextSpr.playAnim('idle', true);
 						}
 					});
 				}

@@ -102,7 +102,7 @@ class CacheState extends funkin.states.MusicBeatState
      */
     function buildEssentialList():Void
     {
-        // Sonidos de UI — se usan en TODOS los menús
+        #if (!android && !mobileC && !ios)
         final sounds:Array<String> = [
             "menus/confirmMenu", "menus/cancelMenu", "menus/scrollMenu",
             "intro3", "intro2", "intro1", "introGo",
@@ -110,13 +110,8 @@ class CacheState extends funkin.states.MusicBeatState
         ];
         for (s in sounds)
             assetsToCache.push({ type: SOUND, path: s });
+        #end
 
-        // Imágenes de UI esenciales
-        // Nota: soundtray/bars_* se excluyen del preload intencionalmente —
-        // cargamos lazy en el primer uso del SoundTray. Como SoundTray es un
-        // plugin persistente, sus FlxSprites mantienen useCount > 0 y FunkinCache
-        // los rescata en cada clearSecondLayer() sin necesidad de marcarlos permanentes.
-        // Eliminarlos aquí ahorra ~10 texturas cargadas durante el arranque.
         final images:Array<String> = [
             "UI/alphabet",
             "soundtray/volumebox",
@@ -207,15 +202,15 @@ class CacheState extends funkin.states.MusicBeatState
 
     function goToTitle():Void
     {
-        // FIX (música al minimizar): autoPause = false
+        #if (!mobileC && !android && !ios)
         FlxG.autoPause = false;
+        #else
+        FlxG.autoPause = true;
+        #end
 
         // Aplicar FPS guardado
         funkin.data.EngineSettings.applyFPS();
 
-        // FIX (ventana pequeña): centrar la ventana en pantalla.
-        // En móvil win.move() puede reiniciar el contexto GL (Android) o
-        // generar un reencuadre indeseado (iOS) → se omite en móvil.
         #if (!mobileC && !android && !ios)
         funkin.data.EngineSettings.ensureWindowSize();
         #end

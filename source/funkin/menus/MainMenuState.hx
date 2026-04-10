@@ -42,8 +42,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 	var newInput:Bool = true;
 	var menuItem:FlxSprite;
 
-	var versionFNF:String = "0.6.1";
-	var versionAPI:String = "0.4.2B";
+	var versionAPI:String = "0.4.4B";
 
 	public static var firstStart:Bool = true;
 
@@ -165,6 +164,12 @@ class MainMenuState extends funkin.states.MusicBeatState
 			menuItem.updateHitbox();
 		}
 
+		var versionShit2:FlxText = new FlxText(5, FlxG.height - 19, 0, 'Cool Engine - v${Application.current.meta.get('version')}', 12);
+		versionShit2.scrollFactor.set();
+		versionShit2.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		versionShit2.antialiasing = SaveData.data.antialiasing;
+		add(versionShit2);
+		
 		#if mobileC
 		// En móvil: texto "[ MODS ]" tappable en lugar de "Press Shift"
 		var modShit:FlxText = new FlxText(5, FlxG.height - 19, 0, '[ MODS ]', 12);
@@ -174,21 +179,8 @@ class MainMenuState extends funkin.states.MusicBeatState
 		modShit.scrollFactor.set();
 		modShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		modShit.antialiasing = SaveData.data.antialiasing;
-		modShit.y -= 40;
+		modShit.y -= 20;
 		add(modShit);
-
-		var versionShit:FlxText = new FlxText(5, FlxG.height - 19, 0, "Friday Night Funkin v"+versionFNF, 12);
-		versionShit.scrollFactor.set();
-		versionShit.antialiasing = SaveData.data.antialiasing;
-		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		add(versionShit);
-
-		var versionShit2:FlxText = new FlxText(5, FlxG.height - 19, 0, 'Cool Engine - v${Application.current.meta.get('version')}', 12);
-		versionShit2.scrollFactor.set();
-		versionShit2.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		versionShit2.y -= 20;
-		versionShit2.antialiasing = SaveData.data.antialiasing;
-		add(versionShit2);
 
 		// Etiqueta del mod activo — solo visible si hay uno cargado
 		final _activeMod = mods.ModManager.activeMod;
