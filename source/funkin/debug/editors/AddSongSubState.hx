@@ -9,7 +9,7 @@ import flixel.FlxSprite;
 import flixel.FlxSubState;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
@@ -36,7 +36,7 @@ typedef VocalSlot =
 	var charName:String;
 	var filePath:String;
 	var loaded:Bool;
-	var btn:FlxButton;
+	var btn:CoolButton;
 	var statusText:FlxText;
 	var nameInput:CoolInputText;
 	/** Icono de salud del personaje (visible en edit mode si existe). */
@@ -63,13 +63,13 @@ typedef DiffEntry =
 	/** Dificultades disponibles en el archivo importado (para multi-diff). */
 	@:optional var availableKeys:Array<String>;
 	// UI refs
-	@:optional var enableBtn:FlxButton;
+	@:optional var enableBtn:CoolButton;
 	@:optional var enableTxt:FlxText;
 	@:optional var labelInput:CoolInputText;
-	@:optional var importBtn:FlxButton;
+	@:optional var importBtn:CoolButton;
 	@:optional var statusTxt:FlxText;
 	@:optional var formatBadge:FlxText;
-	@:optional var keyBtn:FlxButton;   // selector de clave para multi-diff
+	@:optional var keyBtn:CoolButton;   // selector de clave para multi-diff
 }
 
 /**
@@ -116,10 +116,10 @@ class AddSongSubState extends FlxSubState
 	var stepIndicator:FlxText;
 
 	// ── Nav buttons ───────────────────────────────────────────────────────────
-	var prevBtn:FlxButton;
-	var nextBtn:FlxButton;
-	var saveBtn:FlxButton;
-	var cancelBtn:FlxButton;
+	var prevBtn:CoolButton;
+	var nextBtn:CoolButton;
+	var saveBtn:CoolButton;
+	var cancelBtn:CoolButton;
 
 	// ── Step containers (groups that get shown/hidden) ─────────────────────
 	var stepGroups:Array<FlxTypedGroup<Dynamic>> = [];
@@ -136,13 +136,13 @@ class AddSongSubState extends FlxSubState
 	// ─── PASO 1: Archivos & BPM ───────────────────────────────────────────────
 	var songNameInput:CoolInputText;
 	var bpmInput:CoolInputText;
-	var loadInstBtn:FlxButton;
-	var loadVocalsBtn:FlxButton;
-	var loadIconBtn:FlxButton;
+	var loadInstBtn:CoolButton;
+	var loadVocalsBtn:CoolButton;
+	var loadIconBtn:CoolButton;
 	var instStatusText:FlxText;
 	var vocalsStatusText:FlxText;
 	var iconStatusText:FlxText;
-	var needsVoicesToggleBtn:FlxButton;
+	var needsVoicesToggleBtn:CoolButton;
 	var needsVoicesToggleText:FlxText;
 	var needsVoices:Bool = true;
 
@@ -150,7 +150,7 @@ class AddSongSubState extends FlxSubState
 	/** Entrada de dificultad: label visible, sufijo interno, estado y chart importado. */
 	var diffEntries:Array<DiffEntry>  = [];
 	var _diffRowContainer:FlxTypedGroup<Dynamic> = null;
-	var _addDiffBtn:FlxButton = null;
+	var _addDiffBtn:CoolButton = null;
 	/** Scroll offset para la lista de diffs (en píxeles) */
 	var _diffScrollY:Float = 0;
 	var _diffListY:Float   = 0;   // Y absoluta donde empieza la lista
@@ -170,7 +170,7 @@ class AddSongSubState extends FlxSubState
 	var weekInput:CoolInputText;
 	var selectedColor:String = "0xFFAF66CE";
 	// Swatch visual que muestra el color elegido
-	var colorSwatchBtn:FlxButton = null;
+	var colorSwatchBtn:CoolButton = null;
 	var colorSwatchLabel:FlxText = null;
 
 	// ── File data ─────────────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ class AddSongSubState extends FlxSubState
 	var vocalSlots:Array<VocalSlot> = [];
 
 	// Botones de control del panel dinámico de slots
-	var _addSlotBtn:FlxButton                 = null;
+	var _addSlotBtn:CoolButton                 = null;
 	var _slotContainer:FlxTypedGroup<Dynamic> = null;
 
 	// Info bars (edit mode)
@@ -297,7 +297,7 @@ class AddSongSubState extends FlxSubState
 		}
 
 		// ── Theme button ──────────────────────────────────────────────────────
-		var themeBtn = new FlxButton(windowX + 10, windowY + 10, "\u2728 Theme", function()
+		var themeBtn = new CoolButton(windowX + 10, windowY + 10, "\u2728 Theme", function()
 			openSubState(new funkin.debug.themes.ThemePickerSubState()));
 		themeBtn.alpha = 0;
 		add(themeBtn);
@@ -449,7 +449,7 @@ class AddSongSubState extends FlxSubState
 		_buildVocalSlotUI({charName: "dad", filePath: "", loaded: false, btn: null, statusText: null, nameInput: null});
 
 		// ── Botón + agregar slot (debajo de los slots) ────────────────────────
-		_addSlotBtn = new FlxButton(cx, _vocalAreaY + vocalSlots.length * 54 - 6,
+		_addSlotBtn = new CoolButton(cx, _vocalAreaY + vocalSlots.length * 54 - 6,
 			"+ Add character", _onAddSlot);
 		_styleBtn(_addSlotBtn, 0xFF388E3C, 180);
 		_addSlotBtn.alpha = 0; _slotContainer.add(_addSlotBtn);
@@ -537,7 +537,7 @@ class AddSongSubState extends FlxSubState
 		// Botón − quitar slot (no en los dos primeros por defecto)
 		if (slotIndex >= 2)
 		{
-			var removeBtn = new FlxButton(cx + fileW - 30, slotY, "✕", function()
+			var removeBtn = new CoolButton(cx + fileW - 30, slotY, "✕", function()
 			{
 				_removeVocalSlot(charCapture);
 			});
@@ -678,7 +678,7 @@ class AddSongSubState extends FlxSubState
 		_rebuildDiffRows();
 
 		// ── Botón + Añadir dificultad ─────────────────────────────────────────
-		_addDiffBtn = new FlxButton(cx, _diffListY + diffEntries.length * _diffRowH() + 6,
+		_addDiffBtn = new CoolButton(cx, _diffListY + diffEntries.length * _diffRowH() + 6,
 			"+ Add difficulty", _onAddDiff);
 		_styleBtn(_addDiffBtn, 0xFF388E3C, 180);
 		_addDiffBtn.alpha = 0; g.add(_addDiffBtn);
@@ -808,7 +808,7 @@ class AddSongSubState extends FlxSubState
 		var rY = _diffListY + idx * _diffRowH();
 
 		// ── Toggle habilitado ──────────────────────────────────────────────────
-		var eBtn = new FlxButton(cx, rY + 8, "", function()
+		var eBtn = new CoolButton(cx, rY + 8, "", function()
 		{
 			entry.enabled = !entry.enabled;
 			_refreshDiffRowToggle(entry);
@@ -817,7 +817,7 @@ class AddSongSubState extends FlxSubState
 			if (entry.importBtn != null)
 				entry.importBtn.alpha = entry.enabled ? 1.0 : 0.35;
 		});
-		eBtn.makeGraphic(88, 34, entry.enabled ? 0xFF4CAF50 : 0xFFFF5252);
+		eBtn.resize(88, 34);
 		eBtn.alpha = 0; g.add(eBtn);
 		FlxTween.tween(eBtn, {alpha: 1}, 0.25, {startDelay: delay});
 		entry.enableBtn = eBtn;
@@ -860,15 +860,13 @@ class AddSongSubState extends FlxSubState
 		var impLabel = entry.chartPath != ''
 			? (entry.chartFormat == 'level' ? "  \u2713 In .level \u2014 Replace?" : "  \u2713 Replace chart\u2026")
 			: "  Import chart\u2026";
-		var impBtn = new FlxButton(cx + 322, rY + 4, impLabel, function()
+		var impBtn = new CoolButton(cx + 322, rY + 4, impLabel, function()
 		{
 			if (!entryCapture.enabled) return;
 			_importChartForDiff(entryCapture);
 		});
-		impBtn.makeGraphic(impW, 38,
-			entry.chartPath != '' ? 0xFF1565C0 : funkin.debug.themes.EditorTheme.current.bgHover);
-		impBtn.label.setFormat(Paths.font("vcr.ttf"), 13,
-			flixel.util.FlxColor.WHITE, LEFT);
+		impBtn.resize(impW, 38);
+		impBtn.setLabelFormat(Paths.font("vcr.ttf"), 13, flixel.util.FlxColor.WHITE, "left");
 		impBtn.alpha = entry.enabled ? 0.0 : 0.35;
 		g.add(impBtn);
 		if (entry.enabled)
@@ -897,13 +895,12 @@ class AddSongSubState extends FlxSubState
 		// ── Selector de clave (para multi-diff) ───────────────────────────────
 		// Solo visible cuando hay availableKeys con >1 opción
 		var kBtnW = 160;
-		var kBtn = new FlxButton(cx + 322, rY + 38 + 4, "", function()
+		var kBtn = new CoolButton(cx + 322, rY + 38 + 4, "", function()
 		{
 			_cycleChartDiffKey(entryCapture);
 		});
-		kBtn.makeGraphic(kBtnW, 22, 0xFF37474F);
-		kBtn.label.setFormat(Paths.font("vcr.ttf"), 10,
-			flixel.util.FlxColor.WHITE, LEFT);
+		kBtn.resize(kBtnW, 22);
+		kBtn.setLabelFormat(Paths.font("vcr.ttf"), 10, flixel.util.FlxColor.WHITE, "left");
 		kBtn.visible = (entry.availableKeys != null && entry.availableKeys.length > 1);
 		kBtn.alpha   = 0; g.add(kBtn);
 		if (kBtn.visible)
@@ -914,7 +911,7 @@ class AddSongSubState extends FlxSubState
 		// ── Botón − eliminar (no en las 3 primeras si solo hay 3) ─────────────
 		if (idx >= 3 || diffEntries.length > 3)
 		{
-			var delBtn = new FlxButton(cx + windowWidth - 100, rY + 8, "✕", function()
+			var delBtn = new CoolButton(cx + windowWidth - 100, rY + 8, "✕", function()
 			{
 				diffEntries.remove(entryCapture);
 				_rebuildDiffRows();
@@ -930,7 +927,7 @@ class AddSongSubState extends FlxSubState
 	function _refreshDiffRowToggle(entry:DiffEntry):Void
 	{
 		if (entry.enableBtn == null) return;
-		entry.enableBtn.makeGraphic(88, 34, entry.enabled ? 0xFF4CAF50 : 0xFFFF5252);
+		entry.enableBtn.resize(88, 34);
 		if (entry.enableTxt != null)
 		{
 			entry.enableTxt.text  = entry.enabled ? "ON" : "OFF";
@@ -1351,7 +1348,7 @@ class AddSongSubState extends FlxSubState
 		entry.keyBtn.visible = hasMultiple && entry.chartPath != '';
 		if (!hasMultiple) return;
 		var cur = entry.chartDiffKey != '' ? entry.chartDiffKey : entry.availableKeys[0];
-		entry.keyBtn.label.text = "  \u25C4\u25BA diff: " + cur;
+		entry.keyBtn.label = "  \u25C4\u25BA diff: " + cur;
 	}
 
 	/** Refresca el icono de estado y el badge de formato de una fila. */
@@ -1372,14 +1369,12 @@ class AddSongSubState extends FlxSubState
 		}
 		if (entry.importBtn != null)
 		{
-			entry.importBtn.makeGraphic(190, 38,
-				entry.chartPath != '' ? 0xFF1565C0
-				                      : funkin.debug.themes.EditorTheme.current.bgHover);
+			entry.importBtn.resize(190, 38);
 			// Refrescar el texto del botón según el estado
 			var impLabel = entry.chartPath != ''
 				? (entry.chartFormat == 'level' ? "  \u2713 In .level \u2014 Replace?" : "  \u2713 Replace chart\u2026")
 				: "  Import chart\u2026";
-			entry.importBtn.label.text = impLabel;
+			entry.importBtn.label = impLabel;
 		}
 		_refreshKeyBtn(entry);
 	}
@@ -1519,12 +1514,12 @@ class AddSongSubState extends FlxSubState
 		cy += 30;
 
 		// Swatch cuadrado que muestra el color actual
-		colorSwatchBtn = new FlxButton(cx, cy, "", _openColorPicker);
-		colorSwatchBtn.makeGraphic(48, 48, Std.parseInt(selectedColor));
+		colorSwatchBtn = new CoolButton(cx, cy, "", _openColorPicker);
+		colorSwatchBtn.resize(48, 48);
 		colorSwatchBtn.alpha = 0; g.add(colorSwatchBtn);
 		FlxTween.tween(colorSwatchBtn, {alpha: 1}, 0.3, {startDelay: 0.50});
 
-		var pickerBtn = new FlxButton(cx + 58, cy + 7, "[Color]  Select color...", _openColorPicker);
+		var pickerBtn = new CoolButton(cx + 58, cy + 7, "[Color]  Select color...", _openColorPicker);
 		_styleBtn(pickerBtn, funkin.debug.themes.EditorTheme.current.bgHover, 170);
 		pickerBtn.alpha = 0; g.add(pickerBtn);
 		FlxTween.tween(pickerBtn, {alpha: 1}, 0.3, {startDelay: 0.52});
@@ -1554,7 +1549,7 @@ class AddSongSubState extends FlxSubState
 	/** Refresca el swatch y el label hex con el color actual. */
 	function _refreshColorSwatch():Void
 	{
-		if (colorSwatchBtn   != null) colorSwatchBtn.makeGraphic(48, 48, Std.parseInt(selectedColor));
+		if (colorSwatchBtn   != null) colorSwatchBtn.resize(48, 48);
 		if (colorSwatchLabel != null) colorSwatchLabel.text = selectedColor;
 	}
 
@@ -1694,25 +1689,25 @@ class AddSongSubState extends FlxSubState
 		var bX = windowX + windowWidth - 10;
 
 		// Cancel (siempre visible)
-		cancelBtn = new FlxButton(bX - 110, bY, "CANCEL", closeWindow);
+		cancelBtn = new CoolButton(bX - 110, bY, "CANCEL", closeWindow);
 		_styleBtn(cancelBtn, 0xFFe74c3c, 100);
 		cancelBtn.alpha = 0; add(cancelBtn);
 		FlxTween.tween(cancelBtn, {alpha: 1}, 0.3, {startDelay: 0.3});
 
 		// Previous
-		prevBtn = new FlxButton(bX - 230, bY, "< BACK", function() _goStep(currentStep - 1));
+		prevBtn = new CoolButton(bX - 230, bY, "< BACK", function() _goStep(currentStep - 1));
 		_styleBtn(prevBtn, funkin.debug.themes.EditorTheme.current.bgHover, 110);
 		prevBtn.alpha = 0; add(prevBtn);
 		FlxTween.tween(prevBtn, {alpha: 1}, 0.3, {startDelay: 0.3});
 
 		// Next
-		nextBtn = new FlxButton(bX - 350, bY, "NEXT >", function() _goStep(currentStep + 1));
+		nextBtn = new CoolButton(bX - 350, bY, "NEXT >", function() _goStep(currentStep + 1));
 		_styleBtn(nextBtn, 0xFF3498db, 110);
 		nextBtn.alpha = 0; add(nextBtn);
 		FlxTween.tween(nextBtn, {alpha: 1}, 0.3, {startDelay: 0.3});
 
 		// Save (solo en último paso)
-		saveBtn = new FlxButton(bX - 350, bY, editMode ? "UPDATE" : "SAVE", saveSong);
+		saveBtn = new CoolButton(bX - 350, bY, editMode ? "UPDATE" : "SAVE", saveSong);
 		_styleBtn(saveBtn, 0xFF2ecc71, 110);
 		saveBtn.alpha = 0; add(saveBtn);
 		FlxTween.tween(saveBtn, {alpha: 1}, 0.3, {startDelay: 0.3});
@@ -2625,7 +2620,7 @@ class AddSongSubState extends FlxSubState
 	function _refreshVoicesToggle():Void
 	{
 		var on = needsVoices;
-		needsVoicesToggleBtn.makeGraphic(88, 34, on ? 0xFF4CAF50 : 0xFFFF5252);
+		needsVoicesToggleBtn.resize(88, 34);
 		needsVoicesToggleText.text  = on ? "YES" : "NO";
 		needsVoicesToggleText.color = on ? 0xFF4CAF50 : 0xFFFF5252;
 	}
@@ -2671,10 +2666,10 @@ class AddSongSubState extends FlxSubState
 		return f;
 	}
 
-	function _toggleBtn(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, cb:Void->Void, delay:Float):FlxButton
+	function _toggleBtn(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, cb:Void->Void, delay:Float):CoolButton
 	{
-		var b = new FlxButton(x, y, "", cb);
-		b.makeGraphic(88, 34, 0xFF4CAF50);
+		var b = new CoolButton(x, y, "", cb);
+		b.resize(88, 34);
 		b.alpha = 0; g.add(b);
 		FlxTween.tween(b, {alpha: 1}, 0.3, {startDelay: delay});
 		return b;
@@ -2699,24 +2694,24 @@ class AddSongSubState extends FlxSubState
 	}
 
 	function _fileBtn(g:FlxTypedGroup<Dynamic>, x:Float, y:Float, label:String,
-		color:Int, w:Int, cb:Void->Void, delay:Float):FlxButton
+		color:Int, w:Int, cb:Void->Void, delay:Float):CoolButton
 	{
-		var b = new FlxButton(x, y, label, cb);
-		b.makeGraphic(w, 38, color);
-		b.label.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.WHITE, LEFT);
+		var b = new CoolButton(x, y, label, cb);
+		b.resize(w, 38);
+		b.setLabelFormat(Paths.font("vcr.ttf"), 15, FlxColor.WHITE, "left");
 		b.alpha = 0; g.add(b);
 		FlxTween.tween(b, {alpha: 1}, 0.3, {startDelay: delay});
 		return b;
 	}
 
-	function _styleBtn(btn:FlxButton, color:Int, w:Int):Void
+	function _styleBtn(btn:CoolButton, color:Int, w:Int):Void
 	{
-		btn.makeGraphic(w, 40, color);
-		btn.label.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
+		btn.resize(w, 40);
+		btn.setLabelFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, "center");
 	}
 
 	// ── refs internas para split toggle (asignadas en _buildStep1) ─────────
-	var _splitToggleBtn:FlxButton  = null;
+	var _splitToggleBtn:CoolButton  = null;
 	var _splitToggleText:FlxText   = null;
 
 	/** Y absoluta donde empieza el área de vocales (después del toggle split). */
@@ -2726,7 +2721,7 @@ class AddSongSubState extends FlxSubState
 	{
 		if (_splitToggleBtn  == null) return;
 		if (_splitToggleText == null) return;
-		_splitToggleBtn.makeGraphic(88, 34, splitVocals ? 0xFF9C27B0 : 0xFF607D8B);
+		_splitToggleBtn.resize(88, 34);
 		_splitToggleText.text  = splitVocals ? "SPLIT" : "ONLY";
 		_splitToggleText.color = splitVocals ? 0xFFCE93D8 : 0xFFB0BEC5;
 	}

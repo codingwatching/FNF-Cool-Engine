@@ -15,7 +15,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 import flixel.util.FlxColor;
 import funkin.gameplay.objects.character.Character;
 import funkin.gameplay.objects.stages.Stage;
@@ -107,6 +107,8 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	var selectedIdx:Int = -1;
 	var selectedCharId:String = null;
+	/** All currently selected element indices (multi-select via Shift / Ctrl). */
+	var selectedIndices:Array<Int> = [];
 	var history:Array<String> = [];
 	var historyIndex:Int = -1;
 	var clipboard:Dynamic = null;
@@ -159,6 +161,8 @@ class StageEditor extends funkin.states.MusicBeatState
 	var layerHoverIdx:Int = -1;
 	/** Maps element index → its row-background FlxSprite so hover can recolor without full rebuild. */
 	var _layerRowBgMap:Map<Int, FlxSprite> = new Map();
+	/** Maps element index → all FlxText labels on that row, so they can be hidden during drag. */
+	var _layerRowTextsMap:Map<Int, Array<FlxText>> = new Map();
 
 	// ── HUD: right panel (CoolTabMenu) ──────────────────────────────────────
 	var rightPanel:CoolTabMenu;
@@ -436,6 +440,16 @@ class StageEditor extends funkin.states.MusicBeatState
 		// ── Remove previous canvas objects ────────────────────────────────────
 		if (stage != null)
 		{
+			// En el char-anchor system los sprites se añadieron directo al FlxState
+			// con add(entry.sprite). Hay que quitarlos ANTES de destroy() o quedan
+			// huérfanos renderizando indefinidamente sobre los nuevos.
+			if (stage._useCharAnchorSystem)
+			{
+				for (entry in stage.spriteList)
+					if (entry.sprite != null)
+						remove(entry.sprite, true);
+			}
+
 			// stageAboveGroup is stage.aboveCharsGroup — stage.destroy() cleans it up.
 			// We only need to remove it from the FlxState render list first.
 			if (stageAboveGroup != null)
@@ -454,7 +468,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		}
 		if (charGroup != null)
 		{
-			remove(charGroup);
+			// Characters are added directly to state (not via charGroup) — remove individually
+			for (c in charGroup.members)
+				if (c != null) remove(c, true);
 			charGroup.destroy();
 			charGroup = null;
 		}
@@ -529,17 +545,14 @@ class StageEditor extends funkin.states.MusicBeatState
 			add(stage);
 
 			// In the char-anchor system, sprites are in spriteList (stage.members is empty).
-			// Add each one directly so they appear in the editor canvas.
+			// We only set cameras here; the actual add() calls happen inside
+			// _addCharsInOrder() so that stage sprites and character sprites are
+			// interleaved in the correct draw order defined by stageData.elements.
 			if (stage._useCharAnchorSystem)
 			{
 				for (entry in stage.spriteList)
-				{
 					if (entry.sprite != null)
-					{
 						entry.sprite.cameras = [camGame];
-						add(entry.sprite);
-					}
-				}
 			}
 
 			// Map all element sprites so the editor can select/drag/highlight them
@@ -584,8 +597,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		charLabels = new FlxTypedGroup<FlxText>();
 		charGroup.cameras = [camGame];
 		charLabels.cameras = [camGame];
-		add(charGroup);
-		add(charLabels);
+		// NOTE: charGroup is NOT added directly to state so we can control
+		// the z-order of individual characters relative to stage elements.
+		// Characters are added in _addCharsInOrder() below.
 
 		// ── Above-chars group / char-anchor system ────────────────────────────
 		// In the new char-anchor system, all sprites are in stage.spriteList
@@ -599,14 +613,20 @@ class StageEditor extends funkin.states.MusicBeatState
 			for (obj in stageAboveGroup.members)
 				if (obj != null)
 					obj.cameras = [camGame];
-			add(stageAboveGroup);
+			// stageAboveGroup is added AFTER characters inside _addCharsInOrder
 		}
 		else
 		{
 			stageAboveGroup = null;
 		}
 
+		// Auto-populate character layer entries if absent, then load and place chars
+		_ensureCharacterEntries();
 		loadCharacters();
+		_addCharsInOrder();
+		add(charLabels);
+		if (stageAboveGroup != null)
+			add(stageAboveGroup);
 	}
 
 	function loadCharacters():Void
@@ -795,10 +815,12 @@ class StageEditor extends funkin.states.MusicBeatState
 			return bg;
 		}
 
-		toolBtn(LEFT_W + 4, 82, '+ ADD ELEMENT', T.bgHover, openAddElementDialog);
-		toolBtn(LEFT_W + 90, 58, 'LOAD', T.bgPanelAlt, loadJSON);
-		toolBtn(LEFT_W + 152, 58, 'SAVE', 0xFF003A20, saveJSON);
-		toolBtn(LEFT_W + 214, 76, 'SAVE TO MOD', 0xFF2A1A00, saveToMod);
+		toolBtn(LEFT_W + 4,   58, '\u2606 NEW',      0xFF1A002A, openNewStageDialog);
+		toolBtn(LEFT_W + 66,  72, '\u25A4 STAGES',  0xFF001A2A, openStageListDialog);
+		toolBtn(LEFT_W + 142, 80, '+ ADD ELEMENT', T.bgHover,  openAddElementDialog);
+		toolBtn(LEFT_W + 226, 52, 'LOAD',           T.bgPanelAlt, loadJSON);
+		toolBtn(LEFT_W + 282, 52, 'SAVE',           0xFF003A20, saveJSON);
+		toolBtn(LEFT_W + 338, 72, 'SAVE MOD',       0xFF2A1A00, saveToMod);
 
 		toolBtn(FlxG.width - RIGHT_W - 4 - 166, 40, 'UNDO', T.bgPanelAlt, undo);
 		toolBtn(FlxG.width - RIGHT_W - 4 - 122, 40, 'REDO', T.bgPanelAlt, redo);
@@ -853,6 +875,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		layerTextsGroup.clear();
 		layerHitData = [];
 		_layerRowBgMap.clear();
+		_layerRowTextsMap.clear();
 
 		var rowY = TOP_H + 0.0;
 
@@ -924,7 +947,7 @@ class StageEditor extends funkin.states.MusicBeatState
 				continue;
 			}
 
-			var isSelected = (elemIdx == selectedIdx);
+			var isSelected = (elemIdx == selectedIdx || selectedIndices.contains(elemIdx));
 			var isVisible = !(elem.visible == false);
 			var isAbove = (elem.aboveChars == true);
 
@@ -1143,6 +1166,9 @@ class StageEditor extends funkin.states.MusicBeatState
 				add(dot);
 				layerRowsGroup.add(dot);
 			}
+
+			// Register all texts for this row so the drag system can hide them
+			_layerRowTextsMap.set(elemIdx, [eyeTxt, nameTxt, typeTxt, abTxt, upTxt, downTxt, delTxt, lockTxt]);
 
 			rowY += ROW_H;
 			i--;
@@ -1403,7 +1429,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(elemAssetInput);
 		_assetWidgets.push(elemAssetInput);
 
-		var browseBtn = new FlxButton(RIGHT_W - 48, y + 11, 'Browse', browseAsset);
+		var browseBtn = new CoolButton(RIGHT_W - 48, y + 11, 'Browse', browseAsset);
 		tab.add(browseBtn);
 		_assetWidgets.push(browseBtn);
 
@@ -1480,7 +1506,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(elemAboveCharsCheck);
 
 		y += 26;
-		var applyBtn = new FlxButton(8, y, 'Apply Changes', applyElementProps);
+		var applyBtn = new CoolButton(8, y, 'Apply Changes', applyElementProps);
 		tab.add(applyBtn);
 
 		// ── Backdrop properties panel ─────────────────────────────────────────
@@ -1558,8 +1584,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		animListText = new FlxTypedGroup<FlxText>();
 		// Groups are added to the state directly in buildRightPanel (coolui.CoolUIGroup.add only accepts FlxSprite)
 
-		var addAnimBtn = new FlxButton(4, y + 144, '+ Add Anim', addAnimation);
-		var delAnimBtn = new FlxButton(RIGHT_W - 86, y + 144, 'Remove', removeAnimation);
+		var addAnimBtn = new CoolButton(4, y + 144, '+ Add Anim', addAnimation);
+		var delAnimBtn = new CoolButton(RIGHT_W - 86, y + 144, 'Remove', removeAnimation);
 		tab.add(addAnimBtn);
 		tab.add(delAnimBtn);
 
@@ -1604,7 +1630,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(animFirstInput);
 
 		y += 32;
-		var saveAnimBtn = new FlxButton(8, y, 'Save Anim Data', saveAnimData);
+		var saveAnimBtn = new CoolButton(8, y, 'Save Anim Data', saveAnimData);
 		tab.add(saveAnimBtn);
 
 		rightPanel.addGroup(tab);
@@ -1644,7 +1670,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(stageHideGFCheck);
 
 		y += 52;
-		var applyStageBtn = new FlxButton(8, y, 'Apply Stage Props', applyStageProps);
+		var applyStageBtn = new CoolButton(8, y, 'Apply Stage Props', applyStageProps);
 		tab.add(applyStageBtn);
 
 		y += 30;
@@ -1661,11 +1687,11 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(scriptsInfo);
 
 		y += Std.int(scriptsInfo.textField.textHeight) + 8;
-		var addScriptBtn = new FlxButton(8, y, '+ Add Script Path', addScript);
+		var addScriptBtn = new CoolButton(8, y, '+ Add Script Path', addScript);
 		tab.add(addScriptBtn);
 
 		y += 30;
-		var reloadBtn = new FlxButton(8, y, 'Reload Stage View', reloadStageView);
+		var reloadBtn = new CoolButton(8, y, 'Reload Stage View', reloadStageView);
 		tab.add(reloadBtn);
 
 		rightPanel.addGroup(tab);
@@ -1750,7 +1776,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		tab.add(camDadYStepper);
 
 		y += 36;
-		var applyBtn = new FlxButton(8, y, 'Apply + Reload Chars', applyCharProps);
+		var applyBtn = new CoolButton(8, y, 'Apply + Reload Chars', applyCharProps);
 		tab.add(applyBtn);
 
 		rightPanel.addGroup(tab);
@@ -1774,7 +1800,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		y += 26;
 
 		// Row 1: Refresh + Import
-		var refreshBtn = new FlxButton(8, y, 'Refresh', function()
+		var refreshBtn = new CoolButton(8, y, 'Refresh', function()
 		{
 			ShaderManager.scanShaders();
 			_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
@@ -1785,15 +1811,15 @@ class StageEditor extends funkin.states.MusicBeatState
 		});
 		tab.add(refreshBtn);
 
-		var importBtn = new FlxButton(RIGHT_W - 136, y, '+ Import .frag', _importShader);
+		var importBtn = new CoolButton(RIGHT_W - 136, y, '+ Import .frag', _importShader);
 		tab.add(importBtn);
 		y += 28;
 
 		// Row 2: New shader + Edit current
-		var newBtn = new FlxButton(8, y, 'New Shader', function() _openShaderEditor(null));
+		var newBtn = new CoolButton(8, y, 'New Shader', function() _openShaderEditor(null));
 		tab.add(newBtn);
 
-		var editBtn = new FlxButton(RIGHT_W - 136, y, 'Edit Selected .frag', function()
+		var editBtn = new CoolButton(RIGHT_W - 136, y, 'Edit Selected .frag', function()
 		{
 			// Find which shader is currently shown in the element dropdown
 			var shName:String = null;
@@ -1885,7 +1911,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		y += 36;
 
 		// Remove shader + Params substate buttons
-		var removeBtn = new FlxButton(8, y, 'x Remove', function()
+		var removeBtn = new CoolButton(8, y, 'x Remove', function()
 		{
 			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length) return;
 			var elem = stageData.elements[selectedIdx];
@@ -1899,7 +1925,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		});
 		tab.add(removeBtn);
 
-		var paramsBtn = new FlxButton(RIGHT_W - 132, y, '* Shader Params', _openShaderParams);
+		var paramsBtn = new CoolButton(RIGHT_W - 132, y, '* Shader Params', _openShaderParams);
 		tab.add(paramsBtn);
 		y += 28;
 
@@ -2290,7 +2316,44 @@ class StageEditor extends funkin.states.MusicBeatState
 				case 'row':
 					if (rowFallback.idx >= 0 && rowFallback.idx < stageData.elements.length)
 					{
-						selectedIdx = rowFallback.idx;
+						var clickedIdx = rowFallback.idx;
+						var shiftHeld = FlxG.keys.pressed.SHIFT;
+						var ctrlHeld  = FlxG.keys.pressed.CONTROL;
+
+						if (shiftHeld && selectedIdx >= 0)
+						{
+							// ── Shift+click: rango entre anchor (selectedIdx) y clickedIdx ──
+							var lo = Std.int(Math.min(selectedIdx, clickedIdx));
+							var hi = Std.int(Math.max(selectedIdx, clickedIdx));
+							// Añadir todo el rango; duplicados no importan (se filtran al usar)
+							for (ri in lo...hi + 1)
+								if (!selectedIndices.contains(ri))
+									selectedIndices.push(ri);
+							// selectedIdx (anchor) no cambia con Shift
+						}
+						else if (ctrlHeld)
+						{
+							// ── Ctrl+click: toggle individual ──
+							if (selectedIndices.contains(clickedIdx))
+							{
+								selectedIndices.remove(clickedIdx);
+								// Si quitamos el anchor, el nuevo anchor es el último de la lista
+								if (selectedIdx == clickedIdx)
+									selectedIdx = selectedIndices.length > 0 ? selectedIndices[selectedIndices.length - 1] : -1;
+							}
+							else
+							{
+								selectedIndices.push(clickedIdx);
+								selectedIdx = clickedIdx; // Ctrl+click también actualiza el anchor
+							}
+						}
+						else
+						{
+							// ── Click normal: selección única ──
+							selectedIdx = clickedIdx;
+							selectedIndices = [clickedIdx];
+						}
+
 						selectedCharId = null;
 						syncElementFieldsToUI();
 						refreshLayerPanel();
@@ -2299,6 +2362,7 @@ class StageEditor extends funkin.states.MusicBeatState
 				case 'char':
 					selectedCharId = rowFallback.charId;
 					selectedIdx = -1;
+					selectedIndices = [];
 					refreshLayerPanel();
 			}
 		}
@@ -2321,7 +2385,37 @@ class StageEditor extends funkin.states.MusicBeatState
 				var idx = dragLayerPendingIdx;
 				if (idx >= 0 && idx < stageData.elements.length)
 				{
-					selectedIdx = idx;
+					var shiftHeld = FlxG.keys.pressed.SHIFT;
+					var ctrlHeld  = FlxG.keys.pressed.CONTROL;
+
+					if (shiftHeld && selectedIdx >= 0)
+					{
+						var lo = Std.int(Math.min(selectedIdx, idx));
+						var hi = Std.int(Math.max(selectedIdx, idx));
+						for (ri in lo...hi + 1)
+							if (!selectedIndices.contains(ri))
+								selectedIndices.push(ri);
+					}
+					else if (ctrlHeld)
+					{
+						if (selectedIndices.contains(idx))
+						{
+							selectedIndices.remove(idx);
+							if (selectedIdx == idx)
+								selectedIdx = selectedIndices.length > 0 ? selectedIndices[selectedIndices.length - 1] : -1;
+						}
+						else
+						{
+							selectedIndices.push(idx);
+							selectedIdx = idx;
+						}
+					}
+					else
+					{
+						selectedIdx = idx;
+						selectedIndices = [idx];
+					}
+
 					selectedCharId = null;
 					syncElementFieldsToUI();
 					refreshLayerPanel();
@@ -2336,10 +2430,30 @@ class StageEditor extends funkin.states.MusicBeatState
 				isDraggingLayer = true;
 				dragLayerFromIdx = dragLayerPendingIdx;
 				dragLayerDropIdx = dragLayerPendingIdx;
-				var elem = stageData.elements[dragLayerPendingIdx];
-				var ghostLabel = elem.type != null && elem.type.toLowerCase() == 'character'
-					? '\u25CF ' + (elem.charSlot ?? 'char')
-					: (elem.name ?? 'element');
+
+				// Si el elemento que se arrastra NO está en la selección actual,
+				// descartamos la selección previa y arrastramos sólo ese elemento.
+				var isMultiDrag = selectedIndices.length > 1 && selectedIndices.contains(dragLayerPendingIdx);
+				if (!isMultiDrag)
+				{
+					selectedIdx = dragLayerPendingIdx;
+					selectedIndices = [dragLayerPendingIdx];
+				}
+
+				// Texto del ghost: nombre individual o "N layers"
+				var ghostLabel:String;
+				if (selectedIndices.length > 1)
+				{
+					ghostLabel = '${selectedIndices.length} layers';
+				}
+				else
+				{
+					var elem = stageData.elements[dragLayerPendingIdx];
+					ghostLabel = (elem.type != null && elem.type.toLowerCase() == 'character')
+						? '\u25CF ' + (elem.charSlot ?? 'char')
+						: (elem.name ?? 'element');
+				}
+
 				if (layerDragGhost != null)
 				{
 					layerDragGhost.y = my - ROW_H * 0.5;
@@ -2351,6 +2465,15 @@ class StageEditor extends funkin.states.MusicBeatState
 					layerDragGhostTxt.y = my - ROW_H * 0.5 + 6;
 					layerDragGhostTxt.visible = true;
 				}
+
+				// Atenuar TODAS las filas seleccionadas
+				for (sidx in selectedIndices)
+				{
+					var origBg = _layerRowBgMap.get(sidx);
+					if (origBg != null) origBg.alpha = 0.2;
+					var origTxts = _layerRowTextsMap.get(sidx);
+					if (origTxts != null) for (t in origTxts) if (t != null) t.alpha = 0.15;
+				}
 				// fall through to the main drag logic below
 			}
 			else
@@ -2359,6 +2482,18 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		if (!isDraggingLayer)
 		{
+			// Si había filas atenuadas por un drag previo que se canceló, restaurarlas
+			if (dragLayerFromIdx >= 0)
+			{
+				for (sidx in selectedIndices)
+				{
+					var origBg = _layerRowBgMap.get(sidx);
+					if (origBg != null) origBg.alpha = 1.0;
+					var origTxts = _layerRowTextsMap.get(sidx);
+					if (origTxts != null) for (t in origTxts) if (t != null) t.alpha = 1.0;
+				}
+				dragLayerFromIdx = -1;
+			}
 			if (layerDragGhost != null) layerDragGhost.visible = false;
 			if (layerDragGhostTxt != null) layerDragGhostTxt.visible = false;
 			if (layerDropLine != null) layerDropLine.visible = false;
@@ -2405,13 +2540,10 @@ class StageEditor extends funkin.states.MusicBeatState
 		for (hit in layerHitData)
 		{
 			if (hit.zone != 'row' || hit.idx < 0) continue;
-			// In the display the list is drawn top=last, bottom=first in array.
-			// dragLayerDropIdx == hit.idx means "insert above this visible row"
-			// which visually is the TOP edge of that row.
 			if (hit.idx == dragLayerDropIdx - 1)
-				lineY = hit.y; // top edge of the row above insertion
+				lineY = hit.y;
 			else if (hit.idx == dragLayerDropIdx)
-				lineY = hit.y; // top edge of insertion row
+				lineY = hit.y;
 		}
 		if (layerDropLine != null)
 		{
@@ -2427,22 +2559,112 @@ class StageEditor extends funkin.states.MusicBeatState
 			if (layerDragGhostTxt != null) layerDragGhostTxt.visible = false;
 			if (layerDropLine != null) layerDropLine.visible = false;
 
-			// Perform the move if position changed
-			var fromIdx = dragLayerFromIdx;
-			var toIdx = dragLayerDropIdx;
-			if (toIdx != fromIdx && toIdx != fromIdx + 1 && stageData.elements != null)
+			// Restaurar alpha de todas las filas atenuadas
+			for (sidx in selectedIndices)
 			{
-				var elem = stageData.elements.splice(fromIdx, 1)[0];
-				var insertAt = toIdx > fromIdx ? toIdx - 1 : toIdx;
-				stageData.elements.insert(insertAt, elem);
-				selectedIdx = insertAt;
-				saveHistory();
-				reloadStageView();
-				refreshLayerPanel();
-				markUnsaved();
-				setStatus('Layer moved to position ${insertAt + 1}');
+				var origBg = _layerRowBgMap.get(sidx);
+				if (origBg != null) origBg.alpha = 1.0;
+				var origTxts = _layerRowTextsMap.get(sidx);
+				if (origTxts != null) for (t in origTxts) if (t != null) t.alpha = 1.0;
+			}
+
+			var toIdx = dragLayerDropIdx;
+
+			if (selectedIndices.length > 1)
+			{
+				// ── Multi-layer move ──────────────────────────────────────────────
+				_moveMultipleLayers(toIdx);
+			}
+			else
+			{
+				// ── Single layer move ─────────────────────────────────────────────
+				var fromIdx = dragLayerFromIdx;
+				if (toIdx != fromIdx && toIdx != fromIdx + 1 && stageData.elements != null)
+				{
+					var elem = stageData.elements.splice(fromIdx, 1)[0];
+					var insertAt = toIdx > fromIdx ? toIdx - 1 : toIdx;
+					stageData.elements.insert(insertAt, elem);
+					selectedIdx = insertAt;
+					selectedIndices = [insertAt];
+					saveHistory();
+					reloadStageView();
+					syncElementFieldsToUI();
+					refreshLayerPanel();
+					markUnsaved();
+					setStatus('Layer moved to position ${insertAt + 1}');
+				}
+				else
+				{
+					refreshLayerPanel();
+				}
 			}
 		}
+	}
+
+	/**
+	 * Mueve todas las capas de selectedIndices a la posición toIdx del array,
+	 * preservando su orden relativo entre sí.
+	 *
+	 * Algoritmo:
+	 *  1. Ordena los índices seleccionados (ascendente).
+	 *  2. Cuenta cuántos están ANTES del punto de inserción → ajusta insertAt.
+	 *  3. Extrae los elementos en orden.
+	 *  4. Los borra del array de mayor a menor índice (para no desplazar los demás).
+	 *  5. Los inserta como bloque en insertAt.
+	 *  6. Actualiza selectedIndices y selectedIdx al nuevo rango.
+	 */
+	function _moveMultipleLayers(toIdx:Int):Void
+	{
+		if (stageData.elements == null || selectedIndices.length <= 1) return;
+
+		// 1. Ordenar y filtrar índices válidos
+		var sorted = selectedIndices.filter(i -> i >= 0 && i < stageData.elements.length);
+		sorted.sort((a, b) -> a - b);
+		if (sorted.length == 0) return;
+
+		// Clampar destino
+		toIdx = Std.int(Math.max(0, Math.min(stageData.elements.length, toIdx)));
+
+		// 2. Número de seleccionados estrictamente antes del punto de inserción
+		var numBefore = 0;
+		for (s in sorted) if (s < toIdx) numBefore++;
+		var insertAt = toIdx - numBefore;
+
+		// 3. Extraer elementos en orden
+		var extracted:Array<StageElement> = [for (s in sorted) stageData.elements[s]];
+
+		// 4. Borrar de mayor a menor
+		var sortedDesc = sorted.copy();
+		sortedDesc.sort((a, b) -> b - a);
+		for (s in sortedDesc)
+			stageData.elements.splice(s, 1);
+
+		// 5. Insertar como bloque
+		for (i in 0...extracted.length)
+			stageData.elements.insert(insertAt + i, extracted[i]);
+
+		// 6. Actualizar selección al nuevo rango
+		var newIndices = [for (i in 0...extracted.length) insertAt + i];
+		selectedIndices = newIndices;
+
+		// El anchor (selectedIdx) se mapea a su posición dentro del bloque
+		var newAnchor = insertAt;
+		for (i in 0...sorted.length)
+		{
+			if (sorted[i] == selectedIdx)
+			{
+				newAnchor = insertAt + i;
+				break;
+			}
+		}
+		selectedIdx = newAnchor;
+
+		saveHistory();
+		reloadStageView();
+		syncElementFieldsToUI();
+		refreshLayerPanel();
+		markUnsaved();
+		setStatus('${extracted.length} layers moved to position ${insertAt + 1}');
 	}
 
 	function handleCanvasDrag():Void
@@ -2474,7 +2696,9 @@ class StageEditor extends funkin.states.MusicBeatState
 			if (clickedChar != '')
 			{
 				selectedCharId = clickedChar;
-				selectedIdx = -1;
+				// Also select the corresponding character-type element in the layer panel
+				var charEntryIdx = _charEntryIndex(clickedChar);
+				selectedIdx = charEntryIdx; // -1 if no entry (backward compat)
 				refreshLayerPanel();
 				isDraggingChar = true;
 				dragCharId = clickedChar;
@@ -2489,10 +2713,15 @@ class StageEditor extends funkin.states.MusicBeatState
 				while (i >= 0)
 				{
 					var elem = stageData.elements[i];
-					if (elem.locked != true && elem.name != null && elementSprites.exists(elem.name))
+					// Sound elements have no visual bounds — skip them in canvas hit-testing.
+					var elemType = elem.type != null ? elem.type.toLowerCase() : '';
+					if (elemType != 'sound' && elem.locked != true
+						&& elem.name != null && elementSprites.exists(elem.name))
 					{
 						var spr = elementSprites.get(elem.name);
-						if (worldX >= spr.x && worldX <= spr.x + spr.width && worldY >= spr.y && worldY <= spr.y + spr.height)
+						if (spr.width > 0 && spr.height > 0
+							&& worldX >= spr.x && worldX <= spr.x + spr.width
+							&& worldY >= spr.y && worldY <= spr.y + spr.height)
 						{
 							clickedIdx = i;
 							break;
@@ -2507,9 +2736,12 @@ class StageEditor extends funkin.states.MusicBeatState
 					selectedCharId = null;
 					syncElementFieldsToUI();
 					refreshLayerPanel();
+					var clickedElem = stageData.elements[clickedIdx];
+					// Guard: position may be null for sound/group elements from older JSON files
+					var startPos = clickedElem.position ?? [0.0, 0.0];
 					isDraggingEl = true;
 					dragStart.set(worldX, worldY);
-					dragObjStart.set(stageData.elements[clickedIdx].position[0], stageData.elements[clickedIdx].position[1]);
+					dragObjStart.set(startPos[0], startPos[1]);
 				}
 				else
 				{
@@ -2518,10 +2750,14 @@ class StageEditor extends funkin.states.MusicBeatState
 					while (li >= 0)
 					{
 						var elem = stageData.elements[li];
-						if (elem.locked == true && elem.name != null && elementSprites.exists(elem.name))
+						var liType = elem.type != null ? elem.type.toLowerCase() : '';
+						if (liType != 'sound' && elem.locked == true
+							&& elem.name != null && elementSprites.exists(elem.name))
 						{
 							var spr = elementSprites.get(elem.name);
-							if (worldX >= spr.x && worldX <= spr.x + spr.width && worldY >= spr.y && worldY <= spr.y + spr.height)
+							if (spr.width > 0 && spr.height > 0
+								&& worldX >= spr.x && worldX <= spr.x + spr.width
+								&& worldY >= spr.y && worldY <= spr.y + spr.height)
 							{
 								selectedIdx = li;
 								selectedCharId = null;
@@ -2544,8 +2780,11 @@ class StageEditor extends funkin.states.MusicBeatState
 			{
 				var dx = worldX - dragStart.x;
 				var dy = worldY - dragStart.y;
-				stageData.elements[selectedIdx].position[0] = dragObjStart.x + dx;
-				stageData.elements[selectedIdx].position[1] = dragObjStart.y + dy;
+				var dragElem = stageData.elements[selectedIdx];
+				// Guard: position may be null for sound/group from older JSON files
+				if (dragElem.position == null) dragElem.position = [0.0, 0.0];
+				dragElem.position[0] = dragObjStart.x + dx;
+				dragElem.position[1] = dragObjStart.y + dy;
 				var elem = stageData.elements[selectedIdx];
 				if (elem.name != null && elementSprites.exists(elem.name))
 					elementSprites.get(elem.name).setPosition(elem.position[0], elem.position[1]);
@@ -2644,6 +2883,16 @@ class StageEditor extends funkin.states.MusicBeatState
 				spr = elementSprites.get(elem.name);
 				selName = elem.name;
 			}
+			// Character-type element: look up the actual character sprite
+			else if (elem.type != null && elem.type.toLowerCase() == 'character')
+			{
+				var cid = _normalizeSlot(elem.charSlot ?? 'bf');
+				if (characters.exists(cid))
+				{
+					spr = characters.get(cid);
+					selName = cid;
+				}
+			}
 		}
 		else if (selectedCharId != null && characters.exists(selectedCharId))
 		{
@@ -2661,6 +2910,13 @@ class StageEditor extends funkin.states.MusicBeatState
 		var pad = 3;
 		var needW = Std.int(spr.width  + pad * 2);
 		var needH = Std.int(spr.height + pad * 2);
+
+		// Guard: makeGraphic crashes with 0, negative, or absurdly large values.
+		// Sound / group placeholder sprites can have degenerate dimensions.
+		if (needW < 6) needW = 6;
+		if (needH < 6) needH = 6;
+		if (needW > 4096) needW = 4096;
+		if (needH > 4096) needH = 4096;
 
 		// ── Borde de selección (solo rebuildear si cambió tamaño) ─────────────
 		if (needW != _selBoxW || needH != _selBoxH)
@@ -2860,6 +3116,34 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	function deleteSelectedElement():Void
 	{
+		if (stageData.elements == null) return;
+
+		// ── Multi-delete cuando hay más de una capa seleccionada ──────────────────
+		if (selectedIndices.length > 1)
+		{
+			var toDelete = selectedIndices.filter(i -> i >= 0 && i < stageData.elements.length
+				&& stageData.elements[i].locked != true);
+			if (toDelete.length == 0)
+			{
+				setStatus('All selected layers are locked — unlock (LK) to delete');
+				return;
+			}
+			// Borrar de mayor a menor para no invalidar los índices restantes
+			toDelete.sort((a, b) -> b - a);
+			for (i in toDelete)
+				stageData.elements.splice(i, 1);
+
+			selectedIdx = -1;
+			selectedIndices = [];
+			saveHistory();
+			reloadStageView();
+			refreshLayerPanel();
+			markUnsaved();
+			setStatus('${toDelete.length} layers deleted');
+			return;
+		}
+
+		// ── Single delete (comportamiento original) ───────────────────────────────
 		if (selectedIdx < 0 || selectedIdx >= stageData.elements.length)
 			return;
 		var elem = stageData.elements[selectedIdx];
@@ -2871,6 +3155,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		var name = elem.name ?? 'element';
 		stageData.elements.splice(selectedIdx, 1);
 		selectedIdx = -1;
+		selectedIndices = [];
 		saveHistory();
 		reloadStageView();
 		refreshLayerPanel();
@@ -2934,6 +3219,9 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		elem.name = elemNameInput.text.trim();
 		elem.asset = elemAssetInput.text.trim();
+		// Always ensure position is a valid array (sound/group elements from old
+		// JSON files may have omitted the field entirely).
+		if (elem.position == null) elem.position = [0.0, 0.0];
 		elem.position = [elemXStepper.value, elemYStepper.value];
 		elem.scale = [elemScaleXStepper.value, elemScaleYStepper.value];
 		elem.scrollFactor = [elemScrollXStepper.value, elemScrollYStepper.value];
@@ -2984,14 +3272,15 @@ class StageEditor extends funkin.states.MusicBeatState
 		if (elemNameInput != null)
 			elemNameInput.text = elem.name ?? '';
 		if (elemAssetInput != null)
-			elemAssetInput.text = elem.asset;
+			elemAssetInput.text = elem.asset ?? '';
 		if (elemTypeDropdown != null)
 			elemTypeDropdown.selectedLabel = elem.type;
 
+		var pos = elem.position ?? [0.0, 0.0];
 		if (elemXStepper != null)
-			elemXStepper.value = elem.position[0];
+			elemXStepper.value = pos.length > 0 ? pos[0] : 0.0;
 		if (elemYStepper != null)
-			elemYStepper.value = elem.position[1];
+			elemYStepper.value = pos.length > 1 ? pos[1] : 0.0;
 
 		var sc = elem.scale ?? [1.0, 1.0];
 		if (elemScaleXStepper != null)
@@ -3268,6 +3557,80 @@ class StageEditor extends funkin.states.MusicBeatState
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
+	// NEW STAGE / STAGE LIST
+	// ─────────────────────────────────────────────────────────────────────────
+
+	function openNewStageDialog():Void
+	{
+		openSubState(new NewStageSubState([camHUD], function(name:String)
+		{
+			// Build a blank stageData with the given name
+			stageData = {
+				name: name,
+				defaultZoom: 0.9,
+				isPixelStage: false,
+				elements: [],
+				gfVersion: 'gf',
+				boyfriendPosition: [770.0, 450.0],
+				dadPosition:        [100.0, 100.0],
+				gfPosition:         [400.0, 130.0],
+				cameraBoyfriend: [0.0, 0.0],
+				cameraDad:       [0.0, 0.0],
+				hideGirlfriend: false,
+				scripts: []
+			};
+			_stageDataReady = true;
+			history = [];
+			historyIndex = -1;
+			selectedIdx = -1;
+			selectedIndices = [];
+			selectedCharId = null;
+			saveHistory();
+			reloadStageView();
+			refreshLayerPanel();
+			hasUnsavedChanges = true;
+			unsavedDot.visible = true;
+			if (titleText != null)
+				titleText.text = '\u26AA  STAGE EDITOR  \u2022  $name';
+			setStatus('New stage "$name" created — save it when ready');
+		}));
+	}
+
+	function openStageListDialog():Void
+	{
+		openSubState(new StageListSubState([camHUD], function(stageName:String, stagePath:String)
+		{
+			// Load stage from disk by path
+			#if sys
+			try
+			{
+				var raw = sys.io.File.getContent(stagePath);
+				stageData = haxe.Json.parse(raw);
+				_stageDataReady = true;
+				history = [];
+				historyIndex = -1;
+				selectedIdx = -1;
+				selectedIndices = [];
+				selectedCharId = null;
+				saveHistory();
+				reloadStageView();
+				refreshLayerPanel();
+				currentFilePath = stagePath;
+				hasUnsavedChanges = false;
+				unsavedDot.visible = false;
+				if (titleText != null)
+					titleText.text = '\u26AA  STAGE EDITOR  \u2022  $stageName';
+				setStatus('Stage loaded: $stagePath');
+			}
+			catch (e:Dynamic)
+			{
+				setStatus('Error loading stage "$stageName": $e');
+			}
+			#end
+		}));
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
 	// SAVE / LOAD
 	// ─────────────────────────────────────────────────────────────────────────
 
@@ -3467,6 +3830,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		historyIndex--;
 		stageData = Json.parse(history[historyIndex]);
 		_stageDataReady = true;
+		selectedIdx = -1;
+		selectedIndices = [];
+		selectedCharId = null;
 		reloadStageView();
 		refreshLayerPanel();
 		markUnsaved();
@@ -3480,6 +3846,9 @@ class StageEditor extends funkin.states.MusicBeatState
 		historyIndex++;
 		stageData = Json.parse(history[historyIndex]);
 		_stageDataReady = true;
+		selectedIdx = -1;
+		selectedIndices = [];
+		selectedCharId = null;
 		reloadStageView();
 		refreshLayerPanel();
 		markUnsaved();
@@ -3501,6 +3870,31 @@ class StageEditor extends funkin.states.MusicBeatState
 			selBox.visible = false;
 		if (selMesh != null)
 			selMesh.visible = false;
+		syncCharsTabUI();
+	}
+
+	/** Sincroniza los steppers del tab Chars con los valores actuales de stageData.
+	 *  Llamar después de cualquier operación que pueda haber modificado posiciones de personajes
+	 *  o después de reloadStageView() para mantener la UI consistente. */
+	function syncCharsTabUI():Void
+	{
+		var bfPos  = stageData.boyfriendPosition  ?? [770.0, 450.0];
+		var gfPos  = stageData.gfPosition          ?? [400.0, 130.0];
+		var dadPos = stageData.dadPosition          ?? [100.0, 100.0];
+		var camBF  = stageData.cameraBoyfriend      ?? [0.0, 0.0];
+		var camDad = stageData.cameraDad            ?? [0.0, 0.0];
+
+		if (bfXStepper  != null) bfXStepper.value  = bfPos[0];
+		if (bfYStepper  != null) bfYStepper.value  = bfPos[1];
+		if (gfXStepper  != null) gfXStepper.value  = gfPos[0];
+		if (gfYStepper  != null) gfYStepper.value  = gfPos[1];
+		if (dadXStepper != null) dadXStepper.value = dadPos[0];
+		if (dadYStepper != null) dadYStepper.value = dadPos[1];
+		if (camBFXStepper  != null) camBFXStepper.value  = camBF[0];
+		if (camBFYStepper  != null) camBFYStepper.value  = camBF[1];
+		if (camDadXStepper != null) camDadXStepper.value = camDad[0];
+		if (camDadYStepper != null) camDadYStepper.value = camDad[1];
+		if (gfVersionInput != null) gfVersionInput.text  = stageData.gfVersion ?? 'gf';
 	}
 
 	function markUnsaved():Void
@@ -3616,7 +4010,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		var T = EditorTheme.current;
 		var elem = stageData.elements[idx];
-		var isSelected = (idx == selectedIdx);
+		var isSelected = (idx == selectedIdx || selectedIndices.contains(idx));
 		var isHovered  = (idx == layerHoverIdx && !isSelected);
 		var isAbove    = (elem.aboveChars == true);
 		var isCharType = (elem.type != null && elem.type.toLowerCase() == 'character');
@@ -3806,6 +4200,223 @@ class StageEditor extends funkin.states.MusicBeatState
 		return ModManager.isActive() ? 'Mod: ${ModManager.activeMod}' : 'Base Game';
 	}
 
+	// ── Character layer helpers ───────────────────────────────────────────────
+
+	/**
+	 * Normalises a charSlot string to one of the three canonical ids used in
+	 * the `characters` Map: "bf", "gf" or "dad".
+	 */
+	inline function _normalizeSlot(slot:String):String
+	{
+		return switch (slot.toLowerCase())
+		{
+			case 'bf', 'player', 'player1': 'bf';
+			case 'gf', 'girlfriend', 'spectator': 'gf';
+			case 'dad', 'opponent', 'player2': 'dad';
+			default: slot.toLowerCase();
+		};
+	}
+
+	/**
+	 * Returns the index of the first character-type element with the given
+	 * normalised slot name, or -1 if not found.
+	 */
+	function _charEntryIndex(slot:String):Int
+	{
+		for (i in 0...stageData.elements.length)
+		{
+			var e = stageData.elements[i];
+			if (e.type != null && e.type.toLowerCase() == 'character'
+				&& _normalizeSlot(e.charSlot ?? '') == slot)
+				return i;
+		}
+		return -1;
+	}
+
+	/**
+	 * Ensures BF, GF and DAD always appear as type:"character" entries in
+	 * stageData.elements so they show up in the layer panel.
+	 *
+	 * Missing entries are inserted just before the first aboveChars:true element
+	 * (or at the end of the array when none exists), in the order:
+	 *   dad (bottom) → gf → bf (top)
+	 *
+	 * Existing entries are never moved or duplicated.
+	 */
+	function _ensureCharacterEntries():Void
+	{
+		if (stageData == null || stageData.elements == null)
+			return;
+
+		var hasBf  = _charEntryIndex('bf')  >= 0;
+		var hasGf  = _charEntryIndex('gf')  >= 0;
+		var hasDad = _charEntryIndex('dad') >= 0;
+
+		if (hasBf && hasGf && hasDad)
+			return; // nothing to do
+
+		// Find insertion point: just before the first aboveChars element, or at end
+		var insertAt = stageData.elements.length;
+		for (i in 0...stageData.elements.length)
+		{
+			if (stageData.elements[i].aboveChars == true)
+			{
+				insertAt = i;
+				break;
+			}
+		}
+
+		// Helper to build a minimal character element entry
+		function makeCharElem(slot:String):StageElement
+		{
+			return {
+				type: 'character',
+				name: 'char_$slot',
+				charSlot: slot,
+				asset: '',
+				position: [0.0, 0.0],
+				scrollFactor: [1.0, 1.0],
+				scale: [1.0, 1.0],
+				alpha: 1.0,
+				visible: true,
+				antialiasing: true,
+				zIndex: 0
+			};
+		}
+
+		// Insert in reverse desired order so the final array reads dad → gf → bf
+		// (lower index = rendered first = further behind).
+
+		// bf on top (insert first at insertAt, then gf and dad push it down)
+		if (!hasBf)
+			stageData.elements.insert(insertAt, makeCharElem('bf'));
+
+		// gf below bf
+		if (!hasGf && !(stageData.hideGirlfriend == true))
+		{
+			var bfIdx = _charEntryIndex('bf');
+			stageData.elements.insert(bfIdx >= 0 ? bfIdx : insertAt, makeCharElem('gf'));
+		}
+
+		// dad below gf (and bf)
+		if (!hasDad)
+		{
+			var gfIdx = _charEntryIndex('gf');
+			var bfIdx = _charEntryIndex('bf');
+			var dadAt = gfIdx >= 0 ? gfIdx : (bfIdx >= 0 ? bfIdx : insertAt);
+			stageData.elements.insert(dadAt, makeCharElem('dad'));
+		}
+	}
+
+	/**
+	 * Adds individual character sprites to the FlxState at the z-positions
+	 * dictated by the order of type:"character" entries in stageData.elements.
+	 *
+	 * Called after loadCharacters() so the `characters` Map is populated.
+	 * Any characters without a matching entry are appended at the end as fallback.
+	 * After all characters are placed, stageAboveGroup is added (if present).
+	 */
+	function _addCharsInOrder():Void
+	{
+		// ── Char-anchor system: interleave stage sprites AND characters ────────
+		// In this mode sprites were NOT added in loadStageIntoCanvas() so we own
+		// all add() calls here. Walk stageData.elements in order → the FlxState
+		// draw order matches the layer panel 1-to-1, including characters placed
+		// between (or around) individual stage sprites.
+		if (stage != null && stage._useCharAnchorSystem)
+		{
+			var placedChars:Array<String>  = [];
+			var addedSprites:Array<flixel.FlxBasic> = [];
+
+			for (elem in stageData.elements)
+			{
+				if (elem.type != null && elem.type.toLowerCase() == 'character')
+				{
+					// ── character slot ───────────────────────────────────────
+					var cid = _normalizeSlot(elem.charSlot ?? 'bf');
+					if (!placedChars.contains(cid))
+					{
+						var c = characters.get(cid);
+						if (c != null)
+						{
+							c.cameras = [camGame];
+							add(c);
+							placedChars.push(cid);
+						}
+					}
+				}
+				else if (elem.name != null && elementSprites.exists(elem.name))
+				{
+					// ── regular stage element ────────────────────────────────
+					var spr:flixel.FlxBasic = elementSprites.get(elem.name);
+					if (spr != null && !addedSprites.contains(spr))
+					{
+						add(spr);
+						addedSprites.push(spr);
+					}
+				}
+			}
+
+			// Fallback A: any spriteList entry not yet added (e.g. sprites not in
+			// elementSprites because they come from custom classes or sub-groups)
+			for (entry in stage.spriteList)
+			{
+				if (entry.sprite != null && !addedSprites.contains(entry.sprite))
+				{
+					add(entry.sprite);
+					addedSprites.push(entry.sprite);
+				}
+			}
+
+			// Fallback B: any character not covered by a character entry
+			for (cid in ['dad', 'gf', 'bf'])
+			{
+				if (!placedChars.contains(cid) && characters.exists(cid))
+				{
+					var c = characters.get(cid);
+					c.cameras = [camGame];
+					add(c);
+				}
+			}
+
+			return;
+		}
+
+		// ── Non-char-anchor system: only add character sprites ─────────────────
+		// Stage sprites are already inside the `stage` FlxTypedGroup (added in
+		// loadStageIntoCanvas). We just need to add individual characters in the
+		// order dictated by stageData.elements so their relative draw order is
+		// correct (dad behind gf behind bf, or whatever the user configured).
+		var placed:Array<String> = [];
+
+		for (elem in stageData.elements)
+		{
+			if (elem.type == null || elem.type.toLowerCase() != 'character')
+				continue;
+			var cid = _normalizeSlot(elem.charSlot ?? 'bf');
+			if (placed.contains(cid))
+				continue;
+			var c = characters.get(cid);
+			if (c != null)
+			{
+				c.cameras = [camGame];
+				add(c);
+				placed.push(cid);
+			}
+		}
+
+		// Fallback: add any character not covered by an entry (backward compat)
+		for (cid in ['dad', 'gf', 'bf'])
+		{
+			if (!placed.contains(cid) && characters.exists(cid))
+			{
+				var c = characters.get(cid);
+				c.cameras = [camGame];
+				add(c);
+			}
+		}
+	}
+
 	// ─────────────────────────────────────────────────────────────────────────
 	// DESTROY
 	// ─────────────────────────────────────────────────────────────────────────
@@ -3852,6 +4463,456 @@ class StageEditor extends funkin.states.MusicBeatState
 		}
 		#end
 		super.destroy();
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  NewStageSubState
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A small dialog box that asks for the name of the new stage and triggers the callback.
+ */
+class NewStageSubState extends flixel.FlxSubState
+{
+	var _onConfirm:String->Void;
+	var _camSub:flixel.FlxCamera;
+	var _nameInput:CoolInputText;
+
+	static inline final W:Int = 380;
+	static inline final H:Int = 170;
+
+	public function new(cameras:Array<FlxCamera>, onConfirm:String->Void)
+	{
+		super();
+		_onConfirm = onConfirm;
+		this.cameras = cameras;
+	}
+
+	override function create():Void
+	{
+		super.create();
+
+		_camSub = new flixel.FlxCamera();
+		_camSub.bgColor.alpha = 0;
+		FlxG.cameras.add(_camSub, false);
+		cameras = [_camSub];
+
+		var T = EditorTheme.current;
+		var panX = (FlxG.width  - W) * 0.5;
+		var panY = (FlxG.height - H) * 0.5;
+
+		// Overlay
+		var ov = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xCC000000);
+		ov.scrollFactor.set(); ov.cameras = [_camSub]; add(ov);
+
+		// Panel
+		var pan = new FlxSprite(panX, panY).makeGraphic(W, H, T.bgPanel);
+		pan.scrollFactor.set(); pan.cameras = [_camSub]; add(pan);
+
+		var border = new FlxSprite(panX, panY).makeGraphic(W, 3, T.accent);
+		border.scrollFactor.set(); border.cameras = [_camSub]; add(border);
+
+		var title = new FlxText(panX + 14, panY + 10, W - 28, '\u2606  NEW STAGE', 16);
+		title.setFormat(Paths.font('vcr.ttf'), 16, T.accent, LEFT);
+		title.scrollFactor.set(); title.cameras = [_camSub]; add(title);
+
+		var lbl = new FlxText(panX + 14, panY + 46, W - 28, 'Stage name  (used as file name and stage ID):', 10);
+		lbl.color = T.textSecondary;
+		lbl.scrollFactor.set(); lbl.cameras = [_camSub]; add(lbl);
+
+		_nameInput = new CoolInputText(panX + 14, panY + 62, W - 28, 'my_stage', 11);
+		_nameInput.scrollFactor.set(); _nameInput.cameras = [_camSub]; add(_nameInput);
+
+		var note = new FlxText(panX + 14, panY + 86, W - 28,
+			'Tip: use lowercase letters, numbers and underscores only.\nFile will be saved to  assets/stages/<name>.json', 9);
+		note.color = T.textDim;
+		note.scrollFactor.set(); note.cameras = [_camSub]; add(note);
+
+		var confirmBtn = new CoolButton(panX + 14, panY + H - 34, 'Create Stage', function()
+		{
+			var n = _nameInput.text.trim();
+			if (n == '') n = 'my_stage';
+			// Sanitise: keep only safe characters
+			n = ~/[^a-zA-Z0-9_\-]/.replace(n, '_');
+			_onConfirm(n);
+			close();
+		});
+		confirmBtn.cameras = [_camSub]; add(confirmBtn);
+
+		var cancelBtn = new CoolButton(panX + W - 100, panY + H - 34, 'Cancel', close);
+		cancelBtn.cameras = [_camSub]; add(cancelBtn);
+
+		var hint = new FlxText(panX + 14, panY + H - 16, W - 28, 'ESC to cancel', 9);
+		hint.color = T.textDim;
+		hint.scrollFactor.set(); hint.cameras = [_camSub]; add(hint);
+	}
+
+	override function close():Void
+	{
+		if (_camSub != null) { FlxG.cameras.remove(_camSub, true); _camSub = null; }
+		super.close();
+	}
+
+	override function update(elapsed:Float):Void
+	{
+		super.update(elapsed);
+		if (FlxG.keys.justPressed.ESCAPE) close();
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  StageListSubState
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Entry shown in the stage list. */
+private typedef StageEntry =
+{
+	name:String,   // stage ID (file name without .json)
+	path:String,   // full path to the JSON on disk
+	source:String  // "base" | "mod" | mod-id string
+}
+
+/**
+ * Dialog flotante que muestra todos los stages encontrados en disco con un
+ * buscador y carga el seleccionado al editor.
+ */
+class StageListSubState extends flixel.FlxSubState
+{
+	var _onSelect:String->String->Void; // (stageName, stagePath)
+	var _camSub:flixel.FlxCamera;
+
+	// Layout
+	static inline final W:Int     = 520;
+	static inline final H:Int     = 440;
+	static inline final ROW_H:Int = 30;
+	static inline final VISIBLE:Int = 10;
+
+	// Data
+	var _allEntries:Array<StageEntry> = [];
+	var _filtered:Array<StageEntry>   = [];
+	var _scrollIdx:Int = 0;
+
+	// UI objects (re-created on filter/scroll)
+	var _rowGroup:FlxTypedGroup<FlxSprite>;
+	var _textGroup:FlxTypedGroup<FlxText>;
+	var _hitData:Array<{y:Float, h:Int, idx:Int}> = [];
+
+	// Filter
+	var _filterInput:CoolInputText;
+	var _lastFilter:String = '';
+
+	// Scroll buttons
+	var _btnUp:FlxSprite;
+	var _btnDown:FlxSprite;
+	var _btnUpTxt:FlxText;
+	var _btnDownTxt:FlxText;
+	var _countTxt:FlxText;
+
+	// Panel origin (stored for row rebuild)
+	var _panX:Float;
+	var _panY:Float;
+
+	public function new(cameras:Array<FlxCamera>, onSelect:String->String->Void)
+	{
+		super();
+		_onSelect = onSelect;
+		this.cameras = cameras;
+	}
+
+	override function create():Void
+	{
+		super.create();
+
+		_camSub = new flixel.FlxCamera();
+		_camSub.bgColor.alpha = 0;
+		FlxG.cameras.add(_camSub, false);
+		cameras = [_camSub];
+
+		var T = EditorTheme.current;
+		_panX = (FlxG.width  - W) * 0.5;
+		_panY = (FlxG.height - H) * 0.5;
+
+		// ── Overlay + panel ───────────────────────────────────────────────────
+		var ov = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xCC000000);
+		ov.scrollFactor.set(); ov.cameras = [_camSub]; add(ov);
+
+		var pan = new FlxSprite(_panX, _panY).makeGraphic(W, H, T.bgPanel);
+		pan.scrollFactor.set(); pan.cameras = [_camSub]; add(pan);
+
+		var topBorder = new FlxSprite(_panX, _panY).makeGraphic(W, 3, T.accent);
+		topBorder.scrollFactor.set(); topBorder.cameras = [_camSub]; add(topBorder);
+
+		// ── Title ─────────────────────────────────────────────────────────────
+		var title = new FlxText(_panX + 14, _panY + 10, W - 28, '\u25A4  STAGES', 16);
+		title.setFormat(Paths.font('vcr.ttf'), 16, T.accent, LEFT);
+		title.scrollFactor.set(); title.cameras = [_camSub]; add(title);
+
+		// ── Search bar ────────────────────────────────────────────────────────
+		var searchLbl = new FlxText(_panX + 14, _panY + 38, 60, 'Filter:', 10);
+		searchLbl.color = T.textSecondary;
+		searchLbl.scrollFactor.set(); searchLbl.cameras = [_camSub]; add(searchLbl);
+
+		_filterInput = new CoolInputText(_panX + 70, _panY + 35, W - 84, '', 11);
+		_filterInput.scrollFactor.set(); _filterInput.cameras = [_camSub]; add(_filterInput);
+
+		// ── Column headers ────────────────────────────────────────────────────
+		var hdrBg = new FlxSprite(_panX, _panY + 60).makeGraphic(W, 22, T.bgPanelAlt);
+		hdrBg.scrollFactor.set(); hdrBg.cameras = [_camSub]; add(hdrBg);
+
+		function hdrTxt(tx:Float, w:Int, t:String):Void
+		{
+			var h = new FlxText(_panX + tx, _panY + 63, w, t, 9);
+			h.setFormat(Paths.font('vcr.ttf'), 9, T.textSecondary, LEFT);
+			h.scrollFactor.set(); h.cameras = [_camSub]; add(h);
+		}
+		hdrTxt(10,  200, 'STAGE NAME');
+		hdrTxt(218, 80,  'SOURCE');
+		hdrTxt(308, W - 320, 'PATH');
+
+		// ── Row groups (rebuilt on scroll/filter) ─────────────────────────────
+		_rowGroup  = new FlxTypedGroup<FlxSprite>();
+		_textGroup = new FlxTypedGroup<FlxText>();
+		_rowGroup.cameras  = [_camSub];
+		_textGroup.cameras = [_camSub];
+		add(_rowGroup);
+		add(_textGroup);
+
+		// ── Scroll controls ───────────────────────────────────────────────────
+		var ctrlY = _panY + H - 42;
+
+		_btnUp = new FlxSprite(_panX + 14, ctrlY).makeGraphic(32, 26, T.bgPanelAlt);
+		_btnUp.scrollFactor.set(); _btnUp.cameras = [_camSub]; add(_btnUp);
+		_btnUpTxt = new FlxText(_panX + 14, ctrlY + 5, 32, '\u25B2', 11);
+		_btnUpTxt.setFormat(Paths.font('vcr.ttf'), 11, T.textPrimary, CENTER);
+		_btnUpTxt.scrollFactor.set(); _btnUpTxt.cameras = [_camSub]; add(_btnUpTxt);
+
+		_btnDown = new FlxSprite(_panX + 50, ctrlY).makeGraphic(32, 26, T.bgPanelAlt);
+		_btnDown.scrollFactor.set(); _btnDown.cameras = [_camSub]; add(_btnDown);
+		_btnDownTxt = new FlxText(_panX + 50, ctrlY + 5, 32, '\u25BC', 11);
+		_btnDownTxt.setFormat(Paths.font('vcr.ttf'), 11, T.textPrimary, CENTER);
+		_btnDownTxt.scrollFactor.set(); _btnDownTxt.cameras = [_camSub]; add(_btnDownTxt);
+
+		_countTxt = new FlxText(_panX + 90, ctrlY + 6, W - 200, '', 10);
+		_countTxt.setFormat(Paths.font('vcr.ttf'), 10, T.textSecondary, LEFT);
+		_countTxt.scrollFactor.set(); _countTxt.cameras = [_camSub]; add(_countTxt);
+
+		var cancelBtn = new CoolButton(_panX + W - 100, ctrlY, 'Cancel', close);
+		cancelBtn.cameras = [_camSub]; add(cancelBtn);
+
+		var hint = new FlxText(_panX + 14, _panY + H - 16, W - 28, 'Click a row to load  •  ESC to cancel  •  ↑↓ to scroll', 9);
+		hint.color = T.textDim;
+		hint.scrollFactor.set(); hint.cameras = [_camSub]; add(hint);
+
+		// ── Scan stages ───────────────────────────────────────────────────────
+		_scanStages();
+		_applyFilter('');
+		_rebuildRows();
+	}
+
+	// ── Stage discovery ───────────────────────────────────────────────────────
+
+	function _scanStages():Void
+	{
+		_allEntries = [];
+		#if sys
+		// Base game
+		var basePath = 'assets/stages';
+		if (sys.FileSystem.exists(basePath) && sys.FileSystem.isDirectory(basePath))
+		{
+			for (f in sys.FileSystem.readDirectory(basePath))
+			{
+				if (!f.endsWith('.json')) continue;
+				var name = f.substr(0, f.length - 5);
+				_allEntries.push({ name: name, path: '$basePath/$f', source: 'base' });
+			}
+		}
+
+		// Active mod
+		if (ModManager.isActive())
+		{
+			var modPath = '${ModManager.modRoot()}/stages';
+			if (sys.FileSystem.exists(modPath) && sys.FileSystem.isDirectory(modPath))
+			{
+				for (f in sys.FileSystem.readDirectory(modPath))
+				{
+					if (!f.endsWith('.json')) continue;
+					var name = f.substr(0, f.length - 5);
+					// If base already has this name, mark it as mod override
+					var existsInBase = Lambda.exists(_allEntries, function(e) return e.name == name && e.source == 'base');
+					if (existsInBase)
+						_allEntries = _allEntries.filter(e -> !(e.name == name && e.source == 'base'));
+					_allEntries.push({ name: name, path: '$modPath/$f', source: ModManager.activeMod });
+				}
+			}
+		}
+
+		// Sort alphabetically
+		_allEntries.sort((a, b) -> a.name < b.name ? -1 : (a.name > b.name ? 1 : 0));
+		#end
+	}
+
+	// ── Filtering + row rebuild ───────────────────────────────────────────────
+
+	function _applyFilter(q:String):Void
+	{
+		q = q.toLowerCase().trim();
+		_filtered = (q == '') ? _allEntries.copy()
+			: _allEntries.filter(e -> e.name.toLowerCase().contains(q) || e.source.toLowerCase().contains(q));
+		_scrollIdx = 0;
+	}
+
+	function _rebuildRows():Void
+	{
+		var T = EditorTheme.current;
+
+		// Clear old rows
+		for (s in _rowGroup.members)  { if (s != null) { remove(s,  true); s.destroy(); } }
+		for (t in _textGroup.members) { if (t != null) { remove(t,  true); t.destroy(); } }
+		_rowGroup.clear();
+		_textGroup.clear();
+		_hitData = [];
+
+		var listY = _panY + 82.0;
+		var maxRow = Std.int(Math.min(VISIBLE, _filtered.length - _scrollIdx));
+
+		for (ri in 0...maxRow)
+		{
+			var entry = _filtered[_scrollIdx + ri];
+			var ry = listY + ri * ROW_H;
+			var isEven = ri % 2 == 0;
+
+			// Row background
+			var rowBg = new FlxSprite(_panX, ry).makeGraphic(W, ROW_H - 1, isEven ? T.rowEven : T.rowOdd);
+			rowBg.scrollFactor.set(); rowBg.cameras = [_camSub];
+			add(rowBg); _rowGroup.add(rowBg);
+
+			_hitData.push({ y: ry, h: ROW_H - 1, idx: _scrollIdx + ri });
+
+			// Stage name
+			var nameStr = entry.name.length > 26 ? entry.name.substr(0, 24) + '..' : entry.name;
+			var nameTxt = new FlxText(_panX + 10, ry + 8, 200, nameStr, 10);
+			nameTxt.setFormat(Paths.font('vcr.ttf'), 10, T.textPrimary, LEFT);
+			nameTxt.scrollFactor.set(); nameTxt.cameras = [_camSub];
+			add(nameTxt); _textGroup.add(nameTxt);
+
+			// Source badge
+			var srcColor = (entry.source == 'base') ? T.textDim : T.accent;
+			var srcTxt = new FlxText(_panX + 218, ry + 8, 80, entry.source, 9);
+			srcTxt.setFormat(Paths.font('vcr.ttf'), 9, srcColor, LEFT);
+			srcTxt.scrollFactor.set(); srcTxt.cameras = [_camSub];
+			add(srcTxt); _textGroup.add(srcTxt);
+
+			// Path (dim, truncated)
+			var shortPath = entry.path.length > 38 ? '..' + entry.path.substr(entry.path.length - 36) : entry.path;
+			var pathTxt = new FlxText(_panX + 308, ry + 8, W - 320, shortPath, 8);
+			pathTxt.setFormat(Paths.font('vcr.ttf'), 8, T.textDim, LEFT);
+			pathTxt.scrollFactor.set(); pathTxt.cameras = [_camSub];
+			add(pathTxt); _textGroup.add(pathTxt);
+
+			// LOAD button on the right
+			var btn = new CoolButton(_panX + W - 60, ry + 4, 'LOAD', function()
+			{
+				_onSelect(entry.name, entry.path);
+				close();
+			});
+			btn.resize(56, ROW_H - 8);
+			btn.cameras = [_camSub]; add(btn); _rowGroup.add(cast btn);
+		}
+
+		// Empty state
+		if (_filtered.length == 0)
+		{
+			var emptyTxt = new FlxText(_panX + 14, listY + 10, W - 28,
+				'No stages found.\nCreate a new one with \u2606 NEW, or check that stage JSON files exist in\nassets/stages/ or your mod\'s stages/ folder.', 11);
+			emptyTxt.color = EditorTheme.current.textDim;
+			emptyTxt.scrollFactor.set(); emptyTxt.cameras = [_camSub];
+			add(emptyTxt); _textGroup.add(emptyTxt);
+		}
+
+		// Count label
+		if (_countTxt != null)
+			_countTxt.text = '${_filtered.length} stage${_filtered.length == 1 ? "" : "s"}  '
+				+ '(${_scrollIdx + 1}–${Std.int(Math.min(_scrollIdx + VISIBLE, _filtered.length))} shown)';
+	}
+
+	// ── Update loop ───────────────────────────────────────────────────────────
+
+	override function update(elapsed:Float):Void
+	{
+		super.update(elapsed);
+
+		if (FlxG.keys.justPressed.ESCAPE) { close(); return; }
+
+		// Re-filter when the input changes
+		if (_filterInput != null && _filterInput.text != _lastFilter)
+		{
+			_lastFilter = _filterInput.text;
+			_applyFilter(_lastFilter);
+			_rebuildRows();
+		}
+
+		// Mouse-wheel scroll
+		if (FlxG.mouse.wheel != 0)
+		{
+			_scrollIdx = Std.int(Math.max(0,
+				Math.min(_filtered.length - VISIBLE, _scrollIdx - FlxG.mouse.wheel)));
+			_rebuildRows();
+		}
+
+		// Keyboard scroll
+		if (FlxG.keys.justPressed.UP   && !(_filterInput != null && _filterInput.hasFocus))
+		{
+			if (_scrollIdx > 0) { _scrollIdx--; _rebuildRows(); }
+		}
+		if (FlxG.keys.justPressed.DOWN && !(_filterInput != null && _filterInput.hasFocus))
+		{
+			if (_scrollIdx + VISIBLE < _filtered.length) { _scrollIdx++; _rebuildRows(); }
+		}
+
+		// Scroll button clicks
+		if (FlxG.mouse.justPressed)
+		{
+			var mx = FlxG.mouse.gameX;
+			var my = FlxG.mouse.gameY;
+
+			// Up button
+			if (_btnUp != null && mx >= _btnUp.x && mx <= _btnUp.x + _btnUp.width
+				&& my >= _btnUp.y && my <= _btnUp.y + _btnUp.height)
+			{
+				if (_scrollIdx > 0) { _scrollIdx--; _rebuildRows(); }
+				return;
+			}
+			// Down button
+			if (_btnDown != null && mx >= _btnDown.x && mx <= _btnDown.x + _btnDown.width
+				&& my >= _btnDown.y && my <= _btnDown.y + _btnDown.height)
+			{
+				if (_scrollIdx + VISIBLE < _filtered.length) { _scrollIdx++; _rebuildRows(); }
+				return;
+			}
+
+			// Row click → select and load
+			for (hit in _hitData)
+			{
+				if (my >= hit.y && my <= hit.y + hit.h
+					&& mx >= _panX && mx <= _panX + W - 70) // avoid the LOAD btn area
+				{
+					if (hit.idx >= 0 && hit.idx < _filtered.length)
+					{
+						var e = _filtered[hit.idx];
+						_onSelect(e.name, e.path);
+						close();
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	override function close():Void
+	{
+		if (_camSub != null) { FlxG.cameras.remove(_camSub, true); _camSub = null; }
+		super.close();
 	}
 }
 
@@ -3962,7 +5023,7 @@ class AddElementSubState extends flixel.FlxSubState
 		// ── Browse button ──────────────────────────────────────────────────────
 		// Opens a native file picker. The selected PNG/JPG/XML is copied to the
 		// engine's asset folder (mod or base) and the asset path is filled in.
-		var browseBtn = new FlxButton(panX + W - 96, y + 13, 'Browse...', _browseAsset);
+		var browseBtn = new CoolButton(panX + W - 96, y + 13, 'Browse...', _browseAsset);
 		browseBtn.cameras = [_camSub];
 		add(browseBtn);
 
@@ -3978,7 +5039,7 @@ class AddElementSubState extends flixel.FlxSubState
 		y += 56;
 
 		// Confirm / Cancel
-		var confirmBtn = new FlxButton(panX + 12, y, 'Add Element', function()
+		var confirmBtn = new CoolButton(panX + 12, y, 'Add Element', function()
 		{
 			var types2 = ['sprite', 'animated', 'graphic', 'backdrop', 'group', 'custom_class', 'sound', 'character'];
 			var typeIdx = Std.parseInt(typeDropdown.selectedId);
@@ -4035,7 +5096,7 @@ class AddElementSubState extends flixel.FlxSubState
 		confirmBtn.cameras = [_camSub];
 		add(confirmBtn);
 
-		var cancelBtn = new FlxButton(panX + W - 102, y, 'Cancel', close);
+		var cancelBtn = new CoolButton(panX + W - 102, y, 'Cancel', close);
 		cancelBtn.cameras = [_camSub];
 		add(cancelBtn);
 

@@ -40,6 +40,7 @@ using StringTools;
 import haxe.Json;
 import haxe.format.JsonParser;
 import funkin.audio.MusicManager;
+import coolui.CoolButton;
 
 class FreeplayEditorState extends funkin.states.MusicBeatState
 {
@@ -275,7 +276,7 @@ class FreeplayEditorState extends funkin.states.MusicBeatState
 		versionShit.setFormat("VCR OSD Mono", 16, funkin.debug.themes.EditorTheme.current.accent, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
 		// ✨ Botón de tema
-		var _themeBtn = new flixel.ui.FlxButton(FlxG.width - 85, 4, "\u2728 Theme", function()
+		var _themeBtn = new coolui.CoolButton(FlxG.width - 85, 4, "\u2728 Theme", function()
 		{
 			openSubState(new funkin.debug.themes.ThemePickerSubState());
 		});

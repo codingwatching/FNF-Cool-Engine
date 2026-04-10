@@ -20,7 +20,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 import flixel.util.FlxColor;
 import funkin.data.WeekFile;
 import funkin.data.WeekFile.WeekData;
@@ -503,10 +503,10 @@ class StoryMenuEditor extends MusicBeatState
 
 		// Botones al fondo
 		var btnH = FlxG.height - TOP_H - BOT_H;
-		var btnSave = new FlxButton(xL, btnH - 58, "SAVE (CTRL+S)", _onSave);
+		var btnSave = new CoolButton(xL, btnH - 58, "SAVE (CTRL+S)", _onSave);
 		btnSave.color = C_ACCENT; tab.add(btnSave);
 
-		var btnExp = new FlxButton(xL, btnH - 30, "EXPORT JSON", _onExport);
+		var btnExp = new CoolButton(xL, btnH - 30, "EXPORT JSON", _onExport);
 		btnExp.color = C_GREEN; tab.add(btnExp);
 
 		_tabMenu.addGroup(tab);
@@ -585,10 +585,10 @@ class StoryMenuEditor extends MusicBeatState
 		var sep  = new FlxSprite(xL, sepY);
 		sep.makeGraphic(lW, 1, C_ACCENT); sep.alpha = 0.15; tab.add(sep);
 
-		var btnAp = new FlxButton(xL, sepY + 8, "APPLY AND SAVE", function() { _applyAllCharEdits(); _onSave(); });
+		var btnAp = new CoolButton(xL, sepY + 8, "APPLY AND SAVE", function() { _applyAllCharEdits(); _onSave(); });
 		btnAp.color = C_ACCENT; tab.add(btnAp);
 
-		var btnRs = new FlxButton(xL, sepY + 36, "RESET OFFSETS", function()
+		var btnRs = new CoolButton(xL, sepY + 36, "RESET OFFSETS", function()
 		{
 			for (i in 0...3) {
 				_cOffX[i].value = 0; _cOffY[i].value = 0;
@@ -885,9 +885,9 @@ class StoryMenuEditor extends MusicBeatState
 		return false;
 	}
 
-	function _mkBtn(bx:Float, by:Float, bw:Int, bh:Int, lbl:String, col:Int, cb:Void->Void):FlxButton
+	function _mkBtn(bx:Float, by:Float, bw:Int, bh:Int, lbl:String, col:Int, cb:Void->Void):CoolButton
 	{
-		var b = new FlxButton(bx, by, lbl, cb);
+		var b = new CoolButton(bx, by, lbl, cb);
 		b.setGraphicSize(bw, bh); b.updateHitbox();
 		b.color = col; b.scrollFactor.set();
 		return b;
@@ -949,7 +949,7 @@ class SongRow extends flixel.group.FlxSpriteGroup
 		var bg = new FlxSprite(0, 0); bg.makeGraphic(rw, 22, 0xFF0A0A1A); add(bg);
 		var num = new FlxText(4, 3, 22, '${idx+1}.', 10); num.color = 0xFF555577; num.font = Paths.font("vcr.ttf"); add(num);
 		var lbl = new FlxText(24, 3, rw - 46, name, 10); lbl.color = 0xFFCCCCDD; lbl.font = Paths.font("vcr.ttf"); add(lbl);
-		var del = new FlxButton(rw - 20, 1, "×", function() { if (onDelete != null) onDelete(_idx); });
+		var del = new CoolButton(rw - 20, 1, "×", function() { if (onDelete != null) onDelete(_idx); });
 		del.setGraphicSize(18, 18); del.updateHitbox(); del.color = 0xFFFF3355; add(del);
 		var sep = new FlxSprite(0, 21); sep.makeGraphic(rw, 1, 0x08FFFFFF); add(sep);
 	}

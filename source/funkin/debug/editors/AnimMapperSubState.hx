@@ -5,7 +5,7 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.FlxSubState;
 import flixel.text.FlxText;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 import flixel.util.FlxColor;
 import funkin.gameplay.objects.character.Character.AnimData;
 import funkin.debug.themes.EditorTheme;
@@ -71,7 +71,7 @@ class AnimMapperSubState extends FlxSubState
 	// Per-row display references — indices always match _anims.
 	var _inputs:Array<CoolInputText> = [];
 	var _prefixLabels:Array<FlxText> = [];
-	var _deleteBtns:Array<FlxButton> = [];
+	var _deleteBtns:Array<CoolButton> = [];
 	// 3 background sprites per row: rowBg, colSep, rowLine
 	var _rowObjects:Array<FlxSprite> = [];
 
@@ -91,8 +91,8 @@ class AnimMapperSubState extends FlxSubState
 	var _titleText:FlxText;
 	var _subText:FlxText;
 	var _footerDiv:FlxSprite;
-	var _skipBtn:FlxButton;
-	var _cfmBtn:FlxButton;
+	var _skipBtn:CoolButton;
+	var _cfmBtn:CoolButton;
 
 	// -------------------------------------------------------------------------
 
@@ -324,11 +324,12 @@ class AnimMapperSubState extends FlxSubState
 			// Delete button (right column).
 			// Capture index locally so the closure stays correct after rebuilds.
 			var capturedIdx = i;
-			var delBtn = new FlxButton(_panX + W - DEL_W + 3, rowY + 6, "X", function()
+			var delBtn = new CoolButton(_panX + W - DEL_W + 3, rowY + 6, "X", function()
 			{
 				_deleteRow(capturedIdx);
 			});
-			delBtn.label.color = FlxColor.fromRGB(255, 80, 80);
+			delBtn.resize(DEL_W - 8, ROW_H - 12);
+			delBtn.setLabelFormat(null, 8, FlxColor.fromRGB(255, 80, 80));
 			delBtn.scrollFactor.set();
 			add(delBtn);
 			_deleteBtns.push(delBtn);
@@ -351,7 +352,7 @@ class AnimMapperSubState extends FlxSubState
 		_scrollInfo.scrollFactor.set();
 		add(_scrollInfo);
 
-		_skipBtn = new FlxButton(_panX + W - 218, fy + 14, "Skip  [ESC]", function()
+		_skipBtn = new CoolButton(_panX + W - 218, fy + 14, "Skip  [ESC]", function()
 		{
 			// Skip returns the ORIGINAL unmodified list, ignoring any edits or deletions.
 			_onConfirm(_originalAnims);
@@ -360,7 +361,7 @@ class AnimMapperSubState extends FlxSubState
 		_skipBtn.scrollFactor.set();
 		add(_skipBtn);
 
-		_cfmBtn = new FlxButton(_panX + W - 108, fy + 14, "Confirm  [ENTER]", function()
+		_cfmBtn = new CoolButton(_panX + W - 108, fy + 14, "Confirm  [ENTER]", function()
 		{
 			_applyAndConfirm();
 		});

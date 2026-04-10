@@ -14,7 +14,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import funkin.gameplay.notes.NoteSkinSystem;
@@ -180,7 +180,7 @@ class NoteSkinEditorState extends MusicBeatState
 	var animOffsetXStepper:CoolNumericStepper;
 	var animOffsetYStepper:CoolNumericStepper;
 	var animNoteIDDropdown:CoolDropDown;
-	var addAnimBtn:FlxButton;
+	var addAnimBtn:CoolButton;
 	/** Currently selected noteID from the dropdown (0-based dir, or -1 = all). */
 	var _selectedNoteID:Int = -1;
 	/** null = Add mode, String = Edit mode */
@@ -192,7 +192,7 @@ class NoteSkinEditorState extends MusicBeatState
 	var _activeNotes:Array<{spr:FlxSprite, dir:Int, hit:Bool}> = [];
 	var _noteScrollSpeed:Float  = 450.0;
 	var _downscroll:Bool        = false;
-	var _previewPlayBtn:FlxButton;
+	var _previewPlayBtn:CoolButton;
 	var _previewHintText:FlxText;
 	var _noteSpeedStepper:CoolNumericStepper;
 	var _downscrollCheckbox:CoolCheckBox;
@@ -324,7 +324,7 @@ class NoteSkinEditorState extends MusicBeatState
 		add(statusText);
 
 		// Theme button
-		var themeBtn = new FlxButton(FlxG.width - 75, FlxG.height - 28, '\u2728 Theme', function()
+		var themeBtn = new CoolButton(FlxG.width - 75, FlxG.height - 28, '\u2728 Theme', function()
 		{
 			openSubState(new funkin.debug.themes.ThemePickerSubState());
 		});
@@ -492,7 +492,7 @@ class NoteSkinEditorState extends MusicBeatState
 		ppSep.scrollFactor.set();
 		add(ppSep);
 
-		_previewPlayBtn = new FlxButton(6, 93, "\u25B6 Play Preview", _togglePlayPreview);
+		_previewPlayBtn = new CoolButton(6, 93, "\u25B6 Play Preview", _togglePlayPreview);
 		_previewPlayBtn.cameras = [camHUD];
 		_previewPlayBtn.scrollFactor.set();
 		add(_previewPlayBtn);
@@ -667,7 +667,7 @@ class NoteSkinEditorState extends MusicBeatState
 		}
 
 		// Load JSON from file
-		tab.add(new FlxButton(10, y, "Load JSON from File", function()
+		tab.add(new CoolButton(10, y, "Load JSON from File", function()
 		{
 			_loadJSONFromFile();
 		})); y += 28;
@@ -690,7 +690,7 @@ class NoteSkinEditorState extends MusicBeatState
 		tab.add(_label(10, y, "Path (no extension):")); y += 14;
 		texPathInput = new CoolInputText(10, y, 218, 'NOTE_assets', 8);
 		tab.add(texPathInput);
-		tab.add(new FlxButton(232, y - 2, "Browse…", function()
+		tab.add(new CoolButton(232, y - 2, "Browse…", function()
 		{
 			_browseTexturePNG(function(png, atlas)
 			{
@@ -727,7 +727,7 @@ class NoteSkinEditorState extends MusicBeatState
 		tab.add(_label(10, y, "Hold Path:")); y += 14;
 		holdTexPathInput = new CoolInputText(10, y, 218, '', 8);
 		tab.add(holdTexPathInput);
-		tab.add(new FlxButton(232, y - 2, "Browse…", function()
+		tab.add(new CoolButton(232, y - 2, "Browse…", function()
 		{
 			_browseTexturePNG(function(png, atlas)
 			{
@@ -943,39 +943,39 @@ class NoteSkinEditorState extends MusicBeatState
 		tab.add(animNoteIDDropdown); y += 32;
 
 		// Buttons row
-		addAnimBtn = new FlxButton(10, y, "Add Animation", function()
+		addAnimBtn = new CoolButton(10, y, "Add Animation", function()
 		{
 			_addOrUpdateAnimation();
 		});
 		tab.add(addAnimBtn);
 
-		tab.add(new FlxButton(120, y, "New / Clear", function()
+		tab.add(new CoolButton(120, y, "New / Clear", function()
 		{
 			_clearAnimFields();
 		})); y += 28;
 
-		tab.add(new FlxButton(10, y, "Delete Selected", function()
+		tab.add(new CoolButton(10, y, "Delete Selected", function()
 		{
 			_deleteSelectedAnimation();
 		}));
 
-		tab.add(new FlxButton(120, y, "← Load Selected", function()
+		tab.add(new CoolButton(120, y, "← Load Selected", function()
 		{
 			_loadAnimIntoUI();
 		})); y += 28;
 
-		tab.add(new FlxButton(10, y, "▲ Move Up", function()
+		tab.add(new CoolButton(10, y, "▲ Move Up", function()
 		{
 			_moveAnimation(-1);
 		}));
 
-		tab.add(new FlxButton(120, y, "▼ Move Down", function()
+		tab.add(new CoolButton(120, y, "▼ Move Down", function()
 		{
 			_moveAnimation(1);
 		})); y += 28;
 
 		// Play current anim on preview
-		tab.add(new FlxButton(10, y, "▶ Play on Preview", function()
+		tab.add(new CoolButton(10, y, "▶ Play on Preview", function()
 		{
 			_playSelectedAnimOnPreview();
 		}));
@@ -999,18 +999,18 @@ class NoteSkinEditorState extends MusicBeatState
 			"  assets/notes/skins/<skinName>/skin.json\n" +
 			"  assets/notes/splashes/<splashName>/splash.json")); y += 58;
 
-		tab.add(new FlxButton(10, y, "Save skin.json", function()
+		tab.add(new CoolButton(10, y, "Save skin.json", function()
 		{
 			_exportJSON("skin");
 		})); y += 28;
 
-		tab.add(new FlxButton(10, y, "Save splash.json", function()
+		tab.add(new CoolButton(10, y, "Save splash.json", function()
 		{
 			_exportJSON("splash");
 		})); y += 28;
 
 		#if sys
-		tab.add(new FlxButton(10, y, "📁 Save skin to folder…", function()
+		tab.add(new CoolButton(10, y, "📁 Save skin to folder…", function()
 		{
 			_saveSkinToFolder();
 		}));
@@ -1020,12 +1020,12 @@ class NoteSkinEditorState extends MusicBeatState
 		y += 4;
 		#end
 
-		tab.add(new FlxButton(10, y, "Copy skin.json to Clipboard", function()
+		tab.add(new CoolButton(10, y, "Copy skin.json to Clipboard", function()
 		{
 			_copyToClipboard("skin");
 		})); y += 28;
 
-		tab.add(new FlxButton(10, y, "Copy splash.json to Clipboard", function()
+		tab.add(new CoolButton(10, y, "Copy splash.json to Clipboard", function()
 		{
 			_copyToClipboard("splash");
 		})); y += 36;
@@ -1033,18 +1033,18 @@ class NoteSkinEditorState extends MusicBeatState
 		// ── Preview controls ──────────────────────────────────────────────────
 		tab.add(_divider(10, y, "─── Preview Controls")); y += 16;
 
-		tab.add(new FlxButton(10, y, "Reload Preview Sprite", function()
+		tab.add(new CoolButton(10, y, "Reload Preview Sprite", function()
 		{
 			_reloadPreviewSprite();
 		})); y += 28;
 
-		tab.add(new FlxButton(10, y, "Reset Camera", function()
+		tab.add(new CoolButton(10, y, "Reset Camera", function()
 		{
 			camFollow.setPosition(FlxG.width * 0.5, FlxG.height * 0.5);
 			camGame.zoom = 1.0;
 		})); y += 28;
 
-		tab.add(new FlxButton(10, y, "Center Sprite", function()
+		tab.add(new CoolButton(10, y, "Center Sprite", function()
 		{
 			if (previewSprite.visible)
 				camFollow.setPosition(previewSprite.getMidpoint().x, previewSprite.getMidpoint().y);
@@ -1056,7 +1056,7 @@ class NoteSkinEditorState extends MusicBeatState
 		jsonPreviewText.color = funkin.debug.themes.EditorTheme.current.textSecondary;
 		jsonPreviewText.wordWrap = true;
 
-		tab.add(new FlxButton(10, y + 140, "Refresh Preview", function()
+		tab.add(new CoolButton(10, y + 140, "Refresh Preview", function()
 		{
 			var j = (editorMode == MODE_SKIN) ? _buildSkinJSON() : _buildSplashJSON();
 			var str = Json.stringify(j, null, '  ');
@@ -1253,7 +1253,7 @@ class NoteSkinEditorState extends MusicBeatState
 		}
 
 		editingAnimIdx = -1;
-		addAnimBtn.text = "Add Animation";
+		addAnimBtn.label = "Add Animation";
 		_refreshAnimList();
 		_markUnsaved();
 	}
@@ -1261,7 +1261,7 @@ class NoteSkinEditorState extends MusicBeatState
 	function _clearAnimFields()
 	{
 		editingAnimIdx = -1;
-		addAnimBtn.text = "Add Animation";
+		addAnimBtn.label = "Add Animation";
 		animNameInput.text = "";
 		animPrefixInput.text = "";
 		animFpsStepper.value = 24;
@@ -1291,7 +1291,7 @@ class NoteSkinEditorState extends MusicBeatState
 		var nid = e.noteID;
 		_selectedNoteID = nid != null ? nid : -1;
 		animNoteIDDropdown.selectedLabel = nid == null ? "none (all dirs)" : '${nid} - ${["Left","Down","Up","Right"][nid % 4]}';
-		addAnimBtn.text = "Update Animation";
+		addAnimBtn.label = "Update Animation";
 		_setStatus('Editing: ${e.name}', FlxColor.CYAN);
 	}
 
@@ -2052,7 +2052,7 @@ class NoteSkinEditorState extends MusicBeatState
 	function _togglePlayPreview()
 	{
 		_playPreviewActive = !_playPreviewActive;
-		_previewPlayBtn.text = _playPreviewActive ? "■ Stop Preview" : "▶ Play Preview";
+		_previewPlayBtn.label = _playPreviewActive ? "■ Stop Preview" : "▶ Play Preview";
 		_previewHintText.visible = _playPreviewActive;
 
 		if (_playPreviewActive)

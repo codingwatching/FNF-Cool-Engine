@@ -53,7 +53,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 
@@ -519,7 +519,7 @@ class SpriteEditorState extends MusicBeatState
         add(_headerText);
 
         // Theme button in header
-        var themeBtn = new FlxButton(FlxG.width - 90, 2, "✨ Theme", function()
+        var themeBtn = new CoolButton(FlxG.width - 90, 2, "✨ Theme", function()
         {
             openSubState(new funkin.debug.themes.ThemePickerSubState());
         });
@@ -581,25 +581,25 @@ class SpriteEditorState extends MusicBeatState
         _addTabHeader(tab, y, "Load / Create Atlas"); y += 28;
 
         tab.add(_makeLabel(10, y, "Load existing PNG + XML:")); y += 16;
-        tab.add(new FlxButton(10, y, "Import Sprite Sheet", _importSpriteSheet));
+        tab.add(new CoolButton(10, y, "Import Sprite Sheet", _importSpriteSheet));
         tab.add(_makeHint(10, y + 22, "Picks a PNG — auto-finds its .xml sibling"));
         y += 50;
 
         tab.add(_makeSep(tab, y, "Create new XML")); y += 14;
         tab.add(_makeLabel(10, y, "Load PNG only (build XML from scratch):")); y += 16;
-        tab.add(new FlxButton(10, y, "Import PNG Only", _importPngOnly));
+        tab.add(new CoolButton(10, y, "Import PNG Only", _importPngOnly));
         tab.add(_makeHint(10, y + 22, "No XML required — you'll create frames manually"));
         y += 50;
 
         tab.add(_makeSep(tab, y, "Quick Add Frame")); y += 14;
         tab.add(_makeLabel(10, y, "Adds a new blank frame at (0,0,64,64):")); y += 16;
-        tab.add(new FlxButton(10, y, "+ Add Frame", function()
+        tab.add(new CoolButton(10, y, "+ Add Frame", function()
         {
             _addBlankFrame();
         }));
         y += 34;
 
-        tab.add(new FlxButton(10, y, "✕ Delete Selected", function()
+        tab.add(new CoolButton(10, y, "✕ Delete Selected", function()
         {
             _deleteSelected();
         }));
@@ -620,7 +620,7 @@ class SpriteEditorState extends MusicBeatState
         tab.add(_makeHint(10, y + 18, "Base name prefix (e.g. 'idle', 'sing')"));
         y += 38;
 
-        tab.add(new FlxButton(10, y, "Auto-Grid Slice", function()
+        tab.add(new CoolButton(10, y, "Auto-Grid Slice", function()
         {
             if (_sheetSprite == null || _sheetSprite.graphic == null)
             {
@@ -685,8 +685,8 @@ class SpriteEditorState extends MusicBeatState
         tab.add(_fHideHitboxCheck);
         y += 50;
 
-        tab.add(new FlxButton(10, y, "Apply Changes", _applyFrameEdits));
-        tab.add(new FlxButton(120, y, "Duplicate Frame", function()
+        tab.add(new CoolButton(10, y, "Apply Changes", _applyFrameEdits));
+        tab.add(new CoolButton(120, y, "Duplicate Frame", function()
         {
             if (_selIdx < 0 || _selIdx >= _frames.length) return;
             var src = _frames[_selIdx];
@@ -748,18 +748,18 @@ class SpriteEditorState extends MusicBeatState
         tab.add(_bgPreview);
         y += 34;
 
-        tab.add(new FlxButton(10, y, "Apply BG", function()
+        tab.add(new CoolButton(10, y, "Apply BG", function()
         {
             _applyBgFromUI();
         }));
         y += 34;
 
         tab.add(_makeSep(tab, y, "Zoom")); y += 14;
-        tab.add(new FlxButton(10, y, "Reset View (1:1)", function()
+        tab.add(new CoolButton(10, y, "Reset View (1:1)", function()
         {
             _zoom = 1.0; _panX = 0; _panY = 0; _applyTransform();
         }));
-        tab.add(new FlxButton(130, y, "Fit to Screen", function()
+        tab.add(new CoolButton(130, y, "Fit to Screen", function()
         {
             _fitToScreen();
         }));
@@ -785,18 +785,18 @@ class SpriteEditorState extends MusicBeatState
         _exportImageInput = new CoolInputText(10, y, TAB_W - 20, "", 9);
         tab.add(_exportImageInput); y += 30;
 
-        tab.add(new FlxButton(10, y, "💾 Save XML", function()
+        tab.add(new CoolButton(10, y, "💾 Save XML", function()
         {
             _saveXml(false);
         }));
-        tab.add(new FlxButton(110, y, "Save As…", function()
+        tab.add(new CoolButton(110, y, "Save As…", function()
         {
             _saveXml(true);
         }));
         y += 34;
 
         tab.add(_makeSep(tab, y, "Clipboard")); y += 14;
-        tab.add(new FlxButton(10, y, "Copy XML to Clipboard", function()
+        tab.add(new CoolButton(10, y, "Copy XML to Clipboard", function()
         {
             var xml = _buildXmlString();
             #if sys
@@ -809,7 +809,7 @@ class SpriteEditorState extends MusicBeatState
         y += 34;
 
         tab.add(_makeSep(tab, y, "Summary")); y += 14;
-        tab.add(new FlxButton(10, y, "Print Frame Stats", function()
+        tab.add(new CoolButton(10, y, "Print Frame Stats", function()
         {
             trace("═══ Sprite Editor Frame Stats ═══");
             trace("  Atlas image : " + (_atlasImagePath != "" ? _atlasImagePath : "(none)"));

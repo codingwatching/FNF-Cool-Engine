@@ -8,7 +8,7 @@ import flixel.FlxSprite;
 import flixel.FlxState;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 import flixel.util.FlxColor;
 import funkin.cutscenes.dialogue.DialogueData;
 import funkin.transitions.StateTransition;
@@ -33,13 +33,13 @@ class DialogueEditor extends FlxState
 	var bg:FlxSprite;
 	var titleText:FlxText;
 	var messageList:FlxTypedGroup<FlxText>;
-	var messageButtons:FlxTypedGroup<FlxButton>;
+	var messageButtons:FlxTypedGroup<CoolButton>;
 	var skinList:FlxTypedGroup<FlxText>;
-	var skinButtons:FlxTypedGroup<FlxButton>;
+	var skinButtons:FlxTypedGroup<CoolButton>;
 	var portraitList:FlxTypedGroup<FlxText>;
-	var portraitButtons:FlxTypedGroup<FlxButton>;
+	var portraitButtons:FlxTypedGroup<CoolButton>;
 	var boxList:FlxTypedGroup<FlxText>;
-	var boxButtons:FlxTypedGroup<FlxButton>;
+	var boxButtons:FlxTypedGroup<CoolButton>;
 
 	// === LABELS Y TÍTULOS (para ocultar/mostrar) ===
 	// Conversation tab
@@ -55,15 +55,15 @@ class DialogueEditor extends FlxState
 	var convBubbleLabel:FlxText;
 	var convSpeedLabel:FlxText;
 	var convMusicLabel:FlxText;
-	var convUpdateBtn:FlxButton;
-	var convCycleBubbleBtn:FlxButton;
+	var convUpdateBtn:CoolButton;
+	var convCycleBubbleBtn:CoolButton;
 
 	// Skin tab
 	var skinPanelTitle:FlxText;
 	var skinConfigTitle:FlxText;
 	var skinNameLabel:FlxText;
 	var skinStyleLabel:FlxText;
-	var skinToggleStyleBtn:FlxButton;
+	var skinToggleStyleBtn:CoolButton;
 	var skinBgColorLabel:FlxText;
 	var skinTextConfigTitle:FlxText;
 	var skinTextPosLabel:FlxText;
@@ -78,7 +78,7 @@ class DialogueEditor extends FlxState
 	var portraitsPosLabel:FlxText;
 	var portraitsScaleLabel:FlxText;
 	var portraitsAnimLabel:FlxText;
-	var portraitsUpdateBtn:FlxButton;
+	var portraitsUpdateBtn:CoolButton;
 
 	// Boxes tab
 	var boxesPanelTitle:FlxText;
@@ -87,11 +87,11 @@ class DialogueEditor extends FlxState
 	var boxesPosLabel:FlxText;
 	var boxesScaleLabel:FlxText;
 	var boxesAnimLabel:FlxText;
-	var boxesUpdateBtn:FlxButton;
+	var boxesUpdateBtn:CoolButton;
 
 	// === TAB SYSTEM ===
 	var currentTab:EditorTab = CONVERSATION;
-	var tabButtons:Map<EditorTab, FlxButton>;
+	var tabButtons:Map<EditorTab, CoolButton>;
 	
 	// === TAB GROUPS (para visibilidad) ===
 	var conversationGroup:FlxSpriteGroup;
@@ -138,20 +138,20 @@ class DialogueEditor extends FlxState
 	var boxAnimInput:CoolInputText;
 
 	// === BOTONES ===
-	var addMessageBtn:FlxButton;
-	var removeMessageBtn:FlxButton;
-	var saveConversationBtn:FlxButton;
-	var loadConversationBtn:FlxButton;
-	var saveSkinBtn:FlxButton;
-	var loadSkinBtn:FlxButton;
-	var createSkinBtn:FlxButton;
-	var testBtn:FlxButton;
-	var importPortraitBtn:FlxButton;
-	var importBoxBtn:FlxButton;
-	var addPortraitBtn:FlxButton;
-	var addBoxBtn:FlxButton;
-	var removePortraitBtn:FlxButton;
-	var removeBoxBtn:FlxButton;
+	var addMessageBtn:CoolButton;
+	var removeMessageBtn:CoolButton;
+	var saveConversationBtn:CoolButton;
+	var loadConversationBtn:CoolButton;
+	var saveSkinBtn:CoolButton;
+	var loadSkinBtn:CoolButton;
+	var createSkinBtn:CoolButton;
+	var testBtn:CoolButton;
+	var importPortraitBtn:CoolButton;
+	var importBoxBtn:CoolButton;
+	var addPortraitBtn:CoolButton;
+	var addBoxBtn:CoolButton;
+	var removePortraitBtn:CoolButton;
+	var removeBoxBtn:CoolButton;
 
 	var _isDirty    : Bool = false;
 	var _unsavedDlg : UnsavedChangesDialog = null;
@@ -203,7 +203,7 @@ class DialogueEditor extends FlxState
 		switchTab(CONVERSATION);
 
 		// ✨ Botón de tema (esquina superior derecha)
-		var _themeBtn = new flixel.ui.FlxButton(FlxG.width - 80, 4, "\u2728 Theme", function()
+		var _themeBtn = new coolui.CoolButton(FlxG.width - 80, 4, "\u2728 Theme", function()
 		{
 			openSubState(new funkin.debug.themes.ThemePickerSubState());
 		});
@@ -272,7 +272,7 @@ class DialogueEditor extends FlxState
 	 */
 	function createTabs():Void
 	{
-		tabButtons = new Map<EditorTab, FlxButton>();
+		tabButtons = new Map<EditorTab, CoolButton>();
 		var tabs = [CONVERSATION, SKIN, PORTRAITS, BOXES];
 		var tabNames = ["Conversation", "Skin", "Portraits", "Boxes"];
 		var tabWidth = (FlxG.width - PADDING * (tabs.length + 1)) / tabs.length;
@@ -280,13 +280,12 @@ class DialogueEditor extends FlxState
 		for (i in 0...tabs.length)
 		{
 			var x = PADDING + (tabWidth + PADDING) * i;
-			var btn = new FlxButton(x, 50, tabNames[i], function()
+			var btn = new CoolButton(x, 50, tabNames[i], function()
 			{
 				switchTab(tabs[i]);
 			});
-			btn.makeGraphic(Std.int(tabWidth), TAB_HEIGHT, funkin.debug.themes.EditorTheme.current.bgHover);
-			btn.label.color = FlxColor.WHITE;
-			btn.label.size = 16;
+			btn.resize(Std.int(tabWidth), TAB_HEIGHT);
+			btn.setLabelFormat(null, 16, FlxColor.WHITE);
 			add(btn);
 			tabButtons.set(tabs[i], btn);
 		}
@@ -483,20 +482,20 @@ class DialogueEditor extends FlxState
 		// Botones de archivo
 		var btnWidth = (PANEL_WIDTH - 20) / 2;
 
-		saveConversationBtn = new FlxButton(leftX, startY, "SAVE", saveConversation);
-		saveConversationBtn.makeGraphic(Std.int(btnWidth), 30, funkin.debug.themes.EditorTheme.current.success);
-		saveConversationBtn.label.color = FlxColor.BLACK;
+		saveConversationBtn = new CoolButton(leftX, startY, "SAVE", saveConversation);
+		saveConversationBtn.resize(Std.int(btnWidth), 30);
+		saveConversationBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(saveConversationBtn);
 
-		loadConversationBtn = new FlxButton(leftX + btnWidth + 10, startY, "LOAD", loadConversation);
-		loadConversationBtn.makeGraphic(Std.int(btnWidth), 30, funkin.debug.themes.EditorTheme.current.accent);
-		loadConversationBtn.label.color = FlxColor.BLACK;
+		loadConversationBtn = new CoolButton(leftX + btnWidth + 10, startY, "LOAD", loadConversation);
+		loadConversationBtn.resize(Std.int(btnWidth), 30);
+		loadConversationBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(loadConversationBtn);
 		startY += 40;
 
-		testBtn = new FlxButton(leftX, startY, "TEST DIALOGUE", testDialogue);
-		testBtn.makeGraphic(PANEL_WIDTH - 10, 30, funkin.debug.themes.EditorTheme.current.warning);
-		testBtn.label.color = FlxColor.BLACK;
+		testBtn = new CoolButton(leftX, startY, "TEST DIALOGUE", testDialogue);
+		testBtn.resize(PANEL_WIDTH - 10, 30);
+		testBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(testBtn);
 		startY += 40;
 
@@ -513,12 +512,12 @@ class DialogueEditor extends FlxState
 		messageList = new FlxTypedGroup<FlxText>();
 		add(messageList);
 
-		messageButtons = new FlxTypedGroup<FlxButton>();
+		messageButtons = new FlxTypedGroup<CoolButton>();
 		add(messageButtons);
 
-		addMessageBtn = new FlxButton(midX, FlxG.height - 120, "ADD MESSAGE", addMessage);
-		addMessageBtn.makeGraphic(midWidth, 30, funkin.debug.themes.EditorTheme.current.success);
-		addMessageBtn.label.color = FlxColor.BLACK;
+		addMessageBtn = new CoolButton(midX, FlxG.height - 120, "ADD MESSAGE", addMessage);
+		addMessageBtn.resize(midWidth, 30);
+		addMessageBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(addMessageBtn);
 
 		// === PANEL DERECHO: EDITAR MENSAJE ===
@@ -575,16 +574,15 @@ class DialogueEditor extends FlxState
 		bubbleTypeText = createEditableText(rightX, startY, 150, "normal");
 		add(bubbleTypeText);
 
-		convCycleBubbleBtn = new FlxButton(rightX + 160, startY - 2, "CYCLE", function()
+		convCycleBubbleBtn = new CoolButton(rightX + 160, startY - 2, "CYCLE", function()
 		{
 			var types = ["normal", "loud", "angry", "evil"];
 			var current = types.indexOf(bubbleTypeText.text);
 			var next = (current + 1) % types.length;
 			bubbleTypeText.text = types[next];
 		});
-		convCycleBubbleBtn.makeGraphic(120, 25, funkin.debug.themes.EditorTheme.current.accent);
-		convCycleBubbleBtn.label.color = FlxColor.BLACK;
-		convCycleBubbleBtn.label.size = 12;
+		convCycleBubbleBtn.resize(120, 25);
+		convCycleBubbleBtn.setLabelFormat(null, 12, FlxColor.BLACK);
 		add(convCycleBubbleBtn);
 		startY += 30;
 
@@ -607,14 +605,14 @@ class DialogueEditor extends FlxState
 		startY += 35;
 
 		// Botones
-		convUpdateBtn = new FlxButton(rightX, startY, "UPDATE", updateCurrentMessage);
-		convUpdateBtn.makeGraphic(Std.int((rightWidth - 10) / 2), 30, funkin.debug.themes.EditorTheme.current.accent);
-		convUpdateBtn.label.color = FlxColor.BLACK;
+		convUpdateBtn = new CoolButton(rightX, startY, "UPDATE", updateCurrentMessage);
+		convUpdateBtn.resize(Std.int((rightWidth - 10) / 2), 30);
+		convUpdateBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(convUpdateBtn);
 
-		removeMessageBtn = new FlxButton(rightX + (rightWidth - 10) / 2 + 10, startY, "REMOVE", removeMessage);
-		removeMessageBtn.makeGraphic(Std.int((rightWidth - 10) / 2), 30, funkin.debug.themes.EditorTheme.current.error);
-		removeMessageBtn.label.color = FlxColor.BLACK;
+		removeMessageBtn = new CoolButton(rightX + (rightWidth - 10) / 2 + 10, startY, "REMOVE", removeMessage);
+		removeMessageBtn.resize(Std.int((rightWidth - 10) / 2), 30);
+		removeMessageBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(removeMessageBtn);
 
 		refreshMessageList();
@@ -678,12 +676,12 @@ class DialogueEditor extends FlxState
 		skinList = new FlxTypedGroup<FlxText>();
 		add(skinList);
 
-		skinButtons = new FlxTypedGroup<FlxButton>();
+		skinButtons = new FlxTypedGroup<CoolButton>();
 		add(skinButtons);
 
-		createSkinBtn = new FlxButton(leftX, FlxG.height - 120, "CREATE NEW SKIN", createNewSkin);
-		createSkinBtn.makeGraphic(PANEL_WIDTH, 30, funkin.debug.themes.EditorTheme.current.success);
-		createSkinBtn.label.color = FlxColor.BLACK;
+		createSkinBtn = new CoolButton(leftX, FlxG.height - 120, "CREATE NEW SKIN", createNewSkin);
+		createSkinBtn.resize(PANEL_WIDTH, 30);
+		createSkinBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(createSkinBtn);
 
 		// === PANEL DERECHO: CONFIGURACIÓN DE SKIN ===
@@ -713,7 +711,7 @@ class DialogueEditor extends FlxState
 		styleText = createEditableText(rightX, startY, 150, currentSkin.style);
 		add(styleText);
 
-		skinToggleStyleBtn = new FlxButton(rightX + 160, startY - 2, "TOGGLE", function()
+		skinToggleStyleBtn = new CoolButton(rightX + 160, startY - 2, "TOGGLE", function()
 		{
 			currentSkin.style = (currentSkin.style == "pixel") ? "normal" : "pixel";
 			styleText.text = currentSkin.style;
@@ -721,9 +719,8 @@ class DialogueEditor extends FlxState
 			currentSkin.backgroundColor = DialogueData.getDefaultBackgroundColor(currentSkin.style);
 			bgColorText.text = currentSkin.backgroundColor;
 		});
-		skinToggleStyleBtn.makeGraphic(120, 25, funkin.debug.themes.EditorTheme.current.accent);
-		skinToggleStyleBtn.label.color = FlxColor.BLACK;
-		skinToggleStyleBtn.label.size = 12;
+		skinToggleStyleBtn.resize(120, 25);
+		skinToggleStyleBtn.setLabelFormat(null, 12, FlxColor.BLACK);
 		add(skinToggleStyleBtn);
 		startY += 30;
 
@@ -787,17 +784,17 @@ class DialogueEditor extends FlxState
 		// Botones
 		var btnWidth = (rightWidth - 20) / 2;
 
-		saveSkinBtn = new FlxButton(rightX, startY, "SAVE SKIN", saveSkin);
-		saveSkinBtn.makeGraphic(Std.int(btnWidth), 30, funkin.debug.themes.EditorTheme.current.success);
-		saveSkinBtn.label.color = FlxColor.BLACK;
+		saveSkinBtn = new CoolButton(rightX, startY, "SAVE SKIN", saveSkin);
+		saveSkinBtn.resize(Std.int(btnWidth), 30);
+		saveSkinBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(saveSkinBtn);
 
-		loadSkinBtn = new FlxButton(rightX + btnWidth + 10, startY, "RELOAD SKIN", function()
+		loadSkinBtn = new CoolButton(rightX + btnWidth + 10, startY, "RELOAD SKIN", function()
 		{
 			loadSkin(currentSkinName);
 		});
-		loadSkinBtn.makeGraphic(Std.int(btnWidth), 30, funkin.debug.themes.EditorTheme.current.accent);
-		loadSkinBtn.label.color = FlxColor.BLACK;
+		loadSkinBtn.resize(Std.int(btnWidth), 30);
+		loadSkinBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(loadSkinBtn);
 
 		refreshSkinList();
@@ -856,17 +853,17 @@ class DialogueEditor extends FlxState
 		portraitList = new FlxTypedGroup<FlxText>();
 		add(portraitList);
 
-		portraitButtons = new FlxTypedGroup<FlxButton>();
+		portraitButtons = new FlxTypedGroup<CoolButton>();
 		add(portraitButtons);
 
-		importPortraitBtn = new FlxButton(leftX, FlxG.height - 160, "IMPORT FILE", importPortrait);
-		importPortraitBtn.makeGraphic(PANEL_WIDTH, 30, funkin.debug.themes.EditorTheme.current.success);
-		importPortraitBtn.label.color = FlxColor.BLACK;
+		importPortraitBtn = new CoolButton(leftX, FlxG.height - 160, "IMPORT FILE", importPortrait);
+		importPortraitBtn.resize(PANEL_WIDTH, 30);
+		importPortraitBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(importPortraitBtn);
 
-		addPortraitBtn = new FlxButton(leftX, FlxG.height - 120, "ADD CONFIG", addPortraitConfig);
-		addPortraitBtn.makeGraphic(PANEL_WIDTH, 30, funkin.debug.themes.EditorTheme.current.accent);
-		addPortraitBtn.label.color = FlxColor.BLACK;
+		addPortraitBtn = new CoolButton(leftX, FlxG.height - 120, "ADD CONFIG", addPortraitConfig);
+		addPortraitBtn.resize(PANEL_WIDTH, 30);
+		addPortraitBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(addPortraitBtn);
 
 		// === PANEL DERECHO: CONFIGURACIÓN DE PORTRAIT ===
@@ -924,14 +921,14 @@ class DialogueEditor extends FlxState
 		// Botones
 		var btnWidth = (rightWidth - 20) / 2;
 
-		portraitsUpdateBtn = new FlxButton(rightX, startY, "UPDATE", updatePortraitConfig);
-		portraitsUpdateBtn.makeGraphic(Std.int(btnWidth), 30, funkin.debug.themes.EditorTheme.current.accent);
-		portraitsUpdateBtn.label.color = FlxColor.BLACK;
+		portraitsUpdateBtn = new CoolButton(rightX, startY, "UPDATE", updatePortraitConfig);
+		portraitsUpdateBtn.resize(Std.int(btnWidth), 30);
+		portraitsUpdateBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(portraitsUpdateBtn);
 
-		removePortraitBtn = new FlxButton(rightX + btnWidth + 10, startY, "REMOVE", removePortraitConfig);
-		removePortraitBtn.makeGraphic(Std.int(btnWidth), 30, funkin.debug.themes.EditorTheme.current.error);
-		removePortraitBtn.label.color = FlxColor.BLACK;
+		removePortraitBtn = new CoolButton(rightX + btnWidth + 10, startY, "REMOVE", removePortraitConfig);
+		removePortraitBtn.resize(Std.int(btnWidth), 30);
+		removePortraitBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(removePortraitBtn);
 	}
 
@@ -983,17 +980,17 @@ class DialogueEditor extends FlxState
 		boxList = new FlxTypedGroup<FlxText>();
 		add(boxList);
 
-		boxButtons = new FlxTypedGroup<FlxButton>();
+		boxButtons = new FlxTypedGroup<CoolButton>();
 		add(boxButtons);
 
-		importBoxBtn = new FlxButton(leftX, FlxG.height - 160, "IMPORT FILE", importBox);
-		importBoxBtn.makeGraphic(PANEL_WIDTH, 30, FlxColor.GREEN);
-		importBoxBtn.label.color = FlxColor.BLACK;
+		importBoxBtn = new CoolButton(leftX, FlxG.height - 160, "IMPORT FILE", importBox);
+		importBoxBtn.resize(PANEL_WIDTH, 30);
+		importBoxBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(importBoxBtn);
 
-		addBoxBtn = new FlxButton(leftX, FlxG.height - 120, "ADD CONFIG", addBoxConfig);
-		addBoxBtn.makeGraphic(PANEL_WIDTH, 30, FlxColor.CYAN);
-		addBoxBtn.label.color = FlxColor.BLACK;
+		addBoxBtn = new CoolButton(leftX, FlxG.height - 120, "ADD CONFIG", addBoxConfig);
+		addBoxBtn.resize(PANEL_WIDTH, 30);
+		addBoxBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(addBoxBtn);
 
 		// === PANEL DERECHO: CONFIGURACIÓN DE BOX ===
@@ -1051,14 +1048,14 @@ class DialogueEditor extends FlxState
 		// Botones
 		var btnWidth = (rightWidth - 20) / 2;
 
-		boxesUpdateBtn = new FlxButton(rightX, startY, "UPDATE", updateBoxConfig);
-		boxesUpdateBtn.makeGraphic(Std.int(btnWidth), 30, FlxColor.CYAN);
-		boxesUpdateBtn.label.color = FlxColor.BLACK;
+		boxesUpdateBtn = new CoolButton(rightX, startY, "UPDATE", updateBoxConfig);
+		boxesUpdateBtn.resize(Std.int(btnWidth), 30);
+		boxesUpdateBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(boxesUpdateBtn);
 
-		removeBoxBtn = new FlxButton(rightX + btnWidth + 10, startY, "REMOVE", removeBoxConfig);
-		removeBoxBtn.makeGraphic(Std.int(btnWidth), 30, FlxColor.RED);
-		removeBoxBtn.label.color = FlxColor.BLACK;
+		removeBoxBtn = new CoolButton(rightX + btnWidth + 10, startY, "REMOVE", removeBoxConfig);
+		removeBoxBtn.resize(Std.int(btnWidth), 30);
+		removeBoxBtn.setLabelFormat(null, 8, FlxColor.BLACK);
 		add(removeBoxBtn);
 	}
 
@@ -1127,12 +1124,12 @@ class DialogueEditor extends FlxState
 			msgText.color = (selectedMessageIndex == i) ? FlxColor.YELLOW : FlxColor.WHITE;
 			messageList.add(msgText);
 
-			var selectBtn = new FlxButton(x + PANEL_WIDTH - 50, startY - 2, "EDIT", function()
+			var selectBtn = new CoolButton(x + PANEL_WIDTH - 50, startY - 2, "EDIT", function()
 			{
 				selectMessage(i);
 			});
-			selectBtn.makeGraphic(50, 20, FlxColor.GRAY);
-			selectBtn.label.size = 10;
+			selectBtn.resize(50, 20);
+			selectBtn.setLabelFormat(null, 10, 0xFFFFFFFF);
 			messageButtons.add(selectBtn);
 
 			startY += 22;
@@ -1328,12 +1325,12 @@ class DialogueEditor extends FlxState
 			skinText.color = (skinName == currentSkinName) ? FlxColor.YELLOW : FlxColor.WHITE;
 			skinList.add(skinText);
 
-			var selectBtn = new FlxButton(x + PANEL_WIDTH - 70, startY - 2, "LOAD", function()
+			var selectBtn = new CoolButton(x + PANEL_WIDTH - 70, startY - 2, "LOAD", function()
 			{
 				loadSkin(skinName);
 			});
-			selectBtn.makeGraphic(70, 20, FlxColor.CYAN);
-			selectBtn.label.size = 10;
+			selectBtn.resize(70, 20);
+			selectBtn.setLabelFormat(null, 10, 0xFFFFFFFF);
 			skinButtons.add(selectBtn);
 
 			startY += 22;
@@ -1470,12 +1467,12 @@ class DialogueEditor extends FlxState
 			portraitText.color = (name == selectedPortraitName) ? FlxColor.YELLOW : FlxColor.WHITE;
 			portraitList.add(portraitText);
 
-			var selectBtn = new FlxButton(x + PANEL_WIDTH - 70, startY - 2, "EDIT", function()
+			var selectBtn = new CoolButton(x + PANEL_WIDTH - 70, startY - 2, "EDIT", function()
 			{
 				selectPortrait(name);
 			});
-			selectBtn.makeGraphic(70, 20, FlxColor.GRAY);
-			selectBtn.label.size = 10;
+			selectBtn.resize(70, 20);
+			selectBtn.setLabelFormat(null, 10, 0xFFFFFFFF);
 			portraitButtons.add(selectBtn);
 
 			startY += 20;
@@ -1635,12 +1632,12 @@ class DialogueEditor extends FlxState
 			boxText.color = (name == selectedBoxName) ? FlxColor.YELLOW : FlxColor.WHITE;
 			boxList.add(boxText);
 
-			var selectBtn = new FlxButton(x + PANEL_WIDTH - 70, startY - 2, "EDIT", function()
+			var selectBtn = new CoolButton(x + PANEL_WIDTH - 70, startY - 2, "EDIT", function()
 			{
 				selectBox(name);
 			});
-			selectBtn.makeGraphic(70, 20, FlxColor.GRAY);
-			selectBtn.label.size = 10;
+			selectBtn.resize(70, 20);
+			selectBtn.setLabelFormat(null, 10, 0xFFFFFFFF);
 			boxButtons.add(selectBtn);
 
 			startY += 20;

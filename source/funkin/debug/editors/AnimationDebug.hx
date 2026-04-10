@@ -34,7 +34,7 @@ import openfl.events.Event;
 import openfl.events.IOErrorEvent;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
-import flixel.ui.FlxButton;
+import coolui.CoolButton;
 import flixel.ui.FlxSpriteButton;
 import funkin.gameplay.objects.character.Character;
 import funkin.menus.FreeplayState;
@@ -115,7 +115,7 @@ class AnimationDebug extends MusicBeatState
 	var editingAnimName:String = null;
 
 	// Botón "Add Animation" — necesitamos referencia para cambiar su label
-	var addAnimBtn:FlxButton;
+	var addAnimBtn:CoolButton;
 
 	// Character data para exportar
 	var characterData:CharacterData;
@@ -308,7 +308,7 @@ class AnimationDebug extends MusicBeatState
 		add(textHelp);
 
 		// ✨ Botón de tema en barra de estado (esquina inferior derecha)
-		var _themeBtn = new flixel.ui.FlxButton(FlxG.width - 75, FlxG.height - 28, "\u2728 Theme", function()
+		var _themeBtn = new coolui.CoolButton(FlxG.width - 75, FlxG.height - 28, "\u2728 Theme", function()
 		{
 			openSubState(new funkin.debug.themes.ThemePickerSubState());
 		});
@@ -516,14 +516,14 @@ class AnimationDebug extends MusicBeatState
 
 		yGO += 24;
 
-		var refreshBtn = new FlxButton(10, yGO, "Refresh Character", function()
+		var refreshBtn = new CoolButton(10, yGO, "Refresh Character", function()
 		{
 			displayCharacter(daAnim);
 			loadCharacterData();
 		});
 		tab.add(refreshBtn);
 
-		tab.add(new FlxButton(170, yGO, "Reset Camera", function()
+		tab.add(new CoolButton(170, yGO, "Reset Camera", function()
 		{
 			camFollow.setPosition(FlxG.width / 2, FlxG.height / 2);
 			camGame.zoom = 1;
@@ -634,14 +634,14 @@ class AnimationDebug extends MusicBeatState
 		yPos += 30;
 
 		// Botón Add/Update — su label cambia según si estás editando o agregando
-		addAnimBtn = new FlxButton(10, yPos, "Add Animation", function()
+		addAnimBtn = new CoolButton(10, yPos, "Add Animation", function()
 		{
 			addNewAnimation();
 		});
 		tab.add(addAnimBtn);
 
 		// Botón "New" — limpia los campos y vuelve a modo Add
-		tab.add(new FlxButton(130, yPos, "New / Clear", function()
+		tab.add(new CoolButton(130, yPos, "New / Clear", function()
 		{
 			editingAnimName = null;
 			animNameInput.text = "";
@@ -654,18 +654,18 @@ class AnimationDebug extends MusicBeatState
 			if (animRenderTypeInput != null) animRenderTypeInput.text = "";
 			if (animFlipXCheckbox != null) animFlipXCheckbox.checked = false;
 			if (addAnimBtn != null)
-				addAnimBtn.text = "Add Animation";
+				addAnimBtn.label = "Add Animation";
 			setHelp("Cleared fields — Add mode", FlxColor.CYAN);
 		}));
 		yPos += 30;
 
-		tab.add(new FlxButton(10, yPos, "Delete Current", function()
+		tab.add(new CoolButton(10, yPos, "Delete Current", function()
 		{
 			deleteCurrentAnimation();
 		}));
 		yPos += 30;
 
-		tab.add(new FlxButton(10, yPos, "← Load Selected", function()
+		tab.add(new CoolButton(10, yPos, "← Load Selected", function()
 		{
 			loadAnimIntoUI();
 		}));
@@ -744,8 +744,8 @@ class AnimationDebug extends MusicBeatState
 		tab.add(healthBarColorInput);
 
 		// Swatch de color (cuadrado que muestra el color actual)
-		// Es un FlxButton sin texto que abre el ColorPickerWheel
-		var colorSwatchBtn = new FlxButton(170, yPos - 1, "", function()
+		// Es un CoolButton sin texto que abre el ColorPickerWheel
+		var colorSwatchBtn = new CoolButton(170, yPos - 1, "", function()
 		{
 			// Parsear el color actual del input para pasárselo al picker
 			var startColor = currentHealthBarColor;
@@ -777,10 +777,10 @@ class AnimationDebug extends MusicBeatState
 		});
 
 		// Pintar el botón con el color actual y darle tamaño de swatch
-		colorSwatchBtn.makeGraphic(28, 20, currentHealthBarColor);
+		colorSwatchBtn.resize(28, 20);
 		tab.add(colorSwatchBtn);
 
-		var pickBtn = new FlxButton(202, yPos - 1, "Pick", function()
+		var pickBtn = new CoolButton(202, yPos - 1, "Pick", function()
 		{
 			var startColor = currentHealthBarColor;
 			try
@@ -805,7 +805,7 @@ class AnimationDebug extends MusicBeatState
 					FlxTween.tween(hudHealthBar.scale, {x: 1, y: 1}, 0.25, {ease: FlxEase.backOut});
 				}
 				// Actualizar el swatch del botón
-				colorSwatchBtn.makeGraphic(28, 20, selectedColor);
+				colorSwatchBtn.resize(28, 20);
 			};
 			picker.cameras = [camHUD];
 			openSubState(picker);
@@ -895,7 +895,7 @@ class AnimationDebug extends MusicBeatState
 		tab.add(camOffsetYStepper);
 		yPos += 28;
 
-		tab.add(new FlxButton(10, yPos, "Apply Properties", function()
+		tab.add(new CoolButton(10, yPos, "Apply Properties", function()
 		{
 			if (char != null)
 			{
@@ -952,7 +952,7 @@ class AnimationDebug extends MusicBeatState
 		tab.add(stdLabel);
 		yPos += 20;
 
-		tab.add(new FlxButton(10, yPos, "Import Sprite PNG", function()
+		tab.add(new CoolButton(10, yPos, "Import Sprite PNG", function()
 		{
 			browseForFile("sprite");
 		}));
@@ -970,14 +970,14 @@ class AnimationDebug extends MusicBeatState
 		tab.add(new FlxText(10, yPos, 0, "Select the PNG spritemap.\nAutomatically detects spritemap.json and Animation.json\nfrom the same folder.", 9));
 		yPos += 40;
 
-		tab.add(new FlxButton(10, yPos, "Import FlxAnimate", function()
+		tab.add(new CoolButton(10, yPos, "Import FlxAnimate", function()
 		{
 			browseForFlxAnimate();
 		}));
 		yPos += 30;
 
 		// Listar símbolos disponibles en Animation.json
-		tab.add(new FlxButton(10, yPos, "List Symbols (Console)", function()
+		tab.add(new CoolButton(10, yPos, "List Symbols (Console)", function()
 		{
 			listAvailableSymbols();
 		}));
@@ -994,7 +994,7 @@ class AnimationDebug extends MusicBeatState
 		tab.add(iconTitle);
 		yPos += 20;
 
-		tab.add(new FlxButton(10, yPos, "Import Icon PNG", function()
+		tab.add(new CoolButton(10, yPos, "Import Icon PNG", function()
 		{
 			browseForFile("icon");
 		}));
@@ -1017,17 +1017,17 @@ class AnimationDebug extends MusicBeatState
 		tab.add(titleLabel);
 		yPos += 30;
 
-		tab.add(new FlxButton(10, yPos, "Export JSON", function()
+		tab.add(new CoolButton(10, yPos, "Export JSON", function()
 		{
 			exportCharacterJSON();
 		}));
 		yPos += 35;
-		tab.add(new FlxButton(10, yPos, "Export Offsets TXT", function()
+		tab.add(new CoolButton(10, yPos, "Export Offsets TXT", function()
 		{
 			exportOffsetsTXT();
 		}));
 		yPos += 35;
-		tab.add(new FlxButton(10, yPos, "Copy JSON", function()
+		tab.add(new CoolButton(10, yPos, "Copy JSON", function()
 		{
 			copyJSONToClipboard();
 		}));
@@ -1105,7 +1105,7 @@ class AnimationDebug extends MusicBeatState
 			// Volver a modo Add
 			editingAnimName = null;
 			if (addAnimBtn != null)
-				addAnimBtn.text = "Add Animation";
+				addAnimBtn.label = "Add Animation";
 		}
 		else
 		{
@@ -1178,7 +1178,7 @@ class AnimationDebug extends MusicBeatState
 				// Entrar en modo EDIT — guardar qué anim estamos modificando
 				editingAnimName = animName;
 				if (addAnimBtn != null)
-					addAnimBtn.text = "Update Anim";
+					addAnimBtn.label = "Update Anim";
 
 				setHelp('← Editing: $animName  |  "New / Clear" for cancel', FlxColor.CYAN);
 				UI_box.selected_tab_id = "Animation";
@@ -1546,7 +1546,7 @@ class AnimationDebug extends MusicBeatState
 		editingAnimName = null;
 		ghostAnimIdx = 0;
 		if (addAnimBtn != null)
-			addAnimBtn.text = "Add Animation";
+			addAnimBtn.label = "Add Animation";
 		dumbTexts.forEach(function(text:FlxText)
 		{
 			dumbTexts.remove(text, true);
