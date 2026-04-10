@@ -78,12 +78,17 @@ class VSyncAPI
 
 #elseif (cpp && linux)
 
+@:buildXml('
+<target id="haxe">
+    <lib name="-lGL" if="linux" />
+    <lib name="-lX11" if="linux" />
+</target>
+')
 @:headerCode('
 #include <GL/glx.h>
 #include <dlfcn.h>
 #include <string.h>
 
-// GLX_EXT_swap_control (SGI) + GLX_MESA_swap_control (MESA)
 typedef void (*PFNGLXSWAPINTERVALEXTPROC)(Display*, GLXDrawable, int);
 typedef int  (*PFNGLXSWAPINTERVALMESAPROC)(unsigned int);
 typedef int  (*PFNGLXGETSWAPINTERVALMESAPROC)(void);
@@ -93,9 +98,7 @@ static PFNGLXSWAPINTERVALMESAPROC    _glXSwapIntervalMESA = nullptr;
 static PFNGLXGETSWAPINTERVALMESAPROC _glXGetSwapIntervalMESA = nullptr;
 static bool _glx_initialized = false;
 
-// Carga un símbolo de la librería GL dinámicamente
 static void* _glGetProc(const char* name) {
-    // Intentar via glXGetProcAddressARB primero (más portable)
     typedef void* (*PFNglXGetProcAddressARB)(const GLubyte*);
     static PFNglXGetProcAddressARB _glXGetProcAddressARB = nullptr;
     if (!_glXGetProcAddressARB) {
@@ -144,9 +147,6 @@ class VSyncAPI
 
 @:headerCode('
 #include <OpenGL/OpenGL.h>
-
-// CGL es la API de bajo nivel de macOS para el contexto OpenGL
-// kCGLCPSwapInterval controla el intervalo de swap (0 = off, 1 = on)
 #ifndef kCGLCPSwapInterval
   #define kCGLCPSwapInterval 222
 #endif
@@ -176,7 +176,6 @@ class VSyncAPI
 
 #else
 
-// ── Stubs para HTML5 / targets no soportados ──────────────────────────────────
 class VSyncAPI
 {
     public static inline function setVSync(enable:Bool):Void {}
