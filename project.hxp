@@ -425,6 +425,11 @@ class Project extends HXProject
 
     if (isSwitch())
       addLib("faxe");
+
+    // extension-haptics: haptic feedback nativo en Android e iOS.
+    // Requerido por VibrationManager cuando FEATURE_HAPTICS está definido.
+    if (isMobile())
+      addLib("extension-haptics");
   }
 
   function addLib(name:String):Void
@@ -454,7 +459,12 @@ class Project extends HXProject
 
     // define mobileC para targets mobile (usado en Main.hx y otros)
     if (isMobile())
+    {
       setHaxedef("mobileC");
+      // FEATURE_HAPTICS activa el bloque #if FEATURE_HAPTICS en VibrationManager
+      // que usa extension.haptics.Haptic en lugar de lime.system.System.vibrate().
+      setHaxedef("FEATURE_HAPTICS");
+    }
   }
 
   function setHaxedef(name:String, ?value:String):Void

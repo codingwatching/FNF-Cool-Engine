@@ -2,19 +2,34 @@ package funkin.util;
 
 import flixel.FlxG;
 import funkin.data.SaveData;
+// V-Slice usa la extensión `extension-haptics` en lugar de lime.system.System.
+// El flag FEATURE_HAPTICS debe definirse en project.xml cuando se incluya la extensión:
+//   <haxelib name="extension-haptics" if="FEATURE_HAPTICS" />
+//   <define name="FEATURE_HAPTICS" if="mobile" />
+#if FEATURE_HAPTICS
+import extension.haptics.Haptic;
+#end
 
 /**
- * VibrationManager — Unified haptic feedback for mobile devices and controllers.
+ * VibrationManager — Haptic feedback unificado para móviles y mandos.
  *
- * ─── Supported platforms ─────────────────────────────────────────────────────
+ * ─── Mobile Implementation ────────────────────────────────────────────────────
  *
- *   MOBILE  (Android / iOS, `#if mobileC`)
- *     Uses `lime.system.System.vibrate(ms)`.
- *     Respects `SaveData.data.vibration`.
+ *   Use `extension-haptics` (same as V-Slice), NOT lime.system.System.vibrate().
+ * 	 Requires the FEATURE_HAPTICS build flag and the haxelib installed.
+ *
+ *   Extension API:
+ * 	 Haptic.vibrateOneShot(duration, amplitude, sharpness)
+ * 	 duration — duration in seconds
+ * 	 amplitude — intensity 0.0 … 1.0
+ * 	 sharpness — haptic texture 0.0 (soft) … 1.0 (sharp)
+ * 	 Haptic.vibratePattern(durations[], amplitudes[], sharpnesses[])
+ * 	 parallel arrays for complex patterns (available if needed).
+ *
+ * ─── Supported platforms ────────────────────────────────────────────────
  *
  *   GAMEPAD (DualShock 4/5, Xbox One/Series, Switch Pro, etc.)
  *     Uses `FlxGamepad.setMotion(leftStr, rightStr, duration)`.
- *     Works on desktop, console and mobile with a connected controller.
  *     Respects `SaveData.data.gamepadRumble`.
  *     Motor strength is scaled by `SaveData.data.vibrationIntensity`.
  *
@@ -25,18 +40,12 @@ import funkin.data.SaveData;
  *   VibrationManager.vibrateMiss();     // missed note (strong)
  *   VibrationManager.vibrateConfirm();  // menu confirm action
  *   VibrationManager.vibrate(80);       // custom duration in ms
- *
- * ─── Intensity presets ───────────────────────────────────────────────────────
- *
- *   "light"  → motor scale × 0.35
- *   "medium" → motor scale × 0.65  (default)
- *   "strong" → motor scale × 1.00
- *
+
  * @author  Cool Engine Team
  * @since   0.6.1
  */
 class VibrationManager {
-	// ── Predefined durations (ms) ────────────────────────────────────────────
+	// ── Predefined durations (ms) ─────────────────────────────────────────
 
 	/** Short tap: note hit. */
 	public static inline var TAP_MS:Int = 18;
@@ -50,7 +59,15 @@ class VibrationManager {
 	/** Confirmation pulse: important menu action. */
 	public static inline var CONFIRM_MS:Int = 50;
 
-	// ── Base motor strengths ─────────────────────────────────────────────────
+	// ── Haptic presets (in seconds, same as V-Slice) ──────────────────────
+
+	/** Default Sharpness — sharp (V-Slice DEFAULT_VIBRATION_SHARPNESS = 1.0). */
+	static inline var HAPTIC_SHARPNESS:Float = 1.0;
+
+	/** Maximum amplitude (V-Slice MAX_VIBRATION_AMPLITUDE = 1.0). */
+	static inline var HAPTIC_AMP_MAX:Float = 1.0;
+
+	// ── Base motor strengths ───────────────────────────────────────
 
 	/** Left motor (low frequency, body of the controller) strength at 100%. */
 	static inline var LEFT_MOTOR_MAX:Float = 0.70;
@@ -58,7 +75,7 @@ class VibrationManager {
 	/** Right motor (high frequency, triggers) strength at 100%. */
 	static inline var RIGHT_MOTOR_MAX:Float = 0.50;
 
-	// ── Global guard ─────────────────────────────────────────────────────────
+	// ── Global Guard ─────────────────────────────────────────────────────────
 
 	/**
 	 * When false, all calls are no-ops regardless of SaveData.
@@ -66,7 +83,7 @@ class VibrationManager {
 	 */
 	public static var globalEnabled:Bool = true;
 
-	// ── Public API ───────────────────────────────────────────────────────────
+	// ── Public API ──────────────────────────────────────────────────────────
 
 	/** Very short vibration for hitting a note. */
 	public static inline function vibrateTap():Void
@@ -103,7 +120,6 @@ class VibrationManager {
 
 	/**
 	 * Asymmetric rumble with independent control over each motor.
-	 *
 	 * Useful for directional feedback or different durations per motor.
 	 *
 	 * @param leftMs    Left motor (low-freq) duration in ms.
@@ -126,19 +142,32 @@ class VibrationManager {
 		#end
 	}
 
-	// ── Internals ────────────────────────────────────────────────────────────
+	// ── Internos ─────────────────────────────────────────────────────────────
 
 	/**
 	 * Vibrates the mobile device if the option is enabled.
 	 * No-op on non-mobile builds.
+	 *
+	 *   Haptic.vibrateOneShot(durationSec, amplitude, sharpness)
+	 *
+	 * `amplitude` It scales according to user preference (0.0–1.0).
+	 * `sharpness` is fixed at 1.0 for crisp feedback (same as V-Slice).
 	 */
 	static function _vibrateMobile(ms:Int):Void {
-		#if mobileC
+		#if FEATURE_HAPTICS
 		var enabled = SaveData.data.vibration;
 		if (enabled == null || enabled == false)
 			return;
+
 		try {
-			lime.system.System.vibrate(ms);
+			var durationSec:Float = ms / 1000.0;
+			var amplitude:Float = _intensityScale() * HAPTIC_AMP_MAX;
+			if (amplitude < 0.0)
+				amplitude = 0.0;
+			if (amplitude > 1.0)
+				amplitude = 1.0;
+
+			Haptic.vibrateOneShot(durationSec, amplitude, HAPTIC_SHARPNESS);
 		} catch (e:Dynamic)
 			trace('[VibrationManager] mobile vibrate($ms ms) error: $e');
 		#end
@@ -179,6 +208,10 @@ class VibrationManager {
 	 * On controllers without two separate motors (Joy-Cons in some modes,
 	 * basic USB gamepads) Flixel will still send the signal — the OS decides
 	 * what to do with it. There is no crash risk.
+	 *
+	 *   left  — motor izquierdo (baja frecuencia)  0..1
+	 *   right — motor derecho  (alta frecuencia)   0..1
+	 *   dur   — duración en SEGUNDOS (API de Flixel, no ms)
 	 */
 	static function _applyRumbleToAllPads(left:Float, right:Float, dur:Float):Void {
 		#if FLX_GAMEPADS
@@ -199,9 +232,9 @@ class VibrationManager {
 
 	/**
 	 * Returns the motor strength multiplier based on the user's preference.
-	 *   "light"  → 0.35
-	 *   "medium" → 0.65  (default)
-	 *   "strong" → 1.00
+	 *   "light"  -> 0.35
+	 *   "medium" -> 0.65  (default)
+	 *   "strong" -> 1.00
 	 */
 	static function _intensityScale():Float {
 		var intensity = SaveData.data.vibrationIntensity ?? "medium";

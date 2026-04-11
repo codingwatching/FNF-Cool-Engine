@@ -45,6 +45,7 @@ jobs:
           haxelib install openfl        ${{ env.OPENFL_VERSION }}                --never
           haxelib install flixel        6.1.2                                    --never
           haxelib install flixel-addons 4.0.1                                    --never
+          haxelib install extension-haptics
           haxelib git    coolui    https://github.com/The-Cool-Engine-Crew/coolui --never
           haxelib install flixel-tools  1.5.1  --quiet --never
           haxelib install actuate               --quiet --never
@@ -123,6 +124,7 @@ jobs:
           haxelib install openfl        ${{ env.OPENFL_VERSION }}                --never
           haxelib install flixel        6.1.2                                    --never
           haxelib install flixel-addons 4.0.1                                    --never
+          haxelib install extension-haptics
           haxelib git    coolui    https://github.com/The-Cool-Engine-Crew/coolui --never
           haxelib install flixel-tools  1.5.1  --quiet --never
           haxelib install actuate               --quiet --never
@@ -189,6 +191,7 @@ jobs:
           haxelib install format                --quiet --never
           haxelib install hxp                   --quiet --never
           haxelib install linc_luajit           --quiet --never
+          haxelib install extension-haptics
           haxelib git discord_rpc    https://github.com/Aidan63/linc_discord-rpc       --never
           haxelib git flixel-animate https://github.com/MaybeMaru/flixel-animate  main --never
           haxelib git funkin.vis     https://github.com/FunkinCrew/funkVis             --never
@@ -242,6 +245,7 @@ jobs:
           haxelib install lime          ${{ env.LIME_VERSION }}                  --never
           haxelib install openfl        ${{ env.OPENFL_VERSION }}                --never
           haxelib install flixel        6.1.2                                    --never
+          haxelib install extension-haptics
           haxelib install flixel-addons 4.0.1                                    --never
           haxelib git    coolui    https://github.com/The-Cool-Engine-Crew/coolui --never
           haxelib install flixel-tools  1.5.1  --quiet --never
