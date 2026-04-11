@@ -1765,7 +1765,7 @@ class ModEditSubState extends FlxSubState
 		add(_cursor);
 
 		_fields = _isCreate ? [
-			{label: 'ID (carpeta)', key: 'id', value: _mod.id},
+			{label: 'ID (folder)', key: 'id', value: _mod.id},
 			{label: 'Name', key: 'name', value: _mod.name},
 			{label: 'Description', key: 'description', value: _mod.description},
 			{label: 'Author', key: 'author', value: _mod.author},

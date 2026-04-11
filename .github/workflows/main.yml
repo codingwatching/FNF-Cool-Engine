@@ -12,6 +12,7 @@ env:
   HAXE_VERSION:   "4.3.6"
   LIME_VERSION:   "8.3.1"
   OPENFL_VERSION: "9.3.0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
 

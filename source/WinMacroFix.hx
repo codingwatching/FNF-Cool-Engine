@@ -31,7 +31,7 @@ using StringTools;
  *  en dos al invocar cl.exe y MSVC nunca recibe el flag correctamente.
  *
  *  v7 usa Context.addGlobalMetadata con @:headerCode para inyectar:
- *    #include "H:/ruta/con espacios/source/WinUndefs.h"
+ *    #include "H:/ruta/con espacios/source/macros/WinUndefs.h"
  *  directamente en los headers generados de FlxKey y FlxColor DURANTE la
  *  fase de generación de código de Haxe.  Las comillas dobles en #include
  *  son ISO C/C++ estándar y admiten espacios en la ruta → no hay problema.
@@ -487,11 +487,11 @@ class WinMacroFix
 		{
 			var cwd = Sys.getCwd().split("\\").join("/");
 			if (cwd.endsWith("/")) cwd = cwd.substr(0, cwd.length - 1);
-			var undefsPath = cwd + '/source/WinUndefs.h';
+			var undefsPath = cwd + '/source/macros/WinUndefs.h';
 
 			if (!FileSystem.exists(undefsPath))
 			{
-				trace('[WinMacroFix v7] WARNING: source/WinUndefs.h not found — @:headerCode fix skipped');
+				trace('[WinMacroFix v7] WARNING: source/macros/WinUndefs.h not found — @:headerCode fix skipped');
 			}
 			else
 			{
@@ -582,11 +582,11 @@ class WinMacroFix
 
 			// ── PRIMARY: patch Build.xml with /FI (Windows/MSVC) ─────────────
 			// Source/WinUndefs.h must exist alongside this file.
-			var winUndefsPath = cwd + '/source/WinUndefs.h';
+			var winUndefsPath = cwd + '/source/macros/WinUndefs.h';
 			if (!FileSystem.exists(winUndefsPath))
 			{
-				trace('[WinMacroFix] WARNING: source/WinUndefs.h not found at $winUndefsPath');
-				trace('[WinMacroFix] Make sure WinUndefs.h is in your source/ directory.');
+				trace('[WinMacroFix] WARNING: source/macros/WinUndefs.h not found at $winUndefsPath');
+				trace('[WinMacroFix] Make sure WinUndefs.h is in your source/macros/ directory.');
 			}
 			else
 			{
@@ -609,11 +609,11 @@ class WinMacroFix
 			// Status (and friends) always lands before FlxKeyManager.h is parsed.
 			if (Context.defined('linux') || Context.defined('mac'))
 			{
-				var linuxUndefsPath = cwd + '/source/LinuxUndefs.h';
+				var linuxUndefsPath = cwd + '/source/macros/LinuxUndefs.h';
 				if (!FileSystem.exists(linuxUndefsPath))
 				{
-					trace('[WinMacroFix] WARNING: source/LinuxUndefs.h not found at $linuxUndefsPath');
-					trace('[WinMacroFix] Make sure LinuxUndefs.h is in your source/ directory.');
+					trace('[WinMacroFix] WARNING: source/macros/LinuxUndefs.h not found at $linuxUndefsPath');
+					trace('[WinMacroFix] Make sure LinuxUndefs.h is in your source/macros/ directory.');
 				}
 				else
 				{

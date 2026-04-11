@@ -26,31 +26,6 @@ using StringTools;
  * Estructura de datos de titlescreen.json
  *
  * Ruta: assets/data/titlescreen.json
- *
- * Ejemplo completo:
- * {
- *   "bpm": 102,
- *   "introBeats": [
- *     { "beat": 1, "texts": ["ninjamuffin99", "phantomArcade", "kawaisprite", "evilsk8er"] },
- *     { "beat": 3, "texts": ["present"] },
- *     { "beat": 4, "clear": true },
- *     { "beat": 5, "texts": ["Cool Engine Team"] },
- *     { "beat": 7, "texts": ["Manux", "Juanen100", "MrClogsworthYt", "JloorMC", "Overcharged Dev"] },
- *     { "beat": 8, "clear": true },
- *     { "beat": 9, "random": true },
- *     { "beat": 11, "randomSecond": true },
- *     { "beat": 12, "clear": true },
- *     { "beat": 13, "texts": ["Friday"] },
- *     { "beat": 14, "texts": ["Night"] },
- *     { "beat": 15, "texts": ["Funkin"] },
- *     { "beat": 16, "skipIntro": true }
- *   ],
- *   "randomLines": [
- *     ["Thx PabloelproxD210", "for the Android port LOL"],
- *     ["Thx Chase for...", "SOMTHING"],
- *     ["Thx TheStrexx for", "you'r 3 commits :D"]
- *   ]
- * }
  */
 typedef TitleBeat = {
 	var beat:Int;
@@ -76,9 +51,6 @@ class TitleState extends funkin.states.MusicBeatState
 	var credGroup:FlxGroup;
 	var textGroup:FlxGroup;
 
-	// var curWacky:Array<String> = [];
-	var wackyImage:FlxSprite;
-
 	/** Datos cargados de assets/data/titlescreen.json */
 	var titleData:TitleScreenData = null;
 	/** Lista de pares de strings aleatorios (del JSON). */
@@ -86,9 +58,14 @@ class TitleState extends funkin.states.MusicBeatState
 	/** Índice de la línea random elegida este ciclo. */
 	var _randomIdx:Int = 0;
 
+	// ── Tween refs para evitar acumulación ───────────────────────────────
+	var _cameraZoomTween:FlxTween = null;
+	var _logoAngleTween:FlxTween  = null;
+	var _logoYTween:FlxTween      = null;
+	// ─────────────────────────────────────────────────────────────────────
+
 	static function _loadTitleData():TitleScreenData
 	{
-		// Prioridad: mod > assets base
 		var paths:Array<String> = [];
 		#if sys
 		var modRoot = mods.ModManager.modRoot();
@@ -116,16 +93,13 @@ class TitleState extends funkin.states.MusicBeatState
 		StateScriptHandler.loadStateScripts('TitleState', this);
 		StateScriptHandler.callOnScripts('onCreate', []);
 		#end
-		
+
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.getGraphic('menu/menuBGtitle'));
-		// Escalar para cubrir toda la pantalla (fix 1080p y cualquier resolucion)
 		var bgScale:Float = Math.max(FlxG.width / bg.width, FlxG.height / bg.height);
 		bg.scale.set(bgScale, bgScale);
 		bg.updateHitbox();
 		bg.screenCenter();
 		add(bg);
-
-		// DEBUG BULLSHIT
 
 		if (SaveData.data.weekUnlocked != null)
 		{
@@ -144,7 +118,6 @@ class TitleState extends funkin.states.MusicBeatState
 		StateTransition.switchState(new MainMenuState());
 		#else
 		titleData = _loadTitleData();
-		// Cargar líneas aleatorias del JSON (si existen) o usar los defaults del engine
 		if (titleData != null && titleData.randomLines != null && titleData.randomLines.length > 0)
 			_randomLines = titleData.randomLines;
 		else
@@ -157,8 +130,6 @@ class TitleState extends funkin.states.MusicBeatState
 		#end
 
 		#if HSCRIPT_ALLOWED
-		// Los sprites se crearon en startIntro() DESPUÉS de loadStateScripts(),
-		// así que hay que re-sincronizar los campos del state ahora que ya existen.
 		StateScriptHandler.refreshStateFields(this);
 		StateScriptHandler.callOnScripts('postCreate', []);
 		#end
@@ -180,14 +151,10 @@ class TitleState extends funkin.states.MusicBeatState
 		logoBl.addAnim('bump', 'logo bumpin', 24);
 		logoBl.playAnim('bump');
 		logoBl.updateHitbox();
-		// logoBl.screenCenter();
-		// logoBl.color = FlxColor.BLACK;
-
-		// FlxTween.tween(logoBl, {y: logoBl.y + 50}, 0.6, {ease: FlxEase.quadInOut, type: ONESHOT});
 
 		gfDance = new FunkinSprite(FlxG.width * 0.4, FlxG.height * 0.07);
 		gfDance.loadAsset('titlestate/gfDanceTitle');
-		gfDance.addAnim('danceLeft', 'gfDance', 24, false,[30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+		gfDance.addAnim('danceLeft',  'gfDance', 24, false, [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
 		gfDance.addAnim('danceRight', 'gfDance', 24, false, [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
 		gfDance.antialiasing = true;
 		add(gfDance);
@@ -195,12 +162,11 @@ class TitleState extends funkin.states.MusicBeatState
 
 		titleText = new FunkinSprite(100, FlxG.height * 0.8);
 		titleText.loadAsset('titlestate/titleEnter');
-		titleText.addAnim('idle', "Press Enter to Begin", 24);
+		titleText.addAnim('idle',  "Press Enter to Begin", 24);
 		titleText.addAnim('press', "ENTER PRESSED", 24);
 		titleText.antialiasing = true;
 		titleText.playAnim('idle');
 		titleText.updateHitbox();
-		// titleText.screenCenter(X);
 		add(titleText);
 
 		credGroup = new FlxGroup();
@@ -214,14 +180,13 @@ class TitleState extends funkin.states.MusicBeatState
 
 		if (initialized)
 		{
-			// Coming back from a mod restart — music was destroyed, restart it
 			MusicManager.play('freakyMenu', 0.7);
 			Conductor.changeBPM(titleData != null && titleData.bpm != null ? titleData.bpm : 102);
 			skipIntro();
 		}
 		else
 		{
-			transIn = null;
+			transIn  = null;
 			transOut = null;
 
 			MusicManager.playWithFade('freakyMenu', 0.7, 4.0);
@@ -234,16 +199,13 @@ class TitleState extends funkin.states.MusicBeatState
 	{
 		if (FlxG.sound.music != null)
 			Conductor.songPosition = FlxG.sound.music.time;
-		// FlxG.watch.addQuick('amp', FlxG.sound.music.amplitude);
 
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onUpdate', [elapsed]);
 		#end
 
 		if (FlxG.keys.justPressed.F11)
-		{
 			FlxG.fullscreen = !FlxG.fullscreen;
-		}
 
 		var pressedEnter:Bool = FlxG.keys.justPressed.ENTER;
 
@@ -253,12 +215,12 @@ class TitleState extends funkin.states.MusicBeatState
 			if (touch.justPressed)
 			{
 				pressedEnter = true;
+				break; // FIX: no necesitamos seguir iterando
 			}
 		}
 		#end
 
 		var gamepad:FlxGamepad = FlxG.gamepads.lastActive;
-
 		if (gamepad != null)
 		{
 			if (gamepad.justPressed.START)
@@ -280,37 +242,23 @@ class TitleState extends funkin.states.MusicBeatState
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
 
 			transitioning = true;
-			// FlxG.sound.music.stop();
 
 			new FlxTimer().start(2, function(tmr:FlxTimer)
 			{
-				// ── Comprobar si la versión está desactualizada ────────────────
-				// Formato de ver.thing:
-				//   Línea 1:  <versión>-
-				//   Resto:    changelog (puede tener múltiples líneas)
-				// Ejemplo:
-				//   0.6.0B-
-				//   - Stage Editor Fixed
-				//   - Notes System Fixed
-
 				var http = new haxe.Http("https://raw.githubusercontent.com/Manux123/FNF-Cool-Engine/master/ver.thing");
 				var version:String = Application.current.meta.get('version') ?? '';
 
 				http.onData = function(data:String)
 				{
-					// Normalizar saltos de línea (el archivo puede tener \r\n en Windows)
 					var normalized:String = data.replace('\r\n', '\n').replace('\r', '\n');
 
-					// La primera línea contiene la versión; termina con '-' por formato
-					var firstNewline:Int = normalized.indexOf('\n');
+					var firstNewline:Int  = normalized.indexOf('\n');
 					var versionRaw:String = firstNewline >= 0
 						? normalized.substring(0, firstNewline)
 						: normalized;
 
-					// Quitar el '-' final y espacios
 					var latestVersion:String = versionRaw.replace('-', '').trim();
 
-					// El changelog es todo lo que hay a partir de la segunda línea
 					var changelog:String = firstNewline >= 0
 						? normalized.substring(firstNewline + 1).trim()
 						: '';
@@ -319,10 +267,10 @@ class TitleState extends funkin.states.MusicBeatState
 						&& !version.contains(latestVersion)
 						&& !OutdatedSubState.leftState)
 					{
-						trace('[TitleState] Versión desactualizada: local=$version latest=$latestVersion');
-						OutdatedSubState.daVersionNeeded    = latestVersion;
-						OutdatedSubState.daChangelogNeeded  = changelog;
-						OutdatedSubState.downloadUrl        = 'https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/releases/latest';
+						trace('[TitleState] Outdated Version: local=$version latest=$latestVersion');
+						OutdatedSubState.daVersionNeeded   = latestVersion;
+						OutdatedSubState.daChangelogNeeded = changelog;
+						OutdatedSubState.downloadUrl       = 'https://github.com/The-Cool-Engine-Crew/FNF-Cool-Engine/releases/latest';
 						StateTransition.switchState(new OutdatedSubState());
 					}
 					else
@@ -334,18 +282,15 @@ class TitleState extends funkin.states.MusicBeatState
 				http.onError = function(error)
 				{
 					trace('[TitleState] Error al comprobar versión: $error');
-					StateTransition.switchState(new MainMenuState()); // fallo suave
+					StateTransition.switchState(new MainMenuState());
 				}
 
 				http.request();
 			});
-			// FlxG.sound.play(Paths.music('titleShoot'), 0.7);
 		}
 
 		if (pressedEnter && !skippedIntro)
-		{
 			skipIntro();
-		}
 
 		super.update(elapsed);
 
@@ -376,10 +321,7 @@ class TitleState extends funkin.states.MusicBeatState
 		textGroup.add(coolText);
 
 		FlxTween.tween(coolText, {y: coolText.y + (textGroup.length * 60) + 150}, 0.4, {
-			ease: FlxEase.expoInOut,
-			onComplete: function(flxTween:FlxTween)
-			{
-			}
+			ease: FlxEase.expoInOut
 		});
 	}
 
@@ -387,8 +329,12 @@ class TitleState extends funkin.states.MusicBeatState
 	{
 		while (textGroup.members.length > 0)
 		{
-			credGroup.remove(textGroup.members[0], true);
-			textGroup.remove(textGroup.members[0], true);
+			var textItem = textGroup.members[0];
+			FlxTween.cancelTweensOf(textItem);
+			credGroup.remove(textItem, true);
+			textGroup.remove(textItem, true);
+			if (textItem != null)
+				textItem.destroy();
 		}
 	}
 
@@ -410,16 +356,15 @@ class TitleState extends funkin.states.MusicBeatState
 
 		FlxG.log.add(curBeat);
 
-		FlxTween.tween(FlxG.camera, {zoom: 1.02}, 0.3, {ease: FlxEase.quadOut, type: BACKWARD});
+		if (_cameraZoomTween != null)
+			_cameraZoomTween.cancel();
+		_cameraZoomTween = FlxTween.tween(FlxG.camera, {zoom: 1.02}, 0.3, {ease: FlxEase.quadOut, type: BACKWARD});
 
 		switch (curBeat)
 		{
-			// La secuencia de intro se lee de titlescreen.json (campo "introBeats").
-			// Si no existe el JSON, se usan los valores hardcodeados como fallback.
 			default:
 				if (titleData != null && titleData.introBeats != null)
 				{
-					// JSON-driven: buscar si hay una entrada para este beat
 					for (entry in titleData.introBeats)
 					{
 						if (entry.beat != curBeat) continue;
@@ -438,24 +383,16 @@ class TitleState extends funkin.states.MusicBeatState
 						}
 						if (entry.texts != null)
 						{
-							// Si ya hay texto visible, usar addMoreText para cada línea;
-							// si no hay, usar createCoolText para la primera y addMoreText para el resto.
 							if (textGroup.length == 0)
-							{
 								createCoolText(entry.texts);
-							}
 							else
-							{
-								for (t in entry.texts)
-									addMoreText(t);
-							}
+								for (t in entry.texts) addMoreText(t);
 						}
 						break;
 					}
 				}
 				else
 				{
-					// Fallback hardcodeado — misma secuencia de siempre
 					switch (curBeat)
 					{
 						case 0:  deleteCoolText();
@@ -469,8 +406,7 @@ class TitleState extends funkin.states.MusicBeatState
 							addMoreText('MrClogsworthYt');
 							addMoreText('JloorMC');
 							addMoreText('Overcharged Dev');
-						case 8:
-							deleteCoolText();
+						case 8:  deleteCoolText();
 						case 9:
 							_randomIdx = FlxG.random.int(0, _randomLines.length - 1);
 							createCoolText([_randomLines[_randomIdx][0]]);
@@ -493,21 +429,29 @@ class TitleState extends funkin.states.MusicBeatState
 	{
 		if (!skippedIntro)
 		{
+			// FIX: limpiar todos los textos pendientes con sus tweens antes de saltar
+			deleteCoolText();
+
 			if (SaveData.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 4);
 			remove(credGroup);
 
-			FlxTween.tween(logoBl, {y: -100}, 1.4, {ease: FlxEase.expoInOut});
+			// FIX: cancelar tweens de logo previos antes de arrancar los de skipIntro
+			if (_logoYTween != null)     _logoYTween.cancel();
+			if (_logoAngleTween != null) _logoAngleTween.cancel();
+
+			_logoYTween = FlxTween.tween(logoBl, {y: -100}, 1.4, {ease: FlxEase.expoInOut});
 
 			logoBl.angle = -4;
 
+			// FIX: guardar referencia del FlxTimer (antes se perdía y podía filtrar)
+			// FIX: el timer original tenía loops=0, lo que crea un loop infinito.
+			//      Con loops=1 se ejecuta una sola vez y se destruye correctamente.
 			new FlxTimer().start(0.01, function(tmr:FlxTimer)
 			{
-				if (logoBl.angle == -4)
-					FlxTween.angle(logoBl, logoBl.angle, 4, 4, {ease: FlxEase.quartInOut});
-				if (logoBl.angle == 4)
-					FlxTween.angle(logoBl, logoBl.angle, -4, 4, {ease: FlxEase.quartInOut});
-			}, 0);
+				if (_logoAngleTween != null) _logoAngleTween.cancel();
+				_logoAngleTween = FlxTween.angle(logoBl, logoBl.angle, 4, 4, {ease: FlxEase.quartInOut});
+			}, 1);
 
 			skippedIntro = true;
 		}
@@ -515,6 +459,13 @@ class TitleState extends funkin.states.MusicBeatState
 
 	override function destroy()
 	{
+		if (_cameraZoomTween != null) _cameraZoomTween.cancel();
+		if (_logoYTween != null)      _logoYTween.cancel();
+		if (_logoAngleTween != null)  _logoAngleTween.cancel();
+
+		if (textGroup != null)
+			deleteCoolText();
+
 		#if HSCRIPT_ALLOWED
 		StateScriptHandler.callOnScripts('onDestroy', []);
 		StateScriptHandler.clearStateScripts();
