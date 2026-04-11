@@ -184,21 +184,26 @@ class CacheState extends funkin.states.MusicBeatState
         loadingText.text = "Ready!";
         loadingPercentage.text = "100%";
 
-        // ── Compactar el heap GC después de la carga inicial ────────────────
-        // Gc.run(true) + Gc.compact() devuelven páginas libres al OS.
-        // Sin esto, hxcpp mantiene reservadas ~150-200 MB de páginas vacías
-        // desde el arranque, inflando MEM_INFO_RESERVED aunque el uso real
-        // (MEM_INFO_USAGE) sea solo ~50-80 MB.
-        // Se llama ANTES del primer timer para que el compact() ocurra mientras
-        // la barra ya muestra 100% (sin stutter visible en gameplay).
-        funkin.system.MemoryUtil.collectMajor();
-
-        new FlxTimer().start(0.4, function(_)
+        // FIX (Android/iOS): collectMajor() llama Gc.run(true) + Gc.compact()
+        // sincrónicamente en el hilo GL. En móvil puede bloquear 500ms-2s,
+        // congelando la pantalla exactamente al 100% porque el frame "Ready!"
+        // aún no se había renderizado cuando el GC tomaba el hilo.
+        //
+        // Solución: diferir collectMajor() al interior del primer FlxTimer para
+        // que OpenGL pinte al menos un frame con "Ready! / 100%" antes de que
+        // el GC bloquee. El tiempo total de espera sigue siendo ~0.7s.
+        new FlxTimer().start(0.1, function(_)
         {
-            try { FlxG.sound.play(Paths.sound('menus/cacheLoaded'), 0.7); }
-            catch (_:Dynamic) {}
+            // El frame "Ready!" ya se pintó — el GC puede bloquear sin freeze visible.
+            funkin.system.MemoryUtil.collectMajor();
 
-            new FlxTimer().start(0.3, function(_) { goToTitle(); });
+            new FlxTimer().start(0.3, function(_)
+            {
+                try { FlxG.sound.play(Paths.sound('menus/cacheLoaded'), 0.7); }
+                catch (_:Dynamic) {}
+
+                new FlxTimer().start(0.3, function(_) { goToTitle(); });
+            });
         });
     }
 
