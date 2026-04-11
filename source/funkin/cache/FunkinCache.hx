@@ -276,16 +276,6 @@ class FunkinCache extends AssetCache
 		}
 
 		// ── Sounds ────────────────────────────────────────────────────────────
-		// FIX CRÍTICO: se añade lógica de rescate paralela a la de bitmaps.
-		// Antes, clearSecondLayer() llamaba s.close() sobre TODOS los sonidos
-		// de sound2 sin excepción (salvo permanentes), incluyendo los que
-		// PathsCache.cacheSound() ya había rescatado de _previousSounds a
-		// _currentSounds durante el create() del nuevo state. El resultado era
-		// que el nuevo state recibía Sound objects muertos (cerrados): el audio
-		// fallaba en silencio y el GC no podía liberar los wrappers correctamente.
-		// Solución: si PathsCache ya tiene el sonido en la sesión actual
-		// (_currentSounds o _permanentSounds), moverlo a CURRENT en FunkinCache
-		// en lugar de cerrarlo, igual que se hace con los bitmaps.
 		for (k => s in sound2)
 		{
 			if (_permanentSounds.exists(k)) continue;

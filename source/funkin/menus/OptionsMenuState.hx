@@ -2602,7 +2602,7 @@ class OptionsData
 			SaveData.data.HUD = false;
 
 		if (SaveData.data.flashing == null)
-			SaveData.data.flashing = false;
+			SaveData.data.flashing = true;
 
 		if (SaveData.data.offset == null)
 			SaveData.data.offset = 0;
