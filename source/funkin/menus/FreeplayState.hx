@@ -143,6 +143,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 	public static var difficultyStuff:Array<Dynamic> = [['Easy', '-easy'], ['Normal', ''], ['Hard', '-hard']];
 	public static var coolColors:Array<Int> = [];
 
+	var _previewSound:FlxSound = null;
+
 	// ── Rank helpers ──────────────────────────────────────────────────────────
 	static function _rankFromAcc(acc:Float):String
 	{
@@ -669,6 +671,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 
 	function songsSystem()
 	{
+		coolColors = [];
+
 		for (i in 0...freeplayData.songs.length)
 		{
 			final entry = freeplayData.songs[i];
@@ -955,10 +959,11 @@ class FreeplayState extends funkin.states.MusicBeatState
 				final _instPath = Paths.inst(PlayState.SONG.song, audioSuffix);
 				if (_instPath != null)
 				{
-					final instSnd = new flixel.sound.FlxSound();
-					instSnd.loadEmbedded(_instPath, true, false);
-					FlxG.sound.list.add(instSnd);
-					funkin.audio.CoreAudio.playPreloadedMusic(instSnd, 0.7);
+					_cleanupPreviewSound();
+					_previewSound = new flixel.sound.FlxSound();
+					_previewSound.loadEmbedded(_instPath, true, false);
+					FlxG.sound.list.add(_previewSound);
+					funkin.audio.CoreAudio.playPreloadedMusic(_previewSound, 0.7);
 				}
 				instPlaying = curSelected;
 
@@ -994,6 +999,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 				// ── Restaurar música de menú sin forceRestart ────────────────
 				// Igual que en changeSelection: CoreAudio restaurará la posición
 				// guardada cuando rearranca girlfriendsRingtone.
+				_cleanupPreviewSound();
 				MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, false);
 				instPlaying = -1;
 				if (discSpr != null)
@@ -1080,12 +1086,7 @@ class FreeplayState extends funkin.states.MusicBeatState
 		#if sys
 		if (change != 0 && instPlaying != -1)
 		{
-			// ── Restaurar música de menú sin forceRestart ────────────────────
-			// CoreAudio guarda la posición de la música cuando el preview la
-			// interrumpió. Pasando forceRestart=false, playMenu() detecta que
-			// menuTrack != track (porque era '__preview__') y la reinicia, pero
-			// luego aplica la posición guardada → la música continúa desde donde
-			// estaba en lugar de saltar al inicio (el "lagazo" anterior).
+			_cleanupPreviewSound();
 			MusicManager.play('girlfriendsRingtone/girlfriendsRingtone', 0.7, false);
 			instPlaying = -1;
 			if (discSpr != null)
@@ -1245,7 +1246,8 @@ class FreeplayState extends funkin.states.MusicBeatState
 				rankBadge.y = CARD_Y + 146;
 				rankBadge.alpha = 0;
 				FlxTween.tween(rankBadge, {alpha: 1}, 0.3, {ease: FlxEase.quadOut});
-				rankBadgeBg.makeGraphic(100, 100, _rankColor(rank));
+
+				rankBadgeBg.color = _rankColor(rank);
 				rankBadgeBg.x = CARD_X + CARD_W - 132;
 				rankBadgeBg.y = CARD_Y + 136;
 				rankBadgeBg.alpha = 0;
@@ -1430,6 +1432,23 @@ class FreeplayState extends funkin.states.MusicBeatState
 		return num; // group index from freeplayList.json
 	}
 
+	/**
+	 * Stop and safely release the FlxSound from the active preview.
+	 * Call stop(), remove(), and destroy() in order,
+	 so that the OGG buffer is immediately eligible for garbage collection.
+	 * It is idempotent: it is safe to call even if there is no active preview.
+	*/
+	function _cleanupPreviewSound():Void
+	{
+		if (_previewSound != null)
+		{
+			_previewSound.stop();
+			FlxG.sound.list.remove(_previewSound, true);
+			_previewSound.destroy();
+			_previewSound = null;
+		}
+	}
+
 	override function destroy()
 	{
 		// ── Cancelar tweens activos ANTES de nullear referencias ─────────────
@@ -1474,19 +1493,12 @@ class FreeplayState extends funkin.states.MusicBeatState
 		// los limpia vía members, pero vaciamos la referencia local igualmente.
 		diffTexts = [];
 
-		// ── Soltar la lista de canciones ────────────────────────────────────
-		// songs[] y freeplayData son la mayor fuente de RAM persistente entre
-		// visitas. freeplayData (static) se limpia en resetStaticState() al
-		// cambiar de mod; songs (instance) se libera aquí.
+		freeplayData = null;
+
 		songs = [];
 
-		// ── FIX Bug 3b: preview de inst. con persist=true ───────────────────
-		// instSnd se creaba como FlxSound local, se añadía a FlxG.sound.list
-		// y se asignaba a FlxG.sound.music con persist=true (vía
-		// CoreAudio.playPreloadedMusic). Sin stop() ese sound nunca se liberaba:
-		// cada vuelta al FreeplayState dejaba el anterior flotando en memoria.
-		if (funkin.audio.CoreAudio.menuTrack == '__preview__')
-			funkin.audio.CoreAudio.stopMenu();
+		_cleanupPreviewSound();
+		funkin.audio.CoreAudio.stopMenu();
 
 		instPlaying = -1;
 
