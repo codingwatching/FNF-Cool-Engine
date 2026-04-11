@@ -13,13 +13,11 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import funkin.gameplay.PlayState;
 import funkin.transitions.StateTransition;
-
 import openfl.utils.Assets;
 import lime.utils.Assets as LimeAssets;
 import lime.utils.AssetLibrary;
 import lime.utils.AssetManifest;
 import haxe.io.Path;
-
 #if sys
 import sys.FileSystem;
 import sys.io.File;
@@ -30,8 +28,7 @@ using StringTools;
 // Gestión de caché
 import Paths;
 
-class LoadingState extends funkin.states.MusicBeatState
-{
+class LoadingState extends funkin.states.MusicBeatState {
 	// ── Tiempo mínimo en pantalla ────────────────────────────────────────────
 	inline static var MIN_TIME:Float = 1.0;
 
@@ -39,50 +36,47 @@ class LoadingState extends funkin.states.MusicBeatState
 	// El rectángulo oscuro ("pila") que hay DETRÁS del texto "Loading..."
 	// Valores en porcentaje sobre las dimensiones del sprite ya escalado.
 	// Si la barra no encaja exactamente, ajusta aquí.
-	inline static var BAR_X_PCT:Float  = 0.496; // borde izquierdo del slot
-	inline static var BAR_Y_PCT:Float  = 0.528; // borde superior del slot
-	inline static var BAR_W_PCT:Float  = 0.434; // ancho del slot
-	inline static var BAR_H_PCT:Float  = 0.098; // alto del slot
+	inline static var BAR_X_PCT:Float = 0.496; // borde izquierdo del slot
+	inline static var BAR_Y_PCT:Float = 0.528; // borde superior del slot
+	inline static var BAR_W_PCT:Float = 0.434; // ancho del slot
+	inline static var BAR_H_PCT:Float = 0.098; // alto del slot
 	// Padding interno para que el fill no toque los bordes del hueco
 	inline static var BAR_PADDING:Float = 4;
 
 	// ── Colores de la barra (gradiente conforme avanza el progreso) ──────────
 	inline static var COLOR_START:Int = 0xFFAF66CE; // morado  (0%)
-	inline static var COLOR_MID:Int   = 0xFFFF78BF; // rosa    (50%)
-	inline static var COLOR_END:Int   = 0xFF00FF99; // verde   (100%)
+	inline static var COLOR_MID:Int = 0xFFFF78BF; // rosa    (50%)
+	inline static var COLOR_END:Int = 0xFF00FF99; // verde   (100%)
 
 	// ─────────────────────────────────────────────────────────────────────────
-
 	var target:FlxState;
 	var stopMusic:Bool;
 	var callbacks:MultiCallback;
 
 	// Sprites
-	var bgArt:FlxSprite;     // menuLoading.png  — fondo artístico
-	var barBg:FlxSprite;     // fondo sólido del slot de la barra
-	var barFill:FlxSprite;   // relleno de progreso  (DETRÁS de charImage)
+	var bgArt:FlxSprite; // menuLoading.png  — fondo artístico
+	var barBg:FlxSprite; // fondo sólido del slot de la barra
+	var barFill:FlxSprite; // relleno de progreso  (DETRÁS de charImage)
 	var charImage:FlxSprite; // menuLoadChar.png — personajes + "Loading..." (ENCIMA)
 
 	// Estado
-	var loadProgress:Float   = 0.0; // 0..1 real
+	var loadProgress:Float = 0.0; // 0..1 real
 	var visualProgress:Float = 0.0; // 0..1 suavizado
-	var totalTime:Float      = 0.0;
-	var barFullWidth:Float   = 0.0; // ancho del fill en px (cacheado)
+	var totalTime:Float = 0.0;
+	var barFullWidth:Float = 0.0; // ancho del fill en px (cacheado)
 
 	// v2: rect reutilizable — evita new FlxRect() en cada frame del update
 	var _barClipRect:flixel.math.FlxRect = new flixel.math.FlxRect();
 
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function new(target:FlxState, stopMusic:Bool)
-	{
+	function new(target:FlxState, stopMusic:Bool) {
 		super();
-		this.target    = target;
+		this.target = target;
 		this.stopMusic = stopMusic;
 	}
 
-	override function create()
-	{
+	override function create() {
 		// NOTA: PathsCache.beginSession() es llamado automáticamente por la señal
 		// preStateSwitch en FunkinCache.init(). Llamarlo aquí de nuevo causa que los
 		// assets del state anterior queden huérfanos (ni rescatables ni destruibles).
@@ -110,10 +104,10 @@ class LoadingState extends funkin.states.MusicBeatState
 		final SRC_W:Float = 1270;
 		final SRC_H:Float = 952;
 		final imgScale:Float = GH / SRC_H;
-		final dispW:Float    = SRC_W * imgScale;   // ≈ 960  a 720p
-		final dispH:Float    = GH;                  // = 720
-		final imgX:Float     = (GW - dispW) / 2;    // ≈ 160  centrado
-		final imgY:Float     = 0;
+		final dispW:Float = SRC_W * imgScale; // ≈ 960  a 720p
+		final dispH:Float = GH; // = 720
+		final imgX:Float = (GW - dispW) / 2; // ≈ 160  centrado
+		final imgY:Float = 0;
 
 		// ── 3. Coordenadas del slot de la barra en pantalla ──────────────────
 		final slotX:Float = imgX + BAR_X_PCT * dispW;
@@ -149,14 +143,13 @@ class LoadingState extends funkin.states.MusicBeatState
 		add(charImage);
 
 		// ── 7. Fade in escalonado ─────────────────────────────────────────────
-		FlxTween.tween(bgArt,    {alpha: 0.55}, 0.6, {ease: FlxEase.quadOut});
-		FlxTween.tween(barBg,    {alpha: 1.0},  0.5, {ease: FlxEase.quadOut, startDelay: 0.15});
-		FlxTween.tween(barFill,  {alpha: 1.0},  0.5, {ease: FlxEase.quadOut, startDelay: 0.2});
-		FlxTween.tween(charImage,{alpha: 1.0},  0.5, {ease: FlxEase.quadOut, startDelay: 0.1});
+		FlxTween.tween(bgArt, {alpha: 0.55}, 0.6, {ease: FlxEase.quadOut});
+		FlxTween.tween(barBg, {alpha: 1.0}, 0.5, {ease: FlxEase.quadOut, startDelay: 0.15});
+		FlxTween.tween(barFill, {alpha: 1.0}, 0.5, {ease: FlxEase.quadOut, startDelay: 0.2});
+		FlxTween.tween(charImage, {alpha: 1.0}, 0.5, {ease: FlxEase.quadOut, startDelay: 0.1});
 
 		// ── 8. Arrancar carga ─────────────────────────────────────────────────
-		initSongsManifest().onComplete(function(lib)
-		{
+		initSongsManifest().onComplete(function(lib) {
 			callbacks = new MultiCallback(onLoad);
 			var introComplete = callbacks.add("introComplete");
 
@@ -178,8 +171,7 @@ class LoadingState extends funkin.states.MusicBeatState
 
 	// ─────────────────────────────────────────────────────────────────────────
 
-	override function update(elapsed:Float)
-	{
+	override function update(elapsed:Float) {
 		super.update(elapsed);
 		totalTime += elapsed;
 
@@ -194,8 +186,7 @@ class LoadingState extends funkin.states.MusicBeatState
 
 		// ── Aplicar clipRect al fill (recortar desde la derecha) ─────────────
 		// v2: reutilizar _barClipRect — antes era new FlxRect() cada frame
-		if (barFill.clipRect != null)
-		{
+		if (barFill.clipRect != null) {
 			var clipW:Float = barFullWidth * visualProgress;
 			_barClipRect.set(0, 0, clipW, barFill.clipRect.height);
 			barFill.clipRect = _barClipRect;
@@ -219,8 +210,7 @@ class LoadingState extends funkin.states.MusicBeatState
 	}
 
 	// ── Gradiente de color de la barra (morado → rosa → verde) ──────────────
-	inline function _barColor(t:Float):FlxColor
-	{
+	inline function _barColor(t:Float):FlxColor {
 		if (t <= 0.5)
 			return FlxColor.interpolate(COLOR_START, COLOR_MID, t * 2.0);
 		else
@@ -235,7 +225,6 @@ class LoadingState extends funkin.states.MusicBeatState
 	// ─────────────────────────────────────────────────────────────────────────
 
 	#if sys
-
 	/**
 	 * Devuelve el directorio de filesystem que corresponde a una librería.
 	 * Prueba las convenciones de layout más comunes.
@@ -246,10 +235,10 @@ class LoadingState extends funkin.states.MusicBeatState
 	// haciendo FileSystem.exists() repetido para el mismo directorio.
 	static var _libraryDirCache:Map<String, String> = new Map();
 
-	static function getLibraryDir(library:String):String
-	{
+	static function getLibraryDir(library:String):String {
 		var cached = _libraryDirCache.get(library);
-		if (cached != null) return cached;
+		if (cached != null)
+			return cached;
 
 		var candidates = [
 			Paths.resolve('$library/'),
@@ -257,8 +246,7 @@ class LoadingState extends funkin.states.MusicBeatState
 			Paths.resolve('images/$library/'),
 		];
 		for (c in candidates)
-			if (FileSystem.exists(c) && FileSystem.isDirectory(c))
-			{
+			if (FileSystem.exists(c) && FileSystem.isDirectory(c)) {
 				_libraryDirCache.set(library, c);
 				return c;
 			}
@@ -272,43 +260,35 @@ class LoadingState extends funkin.states.MusicBeatState
 	 * manifiesto por cada archivo encontrado cuyo ID no esté ya en `known`.
 	 * `rootDir` se usa para calcular rutas relativas.
 	 */
-	static function scanDirForEntries(
-		rootDir:String,
-		currentDir:String,
-		known:Map<String, Bool>,
-		out:Array<Dynamic>):Void
-	{
+	static function scanDirForEntries(rootDir:String, currentDir:String, known:Map<String, Bool>, out:Array<Dynamic>):Void {
 		if (!FileSystem.exists(currentDir) || !FileSystem.isDirectory(currentDir))
 			return;
 
-		for (entry in FileSystem.readDirectory(currentDir))
-		{
+		for (entry in FileSystem.readDirectory(currentDir)) {
 			var fullPath = currentDir + entry;
-			if (FileSystem.isDirectory(fullPath))
-			{
+			if (FileSystem.isDirectory(fullPath)) {
 				scanDirForEntries(rootDir, fullPath + "/", known, out);
 				continue;
 			}
 
 			var relativePath = fullPath.substring(rootDir.length);
-			var assetId      = Path.withoutExtension(relativePath);
+			var assetId = Path.withoutExtension(relativePath);
 
-			if (known.exists(assetId)) continue; // ya está en el manifiesto
+			if (known.exists(assetId))
+				continue; // ya está en el manifiesto
 
-			var ext       = Path.extension(entry).toLowerCase();
-			var assetType = switch (ext)
-			{
-				case "ogg" | "mp3":              cast lime.utils.AssetType.MUSIC;
-				case "wav":                      cast lime.utils.AssetType.SOUND;
-				case "png":                      cast lime.utils.AssetType.IMAGE;
-				case "jpg" | "jpeg":             cast lime.utils.AssetType.IMAGE;
-				case "json" | "xml" | "txt" |
-				     "csv"  | "hx":              cast lime.utils.AssetType.TEXT;
-				case "ttf"  | "otf":             cast lime.utils.AssetType.FONT;
-				case _:                          cast lime.utils.AssetType.BINARY;
+			var ext = Path.extension(entry).toLowerCase();
+			var assetType = switch (ext) {
+				case "ogg" | "mp3": cast lime.utils.AssetType.MUSIC;
+				case "wav": cast lime.utils.AssetType.SOUND;
+				case "png": cast lime.utils.AssetType.IMAGE;
+				case "jpg" | "jpeg": cast lime.utils.AssetType.IMAGE;
+				case "json" | "xml" | "txt" | "csv" | "hx": cast lime.utils.AssetType.TEXT;
+				case "ttf" | "otf": cast lime.utils.AssetType.FONT;
+				case _: cast lime.utils.AssetType.BINARY;
 			};
 
-			out.push({ id: assetId, path: relativePath, type: assetType });
+			out.push({id: assetId, path: relativePath, type: assetType});
 		}
 	}
 
@@ -317,8 +297,7 @@ class LoadingState extends funkin.states.MusicBeatState
 	 * `dir` y la registra en LimeAssets bajo `libraryId`.
 	 * Devuelve true si tuvo éxito.
 	 */
-	static function buildAndRegisterLibraryFromFs(libraryId:String, dir:String):Bool
-	{
+	static function buildAndRegisterLibraryFromFs(libraryId:String, dir:String):Bool {
 		if (!FileSystem.exists(dir) || !FileSystem.isDirectory(dir))
 			return false;
 
@@ -328,8 +307,8 @@ class LoadingState extends funkin.states.MusicBeatState
 		if (entries.length == 0)
 			return false;
 
-		var manifest      = new AssetManifest();
-		manifest.name     = libraryId;
+		var manifest = new AssetManifest();
+		manifest.name = libraryId;
 		manifest.rootPath = dir;
 		// assets es (default, null), pero podemos mutar el array
 		for (e in entries)
@@ -343,8 +322,7 @@ class LoadingState extends funkin.states.MusicBeatState
 		LimeAssets.libraries.set(libraryId, lib);
 		lib.onChange.add(LimeAssets.onChange.dispatch);
 
-		trace('[LoadingState] Librería "$libraryId" construida del filesystem: '
-		      + dir + ' (${entries.length} assets)');
+		trace('[LoadingState] Librería "$libraryId" construida del filesystem: ' + dir + ' (${entries.length} assets)');
 		return true;
 	}
 
@@ -353,39 +331,33 @@ class LoadingState extends funkin.states.MusicBeatState
 	 * intenta localizar el archivo en el filesystem probando extensiones
 	 * de audio comunes. Devuelve la ruta absoluta o null si no la encuentra.
 	 */
-	static function resolveSoundFsPath(assetId:String):Null<String>
-	{
-		var libId    = "songs";
+	static function resolveSoundFsPath(assetId:String):Null<String> {
+		var libId = "songs";
 		var relative = assetId;
 
-		if (assetId.contains(":"))
-		{
-			var sep  = assetId.indexOf(":");
-			libId    = assetId.substring(0, sep);
+		if (assetId.contains(":")) {
+			var sep = assetId.indexOf(":");
+			libId = assetId.substring(0, sep);
 			relative = assetId.substring(sep + 1);
 		}
 
 		var dir = getLibraryDir(libId);
 
-		for (ext in ["ogg", "mp3", "wav"])
-		{
+		for (ext in ["ogg", "mp3", "wav"]) {
 			var candidate = dir + relative + "." + ext;
 			if (FileSystem.exists(candidate))
 				return candidate;
 		}
 		return null;
 	}
-
 	#end // sys
 
 	// ─────────────────────────────────────────────────────────────────────────
 	//  CARGA DE ASSETS
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function checkLoadSong(path:String)
-	{
-		if (!Assets.cache.hasSound(path))
-		{
+	function checkLoadSong(path:String) {
+		if (!Assets.cache.hasSound(path)) {
 			var callback = callbacks.add("song:" + path);
 
 			#if sys
@@ -396,27 +368,26 @@ class LoadingState extends funkin.states.MusicBeatState
 			// PERF FIX: Sound.fromFile() en el hilo principal bloqueaba la barra
 			// de carga varios segundos en canciones de mods grandes (>10 MB).
 			var fsPath = resolveSoundFsPath(path);
-			if (fsPath != null)
-			{
+			if (fsPath != null) {
 				#if (cpp || hl)
 				// Usar hilo de sistema cuando el target lo soporta.
 				// PERF FIX: Sound.fromFile() bloqueaba el hilo principal varios segundos
 				// en canciones de mods grandes. Se ejecuta en background y el callback
 				// se despacha al hilo principal via un ENTER_FRAME one-shot en el stage.
-				sys.thread.Thread.create(function()
-				{
+				sys.thread.Thread.create(function() {
 					var sound:openfl.media.Sound = null;
-					try { sound = openfl.media.Sound.fromFile(fsPath); }
-					catch (e:Dynamic) { trace('[LoadingState] Carga async falló ($fsPath): $e'); }
+					try {
+						sound = openfl.media.Sound.fromFile(fsPath);
+					} catch (e:Dynamic) {
+						trace('[LoadingState] Carga async falló ($fsPath): $e');
+					}
 
 					// Volver al hilo principal via ENTER_FRAME one-shot.
 					var stage = openfl.Lib.current.stage;
 					var listener:openfl.events.Event->Void = null;
-					listener = function(_)
-					{
+					listener = function(_) {
 						stage.removeEventListener(openfl.events.Event.ENTER_FRAME, listener);
-						if (sound != null)
-						{
+						if (sound != null) {
 							Assets.cache.setSound(path, sound);
 							trace('[LoadingState] Audio de mod cargado async: $fsPath → $path');
 						}
@@ -427,39 +398,34 @@ class LoadingState extends funkin.states.MusicBeatState
 				return;
 				#else
 				// En targets sin hilos, carga síncrona
-				try
-				{
+				try {
 					var sound = openfl.media.Sound.fromFile(fsPath);
-					if (sound != null)
-					{
+					if (sound != null) {
 						Assets.cache.setSound(path, sound);
 						trace('[LoadingState] Audio cargado del filesystem: $fsPath → $path');
 						callback();
 						return;
 					}
-				}
-				catch (e:Dynamic)
-				{
+				} catch (e:Dynamic) {
 					trace('[LoadingState] Carga directa falló ($fsPath): $e');
 				}
 				#end
 			}
 			#end
 
-			Assets.loadSound(path).onComplete(function(_) { callback(); });
+			Assets.loadSound(path).onComplete(function(_) {
+				callback();
+			});
 		}
 	}
 
-	function checkLibrary(library:String)
-	{
+	function checkLibrary(library:String) {
 		trace(Assets.hasLibrary(library));
-		if (Assets.getLibrary(library) == null)
-		{
+		if (Assets.getLibrary(library) == null) {
 			@:privateAccess
 			var inPaths = LimeAssets.libraryPaths.exists(library);
 
-			if (!inPaths)
-			{
+			if (!inPaths) {
 				#if sys
 				// ── Fallback filesystem ──────────────────────────────────────
 				// La librería no está en los paths compilados — la construimos
@@ -472,17 +438,18 @@ class LoadingState extends funkin.states.MusicBeatState
 			}
 
 			var callback = callbacks.add("library:" + library);
-			Assets.loadLibrary(library).onComplete(function(_) { callback(); });
+			Assets.loadLibrary(library).onComplete(function(_) {
+				callback();
+			});
 		}
 	}
 
-	function onLoad()
-	{
+	function onLoad() {
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
 		// Completar barra visualmente antes de cambiar de estado
-		loadProgress   = 1.0;
+		loadProgress = 1.0;
 		visualProgress = 1.0;
 		if (barFill.clipRect != null)
 			barFill.clipRect = new FlxRect(0, 0, barFullWidth, barFill.clipRect.height);
@@ -502,21 +469,19 @@ class LoadingState extends funkin.states.MusicBeatState
 	//  API ESTÁTICA (sin cambios respecto al original)
 	// ─────────────────────────────────────────────────────────────────────────
 
-	static function getSongPath()  return Paths.inst(PlayState.SONG.song);
-	static function getVocalPath() return Paths.voices(PlayState.SONG.song);
+	static function getSongPath()
+		return Paths.inst(PlayState.SONG.song);
 
-	inline static public function loadAndSwitchState(target:FlxState, stopMusic = false)
-	{
+	static function getVocalPath()
+		return Paths.voices(PlayState.SONG.song);
+
+	inline static public function loadAndSwitchState(target:FlxState, stopMusic = false) {
 		StateTransition.switchState(getNextState(target, stopMusic));
 	}
 
-	static function getNextState(target:FlxState, stopMusic = false):FlxState
-	{
+	static function getNextState(target:FlxState, stopMusic = false):FlxState {
 		#if NO_PRELOAD_ALL
-		var loaded = isSoundLoaded(getSongPath())
-			&& (!PlayState.SONG.needsVoices || isSoundLoaded(getVocalPath()))
-
-		if (!loaded)
+		var loaded = isSoundLoaded(getSongPath()) && (!PlayState.SONG.needsVoices || isSoundLoaded(getVocalPath())) if (!loaded)
 			return new LoadingState(target, stopMusic);
 		#end
 		if (stopMusic && FlxG.sound.music != null)
@@ -533,8 +498,7 @@ class LoadingState extends funkin.states.MusicBeatState
 		return Assets.getLibrary(library) != null;
 	#end
 
-	override function destroy()
-	{
+	override function destroy() {
 		// Liberar assets de LoadingState que no pasen a PlayState
 		Paths.clearUnusedMemory();
 		// Limpiar caché de directorios de librerías
@@ -547,8 +511,7 @@ class LoadingState extends funkin.states.MusicBeatState
 	//  initSongsManifest (sin cambios)
 	// ─────────────────────────────────────────────────────────────────────────
 
-	static function initSongsManifest()
-	{
+	static function initSongsManifest() {
 		var id = "songs";
 		var promise = new Promise<AssetLibrary>();
 
@@ -561,30 +524,22 @@ class LoadingState extends funkin.states.MusicBeatState
 
 		@:privateAccess
 		var libraryPaths = LimeAssets.libraryPaths;
-		if (libraryPaths.exists(id))
-		{
+		if (libraryPaths.exists(id)) {
 			path = libraryPaths[id];
 			rootPath = Path.directory(path);
-		}
-		else
-		{
-			if (StringTools.endsWith(path, ".bundle"))
-			{
+		} else {
+			if (StringTools.endsWith(path, ".bundle")) {
 				rootPath = path;
 				path += "/library.json";
-			}
-			else
-			{
+			} else {
 				rootPath = Path.directory(path);
 			}
 			@:privateAccess
 			path = LimeAssets.__cacheBreak(path);
 		}
 
-		AssetManifest.loadFromFile(path, rootPath).onComplete(function(manifest)
-		{
-			if (manifest == null)
-			{
+		AssetManifest.loadFromFile(path, rootPath).onComplete(function(manifest) {
+			if (manifest == null) {
 				promise.error("Cannot parse asset manifest for library \"" + id + "\"");
 				return;
 			}
@@ -595,42 +550,36 @@ class LoadingState extends funkin.states.MusicBeatState
 			// library.json (añadido después de compilar) se agrega aquí.
 			// `manifest.assets` es readable externally; push() funciona sin
 			// @:privateAccess porque no reemplazamos la referencia.
-			var songsDir = (rootPath != null && rootPath != "")
-				? (StringTools.endsWith(rootPath, "/") ? rootPath : rootPath + "/")
-				: Paths.resolve("songs/");
+			var songsDir = (rootPath != null && rootPath != "") ? (StringTools.endsWith(rootPath, "/") ? rootPath : rootPath + "/") : Paths.resolve("songs/");
 
 			// Índice de IDs ya conocidos para evitar duplicados
 			var knownIds = new Map<String, Bool>();
-			for (a in manifest.assets)
-			{
+			for (a in manifest.assets) {
 				var aid:String = Std.string(Reflect.field(a, "id"));
-				if (aid != null) knownIds.set(aid, true);
+				if (aid != null)
+					knownIds.set(aid, true);
 			}
 
 			var newEntries:Array<Dynamic> = [];
 			scanDirForEntries(songsDir, songsDir, knownIds, newEntries);
 
-			if (newEntries.length > 0)
-			{
+			if (newEntries.length > 0) {
 				for (e in newEntries)
 					manifest.assets.push(e);
-				trace('[LoadingState] ${newEntries.length} archivo(s) nuevo(s) del filesystem '
-				      + 'mezclados en el manifiesto "songs".');
+				trace('[LoadingState] ${newEntries.length} archivo(s) nuevo(s) del filesystem ' + 'mezclados en el manifiesto "songs".');
 			}
 			#end
 
 			var library = AssetLibrary.fromManifest(manifest);
 			if (library == null)
 				promise.error("Cannot open library \"" + id + "\"");
-			else
-			{
+			else {
 				@:privateAccess
 				LimeAssets.libraries.set(id, library);
 				library.onChange.add(LimeAssets.onChange.dispatch);
 				promise.completeWith(Future.withValue(library));
 			}
-		}).onError(function(_)
-		{
+		}).onError(function(_) {
 			promise.error("There is no asset library with an ID of \"" + id + "\"");
 		});
 
@@ -642,56 +591,56 @@ class LoadingState extends funkin.states.MusicBeatState
 //  MultiCallback — sin cambios respecto al original
 // ═════════════════════════════════════════════════════════════════════════════
 
-class MultiCallback
-{
+class MultiCallback {
 	public var callback:Void->Void;
 	public var logId:String = null;
 	public var length(default, null) = 0;
 	public var numRemaining(default, null) = 0;
 
 	var unfired = new Map<String, Void->Void>();
-	var fired   = new Array<String>();
+	var fired = new Array<String>();
 
-	public function new(callback:Void->Void, logId:String = null)
-	{
+	public function new(callback:Void->Void, logId:String = null) {
 		this.callback = callback;
-		this.logId    = logId;
+		this.logId = logId;
 	}
 
-	public function add(id = "untitled")
-	{
+	public function add(id = "untitled") {
 		id = '$length:$id';
 		length++;
 		numRemaining++;
 		var func:Void->Void = null;
-		func = function()
-		{
-			if (unfired.exists(id))
-			{
+		func = function() {
+			if (unfired.exists(id)) {
 				unfired.remove(id);
 				fired.push(id);
 				numRemaining--;
 
-				if (logId != null) log('fired $id, $numRemaining remaining');
+				if (logId != null)
+					log('fired $id, $numRemaining remaining');
 
-				if (numRemaining == 0)
-				{
-					if (logId != null) log('all callbacks fired');
+				if (numRemaining == 0) {
+					if (logId != null)
+						log('all callbacks fired');
 					callback();
 				}
-			}
-			else
+			} else
 				log('already fired $id');
 		};
 		unfired[id] = func;
 		return func;
 	}
 
-	inline function log(msg):Void
-	{
-		if (logId != null) trace('$logId: $msg');
+	inline function log(msg):Void {
+		if (logId != null)
+			trace('$logId: $msg');
 	}
 
-	public function getFired()   return fired.copy();
-	public function getUnfired() return [for (id in unfired.keys()) id];
+	public function getFired(){
+		return fired.copy();
+	}
+
+	public function getUnfired(){
+		return [for (id in unfired.keys()) id];
+	}
 }
