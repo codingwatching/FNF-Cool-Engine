@@ -1,0 +1,214 @@
+package funkin.util;
+
+import flixel.FlxG;
+import funkin.data.SaveData;
+
+/**
+ * VibrationManager — Unified haptic feedback for mobile devices and controllers.
+ *
+ * ─── Supported platforms ─────────────────────────────────────────────────────
+ *
+ *   MOBILE  (Android / iOS, `#if mobileC`)
+ *     Uses `lime.system.System.vibrate(ms)`.
+ *     Respects `SaveData.data.vibration`.
+ *
+ *   GAMEPAD (DualShock 4/5, Xbox One/Series, Switch Pro, etc.)
+ *     Uses `FlxGamepad.setMotion(leftStr, rightStr, duration)`.
+ *     Works on desktop, console and mobile with a connected controller.
+ *     Respects `SaveData.data.gamepadRumble`.
+ *     Motor strength is scaled by `SaveData.data.vibrationIntensity`.
+ *
+ * ─── Basic usage ─────────────────────────────────────────────────────────────
+ *
+ *   VibrationManager.vibrateTap();      // note hit (light)
+ *   VibrationManager.vibrateBeat();     // section change (medium)
+ *   VibrationManager.vibrateMiss();     // missed note (strong)
+ *   VibrationManager.vibrateConfirm();  // menu confirm action
+ *   VibrationManager.vibrate(80);       // custom duration in ms
+ *
+ * ─── Intensity presets ───────────────────────────────────────────────────────
+ *
+ *   "light"  → motor scale × 0.35
+ *   "medium" → motor scale × 0.65  (default)
+ *   "strong" → motor scale × 1.00
+ *
+ * @author  Cool Engine Team
+ * @since   0.6.1
+ */
+class VibrationManager {
+	// ── Predefined durations (ms) ────────────────────────────────────────────
+
+	/** Short tap: note hit. */
+	public static inline var TAP_MS:Int = 18;
+
+	/** Medium pulse: beat / new section. */
+	public static inline var BEAT_MS:Int = 35;
+
+	/** Long rumble: missed note. */
+	public static inline var MISS_MS:Int = 80;
+
+	/** Confirmation pulse: important menu action. */
+	public static inline var CONFIRM_MS:Int = 50;
+
+	// ── Base motor strengths ─────────────────────────────────────────────────
+
+	/** Left motor (low frequency, body of the controller) strength at 100%. */
+	static inline var LEFT_MOTOR_MAX:Float = 0.70;
+
+	/** Right motor (high frequency, triggers) strength at 100%. */
+	static inline var RIGHT_MOTOR_MAX:Float = 0.50;
+
+	// ── Global guard ─────────────────────────────────────────────────────────
+
+	/**
+	 * When false, all calls are no-ops regardless of SaveData.
+	 * Useful for suppressing haptics during cutscenes or pause screens.
+	 */
+	public static var globalEnabled:Bool = true;
+
+	// ── Public API ───────────────────────────────────────────────────────────
+
+	/** Very short vibration for hitting a note. */
+	public static inline function vibrateTap():Void
+		vibrate(TAP_MS);
+
+	/** Medium vibration for a beat pulse / new section. */
+	public static inline function vibrateBeat():Void
+		vibrate(BEAT_MS);
+
+	/** Long vibration for a missed note. */
+	public static inline function vibrateMiss():Void
+		vibrate(MISS_MS);
+
+	/** Confirmation vibration for menu actions. */
+	public static inline function vibrateConfirm():Void
+		vibrate(CONFIRM_MS);
+
+	/**
+	 * Triggers haptic feedback for `ms` milliseconds.
+	 *
+	 * Fires in parallel:
+	 *   1. Mobile device vibration  (if `SaveData.data.vibration` = true)
+	 *   2. Rumble on all active gamepads  (if `SaveData.data.gamepadRumble` = true)
+	 *
+	 * @param ms  Duration in milliseconds. Values <= 0 are ignored.
+	 */
+	public static function vibrate(ms:Int):Void {
+		if (!globalEnabled || ms <= 0)
+			return;
+
+		_vibrateMobile(ms);
+		_vibrateGamepads(ms);
+	}
+
+	/**
+	 * Asymmetric rumble with independent control over each motor.
+	 *
+	 * Useful for directional feedback or different durations per motor.
+	 *
+	 * @param leftMs    Left motor (low-freq) duration in ms.
+	 * @param rightMs   Right motor (high-freq) duration in ms.
+	 * @param leftStr   Left strength 0..1 (scaled by the user's intensity setting).
+	 * @param rightStr  Right strength 0..1 (scaled by the user's intensity setting).
+	 */
+	public static function vibrateAsymmetric(leftMs:Int, rightMs:Int, leftStr:Float = 0.6, rightStr:Float = 0.4):Void {
+		if (!globalEnabled)
+			return;
+
+		_vibrateMobile(Std.int(Math.max(leftMs, rightMs)));
+
+		#if FLX_GAMEPADS
+		var enabled = SaveData.data.gamepadRumble;
+		if (enabled == null || enabled == false)
+			return;
+		var scale = _intensityScale();
+		_applyRumbleToAllPads(leftStr * scale, rightStr * scale, Math.max(leftMs, rightMs) / 1000.0);
+		#end
+	}
+
+	// ── Internals ────────────────────────────────────────────────────────────
+
+	/**
+	 * Vibrates the mobile device if the option is enabled.
+	 * No-op on non-mobile builds.
+	 */
+	static function _vibrateMobile(ms:Int):Void {
+		#if mobileC
+		var enabled = SaveData.data.vibration;
+		if (enabled == null || enabled == false)
+			return;
+		try {
+			lime.system.System.vibrate(ms);
+		} catch (e:Dynamic)
+			trace('[VibrationManager] mobile vibrate($ms ms) error: $e');
+		#end
+	}
+
+	/**
+	 * Rumbles ALL active gamepads if the option is enabled.
+	 * Motor strength is scaled by `vibrationIntensity`.
+	 *
+	 * Compatible with:
+	 *   - DualShock 4 / DualSense (PS4 / PS5)
+	 *   - Xbox One / Series S/X
+	 *   - Nintendo Switch Pro Controller
+	 *   - Generic gamepads with rumble support
+	 */
+	static function _vibrateGamepads(ms:Int):Void {
+		#if FLX_GAMEPADS
+		var enabled = SaveData.data.gamepadRumble;
+		if (enabled == null || enabled == false)
+			return;
+
+		var scale = _intensityScale();
+		var left = LEFT_MOTOR_MAX * scale;
+		var right = RIGHT_MOTOR_MAX * scale;
+		var durSec = ms / 1000.0;
+
+		_applyRumbleToAllPads(left, right, durSec);
+		#end
+	}
+
+	/**
+	 * Iterates all active gamepads and calls `setMotion(left, right, dur)`.
+	 *
+	 *   left  — left motor  (low frequency, body of the controller)  0..1
+	 *   right — right motor (high frequency, triggers)               0..1
+	 *   dur   — duration in SECONDS (Flixel API, not ms)
+	 *
+	 * On controllers without two separate motors (Joy-Cons in some modes,
+	 * basic USB gamepads) Flixel will still send the signal — the OS decides
+	 * what to do with it. There is no crash risk.
+	 */
+	static function _applyRumbleToAllPads(left:Float, right:Float, dur:Float):Void {
+		#if FLX_GAMEPADS
+		var pads = FlxG.gamepads.getActiveGamepads();
+		if (pads == null)
+			return;
+
+		for (pad in pads) {
+			if (pad == null)
+				continue;
+			try {
+				pad.setMotion(left, right, dur);
+			} catch (e:Dynamic)
+				trace('[VibrationManager] rumble error (${pad.name}): $e');
+		}
+		#end
+	}
+
+	/**
+	 * Returns the motor strength multiplier based on the user's preference.
+	 *   "light"  → 0.35
+	 *   "medium" → 0.65  (default)
+	 *   "strong" → 1.00
+	 */
+	static function _intensityScale():Float {
+		var intensity = SaveData.data.vibrationIntensity ?? "medium";
+		return switch (intensity) {
+			case "light": 0.35;
+			case "strong": 1.00;
+			default: 0.65;
+		};
+	}
+}

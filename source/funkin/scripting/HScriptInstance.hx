@@ -64,6 +64,18 @@ class HScriptInstance implements IScript
 	/** Texto del último error, o null. */
 	public var lastError:Null<String> = null;
 
+	/**
+	 * Number of consecutive runtime errors this script has thrown.
+	 * When it reaches MAX_SCRIPT_ERRORS the script is automatically
+	 * deactivated so a broken onUpdate can't spam the console or
+	 * slow down gameplay every single frame.
+	 * Reset to 0 after a successful call or a hotReload().
+	 */
+	public var errorCount:Int = 0;
+
+	/** How many consecutive errors before the script is force-disabled. */
+	static inline final MAX_SCRIPT_ERRORS:Int = 5;
+
 	/** hasFunction — requerido por IScript. Comprueba caché + variables del intérprete. */
 	public function hasFunction(name:String):Bool
 	{
@@ -175,6 +187,7 @@ class HScriptInstance implements IScript
 			if (func != _MISSING)
 			{
 				returnValue = Reflect.callMethod(null, func, args);
+				errorCount = 0; // successful call — reset the error streak
 				return returnValue;
 			}
 		}
@@ -361,6 +374,7 @@ class HScriptInstance implements IScript
 
 			// Invalidar caché de funciones — el script redefinió sus funciones
 			_funcCache.clear();
+			errorCount = 0; // fresh reload — give the script a clean slate
 
 			// BUG FIX #8: bloquear call() durante la re-ejecución del programa.
 			// onUpdate/onBeatHit del mismo frame crashean si acceden al intérprete
@@ -524,6 +538,25 @@ class HScriptInstance implements IScript
 
 			// ── Actualizar contrato IScript ───────────────────────────────────
 			try { lastError = msg; } catch (_) {}
+
+			// ── Auto-disable on repeated errors ─────────────────────────────────
+			// If the same script keeps erroring on every call (e.g. a broken
+			// onUpdate), disable it after MAX_SCRIPT_ERRORS consecutive failures.
+			// This prevents console spam and frame-rate drops every single frame.
+			// errorCount is reset to 0 on any successful call or hotReload().
+			try
+			{
+				errorCount++;
+				if (errorCount >= MAX_SCRIPT_ERRORS)
+				{
+					active  = false;
+					errored = true;
+					trace('[HScript] Script "$name" has been DISABLED after'
+						+ ' $MAX_SCRIPT_ERRORS consecutive errors.'
+						+ ' Fix the script and reload to re-enable it.');
+				}
+			}
+			catch (_counterErr:Dynamic) {}
 
 			// ── Popup in-game (no bloqueante) ─────────────────────────────────
 			// ScriptErrorNotifier tiene su propia capa de try/catch interna,

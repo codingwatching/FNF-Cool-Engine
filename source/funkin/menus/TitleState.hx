@@ -110,6 +110,12 @@ class TitleState extends funkin.states.MusicBeatState
 	override public function create():Void
 	{
 		super.create();
+
+		#if HSCRIPT_ALLOWED
+		StateScriptHandler.init();
+		StateScriptHandler.loadStateScripts('TitleState', this);
+		StateScriptHandler.callOnScripts('onCreate', []);
+		#end
 		
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.getGraphic('menu/menuBGtitle'));
 		// Escalar para cubrir toda la pantalla (fix 1080p y cualquier resolucion)
@@ -120,12 +126,6 @@ class TitleState extends funkin.states.MusicBeatState
 		add(bg);
 
 		// DEBUG BULLSHIT
-
-		#if HSCRIPT_ALLOWED
-		StateScriptHandler.init();
-		StateScriptHandler.loadStateScripts('TitleState', this);
-		StateScriptHandler.callOnScripts('onCreate', []);
-		#end
 
 		if (SaveData.data.weekUnlocked != null)
 		{

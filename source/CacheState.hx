@@ -185,25 +185,30 @@ class CacheState extends funkin.states.MusicBeatState
         loadingPercentage.text = "100%";
 
         #if (android || mobileC || ios)
-        // FIX freeze al 100% en móvil:
-        // NO llamar collectMajor() aquí — es síncrono y bloquea el hilo GL
-        // causando el freeze visible. El GC ya se ejecuta en FunkinCache.postStateSwitch
-        // DESPUÉS del switch, cuando el nuevo state ya tiene al menos 1 frame renderizado.
-        // 3 frames de margen para que el driver GL vacíe la cola de comandos pendientes,
-        // luego 0.5 s para que el usuario vea "100% Ready!" antes de la transición.
+        // FIX freeze at 100% on mobile — two-part fix:
+        //
+        // 1. Init ShaderManager HERE, before the timer chain, so its internal
+        //    FlxTimer.wait(0) fires in the next frame and isn't cancelled by the
+        //    upcoming state switch. Calling it inside goToTitle() was too late:
+        //    the state switch killed the deferred timer before it could run.
+        //
+        // 2. Force transition type NONE for the CacheState→TitleState switch.
+        //    The default FADE tween (0.35s) runs inside CacheState.update() at
+        //    ~1 FPS after heavy loading — that's 300-500ms of perceived freeze.
+        //    Skipping it makes the switch instant. TitleState already fades in
+        //    with its own camera fade if needed.
+        ShaderManager.init();
+        funkin.transitions.StateTransition.setNext('none');
+
+        // Single flat timer — no nested chain needed.
+        // One frame to let the GL command queue flush + 0.5s for the user to
+        // see "Ready! 100%" before we switch state.
         new FlxTimer().start(0.016, function(_)
         {
-            new FlxTimer().start(0.016, function(_)
-            {
-                new FlxTimer().start(0.016, function(_)
-                {
-                    new FlxTimer().start(0.5, function(_) { goToTitle(); });
-                });
-            });
+            new FlxTimer().start(0.5, function(_) { goToTitle(); });
         });
         #else
-        // Desktop: el collectMajor se ejecuta en postStateSwitch, no aquí.
-        // Solo esperamos 1 frame + 0.3 s para el sonido y 0.3 s más para el fade.
+        // Desktop: wait 1 frame + 0.3s, play the loaded sound, then switch.
         new FlxTimer().start(0.016, function(_)
         {
             new FlxTimer().start(0.3, function(_)
@@ -224,17 +229,21 @@ class CacheState extends funkin.states.MusicBeatState
         FlxG.autoPause = true;
         #end
 
-        // Aplicar FPS guardado
         funkin.data.EngineSettings.applyFPS();
 
         #if (!mobileC && !android && !ios)
         funkin.data.EngineSettings.ensureWindowSize();
-        #end
-
+        // Desktop: init ShaderManager here (safe — no state switch pending yet).
         ShaderManager.init();
+        #end
+        // Mobile: ShaderManager.init() was already called in completeLoading()
+        // so its internal deferred timer fired BEFORE the state switch.
+        // Calling it again here would restart it and cancel the pending setup.
 
+        // NOTE: FlxG.camera.fade removed — it conflicts with StateTransition.
+        // The FADE/NONE transition handled by StateTransition is enough.
+        // TitleState applies its own intro fade if needed.
         LoadingState.loadAndSwitchState(new TitleState(), true);
-        FlxG.camera.fade(FlxColor.BLACK, 0.8, false);
     }
 }
 

@@ -215,6 +215,15 @@ typedef SaveDataFields =
 	@:optional var mobilePadLayout:Null<String>;
 	@:optional var touchIndicator:Null<Bool>;
 
+	/** Haptic vibration feedback enabled (mobile only). Default: true. */
+	@:optional var vibration:Null<Bool>;
+
+	/** Vibration intensity preset: "light" | "medium" | "strong". Default: "medium". */
+	@:optional var vibrationIntensity:Null<String>;
+
+	/** Gamepad rumble / force-feedback enabled. Default: true. */
+	@:optional var gamepadRumble:Null<Bool>;
+
 	// ── Game progress ────────────────────────────────────────────────────────
 
 	/** Unlocked Weeks (Serialized Array<Bool>). */

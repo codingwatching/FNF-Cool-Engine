@@ -302,8 +302,20 @@ class ScriptHandler
 		if (list == null)
 			return; // fast guard: no scripts for this character
 		for (script in list)
-			if (script.active)
-				script.call(func, args);
+		{
+			try
+			{
+				if (script != null && script.active)
+					script.call(func, args);
+			}
+			catch (e:Dynamic)
+			{
+				// Outer safety net — script.call() already has its own try/catch,
+				// but this catches anything that slips through (null refs, etc.).
+				trace('[ScriptHandler] Unhandled error in character script"'
+					+ '${script?.name ?? charName}" ($func): ${Std.string(e)}');
+			}
+		}
 		#end
 	}
 
@@ -319,8 +331,18 @@ class ScriptHandler
 			return false; // fast guard
 		var result = false;
 		for (script in list)
-			if (script.active && script.call(func, args) == true)
-				result = true;
+		{
+			try
+			{
+				if (script != null && script.active && script.call(func, args) == true)
+					result = true;
+			}
+			catch (e:Dynamic)
+			{
+				trace('[ScriptHandler] Unhandled error in character script "'
+					+ '${script?.name ?? charName}" ($func): ${Std.string(e)}');
+			}
+		}
 		return result;
 		#else
 		return false;
@@ -411,7 +433,7 @@ class ScriptHandler
 		#if sys
 		if (!FileSystem.exists(scriptPath))
 		{
-			trace('[ScriptHandler] not found: $scriptPath');
+			trace('[ScriptHandler] Script not found: $scriptPath');
 			return null;
 		}
 		#end
@@ -475,7 +497,7 @@ class ScriptHandler
 			}
 
 			_registerScript(script, scriptType);
-			trace('[ScriptHandler] Loaded${callInit ? "" : " no-init"} [$scriptType]: $scriptName${isLua ? " (Lua)" : ""}');
+			trace('[ScriptHandler] Loaded${callInit ? "" : " (no-init)"} [$scriptType]: $scriptName${isLua ? " (from Lua)" : ""}');
 			return script;
 		}
 		catch (e:Dynamic)
@@ -506,9 +528,9 @@ class ScriptHandler
 			var errorStr = "(error desconocido)";
 			try { errorStr = Std.string(e); } catch (_e:Dynamic) {}
 
-			trace('[ScriptHandler] Error loading "$scriptName$lineInfo": $errorStr');
+			trace('[ScriptHandler] Error loading script "$scriptName$lineInfo": $errorStr');
 			if (isLua)
-				try { trace('[ScriptHandler] Transpiled code:\n$content'); } catch (_e:Dynamic) {}
+				try { trace('[ScriptHandler] Transpiled Lua code:\n$content'); } catch (_e:Dynamic) {}
 
 			// ── In-game popup for load / parse failures ──────────────────────
 			// Envuelto en try/catch — si el popup falla el juego no debe crashear.

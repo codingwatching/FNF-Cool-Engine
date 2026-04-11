@@ -709,6 +709,66 @@ class OptionsMenuState extends MusicBeatSubstate
 				{
 					applyVSync(!(SaveData.data.vsync == true));
 				}
+			},
+			// ── Gamepad Rumble ───────────────────────────────────────────────────
+			// Visible solo en desktop (donde suelen conectarse mandos).
+			// La intensidad es compartida con la vibración móvil.
+			{
+				name: "Gamepad Rumble",
+				get: function()
+				{
+					var on = SaveData.data.gamepadRumble != null ? SaveData.data.gamepadRumble : true;
+					return on ? "ON" : "OFF";
+				},
+				toggle: function()
+				{
+					var cur = SaveData.data.gamepadRumble != null ? SaveData.data.gamepadRumble : true;
+					SaveData.data.gamepadRumble = !cur;
+					SaveData.flush();
+					// Preview inmediato al activar
+					if (SaveData.data.gamepadRumble)
+						funkin.util.VibrationManager.vibrateConfirm();
+				}
+			},
+			{
+				name: "Rumble Intensity",
+				get: function()
+				{
+					var intensity = SaveData.data.vibrationIntensity != null ? SaveData.data.vibrationIntensity : "medium";
+					return switch (intensity)
+					{
+						case "light":  "Light";
+						case "strong": "Strong";
+						default:       "Medium";
+					};
+				},
+				left: function()
+				{
+					var intensity = SaveData.data.vibrationIntensity != null ? SaveData.data.vibrationIntensity : "medium";
+					SaveData.data.vibrationIntensity = switch (intensity)
+					{
+						case "light":  "strong";
+						case "medium": "light";
+						case "strong": "medium";
+						default:       "medium";
+					};
+					SaveData.flush();
+					funkin.util.VibrationManager.vibrateConfirm();
+				},
+				right: function()
+				{
+					var intensity = SaveData.data.vibrationIntensity != null ? SaveData.data.vibrationIntensity : "medium";
+					SaveData.data.vibrationIntensity = switch (intensity)
+					{
+						case "light":  "medium";
+						case "medium": "strong";
+						case "strong": "light";
+						default:       "medium";
+					};
+					SaveData.flush();
+					funkin.util.VibrationManager.vibrateConfirm();
+				},
+				toggle: function() { funkin.util.VibrationManager.vibrateConfirm(); }
 			}
 			#end
 		];
@@ -1078,10 +1138,83 @@ class OptionsMenuState extends MusicBeatSubstate
 					SaveData.flush();
 					funkin.util.plugins.TouchPointerPlugin.enabled = SaveData.data.touchIndicator;
 				}
+			},
+			// ── Vibración háptica ────────────────────────────────────────────────
+			{
+				name: "Vibration",
+				get: function()
+				{
+					var on = SaveData.data.vibration != null ? SaveData.data.vibration : true;
+					return on ? "ON" : "OFF";
+				},
+				toggle: function()
+				{
+					var cur = SaveData.data.vibration != null ? SaveData.data.vibration : true;
+					SaveData.data.vibration = !cur;
+					SaveData.flush();
+					// Feedback inmediato al activar
+					if (SaveData.data.vibration)
+						funkin.util.VibrationManager.vibrateConfirm();
+				}
+			},
+			{
+				name: "Vibration Intensity",
+				get: function()
+				{
+					var intensity = SaveData.data.vibrationIntensity != null ? SaveData.data.vibrationIntensity : "medium";
+					return switch (intensity)
+					{
+						case "light":  "Light";
+						case "strong": "Strong";
+						default:       "Medium";
+					};
+				},
+				left: function()
+				{
+					var intensity = SaveData.data.vibrationIntensity != null ? SaveData.data.vibrationIntensity : "medium";
+					SaveData.data.vibrationIntensity = switch (intensity)
+					{
+						case "light":  "strong";
+						case "medium": "light";
+						case "strong": "medium";
+						default:       "medium";
+					};
+					SaveData.flush();
+					_previewVibration();
+				},
+				right: function()
+				{
+					var intensity = SaveData.data.vibrationIntensity != null ? SaveData.data.vibrationIntensity : "medium";
+					SaveData.data.vibrationIntensity = switch (intensity)
+					{
+						case "light":  "medium";
+						case "medium": "strong";
+						case "strong": "light";
+						default:       "medium";
+					};
+					SaveData.flush();
+					_previewVibration();
+				},
+				toggle: function() { _previewVibration(); }
 			}
 		];
 
 		createOptionTexts();
+	}
+
+	/**
+	 * Hace una vibración de prueba con la intensidad seleccionada actualmente.
+	 * Solo se llama desde las opciones de Vibration Intensity.
+	 */
+	function _previewVibration():Void
+	{
+		var intensity = SaveData.data.vibrationIntensity != null ? SaveData.data.vibrationIntensity : "medium";
+		switch (intensity)
+		{
+			case "light":  funkin.util.VibrationManager.vibrateTap();
+			case "strong": funkin.util.VibrationManager.vibrateMiss();
+			default:       funkin.util.VibrationManager.vibrateBeat();
+		}
 	}
 	#end
 
@@ -2672,7 +2805,18 @@ class OptionsData
 		if (SaveData.data.mobileAlpha == null)
 			SaveData.data.mobileAlpha = 0.75;
 		// mobilePadLayout se inicializa como null → Mobilecontrols usará posiciones default
+		if (SaveData.data.vibration == null)
+			SaveData.data.vibration = true;
+		if (SaveData.data.vibrationIntensity == null)
+			SaveData.data.vibrationIntensity = "medium";
 		#end
+
+		// ── Gamepad rumble (todas las plataformas con FLX_GAMEPADS) ──────────
+		if (SaveData.data.gamepadRumble == null)
+			SaveData.data.gamepadRumble = true;
+		// vibrationIntensity es compartida entre móvil y gamepad
+		if (SaveData.data.vibrationIntensity == null)
+			SaveData.data.vibrationIntensity = "medium";
 	}
 }
 

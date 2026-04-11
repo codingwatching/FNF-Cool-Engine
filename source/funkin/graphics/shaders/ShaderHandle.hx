@@ -13,10 +13,16 @@ import openfl.filters.ShaderFilter;
  * ─── HScript ──────────────────────────────────────────────────────────────────
  *
  *   var wave = new ShaderHandle('wave');
- *   wave.applyTo(mySprite);
+ *   wave.applyTo(mySprite);          // shader en un sprite
+ *   wave.applyToCamera(camHUD);      // overlay en cámara (no lee píxeles)
+ *   wave.applyPostProcess(camHUD);   // post-proceso real (lee píxeles de cámara)
  *
- *   // En update() — asignación directa redirige a ShaderManager:
- *   wave.uTime      = elapsed;
+ *   // Con setFilters — usa toFilter() o runtimeShader:
+ *   camHUD.setFilters([wave.toFilter()]);
+ *   camHUD.setFilters([new ShaderFilter(wave.runtimeShader)]);
+ *
+ *   // En update() — funciona gracias a implements Dynamic:
+ *   wave.iTime      = elapsed;
  *   wave.uIntensity = 0.5;
  *
  * ─── Lua ──────────────────────────────────────────────────────────────────────
@@ -43,11 +49,12 @@ import openfl.filters.ShaderFilter;
  *
  * ─── Cómo funciona __set / resolve ────────────────────────────────────────────
  *
- *  En targets nativos (C++ / HashLink) y en HScript (que usa Reflect.setField):
+ *  En C++ y HashLink, Haxe llama automáticamente a estos métodos para campos
+ *  desconocidos (sin necesitar implements Dynamic, que Haxe 4 prohíbe en no-extern):
  *    `handle.foo = bar`  →  `__set("foo", bar)`  →  ShaderManager.setShaderParam
  *    `handle.foo`        →  `resolve("foo")`      →  último valor cacheado
  *
- *  En Lua la asignación de campo no pasa por Reflect, así que usa set() siempre.
+ *  En Lua la asignación de campo no pasa por Dynamic, así que usa set() siempre.
  *
  * @see funkin.graphics.shaders.ShaderManager
  */
@@ -57,6 +64,20 @@ class ShaderHandle
 
 	/** Nombre del shader (coincide con el .frag / .hx / .lua sin extensión). */
 	public var shaderName(default, null):String;
+
+	/**
+	 * Instancia real de FunkinRuntimeShader lista para usar con ShaderFilter.
+	 * Se crea la primera vez que se accede y queda registrada en ShaderManager
+	 * para que shader.iTime = elapsed la actualice automáticamente.
+	 *
+	 * Uso:
+	 *   camHUD.setFilters([new ShaderFilter(shader.runtimeShader)]);
+	 *   camHUD.setFilters([shader.toFilter()]);   // equivalente más corto
+	 */
+	public var runtimeShader(get, never):FunkinRuntimeShader;
+
+	// Instancia cacheada localmente — se registra en ShaderManager al crearse.
+	var _instance:FunkinRuntimeShader = null;
 
 	// Cache local de los últimos valores enviados — devueltos por resolve()
 	var _params:Map<String, Dynamic> = new Map();
@@ -70,6 +91,21 @@ class ShaderHandle
 	public function new(shaderName:String)
 	{
 		this.shaderName = shaderName;
+	}
+
+	function get_runtimeShader():FunkinRuntimeShader
+	{
+		if (_instance == null)
+		{
+			_instance = ShaderManager.createInstance(shaderName);
+			if (_instance != null)
+			{
+				// Restaurar params que se hayan seteado antes de acceder aquí
+				for (name => value in _params)
+					_instance.writeUniform(name, value);
+			}
+		}
+		return _instance;
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -104,6 +140,33 @@ class ShaderHandle
 	 */
 	public function applyPostProcess(?cam:FlxCamera):ShaderFilter
 		return ShaderManager.applyPostProcessToCamera(shaderName, cam);
+
+	/**
+	 * Crea un ShaderFilter listo para pasar a cam.setFilters() o CameraUtil.addFilter().
+	 * La instancia queda registrada en ShaderManager, así que los uniforms siguen
+	 * funcionando con shader.iTime = elapsed normalmente.
+	 *
+	 * Uso típico en un stage script:
+	 *   var shader = new ShaderHandle('wave');
+	 *   camHUD.setFilters([shader.toFilter()]);
+	 *   // en update:
+	 *   shader.iTime = elapsed;
+	 *
+	 * Si pasas una cámara, además aplica el filter a esa cámara automáticamente
+	 * usando CameraUtil.addFilter (que dispara el setter correctamente).
+	 *
+	 * @param cam  Cámara a la que aplicar el filter. null = solo devuelve el filter.
+	 * @return     El ShaderFilter creado, o null si el shader no existe.
+	 */
+	public function toFilter(?cam:FlxCamera):ShaderFilter
+	{
+		final inst = runtimeShader;
+		if (inst == null) return null;
+		final filter = new ShaderFilter(inst);
+		if (cam != null)
+			funkin.data.CameraUtil.addFilter(filter, cam);
+		return filter;
+	}
 
 	/** Quita el shader de un sprite. */
 	public function removeFrom(sprite:FlxSprite):ShaderHandle

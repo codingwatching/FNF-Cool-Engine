@@ -572,6 +572,41 @@ class ShaderManager
 		return filter;
 	}
 
+	/**
+	 * Crea una instancia nueva de FunkinRuntimeShader para el shader indicado,
+	 * la registra en _liveInstances y le aplica los params pendientes/cacheados.
+	 *
+	 * Es la pieza que necesita ShaderHandle.runtimeShader / toFilter() para
+	 * poder usar el shader directamente con new ShaderFilter(instance) o setFilters().
+	 *
+	 * @param shaderName  Nombre del shader registrado (ej: 'wave')
+	 * @return            La instancia creada, o null si el shader no existe.
+	 */
+	public static function createInstance(shaderName:String):FunkinRuntimeShader
+	{
+		final cs = getShader(shaderName);
+		if (cs == null || cs.fragmentCode == null)
+		{
+			trace('[ShaderManager] createInstance: shader "$shaderName" no encontrado');
+			return null;
+		}
+		var instance:FunkinRuntimeShader;
+		try
+		{
+			instance = new FunkinRuntimeShader(cs.fragmentCode, cs.vertexCode);
+		}
+		catch (e:Dynamic)
+		{
+			trace('[ShaderManager] createInstance: error compilando "$shaderName": $e');
+			return null;
+		}
+		if (!_liveInstances.exists(shaderName)) _liveInstances.set(shaderName, []);
+		_liveInstances.get(shaderName).push(instance);
+		_restoreLastParams(shaderName, instance);
+		_flushPendingForShader(shaderName);
+		return instance;
+	}
+
 	public static function registerInstance(shaderName:String, instance:FunkinRuntimeShader):Void
 	{
 		if (instance == null) return;
