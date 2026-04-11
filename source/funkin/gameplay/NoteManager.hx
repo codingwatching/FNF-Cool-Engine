@@ -71,12 +71,22 @@ class NoteManager
 	// BUGFIX: trackeado por dirección para evitar cross-chain en holds simultáneos
 	private var _prevSpawnedNote:Map<Int, Note> = new Map();
 
-	/** Calcula la clave del mapa _prevSpawnedNote combinando dirección y grupo de strums.
-	 *  noteData 0-3, strumsGroupIndex 0-N → clave única por grupo de strums.
-	 *  Necesario para que notas de distintos personajes/grupos en la misma
-	 *  dirección no compartan entrada y corrompan la cadena prevNote de los sustains. */
-	private inline function _prevNoteKey(noteData:Int, strumsGroupIndex:Int):Int
-		return noteData + strumsGroupIndex * 4;
+	/** Calcula la clave del mapa _prevSpawnedNote combinando dirección, grupo de strums y lado.
+	 *
+	 *  BUG FIX (Bug 1): la versión anterior solo usaba `noteData + strumsGroupIndex * 4`,
+	 *  lo que hacía que una nota del jugador y una del CPU con la misma dirección y el
+	 *  mismo grupo compartieran la misma clave. Cuando `mustHitSection` cambiaba de
+	 *  sección, un sustain del CPU apuntaba al sustain del jugador como `prevNote`,
+	 *  corrompiendo la cadena y rompiendo las animaciones hold/holdend.
+	 *
+	 *  El bit 3 del campo `_rawPacked` ya codifica mustHit, pero _prevNoteKey lo ignoraba.
+	 *  Ahora se incluye como offset de 16 (4 dirs × 4 groups = 16 slots por lado):
+	 *    mustHit=false → slots  0-15
+	 *    mustHit=true  → slots 16-31
+	 *
+	 *  noteData 0-3, strumsGroupIndex 0-N, mustHit bool → clave única por grupo+lado. */
+	private inline function _prevNoteKey(noteData:Int, strumsGroupIndex:Int, mustHit:Bool):Int
+		return noteData + strumsGroupIndex * 4 + (mustHit ? 16 : 0);
 
 	// ── SOA pack/unpack helpers ───────────────────────────────────────────────
 	// Un solo Int por nota empaqueta 4 campos booleanos/pequeños sin alloc extra.
@@ -222,6 +232,15 @@ class NoteManager
 
 	/** _scrollSpeed al inicio de la transición activa (para calcular el from de cada nota). */
 	private var _scrollSpeedAtTransStart:Float = 0.45;
+
+	// FIX: transición suave al cambiar INVERT en modchart (análoga a _scrollTransitioning).
+	// _invertTransitioning se activa cuando invert cambia de valor en cualquier grupo.
+	// _invertTransTimer cuenta el tiempo restante de la animación en segundos.
+	// _prevGroupInvert guarda el último valor de invert por groupId para detectar cambios.
+	private var _invertTransitioning:Bool = false;
+	private var _invertTransTimer:Float = 0.0;
+	private static inline final INVERT_LERP_DURATION:Float = 0.18; // segundos (~0.18 s a pantalla)
+	private var _prevGroupInvert:Map<String, Float> = new Map();
 
 	// === SAVE.DATA CACHE (evita acceso Dynamic en hot loop) ===
 	// Se actualizan en generateNotes() y cuando cambia la configuración.
@@ -589,6 +608,18 @@ class NoteManager
 		final _safeSpeed:Float = Math.max(_scrollSpeed, 0.005);
 		_dynSpawnTime = Math.max(600.0, (FlxG.height + SPAWN_PAD_PX) / _safeSpeed);
 
+		// FIX: avanzar el timer de transición por INVERT y apagarlo cuando expire.
+		if (_invertTransTimer > 0.0)
+		{
+			final rawElapsedInv:Float = FlxG.elapsed / (FlxG.timeScale > 0 ? FlxG.timeScale : 1.0);
+			_invertTransTimer -= rawElapsedInv;
+			if (_invertTransTimer <= 0.0)
+			{
+				_invertTransTimer = 0.0;
+				_invertTransitioning = false;
+			}
+		}
+
 		// _dynCullDist: margen en px más allá del borde de pantalla antes de ocultar/eliminar.
 		//   Base: pantalla + SPAWN_PAD_PX → garantiza que notas recién spawneadas no se cull inmediatamente.
 		//   Extra modchart: cuando hay mods activos, drunkY/wave/bumpy pueden desplazar notas
@@ -734,8 +765,10 @@ class NoteManager
 			if (allStrumsGroups != null && rawGI < allStrumsGroups.length)
 				_groupSkin = allStrumsGroups[rawGI].data.noteSkin;
 
-			final _pnKey = _prevNoteKey(rawND, rawGI);
-			final note = renderer.getNote(rawST, rawND, _prevSpawnedNote.get(_pnKey), rawIS, rawMH, _groupSkin);
+			// BUG 1 FIX: pass rawMH so player/CPU notes on the same dir/group don't share a chain.
+			final _pnKey = _prevNoteKey(rawND, rawGI, rawMH);
+			// POOL FIX: pass rawGI so notes pool per-group (same skin name can differ in texture).
+			final note = renderer.getNote(rawST, rawND, _prevSpawnedNote.get(_pnKey), rawIS, rawMH, _groupSkin, rawGI);
 			note.strumsGroupIndex = rawGI;
 			note.noteType         = rawNT;
 			note.sustainLength    = rawSL;
@@ -821,6 +854,53 @@ class NoteManager
 		_missedHoldDir[1] = false;
 		_missedHoldDir[2] = false;
 		_missedHoldDir[3] = false;
+
+		// FIX: detectar cambio de INVERT por grupo y guardar posición actual de las notas
+		// afectadas como punto de partida del lerp, igual que hace _scrollTransitioning.
+		if (_frameModEnabled && allStrumsGroups != null)
+		{
+			for (group in allStrumsGroups)
+			{
+				final st0 = modManager.getState(group.id, 0);
+				final curInv:Float = (st0 != null) ? st0.invert : 0.0;
+				final prevInv:Float = _prevGroupInvert.exists(group.id) ? _prevGroupInvert.get(group.id) : 0.0;
+
+				if ((curInv > 0.5) != (prevInv > 0.5))
+				{
+					// El estado de invert cambió para este grupo → iniciar transición
+					_invertTransitioning = true;
+					_invertTransTimer = INVERT_LERP_DURATION;
+					final gid:String = group.id;
+
+					for (note in sustainNotes.members)
+					{
+						if (note == null || !note.alive) continue;
+						final nGid:String = (note.strumsGroupIndex < _frameGroupCount)
+							? allStrumsGroups[note.strumsGroupIndex].id
+							: (note.mustPress ? "player" : "cpu");
+						if (nGid != gid) continue;
+						note._lerpFromY      = note.y;
+						note._lerpFromScaleY = note.scale.y;
+						note._lerpT          = 0.0;
+					}
+					if (sustainNotes != notes)
+					{
+						for (note in notes.members)
+						{
+							if (note == null || !note.alive) continue;
+							final nGid:String = (note.strumsGroupIndex < _frameGroupCount)
+								? allStrumsGroups[note.strumsGroupIndex].id
+								: (note.mustPress ? "player" : "cpu");
+							if (nGid != gid) continue;
+							note._lerpFromY      = note.y;
+							note._lerpFromScaleY = note.scale.y;
+							note._lerpT          = 0.0;
+						}
+					}
+				}
+				_prevGroupInvert.set(group.id, curInv);
+			}
+		}
 
 		// Iterar ambos grupos: primero sustains, luego notas normales
 		_updateNoteGroup(sustainNotes.members, sustainNotes.members.length, songPosition, hitWindow);
@@ -934,27 +1014,36 @@ class NoteManager
 
 			// ── Visibilidad y culling ──────────────────────────────────────
 			// _dynCullDist ya tiene en cuenta si hay modchart activo (margen extra).
-			final _isOffscreen:Bool = note.y < -_dynCullDist || note.y > FlxG.height + _dynCullDist;
-			final _isDone:Bool      = (note.isSustainNote && note.wasGoodHit) || note.tooLate;
+			final _isOffscreen:Bool  = note.y < -_dynCullDist || note.y > FlxG.height + _dynCullDist;
+			final _isDone:Bool       = (note.isSustainNote && note.wasGoodHit) || note.tooLate;
+			final _timeExpired:Bool  = (Conductor.songPosition - note.strumTime) > EXPIRE_AFTER_MS;
 
-			// Reciclado de notas ya consumidas: cuando salen de la zona visual O
-			// cuando llevan EXPIRE_AFTER_MS ms pasado su strumTime (necesario a
-			// velocidades muy bajas donde el movimiento en px es casi nulo).
-			if (_isDone && (_isOffscreen || (Conductor.songPosition - note.strumTime) > EXPIRE_AFTER_MS))
+			// FIX (modchart sustain disappearing):
+			// Mods como drunk/wave/tipsy pueden mover sustains temporalmente fuera del
+			// rango _dynCullDist. Usar _isOffscreen como condicion de eliminacion para
+			// sustains con wasGoodHit=true causaba eliminacion prematura y desaparicion
+			// permanente al volver al rango (visible=false nunca se restauraba).
+			// FIX: para sustains wasGoodHit con modchart activo, solo eliminar por TIEMPO.
+			// tooLate sigue usando posicion (esas notas estan visualmente terminadas).
+			final _isModWasGoodHit:Bool = _frameModEnabled && note.isSustainNote && note.wasGoodHit;
+
+			if (_isDone && ((!_isModWasGoodHit && _isOffscreen) || _timeExpired))
 			{
 				removeNote(note);
-				continue; // nota muerta — saltar actualización de visibilidad
+				continue; // nota muerta -- saltar actualizacion de visibilidad
 			}
 
-			// Ocultar notas fuera del margen (las vivas volverán a ser visibles
-			// si un mod las devuelve al rango; las done ya fueron recicladas arriba).
-			if (_isOffscreen)
+			// FIX: NO ocultar sustains wasGoodHit con modchart por posicion. El clipRect
+			// de updateNotePosition() gestiona su visibilidad real (clipH=0 => sin pixels
+			// renderizados aunque visible=true). Sin este fix, el sustain quedaba
+			// visible=false al salir del rango y nunca se restauraba al volver.
+			if (_isOffscreen && !_isModWasGoodHit)
 				note.visible = false;
-			else
+			else if (!_isOffscreen)
 			{
-				// No sobrescribir visible=false de sustains consumidas ocultas por clipRect
-				if (!(note.isSustainNote && note.wasGoodHit))
-					note.visible = true;
+				// Restaurar visibilidad para todos los casos en rango visual.
+				// wasGoodHit sustains: clipRect limita pixeles renderizados => visible=true es seguro.
+				note.visible = true;
 				if (!note.mustPress && middlescroll)
 					note.alpha = 0;
 			}
@@ -1216,10 +1305,11 @@ class NoteManager
 		}
 		noteY += _noteYOffset;
 
-		if (_scrollTransitioning && note._lerpFromY >= 0.0 && note._lerpT < 1.0)
+		if ((_scrollTransitioning || _invertTransitioning) && note._lerpFromY >= 0.0 && note._lerpT < 1.0)
 		{
 			// Avanzar el progreso del lerp usando tiempo real (sin escalar por timeScale)
 			// para que la animación dure ~0.15 s de pantalla sin importar el rate.
+			// También cubre la transición de INVERT (_invertTransitioning).
 			final rawElapsed:Float = FlxG.elapsed / (FlxG.timeScale > 0 ? FlxG.timeScale : 1.0);
 			note._lerpT = Math.min(1.0, note._lerpT + rawElapsed * 12.0);
 			final easedT:Float = FlxEase.quartOut(note._lerpT);
@@ -1329,11 +1419,13 @@ class NoteManager
 
 			if (note.isSustainNote)
 			{
-				var _sustainFlip:Bool = _effectiveDownscroll;
-				if (SaveData.data.downscroll)
-					_sustainFlip = !_effectiveDownscroll;
-				note.flipX = _sustainFlip;
-				note.flipY = _sustainFlip;
+				// FIX: INVERT del modchart estaba poniendo flipX=true, lo que difiere
+				// del comportamiento del downscroll real (que siempre da flipX=false).
+				// La dirección visual ya se maneja con _effectiveDownscroll en la posición Y
+				// y en el ángulo de la nota (+180°). flipX en sustains nunca debe cambiar.
+				// flipY tampoco: el hold mesh y el clipRect gestionan el sentido de la cola.
+				note.flipX = false;
+				note.flipY = false;
 
 				// ── Position of the NEXT step (end-of-piece / start-of-next) ──
 				final _nextStrumTime:Float = note.strumTime + Conductor.stepCrochet;
@@ -1434,7 +1526,7 @@ class NoteManager
 
 		if (note.isSustainNote)
 		{
-			if (_scrollTransitioning && note._lerpFromY >= 0.0 && note._lerpT < 1.0)
+			if ((_scrollTransitioning || _invertTransitioning) && note._lerpFromY >= 0.0 && note._lerpT < 1.0)
 			{
 				final easedT:Float = FlxEase.quartOut(note._lerpT);
 				noteY = note._lerpFromY + (noteY - note._lerpFromY) * easedT;

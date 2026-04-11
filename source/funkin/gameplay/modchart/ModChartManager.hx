@@ -1748,7 +1748,9 @@ class ModChartManager
 				var st = arr[i];
 				spr.x = (st.absX != null) ? st.absX : st.baseX + st.offsetX;
 				spr.y = (st.absY != null) ? st.absY : st.baseY + st.offsetY;
-				spr.angle = st.angle;
+				// FIX: cuando INVERT está activo el receptor debe rotar 180° igual que
+				// las notas, para que el receptor indique visualmente la dirección real.
+				spr.angle = st.angle + (st.invert > 0.5 ? 180.0 : 0.0);
 				spr.alpha = Math.max(0, Math.min(1, st.alpha));
 				spr.scale.set(st.scaleX, st.scaleY);
 				spr.visible = st.visible;

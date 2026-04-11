@@ -135,13 +135,22 @@ class NoteRenderer
      * y texturas correctas SIN necesidad de recargar nada en recycle(),
      * eliminando flashes de skin incorrecta y errores de RGB shader.
      */
-    public function getNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false, ?groupSkin:String):Note
+    // strumsGroupIndex: passed from NoteManager so the pool key is per-group.
+    // Groups can share the same skin name but load different texture atlases
+    // (e.g. stage-specific overrides). Without this, notes from group 0 (player)
+    // and group 1 (CPU) with identical skin names would share a pool and get
+    // recycled across groups, causing skin cross-contamination / texture chaos.
+    public function getNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?mustHitNote:Bool = false, ?groupSkin:String, strumsGroupIndex:Int = 0):Note
     {
         var note:Note = null;
         final skinKey:String = (groupSkin != null && groupSkin != '') ? groupSkin : '';
+        // POOL FIX: composite key = skinName + "|" + strumsGroupIndex
+        // Prevents notes from different groups sharing the same pool slot even
+        // when they have the same skin name.
+        final poolKey:String = skinKey + '|' + strumsGroupIndex;
 
-        // 1. Pool estricto de la skin pedida
-        final exactPool = _getPool(skinKey, sustainNote);
+        // 1. Pool estricto de la skin+grupo pedidos
+        final exactPool = _getPool(poolKey, sustainNote);
         if (exactPool.length > 0)
         {
             note = exactPool.pop();
@@ -188,7 +197,10 @@ class NoteRenderer
         try
         {
             final skinKey:String = (note.loadedSkinName != null && note.loadedSkinName != '') ? note.loadedSkinName : '';
-            final pool = _getPool(skinKey, note.isSustainNote);
+            // POOL FIX: match the composite key used in getNote() so the note
+            // returns to the correct per-group sub-pool.
+            final poolKey:String = skinKey + '|' + note.strumsGroupIndex;
+            final pool = _getPool(poolKey, note.isSustainNote);
 
             // Guardar solo si no se superan los caps; destruir en caso contrario.
             final _cap = note.isSustainNote ? maxSustainPoolSize : maxPoolSize;
@@ -436,8 +448,10 @@ class NoteRenderer
      */
     public function prewarmPools(normalCount:Int = 4, sustainCount:Int = 8):Void
     {
-        final normalPool  = _getPool('', false);
-        final sustainPool = _getPool('', true);
+        // POOL FIX: use the same composite key format as getNote/recycleNote.
+        // Group 0 / default skin → key '|0'. Other groups prewarm on demand.
+        final normalPool  = _getPool('|0', false);
+        final sustainPool = _getPool('|0', true);
 
         for (i in 0...normalCount)
         {
