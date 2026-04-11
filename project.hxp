@@ -558,9 +558,9 @@ class Project extends HXProject
     }
     if (isMac())
     {
-      dependencies.push(new Dependency("OpenGL.framework", ""));
-      dependencies.push(new Dependency("CoreVideo.framework", ""));
-      dependencies.push(new Dependency("AppKit.framework", ""));
+      config.push("compiler-flag", "-Wl,-framework,OpenGL");
+      config.push("compiler-flag", "-Wl,-framework,CoreVideo");
+      config.push("compiler-flag", "-Wl,-framework,AppKit");
     }
   }
 

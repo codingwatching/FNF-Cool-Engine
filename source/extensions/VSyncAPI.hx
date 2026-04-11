@@ -146,7 +146,8 @@ class VSyncAPI
 #elseif (cpp && mac)
 @:buildXml('
 <target id="haxe">
-    <lib name="-framework OpenGL" if="mac" />
+    <lib name="-framework" if="mac" />
+    <lib name="OpenGL"     if="mac" />
 </target>
 ')
 @:headerCode('

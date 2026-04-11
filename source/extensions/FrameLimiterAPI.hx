@@ -133,7 +133,8 @@ static int _fl_mac_getMonitorHz() {
 ')
 @:buildXml('
 <target id="haxe">
-    <lib name="-framework CoreVideo" if="mac" />
+    <lib name="-framework"  if="mac" />
+    <lib name="CoreVideo"   if="mac" />
 </target>
 ')
 class FrameLimiterAPI
