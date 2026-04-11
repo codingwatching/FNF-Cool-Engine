@@ -298,6 +298,15 @@ class PathsCache
 		_currentSounds.clear();
 		_soundCount = 0;
 
+		// FIX: Clean up _pendingExclusions on each session rotation.
+		// addExclusion() annotates keys to promote them to permanent when loaded.
+		// The assets in the CacheState that were loaded were already promoted (flushed) before
+		// the first state change. Any remaining pending entries
+		// are from assets that were NEVER loaded (wrong path, missing asset) and will never
+		// be promoted. Accumulating them only makes indexOf() slower on each
+		// subsequent load.
+		if (_pendingExclusions.length > 0) _pendingExclusions = [];
+
 		// _modPathCache se conserva entre sesiones: el mod activo no cambia al
 		// rotar state, así que las entradas siguen siendo válidas y reutilizarlas
 		// evita re-llamar ModManager.resolveInMod para cada asset en la nueva sesión.
@@ -383,8 +392,8 @@ class PathsCache
 	}
 
 	/**
-	 * Si _currentGraphics supera maxGraphics, evicta las entradas más antiguas.
-	 * Solo evicta gráficos sin referencias activas (useCount == 0, no persist, no permanent).
+	 * If _currentGraphics exceeds maxGraphics, evict the oldest entries.
+	 * Only evict charts without active references (useCount == 0, not permanent).
 	 */
 	function _evictIfNeeded():Void
 	{
@@ -396,13 +405,12 @@ class PathsCache
 			final k = _lruOrder[i];
 			if (_permanentGraphics.exists(k)) { i++; continue; }
 			final g = _currentGraphics.get(k);
-			if (g != null && g.useCount <= 0 && !g.persist)
+			if (g != null && g.useCount <= 0)
 			{
 				_currentGraphics.remove(k);
 				_lruOrder.splice(i, 1);
 				_graphicCount--;
 				evicted++;
-				// No destruir aquí — FunkinCache.clearSecondLayer() lo hará seguro
 			}
 			else i++;
 		}
@@ -1093,6 +1101,9 @@ class PathsCache
 	 */
 	public inline function isInCurrentSession(key:String):Bool
 		return _permanentGraphics.exists(key) || _currentGraphics.exists(key);
+
+	public inline function isInCurrentSoundSession(key:String):Bool
+		return _permanentSounds.exists(key) || _currentSounds.exists(key);
 
 	/**
 	 * Devuelve true si la key está marcada como permanente en PathsCache.

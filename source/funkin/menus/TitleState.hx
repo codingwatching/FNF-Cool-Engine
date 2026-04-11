@@ -12,9 +12,9 @@ import flixel.util.FlxTimer;
 import lime.app.Application;
 import funkin.data.Conductor;
 import funkin.states.OutdatedSubState;
-import data.PlayerSettings;
 import ui.Alphabet;
 import funkin.scripting.StateScriptHandler;
+import animationdata.FunkinSprite;
 import funkin.transitions.StateTransition;
 import funkin.audio.MusicManager;
 import haxe.Json;
@@ -75,7 +75,6 @@ class TitleState extends funkin.states.MusicBeatState
 	var blackScreen:FlxSprite;
 	var credGroup:FlxGroup;
 	var textGroup:FlxGroup;
-	var ngSpr:FlxSprite;
 
 	// var curWacky:Array<String> = [];
 	var wackyImage:FlxSprite;
@@ -110,11 +109,7 @@ class TitleState extends funkin.states.MusicBeatState
 
 	override public function create():Void
 	{
-		super.create(); // DEBE ir primero: inicializa cámaras y grupos de Flixel
-
-		// PlayerSettings.init() ya fue llamado en Main.initializeGameSystems()
-		// y en CacheState (eliminado). Llamarlo aquí por tercera vez recrea
-		// controles y lee disco innecesariamente → eliminado.
+		super.create();
 		
 		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.getGraphic('menu/menuBGtitle'));
 		// Escalar para cubrir toda la pantalla (fix 1080p y cualquier resolucion)
@@ -160,43 +155,50 @@ class TitleState extends funkin.states.MusicBeatState
 			];
 		startIntro();
 		#end
+
+		#if HSCRIPT_ALLOWED
+		// Los sprites se crearon en startIntro() DESPUÉS de loadStateScripts(),
+		// así que hay que re-sincronizar los campos del state ahora que ya existen.
+		StateScriptHandler.refreshStateFields(this);
+		StateScriptHandler.callOnScripts('postCreate', []);
+		#end
 	}
 
-	var logoBl:FlxSprite;
-	var gfDance:FlxSprite;
+	var logoBl:FunkinSprite;
+	var gfDance:FunkinSprite;
 	var danceLeft:Bool = false;
-	var titleText:FlxSprite;
+	var titleText:FunkinSprite;
 	var transitioning:Bool = false;
 
 	function startIntro()
 	{
 		persistentUpdate = true;
 
-		logoBl = new FlxSprite(-150, -100);
-		logoBl.frames = Paths.getSparrowAtlas('titlestate/logoBumpin');
+		logoBl = new FunkinSprite(-150, -100);
+		logoBl.loadAsset('titlestate/logoBumpin');
 		logoBl.antialiasing = true;
-		logoBl.animation.addByPrefix('bump', 'logo bumpin', 24);
-		logoBl.animation.play('bump');
+		logoBl.addAnim('bump', 'logo bumpin', 24);
+		logoBl.playAnim('bump');
 		logoBl.updateHitbox();
 		// logoBl.screenCenter();
 		// logoBl.color = FlxColor.BLACK;
 
 		// FlxTween.tween(logoBl, {y: logoBl.y + 50}, 0.6, {ease: FlxEase.quadInOut, type: ONESHOT});
 
-		gfDance = new FlxSprite(FlxG.width * 0.4, FlxG.height * 0.07);
-		gfDance.frames = Paths.getSparrowAtlas('titlestate/gfDanceTitle');
-		gfDance.animation.addByIndices('danceLeft', 'gfDance', [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
-		gfDance.animation.addByIndices('danceRight', 'gfDance', [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
+		gfDance = new FunkinSprite(FlxG.width * 0.4, FlxG.height * 0.07);
+		gfDance.loadAsset('titlestate/gfDanceTitle');
+		gfDance.addAnim('danceLeft', 'gfDance', 24, false,[30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+		gfDance.addAnim('danceRight', 'gfDance', 24, false, [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
 		gfDance.antialiasing = true;
 		add(gfDance);
 		add(logoBl);
 
-		titleText = new FlxSprite(100, FlxG.height * 0.8);
-		titleText.frames = Paths.getSparrowAtlas('titlestate/titleEnter');
-		titleText.animation.addByPrefix('idle', "Press Enter to Begin", 24);
-		titleText.animation.addByPrefix('press', "ENTER PRESSED", 24);
+		titleText = new FunkinSprite(100, FlxG.height * 0.8);
+		titleText.loadAsset('titlestate/titleEnter');
+		titleText.addAnim('idle', "Press Enter to Begin", 24);
+		titleText.addAnim('press', "ENTER PRESSED", 24);
 		titleText.antialiasing = true;
-		titleText.animation.play('idle');
+		titleText.playAnim('idle');
 		titleText.updateHitbox();
 		// titleText.screenCenter(X);
 		add(titleText);
@@ -207,13 +209,6 @@ class TitleState extends funkin.states.MusicBeatState
 
 		blackScreen = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		credGroup.add(blackScreen);
-
-		// ngSpr: logo de Newgrounds — nunca llega a visible = true en el flujo actual,
-		// así que no cargamos la textura para no ocupar RAM. Si en el futuro se necesita,
-		// cambiar a: ngSpr.loadGraphic(Paths.image('titlestate/newgrounds_logo'))
-		ngSpr = new FlxSprite(0, FlxG.height * 0.52);
-		ngSpr.visible = false;
-		add(ngSpr);
 
 		funkin.system.CursorManager.hide();
 
@@ -233,13 +228,6 @@ class TitleState extends funkin.states.MusicBeatState
 			Conductor.changeBPM(titleData != null && titleData.bpm != null ? titleData.bpm : 102);
 			initialized = true;
 		}
-
-		#if HSCRIPT_ALLOWED
-		// Los sprites se crearon en startIntro() DESPUÉS de loadStateScripts(),
-		// así que hay que re-sincronizar los campos del state ahora que ya existen.
-		StateScriptHandler.refreshStateFields(this);
-		StateScriptHandler.callOnScripts('postCreate', []);
-		#end
 	}
 
 	override function update(elapsed:Float)
@@ -285,7 +273,7 @@ class TitleState extends funkin.states.MusicBeatState
 		if (pressedEnter && !transitioning && skippedIntro)
 		{
 			if (titleText != null)
-				titleText.animation.play('press');
+				titleText.playAnim('press');
 
 			if (SaveData.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 1);
@@ -412,13 +400,13 @@ class TitleState extends funkin.states.MusicBeatState
 		StateScriptHandler.callOnScripts('onBeatHit', [curBeat]);
 		#end
 
-		logoBl.animation.play('bump');
+		logoBl.playAnim('bump');
 		danceLeft = !danceLeft;
 
 		if (danceLeft)
-			gfDance.animation.play('danceRight');
+			gfDance.playAnim('danceRight');
 		else
-			gfDance.animation.play('danceLeft');
+			gfDance.playAnim('danceLeft');
 
 		FlxG.log.add(curBeat);
 
@@ -483,7 +471,6 @@ class TitleState extends funkin.states.MusicBeatState
 							addMoreText('Overcharged Dev');
 						case 8:
 							deleteCoolText();
-							ngSpr.visible = false;
 						case 9:
 							_randomIdx = FlxG.random.int(0, _randomLines.length - 1);
 							createCoolText([_randomLines[_randomIdx][0]]);
@@ -506,8 +493,6 @@ class TitleState extends funkin.states.MusicBeatState
 	{
 		if (!skippedIntro)
 		{
-			remove(ngSpr);
-
 			if (SaveData.data.flashing)
 				FlxG.camera.flash(FlxColor.WHITE, 4);
 			remove(credGroup);

@@ -16,6 +16,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import lime.app.Application;
+import animationdata.FunkinSprite;
 import funkin.menus.OptionsMenuState;
 import openfl.display.BitmapData as Bitmap;
 import data.PlayerSettings;
@@ -32,7 +33,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 {
 	var curSelected:Int = 0;
 
-	var menuItems:FlxTypedGroup<FlxSprite>;
+	var menuItems:FlxTypedGroup<FunkinSprite>;
 
 	var optionShit:Array<String> = ['storymode', 'freeplay', 'options', 'credits'];
 
@@ -131,7 +132,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 		FlxG.camera.follow(camFollow, LOCKON, 0.06);
 		FlxG.camera.snapToTarget();
 
-		menuItems = new FlxTypedGroup<FlxSprite>();
+		menuItems = new FlxTypedGroup<FunkinSprite>();
 		add(menuItems);
 
 		// Obtener items custom
@@ -147,11 +148,11 @@ class MainMenuState extends funkin.states.MusicBeatState
 		for (i in 0...optionShit.length)
 		{
 			var offset:Float = 108 - (Math.max(optionShit.length, 4) - 4) * 80;
-			var menuItem:FlxSprite = new FlxSprite(70, (i * 140) + offset);
-			menuItem.frames = Paths.getSparrowAtlas('menu/mainmenu/' + optionShit[i]);
-			menuItem.animation.addByPrefix('idle', optionShit[i] + " idle", 24);
-			menuItem.animation.addByPrefix('selected', optionShit[i] + " selected", 24);
-			menuItem.animation.play('idle');
+			var menuItem:FunkinSprite = new FunkinSprite(70, (i * 140) + offset);
+			menuItem.loadAsset('menu/mainmenu/' + optionShit[i]);
+			menuItem.addAnim('idle', optionShit[i] + " idle", 24);
+			menuItem.addAnim('selected', optionShit[i] + " selected", 24);
+			menuItem.playAnim('idle');
 			menuItem.ID = i;
 			// menuItem.screenCenter(X);
 			menuItems.add(menuItem);
@@ -288,7 +289,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 				if (SaveData.data.flashing)
 					FlxG.camera.flash(FlxColor.WHITE);
 
-				menuItems.forEach(function(spr:FlxSprite)
+				menuItems.forEach(function(spr:FunkinSprite)
 				{
 					if (curSelected != spr.ID)
 					{
@@ -302,7 +303,7 @@ class MainMenuState extends funkin.states.MusicBeatState
 					}
 					else
 					{
-						menuItems.forEach(function(spr:FlxSprite)
+						menuItems.forEach(function(spr:FunkinSprite)
 						{
 							FlxFlicker.flicker(spr, 1, 0.06, false, false, function(flick:FlxFlicker)
 							{
@@ -342,15 +343,15 @@ class MainMenuState extends funkin.states.MusicBeatState
 		if (curSelected < 0)
 			curSelected = menuItems.length - 1;
 
-		menuItems.forEach(function(spr:FlxSprite)
+		menuItems.forEach(function(spr:FunkinSprite)
 		{
-			spr.animation.play('idle');
+			spr.playAnim('idle');
 			spr.offset.y = 0;
 			spr.updateHitbox();
 
 			if (spr.ID == curSelected)
 			{
-				spr.animation.play('selected');
+				spr.playAnim('selected');
 				camFollow.setPosition(spr.getGraphicMidpoint().x, spr.getGraphicMidpoint().y);
 				spr.offset.x = 0.15 * (spr.frameWidth / 2 + 180);
 				spr.offset.y = 0.15 * spr.frameHeight;
