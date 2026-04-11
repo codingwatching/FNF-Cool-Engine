@@ -4,8 +4,8 @@
 		46.6666672091937
 	],
 	"gfPosition": [
-		400,
-		130
+		402,
+		96
 	],
 	"gfVersion": "gf",
 	"isPixelStage": false,
@@ -111,12 +111,78 @@
 			"active": false
 		},
 		{
+			"asset": "",
+			"zIndex": 0,
+			"position": [
+				0,
+				0
+			],
+			"scale": [
+				1,
+				1
+			],
+			"type": "character",
+			"visible": true,
+			"name": "char_gf",
+			"charSlot": "gf",
+			"scrollFactor": [
+				1,
+				1
+			],
+			"antialiasing": true,
+			"alpha": 1
+		},
+		{
+			"asset": "",
+			"zIndex": 0,
+			"position": [
+				0,
+				0
+			],
+			"scale": [
+				1,
+				1
+			],
+			"type": "character",
+			"visible": true,
+			"name": "char_dad",
+			"charSlot": "dad",
+			"scrollFactor": [
+				1,
+				1
+			],
+			"antialiasing": true,
+			"alpha": 1
+		},
+		{
+			"asset": "",
+			"zIndex": 0,
+			"position": [
+				0,
+				0
+			],
+			"scale": [
+				1,
+				1
+			],
+			"type": "character",
+			"visible": true,
+			"name": "char_bf",
+			"charSlot": "bf",
+			"scrollFactor": [
+				1,
+				1
+			],
+			"antialiasing": true,
+			"alpha": 1
+		},
+		{
 			"aboveChars": true,
 			"asset": "stagecurtains",
 			"zIndex": 2,
 			"position": [
-				-500.000043683472,
-				-300.00000635396
+				-508.000043683472,
+				-296.00000635396
 			],
 			"type": "sprite",
 			"scale": [

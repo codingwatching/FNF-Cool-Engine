@@ -12,6 +12,7 @@ import data.PlayerSettings;
 import funkin.states.LoadingState;
 import funkin.graphics.shaders.ShaderManager;
 import funkin.scripting.ScriptHandler;
+import openfl.utils.Assets as OpenFlAssets;
 
 using StringTools;
 
@@ -29,6 +30,11 @@ class CacheState extends funkin.states.MusicBeatState
 
     var loadingComplete:Bool = false;
     var barMaxWidth:Float = 0;
+
+    // Bloquea el procesamiento del siguiente asset hasta que el async actual termine.
+    // Sin esto, update() podría lanzar varios loadBitmapData/loadSound en paralelo,
+    // saturando la RAM y bloqueando el hilo GL igualmente.
+    var _asyncPending:Bool = false;
 
     // En Android procesar 1 asset por frame para no bloquear el hilo principal.
     // Cargar 8 a la vez (comportamiento desktop) congela el render loop en móvil
@@ -137,10 +143,32 @@ class CacheState extends funkin.states.MusicBeatState
 
         if (loadingComplete) return;
 
+        // En mobile, esperar a que el async del frame anterior termine
+        // antes de lanzar el siguiente. Sin este guard, un frame con
+        // loadBitmapData en vuelo lanzaría otro idéntico el frame siguiente.
+        if (_asyncPending) return;
+
         // Procesar hasta ASSETS_PER_FRAME assets por frame
         var processed = 0;
         while (processed < ASSETS_PER_FRAME && currentAssetIndex < totalAssets)
         {
+            #if (android || mobileC || ios)
+            // En móvil, IMAGE y MUSIC se cargan de forma ASÍNCRONA para no
+            // bloquear el hilo GL. La función lanza el Future y sale; el callback
+            // incrementa currentAssetIndex y limpia _asyncPending cuando termina.
+            var asset = assetsToCache[currentAssetIndex];
+            if (asset.type == IMAGE || asset.type == MUSIC)
+            {
+                _asyncPending = true;
+                _cacheAssetAsync(asset, function()
+                {
+                    currentAssetIndex++;
+                    _asyncPending = false;
+                });
+                break; // salir del while; update() volverá el próximo frame
+            }
+            #end
+
             cacheAsset(assetsToCache[currentAssetIndex]);
             currentAssetIndex++;
             processed++;
@@ -153,7 +181,7 @@ class CacheState extends funkin.states.MusicBeatState
         loadingBar.updateHitbox();
         loadingPercentage.text = Math.floor(pct * 100) + "%";
 
-        if (currentAssetIndex >= totalAssets)
+        if (currentAssetIndex >= totalAssets && !_asyncPending)
             completeLoading();
     }
 
@@ -204,6 +232,74 @@ class CacheState extends funkin.states.MusicBeatState
         }
         catch (_:Dynamic) {}
     }
+
+    #if (android || mobileC || ios)
+    /**
+     * Versión asíncrona de cacheAsset() para IMAGE y MUSIC en móvil.
+     *
+     * openfl.utils.Assets.loadBitmapData() / loadSound() usan el sistema
+     * de Futures de Lime, que resuelve la carga en un hilo de fondo (nativo)
+     * y despacha el resultado al hilo principal cuando termina. De este modo
+     * el hilo GL nunca se bloquea más de 1 frame, independientemente del
+     * tamaño del asset.
+     *
+     * El callback `onDone` debe ser llamado SIEMPRE (incluso en error) para
+     * que la barra de progreso avance y el juego no se quede bloqueado para
+     * siempre esperando un Future que nunca resolvió.
+     */
+    function _cacheAssetAsync(asset:AssetInfo, onDone:Void->Void):Void
+    {
+        switch (asset.type)
+        {
+            case IMAGE:
+                final path = Paths.image(asset.path);
+                if (Paths.cache.hasValidGraphic(path))
+                {
+                    // Ya en caché (e.g. segundo intento): saltar sin I/O
+                    if (asset.permanent) Paths.cache.addExclusion(path);
+                    onDone();
+                    return;
+                }
+                OpenFlAssets.loadBitmapData(path)
+                    .onComplete(function(bmp:openfl.display.BitmapData)
+                    {
+                        if (bmp != null)
+                        {
+                            // Registrar en PathsCache usando la misma ruta que getGraphic()
+                            Paths.cache.getGraphic(path, bmp, true);
+                            if (asset.permanent) Paths.cache.addExclusion(path);
+                        }
+                        onDone();
+                    })
+                    .onError(function(_) { onDone(); });
+
+            case MUSIC:
+                final path = Paths.music(asset.path);
+                if (Paths.cache.hasSound(path))
+                {
+                    if (asset.permanent) Paths.cache.addExclusion(path);
+                    onDone();
+                    return;
+                }
+                OpenFlAssets.loadSound(path)
+                    .onComplete(function(snd:openfl.media.Sound)
+                    {
+                        if (snd != null)
+                        {
+                            Paths.cache.getSound(path, snd);
+                            if (asset.permanent) Paths.cache.addExclusion(path);
+                        }
+                        onDone();
+                    })
+                    .onError(function(_) { onDone(); });
+
+            default:
+                // SOUND y SCRIPTS: síncrono (son rápidos o ya tienen su propio fix)
+                cacheAsset(asset);
+                onDone();
+        }
+    }
+    #end
 
     function completeLoading():Void
     {
@@ -280,7 +376,13 @@ class CacheState extends funkin.states.MusicBeatState
         // NOTE: FlxG.camera.fade removed — it conflicts with StateTransition.
         // The FADE/NONE transition handled by StateTransition is enough.
         // TitleState applies its own intro fade if needed.
-        LoadingState.loadAndSwitchState(new TitleState(), true);
+        // If an intro.json exists (engine or mod), play IntroState first.
+        // IntroState automatically switches to TitleState when it finishes.
+
+        if (!funkin.menus.IntroState.finished && funkin.menus.IntroState.introExists())
+            LoadingState.loadAndSwitchState(new funkin.menus.IntroState(), true);
+        else
+            LoadingState.loadAndSwitchState(new TitleState(), true);
     }
 }
 

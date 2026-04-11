@@ -54,51 +54,73 @@ class PlayerSettings
 			++numPlayers;
 		}
 
-		var numGamepads = FlxG.gamepads.numActiveGamepads;
-		if (numGamepads > 0)
-		{
-			var gamepad = FlxG.gamepads.getByID(0);
-			if (gamepad == null)
-				throw 'Unexpected null gamepad. id:0';
+		// Escaneo inmediato: añadir bindings de gamepad si ya hay mandos conectados.
+		_scanAndAddGamepads();
 
+		FlxG.gamepads.deviceConnected.add(_onGamepadConnected);
+		FlxG.gamepads.deviceDisconnected.add(_onGamepadDisconnected);
+
+		// Escaneo DIFERIDO: SDL puede no haber enumerado todos los gamepads
+		// durante init() (ocurre porque setupGame() se ejecuta antes del primer
+		// frame de OpenFL y el subsistema SDL_JOYSTICK no siempre está listo).
+		// Repetimos el scan a los 5 frames para capturar cualquier mando que
+		// ya estuviera enchufado pero que SDL entregó tarde.
+		var framesLeft:Int = 5;
+		var stage = openfl.Lib.current.stage;
+		var listener:openfl.events.Event->Void = null;
+		listener = function(_:openfl.events.Event):Void
+		{
+			if (--framesLeft > 0) return;
+			stage.removeEventListener(openfl.events.Event.ENTER_FRAME, listener);
+			_scanAndAddGamepads();
+			trace('[PlayerSettings] Deferred gamepad scan done.');
+		};
+		stage.addEventListener(openfl.events.Event.ENTER_FRAME, listener);
+	}
+
+	/**
+	 * Escanea los gamepads activos y añade los bindings por defecto
+	 * si aún no se han configurado. Seguro de llamar múltiples veces.
+	 */
+	static function _scanAndAddGamepads():Void
+	{
+		// addDefaultGamepad() ya usa FlxInputDeviceID.ALL, así que un solo
+		// llamado es suficiente para todos los gamepads conectados.
+		// La guarda interna de addDefaultGamepad() evita duplicados.
+		if (player1 != null && FlxG.gamepads.numActiveGamepads > 0)
+		{
 			player1.controls.addDefaultGamepad(0);
+			trace('[PlayerSettings] Gamepad bindings applied (${FlxG.gamepads.numActiveGamepads} pad(s) active).');
 		}
+	}
 
-		if (numGamepads > 1)
-		{
-			if (player2 == null)
-			{
-				player2 = new PlayerSettings(1, None);
-				++numPlayers;
-			}
+	/**
+	 * Llamado cuando se conecta un mando en caliente.
+	 * addDefaultGamepad() ya usa ALL y tiene guarda contra duplicados,
+	 * así que basta con llamarlo — se ignorará si ya estaba configurado.
+	 */
+	static function _onGamepadConnected(gamepad:flixel.input.gamepad.FlxGamepad):Void
+	{
+		if (player1 != null)
+			player1.controls.addDefaultGamepad(gamepad.id);
+		trace('[PlayerSettings] Gamepad connected: id=${gamepad.id}');
+	}
 
-			var gamepad = FlxG.gamepads.getByID(1);
-			if (gamepad == null)
-				throw 'Unexpected null gamepad. id:0';
-
-			player2.controls.addDefaultGamepad(1);
-		}
-
-		if (numGamepads > 2)
-		{
-			if (gfVersion == null)
-			{
-				gfVersion = new PlayerSettings(2, None);
-				++numPlayers;
-			}
-
-			var gamepad = FlxG.gamepads.getByID(2);
-			if (gamepad == null)
-				throw 'Unexpected null gamepad. id:0';
-
-			gfVersion.controls.addDefaultGamepad(2);
-		}
-
-		// DeviceManager.init();
+	/**
+	 * Llamado cuando se desconecta un mando.
+	 * Como usamos ALL, no quitamos los bindings — siguen disponibles
+	 * para si el jugador vuelve a conectar cualquier mando.
+	 */
+	static function _onGamepadDisconnected(gamepad:flixel.input.gamepad.FlxGamepad):Void
+	{
+		trace('[PlayerSettings] Gamepad disconnected: id=${gamepad.id}');
 	}
 
 	static public function reset()
 	{
+		// Quitar los listeners antes de limpiar el estado para evitar fugas.
+		FlxG.gamepads.deviceConnected.remove(_onGamepadConnected);
+		FlxG.gamepads.deviceDisconnected.remove(_onGamepadDisconnected);
 		player1 = null;
 		player2 = null;
 		gfVersion = null;

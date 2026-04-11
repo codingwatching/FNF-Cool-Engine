@@ -16,6 +16,7 @@ import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.input.keyboard.FlxKey;
 import funkin.data.SaveData;
 
+using StringTools;
 enum abstract Action(String) to String from String
 {
 	var UP = "up";
@@ -104,6 +105,9 @@ class Controls extends FlxActionSet
 
 	public var gamepadsAdded:Array<Int> = [];
 	public var keyboardScheme = KeyboardScheme.None;
+
+	/** Inputs añadidos por loadKeyBinds() via GP: — se limpian antes de recargar. */
+	var _customGPInputs:Array<flixel.input.actions.FlxActionInput> = [];
 
 	public var UP(get, never):Bool;
 
@@ -589,39 +593,114 @@ class Controls extends FlxActionSet
 	public function loadKeyBinds()
 	{
 		removeKeyboard();
+		removeCustomGamepadBinds(); // limpiar bindings GP: anteriores antes de recargar
 		KeyBinds.keyCheck();
 
-		inline bindKeys(Control.UP,    [FlxKey.fromString(SaveData.data.upBind),    FlxKey.UP]);
-		inline bindKeys(Control.DOWN,  [FlxKey.fromString(SaveData.data.downBind),  FlxKey.DOWN]);
-		inline bindKeys(Control.LEFT,  [FlxKey.fromString(SaveData.data.leftBind),  FlxKey.LEFT]);
-		inline bindKeys(Control.RIGHT, [FlxKey.fromString(SaveData.data.rightBind), FlxKey.RIGHT]);
-		inline bindKeys(Control.RESET, [FlxKey.fromString(SaveData.data.killBind)]);
+		// Helper: añade un binding de gamepad y lo registra en _customGPInputs
+		// para que removeCustomGamepadBinds() pueda limpiarlo sin tocar
+		// los bindings por defecto del addDefaultGamepad().
+		function addTrackedGP(ctrl:Control, btnID:FlxGamepadInputID):Void
+		{
+			forEachBound(ctrl, function(action:FlxActionDigital, state:flixel.input.FlxInput.FlxInputState)
+			{
+				var before = action.inputs.length;
+				action.addGamepad(btnID, state, FlxInputDeviceID.ALL);
+				if (action.inputs.length > before)
+					_customGPInputs.push(action.inputs[action.inputs.length - 1]);
+			});
+		}
 
-		// ACCEPT: tecla configurable + fallbacks Z/SPACE/ENTER
-		var acceptKey = FlxKey.fromString(SaveData.data.acceptBind);
-		var acceptKeys = [acceptKey, Z, SPACE];
-		if (acceptKey != ENTER) acceptKeys.push(ENTER);
-		inline bindKeys(Control.ACCEPT, acceptKeys);
+		// Helper: si el valor empieza con "GP:" es un botón de gamepad guardado.
+		inline function resolveKey(raw:String, ctrl:Control, fallbackKeys:Array<FlxKey>)
+		{
+			if (raw != null && raw.startsWith('GP:'))
+			{
+				var btnID = FlxGamepadInputID.fromString(raw.substr(3));
+				if (btnID != FlxGamepadInputID.NONE)
+					addTrackedGP(ctrl, btnID);
+				inline bindKeys(ctrl, fallbackKeys);
+			}
+			else
+			{
+				var key = FlxKey.fromString(raw);
+				var allKeys = fallbackKeys.copy();
+				allKeys.unshift(key);
+				inline bindKeys(ctrl, allKeys);
+			}
+		}
 
-		// BACK: tecla configurable + fallback BACKSPACE/ESCAPE
-		var backKey = FlxKey.fromString(SaveData.data.backBind);
-		var backKeys = [backKey, BACKSPACE];
-		if (backKey != ESCAPE) backKeys.push(ESCAPE);
-		inline bindKeys(Control.BACK, backKeys);
+		resolveKey(SaveData.data.upBind,    Control.UP,    [FlxKey.UP]);
+		resolveKey(SaveData.data.downBind,  Control.DOWN,  [FlxKey.DOWN]);
+		resolveKey(SaveData.data.leftBind,  Control.LEFT,  [FlxKey.LEFT]);
+		resolveKey(SaveData.data.rightBind, Control.RIGHT, [FlxKey.RIGHT]);
+		resolveKey(SaveData.data.killBind,  Control.RESET, []);
 
-		// PAUSE: tecla configurable + fallback ENTER/ESCAPE
-		var pauseKey = FlxKey.fromString(SaveData.data.pauseBind);
-		var pauseKeys = [pauseKey, ENTER, ESCAPE];
-		inline bindKeys(Control.PAUSE, pauseKeys);
+		// ACCEPT
+		if (SaveData.data.acceptBind != null && SaveData.data.acceptBind.startsWith('GP:'))
+		{
+			var btnID = FlxGamepadInputID.fromString(SaveData.data.acceptBind.substr(3));
+			if (btnID != FlxGamepadInputID.NONE) addTrackedGP(Control.ACCEPT, btnID);
+			inline bindKeys(Control.ACCEPT, [Z, SPACE, ENTER]);
+		}
+		else
+		{
+			var acceptKey = FlxKey.fromString(SaveData.data.acceptBind);
+			var acceptKeys = [acceptKey, Z, SPACE];
+			if (acceptKey != ENTER) acceptKeys.push(ENTER);
+			inline bindKeys(Control.ACCEPT, acceptKeys);
+		}
 
-		// SCREENSHOT: tecla configurable + fallback F12
-		var screenshotKey = FlxKey.fromString(SaveData.data.screenshotBind);
-		var screenshotKeys = [screenshotKey, F12];
-		inline bindKeys(Control.SCREENSHOT, screenshotKeys);
+		// BACK
+		if (SaveData.data.backBind != null && SaveData.data.backBind.startsWith('GP:'))
+		{
+			var btnID = FlxGamepadInputID.fromString(SaveData.data.backBind.substr(3));
+			if (btnID != FlxGamepadInputID.NONE) addTrackedGP(Control.BACK, btnID);
+			inline bindKeys(Control.BACK, [BACKSPACE, ESCAPE]);
+		}
+		else
+		{
+			var backKey = FlxKey.fromString(SaveData.data.backBind);
+			var backKeys = [backKey, BACKSPACE];
+			if (backKey != ESCAPE) backKeys.push(ESCAPE);
+			inline bindKeys(Control.BACK, backKeys);
+		}
 
-		// CHEAT: tecla configurable
-		var cheatKey = FlxKey.fromString(SaveData.data.cheatBind);
-		inline bindKeys(Control.CHEAT, [cheatKey]);
+		// PAUSE
+		if (SaveData.data.pauseBind != null && SaveData.data.pauseBind.startsWith('GP:'))
+		{
+			var btnID = FlxGamepadInputID.fromString(SaveData.data.pauseBind.substr(3));
+			if (btnID != FlxGamepadInputID.NONE) addTrackedGP(Control.PAUSE, btnID);
+			inline bindKeys(Control.PAUSE, [ENTER, ESCAPE]);
+		}
+		else
+		{
+			var pauseKey = FlxKey.fromString(SaveData.data.pauseBind);
+			inline bindKeys(Control.PAUSE, [pauseKey, ENTER, ESCAPE]);
+		}
+
+		// SCREENSHOT
+		if (SaveData.data.screenshotBind != null && SaveData.data.screenshotBind.startsWith('GP:'))
+		{
+			var btnID = FlxGamepadInputID.fromString(SaveData.data.screenshotBind.substr(3));
+			if (btnID != FlxGamepadInputID.NONE) addTrackedGP(Control.SCREENSHOT, btnID);
+			inline bindKeys(Control.SCREENSHOT, [F12]);
+		}
+		else
+		{
+			var screenshotKey = FlxKey.fromString(SaveData.data.screenshotBind);
+			inline bindKeys(Control.SCREENSHOT, [screenshotKey, F12]);
+		}
+
+		// CHEAT
+		if (SaveData.data.cheatBind != null && SaveData.data.cheatBind.startsWith('GP:'))
+		{
+			var btnID = FlxGamepadInputID.fromString(SaveData.data.cheatBind.substr(3));
+			if (btnID != FlxGamepadInputID.NONE) addTrackedGP(Control.CHEAT, btnID);
+		}
+		else
+		{
+			inline bindKeys(Control.CHEAT, [FlxKey.fromString(SaveData.data.cheatBind)]);
+		}
 
 		trace('KeyBinds are Load');
 	}
@@ -638,6 +717,19 @@ class Controls extends FlxActionSet
 					action.remove(input);
 			}
 		}
+	}
+
+	/**
+	 * Removes gamepad inputs bound via loadKeyBinds() (GP: custom bindings).
+	 * Uses _customGPInputs to only remove exactly what was added by us,
+	 * leaving the default gamepad bindings (addDefaultGamepad) untouched.
+	 */
+	function removeCustomGamepadBinds():Void
+	{
+		for (action in this.digitalActions)
+			for (input in _customGPInputs)
+				action.remove(input);
+		_customGPInputs = [];
 	}
 
 	public function addGamepad(id:Int, ?buttonMap:Map<Control, Array<FlxGamepadInputID>>):Void
@@ -684,40 +776,37 @@ class Controls extends FlxActionSet
 
 	public function addDefaultGamepad(id):Void
 	{
-		#if !switch
-		// ── Mapping genérico (Xbox / PS4 / PS5 / Switch Pro) ────────────────
-		// En FlxGamepad:  A = Cross(PS) / A(Xbox)   B = Circle(PS) / B(Xbox)
-		//                 X = Square(PS) / X(Xbox)  Y = Triangle(PS) / Y(Xbox)
+		// FIX: usar FlxInputDeviceID.ALL en lugar del id específico del dispositivo.
+		// Algunos controladores (Faceoff Switch, genéricos HID) pueden recibir
+		// un device index diferente de 0 en SDL. Con ALL, cualquier gamepad
+		// conectado dispara los controles del player, sin importar su índice.
 		//
-		// Para gameplay (notas), mapear los botones frontales del gamepad:
-		//   Square/X(Xbox) = LEFT   Cross/A(Xbox) = DOWN
-		//   Circle/B(Xbox) = RIGHT  Triangle/Y(Xbox) = UP
-		//
-		// El D-Pad y stick izquierdo siguen siendo la opción principal para menús.
-		addGamepadLiteral(id, [
-			// Menú / UI
-			Control.ACCEPT => [A, START],
-			Control.BACK   => [B],
-			Control.PAUSE  => [START],
-			Control.SCREENSHOT => [FlxGamepadInputID.BACK, LEFT_STICK_CLICK, RIGHT_STICK_CLICK],
-			Control.CHEAT  => [Y],
-			Control.RESET  => [Y],
+		// Guardamos ALL en gamepadsAdded para que la comprobación de duplicados
+		// funcione: si ya se añadió con ALL, no volvemos a añadir.
+		if (gamepadsAdded.indexOf(FlxInputDeviceID.ALL) != -1)
+			return; // ya configurado — evitar duplicar bindings
 
-			// Notas (gameplay): D-Pad + stick izquierdo + stick derecho + botones frontales
+		#if !switch
+		addGamepadLiteral(FlxInputDeviceID.ALL, [
+			Control.ACCEPT     => [A, START],
+			Control.BACK       => [B],
+			Control.PAUSE      => [START],
+			Control.SCREENSHOT => [FlxGamepadInputID.BACK, LEFT_STICK_CLICK, RIGHT_STICK_CLICK],
+			Control.CHEAT      => [Y],
+			Control.RESET      => [Y],
 			Control.UP    => [DPAD_UP,    LEFT_STICK_DIGITAL_UP,    RIGHT_STICK_DIGITAL_UP,    Y],
 			Control.DOWN  => [DPAD_DOWN,  LEFT_STICK_DIGITAL_DOWN,  RIGHT_STICK_DIGITAL_DOWN,  A],
 			Control.LEFT  => [DPAD_LEFT,  LEFT_STICK_DIGITAL_LEFT,  RIGHT_STICK_DIGITAL_LEFT,  X],
 			Control.RIGHT => [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT, RIGHT_STICK_DIGITAL_RIGHT, B]
 		]);
 		#else
-		addGamepadLiteral(id, [
-			// Switch: A y B intercambiados
-			Control.ACCEPT => [B],
-			Control.BACK   => [A],
-			Control.PAUSE  => [START],
+		addGamepadLiteral(FlxInputDeviceID.ALL, [
+			Control.ACCEPT     => [B],
+			Control.BACK       => [A],
+			Control.PAUSE      => [START],
 			Control.SCREENSHOT => [FlxGamepadInputID.BACK, LEFT_STICK_CLICK, RIGHT_STICK_CLICK],
-			Control.CHEAT  => [X],
-			Control.RESET  => [X],
+			Control.CHEAT      => [X],
+			Control.RESET      => [X],
 			Control.UP    => [DPAD_UP,    LEFT_STICK_DIGITAL_UP,    RIGHT_STICK_DIGITAL_UP,    Y],
 			Control.DOWN  => [DPAD_DOWN,  LEFT_STICK_DIGITAL_DOWN,  RIGHT_STICK_DIGITAL_DOWN,  B],
 			Control.LEFT  => [DPAD_LEFT,  LEFT_STICK_DIGITAL_LEFT,  RIGHT_STICK_DIGITAL_LEFT,  X],

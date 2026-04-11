@@ -53,8 +53,7 @@ using StringTools;
  *
  * Todos los colores se toman de EditorTheme.current.
  */
-class ModSelectorState extends MusicBeatState
-{
+class ModSelectorState extends MusicBeatState {
 	// ─── Layout ───────────────────────────────────────────────────────────────
 	public static inline var LIST_W = 380;
 	public static inline var LIST_ITEM_H = 68;
@@ -137,8 +136,7 @@ class ModSelectorState extends MusicBeatState
 	// create
 	// ─────────────────────────────────────────────────────────────────────────
 
-	override function create()
-	{
+	override function create() {
 		EditorTheme.load();
 		ModManager.init();
 		_mods = ModManager.installedMods.copy();
@@ -160,8 +158,7 @@ class ModSelectorState extends MusicBeatState
 		// Posicionar cursor de lista al mod activo
 		if (ModManager.activeMod != null)
 			for (i in 0..._mods.length)
-				if (_mods[i].id == ModManager.activeMod)
-				{
+				if (_mods[i].id == ModManager.activeMod) {
 					_cur = i;
 					break;
 				}
@@ -178,8 +175,7 @@ class ModSelectorState extends MusicBeatState
 	inline function _sndConfirm():Void
 		FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 
-	function _setupCameras():Void
-	{
+	function _setupCameras():Void {
 		_camBG = new FlxCamera();
 		_camBG.bgColor = EditorTheme.current.bgDark;
 		FlxG.cameras.add(_camBG, false);
@@ -188,8 +184,7 @@ class ModSelectorState extends MusicBeatState
 		FlxG.cameras.add(_camUI, false);
 	}
 
-	function _buildBG():Void
-	{
+	function _buildBG():Void {
 		final T = EditorTheme.current;
 
 		_bg = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, T.bgDark);
@@ -210,14 +205,12 @@ class ModSelectorState extends MusicBeatState
 
 	// ─── Tab Bar ──────────────────────────────────────────────────────────────
 
-	function _buildTabBar():Void
-	{
+	function _buildTabBar():Void {
 		final T = EditorTheme.current;
 		final startX = LIST_W + 4;
 		final tabW = (FlxG.width - startX) / TAB_NAMES.length;
 
-		for (i in 0...TAB_NAMES.length)
-		{
+		for (i in 0...TAB_NAMES.length) {
 			final tx = startX + i * tabW;
 			final lbl = new FlxText(tx, 4, tabW, TAB_NAMES[i]);
 			lbl.setFormat(Paths.font('vcr.ttf'), 14, T.textSecondary, CENTER, OUTLINE, T.bgDark);
@@ -243,8 +236,7 @@ class ModSelectorState extends MusicBeatState
 
 	// ─── Help bar ─────────────────────────────────────────────────────────────
 
-	function _buildHelpBar():Void
-	{
+	function _buildHelpBar():Void {
 		final T = EditorTheme.current;
 
 		// Izquierda: controles del panel de mods
@@ -263,8 +255,7 @@ class ModSelectorState extends MusicBeatState
 		add(title);
 	}
 
-	function _buildStatusMsg():Void
-	{
+	function _buildStatusMsg():Void {
 		_statusMsg = new FlxText(PREVIEW_X + 8, FlxG.height - 62, PREVIEW_W, '');
 		_statusMsg.setFormat(Paths.font('vcr.ttf'), 13, EditorTheme.current.success, LEFT);
 		_statusMsg.scrollFactor.set();
@@ -273,8 +264,7 @@ class ModSelectorState extends MusicBeatState
 		add(_statusMsg);
 	}
 
-	function _showEmptyMessage():Void
-	{
+	function _showEmptyMessage():Void {
 		final msg = new FlxText(16, 80, LIST_W - 32, 'No mods installed.\n\nInstall your mods in\nthe folder mods/\n\n[N] to create a new one.');
 		msg.setFormat(Paths.font('vcr.ttf'), 14, EditorTheme.current.textDim, CENTER);
 		msg.scrollFactor.set();
@@ -286,16 +276,14 @@ class ModSelectorState extends MusicBeatState
 	// Tab MODS
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function _buildModsTab():Void
-	{
+	function _buildModsTab():Void {
 		final T = EditorTheme.current;
 
 		// Lista
 		_itemGroup = new FlxTypedGroup<ModListItem>();
 		_itemGroup.cameras = [_camUI];
 		add(_itemGroup);
-		for (i in 0..._mods.length)
-		{
+		for (i in 0..._mods.length) {
 			final item = new ModListItem(_mods[i], i);
 			item.y = CONTENT_Y + i * (LIST_ITEM_H + 4);
 			_itemGroup.add(item);
@@ -397,8 +385,7 @@ class ModSelectorState extends MusicBeatState
 	// Tab CONFIG
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function _buildConfigTab():Void
-	{
+	function _buildConfigTab():Void {
 		final T = EditorTheme.current;
 		final gc = GlobalConfig.instance;
 		final ix = PREVIEW_X + 12;
@@ -415,8 +402,7 @@ class ModSelectorState extends MusicBeatState
 			{label: 'Note Splash', key: 'noteSplash', value: gc.noteSplash}
 		];
 
-		for (i in 0...defs.length)
-		{
+		for (i in 0...defs.length) {
 			final d = defs[i];
 			final fy = iy + i * 44;
 
@@ -446,8 +432,7 @@ class ModSelectorState extends MusicBeatState
 	// Tab SISTEMA
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function _buildSystemTab():Void
-	{
+	function _buildSystemTab():Void {
 		final T = EditorTheme.current;
 		final ix = PREVIEW_X + 12;
 		final iy = CONTENT_Y + 8;
@@ -462,8 +447,7 @@ class ModSelectorState extends MusicBeatState
 			{label: 'Editor Theme', key: 'theme', value: EditorTheme.current.name.toUpperCase()}
 		];
 
-		for (i in 0...defs.length)
-		{
+		for (i in 0...defs.length) {
 			final d = defs[i];
 			final fy = iy + i * 44;
 
@@ -501,13 +485,11 @@ class ModSelectorState extends MusicBeatState
 	// Tab switching
 	// ─────────────────────────────────────────────────────────────────────────
 
-	function _switchTab(idx:Int, instant:Bool = false):Void
-	{
+	function _switchTab(idx:Int, instant:Bool = false):Void {
 		_curTab = idx;
 		final T = EditorTheme.current;
 
-		for (i in 0...TAB_NAMES.length)
-		{
+		for (i in 0...TAB_NAMES.length) {
 			final active = i == idx;
 			_tabBtns[i].color = active ? T.accent : T.textSecondary;
 			FlxTween.cancelTweensOf(_tabUnderlines[i]);
@@ -533,16 +515,17 @@ class ModSelectorState extends MusicBeatState
 		_infoWebsite.visible = isMods;
 		_infoActive.visible = isMods;
 		_infoStartup.visible = isMods;
-		if (_importBtn != null)    _importBtn.visible    = isMods;
-		if (_importBtnTxt != null) _importBtnTxt.visible = isMods;
+		if (_importBtn != null)
+			_importBtn.visible = isMods;
+		if (_importBtnTxt != null)
+			_importBtnTxt.visible = isMods;
 
 		// Tab CONFIG visibility
 		if (_cfgBar != null)
 			_cfgBar.visible = isConfig;
 		if (_cfgHint != null)
 			_cfgHint.visible = isConfig;
-		for (it in _cfgItems)
-		{
+		for (it in _cfgItems) {
 			it.label.visible = isConfig;
 			it.value.visible = isConfig;
 		}
@@ -554,25 +537,22 @@ class ModSelectorState extends MusicBeatState
 			_sysDescText.visible = isSys;
 		if (_sysHint != null)
 			_sysHint.visible = isSys;
-		for (it in _sysItems)
-		{
+		for (it in _sysItems) {
 			it.label.visible = isSys;
 			it.value.visible = isSys;
 		}
 
-		if (isMods && _mods.length > 0)
-		{
+		if (isMods && _mods.length > 0) {
 			_camUI.scroll.y = _listScrollY;
 			_selectItem(_cur, instant);
 		}
-		if (isConfig)
-		{
+		if (isConfig) {
 			_camUI.scroll.y = 0;
 			_updateCfgCursor();
-			if (_mods.length > 0) _refreshConfigForMod(_mods[_cur]);
+			if (_mods.length > 0)
+				_refreshConfigForMod(_mods[_cur]);
 		}
-		if (isSys)
-		{
+		if (isSys) {
 			_camUI.scroll.y = 0;
 			_updateSysCursor();
 			_updateSysDesc();
@@ -583,40 +563,34 @@ class ModSelectorState extends MusicBeatState
 	// Update
 	// ─────────────────────────────────────────────────────────────────────────
 
-	override function update(elapsed:Float)
-	{
+	override function update(elapsed:Float) {
 		super.update(elapsed);
 
-		if (_inputCooldown > 0)
-		{
+		if (_inputCooldown > 0) {
 			_inputCooldown -= elapsed;
 			return;
 		}
 
 		// Tab keys
-		if (FlxG.keys.justPressed.ONE)
-		{
+		if (FlxG.keys.justPressed.ONE) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_switchTab(0);
 			return;
 		}
-		if (FlxG.keys.justPressed.TWO)
-		{
+		if (FlxG.keys.justPressed.TWO) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_switchTab(1);
 			return;
 		}
-		if (FlxG.keys.justPressed.THREE)
-		{
+		if (FlxG.keys.justPressed.THREE) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_switchTab(2);
 			return;
 		}
-		if (FlxG.keys.justPressed.ESCAPE)
-		{
+		if (FlxG.keys.justPressed.ESCAPE) {
 			_sndConfirm();
 			_goBack();
 			return;
@@ -625,8 +599,7 @@ class ModSelectorState extends MusicBeatState
 		// ── Mouse ────────────────────────────────────────────────────────────
 		_handleMouse();
 
-		switch (_curTab)
-		{
+		switch (_curTab) {
 			case 0:
 				_updateMods(elapsed);
 			case 1:
@@ -636,11 +609,9 @@ class ModSelectorState extends MusicBeatState
 		}
 	}
 
-	function _handleMouse():Void
-	{
+	function _handleMouse():Void {
 		// ── Scroll de rueda en lista ─────────────────────────────────────────
-		if (_curTab == 0 && FlxG.mouse.wheel != 0 && _mods.length > 0)
-		{
+		if (_curTab == 0 && FlxG.mouse.wheel != 0 && _mods.length > 0) {
 			_cur = Std.int(Math.max(0, Math.min(_mods.length - 1, _cur - FlxG.mouse.wheel)));
 			_sndScroll();
 			_selectItem(_cur);
@@ -650,10 +621,8 @@ class ModSelectorState extends MusicBeatState
 			return;
 
 		// ── Click en tabs ────────────────────────────────────────────────────
-		for (i in 0..._tabBtns.length)
-		{
-			if (FlxG.mouse.overlaps(_tabBtns[i], _camUI) && i != _curTab)
-			{
+		for (i in 0..._tabBtns.length) {
+			if (FlxG.mouse.overlaps(_tabBtns[i], _camUI) && i != _curTab) {
 				_sndScroll();
 				_switchTab(i);
 				return;
@@ -661,34 +630,26 @@ class ModSelectorState extends MusicBeatState
 		}
 
 		// ── Tab MODS ─────────────────────────────────────────────────────────
-		if (_curTab == 0)
-		{
+		if (_curTab == 0) {
 			// Botón "⬆ IMPORT MOD"
-			if (_importBtn != null && FlxG.mouse.overlaps(_importBtn, _camUI))
-			{
+			if (_importBtn != null && FlxG.mouse.overlaps(_importBtn, _camUI)) {
 				_sndConfirm();
 				_openImportMod();
 				return;
 			}
 			// Botón "+ NEW MOD"
-			if (_newBtn != null && FlxG.mouse.overlaps(_newBtn, _camUI))
-			{
+			if (_newBtn != null && FlxG.mouse.overlaps(_newBtn, _camUI)) {
 				_sndConfirm();
 				_openCreateMod();
 				return;
 			}
 			// Click en item de lista
-			_itemGroup.forEachAlive(function(item:ModListItem)
-			{
-				if (FlxG.mouse.overlaps(item, _camUI))
-				{
-					if (item.modIndex == _cur)
-					{
+			_itemGroup.forEachAlive(function(item:ModListItem) {
+				if (FlxG.mouse.overlaps(item, _camUI)) {
+					if (item.modIndex == _cur) {
 						_sndConfirm();
 						_activateMod();
-					}
-					else
-					{
+					} else {
 						_sndScroll();
 						_cur = item.modIndex;
 						_selectItem(_cur);
@@ -698,19 +659,13 @@ class ModSelectorState extends MusicBeatState
 		}
 
 		// ── Tab CONFIG ────────────────────────────────────────────────────────
-		if (_curTab == 1)
-		{
-			for (i in 0..._cfgItems.length)
-			{
-				if (FlxG.mouse.overlaps(_cfgItems[i].value, _camUI))
-				{
-					if (i == _cfgCursor)
-					{
+		if (_curTab == 1) {
+			for (i in 0..._cfgItems.length) {
+				if (FlxG.mouse.overlaps(_cfgItems[i].value, _camUI)) {
+					if (i == _cfgCursor) {
 						_sndScroll();
 						_editCfgField();
-					}
-					else
-					{
+					} else {
 						_sndScroll();
 						_cfgCursor = i;
 						_updateCfgCursor();
@@ -721,19 +676,13 @@ class ModSelectorState extends MusicBeatState
 		}
 
 		// ── Tab SYSTEM ────────────────────────────────────────────────────────
-		if (_curTab == 2)
-		{
-			for (i in 0..._sysItems.length)
-			{
-				if (FlxG.mouse.overlaps(_sysItems[i].value, _camUI))
-				{
-					if (i == _sysCursor)
-					{
+		if (_curTab == 2) {
+			for (i in 0..._sysItems.length) {
+				if (FlxG.mouse.overlaps(_sysItems[i].value, _camUI)) {
+					if (i == _sysCursor) {
 						_sndConfirm();
 						_activateSysItem();
-					}
-					else
-					{
+					} else {
 						_sndScroll();
 						_sysCursor = i;
 						_updateSysCursor();
@@ -747,55 +696,41 @@ class ModSelectorState extends MusicBeatState
 
 	// ─── Mods update ─────────────────────────────────────────────────────────
 
-	function _updateMods(elapsed:Float):Void
-	{
-		if (FlxG.keys.justPressed.N)
-		{
+	function _updateMods(elapsed:Float):Void {
+		if (FlxG.keys.justPressed.N) {
 			_openCreateMod();
 			return;
 		}
-		if (FlxG.keys.justPressed.I)
-		{
+		if (FlxG.keys.justPressed.I) {
 			_openImportMod();
 			return;
 		}
 		if (_mods.length == 0)
 			return;
 
-		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W)
-		{
+		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_cur = (_cur - 1 + _mods.length) % _mods.length;
 			_selectItem(_cur);
-		}
-		else if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S)
-		{
+		} else if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_cur = (_cur + 1) % _mods.length;
 			_selectItem(_cur);
-		}
-		else if (FlxG.keys.justPressed.ENTER)
-		{
+		} else if (FlxG.keys.justPressed.ENTER) {
 			_inputCooldown = 0.25;
 			_sndConfirm();
 			_activateMod();
-		}
-		else if (FlxG.keys.justPressed.X || FlxG.keys.justPressed.BACKSPACE)
-		{
+		} else if (FlxG.keys.justPressed.X || FlxG.keys.justPressed.BACKSPACE) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_toggleEnable();
-		}
-		else if (FlxG.keys.justPressed.E)
-		{
+		} else if (FlxG.keys.justPressed.E) {
 			_inputCooldown = 0.2;
 			_sndScroll();
 			_openEditMod(_mods[_cur]);
-		}
-		else if (FlxG.keys.justPressed.F)
-		{
+		} else if (FlxG.keys.justPressed.F) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_toggleStartup();
@@ -803,8 +738,7 @@ class ModSelectorState extends MusicBeatState
 
 		// Scroll suave
 		final vis = Math.floor((FlxG.height - CONTENT_Y - 60) / (LIST_ITEM_H + 4)) - 1;
-		if (_mods.length > vis)
-		{
+		if (_mods.length > vis) {
 			final target = Math.max(0, (_cur - Math.floor(vis * 0.5)) * (LIST_ITEM_H + 4));
 			_listScrollY = FlxMath.lerp(_listScrollY, target, Math.min(elapsed * 10, 1.0));
 			_camUI.scroll.y = _listScrollY;
@@ -813,37 +747,28 @@ class ModSelectorState extends MusicBeatState
 
 	// ─── Config update ────────────────────────────────────────────────────────
 
-	function _updateConfig():Void
-	{
-		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W)
-		{
+	function _updateConfig():Void {
+		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_cfgCursor = (_cfgCursor - 1 + _cfgItems.length) % _cfgItems.length;
 			_updateCfgCursor();
-		}
-		else if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S)
-		{
+		} else if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_cfgCursor = (_cfgCursor + 1) % _cfgItems.length;
 			_updateCfgCursor();
-		}
-		else if (FlxG.keys.justPressed.ENTER)
-		{
+		} else if (FlxG.keys.justPressed.ENTER) {
 			_inputCooldown = 0.2;
 			_sndScroll();
 			_editCfgField();
-		}
-		else if (FlxG.keys.justPressed.F5)
-		{
+		} else if (FlxG.keys.justPressed.F5) {
 			_sndConfirm();
 			_saveCfg();
 		}
 	}
 
-	function _updateCfgCursor():Void
-	{
+	function _updateCfgCursor():Void {
 		final T = EditorTheme.current;
 		final iy = CONTENT_Y + 8;
 		FlxTween.cancelTweensOf(_cfgBar);
@@ -859,55 +784,50 @@ class ModSelectorState extends MusicBeatState
 	 * Así el CONFIG tab siempre muestra la config del mod seleccionado,
 	 * no la del mod activo.
 	 */
-	function _refreshConfigForMod(mod:ModInfo):Void
-	{
+	function _refreshConfigForMod(mod:ModInfo):Void {
 		#if sys
-		var ui         = 'default';
-		var noteSkin   = 'default';
+		var ui = 'default';
+		var noteSkin = 'default';
 		var noteSplash = 'Default';
 
 		// Intentar cargar desde la carpeta del mod seleccionado
 		final modCfgPath = '${mod.folder}/data/config/global.json';
 		final baseCfgPath = 'assets/data/config/global.json';
-		final path = sys.FileSystem.exists(modCfgPath) ? modCfgPath
-		           : sys.FileSystem.exists(baseCfgPath) ? baseCfgPath
-		           : null;
+		final path = sys.FileSystem.exists(modCfgPath) ? modCfgPath : sys.FileSystem.exists(baseCfgPath) ? baseCfgPath : null;
 
-		if (path != null)
-		{
-			try
-			{
+		if (path != null) {
+			try {
 				final d:Dynamic = haxe.Json.parse(sys.io.File.getContent(path));
-				if (d.ui         != null) ui         = Std.string(d.ui);
-				if (d.noteSkin   != null) noteSkin   = Std.string(d.noteSkin);
-				if (d.noteSplash != null) noteSplash = Std.string(d.noteSplash);
-			}
-			catch (_) {}
+				if (d.ui != null)
+					ui = Std.string(d.ui);
+				if (d.noteSkin != null)
+					noteSkin = Std.string(d.noteSkin);
+				if (d.noteSplash != null)
+					noteSplash = Std.string(d.noteSplash);
+			} catch (_) {}
 		}
 
 		for (it in _cfgItems)
-			switch (it.key)
-			{
-				case 'ui':         it.value.text = ui;
-				case 'noteSkin':   it.value.text = noteSkin;
-				case 'noteSplash': it.value.text = noteSplash;
+			switch (it.key) {
+				case 'ui':
+					it.value.text = ui;
+				case 'noteSkin':
+					it.value.text = noteSkin;
+				case 'noteSplash':
+					it.value.text = noteSplash;
 			}
 		#end
 	}
 
-	function _editCfgField():Void
-	{
+	function _editCfgField():Void {
 		final item = _cfgItems[_cfgCursor];
 		openSubState(new SimpleTextInputSubState('Editing "${item.label.text}"', item.value.text, v -> item.value.text = v, v -> item.value.text = v));
 	}
 
-	function _saveCfg():Void
-	{
+	function _saveCfg():Void {
 		final gc = GlobalConfig.instance;
-		for (it in _cfgItems)
-		{
-			switch (it.key)
-			{
+		for (it in _cfgItems) {
+			switch (it.key) {
 				case 'ui':
 					gc.ui = it.value.text;
 				case 'noteSkin':
@@ -923,40 +843,31 @@ class ModSelectorState extends MusicBeatState
 
 	// ─── System update ────────────────────────────────────────────────────────
 
-	function _updateSystem():Void
-	{
-		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W)
-		{
+	function _updateSystem():Void {
+		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_sysCursor = (_sysCursor - 1 + _sysItems.length) % _sysItems.length;
 			_updateSysCursor();
 			_updateSysDesc();
-		}
-		else if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S)
-		{
+		} else if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S) {
 			_inputCooldown = INPUT_CD;
 			_sndScroll();
 			_sysCursor = (_sysCursor + 1) % _sysItems.length;
 			_updateSysCursor();
 			_updateSysDesc();
-		}
-		else if (FlxG.keys.justPressed.ENTER)
-		{
+		} else if (FlxG.keys.justPressed.ENTER) {
 			_inputCooldown = 0.25;
 			_sndConfirm();
 			_activateSysItem();
-		}
-		else if (FlxG.keys.justPressed.F5)
-		{
+		} else if (FlxG.keys.justPressed.F5) {
 			_sndConfirm();
 			SaveData.flush();
 			_showStatus('✓ Saved.', true);
 		}
 	}
 
-	function _updateSysCursor():Void
-	{
+	function _updateSysCursor():Void {
 		final T = EditorTheme.current;
 		final iy = CONTENT_Y + 8;
 		FlxTween.cancelTweensOf(_sysBar);
@@ -965,25 +876,21 @@ class ModSelectorState extends MusicBeatState
 			_sysItems[i].value.color = i == _sysCursor ? T.accent : T.textPrimary;
 	}
 
-	function _updateSysDesc():Void
-	{
+	function _updateSysDesc():Void {
 		if (_sysDescText == null)
 			return;
 		_sysDescText.text = SYS_DESCS[_sysCursor] ?? '';
 	}
 
-	function _activateSysItem():Void
-	{
+	function _activateSysItem():Void {
 		final item = _sysItems[_sysCursor];
-		switch (item.key)
-		{
+		switch (item.key) {
 			case 'devMode':
 				mods.ModManager.developerMode = !mods.ModManager.developerMode;
 				item.value.text = _devModeStr();
 				_showStatus(mods.ModManager.developerMode ? '⚙ Developer Mode ACTIVATED' : '⚙ Developer Mode desactivated', true);
 			case 'theme':
-				final sub = new ThemePickerSubState(function()
-				{
+				final sub = new ThemePickerSubState(function() {
 					item.value.text = EditorTheme.current.name.toUpperCase();
 					_showStatus('✓ Theme "${EditorTheme.current.name}" applied.', true);
 				});
@@ -994,8 +901,7 @@ class ModSelectorState extends MusicBeatState
 
 	// ─── Mods actions ─────────────────────────────────────────────────────────
 
-	function _selectItem(idx:Int, instant:Bool = false):Void
-	{
+	function _selectItem(idx:Int, instant:Bool = false):Void {
 		if (idx == _prevCur && !instant)
 			return;
 		_prevCur = idx;
@@ -1004,11 +910,11 @@ class ModSelectorState extends MusicBeatState
 		_updateInfo(mod);
 		_loadPreview(mod, instant);
 		// Refrescar CONFIG tab si está visible para mostrar la config de este mod
-		if (_curTab == 1) _refreshConfigForMod(mod);
+		if (_curTab == 1)
+			_refreshConfigForMod(mod);
 	}
 
-	function _updateInfo(mod:ModInfo):Void
-	{
+	function _updateInfo(mod:ModInfo):Void {
 		final T = EditorTheme.current;
 		_infoName.text = mod.name;
 		_infoAuthor.text = mod.author.length > 0 ? 'by ' + mod.author : '';
@@ -1022,17 +928,14 @@ class ModSelectorState extends MusicBeatState
 		_infoStartup.color = T.warning;
 	}
 
-	function _loadPreview(mod:ModInfo, instant:Bool = false):Void
-	{
-		if (_previewTween != null)
-		{
+	function _loadPreview(mod:ModInfo, instant:Bool = false):Void {
+		if (_previewTween != null) {
 			_previewTween.cancel();
 			_previewTween = null;
 		}
 		#if cpp _stopVideo(); #end
 
-		switch (ModManager.previewType(mod.id))
-		{
+		switch (ModManager.previewType(mod.id)) {
 			case VIDEO:
 				_previewImg.alpha = 0;
 				_previewNone.makeGraphic(PREVIEW_W, PREVIEW_H, mod.color | 0xFF000000);
@@ -1048,27 +951,22 @@ class ModSelectorState extends MusicBeatState
 				_previewNone.makeGraphic(PREVIEW_W, PREVIEW_H, mod.color | 0xFF000000);
 				if (instant)
 					_previewNone.alpha = 1;
-				else
-				{
+				else {
 					_previewNone.alpha = 0;
 					_previewTween = FlxTween.tween(_previewNone, {alpha: 1}, 0.3, {ease: FlxEase.quadOut});
 				}
 		}
 	}
 
-	function _loadPreviewImage(mod:ModInfo, instant:Bool):Void
-	{
+	function _loadPreviewImage(mod:ModInfo, instant:Bool):Void {
 		final imgPath = ModManager.previewImage(mod.id);
-		if (imgPath == null)
-		{
+		if (imgPath == null) {
 			_previewImg.alpha = 0;
 			return;
 		}
-		try
-		{
+		try {
 			final bmp = Bitmap.fromFile(imgPath);
-			if (bmp == null)
-			{
+			if (bmp == null) {
 				_previewImg.alpha = 0;
 				return;
 			}
@@ -1081,28 +979,23 @@ class ModSelectorState extends MusicBeatState
 			_previewImg.antialiasing = true;
 			if (instant)
 				_previewImg.alpha = 1;
-			else
-			{
+			else {
 				_previewImg.alpha = 0;
 				_previewTween = FlxTween.tween(_previewImg, {alpha: 1}, 0.35, {ease: FlxEase.quadOut});
 			}
-		}
-		catch (e:Dynamic)
-		{
+		} catch (e:Dynamic) {
 			trace('[ModSelectorState] Preview error: $e');
 			_previewImg.alpha = 0;
 		}
 	}
 
 	#if cpp
-	function _playVideo(path:Null<String>):Void
-	{
-		if (path == null) return;
+	function _playVideo(path:Null<String>):Void {
+		if (path == null)
+			return;
 		_stopVideo();
-		try
-		{
-			if (_videoSprite == null)
-			{
+		try {
+			if (_videoSprite == null) {
 				_videoSprite = new FlxSprite(PREVIEW_X, CONTENT_Y + 4);
 				_videoSprite.cameras = [_camUI];
 				_videoSprite.scrollFactor.set();
@@ -1114,28 +1007,24 @@ class ModSelectorState extends MusicBeatState
 			_videoHandler.playMP4(path, true, true, _videoSprite, false, false);
 
 			// Fade in once we have a frame.
-			new flixel.util.FlxTimer().start(0.4, function(_)
-			{
-				if (_videoSprite != null)
-				{
+			new flixel.util.FlxTimer().start(0.4, function(_) {
+				if (_videoSprite != null) {
 					_videoSprite.setGraphicSize(PREVIEW_W, PREVIEW_H);
 					_videoSprite.updateHitbox();
 					flixel.tweens.FlxTween.tween(_videoSprite, {alpha: 1}, 0.3, {ease: flixel.tweens.FlxEase.quadOut});
 				}
 			});
-		}
-		catch (e:Dynamic)
-		{
+		} catch (e:Dynamic) {
 			trace('[ModSelectorState] Video error: $e');
 		}
 	}
 
-	function _stopVideo():Void
-	{
-		if (_videoHandler != null)
-		{
+	function _stopVideo():Void {
+		if (_videoHandler != null) {
 			_videoHandler.finishCallback = null;
-			try _videoHandler.kill() catch (_:Dynamic) {}
+			try
+				_videoHandler.kill()
+			catch (_:Dynamic) {}
 			_videoHandler = null;
 		}
 		if (_videoSprite != null)
@@ -1143,8 +1032,7 @@ class ModSelectorState extends MusicBeatState
 	}
 	#end
 
-	function _activateMod():Void
-	{
+	function _activateMod():Void {
 		if (_mods.length == 0)
 			return;
 		final mod = _mods[_cur];
@@ -1250,8 +1138,8 @@ class ModSelectorState extends MusicBeatState
 		//     su propio intro (puede tener TitleState scriptado distinto).
 		//     MainMenuState.firstStart / finishedFunnyMove controlan la animación
 		//     de entrada del menú principal — igual, debe resetearse para el nuevo mod.
-		funkin.menus.TitleState.initialized         = false;
-		funkin.menus.MainMenuState.firstStart        = true;
+		funkin.menus.TitleState.initialized = false;
+		funkin.menus.MainMenuState.firstStart = true;
 		funkin.menus.MainMenuState.finishedFunnyMove = false;
 
 		// 16. songInfo estático del FreeplayEditorState.
@@ -1275,14 +1163,12 @@ class ModSelectorState extends MusicBeatState
 		// y luego switchState a CacheState — NO resetGame(), que deja
 		// el estado de plugins en un estado potencialmente inconsistente.
 		funkin.system.CursorManager.hide();
-		_camBG.fade(flixel.util.FlxColor.BLACK, 0.4, false, function()
-		{
+		_camBG.fade(flixel.util.FlxColor.BLACK, 0.4, false, function() {
 			funkin.transitions.StateTransition.switchState(new CacheState());
 		});
 	}
 
-	function _toggleEnable():Void
-	{
+	function _toggleEnable():Void {
 		if (_mods.length == 0)
 			return;
 		ModManager.toggleEnabled(_mods[_cur].id);
@@ -1290,8 +1176,7 @@ class ModSelectorState extends MusicBeatState
 		_itemGroup.forEachAlive(function(it:ModListItem) it.refresh());
 	}
 
-	function _toggleStartup():Void
-	{
+	function _toggleStartup():Void {
 		if (_mods.length == 0)
 			return;
 		final mod = _mods[_cur];
@@ -1303,13 +1188,10 @@ class ModSelectorState extends MusicBeatState
 		_itemGroup.forEachAlive(function(it:ModListItem) it.refresh());
 	}
 
-	function _openEditMod(mod:ModInfo):Void
-	{
-		openSubState(new ModEditSubState(mod, false, function(saved:ModInfo)
-		{
+	function _openEditMod(mod:ModInfo):Void {
+		openSubState(new ModEditSubState(mod, false, function(saved:ModInfo) {
 			for (i in 0..._mods.length)
-				if (_mods[i].id == saved.id)
-				{
+				if (_mods[i].id == saved.id) {
 					_mods[i] = saved;
 					break;
 				}
@@ -1319,18 +1201,15 @@ class ModSelectorState extends MusicBeatState
 		}));
 	}
 
-	function _openImportMod():Void
-	{
+	function _openImportMod():Void {
 		funkin.system.CursorManager.show();
-		openSubState(new ModImportSubState(function()
-		{
+		openSubState(new ModImportSubState(function() {
 			// Refresh mod list after successful import
 			ModManager.init();
 			_mods = ModManager.installedMods.copy();
 			_itemGroup.forEachAlive(function(it:ModListItem) it.kill());
 			_itemGroup.clear();
-			for (i in 0..._mods.length)
-			{
+			for (i in 0..._mods.length) {
 				final item = new ModListItem(_mods[i], i);
 				item.y = CONTENT_Y + i * (LIST_ITEM_H + 4);
 				_itemGroup.add(item);
@@ -1342,8 +1221,7 @@ class ModSelectorState extends MusicBeatState
 		}));
 	}
 
-	function _openCreateMod():Void
-	{
+	function _openCreateMod():Void {
 		funkin.system.CursorManager.show();
 		final empty:ModInfo = {
 			id: '',
@@ -1359,21 +1237,18 @@ class ModSelectorState extends MusicBeatState
 			folder: '',
 			gamebananaid: null
 		};
-		openSubState(new ModEditSubState(empty, true, function(created:ModInfo)
-		{
+		openSubState(new ModEditSubState(empty, true, function(created:ModInfo) {
 			ModManager.init();
 			_mods = ModManager.installedMods.copy();
 			_itemGroup.forEachAlive(function(it:ModListItem) it.kill());
 			_itemGroup.clear();
-			for (i in 0..._mods.length)
-			{
+			for (i in 0..._mods.length) {
 				final item = new ModListItem(_mods[i], i);
 				item.y = CONTENT_Y + i * (LIST_ITEM_H + 4);
 				_itemGroup.add(item);
 			}
 			for (i in 0..._mods.length)
-				if (_mods[i].id == created.id)
-				{
+				if (_mods[i].id == created.id) {
 					_cur = i;
 					break;
 				}
@@ -1391,8 +1266,7 @@ class ModSelectorState extends MusicBeatState
 	inline function _devModeStr():String
 		return mods.ModManager.developerMode ? 'ACTIVATED  ⚙' : 'OFF';
 
-	function _showStatus(msg:String, ok:Bool):Void
-	{
+	function _showStatus(msg:String, ok:Bool):Void {
 		final T = EditorTheme.current;
 		_statusMsg.text = msg;
 		_statusMsg.color = ok ? T.success : T.error;
@@ -1401,14 +1275,12 @@ class ModSelectorState extends MusicBeatState
 		FlxTween.tween(_statusMsg, {alpha: 0}, 0.5, {startDelay: 2.0, ease: FlxEase.quadIn});
 	}
 
-	function _goBack():Void
-	{
+	function _goBack():Void {
 		#if cpp _stopVideo(); #end
 		StateTransition.switchState(new MainMenuState());
 	}
 
-	override function destroy()
-	{
+	override function destroy() {
 		#if cpp _stopVideo(); #end
 		super.destroy();
 	}
@@ -1418,8 +1290,7 @@ class ModSelectorState extends MusicBeatState
 //  ModListItem
 // ═══════════════════════════════════════════════════════════════════════════
 
-class ModListItem extends FlxSprite
-{
+class ModListItem extends FlxSprite {
 	public var modIndex:Int;
 
 	var _mod:ModInfo;
@@ -1433,8 +1304,7 @@ class ModListItem extends FlxSprite
 	static inline var W = ModSelectorState.LIST_W - 16;
 	static inline var H = ModSelectorState.LIST_ITEM_H;
 
-	public function new(mod:ModInfo, index:Int)
-	{
+	public function new(mod:ModInfo, index:Int) {
 		super(8, 0);
 		_mod = mod;
 		modIndex = index;
@@ -1448,19 +1318,15 @@ class ModListItem extends FlxSprite
 		_icon.scrollFactor.set();
 		#if sys
 		final iconP = ModManager.iconPath(mod.id);
-		if (iconP != null)
-		{
+		if (iconP != null) {
 			final bmp = openfl.display.BitmapData.fromFile(iconP);
-			if (bmp != null)
-			{
+			if (bmp != null) {
 				_icon.loadGraphic(flixel.graphics.FlxGraphic.fromBitmapData(bmp));
 				_icon.setGraphicSize(40, 40);
 				_icon.updateHitbox();
-			}
-			else
+			} else
 				_icon = null;
-		}
-		else
+		} else
 			_icon = null;
 		#else
 		_icon = null;
@@ -1484,8 +1350,7 @@ class ModListItem extends FlxSprite
 		_refresh();
 	}
 
-	override public function draw():Void
-	{
+	override public function draw():Void {
 		_dc(_bg);
 		if (_icon != null)
 			_dc(_icon);
@@ -1495,8 +1360,7 @@ class ModListItem extends FlxSprite
 		_dc(_startupDot);
 	}
 
-	inline function _dc(s:flixel.FlxBasic):Void
-	{
+	inline function _dc(s:flixel.FlxBasic):Void {
 		if (s == null || !s.alive || !s.visible)
 			return;
 		final spr = cast(s, flixel.FlxObject);
@@ -1510,8 +1374,7 @@ class ModListItem extends FlxSprite
 		spr.y = oy;
 	}
 
-	public function setSelected(sel:Bool):Void
-	{
+	public function setSelected(sel:Bool):Void {
 		final T = EditorTheme.current;
 		FlxTween.cancelTweensOf(this);
 		FlxTween.tween(this, {alpha: sel ? 1.0 : (ModManager.activeMod == _mod.id ? 0.85 : 0.55)}, 0.15, {ease: FlxEase.quadOut});
@@ -1521,8 +1384,7 @@ class ModListItem extends FlxSprite
 	public function refresh():Void
 		_refresh();
 
-	function _refresh():Void
-	{
+	function _refresh():Void {
 		final T = EditorTheme.current;
 		final en = ModManager.isEnabled(_mod.id);
 		final st = ModManager.startupMod == _mod.id;
@@ -1537,16 +1399,14 @@ class ModListItem extends FlxSprite
 //  SimpleTextInputSubState
 // ═══════════════════════════════════════════════════════════════════════════
 
-class SimpleTextInputSubState extends FlxSubState
-{
+class SimpleTextInputSubState extends FlxSubState {
 	var _title:String;
 	var _text:String;
 	var _onDone:String->Void;
 	var _onChange:String->Void;
 	var _inputTxt:FlxText;
 
-	public function new(title:String, initial:String, onDone:String->Void, ?onChange:String->Void)
-	{
+	public function new(title:String, initial:String, onDone:String->Void, ?onChange:String->Void) {
 		super(0x00000000);
 		_title = title;
 		_text = initial;
@@ -1554,8 +1414,7 @@ class SimpleTextInputSubState extends FlxSubState
 		_onChange = onChange;
 	}
 
-	override function create()
-	{
+	override function create() {
 		// Cámara propia para renderizarse sobre camUI del estado padre
 		final camSub = new flixel.FlxCamera();
 		camSub.bgColor = flixel.util.FlxColor.TRANSPARENT;
@@ -1611,27 +1470,24 @@ class SimpleTextInputSubState extends FlxSubState
 		super.create();
 	}
 
-	function _onLimeTextInput(text:String):Void
-	{
+	function _onLimeTextInput(text:String):Void {
 		_text += text;
 		_inputTxt.text = _text + '|';
-		if (_onChange != null) _onChange(_text);
+		if (_onChange != null)
+			_onChange(_text);
 	}
 
-	function _onKeyDown(e:OflKeyboardEvent):Void
-	{
-		if (e.keyCode == 8 && _text.length > 0)
-		{
+	function _onKeyDown(e:OflKeyboardEvent):Void {
+		if (e.keyCode == 8 && _text.length > 0) {
 			_text = _text.substr(0, _text.length - 1);
 			_inputTxt.text = _text + '|';
-			if (_onChange != null) _onChange(_text);
+			if (_onChange != null)
+				_onChange(_text);
 		}
 	}
 
-	override function destroy()
-	{
-		if (cameras != null && cameras.length > 0)
-		{
+	override function destroy() {
+		if (cameras != null && cameras.length > 0) {
 			final cam = cameras[0];
 			if (cam != null)
 				FlxG.cameras.remove(cam, true);
@@ -1642,17 +1498,14 @@ class SimpleTextInputSubState extends FlxSubState
 		super.destroy();
 	}
 
-	override function update(elapsed:Float)
-	{
+	override function update(elapsed:Float) {
 		super.update(elapsed);
-		if (FlxG.keys.justPressed.ESCAPE)
-		{
+		if (FlxG.keys.justPressed.ESCAPE) {
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 			close();
 			return;
 		}
-		if (FlxG.keys.justPressed.ENTER)
-		{
+		if (FlxG.keys.justPressed.ENTER) {
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 			_onDone(_text);
 			close();
@@ -1661,13 +1514,11 @@ class SimpleTextInputSubState extends FlxSubState
 	}
 
 	// _kc ya no se necesita — se mantiene por compatibilidad si algo lo llama
-	function _kc(key:flixel.input.keyboard.FlxKey, sh:Bool):String
-	{
+	function _kc(key:flixel.input.keyboard.FlxKey, sh:Bool):String {
 		final n = key.toString();
 		if (n.length == 1)
 			return sh ? n.toUpperCase() : n.toLowerCase();
-		return switch (key)
-		{
+		return switch (key) {
 			case SPACE: ' ';
 			case MINUS: sh ? '_' : '-';
 			case PERIOD: sh ? '>' : '.';
@@ -1692,8 +1543,7 @@ class SimpleTextInputSubState extends FlxSubState
 //  ModEditSubState — con colores de EditorTheme
 // ═══════════════════════════════════════════════════════════════════════════
 
-class ModEditSubState extends FlxSubState
-{
+class ModEditSubState extends FlxSubState {
 	var _mod:ModInfo;
 	var _isCreate:Bool;
 	var _onDone:ModInfo->Void;
@@ -1715,16 +1565,14 @@ class ModEditSubState extends FlxSubState
 	var _saveBtn:FlxSprite;
 	var _closeBtn:FlxSprite;
 
-	public function new(mod:ModInfo, isCreate:Bool, onDone:ModInfo->Void)
-	{
+	public function new(mod:ModInfo, isCreate:Bool, onDone:ModInfo->Void) {
 		super(0x00000000);
 		_mod = Reflect.copy(mod);
 		_isCreate = isCreate;
 		_onDone = onDone;
 	}
 
-	override function create()
-	{
+	override function create() {
 		// Cámara propia para renderizarse sobre camUI del estado padre
 		final camSub = new flixel.FlxCamera();
 		camSub.bgColor = flixel.util.FlxColor.TRANSPARENT;
@@ -1785,8 +1633,7 @@ class ModEditSubState extends FlxSubState
 			{label: 'GameBanana ID', key: 'gamebananaid', value: _mod.gamebananaid != null ? Std.string(_mod.gamebananaid) : ''},
 			];
 
-		for (i in 0..._fields.length)
-		{
+		for (i in 0..._fields.length) {
 			final fy = _panelY + 58 + i * 48;
 			final lbl = new FlxText(_panelX + 24, fy + 6, 180, _fields[i].label);
 			lbl.setFormat(Paths.font('vcr.ttf'), 13, T.textDim, RIGHT);
@@ -1851,45 +1698,34 @@ class ModEditSubState extends FlxSubState
 		super.create();
 	}
 
-	override function update(elapsed:Float)
-	{
+	override function update(elapsed:Float) {
 		super.update(elapsed);
-		if (_editMode)
-		{
+		if (_editMode) {
 			_handleTextInput();
 			return;
 		}
 
 		// ── Mouse ─────────────────────────────────────────────────────────────
-		if (FlxG.mouse.justPressed)
-		{
+		if (FlxG.mouse.justPressed) {
 			// Botón SAVE
-			if (_saveBtn != null && FlxG.mouse.overlaps(_saveBtn, cameras[0]))
-			{
+			if (_saveBtn != null && FlxG.mouse.overlaps(_saveBtn, cameras[0])) {
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 				_save();
 			}
 			// Botón CLOSE
-			else if (_closeBtn != null && FlxG.mouse.overlaps(_closeBtn, cameras[0]))
-			{
+			else if (_closeBtn != null && FlxG.mouse.overlaps(_closeBtn, cameras[0])) {
 				funkin.system.CursorManager.show();
 				FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 				close();
 			}
 			// Click en campo — usar value FlxText como hitbox de cada fila
-			else
-			{
-				for (i in 0..._fieldValues.length)
-				{
-					if (FlxG.mouse.overlaps(_fieldValues[i], cameras[0]))
-					{
-						if (i == _curField)
-						{
+			else {
+				for (i in 0..._fieldValues.length) {
+					if (FlxG.mouse.overlaps(_fieldValues[i], cameras[0])) {
+						if (i == _curField) {
 							FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 							_startEdit();
-						}
-						else
-						{
+						} else {
 							FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 							_curField = i;
 							_updateCursor();
@@ -1900,75 +1736,62 @@ class ModEditSubState extends FlxSubState
 			}
 		}
 
-		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W)
-		{
+		if (FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W) {
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 			_changeField(-1);
 		}
-		if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S)
-		{
+		if (FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S) {
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 			_changeField(1);
 		}
-		if (FlxG.keys.justPressed.ENTER)
-		{
+		if (FlxG.keys.justPressed.ENTER) {
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 			_startEdit();
 		}
-		if (FlxG.keys.justPressed.F5)
-		{
+		if (FlxG.keys.justPressed.F5) {
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'));
 			_save();
 		}
-		if (FlxG.keys.justPressed.ESCAPE)
-		{
+		if (FlxG.keys.justPressed.ESCAPE) {
 			funkin.system.CursorManager.show();
 			FlxG.sound.play(Paths.sound('menus/scrollMenu'));
 			close();
 		}
 	}
 
-	function _handleTextInput():Void
-	{
-		if (FlxG.keys.justPressed.ESCAPE)
-		{
+	function _handleTextInput():Void {
+		if (FlxG.keys.justPressed.ESCAPE) {
 			_endEdit(false);
 			return;
 		}
-		if (FlxG.keys.justPressed.ENTER)
-		{
+		if (FlxG.keys.justPressed.ENTER) {
 			_endEdit(true);
 			return;
 		}
 		// La actualización real la hacen _onLimeTextInput / _onKeyDown
 	}
 
-	function _onLimeTextInput(text:String):Void
-	{
+	function _onLimeTextInput(text:String):Void {
 		if (!_editMode)
 			return;
 		_editingText += text;
 		_editText.text = _editingText + '|';
 	}
 
-	function _onKeyDown(e:OflKeyboardEvent):Void
-	{
+	function _onKeyDown(e:OflKeyboardEvent):Void {
 		if (!_editMode)
 			return;
-		if (e.keyCode == 8 && _editingText.length > 0)
-		{
+		if (e.keyCode == 8 && _editingText.length > 0) {
 			_editingText = _editingText.substr(0, _editingText.length - 1);
 			_editText.text = _editingText + '|';
 		}
 	}
 
-	function _kc(key:flixel.input.keyboard.FlxKey, sh:Bool):String
-	{
+	function _kc(key:flixel.input.keyboard.FlxKey, sh:Bool):String {
 		final n = key.toString();
 		if (n.length == 1)
 			return sh ? n.toUpperCase() : n.toLowerCase();
-		return switch (key)
-		{
+		return switch (key) {
 			case SPACE: ' ';
 			case MINUS: sh ? '_' : '-';
 			case PERIOD: sh ? '>' : '.';
@@ -1988,14 +1811,12 @@ class ModEditSubState extends FlxSubState
 		};
 	}
 
-	function _changeField(d:Int):Void
-	{
+	function _changeField(d:Int):Void {
 		_curField = (_curField + d + _fields.length) % _fields.length;
 		_updateCursor();
 	}
 
-	function _updateCursor():Void
-	{
+	function _updateCursor():Void {
 		final T = EditorTheme.current;
 		FlxTween.cancelTweensOf(_cursor);
 		FlxTween.tween(_cursor, {y: _panelY + 58 + _curField * 48 + 8}, 0.12, {ease: FlxEase.expoOut});
@@ -2003,8 +1824,7 @@ class ModEditSubState extends FlxSubState
 			_fieldValues[i].color = i == _curField ? T.accent : T.textPrimary;
 	}
 
-	function _startEdit():Void
-	{
+	function _startEdit():Void {
 		_editingText = _fields[_curField].value;
 		_editMode = true;
 		_editBg.visible = true;
@@ -2013,25 +1833,21 @@ class ModEditSubState extends FlxSubState
 		_hint.text = '  Writing "${_fields[_curField].label}" — [Enter] Apply   [Esc] Cancel';
 	}
 
-	function _endEdit(apply:Bool):Void
-	{
+	function _endEdit(apply:Bool):Void {
 		_editMode = false;
 		_editBg.visible = false;
 		_editText.visible = false;
-		if (apply)
-		{
+		if (apply) {
 			_fields[_curField].value = _editingText;
 			_fieldValues[_curField].text = _editingText;
 		}
 		_hint.text = '[↑↓] Field   [Enter] Edit/Confirm   [Esc] Cancel/Close   [F5] Save';
 	}
 
-	function _save():Void
-	{
+	function _save():Void {
 		final T = EditorTheme.current;
 		for (f in _fields)
-			switch (f.key)
-			{
+			switch (f.key) {
 				case 'id':
 					_mod.id = f.value.trim().toLowerCase().replace(' ', '-');
 				case 'name':
@@ -2051,47 +1867,36 @@ class ModEditSubState extends FlxSubState
 					final p = Std.parseInt(f.value);
 					_mod.priority = p ?? 0;
 				case 'color':
-					try
-					{
+					try {
 						var h = f.value.trim();
 						if (h.startsWith('#'))
 							h = h.substr(1);
 						_mod.color = 0xFF000000 | Std.parseInt('0x$h');
-					}
-					catch (_)
-					{
-					}
+					} catch (_) {}
 			}
 
-		if (_isCreate)
-		{
-			if (_mod.id == '' || _mod.id == null)
-			{
+		if (_isCreate) {
+			if (_mod.id == '' || _mod.id == null) {
 				_hint.text = '⚠  The ID field cannot be empty.';
 				_hint.color = T.error;
 				return;
 			}
 			final c = ModManager.createMod(_mod.id, _mod);
-			if (c == null)
-			{
+			if (c == null) {
 				_hint.text = '⚠  Error: A mod with that ID already exists.';
 				_hint.color = T.error;
 				return;
 			}
 			_onDone(c);
-		}
-		else
-		{
+		} else {
 			ModManager.saveModInfo(_mod);
 			_onDone(_mod);
 		}
 		close();
 	}
 
-	override function destroy()
-	{
-		if (cameras != null && cameras.length > 0)
-		{
+	override function destroy() {
+		if (cameras != null && cameras.length > 0) {
 			final cam = cameras[0];
 			if (cam != null)
 				FlxG.cameras.remove(cam, true);

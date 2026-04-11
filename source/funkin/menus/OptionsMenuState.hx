@@ -9,6 +9,7 @@ import funkin.gameplay.notes.NoteSkinOptions;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.FlxG;
+import flixel.input.gamepad.FlxGamepadInputID;
 import funkin.transitions.StateTransition;
 import flixel.FlxSprite;
 import flixel.FlxSubState;
@@ -27,6 +28,8 @@ import openfl.Lib;
 import funkin.data.SaveData;
 import funkin.shaders.MenuBGShader;
 import funkin.shaders.ScrollingGridShader;
+
+using StringTools;
 
 /**
  * Options Menu - Sistema de tabs integrado con keybinds
@@ -373,6 +376,11 @@ class OptionsMenuState extends MusicBeatSubstate
 		// Detect connected gamepad style once
 		_gamepadStyle = _detectGamepadStyle();
 		_gamepadAtlas = _loadGamepadAtlas(_gamepadStyle);
+
+		// BUGFIX: refrescar iconos/estilo cuando el jugador conecta un mando
+		// en caliente mientras el menú ya está abierto.
+		FlxG.gamepads.deviceConnected.add(_onGamepadConnectedInMenu);
+		FlxG.gamepads.deviceDisconnected.add(_onGamepadDisconnectedInMenu);
 
 		// Load checks Sparrow atlas (PNG + XML required)
 		try
@@ -998,7 +1006,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			var keyIndex = i;
 			currentOptions.push({
 				name: keyBindNames[i],
-				get: function() return keys[keyIndex],
+				get: function() return _displayKey(keys[keyIndex]),
 				toggle: function()
 				{
 					startBinding(keyIndex);
@@ -1945,7 +1953,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		{
 			final opt = currentOptions[curSelected];
 			var changed = false;
-			if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT)
+			if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT || controls.LEFT_P)
 			{
 				if (opt.left != null)
 				{
@@ -1953,7 +1961,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					changed = true;
 				}
 			}
-			if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT)
+			if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT || controls.RIGHT_P)
 			{
 				if (opt.right != null)
 				{
@@ -2007,7 +2015,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		if (categories[curCategory] != 'Controls' && currentOptions.length > 0)
 		{
 			final opt = currentOptions[curSelected];
-			if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT)
+			if (FlxG.keys.justPressed.A || FlxG.keys.justPressed.LEFT || controls.LEFT_P)
 			{
 				if (opt.left != null)
 				{
@@ -2016,7 +2024,7 @@ class OptionsMenuState extends MusicBeatSubstate
 					updateOptionDisplay();
 				}
 			}
-			if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT)
+			if (FlxG.keys.justPressed.D || FlxG.keys.justPressed.RIGHT || controls.RIGHT_P)
 			{
 				if (opt.right != null)
 				{
@@ -2144,7 +2152,7 @@ class OptionsMenuState extends MusicBeatSubstate
 		bindingState = "binding";
 		tempKey = keys[keyIndex];
 
-		bindingIndicator.text = "Press any key for " + keyBindNames[keyIndex] + "...\nESC to cancel";
+		bindingIndicator.text = "Press any key or gamepad button for " + keyBindNames[keyIndex] + "...\nESC to cancel";
 		bindingIndicator.visible = true;
 
 		// Cambiar el valor mostrado a "?"
@@ -2164,7 +2172,43 @@ class OptionsMenuState extends MusicBeatSubstate
 			return;
 		}
 
-		// Esperar cualquier tecla
+		// Detectar botón de gamepad
+		var gamepad = FlxG.gamepads.lastActive;
+		if (gamepad != null)
+		{
+			var gpButton = gamepad.firstJustPressedID();
+			if (gpButton != FlxGamepadInputID.NONE)
+			{
+				// No permitir usar START como bind de dirección/reset (se usa para pausar)
+				var gpName = gpButton.toString();
+				var blocked = (gpName == 'START' && curSelected <= 4);
+				if (!blocked)
+				{
+					// Guardar el gamepad binding: usamos prefijo "GP:" para diferenciarlo
+					keys[curSelected] = 'GP:' + gpName;
+					saveKeyBinds();
+					bindingState = "select";
+					bindingIndicator.visible = false;
+					_rebuildControlsIconAt(curSelected, keys[curSelected]);
+					updateOptionDisplay();
+					FlxG.sound.play(Paths.sound('menus/scrollMenu'), 0.7);
+					if (hasDuplicateKeys())
+						showWarning("Warning: Duplicate keys detected");
+				}
+				else
+				{
+					keys[curSelected] = tempKey;
+					showWarning("Invalid button! Button is blocked.");
+					bindingState = "select";
+					bindingIndicator.visible = false;
+					updateOptionDisplay();
+					FlxG.sound.play(Paths.sound('menus/cancelMenu'));
+				}
+				return;
+			}
+		}
+
+		// Esperar cualquier tecla de teclado
 		if (FlxG.keys.justPressed.ANY)
 		{
 			var pressedKey = FlxG.keys.getIsDown()[0].ID.toString();
@@ -2201,6 +2245,10 @@ class OptionsMenuState extends MusicBeatSubstate
 
 	function isKeyValid(key:String, keyIndex:Int):Bool
 	{
+		// Gamepad bindings (GP: prefix) always valid — no keyboard-reserved restrictions apply
+		if (key != null && key.startsWith('GP:'))
+			return true;
+
 		// SPACE nunca se permite (se usa para UI)
 		if (key == "SPACE")
 			return false;
@@ -2496,7 +2544,7 @@ class OptionsMenuState extends MusicBeatSubstate
 			{
 				if (txt.ID == idx)
 				{
-					txt.text = newKey;
+					txt.text = _displayKey(newKey);
 					txt.visible = true;
 				}
 			});
@@ -2504,6 +2552,39 @@ class OptionsMenuState extends MusicBeatSubstate
 	}
 
 	// ── Gamepad detection ─────────────────────────────────────────────────────
+
+	/**
+	 * Converts an internal key/binding string to a human-readable label.
+	 * "GP:A"        → "🎮 A"
+	 * "GP:DPAD_UP"  → "🎮 D-Up"
+	 * "W"           → "W"
+	 */
+	static function _displayKey(raw:String):String
+	{
+		if (raw == null) return '?';
+		if (!raw.startsWith('GP:')) return raw;
+		var btn = raw.substr(3);
+		// Friendlier names for common buttons
+		btn = switch (btn.toUpperCase())
+		{
+			case 'DPAD_UP':    'D-Up';
+			case 'DPAD_DOWN':  'D-Down';
+			case 'DPAD_LEFT':  'D-Left';
+			case 'DPAD_RIGHT': 'D-Right';
+			case 'LEFT_STICK_DIGITAL_UP':    'LS-Up';
+			case 'LEFT_STICK_DIGITAL_DOWN':  'LS-Down';
+			case 'LEFT_STICK_DIGITAL_LEFT':  'LS-Left';
+			case 'LEFT_STICK_DIGITAL_RIGHT': 'LS-Right';
+			case 'LEFT_STICK_CLICK':  'LS-Click';
+			case 'RIGHT_STICK_CLICK': 'RS-Click';
+			case 'LEFT_SHOULDER':  'LB';
+			case 'RIGHT_SHOULDER': 'RB';
+			case 'LEFT_TRIGGER':   'LT';
+			case 'RIGHT_TRIGGER':  'RT';
+			default: btn;
+		}
+		return '🎮 $btn';
+	}
 
 	/**
 	 * Returns "ps" | "xbox" | "switch" | null based on connected gamepads.
@@ -2570,16 +2651,19 @@ class OptionsMenuState extends MusicBeatSubstate
 	{
 		if (style == null || keyName == null)
 			return null;
-		var k = keyName.toUpperCase();
+		// Strip GP: prefix if present (gamepad binding saved by handleKeyBinding)
+		var raw = keyName.startsWith('GP:') ? keyName.substr(3) : keyName;
+		var k = raw.toUpperCase();
 
 		// D-pad directions — same across all controllers
-		if (k == 'UP')
+		// FlxGamepadInputID.toString() returns "DPAD_UP" etc.
+		if (k == 'UP' || k == 'DPAD_UP')
 			return 'up';
-		if (k == 'DOWN')
+		if (k == 'DOWN' || k == 'DPAD_DOWN')
 			return 'down';
-		if (k == 'LEFT')
+		if (k == 'LEFT' || k == 'DPAD_LEFT')
 			return 'left';
-		if (k == 'RIGHT')
+		if (k == 'RIGHT' || k == 'DPAD_RIGHT')
 			return 'right';
 
 		switch (style)
@@ -2689,7 +2773,40 @@ class OptionsMenuState extends MusicBeatSubstate
 		}
 		_bgMenuShader = null;
 		_gridShader = null;
+
+		// BUGFIX: limpiar listeners de hot-plug
+		FlxG.gamepads.deviceConnected.remove(_onGamepadConnectedInMenu);
+		FlxG.gamepads.deviceDisconnected.remove(_onGamepadDisconnectedInMenu);
+
 		super.destroy();
+	}
+
+	// ── Gamepad hot-plug handlers ─────────────────────────────────────────────
+
+	/**
+	 * Llamado cuando se conecta un mando mientras el menú está abierto.
+	 * Re-detecta el estilo (PS / Xbox / Switch) y recarga el atlas de iconos
+	 * para que los botones mostrados correspondan al mando recién conectado.
+	 */
+	function _onGamepadConnectedInMenu(gamepad:flixel.input.gamepad.FlxGamepad):Void
+	{
+		_gamepadStyle = _detectGamepadStyle();
+		_gamepadAtlas = _loadGamepadAtlas(_gamepadStyle);
+		createOptionTexts(); // reconstruye la lista con los nuevos iconos
+		trace('[OptionsMenu] Gamepad conectado (id=${gamepad.id}), estilo=$_gamepadStyle');
+	}
+
+	/**
+	 * Llamado cuando se desconecta un mando mientras el menú está abierto.
+	 * Si ya no quedan mandos, limpia el estilo y los iconos para volver
+	 * a mostrar las teclas de teclado.
+	 */
+	function _onGamepadDisconnectedInMenu(gamepad:flixel.input.gamepad.FlxGamepad):Void
+	{
+		_gamepadStyle = _detectGamepadStyle(); // null si no queda ninguno
+		_gamepadAtlas = _loadGamepadAtlas(_gamepadStyle);
+		createOptionTexts();
+		trace('[OptionsMenu] Gamepad desconectado (id=${gamepad.id})');
 	}
 }
 

@@ -1,0 +1,12 @@
+{
+  "skipable": false,
+  "defaultFadeIn": 0.4,
+  "defaultFadeOut": 0.4,
+  "slides": [
+    {
+      "type": "video",
+      "asset": "engine_intro",
+      "skipable": false
+    }
+  ]
+}

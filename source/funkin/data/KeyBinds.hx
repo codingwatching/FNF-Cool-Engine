@@ -30,5 +30,6 @@ class KeyBinds
         if (SaveData.data.backBind   == null) SaveData.data.backBind   = "ESCAPE";
         if (SaveData.data.pauseBind  == null) SaveData.data.pauseBind  = "P";
         if (SaveData.data.cheatBind  == null) SaveData.data.cheatBind  = "SEVEN";
+        if (SaveData.data.screenshotBind == null) SaveData.data.screenshotBind = "F12";
     }
 }
