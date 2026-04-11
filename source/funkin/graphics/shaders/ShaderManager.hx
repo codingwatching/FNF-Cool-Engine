@@ -83,10 +83,6 @@ class ShaderManager
 		else
 			enabled = true;
 
-		// FIX (Android/iOS): diferimos TANTO _createCameraShaders() COMO scanShaders()
-		// al siguiente frame. scanShaders() hace FileSystem.exists()+readDirectory()
-		// sobre assets/shaders dentro del APK; en Android eso pasa por JNI y puede
-		// bloquear el hilo GL 1-3 s -> pantalla congelada en "Ready! 100%".
 		#if (mobileC || android || ios)
 		flixel.util.FlxTimer.wait(0, function()
 		{
