@@ -83,16 +83,20 @@ class ShaderManager
 		else
 			enabled = true;
 
-		// En movil diferimos la compilacion GL al siguiente frame para no bloquear
-		// la transicion visible. applyToCamera() es null-safe mientras bloom==null.
+		// FIX (Android/iOS): diferimos TANTO _createCameraShaders() COMO scanShaders()
+		// al siguiente frame. scanShaders() hace FileSystem.exists()+readDirectory()
+		// sobre assets/shaders dentro del APK; en Android eso pasa por JNI y puede
+		// bloquear el hilo GL 1-3 s -> pantalla congelada en "Ready! 100%".
 		#if (mobileC || android || ios)
 		flixel.util.FlxTimer.wait(0, function()
 		{
 			_createCameraShaders();
-			applyToCamera(); // aplicar ahora que bloom ya esta listo
+			applyToCamera();
+			scanShaders(); // FIX: diferido para evitar freeze en "100% Ready!"
 		});
 		#else
 		_createCameraShaders();
+		scanShaders();
 		#end
 
 		if (!_hooked)
@@ -102,9 +106,6 @@ class ShaderManager
 		}
 
 		initialized = true;
-
-		// ── Shaders runtime ───────────────────────────────────────────────────
-		scanShaders();
 
 		final prevCallback = ModManager.onModChanged;
 		ModManager.onModChanged = function(modId:String)
