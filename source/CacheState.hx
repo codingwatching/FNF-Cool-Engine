@@ -112,6 +112,7 @@ class CacheState extends funkin.states.MusicBeatState
             assetsToCache.push({ type: SOUND, path: s });
         #end
 
+        #if (!android && !mobileC && !ios)
         final images:Array<String> = [
             "UI/alphabet",
             "soundtray/volumebox",
@@ -119,6 +120,7 @@ class CacheState extends funkin.states.MusicBeatState
         ];
         for (i in images)
             assetsToCache.push({ type: IMAGE, path: i });
+        #end
     }
 
     override function update(elapsed:Float)
