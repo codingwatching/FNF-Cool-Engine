@@ -1197,6 +1197,43 @@ class PathsCache
 		#end
 	}
 
+	/**
+	 * Versión mobile de flushGPUCache(): libera las copias CPU de los BitmapData
+	 * sin requerir context3D (Stage3D no disponible en OpenGL ES / Android / iOS).
+	 *
+	 * CUÁNDO LLAMAR: después de N frames de render (MusicBeatState usa 10).
+	 * En ese punto todos los sprites visibles ya tuvieron al menos un draw call →
+	 * OpenGL ya llamó glTexImage2D → los pixels CPU son redundantes.
+	 *
+	 * disposeImage() libera lime.graphics.Image (raw RGBA en RAM) conservando
+	 * el handle de textura OpenGL. En unified memory (Android/iOS) esto libera
+	 * la misma cantidad que en desktop porque CPU/GPU comparten la misma RAM física.
+	 *
+	 * NO llamar en PlayState — tiene su propio mecanismo granular por personaje/stage.
+	 */
+	public function flushGPUCacheMobile():Void
+	{
+		#if (android || mobileC || ios)
+		var released = 0;
+		for (k => g in _currentGraphics)
+		{
+			if (g == null || g.bitmap == null) continue;
+			// Nunca liberar permanentes — se reutilizan en cada state sin recarga.
+			if (_permanentGraphics.exists(k)) continue;
+			@:privateAccess
+			if (g.bitmap.image == null) continue; // ya dispuesto
+			try
+			{
+				g.bitmap.disposeImage();
+				released++;
+			}
+			catch (_:Dynamic) {}
+		}
+		if (released > 0)
+			trace('[PathsCache] flushGPUCacheMobile: $released texturas liberadas (copias CPU)');
+		#end
+	}
+
 	/** Limpieza total — alias de destroy() para cambio de mod / reinicio. */
 	public function forceFullClear():Void
 		destroy();

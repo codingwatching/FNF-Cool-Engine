@@ -142,19 +142,46 @@ class MusicBeatState extends CoolUIState
 
 		// GPU caching: liberar RAM de todas las texturas cargadas en este state
 		// que ya fueron subidas a VRAM. Esto reduce RAM en menús (240 MB → mucho menos).
-		// Se hace 5 frames después para garantizar que todas las texturas tuvieron
-		// al menos un draw call antes de disposeImage().
+		// En desktop se hace a los 5 frames; en móvil a los 10 frames (más margen
+		// porque el pipeline de upload de OpenGL ES puede ser más lento en GPUs
+		// Adreno/Mali, y preferimos estar seguros antes de llamar disposeImage()).
 		// PlayState tiene su propio mecanismo más granular — no se doble-flush.
-		#if (desktop && cpp && !hl)
+		//
+		// POR QUÉ TAMBIÉN EN MÓVIL:
+		//   En Android/iOS la GPU comparte la misma RAM física (unified memory).
+		//   Un BitmapData de 2048×2048 RGBA = 16MB en RAM. Después de que OpenGL
+		//   sube la textura (GL.texImage2D en el primer draw), los pixels CPU son
+		//   redundantes — la GPU ya los tiene. disposeImage() libera esos 16MB
+		//   dejando solo el handle de textura GPU. Sin esto, la RAM no baja del
+		//   pico inicial y el sistema mata la app por OOM en dispositivos de 2-3GB.
+		//
+		// POR QUÉ NO context3D EN MÓVIL:
+		//   flushGPUCache() usa FlxG.stage.context3D (Stage3D API) para verificar
+		//   que la textura está en GPU antes de disposeImage(). En Android con
+		//   OpenGL ES, context3D NO es el mismo objeto que en desktop (Stage3D es
+		//   una abstracción de Flash sobre D3D/OpenGL). flushGPUCache() devuelve
+		//   early en móvil. Usamos flushGPUCacheMobile() que llama disposeImage()
+		//   directamente después de N frames — seguro porque tras 10 frames todos
+		//   los sprites visibles ya tuvieron al menos un draw call.
+		#if (cpp && !hl)
 		if (!Std.isOfType(this, funkin.gameplay.PlayState))
 		{
+			#if (desktop)
+			final _flushTarget:Int = 5;
+			#else
+			final _flushTarget:Int = 10;
+			#end
 			var _menuFlushFrames:Int = 0;
 			function _onMenuFlush(_:openfl.events.Event):Void {
-				if (++_menuFlushFrames < 5) return;
+				if (++_menuFlushFrames < _flushTarget) return;
 				FlxG.stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _onMenuFlush);
+				#if desktop
+				// Desktop: usa context3D para verificar upload antes de disposeImage().
 				funkin.cache.PathsCache.instance.flushGPUCache();
-				// OPT: collectMinor = GC leve sin compact() — no causa stutter en menús.
-				// Centralizado en MemoryUtil para consistencia con el resto del engine.
+				#else
+				// Móvil: context3D no disponible — disposeImage() directo tras N frames.
+				funkin.cache.PathsCache.instance.flushGPUCacheMobile();
+				#end
 				funkin.system.MemoryUtil.collectMinor();
 			}
 			FlxG.stage.addEventListener(openfl.events.Event.ENTER_FRAME, _onMenuFlush);

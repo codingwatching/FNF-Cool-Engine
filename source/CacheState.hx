@@ -96,17 +96,19 @@ class CacheState extends funkin.states.MusicBeatState
             "soundtray/Volup", "soundtray/Voldown", "soundtray/VolMAX"
         ];
         for (s in sounds)
-            assetsToCache.push({ type: SOUND, path: s });
+            assetsToCache.push({ type: SOUND, path: s, permanent: true });
         #end
 
         #if (!android && !mobileC && !ios)
+        // permanent:true → estos assets de UI se usan en TODOS los states
+        // (alphabet en FreeplayState, cursor siempre, soundtray siempre).
         final images:Array<String> = [
             "UI/alphabet",
             "soundtray/volumebox",
             "menu/cursor/cursor-default"
         ];
         for (i in images)
-            assetsToCache.push({ type: IMAGE, path: i });
+            assetsToCache.push({ type: IMAGE, path: i, permanent: true });
         #end
 
         #if (android || mobileC || ios)
@@ -117,7 +119,15 @@ class CacheState extends funkin.states.MusicBeatState
             "titlestate/titleEnter"
         ];
         for (i in titleImages)
-            assetsToCache.push({ type: IMAGE, path: i });
+            assetsToCache.push({ type: IMAGE, path: i, permanent: false });
+
+        // freakyMenu: el mayor responsable del spike de RAM (PCM buffer ~50MB).
+        // Se carga aquí 1 frame a la vez. Cuando TitleState.create() llama
+        // MusicManager.playWithFade('freakyMenu'), obtiene un cache hit → sin
+        // decodificación OGG en el hilo principal → sin spike.
+        // permanent:false no importa aquí porque Main.hx ya llama
+        // Paths.addExclusion(Paths.music('freakyMenu')) directamente.
+        assetsToCache.push({ type: MUSIC, path: 'freakyMenu', permanent: false });
         #end
     }
 
@@ -156,13 +166,32 @@ class CacheState extends funkin.states.MusicBeatState
                 case SOUND:
                     final path = Paths.sound(asset.path);
                     final snd = Paths.getSound(path);
-                    if (snd != null)
+                    // Solo marcar permanente si el asset realmente debe sobrevivir
+                    // a todos los cambios de state. Para assets específicos de un
+                    // state (e.g., sonidos de intro que solo usa TitleState),
+                    // permanent:false evita la retención indefinida en _permanentSounds.
+                    if (snd != null && asset.permanent)
                         Paths.cache.addExclusion(path);
 
                 case IMAGE:
                     final path = Paths.image(asset.path);
                     final g = Paths.getGraphic(asset.path);
-                    if (g != null)
+                    // FIX memory leak: solo llamar addExclusion para assets
+                    // genuinamente globales (UI/alphabet, cursor, soundtray).
+                    // Los assets de TitleState (logoBumpin, gfDanceTitle, etc.)
+                    // con permanent:false se pre-calientan aquí para evitar el
+                    // freeze, pero NO se marcan permanentes: se liberan
+                    // normalmente en postStateSwitch cuando el jugador deja TitleState.
+                    if (g != null && asset.permanent)
+                        Paths.cache.addExclusion(path);
+
+                case MUSIC:
+                    // Igual que SOUND pero usando Paths.music() para la ruta.
+                    // Necesario para freakyMenu: su path es assets/music/freakyMenu.ogg,
+                    // no assets/sounds/. Paths.getSound() acepta el path completo.
+                    final path = Paths.music(asset.path);
+                    final snd = Paths.getSound(path);
+                    if (snd != null && asset.permanent)
                         Paths.cache.addExclusion(path);
 
                 case SCRIPTS:
@@ -185,6 +214,9 @@ class CacheState extends funkin.states.MusicBeatState
         #if (android || mobileC || ios)
         FlxG.signals.postStateSwitch.addOnce(function()
         {
+            // postStateSwitch dispara justo después de create() del nuevo state.
+            // Usamos ENTER_FRAME para garantizar que al menos UN render real
+            // ocurrió antes de tocar el GL context con ShaderFilter.
             var stage = openfl.Lib.current.stage;
             var listener:openfl.events.Event->Void = null;
             listener = function(_:openfl.events.Event):Void
@@ -197,6 +229,9 @@ class CacheState extends funkin.states.MusicBeatState
 
         funkin.transitions.StateTransition.setNext('none');
 
+        // Contar 3 ENTER_FRAMEs reales antes del switch para garantizar que
+        // el display mostró "Ready! 100%" con la barra verde.
+        // (Ver explicación completa de por qué no usamos FlxTimer aquí arriba.)
         var framesLeft:Int = 3;
         var stage = openfl.Lib.current.stage;
         var frameListener:openfl.events.Event->Void = null;
@@ -249,6 +284,6 @@ class CacheState extends funkin.states.MusicBeatState
     }
 }
 
-typedef AssetInfo = { var type:AssetType; var path:String; }
+typedef AssetInfo = { var type:AssetType; var path:String; var permanent:Bool; }
 
-enum AssetType { SOUND; IMAGE; SCRIPTS; }
+enum AssetType { SOUND; IMAGE; MUSIC; SCRIPTS; }

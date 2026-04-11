@@ -128,6 +128,10 @@ class FunkinCache extends AssetCache
 				funkin.scripting.ScriptHandler.clearMenuScripts();
 			}
 			catch (_:Dynamic) {}
+
+			#if (android || mobileC || ios)
+			try { MemoryUtil.collectMinor(); } catch (_:Dynamic) {}
+			#end
 		});
 
 		FlxG.signals.postStateSwitch.add(function()
@@ -180,14 +184,9 @@ class FunkinCache extends AssetCache
 			try { lime.utils.Assets.cache.clear('music');  } catch (_:Dynamic) {}
 			#end
 
-			// Major + compact para devolver páginas al OS y reducir MEM_INFO_RESERVED.
-			// FIX freeze en móvil: en Android/iOS el GC es síncrono y puede tardar
-			// 200-500ms, bloqueando el primer frame del nuevo state y causando un freeze
-			// visible. Diferimos 2 frames para que el nuevo state renderice al menos
-			// 1 frame antes de que el GC golpee.
-			// En desktop se mantiene síncrono: el CountDown de PlayState enmascara el stutter.
 			#if (android || mobileC || ios)
-			new flixel.util.FlxTimer().start(0.032, function(_) // ~2 frames a 60fps
+			try { MemoryUtil.collectMinor(); } catch (_:Dynamic) {} // inmediato: libera wrappers rápido
+			new flixel.util.FlxTimer().start(0.13, function(_) // ~8 frames a 60fps
 			{
 				try { MemoryUtil.collectMajor(); } catch (_:Dynamic) {}
 			});

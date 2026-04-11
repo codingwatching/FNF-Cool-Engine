@@ -2,10 +2,6 @@ package funkin.util;
 
 import flixel.FlxG;
 import funkin.data.SaveData;
-// V-Slice usa la extensión `extension-haptics` en lugar de lime.system.System.
-// El flag FEATURE_HAPTICS debe definirse en project.xml cuando se incluya la extensión:
-//   <haxelib name="extension-haptics" if="FEATURE_HAPTICS" />
-//   <define name="FEATURE_HAPTICS" if="mobile" />
 #if FEATURE_HAPTICS
 import extension.haptics.Haptic;
 #end
