@@ -144,7 +144,11 @@ class VSyncAPI
 }
 
 #elseif (cpp && mac)
-
+@:buildXml('
+<target id="haxe">
+    <lib name="-framework OpenGL" if="mac" />
+</target>
+')
 @:headerCode('
 #include <OpenGL/OpenGL.h>
 #ifndef kCGLCPSwapInterval
