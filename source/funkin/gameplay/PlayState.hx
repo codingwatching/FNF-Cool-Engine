@@ -431,6 +431,8 @@ class PlayState extends funkin.states.MusicBeatState
 			ScriptHandler.setOnScripts('author', GameState.listArtist);
 		}
 
+		funkin.ui.SubtitleManager.instance.refreshCamera();
+
 		FlxG.signals.focusLost.add(_onGlobalFocusLost);
 
 		#if (desktop && cpp && !hl)

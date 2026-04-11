@@ -484,6 +484,54 @@ class UIScriptedManager extends FlxGroup
 	function get_iconP2():funkin.gameplay.objects.character.HealthIcon
 		return uiScript?.get('iconP2');
 
+	// ─── External access to the HUD ───────────────────────────────────────────────
+
+	/**
+	 * Returns all variables from the HUD script interpreter.
+	 * ScriptHandler injects them directly into other scripts so that they can write `healthBar.x = ...` without any prefix.
+	 * Only returns the script variables (not those from the API exposed by the engine).
+	 * If the HUD script is not loaded, it returns an empty map.
+	 */
+	public function getScriptVars():Map<String, Dynamic>
+	{
+		if (uiScript == null || uiScript.interp == null)
+			return new Map<String, Dynamic>();
+		return uiScript.interp.variables;
+	}
+
+	/**
+	 * Reads a variable from the HUD script. Returns null if it doesn't exist.
+	 * Usage: uiManager.getVar('healthBar')
+	 */
+	public function getVar(name:String):Dynamic
+		return uiScript?.get(name);
+
+	/**
+	 * Write a variable to the HUD script. 
+	 * Usage: uiManager.setVar('bossName', 'Pico')
+	 */
+	public function setVar(name:String, value:Dynamic):Void
+	{
+		uiScript?.set(name, value);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.set(name, value);
+		#end
+	}
+
+	/**
+	 * Calls a function from the HUD script.
+	 * Usage: uiManager.callFunc('showBossBar', ['Peak', 100])
+	 */
+	public function callFunc(name:String, ?args:Array<Dynamic>):Dynamic
+	{
+		final a = args != null ? args : [];
+		final r = uiScript?.call(name, a);
+		#if (LUA_ALLOWED && linc_luajit)
+		uiLuaScript?.call(name, a);
+		#end
+		return r;
+	}
+
 	// ─── Destrucción ─────────────────────────────────────────────────────────
 
 	override function destroy():Void

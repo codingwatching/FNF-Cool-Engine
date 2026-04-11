@@ -735,6 +735,7 @@ class ScriptHandler
 	{
 		if (ps == null)
 			return;
+
 		final vars = _buildPlayStateVars(ps);
 		_injectLayerVars(globalScripts, vars);
 		_injectLayerVars(stageScripts, vars);
@@ -742,6 +743,23 @@ class ScriptHandler
 		_injectLayerVars(uiScripts, vars);
 		_injectLayerVars(menuScripts, vars);
 		_injectLayerVars(charScripts, vars);
+
+		// FIX: inyectar todas las variables del HUD script directamente en los
+		// demás scripts, de modo que `healthBar.x = 100` funcione sin prefijo.
+		// getScriptVars() devuelve el Map<String,Dynamic> del intérprete del
+		// HUD script; como los objetos son referencias, cualquier mutación
+		// (sprite.x, texto.text, etc.) afecta al objeto real del HUD.
+		//
+		// Solo se inyectan en song/event/stage/global scripts, NO en uiScripts
+		// (el HUD script ya tiene sus propias variables sin necesitar re-inyectarlas).
+		if (ps.uiManager != null)
+		{
+			final hudVars = ps.uiManager.getScriptVars();
+			_injectLayerVars(globalScripts, hudVars);
+			_injectLayerVars(stageScripts, hudVars);
+			_injectLayerVars(songScripts, hudVars);
+			_injectLayerVars(charScripts, hudVars);
+		}
 	}
 
 	/** Injects a variable only into stage scripts. */

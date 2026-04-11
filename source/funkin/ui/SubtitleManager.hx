@@ -609,25 +609,37 @@ class SubtitleManager
 	{
 		final state = FlxG.state;
 
-		// Si cambiamos de estado, desconectamos del anterior
-		if (_attachedState != null && _attachedState != state)
+		if (_attachedState != null)
 		{
-			try { _attachedState.remove(_bg,   true); } catch(_) {}
-			try { _attachedState.remove(_text, true); } catch(_) {}
+			try { _attachedState.remove(_bg,   false); } catch(_) {}  // false = no destruir
+			try { _attachedState.remove(_text, false); } catch(_) {}
 			_attachedState = null;
 		}
 
-		if (_attachedState == null)
-		{
-			_attachedState = state;
-			state.add(_bg);
-			state.add(_text);
-		}
+		_attachedState = state;
+		state.add(_bg);
+		state.add(_text);
 
 		// Asignar cámara: preferir camHUD del PlayState
 		final cam = _resolveCamera();
 		_bg.cameras   = [cam];
 		_text.cameras = [cam];
+	}
+
+	/**
+	 * Refreshes the camera assigned to the active subtitle sprites.
+	 * Called by PlayState.postCreate() once camHUD already exists,
+	 * correcting the case where show() was called from onCreate()
+	 * before setupCameras() had created camHUD.
+	 */
+	public function refreshCamera():Void
+	{
+		if (_bg == null || (_bg.alpha <= 0 && _text.alpha <= 0)) return;
+		final cam = _resolveCamera();
+		_bg.cameras   = [cam];
+		_text.cameras = [cam];
+		if (_attachedState != null && _attachedState != FlxG.state)
+			_mountSprites();
 	}
 
 	function _removeSprites():Void
