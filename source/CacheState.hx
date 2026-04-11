@@ -108,6 +108,17 @@ class CacheState extends funkin.states.MusicBeatState
         for (i in images)
             assetsToCache.push({ type: IMAGE, path: i });
         #end
+
+        #if (android || mobileC || ios)
+        final titleImages:Array<String> = [
+            "menu/menuBGtitle",       // FlxSprite.loadGraphic en TitleState.create()
+            "titlestate/logoBumpin",  // FunkinSprite.loadAsset → loadSparrow → getGraphic
+            "titlestate/gfDanceTitle",
+            "titlestate/titleEnter"
+        ];
+        for (i in titleImages)
+            assetsToCache.push({ type: IMAGE, path: i });
+        #end
     }
 
     override function update(elapsed:Float)
@@ -172,28 +183,32 @@ class CacheState extends funkin.states.MusicBeatState
         loadingPercentage.text = "100%";
 
         #if (android || mobileC || ios)
-        // FIX freeze at 100% on mobile — two-part fix:
-        //
-        // 1. Init ShaderManager HERE, before the timer chain, so its internal
-        //    FlxTimer.wait(0) fires in the next frame and isn't cancelled by the
-        //    upcoming state switch. Calling it inside goToTitle() was too late:
-        //    the state switch killed the deferred timer before it could run.
-        //
-        // 2. Force transition type NONE for the CacheState→TitleState switch.
-        //    The default FADE tween (0.35s) runs inside CacheState.update() at
-        //    ~1 FPS after heavy loading — that's 300-500ms of perceived freeze.
-        //    Skipping it makes the switch instant. TitleState already fades in
-        //    with its own camera fade if needed.
-        ShaderManager.init();
+        FlxG.signals.postStateSwitch.addOnce(function()
+        {
+            var stage = openfl.Lib.current.stage;
+            var listener:openfl.events.Event->Void = null;
+            listener = function(_:openfl.events.Event):Void
+            {
+                stage.removeEventListener(openfl.events.Event.ENTER_FRAME, listener);
+                ShaderManager.init();
+            };
+            stage.addEventListener(openfl.events.Event.ENTER_FRAME, listener);
+        });
+
         funkin.transitions.StateTransition.setNext('none');
 
-        // Single flat timer — no nested chain needed.
-        // One frame to let the GL command queue flush + 0.5s for the user to
-        // see "Ready! 100%" before we switch state.
-        new FlxTimer().start(0.016, function(_)
+        var framesLeft:Int = 3;
+        var stage = openfl.Lib.current.stage;
+        var frameListener:openfl.events.Event->Void = null;
+        frameListener = function(_:openfl.events.Event):Void
         {
-            new FlxTimer().start(0.5, function(_) { goToTitle(); });
-        });
+            framesLeft--;
+            if (framesLeft > 0) return;
+            stage.removeEventListener(openfl.events.Event.ENTER_FRAME, frameListener);
+            new FlxTimer().start(0.4, function(_) { goToTitle(); });
+        };
+        stage.addEventListener(openfl.events.Event.ENTER_FRAME, frameListener);
+
         #else
         // Desktop: wait 1 frame + 0.3s, play the loaded sound, then switch.
         new FlxTimer().start(0.016, function(_)
@@ -223,9 +238,9 @@ class CacheState extends funkin.states.MusicBeatState
         // Desktop: init ShaderManager here (safe — no state switch pending yet).
         ShaderManager.init();
         #end
-        // Mobile: ShaderManager.init() was already called in completeLoading()
-        // so its internal deferred timer fired BEFORE the state switch.
-        // Calling it again here would restart it and cancel the pending setup.
+        // Mobile: ShaderManager.init() is called via postStateSwitch listener
+        // registered in completeLoading(). Do NOT call it here — the listener
+        // handles it after TitleState.create() is done and GL context is stable.
 
         // NOTE: FlxG.camera.fade removed — it conflicts with StateTransition.
         // The FADE/NONE transition handled by StateTransition is enough.
