@@ -488,7 +488,14 @@ class LoadingState extends funkin.states.MusicBeatState
 			barFill.clipRect = new FlxRect(0, 0, barFullWidth, barFill.clipRect.height);
 		barFill.color = COLOR_END;
 
+		// FIX móvil: 0.15 s es demasiado poco para que el render loop vacíe la cola
+		// de comandos GL y muestre la barra al 100% antes del switch.
+		// En móvil usamos 0.45 s para dar margen visible y evitar el freeze perceptual.
+		#if (android || mobileC || ios)
+		new FlxTimer().start(0.45, function(_) StateTransition.switchState(target));
+		#else
 		new FlxTimer().start(0.15, function(_) StateTransition.switchState(target));
+		#end
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

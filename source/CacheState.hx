@@ -185,22 +185,27 @@ class CacheState extends funkin.states.MusicBeatState
         loadingPercentage.text = "100%";
 
         #if (android || mobileC || ios)
-        // En móvil: 2 frames de margen antes del GC para que el driver GL vacíe la cola.
+        // FIX freeze al 100% en móvil:
+        // NO llamar collectMajor() aquí — es síncrono y bloquea el hilo GL
+        // causando el freeze visible. El GC ya se ejecuta en FunkinCache.postStateSwitch
+        // DESPUÉS del switch, cuando el nuevo state ya tiene al menos 1 frame renderizado.
+        // 3 frames de margen para que el driver GL vacíe la cola de comandos pendientes,
+        // luego 0.5 s para que el usuario vea "100% Ready!" antes de la transición.
         new FlxTimer().start(0.016, function(_)
         {
             new FlxTimer().start(0.016, function(_)
             {
-                funkin.system.MemoryUtil.collectMajor();
-                new FlxTimer().start(0.3, function(_)
+                new FlxTimer().start(0.016, function(_)
                 {
-                    new FlxTimer().start(0.3, function(_) { goToTitle(); });
+                    new FlxTimer().start(0.5, function(_) { goToTitle(); });
                 });
             });
         });
         #else
+        // Desktop: el collectMajor se ejecuta en postStateSwitch, no aquí.
+        // Solo esperamos 1 frame + 0.3 s para el sonido y 0.3 s más para el fade.
         new FlxTimer().start(0.016, function(_)
         {
-            funkin.system.MemoryUtil.collectMajor();
             new FlxTimer().start(0.3, function(_)
             {
                 try { FlxG.sound.play(Paths.sound('menus/cacheLoaded'), 0.7); }

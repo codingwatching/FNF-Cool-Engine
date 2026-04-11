@@ -181,9 +181,19 @@ class FunkinCache extends AssetCache
 			#end
 
 			// Major + compact para devolver páginas al OS y reducir MEM_INFO_RESERVED.
-			// Se llama DESPUÉS del switch (nuevo estado ya activo), no durante gameplay.
-			// Si el nuevo estado es PlayState, el CountDown enmascara el stutter inicial.
+			// FIX freeze en móvil: en Android/iOS el GC es síncrono y puede tardar
+			// 200-500ms, bloqueando el primer frame del nuevo state y causando un freeze
+			// visible. Diferimos 2 frames para que el nuevo state renderice al menos
+			// 1 frame antes de que el GC golpee.
+			// En desktop se mantiene síncrono: el CountDown de PlayState enmascara el stutter.
+			#if (android || mobileC || ios)
+			new flixel.util.FlxTimer().start(0.032, function(_) // ~2 frames a 60fps
+			{
+				try { MemoryUtil.collectMajor(); } catch (_:Dynamic) {}
+			});
+			#else
 			MemoryUtil.collectMajor();
+			#end
 		});
 	}
 
