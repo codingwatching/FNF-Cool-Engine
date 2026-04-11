@@ -403,6 +403,9 @@ class Main extends Sprite
 
 	private function createGame():Void
 	{
+		#if mobileC
+		initialState = TitleState;
+		#end
 		addChild(new FlxGame(gameWidth, gameHeight, initialState, #if (flixel < "5.0.0") zoom, #end framerate, framerate, skipSplash, startFullscreen));
 
 		// Garantizar que el juego siempre arranca en modo ventana,

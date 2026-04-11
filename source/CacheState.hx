@@ -48,19 +48,6 @@ class CacheState extends funkin.states.MusicBeatState
 
         funkin.system.CursorManager.hide();
 
-        // ── Estas llamadas YA ocurrieron en Main.initializeGameSystems() ────
-        // Highscore.load()          → ya llamado en initializeSaveSystem()
-        // KeyBinds.keyCheck()       → ya llamado en initializeGameSystems()
-        // PlayerSettings.init()     → ya llamado en initializeGameSystems()
-        // Llamarlas de nuevo recrea objetos estáticos y re-lee disco sin necesidad,
-        // contribuyendo al RSS elevado al arrancar.
-        // ─────────────────────────────────────────────────────────────────────
-
-        // FIX: 'FPSCap' es un campo obsoleto — el engine ya usa 'fpsTarget'.
-        // CacheState no debe sobreescribir el framerate que Main.initializeFramerate()
-        // configuró correctamente (60fps en Android, 120fps en desktop).
-        // El bloque anterior ponía 240fps por defecto cuando FPSCap era null.
-
         // ── UI ─────────────────────────────────────────────────────────────
         var barBG:FlxSprite = new FlxSprite(0, 500).makeGraphic(FlxG.width - 100, 40, 0xFF333333);
         barBG.screenCenter(X);
