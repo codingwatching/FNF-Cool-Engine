@@ -77,7 +77,7 @@ class CacheState extends funkin.states.MusicBeatState
         // de modo que el render loop tiene garantizado al menos 1 frame renderizado
         // antes de ejecutarlo. El comportamiento lógico es idéntico al anterior:
         // los scripts quedan listos antes de entrar a TitleState.
-        assetsToCache.push({ type: SCRIPTS, path: '' });
+        assetsToCache.push({ type: SCRIPTS, path: '', permanent: false });
 
         totalAssets = assetsToCache.length;
         super.create();
