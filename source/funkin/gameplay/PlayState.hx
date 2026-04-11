@@ -333,6 +333,13 @@ class PlayState extends funkin.states.MusicBeatState
 		lime.app.Application.current.window.onKeyDown.add(_onAndroidKeyDown);
 		#end
 
+		Paths.clearPreviousSession();
+		#if (desktop && cpp && !hl)
+		funkin.cache.PathsCache.instance.flushGPUCache();
+		cpp.vm.Gc.run(true);
+		cpp.vm.Gc.compact();
+		#end
+
 		if (scriptsEnabled)
 		{
 			ScriptHandler.init();
@@ -409,8 +416,6 @@ class PlayState extends funkin.states.MusicBeatState
 
 		startCountdown();
 
-		Paths.clearPreviousSession();
-
 		super.create();
 
 		gameplayTweens = new flixel.tweens.FlxTweenManager();
@@ -435,9 +440,19 @@ class PlayState extends funkin.states.MusicBeatState
 
 		FlxG.signals.focusLost.add(_onGlobalFocusLost);
 
-		#if (desktop && cpp && !hl)
+		// FIX RAM: Activar modo gameplay — límites de caché más estrictos
+		// (30 texturas / 20 sonidos) durante la canción. Restaurar en destroy().
+		funkin.cache.PathsCache.setGameplayMode(true);
+
+		// FIX RAM: Reducido de 3 frames a 1 frame.
+		// 1 frame garantiza que el render loop haya procesado al menos un
+		// draw call (subiendo todos los BitmapData a VRAM). disposeImage()
+		// libera entonces la copia CPU sin riesgo de corrupción.
+		// Extendido de #if (desktop && cpp && !hl) a todos los targets con
+		// context3D (!flash && !html5) para que Android/iOS también libere.
+		#if (!flash && !html5)
 		var _flushFrameCount:Int = 0;
-		final _flushFramesNeeded:Int = 3;
+		final _flushFramesNeeded:Int = 1;
 		FlxG.stage.addEventListener(openfl.events.Event.ENTER_FRAME, function _onFlushFrame(_:openfl.events.Event):Void
 		{
 			_flushFrameCount++;
@@ -445,9 +460,12 @@ class PlayState extends funkin.states.MusicBeatState
 				return;
 			FlxG.stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _onFlushFrame);
 			funkin.cache.PathsCache.instance.flushGPUCache();
+			#if cpp
 			cpp.vm.Gc.run(true);
-			cpp.vm.Gc.compact();
-			trace('[PlayState] GPU flush + GC compact completado tras ${_flushFramesNeeded} frames');
+			try { cpp.vm.Gc.compact(); } catch (_:Dynamic) {}
+			#end
+			#if hl hl.Gc.major(); #end
+			trace('[PlayState] GPU flush + GC completado tras ${_flushFramesNeeded} frame(s)');
 		});
 		#end
 	}
@@ -1039,7 +1057,12 @@ class PlayState extends funkin.states.MusicBeatState
 			babyArrow.x = xPos;
 			if (!isStoryMode){
 				babyArrow.alpha = 0;
-				FlxTween.tween(babyArrow, {alpha: targetAlpha}, 0.5, {startDelay: 0.5 + (0.2 * i)});
+				// FIX: usar gameplayTweens en lugar del manager global para que
+				// el tween se congele al pausar y se limpie con el estado.
+				// gameplayTweens puede ser null si llamamos antes de super.create(),
+				// así que usamos el manager global como fallback seguro.
+				final _mgr = PlayState.gameplayTweens ?? FlxTween.globalManager;
+				_mgr.tween(babyArrow, {alpha: targetAlpha}, 0.5, {startDelay: 0.5 + (0.2 * i)});
 			}
 			babyArrow.animation.play('static');
 			babyArrow.cameras = [camHUD];
@@ -1080,6 +1103,21 @@ class PlayState extends funkin.states.MusicBeatState
 		noteManager.generateNotes(SONG);
 		generatedMusic = true;
 
+		if (SONG.notes != null)
+		{
+			for (section in SONG.notes)
+				if (section != null && section.sectionNotes != null)
+					section.sectionNotes = [];
+		}
+
+		funkin.cache.PathsCache.instance.flushGPUCache();
+		#if cpp
+		cpp.vm.Gc.run(true);
+		try { cpp.vm.Gc.compact(); } catch (_:Dynamic) {}
+		trace('[PlayState] GC forzado post-generateNotes → baseline RAM estabilizado');
+		#end
+		#if hl hl.Gc.major(); #end
+
 		if (!_gcPausedForSong)
 		{
 			_gcPausedForSong = true;
@@ -1087,6 +1125,22 @@ class PlayState extends funkin.states.MusicBeatState
 		}
 
 		_prewarmNoteTextures();
+
+		// FIX RAM: flush CPU copies de las texturas de notes/splashes/holdCovers
+		// cargadas durante el prewarm. Son las últimas texturas que se cargan antes
+		// del inicio de la canción — sin este flush quedan con doble copia (CPU+GPU)
+		// hasta el siguiente flushGPUCache, que no volvería a correr hasta destroy().
+		#if (!flash && !html5)
+		new flixel.util.FlxTimer().start(0, function(_) {
+			funkin.cache.PathsCache.instance.flushGPUCache();
+			#if cpp
+			cpp.vm.Gc.run(true);
+			try { cpp.vm.Gc.compact(); } catch (_:Dynamic) {}
+			#end
+			#if hl hl.Gc.major(); #end
+			trace('[PlayState] GPU flush post-prewarm completado');
+		});
+		#end
 	}
 
 	/**
@@ -1204,70 +1258,81 @@ class PlayState extends funkin.states.MusicBeatState
 		if (skinData.holdTexture != null)
 			NoteSkinSystem.loadSkinFrames(skinData.holdTexture, skinData.folder);
 
-		try
-		{
-			NoteSkinSystem.getSplashTexture();
-		}
-		catch (e:Dynamic)
-		{
-			trace('[PlayState] Warning: could not pre-warm splash texture: $e');
-		}
-
-		if (grpNoteSplashes != null && grpNoteSplashes.length == 0)
+		final splashOn:Bool = funkin.data.GlobalConfig.instance.noteSplashEnabled;
+		if (splashOn)
 		{
 			try
 			{
-				var warmSplash = new NoteSplash();
-				warmSplash.cameras = [camHUD];
-				warmSplash.kill();
-				grpNoteSplashes.add(warmSplash);
+				NoteSkinSystem.getSplashTexture();
 			}
 			catch (e:Dynamic)
 			{
-				trace('[PlayState] Warning: could not pre-warm splash pool: $e');
+				trace('[PlayState] Warning: could not pre-warm splash texture: $e');
 			}
-		}
 
-		var coverColors = ["Purple", "Blue", "Green", "Red"];
-		for (color in coverColors)
-		{
-			try
-			{
-				NoteSkinSystem.getHoldCoverTexture(color);
-			}
-			catch (e:Dynamic)
-			{
-				trace('[PlayState] Warning: could not pre-warm holdCover$color texture: $e');
-			}
-		}
-
-		if (grpHoldCovers != null && grpHoldCovers.length == 0)
-		{
-			for (i in 0...4)
+			if (grpNoteSplashes != null && grpNoteSplashes.length == 0)
 			{
 				try
 				{
-					var warmCover = new NoteHoldCover();
-					warmCover.cameras = [camHUD];
-					warmCover.setup(0, 0, i);
-					warmCover.kill();
-					grpHoldCovers.add(warmCover);
-					if (noteManager?.renderer != null)
-						noteManager.renderer.holdCoverPool.push(warmCover);
+					var warmSplash = new NoteSplash();
+					warmSplash.cameras = [camHUD];
+					warmSplash.kill();
+					grpNoteSplashes.add(warmSplash);
 				}
 				catch (e:Dynamic)
 				{
-					trace('[PlayState] Warning: could not pre-warm holdCover pool dir $i: $e');
+					trace('[PlayState] Warning: could not pre-warm splash pool: $e');
+				}
+			}
+		}
+
+		final holdCoverOn:Bool = funkin.data.GlobalConfig.instance.holdCoverEnabled;
+		if (holdCoverOn)
+		{
+			var coverColors = ["Purple", "Blue", "Green", "Red"];
+			for (color in coverColors)
+			{
+				try
+				{
+					NoteSkinSystem.getHoldCoverTexture(color);
+				}
+				catch (e:Dynamic)
+				{
+					trace('[PlayState] Warning: could not pre-warm holdCover$color texture: $e');
+				}
+			}
+
+			if (grpHoldCovers != null && grpHoldCovers.length == 0)
+			{
+				for (i in 0...4)
+				{
+					try
+					{
+						var warmCover = new NoteHoldCover();
+						warmCover.cameras = [camHUD];
+						warmCover.setup(0, 0, i);
+						warmCover.kill();
+						grpHoldCovers.add(warmCover);
+						if (noteManager?.renderer != null)
+							noteManager.renderer.holdCoverPool.push(warmCover);
+					}
+					catch (e:Dynamic)
+					{
+						trace('[PlayState] Warning: could not pre-warm holdCover pool dir $i: $e');
+					}
 				}
 			}
 		}
 
 		if (noteManager?.renderer != null)
 		{
-			for (cover in grpHoldCovers.members)
-				if (cover != null)
-					noteManager.renderer.registerHoldCoverInPool(cover);
-			noteManager.renderer.prewarmPools(8, 16);
+			if (holdCoverOn)
+			{
+				for (cover in grpHoldCovers.members)
+					if (cover != null)
+						noteManager.renderer.registerHoldCoverInPool(cover);
+			}
+			noteManager.renderer.prewarmPools(4, 8);
 		}
 
 		trace('[PlayState] Note + Splash + HoldCover textures pre-warmed');
@@ -2027,8 +2092,8 @@ class PlayState extends funkin.states.MusicBeatState
 	private var _missSounds:Array<FlxSound> = [];
 	private var _missSoundIdx:Int = 0;
 
-	private static inline var HIT_SOUND_POOL_SIZE:Int = 4;
-	private static inline var MISS_SOUND_POOL_SIZE:Int = 6;
+	private static inline var HIT_SOUND_POOL_SIZE:Int = 2;
+	private static inline var MISS_SOUND_POOL_SIZE:Int = 3;
 
 	private function initHitSoundPool():Void
 	{
@@ -2522,11 +2587,13 @@ class PlayState extends funkin.states.MusicBeatState
 		if (scriptsEnabled)
 			ScriptHandler.callOnScripts('onRestart', ScriptHandler._argsEmpty);
 
-		new flixel.util.FlxTimer().start(0.15, function(_)
-		{
+		// FIX: usar gameplayTimers en lugar de new FlxTimer() bare.
+		// El manager global no se pausa con el gameplay y el timer podría
+		// disparar su callback con el estado ya destruido (crash / UB).
+		// gameplayTimers se limpia en destroy() via FlxG.plugins.remove().
+		final _restartTimer = new flixel.util.FlxTimer(gameplayTimers).start(0.15, function(_) {
 			startCountdown();
 		});
-
 		trace('[PlayState] Rewind restart completado.');
 	}
 
@@ -2718,6 +2785,11 @@ class PlayState extends funkin.states.MusicBeatState
 		cameraController?.destroy();
 		cameraController = null;
 
+		// FIX: characterController nunca se destruía → los CharacterSlots y sus
+		// referencias a Character quedaban vivos en heap tras salir de la canción.
+		characterController?.destroy();
+		characterController = null;
+
 		noteManager?.destroy();
 		noteManager = null;
 
@@ -2816,6 +2888,8 @@ class PlayState extends funkin.states.MusicBeatState
 		StickerTransition.invalidateCache();
 		Paths.clearUnusedMemory();
 		Paths.pruneAtlasCache();
+		
+		funkin.cache.PathsCache.setGameplayMode(false);
 		funkin.cache.PathsCache.instance.flushGPUCache();
 	}
 

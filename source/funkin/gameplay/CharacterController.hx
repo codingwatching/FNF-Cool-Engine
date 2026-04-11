@@ -403,7 +403,8 @@ class CharacterController
 	{
 		for (slot in characterSlots)
 			if (slot != null) slot.destroy();
-		characterSlots = [];
+		characterSlots.resize(0);
+		characterSlots = null;
 		boyfriend = null;
 		dad       = null;
 		gf        = null;

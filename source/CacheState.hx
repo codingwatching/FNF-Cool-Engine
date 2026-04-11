@@ -184,27 +184,31 @@ class CacheState extends funkin.states.MusicBeatState
         loadingText.text = "Ready!";
         loadingPercentage.text = "100%";
 
-        // FIX (Android/iOS): collectMajor() llama Gc.run(true) + Gc.compact()
-        // sincrónicamente en el hilo GL. En móvil puede bloquear 500ms-2s,
-        // congelando la pantalla exactamente al 100% porque el frame "Ready!"
-        // aún no se había renderizado cuando el GC tomaba el hilo.
-        //
-        // Solución: diferir collectMajor() al interior del primer FlxTimer para
-        // que OpenGL pinte al menos un frame con "Ready! / 100%" antes de que
-        // el GC bloquee. El tiempo total de espera sigue siendo ~0.7s.
-        new FlxTimer().start(0.1, function(_)
+        #if (android || mobileC || ios)
+        // En móvil: 2 frames de margen antes del GC para que el driver GL vacíe la cola.
+        new FlxTimer().start(0.016, function(_)
         {
-            // El frame "Ready!" ya se pintó — el GC puede bloquear sin freeze visible.
+            new FlxTimer().start(0.016, function(_)
+            {
+                funkin.system.MemoryUtil.collectMajor();
+                new FlxTimer().start(0.3, function(_)
+                {
+                    new FlxTimer().start(0.3, function(_) { goToTitle(); });
+                });
+            });
+        });
+        #else
+        new FlxTimer().start(0.016, function(_)
+        {
             funkin.system.MemoryUtil.collectMajor();
-
             new FlxTimer().start(0.3, function(_)
             {
                 try { FlxG.sound.play(Paths.sound('menus/cacheLoaded'), 0.7); }
                 catch (_:Dynamic) {}
-
                 new FlxTimer().start(0.3, function(_) { goToTitle(); });
             });
         });
+        #end
     }
 
     function goToTitle():Void
@@ -222,13 +226,7 @@ class CacheState extends funkin.states.MusicBeatState
         funkin.data.EngineSettings.ensureWindowSize();
         #end
 
-        // ── Shaders ────────────────────────────────────────────────────────
-        // init() lee FlxG.save.data.shadersEnabled, registra el hook postStateSwitch
-        // y escanea shaders runtime. En móvil, _createCameraShaders() (la parte lenta,
-        // compilacion GLSL en el driver) se difiere al siguiente frame via FlxTimer
-        // para no bloquear la transicion visible — ver ShaderManager.init().
         ShaderManager.init();
-        ShaderManager.applyMenuPreset();
 
         LoadingState.loadAndSwitchState(new TitleState(), true);
         FlxG.camera.fade(FlxColor.BLACK, 0.8, false);

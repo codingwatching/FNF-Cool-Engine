@@ -62,6 +62,9 @@ class NoteManager
 	private var _rawNoteTypeId: Array<Int>   = [];
 	private var _rawTotal:      Int = 0;  // = _rawStrumTime.length tras el sort
 	private var _unspawnIdx:    Int = 0;
+	/** FIX: referencia al SONG usado en generateNotes(). rewindTo() la necesita para
+	 *  regenerar los arrays crudos desde cero cuando _trimRawArrays() ya compactó datos. */
+	private var _song:Null<funkin.data.Song.SwagSong> = null;
 	/** Tabla de intern de noteType: String → Int ID. 0 = "" / "normal". */
 	private var _noteTypeIndex: Map<String, Int>  = [];
 	private var _noteTypeTable: Array<String>     = [''];  // id 0 = ""
@@ -388,9 +391,9 @@ class NoteManager
 	 */
 	public function _rebuildStrumCache():Void
 	{
-		_playerStrumCache = [];
-		_cpuStrumCache = [];
-		_strumGroupCache = [];
+		_playerStrumCache.clear();
+		_cpuStrumCache.clear();
+		_strumGroupCache.clear();
 
 		if (playerStrums != null)
 			playerStrums.forEach(function(s:FlxSprite)
@@ -432,6 +435,7 @@ class NoteManager
 	 */
 	public function generateNotes(SONG:SwagSong):Void
 	{
+		_song = SONG; // FIX: cache for rewindTo() regeneration
 		_unspawnIdx = 0;
 		_prevSpawnedNote.clear();
 		songSpeed = SONG.speed;
@@ -510,18 +514,17 @@ class NoteManager
 			}
 		}
 
-		// ── Ordenar por strumTime usando índices — sin mover objetos heap ─────
-		// Construimos un array de índices, lo ordenamos, y reordenamos los SOA
-		// en una pasada. Más eficiente que sort sobre objetos para arrays grandes.
 		var _idx:Array<Int> = [for (i in 0..._wi) i];
 		_idx.sort((a, b) -> {
 			var d = _rawStrumTime[a] - _rawStrumTime[b];
 			d < 0 ? -1 : d > 0 ? 1 : 0;
 		});
+
 		var _st2:Array<Float> = []; _st2.resize(_wi);
 		var _pk2:Array<Int>   = []; _pk2.resize(_wi);
 		var _sl2:Array<Float> = []; _sl2.resize(_wi);
 		var _nt2:Array<Int>   = []; _nt2.resize(_wi);
+
 		for (i in 0..._wi)
 		{
 			final si = _idx[i];
@@ -1869,6 +1872,14 @@ class NoteManager
 	 */
 	public function rewindTo(targetTime:Float):Void
 	{
+		// FIX: _trimRawArrays() may have compacted the SOA, discarding early notes.
+		// Regenerating from the cached SONG reference restores the full dataset so
+		// every note (including sustains) is available for re-spawn after rewind.
+		// generateNotes() resets _unspawnIdx, _prevSpawnedNote, and intern tables,
+		// so the state cleanup below remains valid on top of the fresh arrays.
+		if (_song != null)
+			generateNotes(_song);
+
 		// Matar todas las notas vivas en ambos grupos
 		if (sustainNotes != notes)
 		{

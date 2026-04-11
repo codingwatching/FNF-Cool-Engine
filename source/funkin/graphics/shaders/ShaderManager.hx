@@ -211,7 +211,14 @@ class ShaderManager
 
 	static function _onStateSwitch():Void
 	{
-		flixel.util.FlxTimer.wait(0, function() applyToCamera());
+		// FIX: aplicar applyMenuPreset() (que incluye applyToCamera) en lugar de
+		// solo applyToCamera(). Esto garantiza que los parámetros de bloom para
+		// estados de menú (threshold=0.60, intensity=0.50) se restauren después
+		// de cada cambio de estado, incluyendo la primera transición desde CacheState.
+		flixel.util.FlxTimer.wait(0, function() {
+			applyMenuPreset();
+			applyToCamera();
+		});
 	}
 
 

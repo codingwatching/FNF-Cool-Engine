@@ -196,6 +196,17 @@ class ScriptHandler
 	/** Loads scripts for song `songName` from base + mod. */
 	public static function loadSongScripts(songName:String):Void
 	{
+		// FIX: clear existing song/ui layers before loading so retries don't
+		// double-register scripts. loadGlobalScripts() already does this for
+		// its own layer; song scripts need the same guard.
+		_destroyLayer(songScripts);
+		_destroyLayer(uiScripts);
+		songScripts.clear();
+		uiScripts.clear();
+		#if (LUA_ALLOWED && linc_luajit)
+		_destroyLuaLayer(songLuaScripts);
+		_destroyLuaLayer(uiLuaScripts);
+		#end
 		#if sys
 		if (mods.ModManager.isActive())
 		{
@@ -744,21 +755,17 @@ class ScriptHandler
 		_injectLayerVars(menuScripts, vars);
 		_injectLayerVars(charScripts, vars);
 
-		// FIX: inyectar todas las variables del HUD script directamente en los
-		// demás scripts, de modo que `healthBar.x = 100` funcione sin prefijo.
-		// getScriptVars() devuelve el Map<String,Dynamic> del intérprete del
-		// HUD script; como los objetos son referencias, cualquier mutación
-		// (sprite.x, texto.text, etc.) afecta al objeto real del HUD.
-		//
-		// Solo se inyectan en song/event/stage/global scripts, NO en uiScripts
-		// (el HUD script ya tiene sus propias variables sin necesitar re-inyectarlas).
 		if (ps.uiManager != null)
 		{
 			final hudVars = ps.uiManager.getScriptVars();
-			_injectLayerVars(globalScripts, hudVars);
-			_injectLayerVars(stageScripts, hudVars);
-			_injectLayerVars(songScripts, hudVars);
-			_injectLayerVars(charScripts, hudVars);
+			final hudObjects = new Map<String, Dynamic>();
+			for (k => v in hudVars)
+				if (!Reflect.isFunction(v))
+					hudObjects.set(k, v);
+			_injectLayerVars(globalScripts, hudObjects);
+			_injectLayerVars(stageScripts, hudObjects);
+			_injectLayerVars(songScripts, hudObjects);
+			_injectLayerVars(charScripts, hudObjects);
 		}
 	}
 

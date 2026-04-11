@@ -87,11 +87,29 @@ class PathsCache
 			instance.maxGraphics = v ? 12 : 25;
 			instance.maxSounds   = v ? 10 : 20;
 			#else
-			instance.maxGraphics = v ? 30 : 80;
-			instance.maxSounds   = v ? 24 : 64;
+			instance.maxGraphics = v ? 25 : 40;
+			instance.maxSounds   = v ? 20 : 32;
 			#end
 		}
 		return v;
+	}
+
+	/**
+	 * Modo gameplay: límites más estrictos para mantener el baseline bajo
+	 * durante la canción. Llamar al entrar a PlayState y restaurar al salir.
+	 * En gameplay no se cargan nuevas texturas de UI/menú, así que 30/24
+	 * cubre perfectamente el set de assets activos.
+	 */
+	public static function setGameplayMode(enabled:Bool):Void
+	{
+		if (instance == null) return;
+		#if (mobileC || android || ios)
+		instance.maxGraphics = enabled ? 20 : (lowMemoryMode ? 12 : 25);
+		instance.maxSounds   = enabled ? 12 : (lowMemoryMode ? 10 : 20);
+		#else
+		instance.maxGraphics = enabled ? 30 : (lowMemoryMode ? 25 : 40);
+		instance.maxSounds   = enabled ? 20 : (lowMemoryMode ? 20 : 32);
+		#end
 	}
 
 	public static var streamedMusic:Bool = false;
@@ -112,8 +130,11 @@ class PathsCache
 	// sobre assets DENTRO de la sesión activa. 25 sigue siendo suficiente para
 	// gameplay normal (personajes + escenario + UI ≈ 15-20 texturas activas).
 
-	public var maxGraphics:Int = #if (mobileC || android || ios) 25 #else 80 #end;
-	public var maxSounds:Int   = #if (mobileC || android || ios) 20 #else 64 #end;
+	// FIX RAM: desktop bajado de 80→40 texturas y 64→32 sonidos.
+	// Los límites anteriores eran tan altos que el LRU nunca evictaba nada
+	// en gameplay normal, acumulando texturas de sesiones anteriores en RAM.
+	public var maxGraphics:Int = #if (mobileC || android || ios) 25 #else 40 #end;
+	public var maxSounds:Int   = #if (mobileC || android || ios) 20 #else 32 #end;
 
 	// ── Tricapa de texturas ───────────────────────────────────────────────────
 
@@ -328,7 +349,7 @@ class PathsCache
 				_flushPendingExclusion(key);
 				_addToLRU(key);
 				_evictIfNeeded();
-				#if (cpp && !hl)
+				#if (!flash && !html5)
 				try {
 					if (FlxG.stage != null && FlxG.stage.context3D != null) {
 						final tex = g.bitmap.getTexture(FlxG.stage.context3D);
@@ -1102,19 +1123,16 @@ class PathsCache
 	}
 
 	/**
-	 * GPU caching post-load flush: libera la RAM (imagen CPU) de todos los
-	 * gráficos de la sesión actual que ya hayan sido subidos a VRAM.
-	 *
-	 * Llamar DESPUÉS de que el state haya completado su create() y haya
-	 * renderizado al menos un frame — garantiza que context3D esté listo
-	 * y que todas las texturas hayan sido subidas por OpenFL.
-	 *
-	 * Solo efectivo en desktop C++ (requiere OpenGL context3D).
-	 * Libera típicamente 50-400 MB de RAM en canciones con muchos sprites.
+	 * GPU caching post-load flush: Frees up RAM (CPU image) from all 
+	 * graphics in the current session that have already been loaded into VRAM.
+	 * Call it AFTER the state has completed its create() and has rendered at 
+	 * least one frame—it ensures that context3D is ready and that all textures have been loaded by OpenFL.
+     * Effective on desktop C++ and Android/iOS OpenGL ES 3 (any target with context3D available, 
+	 * excluding Flash and HTML5). It typically frees up 50–400 MB of RAM in songs with many sprites.
 	 */
 	public function flushGPUCache():Void
 	{
-		#if (cpp && !hl)
+		#if (!flash && !html5)
 		if (FlxG.stage == null || FlxG.stage.context3D == null) return;
 		final ctx = FlxG.stage.context3D;
 		var released = 0;
@@ -1153,7 +1171,7 @@ class PathsCache
 	 */
 	public function flushGPUCacheFor(key:String):Void
 	{
-		#if (cpp && !hl)
+		#if (!flash && !html5)
 		if (FlxG.stage == null || FlxG.stage.context3D == null) return;
 		var g = _currentGraphics.get(key);
 		if (g == null) g = _previousGraphics.get(key);

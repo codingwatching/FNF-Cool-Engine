@@ -1432,7 +1432,8 @@ class ModChartManager
 
 	public function resetToStart():Void
 	{
-		activeTweens = [];
+		// FIX 3 RAM: resize(0) reutiliza el array existente en lugar de allocar uno nuevo.
+		activeTweens.resize(0);
 		winState = _makeDefaultWinState();
 		_lastWinX = _lastWinY = _lastWinW = _lastWinH = -9999;
 		_lastWinAlpha = -1;
@@ -1482,7 +1483,7 @@ class ModChartManager
 		}
 
 		_pendingIdx = 0;
-		pending = [];
+		pending.resize(0); // FIX 3 RAM: resize(0) reutiliza el array sin allocar
 		for (ev in data.events)
 			if (ev.beat >= currentBeat - 0.01)
 				pending.push(ev);
@@ -1548,9 +1549,9 @@ class ModChartManager
 		}
 
 		currentBeat = beat;
-		activeTweens = [];
+		activeTweens.resize(0); // FIX 3 RAM: resize(0) reutiliza el array sin allocar
 		_pendingIdx = 0;
-		pending = [];
+		pending.resize(0); // FIX 3 RAM
 		for (ev in data.events)
 			if (ev.beat >= beat - 0.01)
 				pending.push(ev);
@@ -1680,9 +1681,20 @@ class ModChartManager
 		var i = _finishedTweens.length - 1;
 		while (i >= 0)
 		{
-			final idx = activeTweens.indexOf(_finishedTweens[i]);
-			if (idx >= 0)
-				activeTweens.splice(idx, 1);
+			final target = _finishedTweens[i];
+			final len = activeTweens.length;
+			var j = len - 1;
+			while (j >= 0)
+			{
+				if (activeTweens[j] == target)
+				{
+					// Swap con el último y reducir longitud — O(1), sin mover memoria
+					activeTweens[j] = activeTweens[len - 1];
+					activeTweens.resize(len - 1);
+					break;
+				}
+				j--;
+			}
 			i--;
 		}
 	}
@@ -2015,10 +2027,11 @@ class ModChartManager
 
 	public function clearEvents():Void
 	{
-		data.events = [];
+		// FIX 3 RAM: resize(0) en todos los arrays — reutiliza la backing array sin allocar
+		if (data.events != null) data.events.resize(0);
 		_pendingIdx = 0;
-		pending = [];
-		activeTweens = [];
+		pending.resize(0);
+		activeTweens.resize(0);
 	}
 
 	public function getState(groupId:String, strumIdx:Int):Null<StrumState>
@@ -2107,9 +2120,10 @@ class ModChartManager
 
 	public function destroy():Void
 	{
-		activeTweens = [];
+		// FIX 3 RAM: resize(0) — libera elementos pero reutiliza backing array
+		activeTweens.resize(0);
 		_pendingIdx = 0;
-		pending = [];
+		pending.resize(0);
 		states.clear();
 		strumsGroups = null;
 

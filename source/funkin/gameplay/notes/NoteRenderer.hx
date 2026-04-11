@@ -70,8 +70,10 @@ class NoteRenderer
     //    acumulen centenares de Note objects inactivos en RAM.
     private var _notePoolMap:Map<String, Array<Note>>    = new Map();
     private var _sustainPoolMap:Map<String, Array<Note>> = new Map();
-    private var maxPoolSize:Int    = 32;   // máximo por sub-pool de skin
-    private var _totalPoolCap:Int  = 128;  // cap global de notas en todos los pools
+
+    private var maxPoolSize:Int        = 16;   // notas NORMALES por sub-pool (correcto)
+    private var maxSustainPoolSize:Int = 32;   // SUSTAIN pieces por sub-pool
+    private var _totalPoolCap:Int      = 64;  // cap global restaurado
 
     /** Contador O(1) del total de notas guardadas en todos los sub-pools.
      *  Reemplaza el antiguo _totalPooled() que iteraba todos los pools en cada
@@ -81,7 +83,8 @@ class NoteRenderer
 
     // OPTIMIZATION: pool de splashes de hit normales
     private var splashPool:Array<NoteSplash> = [];
-    private var maxSplashPoolSize:Int = 16;
+    
+    private var maxSplashPoolSize:Int = 8;
     private var _splashNext:Int = 0; // índice circular para O(1) amortizado en spawnSplash
 
     // NUEVO (v-slice): pool de NoteHoldCover
@@ -188,7 +191,8 @@ class NoteRenderer
             final pool = _getPool(skinKey, note.isSustainNote);
 
             // Guardar solo si no se superan los caps; destruir en caso contrario.
-            if (pool.length < maxPoolSize && _totalPooledCount < _totalPoolCap)
+            final _cap = note.isSustainNote ? maxSustainPoolSize : maxPoolSize;
+            if (pool.length < _cap && _totalPooledCount < _totalPoolCap)
             {
                 note.kill();
                 note.visible = false;
@@ -430,11 +434,8 @@ class NoteRenderer
      * @param normalCount   Notes to pre-create for normal (head) pool.
      * @param sustainCount  Notes to pre-create for sustain/hold pool.
      */
-    public function prewarmPools(normalCount:Int = 8, sustainCount:Int = 16):Void
+    public function prewarmPools(normalCount:Int = 4, sustainCount:Int = 8):Void
     {
-        // Precalentar con la skin global (clave "") — suficiente para el inicio.
-        // Las notas con skins de grupo se crean en el primer spawn (getNote step 3)
-        // y luego quedan en su pool de skin correspondiente para los siguientes ciclos.
         final normalPool  = _getPool('', false);
         final sustainPool = _getPool('', true);
 
@@ -451,7 +452,7 @@ class NoteRenderer
         }
         for (i in 0...sustainCount)
         {
-            if (sustainPool.length >= maxPoolSize) break;
+            if (sustainPool.length >= maxSustainPoolSize) break;
             try
             {
                 var n = new Note(0, i % 4, null, true, false);
@@ -488,12 +489,12 @@ class NoteRenderer
         // Splash pool — están en grpNoteSplashes → solo kill, NO destroy
         for (splash in splashPool)
             if (splash != null) splash.kill();
-        splashPool = [];
+        splashPool.resize(0); // FIX RAM: resize(0) reutiliza la backing array sin allocar
 
         // HoldCover pool — están en grpHoldCovers → solo kill, NO destroy
         for (cover in holdCoverPool)
             if (cover != null) cover.kill();
-        holdCoverPool = [];
+        holdCoverPool.resize(0); // FIX RAM: resize(0) reutiliza la backing array sin allocar
 
         if (noteBatcher != null)
             noteBatcher.clearBatches();
