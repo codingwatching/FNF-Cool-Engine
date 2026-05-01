@@ -2,7 +2,9 @@ package funkin.data.charts;
 
 #if sys
 import sys.FileSystem;
+import sys.io.File;
 #end
+import haxe.Json;
 
 // Importar sub-tipos del módulo ChartData.hx explícitamente.
 import funkin.data.charts.ChartData.ChartNote;
@@ -11,70 +13,33 @@ import funkin.data.charts.ChartData.ChartBPMChange;
 /**
  * ChartLoader — Punto de entrada unificado para cargar charts de cualquier formato.
  *
- * Detecta automáticamente el formato por la extensión del archivo y usa
- * el parser correcto: OsuManiaParser (.osu), StepManiaParser (.sm / .ssc).
+ * Detecta automáticamente el formato por extensión y, para .json, por contenido:
+ *   .osu         → OsuManiaParser
+ *   .sm / .ssc   → StepManiaParser
+ *   .json        → CodenameChartParser  (si contiene "codenameChart":true)
  *
  * ─── Uso básico ──────────────────────────────────────────────────────────────
  *
- *   // Detecta formato automáticamente
- *   var data = ChartLoader.load('mods/mymod/charts/song.osu');
- *   var data = ChartLoader.load('mods/mymod/charts/song.sm', 'Hard');
- *   var data = ChartLoader.load('mods/mymod/charts/song.ssc', 'Challenge');
+ *   var data = ChartLoader.load('mods/mymod/songs/bopeebo/hard.json');
+ *   var data = ChartLoader.load('mods/mymod/charts/song.osu', 'Hard');
+ *   var data = ChartLoader.load('mods/mymod/charts/song.sm',  'Challenge');
  *
- *   // Convertir a SwagSong y reproducir
  *   if (data != null) {
- *     var song = ChartConverter.toSwagSong(data, { scrollSpeed: 2.5 });
+ *     var song = ChartConverter.toSwagSong(data);
  *     PlayState.SONG = song;
  *     FlxG.switchState(new PlayState());
  *   }
- *
- * ─── Uso desde HScript ───────────────────────────────────────────────────────
- *
- *   // En un script de mod:
- *   var data = ChartLoader.load('mods/mymod/charts/song.osu');
- *   if (data != null) {
- *     trace('Título: ' + data.title);
- *     trace('BPM: '    + data.bpm);
- *     trace('Notas: '  + data.notes.length);
- *
- *     var song = ChartConverter.toSwagSong(data);
- *     PlayState.SONG = song;
- *   }
- *
- * ─── Uso desde Lua ───────────────────────────────────────────────────────────
- *
- *   local data = ChartLoader.load("mods/mymod/charts/song.sm", "Hard")
- *   if data ~= nil then
- *     log("Título: " .. data.title)
- *     log("Notas: "  .. #data.notes)
- *     local song = ChartConverter.toSwagSong(data)
- *     PlayState.SONG = song
- *   end
- *
- * ─── Dificultades disponibles ─────────────────────────────────────────────────
- *
- *   var data = ChartLoader.load('song.sm');
- *   var diffs = ChartLoader.getDifficulties(data);
- *   // ["Easy", "Normal", "Hard", "Challenge"]
- *
- *   // Cambiar dificultad activa sin releer el archivo
- *   data = ChartLoader.selectDifficulty(data, 'Hard');
  */
 class ChartLoader
 {
 	// ── API principal ──────────────────────────────────────────────────────
 
 	/**
-	 * Carga un archivo de chart detectando su formato por la extensión.
-	 *
-	 * Formatos soportados:
-	 *   .osu  → osu!mania  (OsuManiaParser)
-	 *   .sm   → StepMania legacy (StepManiaParser)
-	 *   .ssc  → StepMania 5 extendido (StepManiaParser)
+	 * Carga un archivo de chart detectando su formato.
 	 *
 	 * @param path        Ruta al archivo de chart.
 	 * @param difficulty  Dificultad a activar (null = primera disponible).
-	 * @return            ChartData listo para usar con ChartConverter, o null.
+	 * @return            ChartData listo para usar, o null si hay error.
 	 */
 	public static function load(path:String, ?difficulty:String):Null<ChartData>
 	{
@@ -97,6 +62,11 @@ class ChartLoader
 			case 'ssc':
 				StepManiaParser.fromFile(path, difficulty);
 
+			case 'json':
+				// Detectar si es un chart Codename (contiene "codenameChart":true).
+				// Se lee el JSON de forma ligera antes de pasarlo al parser completo.
+				_loadJson(path, difficulty);
+
 			default:
 				trace('[ChartLoader] Extensión no soportada: ".$ext" en "$path".');
 				null;
@@ -109,9 +79,6 @@ class ChartLoader
 
 	/**
 	 * Devuelve la lista de nombres de dificultad disponibles en un ChartData.
-	 *
-	 * @param data  ChartData devuelto por load() u otro parser.
-	 * @return      Array de nombres (e.g. ["Easy", "Normal", "Hard"]).
 	 */
 	public static function getDifficulties(data:ChartData):Array<String>
 	{
@@ -123,11 +90,6 @@ class ChartLoader
 
 	/**
 	 * Cambia la dificultad activa en un ChartData existente sin releer el archivo.
-	 * Actualiza data.notes y data.activeDifficulty.
-	 *
-	 * @param data        ChartData a modificar.
-	 * @param difficulty  Nombre de la nueva dificultad.
-	 * @return            El mismo objeto data modificado, o null si no existe esa dif.
 	 */
 	public static function selectDifficulty(data:ChartData,
 		difficulty:String):Null<ChartData>
@@ -146,11 +108,12 @@ class ChartLoader
 
 	/**
 	 * Comprueba si una ruta corresponde a un formato de chart soportado.
+	 * Para .json la comprobación real ocurre al leer el archivo.
 	 */
 	public static function isSupported(path:String):Bool
 	{
 		var ext = _ext(path);
-		return ext == 'osu' || ext == 'sm' || ext == 'ssc';
+		return ext == 'osu' || ext == 'sm' || ext == 'ssc' || ext == 'json';
 	}
 
 	// ── Helpers ────────────────────────────────────────────────────────────
@@ -161,4 +124,33 @@ class ChartLoader
 		if (dot < 0) return '';
 		return path.substring(dot + 1).toLowerCase();
 	}
+
+	#if sys
+	static function _loadJson(path:String, ?difficulty:String):Null<ChartData>
+	{
+		var content:String;
+		try { content = File.getContent(path); }
+		catch (e:Dynamic)
+		{
+			trace('[ChartLoader] No se pudo leer "$path": $e');
+			return null;
+		}
+
+		var parsed:Dynamic;
+		try { parsed = Json.parse(content); }
+		catch (e:Dynamic)
+		{
+			trace('[ChartLoader] JSON inválido en "$path": $e');
+			return null;
+		}
+
+		// Formato Codename Engine
+		if (Reflect.field(parsed, 'codenameChart') == true)
+			return CodenameChartParser.fromString(content, difficulty);
+
+		// Aquí puedes añadir más formatos JSON en el futuro (Psych, V-Slice, etc.)
+		trace('[ChartLoader] El archivo JSON "$path" no tiene un formato reconocido.');
+		return null;
+	}
+	#end
 }

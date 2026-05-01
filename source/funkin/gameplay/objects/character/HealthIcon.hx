@@ -234,6 +234,12 @@ class HealthIcon extends FunkinSprite
 
 	function _loadIcon(char:String):Void
 	{
+		// 0 · Intentar leer el icono desde el JSON del personaje (formato V2)
+		//     Si el personaje tiene render.layers, su sección "icon" define
+		//     path, flipX, animaciones y extras (bumpInBeats, stepTempo).
+		if (_tryLoadFromCharV2Json(char))
+			return;
+
 		// 1 · Buscar JSON de config
 		var jsonPath = _resolveAsset('icons/icon-$char.json');
 		if (jsonPath == null)
@@ -261,6 +267,113 @@ class HealthIcon extends FunkinSprite
 
 		// 3 · Spritesheet legacy 150×150
 		_loadLegacySheet(char);
+	}
+
+	// ── V2 character JSON icon ────────────────────────────────────────────────
+
+	/**
+	 * Intenta cargar el icono desde la sección "icon" del JSON de personaje V2.
+	 * Devuelve true si el icono fue cargado, false si debe continuar por la ruta legacy.
+	 *
+	 * El formato V2 define el icono así:
+	 * {
+	 *   "path"        : "bf",          // nombre del asset (sin extensión)
+	 *   "flipX"       : false,
+	 *   "isGrid"      : false,         // true = spritesheet 150x150
+	 *   "bumpInBeats" : true,
+	 *   "stepTempo"   : 4,
+	 *   "animations"  : [
+	 *     { "name": "losing",   "prefix": "0", "framerate": 24 },
+	 *     { "name": "normal",   "prefix": "1", "framerate": 24 },
+	 *     { "name": "winning",  "prefix": "2", "framerate": 24 }
+	 *   ]
+	 * }
+	 */
+	function _tryLoadFromCharV2Json(char:String):Bool
+	{
+		#if sys
+		try
+		{
+			var charJsonPath = mods.compat.ModCompatLayer.resolveCharacterPath(char);
+			if (charJsonPath == null || !FileSystem.exists(charJsonPath))
+				return false;
+
+			var content = File.getContent(charJsonPath);
+			var parsed:Dynamic = Json.parse(content);
+
+			// Solo actuar si es V2 (tiene render.layers) y tiene sección "icon"
+			if (parsed.render == null || parsed.render.layers == null)
+				return false;
+			if (parsed.icon == null)
+				return false;
+
+			var iconData:Dynamic = parsed.icon;
+			var iconPath:String  = iconData.path ?? char;
+			var isGrid:Bool      = iconData.isGrid == true;
+
+			if (isGrid)
+			{
+				// Spritesheet 150×150 (grid mode): leer con lógica legacy
+				_loadLegacySheet(iconPath);
+			}
+			else
+			{
+				// Atlas animado (Sparrow XML) o legacy sheet según lo que exista
+				var atlasXml = _resolveAsset('icons/icon-$iconPath.xml');
+				if (atlasXml == null)
+					atlasXml = _resolveAsset('icons/$iconPath.xml');
+
+				if (atlasXml != null)
+				{
+					// Construir animDefs desde la sección "animations" del V2
+					var animDefs:Dynamic = {};
+					if (iconData.animations != null)
+					{
+						for (ad in (cast iconData.animations : Array<Dynamic>))
+						{
+							var stateName:String = ad.name ?? 'normal';
+							var def:Dynamic      = {
+								prefix : ad.prefix  ?? stateName,
+								fps    : ad.framerate != null ? Std.int(ad.framerate) : 24,
+								loop   : ad.looped  == true
+							};
+							Reflect.setField(animDefs, stateName, def);
+
+							// Guardar offsets si existen
+							if (ad.offsets != null && (cast ad.offsets : Array<Dynamic>).length >= 2)
+							{
+								var offs:Array<Float> = [ad.offsets[0], ad.offsets[1]];
+								animOffsets.set(stateName, offs);
+							}
+						}
+					}
+
+					var imgKey = _pathToLogicalKey(atlasXml.endsWith('.xml') ? atlasXml.substr(0, atlasXml.length - 4) : atlasXml);
+					_loadAnimatedAtlas(imgKey, animDefs);
+				}
+				else
+				{
+					// Sin XML → intentar legacy sheet con el nuevo path
+					_loadLegacySheet(iconPath);
+				}
+			}
+
+			// Aplicar flipX del V2 (se combina con isPlayer en updateIcon)
+			if (iconData.flipX == true)
+				flipX = !flipX;
+
+			// Guardar extras del V2 en _iconConfig para uso posterior (beatHit, etc.)
+			_iconConfig = iconData;
+
+			trace('[HealthIcon] Icono V2 cargado para "$char" (path="$iconPath", isGrid=$isGrid)');
+			return true;
+		}
+		catch (e:Dynamic)
+		{
+			FlxG.log.warn('[HealthIcon] Error cargando icono V2 para "$char": $e');
+		}
+		#end
+		return false;
 	}
 
 	// ── JSON config ───────────────────────────────────────────────────────────

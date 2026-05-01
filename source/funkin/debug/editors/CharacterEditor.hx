@@ -43,7 +43,35 @@ import lime.ui.FileDialog;
 
 using StringTools;
 
-class AnimationDebug extends MusicBeatState
+// ── Formato V2 de personaje (render.layers) ───────────────────────────────────
+typedef LayerData = {
+	var name:String;
+	var path:String;
+	var position:Array<Float>;
+	var scale:Array<Float>;
+	var alpha:Float;
+	var visible:Bool;
+	var flipX:Bool;
+	var flipY:Bool;
+	var antialiasing:Bool;
+	var animations:Array<AnimData>;
+}
+
+typedef CharDeathV2 = {
+	var character:String;
+	var sound:String;
+	var endAnim:String;
+}
+
+typedef CharacterDataV2 = {
+	var meta:Dynamic;       // { isPlayer:Bool }
+	var gameplay:Dynamic;   // { position, cameraOffset, death, ?idleAfterSing }
+	var render:Dynamic;     // { layers:Array<LayerData> }
+	var icon:Dynamic;       // { path, flipX, animations, ... }
+}
+
+// ── CharacterEditor ────────────────────────────────────
+class CharacterEditor extends MusicBeatState
 {
 	var UI_box:CoolTabMenu;
 
@@ -185,6 +213,66 @@ class AnimationDebug extends MusicBeatState
 	// veces sin cambio intermedio, no duplicamos entradas inútiles).
 	var _lastUndoJson:String = "";
 
+	// ── Layer system (formato V2 render.layers) ───────────────────────────────
+	// layers: copia en memoria de render.layers del JSON cargado.
+	// curLayerIdx: índice de la capa que se está editando actualmente.
+	// _isV2Format: true si el JSON usa el nuevo formato CharacterDataV2.
+	var layers:Array<LayerData> = [];
+	var curLayerIdx:Int = 0;
+	var _isV2Format:Bool = false;
+
+	// ── Visual layer panel (Adobe-Animate-style rows at bottom of left panel) ──
+	var layerDropDown:CoolDropDown; // kept for compat, always hidden
+	var layerPanelBg:FlxSprite;
+	var layerPanelGroup:FlxTypedGroup<FlxSprite>;
+	var layerPanelTexts:FlxTypedGroup<FlxText>;
+	var layerPanelHits:Array<{x:Float, y:Float, w:Float, h:Float, zone:String, idx:Int}> = [];
+	var layerPanelScroll:Int = 0;
+	static inline var LP_ROW_H:Int  = 24;
+	static inline var LP_MAX_VIS:Int = 6;
+	static inline var LP_W:Int       = 340;
+
+	// ── Layer drag-and-drop ───────────────────────────────────────────────────
+	var _lpDragging:Bool   = false;
+	var _lpDragPending:Bool = false;   // mouse held but not past threshold yet
+	var _lpDragFromVis:Int = -1;       // visual-row index (0=top) that was grabbed
+	var _lpDragFromIdx:Int = -1;       // layers[] index being dragged
+	var _lpDragStartY:Float = 0;       // mouseY when drag began
+	var _lpDropGap:Int     = -1;       // current drop gap (0..LP_MAX_VIS), local vis coords
+	var _lpDragGhost:FlxSprite;
+	var _lpDragGhostTxt:FlxText;
+	var _lpDropLine:FlxSprite;
+
+	// ── Layer copy / paste ────────────────────────────────────────────────────
+	var _copiedLayer:Dynamic = null;   // JSON clone of last Ctrl+C'd LayerData
+
+	// ── Layer inline rename (double-click) ───────────────────────────────────
+	var _lpRenameInput:CoolInputText;  // overlay input que aparece sobre la fila
+	var _lpRenameIdx:Int   = -1;       // índice de la capa que se está renombrando
+	var _lpLastClickIdx:Int   = -1;    // para detectar doble clic
+	var _lpLastClickMs:Float  = -9999; // stamp del último click en una fila
+
+	// UI del panel flotante de propiedades de capa (antes "tab Layers")
+	var layerNameInput:CoolInputText;
+	var layerPathInput:CoolInputText;
+	var layerAlphaStepper:CoolNumericStepper;
+	var layerScaleXStepper:CoolNumericStepper;
+	var layerScaleYStepper:CoolNumericStepper;
+	var layerPosXStepper:CoolNumericStepper;
+	var layerPosYStepper:CoolNumericStepper;
+	var layerVisibleCheckbox:CoolCheckBox;
+	var layerFlipXCheckbox:CoolCheckBox;
+	var layerFlipYCheckbox:CoolCheckBox;
+	var layerAntialiasingCheckbox:CoolCheckBox;
+
+	// Gameplay V2 extra
+	var idleAfterSingCheckbox:CoolCheckBox;
+
+	// Icon V2
+	var iconFlipXCheckbox:CoolCheckBox;
+	var iconBumpInBeatsCheckbox:CoolCheckBox;
+	var iconStepTempoStepper:CoolNumericStepper;
+
 	public function new(daAnim:String = 'bf')
 	{
 		super();
@@ -254,7 +342,24 @@ class AnimationDebug extends MusicBeatState
 		charHeaderText.cameras = [camHUD];
 		charHeaderText.scrollFactor.set();
 		charHeaderText.font = "VCR OSD Mono";
+		charHeaderText.text = "  CHARACTER EDITOR";
 		add(charHeaderText);
+
+		// Subtítulo con el nombre del personaje (debajo del header, más pequeño)
+		var charSubText = new FlxText(8, 22, 330, '', 10);
+		charSubText.color = (funkin.debug.themes.EditorTheme.current.bgDark & 0x00FFFFFF) | 0xAA000000;
+		charSubText.cameras = [camHUD];
+		charSubText.scrollFactor.set();
+		charSubText.font = "VCR OSD Mono";
+		add(charSubText);
+
+		// Dropdown original — kept as compat stub, never shown
+		layerDropDown = new CoolDropDown(54, 37, CoolDropDown.makeStrIdLabelArray(["(no layers)"], true), function(sel:String){});
+		layerDropDown.visible = false;
+		layerDropDown.cameras = [camHUD];
+		layerDropDown.scrollFactor.set();
+		add(layerDropDown);
+
 
 		// ── Fila de highlight de la animación seleccionada ────────────────────
 		animRowHighlight = new FlxSprite(4, 0);
@@ -313,7 +418,7 @@ class AnimationDebug extends MusicBeatState
 		add(statusAccentBar);
 
 		textHelp = new FlxText(12, FlxG.height - 24, FlxG.width - 200, '', 12);
-		textHelp.text = "TIP · Use the UI tabs to edit properties and animations";
+		textHelp.text = "TIP · Use the UI tabs to edit properties and animations · Layer props panel at bottom-left";
 		textHelp.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		textHelp.color = funkin.debug.themes.EditorTheme.current.accent;
 		textHelp.cameras = [camHUD];
@@ -392,6 +497,10 @@ class AnimationDebug extends MusicBeatState
 		FlxTween.tween(charHeaderBg, {alpha: 1}, 0.4, {ease: FlxEase.quartOut, startDelay: 0.2});
 		FlxTween.tween(charHeaderText, {alpha: 1}, 0.4, {ease: FlxEase.quartOut, startDelay: 0.25});
 
+		// ── Visual layer panel (stacked rows, Adobe-Animate-style) ──────────
+		buildLayerPanel();
+		buildLayerPropsPanel();
+
 		camFollow = new FlxObject(0, 0, 2, 2);
 		camFollow.screenCenter();
 		add(camFollow);
@@ -426,8 +535,8 @@ class AnimationDebug extends MusicBeatState
 			{name: "Character", label: "Character"},
 			{name: "Animation", label: "Animation"},
 			{name: "Properties", label: "Properties"},
-			{name: "Import", label: "Import Assets"},
-			{name: "Export", label: "Export"}
+			{name: "Import",    label: "Import Assets"},
+			{name: "Export",    label: "Export"}
 		];
 
 		UI_box = new CoolTabMenu(null, tabs, true);
@@ -470,6 +579,10 @@ class AnimationDebug extends MusicBeatState
 			if (ghostChar != null) ghostChar.flipX = charFlipXCheckbox.checked;
 		};
 		tab.add(charFlipXCheckbox);
+
+		idleAfterSingCheckbox = new CoolCheckBox(10, 30, null, null, "Idle After Sing", 150);
+		idleAfterSingCheckbox.checked = true;
+		tab.add(idleAfterSingCheckbox);
 
 		tab.add(new FlxText(10, 47, 0, "Death Character:", 10));
 		charDeathInput = new CoolInputText(10, 58, 200, '', 8);
@@ -532,6 +645,519 @@ class AnimationDebug extends MusicBeatState
 			camGame.zoom = 1;
 		}));
 		UI_box.addGroup(tab);
+	}
+
+	// ── Tab: Layers ───────────────────────────────────────────────────────────
+	// Gestión de capas para el nuevo formato V2 (render.layers)
+
+	// ── Layer properties floating HUD panel ──────────────────────────────────
+	// Panel flotante sobre el panel de filas de capas. Muestra las propiedades
+	// de la capa seleccionada directamente en el HUD, sin tab extra.
+	// ──────────────────────────────────────────────────────────────────────────
+	static inline var LP_PROPS_H:Int = 200; // altura total del panel de props
+
+	var layerPropsBg:FlxSprite;
+	var _layerPropsElems:Array<flixel.FlxBasic> = [];
+
+	function _lpPropsY():Int
+	{
+		return _lpTopY() - LP_PROPS_H - 2; // 2px gap entre paneles
+	}
+
+	function buildLayerPropsPanel():Void
+	{
+		var T = funkin.debug.themes.EditorTheme.current;
+		var px = 0;      // X base del panel (mismo que el panel de filas)
+		var py = _lpPropsY();
+		var pw = LP_W;
+
+		// Fondo
+		layerPropsBg = new FlxSprite(px, py);
+		layerPropsBg.makeGraphic(pw, LP_PROPS_H, (T.bgPanel & 0x00FFFFFF) | 0xEE000000);
+		layerPropsBg.cameras = [camHUD];
+		layerPropsBg.scrollFactor.set();
+		layerPropsBg.visible = false;
+		add(layerPropsBg);
+		_layerPropsElems.push(layerPropsBg);
+
+		// Borde superior
+		var topBorder = new FlxSprite(px, py);
+		topBorder.makeGraphic(pw, 2, T.accent);
+		topBorder.cameras = [camHUD];
+		topBorder.scrollFactor.set();
+		topBorder.alpha = 0.6;
+		add(topBorder);
+		_layerPropsElems.push(topBorder);
+
+		// ── título ────────────────────────────────────────────────────────────
+		var hdrBg = new FlxSprite(px, py).makeGraphic(pw, 22, T.bgPanelAlt);
+		hdrBg.cameras = [camHUD]; hdrBg.scrollFactor.set(); add(hdrBg);
+		_layerPropsElems.push(hdrBg);
+
+		var hdrTxt = new FlxText(px + 8, py + 4, 0, "\u25CF LAYER PROPS", 11);
+		hdrTxt.setFormat(Paths.font("vcr.ttf"), 11, T.accent, LEFT);
+		hdrTxt.cameras = [camHUD]; hdrTxt.scrollFactor.set(); add(hdrTxt);
+		_layerPropsElems.push(hdrTxt);
+
+		var iy = py + 26; // Y interior, debajo del header
+
+		// ── Name ──────────────────────────────────────────────────────────────
+		var lbName = new FlxText(px + 6, iy, 0, "Name:", 9);
+		lbName.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, LEFT);
+		lbName.cameras = [camHUD]; lbName.scrollFactor.set(); add(lbName);
+		_layerPropsElems.push(lbName);
+
+		layerNameInput = new CoolInputText(px + 46, iy - 1, 130, '', 8);
+		layerNameInput.cameras = [camHUD]; layerNameInput.scrollFactor.set(); add(layerNameInput);
+		_layerPropsElems.push(layerNameInput);
+
+		// ── Path ──────────────────────────────────────────────────────────────
+		var lbPath = new FlxText(px + 6, iy + 20, 0, "Path:", 9);
+		lbPath.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, LEFT);
+		lbPath.cameras = [camHUD]; lbPath.scrollFactor.set(); add(lbPath);
+		_layerPropsElems.push(lbPath);
+
+		layerPathInput = new CoolInputText(px + 46, iy + 19, 190, '', 8);
+		layerPathInput.cameras = [camHUD]; layerPathInput.scrollFactor.set(); add(layerPathInput);
+		_layerPropsElems.push(layerPathInput);
+
+		iy += 42;
+
+		// ── Alpha + Visible ───────────────────────────────────────────────────
+		var lbAlpha = new FlxText(px + 6, iy + 4, 0, "Alpha:", 9);
+		lbAlpha.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, LEFT);
+		lbAlpha.cameras = [camHUD]; lbAlpha.scrollFactor.set(); add(lbAlpha);
+		_layerPropsElems.push(lbAlpha);
+
+		layerAlphaStepper = new CoolNumericStepper(px + 50, iy, 0.05, 1.0, 0.0, 1.0, 2);
+		layerAlphaStepper.cameras = [camHUD]; layerAlphaStepper.scrollFactor.set(); add(layerAlphaStepper);
+		_layerPropsElems.push(layerAlphaStepper);
+
+		layerVisibleCheckbox = new CoolCheckBox(px + 160, iy, null, null, "Visible", 80);
+		layerVisibleCheckbox.checked = true;
+		layerVisibleCheckbox.cameras = [camHUD]; layerVisibleCheckbox.scrollFactor.set(); add(layerVisibleCheckbox);
+		_layerPropsElems.push(layerVisibleCheckbox);
+
+		iy += 22;
+
+		// ── Scale X/Y ────────────────────────────────────────────────────────
+		var lbScale = new FlxText(px + 6, iy + 4, 0, "Scale X:", 9);
+		lbScale.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, LEFT);
+		lbScale.cameras = [camHUD]; lbScale.scrollFactor.set(); add(lbScale);
+		_layerPropsElems.push(lbScale);
+
+		layerScaleXStepper = new CoolNumericStepper(px + 58, iy, 0.1, 1.0, 0.01, 20.0, 2);
+		layerScaleXStepper.cameras = [camHUD]; layerScaleXStepper.scrollFactor.set(); add(layerScaleXStepper);
+		_layerPropsElems.push(layerScaleXStepper);
+
+		var lbScaleY = new FlxText(px + 148, iy + 4, 0, "Y:", 9);
+		lbScaleY.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, LEFT);
+		lbScaleY.cameras = [camHUD]; lbScaleY.scrollFactor.set(); add(lbScaleY);
+		_layerPropsElems.push(lbScaleY);
+
+		layerScaleYStepper = new CoolNumericStepper(px + 158, iy, 0.1, 1.0, 0.01, 20.0, 2);
+		layerScaleYStepper.cameras = [camHUD]; layerScaleYStepper.scrollFactor.set(); add(layerScaleYStepper);
+		_layerPropsElems.push(layerScaleYStepper);
+
+		iy += 22;
+
+		// ── Pos X/Y ──────────────────────────────────────────────────────────
+		var lbPosX = new FlxText(px + 6, iy + 4, 0, "Pos X:", 9);
+		lbPosX.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, LEFT);
+		lbPosX.cameras = [camHUD]; lbPosX.scrollFactor.set(); add(lbPosX);
+		_layerPropsElems.push(lbPosX);
+
+		layerPosXStepper = new CoolNumericStepper(px + 50, iy, 1, 0, -2000, 2000, 0);
+		layerPosXStepper.cameras = [camHUD]; layerPosXStepper.scrollFactor.set(); add(layerPosXStepper);
+		_layerPropsElems.push(layerPosXStepper);
+
+		var lbPosY = new FlxText(px + 148, iy + 4, 0, "Y:", 9);
+		lbPosY.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, LEFT);
+		lbPosY.cameras = [camHUD]; lbPosY.scrollFactor.set(); add(lbPosY);
+		_layerPropsElems.push(lbPosY);
+
+		layerPosYStepper = new CoolNumericStepper(px + 158, iy, 1, 0, -2000, 2000, 0);
+		layerPosYStepper.cameras = [camHUD]; layerPosYStepper.scrollFactor.set(); add(layerPosYStepper);
+		_layerPropsElems.push(layerPosYStepper);
+
+		iy += 22;
+
+		// ── Flags ─────────────────────────────────────────────────────────────
+		layerFlipXCheckbox = new CoolCheckBox(px + 6, iy, null, null, "FlipX", 54);
+		layerFlipXCheckbox.checked = false;
+		layerFlipXCheckbox.cameras = [camHUD]; layerFlipXCheckbox.scrollFactor.set(); add(layerFlipXCheckbox);
+		_layerPropsElems.push(layerFlipXCheckbox);
+
+		layerFlipYCheckbox = new CoolCheckBox(px + 68, iy, null, null, "FlipY", 54);
+		layerFlipYCheckbox.checked = false;
+		layerFlipYCheckbox.cameras = [camHUD]; layerFlipYCheckbox.scrollFactor.set(); add(layerFlipYCheckbox);
+		_layerPropsElems.push(layerFlipYCheckbox);
+
+		layerAntialiasingCheckbox = new CoolCheckBox(px + 130, iy, null, null, "Antialias", 100);
+		layerAntialiasingCheckbox.checked = true;
+		layerAntialiasingCheckbox.cameras = [camHUD]; layerAntialiasingCheckbox.scrollFactor.set(); add(layerAntialiasingCheckbox);
+		_layerPropsElems.push(layerAntialiasingCheckbox);
+
+		iy += 24;
+
+		// ── Apply + Move Up/Down ─────────────────────────────────────────────
+		var btnApply = new coolui.CoolButton(px + 6, iy, "Apply", function() { _applyLayerTabToCurrentLayer(); });
+		btnApply.cameras = [camHUD]; btnApply.scrollFactor.set(); add(btnApply);
+		_layerPropsElems.push(btnApply);
+
+		var btnUp = new coolui.CoolButton(px + 90, iy, "▲ Up", function() { _moveLayerUp(); });
+		btnUp.cameras = [camHUD]; btnUp.scrollFactor.set(); add(btnUp);
+		_layerPropsElems.push(btnUp);
+
+		var btnDown = new coolui.CoolButton(px + 175, iy, "▼ Down", function() { _moveLayerDown(); });
+		btnDown.cameras = [camHUD]; btnDown.scrollFactor.set(); add(btnDown);
+		_layerPropsElems.push(btnDown);
+
+		// Oculto por defecto; se muestra cuando _isV2Format = true
+		_setLayerPropsPanelVisible(false);
+	}
+
+	function _setLayerPropsPanelVisible(v:Bool):Void
+	{
+		for (e in _layerPropsElems)
+			if (e != null) e.visible = v;
+	}
+
+	// ── Layer helpers ─────────────────────────────────────────────────────────
+
+	/** Rellena los campos del tab Layers con los datos de la capa actual. */
+	function _syncLayerTabToCurrentLayer():Void
+	{
+		if (layers == null || layers.length == 0 || curLayerIdx < 0 || curLayerIdx >= layers.length)
+			return;
+		var lay = layers[curLayerIdx];
+		if (layerNameInput != null)   layerNameInput.text   = lay.name;
+		if (layerPathInput != null)   layerPathInput.text   = lay.path;
+		if (layerAlphaStepper != null) layerAlphaStepper.value = lay.alpha;
+		if (layerVisibleCheckbox != null) layerVisibleCheckbox.checked = lay.visible;
+		if (layerScaleXStepper != null) layerScaleXStepper.value = (lay.scale != null && lay.scale.length > 0) ? lay.scale[0] : 1.0;
+		if (layerScaleYStepper != null) layerScaleYStepper.value = (lay.scale != null && lay.scale.length > 1) ? lay.scale[1] : 1.0;
+		if (layerPosXStepper != null) layerPosXStepper.value = (lay.position != null && lay.position.length > 0) ? lay.position[0] : 0;
+		if (layerPosYStepper != null) layerPosYStepper.value = (lay.position != null && lay.position.length > 1) ? lay.position[1] : 0;
+		if (layerFlipXCheckbox != null) layerFlipXCheckbox.checked = lay.flipX;
+		if (layerFlipYCheckbox != null) layerFlipYCheckbox.checked = lay.flipY;
+		if (layerAntialiasingCheckbox != null) layerAntialiasingCheckbox.checked = lay.antialiasing;
+	}
+
+	/** Escribe los campos del tab Layers en la capa actual. */
+	function _applyLayerTabToCurrentLayer():Void
+	{
+		if (layers == null || layers.length == 0 || curLayerIdx < 0 || curLayerIdx >= layers.length)
+		{
+			setHelp("⚠ No layer selected", FlxColor.YELLOW);
+			return;
+		}
+		var lay = layers[curLayerIdx];
+		if (layerNameInput != null)   lay.name   = layerNameInput.text.trim();
+		if (layerPathInput != null)   lay.path   = layerPathInput.text.trim();
+		if (layerAlphaStepper != null)  lay.alpha  = layerAlphaStepper.value;
+		if (layerVisibleCheckbox != null) lay.visible = layerVisibleCheckbox.checked;
+		if (layerScaleXStepper != null && layerScaleYStepper != null)
+			lay.scale = [layerScaleXStepper.value, layerScaleYStepper.value];
+		if (layerPosXStepper != null && layerPosYStepper != null)
+			lay.position = [layerPosXStepper.value, layerPosYStepper.value];
+		if (layerFlipXCheckbox != null) lay.flipX = layerFlipXCheckbox.checked;
+		if (layerFlipYCheckbox != null) lay.flipY = layerFlipYCheckbox.checked;
+		if (layerAntialiasingCheckbox != null) lay.antialiasing = layerAntialiasingCheckbox.checked;
+		// Actualizar dropdown si cambió el nombre
+		_refreshLayerDropdown();
+		_hasUnsaved = true;
+		setHelp("✓ Layer updated: " + lay.name, FlxColor.LIME);
+	}
+
+	function _addNewLayer():Void
+	{
+		if (!_isV2Format)
+		{
+			setHelp("⚠ No layer data found — reload the character", FlxColor.YELLOW);
+			return;
+		}
+		var newLayer:LayerData = {
+			name: "layer" + layers.length,
+			path: "BOYFRIEND",
+			position: [0.0, 0.0],
+			scale: [1.0, 1.0],
+			alpha: 1.0,
+			visible: true,
+			flipX: false,
+			flipY: false,
+			antialiasing: true,
+			animations: []
+		};
+		layers.push(newLayer);
+		curLayerIdx = layers.length - 1;
+		currentAnimData = newLayer.animations;
+		_refreshLayerDropdown();
+		_syncLayerTabToCurrentLayer();
+		_hasUnsaved = true;
+		setHelp("✓ New layer added: " + newLayer.name, FlxColor.LIME);
+	}
+
+	function _deleteCurrentLayer():Void
+	{
+		if (!_isV2Format || layers.length <= 1)
+		{
+			setHelp("⚠ Cannot delete: need at least one layer", FlxColor.RED);
+			return;
+		}
+		var deleted = layers[curLayerIdx].name;
+		layers.splice(curLayerIdx, 1);
+		curLayerIdx = Std.int(Math.max(0, curLayerIdx - 1));
+		currentAnimData = layers[curLayerIdx].animations;
+		_refreshLayerDropdown();
+		_syncLayerTabToCurrentLayer();
+		_hasUnsaved = true;
+		setHelp("✓ Layer deleted: " + deleted, FlxColor.LIME);
+	}
+
+	function _moveLayerUp():Void
+	{
+		if (!_isV2Format || curLayerIdx <= 0) return;
+		var tmp = layers[curLayerIdx];
+		layers[curLayerIdx] = layers[curLayerIdx - 1];
+		layers[curLayerIdx - 1] = tmp;
+		curLayerIdx--;
+		_refreshLayerDropdown();
+		_hasUnsaved = true;
+	}
+
+	function _moveLayerDown():Void
+	{
+		if (!_isV2Format || curLayerIdx >= layers.length - 1) return;
+		var tmp = layers[curLayerIdx];
+		layers[curLayerIdx] = layers[curLayerIdx + 1];
+		layers[curLayerIdx + 1] = tmp;
+		curLayerIdx++;
+		_refreshLayerDropdown();
+		_hasUnsaved = true;
+	}
+
+
+	// ── Visual layer panel — buildLayerPanel / refreshLayerPanel ─────────────
+	// A fixed-position panel at the BOTTOM of the left panel (above status bar),
+	// showing one row per layer exactly like Adobe Animate's timeline layers.
+	// ──────────────────────────────────────────────────────────────────────────
+
+	static inline var LP_HEADER_H:Int = 26;
+	static inline var LP_PANEL_H:Int  = LP_HEADER_H + LP_ROW_H * LP_MAX_VIS + 4;
+
+	function _lpTopY():Int
+	{
+		return FlxG.height - 30 - LP_PANEL_H; // 30 = statusBar height
+	}
+
+	function buildLayerPanel():Void
+	{
+		var T = funkin.debug.themes.EditorTheme.current;
+
+		// Solid panel background
+		layerPanelBg = new FlxSprite(0, _lpTopY());
+		layerPanelBg.makeGraphic(LP_W, LP_PANEL_H, (T.bgPanel & 0x00FFFFFF) | 0xEE000000);
+		layerPanelBg.cameras = [camHUD];
+		layerPanelBg.scrollFactor.set();
+		layerPanelBg.visible = false;
+		add(layerPanelBg);
+
+		// Top border of the panel (thin accent line)
+		var topBorder = new FlxSprite(0, _lpTopY());
+		topBorder.makeGraphic(LP_W, 2, T.accent);
+		topBorder.cameras = [camHUD];
+		topBorder.scrollFactor.set();
+		topBorder.alpha = 0.6;
+		add(topBorder);
+
+		layerPanelGroup = new FlxTypedGroup<FlxSprite>();
+		layerPanelTexts = new FlxTypedGroup<FlxText>();
+		layerPanelGroup.cameras = [camHUD];
+		layerPanelTexts.cameras = [camHUD];
+		add(layerPanelGroup);
+		add(layerPanelTexts);
+
+		// ── Drag ghost row + drop indicator (always on top) ──────────────────
+		_lpDragGhost = new FlxSprite(0, 0).makeGraphic(LP_W, LP_ROW_H, 0xCC1155AA);
+		_lpDragGhost.cameras = [camHUD];
+		_lpDragGhost.scrollFactor.set();
+		_lpDragGhost.visible = false;
+		add(_lpDragGhost);
+
+		_lpDragGhostTxt = new FlxText(24, 0, LP_W - 30, "", 10);
+		_lpDragGhostTxt.setFormat(Paths.font("vcr.ttf"), 10, 0xFFCCDDFF, LEFT);
+		_lpDragGhostTxt.cameras = [camHUD];
+		_lpDragGhostTxt.scrollFactor.set();
+		_lpDragGhostTxt.visible = false;
+		add(_lpDragGhostTxt);
+
+		_lpDropLine = new FlxSprite(0, 0).makeGraphic(LP_W, 2, 0xFF44AAFF);
+		_lpDropLine.cameras = [camHUD];
+		_lpDropLine.scrollFactor.set();
+		_lpDropLine.visible = false;
+		add(_lpDropLine);
+
+		// ── Inline rename input (doble clic sobre la fila) ────────────────────
+		// Se posiciona sobre la fila activa al activarse, oculto por defecto.
+		_lpRenameInput = new CoolInputText(38, 0, 155, '', 10);
+		_lpRenameInput.cameras = [camHUD];
+		_lpRenameInput.scrollFactor.set();
+		_lpRenameInput.visible = false;
+		add(_lpRenameInput);
+
+		refreshLayerPanel();
+	}
+
+	function refreshLayerPanel():Void
+	{
+		if (layerPanelGroup == null) return;
+
+		var T = funkin.debug.themes.EditorTheme.current;
+
+		// ── Clear previous rows ───────────────────────────────────────────────
+		for (s in layerPanelGroup.members)
+			if (s != null) { remove(s, true); s.destroy(); }
+		for (t in layerPanelTexts.members)
+			if (t != null) { remove(t, true); t.destroy(); }
+		layerPanelGroup.clear();
+		layerPanelTexts.clear();
+		layerPanelHits = [];
+
+		var isV2 = _isV2Format && layers != null && layers.length > 0;
+		layerPanelBg.visible = isV2;
+		if (!isV2) return;
+
+		var rowY:Float = _lpTopY();
+
+		// ── Header row ────────────────────────────────────────────────────────
+		var hdrBg = new FlxSprite(0, rowY).makeGraphic(LP_W, LP_HEADER_H, T.bgPanelAlt);
+		hdrBg.cameras = [camHUD]; hdrBg.scrollFactor.set(); add(hdrBg);
+		layerPanelGroup.add(hdrBg);
+
+		var hdrTxt = new FlxText(8, rowY + 5, 0, "\u25A3 LAYERS", 11);
+		hdrTxt.setFormat(Paths.font("vcr.ttf"), 11, T.accent, LEFT);
+		hdrTxt.cameras = [camHUD]; hdrTxt.scrollFactor.set(); add(hdrTxt);
+		layerPanelTexts.add(hdrTxt);
+
+		// Layer count badge
+		var cntTxt = new FlxText(0, rowY + 6, LP_W - 32, layers.length + " layers", 9);
+		cntTxt.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, RIGHT);
+		cntTxt.cameras = [camHUD]; cntTxt.scrollFactor.set(); add(cntTxt);
+		layerPanelTexts.add(cntTxt);
+
+		// [+] Add-layer button in header
+		var addBg = new FlxSprite(LP_W - 26, rowY + 3).makeGraphic(22, 20, T.bgHover);
+		addBg.cameras = [camHUD]; addBg.scrollFactor.set(); add(addBg);
+		layerPanelGroup.add(addBg);
+		var addTxt = new FlxText(LP_W - 26, rowY + 4, 22, "+", 12);
+		addTxt.setFormat(Paths.font("vcr.ttf"), 12, T.success, CENTER);
+		addTxt.cameras = [camHUD]; addTxt.scrollFactor.set(); add(addTxt);
+		layerPanelTexts.add(addTxt);
+		layerPanelHits.push({x: LP_W - 26.0, y: rowY + 3, w: 22.0, h: 20.0, zone: "add", idx: -1});
+
+		rowY += LP_HEADER_H;
+
+		// ── Layer rows (listed top→bottom = layers reversed: last added on top) ─
+		// Adobe Animate style: index 0 = BOTTOM layer, last = TOP layer,
+		// but we show them top-first so the "topmost" layer is at the top of the panel.
+		var totalLayers = layers.length;
+		var drawnCount  = 0;
+		var i = totalLayers - 1;
+		while (i >= 0)
+		{
+			if (drawnCount < layerPanelScroll) { drawnCount++; i--; continue; }
+			if (drawnCount >= layerPanelScroll + LP_MAX_VIS) { i--; continue; }
+			drawnCount++;
+
+			var layIdx = i;
+			var lay    = layers[layIdx];
+			var isCur  = (layIdx == curLayerIdx);
+			var isVis  = (lay.visible != false);
+
+			// Row background
+			var rowColor = isCur
+				? (T.rowSelected)
+				: (drawnCount % 2 == 0 ? T.rowEven : T.rowOdd);
+			var rowBg = new FlxSprite(0, rowY).makeGraphic(LP_W, LP_ROW_H, rowColor);
+			rowBg.cameras = [camHUD]; rowBg.scrollFactor.set(); add(rowBg);
+			layerPanelGroup.add(rowBg);
+			layerPanelHits.push({x: 0.0, y: rowY, w: LP_W * 1.0, h: LP_ROW_H * 1.0, zone: "row", idx: layIdx});
+
+			// Active layer indicator strip (left edge)
+			if (isCur)
+			{
+				var strip = new FlxSprite(0, rowY).makeGraphic(3, LP_ROW_H, T.accent);
+				strip.cameras = [camHUD]; strip.scrollFactor.set(); add(strip);
+				layerPanelGroup.add(strip);
+			}
+
+			// Eye / visibility toggle (●  vs –)
+			var eyeChar  = isVis ? "\u25CF" : "\u2013";
+			var eyeColor = isVis ? T.success : T.textDim;
+			var eyeTxt   = new FlxText(4, rowY + 4, 18, eyeChar, 11);
+			eyeTxt.setFormat(Paths.font("vcr.ttf"), 11, eyeColor, CENTER);
+			eyeTxt.cameras = [camHUD]; eyeTxt.scrollFactor.set(); add(eyeTxt);
+			layerPanelTexts.add(eyeTxt);
+			layerPanelHits.push({x: 0.0, y: rowY, w: 22.0, h: LP_ROW_H * 1.0, zone: "eye", idx: layIdx});
+
+			// Layer index badge (small number on left)
+			var idxTxt = new FlxText(22, rowY + 5, 16, Std.string(layIdx), 8);
+			idxTxt.setFormat(Paths.font("vcr.ttf"), 8, isCur ? T.accent : T.textDim, CENTER);
+			idxTxt.cameras = [camHUD]; idxTxt.scrollFactor.set(); add(idxTxt);
+			layerPanelTexts.add(idxTxt);
+
+			// Layer name
+			var nameStr = lay.name ?? ("layer" + layIdx);
+			if (nameStr.length > 16) nameStr = nameStr.substr(0, 14) + "..";
+			var nameTxt = new FlxText(38, rowY + 5, 160, nameStr, 10);
+			nameTxt.setFormat(Paths.font("vcr.ttf"), 10, isCur ? T.accent : T.textPrimary, LEFT);
+			nameTxt.cameras = [camHUD]; nameTxt.scrollFactor.set(); add(nameTxt);
+			layerPanelTexts.add(nameTxt);
+
+			// Path badge (short, right-aligned) — shows just the last segment
+			var pathParts = (lay.path ?? "?").split("/");
+			var pathBadge = pathParts[pathParts.length - 1];
+			if (pathBadge.length > 10) pathBadge = pathBadge.substr(0, 8) + "..";
+			var pathTxt = new FlxText(200, rowY + 5, LP_W - 206, pathBadge, 8);
+			pathTxt.setFormat(Paths.font("vcr.ttf"), 8, 0xFF8899BB, RIGHT);
+			pathTxt.cameras = [camHUD]; pathTxt.scrollFactor.set(); add(pathTxt);
+			layerPanelTexts.add(pathTxt);
+
+			// ⠿ Drag handle (always shown, right side of row)
+			var gripTxt = new FlxText(LP_W - 18, rowY + 4, 14, "\u2261", 11);
+			gripTxt.setFormat(Paths.font("vcr.ttf"), 11, _lpDragging && _lpDragFromIdx == layIdx ? 0xFF44AAFF : T.textDim, CENTER);
+			gripTxt.cameras = [camHUD]; gripTxt.scrollFactor.set(); add(gripTxt);
+			layerPanelTexts.add(gripTxt);
+
+			// × Delete — only on selected row
+			if (isCur)
+			{
+				var delTxt = new FlxText(LP_W - 36, rowY + 4, 16, "\u00D7", 11);
+				delTxt.setFormat(Paths.font("vcr.ttf"), 11, T.error, CENTER);
+				delTxt.cameras = [camHUD]; delTxt.scrollFactor.set(); add(delTxt);
+				layerPanelTexts.add(delTxt);
+				layerPanelHits.push({x: LP_W - 38.0, y: rowY, w: 20.0, h: LP_ROW_H * 1.0, zone: "del", idx: layIdx});
+			}
+
+			rowY += LP_ROW_H;
+			i--;
+		}
+
+		// ── Scroll arrows if needed ───────────────────────────────────────────
+		if (totalLayers > LP_MAX_VIS)
+		{
+			var scrollTxt = new FlxText(0, rowY + 2, LP_W, "SCROLL: " + (layerPanelScroll + 1) + "-" + Std.int(Math.min(layerPanelScroll + LP_MAX_VIS, totalLayers)) + " / " + totalLayers, 8);
+			scrollTxt.setFormat(Paths.font("vcr.ttf"), 8, T.textDim, CENTER);
+			scrollTxt.cameras = [camHUD]; scrollTxt.scrollFactor.set(); add(scrollTxt);
+			layerPanelTexts.add(scrollTxt);
+		}
+	}
+
+	function _refreshLayerDropdown():Void
+	{
+		// Visual panel replaces the old dropdown
+		refreshLayerPanel();
 	}
 
 	// ── Tab: Animation ────────────────────────────────────────────────────────
@@ -1034,8 +1660,26 @@ class AnimationDebug extends MusicBeatState
 		}));
 		yPos += 40;
 
+		// ── Convert V1 → V2 ───────────────────────────────────────────────────
+		var sepLine = new FlxSprite(10, yPos);
+		sepLine.makeGraphic(295, 1, 0x44AADDFF);
+		tab.add(sepLine);
+		yPos += 8;
+
+		var convLabel = new FlxText(10, yPos, 295, "Convert V1 → V2 (render.layers)", 10);
+		convLabel.color = FlxColor.CYAN;
+		convLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
+		tab.add(convLabel);
+		yPos += 16;
+
+		tab.add(new CoolButton(10, yPos, "Convert to V2 Format", function()
+		{
+			_convertV1ToV2();
+		}));
+		yPos += 30;
+
 		tab.add(new FlxText(10, yPos, 280,
-			"Export JSON: Saves all character data\n" + "Offsets TXT: Only animation offsets\n" + "Copy JSON: Copies to clipboard", 10));
+			"V2 format uses render.layers — supports\nmulti-sprite characters.\nExisting animations go to a 'body' layer.", 9));
 
 		UI_box.addGroup(tab);
 	}
@@ -1485,12 +2129,12 @@ class AnimationDebug extends MusicBeatState
 				}
 			}
 
-			FlxG.log.notice('[AnimDebug] Loaded ' + currentAnimData.length + ' simbols of Animation.json');
+			FlxG.log.notice('[CharacterEditor] Loaded ' + currentAnimData.length + ' simbols of Animation.json');
 			reloadCharacterWithNewAnims();
 		}
 		catch (e:Dynamic)
 		{
-			FlxG.log.error('[AnimDebug] Error reading Animation.json: ' + e);
+			FlxG.log.error('[CharacterEditor] Error reading Animation.json: ' + e);
 			setHelp("✗ Error reading Animation.json: " + e, FlxColor.RED);
 		}
 		#end
@@ -1618,7 +2262,7 @@ class AnimationDebug extends MusicBeatState
 		// Actualizar header con el nombre del personaje
 		if (charHeaderText != null)
 		{
-			charHeaderText.text = "  ▶  " + daAnim.toUpperCase();
+			charHeaderText.text = "  CHARACTER EDITOR";
 			// Pequeño bounce en el header
 			FlxTween.cancelTweensOf(charHeaderText);
 			charHeaderText.alpha = 0;
@@ -1784,170 +2428,237 @@ class AnimationDebug extends MusicBeatState
 			content = lime.utils.Assets.getText(jsonPath);
 			#end
 
-			characterData = cast Json.parse(content);
+			var parsed:Dynamic = Json.parse(content);
 
-			if (pathInput != null)
-				pathInput.text = characterData.path;
+			// ── Detectar formato: V2 tiene "render" con "layers" ─────────────────
+			_isV2Format = parsed.render != null && parsed.render.layers != null;
 
-			if (scaleStepper != null)
-				scaleStepper.value = characterData.scale;
-
-			if (antialiasingCheckbox != null)
-				antialiasingCheckbox.checked = characterData.antialiasing;
-
-			if (playerCheckbox != null)
-				playerCheckbox.checked = characterData.isPlayer;
-
-			if (charFlipXCheckbox != null)
+			if (_isV2Format)
+				_loadCharacterDataV2(parsed);
+			else
 			{
-				var fx = characterData.flipX != null ? characterData.flipX : false;
-				charFlipXCheckbox.checked = fx;
-				if (char != null)      char.flipX      = fx;
-				if (ghostChar != null) ghostChar.flipX = fx;
+				characterData = cast parsed;
+				_loadCharacterDataV1();
 			}
-
-			if (charDeathInput != null)
-				charDeathInput.text = characterData.charDeath != null ? characterData.charDeath : "";
-
-			if (isTxtCheckbox != null)
-				isTxtCheckbox.checked = characterData.isTxt != null ? characterData.isTxt : false;
-
-			if (isSpritesheetCheckbox != null)
-				isSpritesheetCheckbox.checked = characterData.isSpritemap != null ? characterData.isSpritemap : false;
-
-			var usingFlxAnimate = characterData.isFlxAnimate != null ? characterData.isFlxAnimate : false;
-			if (isFlxAnimateCheckbox != null)
-				isFlxAnimateCheckbox.checked = usingFlxAnimate;
-
-			if (spritemapNameInput != null)
-			{
-				spritemapNameInput.text = (characterData.spritemapName != null && characterData.spritemapName != "") ? characterData.spritemapName : "spritemap1";
-				spritemapNameInput.color = usingFlxAnimate ? FlxColor.YELLOW : FlxColor.WHITE;
-			}
-
-			if (healthIconInput != null)
-			{
-				healthIconInput.text = characterData.healthIcon != null ? characterData.healthIcon : daAnim;
-				updateIconPreview(healthIconInput.text);
-			}
-
-			if (healthBarColorInput != null)
-			{
-				var colorStr = characterData.healthBarColor != null ? characterData.healthBarColor : "#31B0D1";
-				healthBarColorInput.text = colorStr;
-				try
-				{
-					currentHealthBarColor = FlxColor.fromString(colorStr);
-					if (hudHealthBar != null)
-						hudHealthBar.color = currentHealthBarColor;
-				}
-				catch (_)
-				{
-				}
-			}
-
-			// ── Game Over fields ────────────────────────────────────────────────
-			if (gameOverSoundInput != null)
-				gameOverSoundInput.text = characterData.gameOverSound ?? '';
-			if (gameOverMusicInput != null)
-				gameOverMusicInput.text = characterData.gameOverMusic ?? '';
-			if (gameOverEndInput != null)
-				gameOverEndInput.text = characterData.gameOverEnd ?? '';
-			if (gameOverBpmStepper != null)
-				gameOverBpmStepper.value = characterData.gameOverBpm ?? 100;
-			if (gameOverCamFrameStepper != null)
-				gameOverCamFrameStepper.value = characterData.gameOverCamFrame ?? 12;
-
-			// ── Position Offset ──────────────────────────────────────────────
-			if (posOffsetXStepper != null && posOffsetYStepper != null)
-			{
-				var posOff = characterData.positionOffset;
-				posOffsetXStepper.value = (posOff != null && posOff.length > 0) ? posOff[0] : 0;
-				posOffsetYStepper.value = (posOff != null && posOff.length > 1) ? posOff[1] : 0;
-			}
-
-			// ── Camera Offset ────────────────────────────────────────────────
-			if (camOffsetXStepper != null && camOffsetYStepper != null)
-			{
-				var camOff = characterData.cameraOffset;
-				camOffsetXStepper.value = (camOff != null && camOff.length > 0) ? camOff[0] : 0;
-				camOffsetYStepper.value = (camOff != null && camOff.length > 1) ? camOff[1] : 0;
-			}
-
-			currentAnimData = characterData.animations;
-
-			if (usingFlxAnimate)
-				flxAnimateFolderPath = Paths.characterFolder(characterData.path);
 		}
 		catch (e:Dynamic)
 		{
-			trace('[AnimDebug] No se encontraron datos para: ' + daAnim);
+			trace('[CharacterEditor] No data found for: ' + daAnim);
 			currentAnimData = [];
 		}
+	}
+
+	/** Carga el formato antiguo (V1) — campo plano "animations". */
+	function _loadCharacterDataV1():Void
+	{
+		layers = [];
+		_isV2Format = false;
+
+		// Mostrar/ocultar dropdown de capas
+		_setLayerDropdownVisible(false);
+
+		if (pathInput != null)          pathInput.text = characterData.path;
+		if (scaleStepper != null)       scaleStepper.value = characterData.scale;
+		if (antialiasingCheckbox != null) antialiasingCheckbox.checked = characterData.antialiasing;
+		if (playerCheckbox != null)     playerCheckbox.checked = characterData.isPlayer;
+
+		if (charFlipXCheckbox != null)
+		{
+			var fx = characterData.flipX != null ? characterData.flipX : false;
+			charFlipXCheckbox.checked = fx;
+			if (char != null)      char.flipX      = fx;
+			if (ghostChar != null) ghostChar.flipX = fx;
+		}
+
+		if (charDeathInput != null)
+			charDeathInput.text = characterData.charDeath != null ? characterData.charDeath : "";
+
+		if (isTxtCheckbox != null)
+			isTxtCheckbox.checked = characterData.isTxt != null ? characterData.isTxt : false;
+
+		if (isSpritesheetCheckbox != null)
+			isSpritesheetCheckbox.checked = characterData.isSpritemap != null ? characterData.isSpritemap : false;
+
+		var usingFlxAnimate = characterData.isFlxAnimate != null ? characterData.isFlxAnimate : false;
+		if (isFlxAnimateCheckbox != null)
+			isFlxAnimateCheckbox.checked = usingFlxAnimate;
+
+		if (spritemapNameInput != null)
+		{
+			spritemapNameInput.text = (characterData.spritemapName != null && characterData.spritemapName != "") ? characterData.spritemapName : "spritemap1";
+			spritemapNameInput.color = usingFlxAnimate ? FlxColor.YELLOW : FlxColor.WHITE;
+		}
+
+		if (healthIconInput != null)
+		{
+			healthIconInput.text = characterData.healthIcon != null ? characterData.healthIcon : daAnim;
+			updateIconPreview(healthIconInput.text);
+		}
+
+		if (healthBarColorInput != null)
+		{
+			var colorStr = characterData.healthBarColor != null ? characterData.healthBarColor : "#31B0D1";
+			healthBarColorInput.text = colorStr;
+			try
+			{
+				currentHealthBarColor = FlxColor.fromString(colorStr);
+				if (hudHealthBar != null)
+					hudHealthBar.color = currentHealthBarColor;
+			}
+			catch (_) {}
+		}
+
+		// ── Game Over fields ────────────────────────────────────────────────────
+		if (gameOverSoundInput != null) gameOverSoundInput.text = characterData.gameOverSound ?? '';
+		if (gameOverMusicInput != null) gameOverMusicInput.text = characterData.gameOverMusic ?? '';
+		if (gameOverEndInput != null)   gameOverEndInput.text   = characterData.gameOverEnd   ?? '';
+		if (gameOverBpmStepper != null) gameOverBpmStepper.value = characterData.gameOverBpm ?? 100;
+		if (gameOverCamFrameStepper != null) gameOverCamFrameStepper.value = characterData.gameOverCamFrame ?? 12;
+
+		// ── Position / Camera Offset ──────────────────────────────────────────
+		if (posOffsetXStepper != null && posOffsetYStepper != null)
+		{
+			var posOff = characterData.positionOffset;
+			posOffsetXStepper.value = (posOff != null && posOff.length > 0) ? posOff[0] : 0;
+			posOffsetYStepper.value = (posOff != null && posOff.length > 1) ? posOff[1] : 0;
+		}
+		if (camOffsetXStepper != null && camOffsetYStepper != null)
+		{
+			var camOff = characterData.cameraOffset;
+			camOffsetXStepper.value = (camOff != null && camOff.length > 0) ? camOff[0] : 0;
+			camOffsetYStepper.value = (camOff != null && camOff.length > 1) ? camOff[1] : 0;
+		}
+
+		currentAnimData = characterData.animations;
+
+		if (usingFlxAnimate)
+			flxAnimateFolderPath = Paths.characterFolder(characterData.path);
+
+		// ── Auto-wrap V1 como una sola capa "body" ────────────────────────────
+		// Los personajes legacy (sprite) siempre quedan en la primera capa por
+		// defecto, sin que el usuario tenga que convertir manualmente.
+		var bodyLayer:LayerData = {
+			name:         "body",
+			path:         pathInput != null ? pathInput.text : (characterData.path != null ? characterData.path : "BOYFRIEND"),
+			position:     [
+				posOffsetXStepper != null ? posOffsetXStepper.value : 0.0,
+				posOffsetYStepper != null ? posOffsetYStepper.value : 0.0
+			],
+			scale:        [
+				scaleStepper != null ? scaleStepper.value : 1.0,
+				scaleStepper != null ? scaleStepper.value : 1.0
+			],
+			alpha:        1.0,
+			visible:      true,
+			flipX:        charFlipXCheckbox != null ? charFlipXCheckbox.checked : false,
+			flipY:        false,
+			antialiasing: antialiasingCheckbox != null ? antialiasingCheckbox.checked : true,
+			animations:   currentAnimData.copy()
+		};
+		layers = [bodyLayer];
+		curLayerIdx = 0;
+		_isV2Format = true;
+		_setLayerDropdownVisible(true);
+		_refreshLayerDropdown();
+		_syncLayerTabToCurrentLayer();
+	}
+
+	/** Carga el nuevo formato V2 (render.layers). */
+	function _loadCharacterDataV2(parsed:Dynamic):Void
+	{
+		_isV2Format = true;
+
+		// ── meta ───────────────────────────────────────────────────────────────
+		var meta:Dynamic = parsed.meta;
+		if (playerCheckbox != null && meta != null)
+			playerCheckbox.checked = meta.isPlayer == true;
+
+		// ── gameplay ──────────────────────────────────────────────────────────
+		var gp:Dynamic = parsed.gameplay;
+		if (gp != null)
+		{
+			if (posOffsetXStepper != null && gp.position != null && gp.position.length >= 2)
+			{
+				posOffsetXStepper.value = gp.position[0];
+				posOffsetYStepper.value = gp.position[1];
+			}
+			if (camOffsetXStepper != null && gp.cameraOffset != null && gp.cameraOffset.length >= 2)
+			{
+				camOffsetXStepper.value = gp.cameraOffset[0];
+				camOffsetYStepper.value = gp.cameraOffset[1];
+			}
+			if (idleAfterSingCheckbox != null)
+				idleAfterSingCheckbox.checked = gp.idleAfterSing != false; // default true
+
+			// ── death ──────────────────────────────────────────────────────────
+			var death:Dynamic = gp.death;
+			if (death != null)
+			{
+				if (charDeathInput != null)    charDeathInput.text    = death.character ?? '';
+				if (gameOverSoundInput != null) gameOverSoundInput.text = death.sound    ?? '';
+				if (gameOverEndInput != null)   gameOverEndInput.text   = death.endAnim  ?? '';
+			}
+		}
+
+		// ── render.layers ─────────────────────────────────────────────────────
+		var renderLayers:Array<Dynamic> = parsed.render.layers;
+		layers = [];
+		for (rawLayer in renderLayers)
+		{
+			var ld:LayerData = {
+				name:         rawLayer.name   ?? 'layer',
+				path:         rawLayer.path   ?? '',
+				position:     rawLayer.position    != null ? rawLayer.position    : [0.0, 0.0],
+				scale:        rawLayer.scale        != null ? rawLayer.scale        : [1.0, 1.0],
+				alpha:        rawLayer.alpha        != null ? rawLayer.alpha        : 1.0,
+				visible:      rawLayer.visible      != false,
+				flipX:        rawLayer.flipX        == true,
+				flipY:        rawLayer.flipY        == true,
+				antialiasing: rawLayer.antialiasing != false,
+				animations:   rawLayer.animations  != null ? cast rawLayer.animations : []
+			};
+			layers.push(ld);
+		}
+
+		// Seleccionar primera capa por defecto
+		curLayerIdx = 0;
+		currentAnimData = layers.length > 0 ? layers[0].animations : [];
+
+		// Mostrar dropdown y rellenarlo
+		_setLayerDropdownVisible(true);
+		_refreshLayerDropdown();
+		_syncLayerTabToCurrentLayer();
+
+		// ── icon ──────────────────────────────────────────────────────────────
+		var ic:Dynamic = parsed.icon;
+		if (ic != null && healthIconInput != null)
+		{
+			healthIconInput.text = ic.path ?? daAnim;
+			updateIconPreview(healthIconInput.text);
+		}
+
+		// Rellenar pathInput con la ruta de la primera capa (para Properties)
+		if (pathInput != null && layers.length > 0)
+			pathInput.text = layers[0].path;
+
+		setHelp("✓ V2 format loaded — " + layers.length + " layer(s)", FlxColor.CYAN);
+	}
+
+	function _setLayerDropdownVisible(vis:Bool):Void
+	{
+		if (layerDropDown != null) layerDropDown.visible = vis;
+		_setLayerPropsPanelVisible(vis);
 	}
 
 	// ── reloadCharacterWithNewAnims ───────────────────────────────────────────
 
 	function reloadCharacterWithNewAnims():Void
 	{
-		var tempData:CharacterData = {
-			path: pathInput.text,
-			animations: currentAnimData,
-			isPlayer: playerCheckbox.checked,
-			antialiasing: antialiasingCheckbox.checked,
-			scale: scaleStepper.value
-		};
-		if (charFlipXCheckbox != null && charFlipXCheckbox.checked)
-			tempData.flipX = true;
+		// Guardar la capa actual antes de recargar (V2)
+		if (_isV2Format && layers.length > 0 && curLayerIdx < layers.length)
+			layers[curLayerIdx].animations = currentAnimData;
 
-		if (isTxtCheckbox.checked)
-			tempData.isTxt = true;
-
-		if (isSpritesheetCheckbox.checked)
-			tempData.isSpritemap = true;
-
-		if (isFlxAnimateCheckbox.checked)
-		{
-			tempData.isFlxAnimate = true;
-			var sm = spritemapNameInput.text.trim();
-			if (sm != "" && sm != "spritemap1")
-				tempData.spritemapName = sm;
-		}
-
-		if (charDeathInput != null && charDeathInput.text.trim() != "")
-			tempData.charDeath = charDeathInput.text.trim();
-
-		// ── Game Over ──────────────────────────────────────────────────────────
-		if (gameOverSoundInput != null && gameOverSoundInput.text.trim() != "")
-			tempData.gameOverSound = gameOverSoundInput.text.trim();
-		if (gameOverMusicInput != null && gameOverMusicInput.text.trim() != "")
-			tempData.gameOverMusic = gameOverMusicInput.text.trim();
-		if (gameOverEndInput != null && gameOverEndInput.text.trim() != "")
-			tempData.gameOverEnd = gameOverEndInput.text.trim();
-		if (gameOverBpmStepper != null && gameOverBpmStepper.value != 100)
-			tempData.gameOverBpm = gameOverBpmStepper.value;
-		if (gameOverCamFrameStepper != null && Std.int(gameOverCamFrameStepper.value) != 12)
-			tempData.gameOverCamFrame = Std.int(gameOverCamFrameStepper.value);
-
-		// ── Position Offset ────────────────────────────────────────────────────
-		if (posOffsetXStepper != null && posOffsetYStepper != null)
-		{
-			final px = posOffsetXStepper.value;
-			final py = posOffsetYStepper.value;
-			if (px != 0 || py != 0)
-				tempData.positionOffset = [px, py];
-		}
-
-		// ── Camera Offset ──────────────────────────────────────────────────────
-		if (camOffsetXStepper != null && camOffsetYStepper != null)
-		{
-			final cx = camOffsetXStepper.value;
-			final cy = camOffsetYStepper.value;
-			if (cx != 0 || cy != 0)
-				tempData.cameraOffset = [cx, cy];
-		}
-
-		var jsonString = Json.stringify(tempData, null, '\t');
+		var jsonString = Json.stringify(buildExportData(), null, '\t');
 
 		#if sys
 		try
@@ -1960,14 +2671,81 @@ class AnimationDebug extends MusicBeatState
 		}
 		catch (e:Dynamic)
 		{
-			FlxG.log.error('[AnimDebug] Error guardando datos temporales: ' + e);
+			FlxG.log.error('[CharacterEditor] Error saving temp data: ' + e);
 		}
 		#end
 	}
 
 	// ── Export ────────────────────────────────────────────────────────────────
 
-	function buildExportData():CharacterData
+	function buildExportData():Dynamic
+	{
+		if (_isV2Format)
+			return _buildExportDataV2();
+		return _buildExportDataV1();
+	}
+
+	/** Construye el JSON de exportación en formato V2 (render.layers). */
+	function _buildExportDataV2():Dynamic
+	{
+		// Guardar animaciones de la capa actual antes de exportar
+		if (layers.length > 0 && curLayerIdx < layers.length)
+			layers[curLayerIdx].animations = currentAnimData;
+
+		var death:Dynamic = {
+			character: charDeathInput != null ? charDeathInput.text.trim() : '',
+			sound: gameOverSoundInput != null ? gameOverSoundInput.text.trim() : '',
+			endAnim: gameOverEndInput != null ? gameOverEndInput.text.trim() : ''
+		};
+
+		var gameplay:Dynamic = {
+			position: [
+				posOffsetXStepper != null ? posOffsetXStepper.value : 0,
+				posOffsetYStepper != null ? posOffsetYStepper.value : 0
+			],
+			cameraOffset: [
+				camOffsetXStepper != null ? camOffsetXStepper.value : 0,
+				camOffsetYStepper != null ? camOffsetYStepper.value : 0
+			],
+			death: death,
+			idleAfterSing: idleAfterSingCheckbox != null ? idleAfterSingCheckbox.checked : true
+		};
+
+		var exportLayers:Array<Dynamic> = [];
+		for (lay in layers)
+		{
+			exportLayers.push({
+				name:         lay.name,
+				path:         lay.path,
+				position:     lay.position,
+				scale:        lay.scale,
+				alpha:        lay.alpha,
+				visible:      lay.visible,
+				flipX:        lay.flipX,
+				flipY:        lay.flipY,
+				antialiasing: lay.antialiasing,
+				animations:   lay.animations
+			});
+		}
+
+		var iconPath = healthIconInput != null ? healthIconInput.text : daAnim;
+
+		return {
+			meta: { isPlayer: playerCheckbox != null ? playerCheckbox.checked : false },
+			gameplay: gameplay,
+			render: { layers: exportLayers },
+			icon: {
+				path: iconPath,
+				flipX: charFlipXCheckbox != null ? charFlipXCheckbox.checked : false,
+				isGrid: false,
+				bumpInBeats: iconBumpInBeatsCheckbox != null ? iconBumpInBeatsCheckbox.checked : true,
+				stepTempo: iconStepTempoStepper != null ? Std.int(iconStepTempoStepper.value) : 4
+			}
+		};
+	}
+
+	/** Construye el JSON de exportación en formato V1 (legado). */
+	function _buildExportDataV1():CharacterData
 	{
 		var exportData:CharacterData = {
 			path: pathInput.text,
@@ -2034,6 +2812,53 @@ class AnimationDebug extends MusicBeatState
 
 		return exportData;
 	}
+
+	// ── V1 → V2 conversion ───────────────────────────────────────────────────
+
+	/**
+	 * Convierte el personaje del formato V1 (animations planas) al V2
+	 * (render.layers). Las animaciones actuales pasan a ser la capa "body".
+	 */
+	function _convertV1ToV2():Void
+	{
+		if (_isV2Format)
+		{
+			setHelp("⚠ Already V2 format", FlxColor.YELLOW);
+			return;
+		}
+
+		var bodyLayer:LayerData = {
+			name:         "body",
+			path:         pathInput != null ? pathInput.text : "BOYFRIEND",
+			position:     [
+				posOffsetXStepper != null ? posOffsetXStepper.value : 0.0,
+				posOffsetYStepper != null ? posOffsetYStepper.value : 0.0
+			],
+			scale:        [
+				scaleStepper != null ? scaleStepper.value : 1.0,
+				scaleStepper != null ? scaleStepper.value : 1.0
+			],
+			alpha:        1.0,
+			visible:      true,
+			flipX:        charFlipXCheckbox != null ? charFlipXCheckbox.checked : false,
+			flipY:        false,
+			antialiasing: antialiasingCheckbox != null ? antialiasingCheckbox.checked : true,
+			animations:   currentAnimData.copy()
+		};
+
+		layers = [bodyLayer];
+		curLayerIdx = 0;
+		_isV2Format = true;
+
+		_setLayerDropdownVisible(true);
+		_refreshLayerDropdown();
+		_syncLayerTabToCurrentLayer();
+
+		reloadCharacterWithNewAnims();
+		setHelp("✓ Converted to V2 — 1 layer (body)", FlxColor.LIME);
+	}
+
+	// ── Export ────────────────────────────────────────────────────────────────
 
 	function exportCharacterJSON():Void
 	{
@@ -2208,6 +3033,231 @@ class AnimationDebug extends MusicBeatState
 		// ── Todo lo demás se bloquea si el usuario está escribiendo en un campo ─
 		if (isTyping())
 			return;
+
+		// ── Layer panel: mouse input (drag-and-drop, click, scroll) ─────────
+		if (_isV2Format && layers != null && layers.length > 0)
+		{
+			var mx = FlxG.mouse.gameX;
+			var my = FlxG.mouse.gameY;
+			var panelTop     = _lpTopY() * 1.0;
+			var contentTop   = panelTop + LP_HEADER_H;
+			var inPanel      = mx >= 0 && mx < LP_W && my >= panelTop;
+			var visCount     = Std.int(Math.min(layers.length, LP_MAX_VIS));
+			var totalLayers  = layers.length;
+
+			// ── INLINE RENAME: commit con Enter, cancelar con Escape, ─────────
+			// o al hacer clic fuera del input.
+			if (_lpRenameInput != null && _lpRenameInput.visible)
+			{
+				var commitRename = false;
+				var cancelRename = false;
+
+				if (FlxG.keys.justPressed.ENTER)
+					commitRename = true;
+				else if (FlxG.keys.justPressed.ESCAPE)
+					cancelRename = true;
+				else if (FlxG.mouse.justPressed && !_lpRenameInput.hasFocus)
+					cancelRename = true;
+
+				if (commitRename && _lpRenameIdx >= 0 && _lpRenameIdx < layers.length)
+				{
+					var newName = _lpRenameInput.text.trim();
+					if (newName == "") newName = "layer" + _lpRenameIdx;
+					layers[_lpRenameIdx].name = newName;
+					// Sincronizar también el campo del panel de props
+					if (layerNameInput != null) layerNameInput.text = newName;
+					_refreshLayerDropdown();
+					_hasUnsaved = true;
+					setHelp("✓ Renamed: " + newName, FlxColor.LIME);
+				}
+				else if (cancelRename)
+				{
+					setHelp("Rename cancelled", funkin.debug.themes.EditorTheme.current.textDim);
+				}
+
+				if (commitRename || cancelRename)
+				{
+					_lpRenameInput.visible  = false;
+					_lpRenameInput.hasFocus = false;
+					_lpRenameIdx = -1;
+					refreshLayerPanel();
+				}
+			}
+
+			// ── PRESS: check hits or start drag-pending ───────────────────────
+			if (FlxG.mouse.justPressed)
+			{
+				var hitSomething = false;
+				for (hit in layerPanelHits)
+				{
+					if (mx >= hit.x && mx < hit.x + hit.w && my >= hit.y && my < hit.y + hit.h)
+					{
+						hitSomething = true;
+						switch (hit.zone)
+						{
+							case "add":
+								_addNewLayer();
+							case "eye":
+								if (hit.idx >= 0 && hit.idx < layers.length)
+								{
+									layers[hit.idx].visible = !layers[hit.idx].visible;
+									refreshLayerPanel();
+									_hasUnsaved = true;
+									setHelp((layers[hit.idx].visible ? "● Visible: " : "– Hidden: ") + layers[hit.idx].name, funkin.debug.themes.EditorTheme.current.success);
+								}
+							case "del":
+								_deleteCurrentLayer();
+							case "row":
+								if (hit.idx >= 0 && hit.idx < layers.length)
+								{
+									var now = haxe.Timer.stamp();
+									var isDoubleClick = (_lpLastClickIdx == hit.idx) && (now - _lpLastClickMs < 0.4);
+
+									// Select + begin drag-pending (commit on move > threshold)
+									curLayerIdx = hit.idx;
+									currentAnimData = layers[hit.idx].animations;
+									_syncLayerTabToCurrentLayer();
+									refreshLayerPanel();
+									displayCharacter(daAnim);
+									loadCharacterData();
+									setHelp("Layer: " + layers[hit.idx].name, funkin.debug.themes.EditorTheme.current.accent);
+
+									if (isDoubleClick)
+									{
+										// Abrir rename inline — posicionar el input sobre la fila
+										_lpRenameIdx = hit.idx;
+										_lpRenameInput.text = layers[hit.idx].name ?? "";
+										_lpRenameInput.y    = hit.y + 3;
+										_lpRenameInput.visible = true;
+										_lpRenameInput.hasFocus = true;
+										// No iniciar drag al hacer doble clic
+										_lpLastClickIdx = -1;
+										_lpLastClickMs  = -9999;
+									}
+									else
+									{
+										_lpLastClickIdx = hit.idx;
+										_lpLastClickMs  = now;
+										// Start drag-pending
+										_lpDragPending = true;
+										_lpDragFromIdx = hit.idx;
+										// Compute visual row (0 = topmost on screen)
+										_lpDragFromVis = (totalLayers - 1 - hit.idx) - layerPanelScroll;
+										_lpDragStartY  = my;
+									}
+								}
+						}
+						break;
+					}
+				}
+			}
+
+			// ── HELD: promote pending → active drag once past threshold ──────
+			if (_lpDragPending && FlxG.mouse.pressed && Math.abs(my - _lpDragStartY) > 5)
+			{
+				_lpDragging    = true;
+				_lpDragPending = false;
+				refreshLayerPanel(); // redraws grip highlight
+			}
+
+			// ── DRAGGING: update ghost + drop indicator ───────────────────────
+			if (_lpDragging && FlxG.mouse.pressed && _lpDragGhost != null)
+			{
+				// Ghost follows cursor (clamped to panel content area)
+				var ghostY = FlxMath.bound(my - LP_ROW_H / 2, contentTop, contentTop + visCount * LP_ROW_H - LP_ROW_H);
+				_lpDragGhost.y       = ghostY;
+				_lpDragGhostTxt.y    = ghostY + 5;
+				_lpDragGhost.visible = true;
+				_lpDragGhostTxt.visible = true;
+				if (_lpDragFromIdx >= 0 && _lpDragFromIdx < layers.length)
+					_lpDragGhostTxt.text = layers[_lpDragFromIdx].name ?? "";
+
+				// Compute drop gap (0 = before top row, visCount = after last row)
+				var relY = my - contentTop;
+				_lpDropGap = Std.int(FlxMath.bound(Math.round(relY / LP_ROW_H), 0, visCount));
+				// Show drop line between rows
+				var lineY = contentTop + _lpDropGap * LP_ROW_H - 1;
+				_lpDropLine.y       = lineY;
+				_lpDropLine.visible = true;
+			}
+
+			// ── RELEASE: commit the drop ──────────────────────────────────────
+			if ((_lpDragging || _lpDragPending) && FlxG.mouse.justReleased)
+			{
+				if (_lpDragging && _lpDropGap >= 0 && _lpDragFromIdx >= 0)
+				{
+					// vpFrom = visual position (0 = top) of the dragged layer
+					var vpFrom = (totalLayers - 1 - _lpDragFromIdx) - layerPanelScroll;
+					// vpDrop  = absolute visual gap (accounting for scroll)
+					var vpDrop = layerPanelScroll + _lpDropGap;
+					vpDrop = Std.int(FlxMath.bound(vpDrop, 0, totalLayers));
+					// Absolute vpFrom
+					var vpFromAbs = totalLayers - 1 - _lpDragFromIdx;
+
+					if (vpDrop != vpFromAbs && vpDrop != vpFromAbs + 1)
+					{
+						var item = layers.splice(_lpDragFromIdx, 1)[0];
+						var adjGap = (vpDrop > vpFromAbs) ? vpDrop - 1 : vpDrop;
+						// Insert at array index: (total-1) - adjGap
+						var insertIdx = Std.int(FlxMath.bound((layers.length) - adjGap, 0, layers.length));
+						layers.insert(insertIdx, item);
+						curLayerIdx = insertIdx;
+						currentAnimData = item.animations;
+						_hasUnsaved = true;
+						setHelp("↕ Moved: " + item.name, funkin.debug.themes.EditorTheme.current.accent);
+					}
+				}
+				_lpDragging    = false;
+				_lpDragPending = false;
+				_lpDragFromIdx = -1;
+				_lpDropGap     = -1;
+				if (_lpDragGhost  != null) _lpDragGhost.visible  = false;
+				if (_lpDragGhostTxt != null) _lpDragGhostTxt.visible = false;
+				if (_lpDropLine   != null) _lpDropLine.visible   = false;
+				refreshLayerPanel();
+			}
+
+			// ── SCROLL with mouse wheel over panel ────────────────────────────
+			if (FlxG.mouse.wheel != 0 && inPanel)
+			{
+				layerPanelScroll = Std.int(FlxMath.bound(layerPanelScroll - FlxG.mouse.wheel, 0, Math.max(0, totalLayers - LP_MAX_VIS)));
+				refreshLayerPanel();
+			}
+
+			// ── COPY / PASTE / DUPLICATE shortcuts ───────────────────────────
+			if (FlxG.keys.pressed.CONTROL && !isTyping())
+			{
+				if (FlxG.keys.justPressed.C && curLayerIdx >= 0 && curLayerIdx < layers.length)
+				{
+					_copiedLayer = haxe.Json.parse(haxe.Json.stringify(layers[curLayerIdx]));
+					setHelp("⎘ Copied: " + layers[curLayerIdx].name, funkin.debug.themes.EditorTheme.current.accent);
+				}
+				if (FlxG.keys.justPressed.V && _copiedLayer != null)
+				{
+					var pasted:LayerData = haxe.Json.parse(haxe.Json.stringify(_copiedLayer));
+					pasted.name = pasted.name + "_copy";
+					layers.insert(curLayerIdx + 1, pasted);
+					curLayerIdx = curLayerIdx + 1;
+					currentAnimData = pasted.animations;
+					_syncLayerTabToCurrentLayer();
+					_refreshLayerDropdown();
+					_hasUnsaved = true;
+					setHelp("⎘ Pasted: " + pasted.name, funkin.debug.themes.EditorTheme.current.success);
+				}
+				if (FlxG.keys.justPressed.D && curLayerIdx >= 0 && curLayerIdx < layers.length)
+				{
+					var dup:LayerData = haxe.Json.parse(haxe.Json.stringify(layers[curLayerIdx]));
+					dup.name = dup.name + "_dup";
+					layers.insert(curLayerIdx + 1, dup);
+					curLayerIdx = curLayerIdx + 1;
+					currentAnimData = dup.animations;
+					_syncLayerTabToCurrentLayer();
+					_refreshLayerDropdown();
+					_hasUnsaved = true;
+					setHelp("⎘ Duplicated: " + dup.name, funkin.debug.themes.EditorTheme.current.success);
+				}
+			}
+		}
 
 		// ── Click en el badge [G] de cada fila para cambiar la anim del ghost ─
 		// La columna del badge está en x=308–335, filas desde y=174 cada 20px.
@@ -2483,6 +3533,11 @@ class AnimationDebug extends MusicBeatState
 			&& my >= iconBG.y && my <= iconBG.y + iconBG.height)
 			return true;
 
+		// Layer panel (bottom of left panel)
+		if (_isV2Format && layerPanelBg != null && layerPanelBg.visible
+			&& mx >= 0 && mx < LP_W && my >= _lpTopY())
+			return true;
+
 		return false;
 	}
 
@@ -2530,6 +3585,12 @@ class AnimationDebug extends MusicBeatState
 			return true;
 		if (animRenderTypeInput != null && animRenderTypeInput.hasFocus)
 			return true;
+		if (layerNameInput != null && layerNameInput.hasFocus)
+			return true;
+		if (layerPathInput != null && layerPathInput.hasFocus)
+			return true;
+		if (_lpRenameInput != null && _lpRenameInput.hasFocus)
+			return true;
 		return false;
 	}
 
@@ -2566,7 +3627,7 @@ class AnimationDebug extends MusicBeatState
 				}
 			}
 		}
-		catch (e:Dynamic) { FlxG.log.error("[AnimDebug] _parseXmlPrefixes error: " + e); }
+		catch (e:Dynamic) { FlxG.log.error("[CharacterEditor] _parseXmlPrefixes error: " + e); }
 		#end
 		return result;
 	}
@@ -2606,7 +3667,7 @@ class AnimationDebug extends MusicBeatState
 							framerate: fps, looped: false, offsets: [0, 0] });
 					}
 		}
-		catch (e:Dynamic) { FlxG.log.error("[AnimDebug] _parseAnimJsonSymbols error: " + e); }
+		catch (e:Dynamic) { FlxG.log.error("[CharacterEditor] _parseAnimJsonSymbols error: " + e); }
 		#end
 		return result;
 	}

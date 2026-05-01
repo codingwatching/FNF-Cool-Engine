@@ -154,6 +154,32 @@ class Song
 		final folderVars = _nameVariants(folder.toLowerCase());
 		final diffVars   = _nameVariants(diff.toLowerCase());
 
+		// FIX: si el diff tiene el nombre de la canción como prefijo (ej: 'revelo-hard'),
+		// añadir también la variante sin prefijo ('hard') para que findChart encuentre
+		// archivos llamados simplemente 'hard.json' o 'charts/hard.json'.
+		{
+			final folderLow = folder.toLowerCase();
+			final diffLow   = diff.toLowerCase();
+			final prefix    = folderLow + '-';
+			if (diffLow.startsWith(prefix))
+			{
+				final stripped = diffLow.substr(prefix.length);
+				if (stripped.length > 0 && !diffVars.contains(stripped))
+					diffVars.push(stripped);
+			}
+			// También intentar variantes con guión→espacio del prefijo
+			for (fv in folderVars)
+			{
+				final pfx = fv + '-';
+				if (diffLow.startsWith(pfx))
+				{
+					final stripped = diffLow.substr(pfx.length);
+					if (stripped.length > 0 && !diffVars.contains(stripped))
+						diffVars.push(stripped);
+				}
+			}
+		}
+
 		// Buscar en TODOS los mods habilitados (no solo el activo).
 		// Esto permite que songs de mods como "base_game" sean encontradas
 		// aunque el mod activo sea otro (p.ej. "zone-tan").

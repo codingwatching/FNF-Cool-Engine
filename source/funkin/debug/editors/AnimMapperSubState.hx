@@ -15,7 +15,7 @@ import funkin.debug.themes.EditorTheme;
  *
  * Animation mapping table that appears immediately after importing
  * a character (sprite/XML, TXT, FlxAnimate) in CharacterSelectorState
- * or in AnimationDebug.
+ * or in CharacterEditor.
  *
  * Displays three columns:
  *   PREFIX — raw name of the asset (SubTexture XML / FlxAnimate SN). Read-only.

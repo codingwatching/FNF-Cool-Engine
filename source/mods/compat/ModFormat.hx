@@ -158,6 +158,13 @@ class ModFormatDetector
 		{
 			final root:Dynamic = Json.parse(rawJson);
 
+			// ── CNE 1.6: campo explícito "codenameChart":true ─────────────────
+			// Debe comprobarse ANTES que cualquier otra heurística porque el
+			// formato CNE 1.6 con strumLines no tiene campo "notes" de secciones
+			// y caería erróneamente al default COOL_ENGINE.
+			if (Reflect.field(root, 'codenameChart') == true)
+				return CODENAME_ENGINE;
+
 			// ── Explicit format field (e.g. "psych_v1_convert") ──────────────
 			final fmtField:String = Std.string(root.format ?? root.engine ?? '').toLowerCase().trim();
 			if (fmtField.startsWith('psych')) return PSYCH_ENGINE;

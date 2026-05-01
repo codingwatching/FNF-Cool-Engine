@@ -62,23 +62,70 @@ class CodenameConverter
 	 * @param difficulty  Which difficulty key to extract from `notes` object.
 	 *                    Defaults to "hard", falls back to first available key.
 	 */
-	public static function convertChart(rawJson:String, ?difficulty:String = 'hard'):SwagSong
+	public static function convertChart(rawJson:String, ?difficulty:String = 'hard',
+	                                    ?chartFilePath:String = null):SwagSong
 	{
 		trace('[CodenameConverter] Converting chart (difficulty=$difficulty)...');
 
 		final root:Dynamic = Json.parse(rawJson);
 		final cs:Dynamic   = root.song ?? root;
 
+		// ── Song name ─────────────────────────────────────────────────────────
+		// CNE 1.6 charts do not have a top-level "song" field — derive the name
+		// from the file path (e.g. "songs/rebellion/charts/hard.json" → "rebellion").
+		var songName:String = _str(cs.song, null);
+		if (songName == null && chartFilePath != null)
+		{
+			final parts = chartFilePath.replace('\\', '/').split('/');
+			// Find "charts" folder segment or a .json file; the parent folder is the song id.
+			var found = false;
+			for (i in 1...parts.length)
+			{
+				if (parts[i] == 'charts' || parts[i].endsWith('.json'))
+				{
+					songName = parts[i - 1];
+					found = true;
+					break;
+				}
+			}
+			if (!found && parts.length >= 2)
+				songName = parts[parts.length - 2];
+		}
+		if (songName == null) songName = 'unknown';
+
+		// ── CNE 1.6: BPM from events (no top-level bpm field) ─────────────────
+		var resolvedBpm:Float = _float(cs.bpm, 0);
+		final cneEventsEarly:Array<Dynamic> = (cs.events != null && Std.isOfType(cs.events, Array))
+			? cast cs.events : [];
+		if (resolvedBpm <= 0)
+		{
+			for (ev in cneEventsEarly)
+			{
+				if (_str(ev.name, '') == 'BPM Change')
+				{
+					final params:Array<Dynamic> = (ev.params != null && Std.isOfType(ev.params, Array))
+						? cast ev.params : [];
+					if (params.length > 0)
+					{
+						final b = _float(params[0], 0);
+						if (b > 0) { resolvedBpm = b; break; }
+					}
+				}
+			}
+		}
+		if (resolvedBpm <= 0) resolvedBpm = 100;
+
 		// ── Basic fields ─────────────────────────────────────────────────────
 		final song:SwagSong = {
-			song:        _str(cs.song,  'unknown'),
-			bpm:         _float(cs.bpm, 100),
-			speed:       _float(cs.speed, 1),
+			song:        songName,
+			bpm:         resolvedBpm,
+			// CNE 1.6 uses "scrollSpeed", legacy uses "speed"
+			speed:       _float(cs.speed ?? cs.scrollSpeed, 1),
 			needsVoices: _bool(cs.needsVoices, true),
 			stage:       _str(cs.stage, 'stage'),
 			validScore:  true,
 			notes:       [],
-			// Legacy fields
+			// Legacy fields — populated from strumLines if available
 			player1:     _str(cs.player   ?? cs.player1, 'bf'),
 			player2:     _str(cs.opponent ?? cs.player2, 'dad'),
 			gfVersion:   _str(cs.gf       ?? cs.gfVersion ?? cs.player3, 'gf'),
@@ -130,8 +177,96 @@ class CodenameConverter
 			}
 		}
 
-		for (sec in sections)
-			song.notes.push(_convertSection(sec, song.bpm));
+		// ── CNE 1.6: strumLines-based notes (no "notes" field) ────────────────
+		// When the chart uses the new strumLines format, extract notes directly
+		// and build legacy SwagSection objects the engine can consume.
+		if (sections.length == 0 && cs.strumLines != null && Std.isOfType(cs.strumLines, Array))
+		{
+			final strumLines:Array<Dynamic> = cast cs.strumLines;
+
+			// Read characters from strumLines
+			for (sl in strumLines)
+			{
+				final slType = Std.int(_float(sl.type, -1));
+				final chars:Array<Dynamic> = (sl.characters != null && Std.isOfType(sl.characters, Array))
+					? cast sl.characters : [];
+				if (chars.length == 0) continue;
+				final name = Std.string(chars[0]);
+				switch (slType)
+				{
+					case 1: song.player1 = name;
+					case 0: song.player2 = name;
+					case 2: song.gfVersion = name;
+					default:
+				}
+			}
+
+			// Collect all notes into one flat SwagSection per 16 steps
+			// (avoids empty-section issues when note times are spread across the song)
+			final allNotes:Array<Dynamic> = [];
+			var maxTimeMs:Float = 0;
+
+			for (sl in strumLines)
+			{
+				final slType = Std.int(_float(sl.type, -1));
+				if (slType == 2) continue;               // spectator — no playable notes
+				final mustHit = (slType == 1);           // type 1 = player → mustHitSection
+				final colOffset = mustHit ? 0 : 4;      // type 0 = opponent → cols 4-7
+
+				final rawNotes:Array<Dynamic> = (sl.notes != null && Std.isOfType(sl.notes, Array))
+					? cast sl.notes : [];
+
+				for (n in rawNotes)
+				{
+					final t   = _float(n.time, 0);
+					final id  = Std.int(_float(n.id, 0)) % 4;
+					final len = _float(n.sLen, 0);
+					if (t > maxTimeMs) maxTimeMs = t;
+					allNotes.push({ time: t, data: colOffset + id, length: len, mustHit: mustHit });
+				}
+			}
+
+			// Sort by time and distribute into sections (one section = 16 steps @ current bpm)
+			allNotes.sort((a, b) -> Std.int(a.time - b.time));
+
+			final msPerStep = (60000 / song.bpm) / 4;
+			final stepsPerSection = 16;
+			final msPerSection = msPerStep * stepsPerSection;
+			final sectionCount = Math.max(1, Math.ceil((maxTimeMs + msPerSection) / msPerSection));
+
+			// Pre-build sections
+			final sectionsArr:Array<SwagSection> = [];
+			for (i in 0...Std.int(sectionCount))
+			{
+				sectionsArr.push({
+					sectionNotes: [],
+					lengthInSteps: stepsPerSection,
+					typeOfSection: 0,
+					mustHitSection: true,
+					bpm: song.bpm,
+					changeBPM: false,
+					altAnim: false
+				});
+			}
+
+			for (n in allNotes)
+			{
+				final secIndex = Std.int(n.time / msPerSection);
+				if (secIndex < 0 || secIndex >= sectionsArr.length) continue;
+				sectionsArr[secIndex].sectionNotes.push([n.time, n.data, n.length]);
+				// If any note in this section is opponent-side, track mustHit accordingly
+				if (!n.mustHit) sectionsArr[secIndex].mustHitSection = false;
+			}
+
+			for (sec in sectionsArr)
+				song.notes.push(sec);
+		}
+		else
+		{
+			// Legacy CNE/Cool format: convert existing sections
+			for (sec in sections)
+				song.notes.push(_convertSection(sec, song.bpm));
+		}
 
 		// ── Events ────────────────────────────────────────────────────────────
 		// CNE events: Array<{ time:Float, name:String, params:Array<Dynamic> }>

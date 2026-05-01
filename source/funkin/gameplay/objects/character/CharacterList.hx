@@ -538,7 +538,7 @@ class CharacterList
     
     /**
      * Devuelve TODOS los personajes (bf + opponents + gf) en una sola lista ordenada.
-     * Útil para dropdowns que no distinguen por tipo (ej. AnimationDebug).
+     * Útil para dropdowns que no distinguen por tipo (ej. CharacterEditor).
      */
     public static function getAllCharacters():Array<String>
     {

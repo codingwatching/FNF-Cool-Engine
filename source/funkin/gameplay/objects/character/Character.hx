@@ -1,6 +1,7 @@
 package funkin.gameplay.objects.character;
 
 import animationdata.FunkinSprite;
+import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.util.FlxColor;
 import funkin.data.Conductor;
 import haxe.Json;
@@ -156,6 +157,39 @@ class Character extends FunkinSprite {
 	 */
 	public var model3D:Null<funkin.graphics.scene3d.Flx3DSprite> = null;
 
+	// ── V2 format support ─────────────────────────────────────────────────────
+
+	/** true si el JSON del personaje usa el nuevo formato V2 (render.layers). */
+	public var isV2Format:Bool = false;
+
+	/**
+	 * Cuando gameplay.idleAfterSing = true (default), el personaje vuelve
+	 * al idle después de terminar la animación de sing.
+	 * Si es false, se queda en pose de sing hasta el siguiente beat.
+	 */
+	public var idleAfterSing:Bool = true;
+
+	/**
+	 * Sprites acompañantes para las capas adicionales del formato V2.
+	 * La capa 0 (body) es este mismo sprite; layerGroup contiene las capas 1..N.
+	 * PlayState / CharacterSlot deben añadir este grupo a la escena DESPUÉS
+	 * de añadir el personaje principal para respetar el orden Z.
+	 *
+	 * Ejemplo (CharacterSlot):
+	 *   add(char);
+	 *   if (char.layerGroup != null) add(char.layerGroup);
+	 */
+	public var layerGroup:FlxTypedGroup<FunkinSprite> = null;
+
+	/** Datos crudos de las capas V2 (render.layers del JSON). */
+	var _v2LayerData:Array<Dynamic> = [];
+
+	/** Sprites vivos para las capas adicionales (paralelo a _v2LayerData[1..]). */
+	var _layerSprites:Array<FunkinSprite> = [];
+
+	/** Tabla de offsets por animación para cada sprite de capa (paralelo a _layerSprites). */
+	var _layerOffsets:Array<Map<String, Array<Float>>> = [];
+
 	var danced:Bool = false;
 
 	/** Nombre de la animación del frame anterior — para detectar fin de anim. */
@@ -204,12 +238,23 @@ class Character extends FunkinSprite {
 	 */
 	static var _pathCache:Map<String, String> = [];
 
+	/** Personajes que usan formato V2 (render.layers). */
+	static var _isV2Cache:Map<String, Bool> = [];
+
+	/**
+	 * Extras del formato V2 (idleAfterSing, datos de capas) serializados como JSON.
+	 * key → nombre del personaje
+	 */
+	static var _v2ExtrasCache:Map<String, String> = [];
+
 	static var _precachePool:Map<String, Character> = [];
 
 	/** Invalida las entradas de un personaje específico (recarga de mod). */
 	public static function invalidateCharCache(charName:String):Void {
 		_dataCache.remove(charName);
 		_pathCache.remove(charName);
+		_isV2Cache.remove(charName);
+		_v2ExtrasCache.remove(charName);
 		FunkinSprite.invalidateCache('char_sparrow:$charName');
 		FunkinSprite.invalidateCache('char_packer:$charName');
 		// Si había un dummy en el pool, destruirlo también
@@ -226,6 +271,8 @@ class Character extends FunkinSprite {
 		releasePrecachePool();
 		_dataCache.clear();
 		_pathCache.clear();
+		_isV2Cache.clear();
+		_v2ExtrasCache.clear();
 		trace('[Character] Todos los cachés de Character limpiados.');
 	}
 
@@ -320,12 +367,23 @@ class Character extends FunkinSprite {
 			try {
 				// Deep-copy del JSON cacheado para aislar la instancia
 				characterData = cast haxe.Json.parse(_dataCache.get(character));
+				isV2Format    = _isV2Cache.exists(character) ? _isV2Cache.get(character) : false;
+				if (isV2Format && _v2ExtrasCache.exists(character)) {
+					var extras:Dynamic = haxe.Json.parse(_v2ExtrasCache.get(character));
+					idleAfterSing = extras.idleAfterSing != false;
+					_v2LayerData  = extras.layers != null ? cast extras.layers : [];
+				} else {
+					idleAfterSing = true;
+					_v2LayerData  = [];
+				}
 				applyCharacterDataDefaults(characterData, character);
 				return;
 			} catch (e:Dynamic) {
 				// Si el JSON cacheado está corrupto, invalidar y recargar
 				trace('[Character] Cache corrupto para "$character", recargando...');
 				_dataCache.remove(character);
+				_isV2Cache.remove(character);
+				_v2ExtrasCache.remove(character);
 			}
 		}
 
@@ -343,10 +401,29 @@ class Character extends FunkinSprite {
 			else
 				content = lime.utils.Assets.getText(jsonPath);
 
-			characterData = cast mods.compat.ModCompatLayer.loadCharacter(content, character);
+			// ── Detectar formato V2 (render.layers) ───────────────────────────
+			var rawParsed:Dynamic = haxe.Json.parse(content);
+			if (rawParsed.render != null && rawParsed.render.layers != null) {
+				isV2Format    = true;
+				characterData = _buildCharacterDataFromV2(rawParsed);
+				idleAfterSing = rawParsed.gameplay != null && rawParsed.gameplay.idleAfterSing != false;
+				_v2LayerData  = rawParsed.render.layers != null ? cast rawParsed.render.layers : [];
 
-			// Guardar en caché como JSON string (deep-copy)
-			_dataCache.set(character, haxe.Json.stringify(characterData));
+				_isV2Cache.set(character, true);
+				_v2ExtrasCache.set(character, haxe.Json.stringify({
+					idleAfterSing: idleAfterSing,
+					layers:        _v2LayerData
+				}));
+				_dataCache.set(character, haxe.Json.stringify(characterData));
+				trace('[Character] Formato V2 cargado para "$character" — ${_v2LayerData.length} capa(s)');
+			} else {
+				// ── Formato V1 (legado) ────────────────────────────────────────
+				isV2Format    = false;
+				idleAfterSing = true;
+				_v2LayerData  = [];
+				characterData = cast mods.compat.ModCompatLayer.loadCharacter(content, character);
+				_dataCache.set(character, haxe.Json.stringify(characterData));
+			}
 
 			applyCharacterDataDefaults(characterData, character);
 
@@ -359,6 +436,56 @@ class Character extends FunkinSprite {
 			trace('[Character] Error cargando datos de "$character": $e');
 			characterData = null;
 		}
+	}
+
+	/**
+	 * Convierte un personaje en formato V2 (render.layers) al CharacterData
+	 * V1 que el resto del engine usa internamente.
+	 * La capa 0 (body) se usa como sprite principal; las capas adicionales
+	 * se manejan como companion sprites a través de layerGroup.
+	 */
+	function _buildCharacterDataFromV2(parsed:Dynamic):CharacterData {
+		final meta:Dynamic         = parsed.meta     ?? {};
+		final gp:Dynamic           = parsed.gameplay ?? {};
+		final layers:Array<Dynamic> = parsed.render != null && parsed.render.layers != null
+			? cast parsed.render.layers : [];
+		final first:Dynamic        = layers.length > 0 ? layers[0] : {};
+		final icon:Dynamic         = parsed.icon ?? {};
+
+		// ── Escala: V2 usa [scaleX, scaleY]; V1 usa un Float uniforme ────────
+		var scaleVal:Float = 1.0;
+		if (first.scale != null) {
+			var sc:Array<Dynamic> = cast first.scale;
+			if (sc.length > 0) scaleVal = sc[0];
+		}
+
+		var cd:CharacterData = {
+			path:         first.path         ?? 'BOYFRIEND',
+			animations:   first.animations   != null ? cast first.animations : [],
+			isPlayer:     meta.isPlayer      == true,
+			antialiasing: first.antialiasing != false,
+			scale:        scaleVal
+		};
+
+		if (first.flipX == true)  cd.flipX = true;
+		if (icon.path  != null)   cd.healthIcon = icon.path;
+
+		var camOff:Array<Dynamic> = gp.cameraOffset;
+		if (camOff != null && camOff.length >= 2)
+			cd.cameraOffset = [camOff[0], camOff[1]];
+
+		var pos:Array<Dynamic> = gp.position;
+		if (pos != null && pos.length >= 2)
+			cd.positionOffset = [pos[0], pos[1]];
+
+		var death:Dynamic = gp.death;
+		if (death != null) {
+			if (death.character != null && death.character != '') cd.charDeath    = death.character;
+			if (death.sound     != null && death.sound     != '') cd.gameOverSound = death.sound;
+			if (death.endAnim   != null && death.endAnim   != '') cd.gameOverEnd   = death.endAnim;
+		}
+
+		return cd;
 	}
 
 	/** Aplica valores derivados del CharacterData (healthIcon, barColor, etc.) */
@@ -469,6 +596,60 @@ class Character extends FunkinSprite {
 		// al sprite 2D. El sprite 2D sigue activo para hitbox y posición.
 		if (characterData.renderType == 'model3d')
 			_initModel3D();
+
+		// ── Companion sprites para capas V2 adicionales ───────────────────────────
+		// La capa 0 (body) es este sprite. Las capas 1..N se crean como FunkinSprites
+		// en layerGroup. El CharacterSlot / PlayState debe hacer add(char.layerGroup).
+		_destroyLayerSprites();
+		if (isV2Format && _v2LayerData.length > 1) {
+			if (layerGroup == null)
+				layerGroup = new FlxTypedGroup<FunkinSprite>();
+			for (i in 1..._v2LayerData.length) {
+				var ld:Dynamic = _v2LayerData[i];
+				var spr = new FunkinSprite(x, y);
+				try {
+					// Posición relativa a este sprite
+					var offX:Float = ld.position != null ? (cast ld.position : Array<Dynamic>)[0] ?? 0 : 0;
+					var offY:Float = ld.position != null ? (cast ld.position : Array<Dynamic>)[1] ?? 0 : 0;
+					spr.setPosition(x + offX, y + offY);
+
+					// Cargar atlas de la capa
+					spr.loadCharacterSparrow(ld.path ?? '');
+					spr.alpha        = ld.alpha        != null ? ld.alpha        : 1.0;
+					spr.visible      = ld.visible      != false;
+					spr.flipX        = ld.flipX        == true;
+					spr.flipY        = ld.flipY        == true;
+					spr.antialiasing = ld.antialiasing != false;
+
+					var sc:Array<Dynamic> = ld.scale;
+					if (sc != null && sc.length >= 2)       spr.scale.set(sc[0], sc[1]);
+					else if (sc != null && sc.length == 1)  spr.scale.set(sc[0], sc[0]);
+					spr.updateHitbox();
+
+					// Registrar animaciones de la capa
+					if (ld.animations != null) {
+						for (ad in (cast ld.animations : Array<Dynamic>)) {
+							var adIndices:Null<Array<Int>> = (ad.indices != null && (ad.indices : Array<Dynamic>).length > 0) ? cast ad.indices : null;
+							spr.addAnim(ad.name, ad.prefix, Std.int(ad.framerate ?? 24), ad.looped ?? false, adIndices);
+							var offsets:Array<Dynamic> = ad.offsets ?? [0, 0];
+							// FunkinSprite no tiene addOffset - almacenamos en _layerOffsets.
+							if (_layerOffsets.length <= _layerSprites.length)
+								_layerOffsets.push(new Map<String, Array<Float>>());
+							_layerOffsets[_layerSprites.length].set(ad.name, [offsets[0] ?? 0, offsets[1] ?? 0]);
+						}
+						if (spr.animation.exists('idle'))
+							spr.playAnim('idle');
+					}
+
+					layerGroup.add(spr);
+					_layerSprites.push(spr);
+					trace('[Character] Capa V2 "${ld.name}" cargada para "$curCharacter"');
+				} catch (e:Dynamic) {
+					trace('[Character] Error cargando capa V2 "${ld.name}": $e');
+					spr.destroy();
+				}
+			}
+		}
 	}
 
 	/** Inicializa el companion Flx3DSprite para personajes con renderType = "model3d". */
@@ -517,6 +698,17 @@ class Character extends FunkinSprite {
 		if (_resolved != null && animOffsets.exists(_resolved))
 			AnimName = _resolved;
 		super.playAnim(AnimName, Force, Reversed, Frame);
+
+		// ── Sincronizar capas V2 adicionales ──────────────────────────────────
+		for (i in 0..._layerSprites.length) {
+			var spr = _layerSprites[i];
+			if (spr.animation != null && spr.animation.exists(AnimName)) {
+				spr.playAnim(AnimName, Force, Reversed, Frame);
+				// Aplicar offsets almacenados (FunkinSprite no tiene addOffset).
+				var layerOff = i < _layerOffsets.length ? _layerOffsets[i].get(AnimName) : null;
+				spr.offset.set(layerOff != null ? layerOff[0] : 0, layerOff != null ? layerOff[1] : 0);
+			}
+		}
 
 		// la animación en la lista.
 		if (characterData != null) {
@@ -586,6 +778,19 @@ class Character extends FunkinSprite {
 	override function update(elapsed:Float) {
 		super.update(elapsed);
 
+		// ── Sincronizar posición de capas V2 con este sprite ──────────────────
+		for (i in 0..._layerSprites.length) {
+			var spr = _layerSprites[i];
+			var ldIdx = i + 1; // +1 porque capa 0 = este sprite
+			if (ldIdx < _v2LayerData.length) {
+				var ld:Dynamic = _v2LayerData[ldIdx];
+				var offX:Float = ld.position != null ? (cast ld.position : Array<Dynamic>)[0] ?? 0 : 0;
+				var offY:Float = ld.position != null ? (cast ld.position : Array<Dynamic>)[1] ?? 0 : 0;
+				spr.setPosition(x + offX, y + offY);
+				spr.scrollFactor.copyFrom(scrollFactor);
+			}
+		}
+
 		if (!hasCurAnim())
 			return;
 
@@ -616,13 +821,15 @@ class Character extends FunkinSprite {
 				var dadVar:Float = (curCharacter == 'dad') ? 6.1 : 4.0;
 				if (holdTimer >= Conductor.stepCrochet * dadVar * 0.001) {
 					holdTimer = 0;
-					#if HSCRIPT_ALLOWED
-					if (!funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideSingTimeout',
-						funkin.scripting.ScriptHandler._argsEmpty))
+					if (idleAfterSing) {
+						#if HSCRIPT_ALLOWED
+						if (!funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideSingTimeout',
+							funkin.scripting.ScriptHandler._argsEmpty))
+							returnToIdle();
+						#else
 						returnToIdle();
-					#else
-					returnToIdle();
-					#end
+						#end
+					}
 					#if HSCRIPT_ALLOWED
 					funkin.scripting.ScriptHandler._argsAnim[0] = curAnimName;
 					funkin.scripting.ScriptHandler._argsAnim[1] = null;
@@ -644,13 +851,15 @@ class Character extends FunkinSprite {
 			if (curAnimName.startsWith(_singAnimPrefix)) {
 				holdTimer += elapsed;
 				if (holdTimer >= Conductor.stepCrochet * 4 * 0.001) {
-					#if HSCRIPT_ALLOWED
-					if (!funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideSingTimeout',
-						funkin.scripting.ScriptHandler._argsEmpty))
+					if (idleAfterSing) {
+						#if HSCRIPT_ALLOWED
+						if (!funkin.scripting.ScriptHandler.callOnCharacterScriptsReturn(curCharacter, 'overrideSingTimeout',
+							funkin.scripting.ScriptHandler._argsEmpty))
+							returnToIdle();
+						#else
 						returnToIdle();
-					#else
-					returnToIdle();
-					#end
+						#end
+					}
 					holdTimer = 0;
 					#if HSCRIPT_ALLOWED
 					funkin.scripting.ScriptHandler._argsAnim[0] = curAnimName;
@@ -855,6 +1064,16 @@ class Character extends FunkinSprite {
 
 	// ── Destruir ──────────────────────────────────────────────────────────────
 
+	/** Destruye todos los sprites de capas adicionales V2. */
+	function _destroyLayerSprites():Void {
+		for (spr in _layerSprites)
+			spr.destroy();
+		_layerSprites = [];
+		_layerOffsets = [];
+		if (layerGroup != null)
+			layerGroup.clear();
+	}
+
 	override function destroy():Void {
 		// Liberar los atlases cargados con destroyOnNoUse=false (al estilo V-Slice destroy())
 		releaseTrackedAtlases();
@@ -869,6 +1088,13 @@ class Character extends FunkinSprite {
 		if (model3D != null) {
 			model3D.destroy();
 			model3D = null;
+		}
+
+		// Destruir capas adicionales V2
+		_destroyLayerSprites();
+		if (layerGroup != null) {
+			layerGroup.destroy();
+			layerGroup = null;
 		}
 
 		super.destroy();

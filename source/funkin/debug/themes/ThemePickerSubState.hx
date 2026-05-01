@@ -408,10 +408,10 @@ class ThemePickerSubState extends FlxSubState
 		{
 			funkin.transitions.StateTransition.switchState(new funkin.menus.CharacterSelectorState());
 		}
-		else if (Std.isOfType(curState, funkin.debug.editors.AnimationDebug))
+		else if (Std.isOfType(curState, funkin.debug.editors.CharacterEditor))
 		{
-			var ad:funkin.debug.editors.AnimationDebug = cast curState;
-			funkin.transitions.StateTransition.switchState(new funkin.debug.editors.AnimationDebug(ad.daAnim));
+			var ad:funkin.debug.editors.CharacterEditor = cast curState;
+			funkin.transitions.StateTransition.switchState(new funkin.debug.editors.CharacterEditor(ad.daAnim));
 		}
 		else if (Std.isOfType(curState, funkin.debug.charting.ChartingState))
 		{

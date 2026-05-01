@@ -19,7 +19,7 @@ package funkin.debug.editors;
  *   • Create XML from scratch for a sheet with no atlas
  *   • Theme-aware UI via EditorTheme
  *
- * CAMERA LAYOUT  (same pattern as AnimationDebug)
+ * CAMERA LAYOUT  (same pattern as CharacterEditor)
  *   camUI   → cameras[0], zoom 1, invisible — stable mouse coords
  *   camGame → canvas with the sprite sheet
  *   camHUD  → all UI panels / text
@@ -237,7 +237,7 @@ class SpriteEditorState extends MusicBeatState
         funkin.system.CursorManager.show();
         funkin.audio.MusicManager.play('configurator', 0.6);
 
-        // ── Camera setup (same pattern as AnimationDebug) ─────────────────────
+        // ── Camera setup (same pattern as CharacterEditor) ─────────────────────
         camUI   = new FlxCamera(); camUI.bgColor.alpha = 0;
         camGame = new FlxCamera(); camGame.bgColor.alpha = 0;
         camHUD  = new FlxCamera(); camHUD.bgColor.alpha = 0;

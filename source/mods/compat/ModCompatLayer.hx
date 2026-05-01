@@ -86,7 +86,7 @@ class ModCompatLayer
 		return switch (fmt)
 		{
 			case ModFormat.PSYCH_ENGINE:    PsychConverter.convertChart(rawJson, difficulty);
-			case ModFormat.CODENAME_ENGINE: CodenameConverter.convertChart(rawJson, difficulty);
+			case ModFormat.CODENAME_ENGINE: CodenameConverter.convertChart(rawJson, difficulty, chartFilePath);
 			case ModFormat.VSLICE_ENGINE:   VSliceConverter.convertChart(rawJson, difficulty, chartFilePath);
 			default:
 				final _root:Dynamic = Json.parse(rawJson);

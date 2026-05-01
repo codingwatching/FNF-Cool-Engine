@@ -353,7 +353,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		camHUD = new FlxCamera();
 		camHUD.bgColor.alpha = 0;
 
-		// Igual que AnimationDebug: camUI es una cámara transparente y vacía
+		// Igual que CharacterEditor: camUI es una cámara transparente y vacía
 		// que ocupa cameras[0] (= FlxG.camera). coolui.CoolUIGroup usa cameras[0] para
 		// calcular las posiciones de click. Al tener zoom=1 fijo, los inputs,
 		// steppers y checkboxes responden correctamente sin importar el zoom

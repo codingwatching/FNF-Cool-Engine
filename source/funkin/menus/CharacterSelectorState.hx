@@ -13,7 +13,7 @@ import funkin.gameplay.objects.character.Character.CharacterData;
 import funkin.gameplay.objects.character.Character.AnimData;
 import funkin.gameplay.objects.character.CharacterList;
 import funkin.gameplay.objects.character.HealthIcon;
-import funkin.debug.editors.AnimationDebug;
+import funkin.debug.editors.CharacterEditor;
 import funkin.debug.themes.EditorTheme;
 import funkin.states.MusicBeatState;
 import funkin.transitions.StateTransition;
@@ -36,9 +36,9 @@ using StringTools;
  * "+ NEW CHARACTER" arriba abre un wizard de 2 pasos:
  *   Paso 1 – Nombre del personaje
  *   Paso 2 – Importar assets (sprite, FlxAnimate, ícono)
- * Al terminar → AnimationDebug con el nuevo personaje.
+ * Al terminar → CharacterEditor con el nuevo personaje.
  *
- * ENTER en personaje existente → AnimationDebug directo.
+ * ENTER en personaje existente → CharacterEditor directo.
  * DELETE → confirmar borrado.
  */
 class CharacterSelectorState extends MusicBeatState
@@ -693,7 +693,7 @@ class CharacterSelectorState extends MusicBeatState
 		return result;
 	}
 
-	/** Parsea Animation.json y devuelve AnimData[] — igual que AnimationDebug */
+	/** Parsea Animation.json y devuelve AnimData[] — igual que CharacterEditor */
 	function parseAnimJson(path:String):Array<AnimData>
 	{
 		var result:Array<AnimData> = [];
@@ -758,7 +758,7 @@ class CharacterSelectorState extends MusicBeatState
 
 			CharacterList.reload();
 			FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.8);
-			StateTransition.switchState(new AnimationDebug(wizardCharName));
+			StateTransition.switchState(new CharacterEditor(wizardCharName));
 		}
 		catch (e:Dynamic)
 		{
@@ -973,7 +973,7 @@ class CharacterSelectorState extends MusicBeatState
 			else
 			{
 				FlxG.sound.play(Paths.sound('menus/confirmMenu'), 0.7);
-				StateTransition.switchState(new AnimationDebug(charNames[curSelected - 1]));
+				StateTransition.switchState(new CharacterEditor(charNames[curSelected - 1]));
 			}
 		}
 
