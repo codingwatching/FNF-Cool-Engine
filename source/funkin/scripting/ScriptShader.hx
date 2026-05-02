@@ -2,12 +2,12 @@ package funkin.scripting;
 
 import funkin.graphics.shaders.FunkinRuntimeShader;
 import funkin.scripting.RuleScriptInstance;
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 import funkin.scripting.ScriptHandler;
 import funkin.graphics.shaders.ShaderManager;
 
 #if HSCRIPT_ALLOWED
-import funkin.scripting.interp.FunkinInterp;
+import hscriptplus.interp.HScriptPlusInterp;
 import hscript.Parser;
 #end
 
@@ -222,7 +222,7 @@ class ScriptShader
 		try
 		{
 			_hscript.program = ScriptHandler.parser.parseString(src, scriptPath);
-			_hscript.interp  = new funkin.scripting.interp.FunkinInterp();
+			_hscript.interp  = new hscriptplus.interp.HScriptPlusInterp();
 
 			// Expose shader API
 			_exposeHScriptAPI(_hscript.interp);
@@ -303,7 +303,7 @@ class ScriptShader
 	#end
 
 	#if HSCRIPT_ALLOWED
-	function _exposeHScriptAPI(interp:FunkinInterp):Void
+	function _exposeHScriptAPI(interp:HScriptPlusInterp):Void
 	{
 		interp.variables.set('setUniform',  function(n:String, v:Dynamic) _setUniform(n, v));
 		interp.variables.set('setFloat',    function(n:String, v:Float)   _setFloat(n, v));

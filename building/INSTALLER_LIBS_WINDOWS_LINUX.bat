@@ -50,6 +50,7 @@ haxelib install flixel 6.1.2          --never
 haxelib install flixel-addons  4.0.1 --never
 haxelib git funkin.vis https://github.com/FunkinCrew/funkVis         --never
 haxelib git coolui https://github.com/The-Cool-Engine-Crew/coolui --never
+haxelib git hscript-cool https://github.com/The-Cool-Engine-Crew/HScript-Cool --never
 haxelib install flixel-tools 1.5.1  --quiet --never
 haxelib install extension-haptics
 

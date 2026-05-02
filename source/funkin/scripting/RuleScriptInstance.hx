@@ -1,7 +1,7 @@
 package funkin.scripting;
 
-import funkin.scripting.IScript;
-import funkin.scripting.ScriptEvent;
+import hscriptplus.IScript;
+import hscriptplus.ScriptEvent;
 
 using StringTools;
 

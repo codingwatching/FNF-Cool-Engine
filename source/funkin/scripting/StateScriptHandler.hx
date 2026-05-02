@@ -1,4 +1,5 @@
 package funkin.scripting;
+import hscriptplus.HScriptInstance;
 
 import flixel.FlxG;
 import flixel.FlxState;
@@ -7,7 +8,7 @@ import sys.FileSystem;
 import sys.io.File;
 
 #if HSCRIPT_ALLOWED
-import funkin.scripting.interp.FunkinInterp;
+import hscriptplus.interp.HScriptPlusInterp;
 #end
 
 using StringTools;
@@ -121,7 +122,7 @@ class StateScriptHandler
 		final script  = new HScriptInstance(name, scriptPath, priority);
 
 		// Asignar callback de error global
-		script.onError = (sn, ctx, err) ->
+		script.onError = (sn, ctx, err, line) ->
 			trace('[STATE SCRIPT ERROR] $sn::$ctx → ${Std.string(err)}');
 
 		try
@@ -131,7 +132,7 @@ class StateScriptHandler
 			// (FlxColor, FlxEase, etc.) y no sobreescribirlos con la clase cruda.
 			// Antes el orden era: parse → create interp → expose → execute,
 			// lo que impedía que processImports() funcionara correctamente.
-			script.interp = new FunkinInterp();
+			script.interp = new HScriptPlusInterp();
 
 			ScriptAPI.expose(script.interp);
 			_exposeStateAPI(script.interp, state, script);
@@ -783,7 +784,7 @@ class StateScriptHandler
 	 *   setField('transitioning', true); // escribe un Bool del state
 	 *   var v = getField('curBeat');     // lee cualquier campo
 	 */
-	static function _exposeStateAPI(interp:FunkinInterp, state:FlxState, script:HScriptInstance):Void
+	static function _exposeStateAPI(interp:HScriptPlusInterp, state:FlxState, script:HScriptInstance):Void
 	{
 		// ── 1. AUTO-REFLECT: exponer TODOS los campos de instancia del state ──
 		_reflectStateFields(interp, state);
@@ -982,7 +983,7 @@ class StateScriptHandler
 		'playSound','playMusic','stopMusic'
 	];
 
-	static function _reflectStateFields(interp:FunkinInterp, state:FlxState, refresh:Bool = false):Void
+	static function _reflectStateFields(interp:HScriptPlusInterp, state:FlxState, refresh:Bool = false):Void
 	{
 		// Obtener todos los campos de instancia recorriendo la jerarquía completa.
 		// Type.getSuperClass() devuelve Class<Dynamic>, no Class<FlxState>, así que

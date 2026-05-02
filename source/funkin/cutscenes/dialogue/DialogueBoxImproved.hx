@@ -11,7 +11,7 @@ import funkin.cutscenes.dialogue.DialogueData;
 import funkin.cutscenes.dialogue.DialogueData.*;
 import funkin.cutscenes.dialogue.DialogueScriptContext;
 #if HSCRIPT_ALLOWED
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 #end
 
 using StringTools;

@@ -10,7 +10,7 @@ import flixel.tweens.FlxEase;
 import flixel.util.FlxAxes;
 import flixel.util.FlxColor;
 import flixel.graphics.frames.FlxAtlasFrames;
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 #if sys
 import sys.FileSystem;
 import sys.io.File;

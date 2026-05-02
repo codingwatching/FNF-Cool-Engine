@@ -8,7 +8,7 @@ using StringTools;
 import sys.io.File;
 import funkin.scripting.ScriptHandler;
 import funkin.scripting.StateScriptHandler;
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 
 /**
  * ScriptWatcher — Live reload de scripts .hx / .hscript / .lua en tiempo real.

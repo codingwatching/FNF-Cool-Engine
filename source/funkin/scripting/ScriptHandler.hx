@@ -7,6 +7,7 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 #if HSCRIPT_ALLOWED
+import hscriptplus.HScriptInstance;
 import hscript.Parser;
 import hscript.Interp;
 #end
@@ -474,7 +475,7 @@ class ScriptHandler
 
 		try
 		{
-			script.interp = new funkin.scripting.interp.FunkinInterp();
+			script.interp = new hscriptplus.interp.HScriptPlusInterp();
 
 			// Si es un script de stage, pasarle el stage como objeto base
 			if (scriptType == 'stage' && stage != null)

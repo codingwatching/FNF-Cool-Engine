@@ -246,11 +246,35 @@ class CharacterEditor extends MusicBeatState
 	// ── Layer copy / paste ────────────────────────────────────────────────────
 	var _copiedLayer:Dynamic = null;   // JSON clone of last Ctrl+C'd LayerData
 
+	// ── Selection state ───────────────────────────────────────────────────────
+	// _hasSelection = true  → a layer/character is selected; props panel + anim list visible.
+	// _hasSelection = false → nothing selected; props hidden, anim list empty.
+	// Starts false; set to true the moment a character is loaded.
+	var _hasSelection:Bool = false;
+	var _selBorderT:FlxSprite;   // top edge of the selection box   (camGame world-space)
+	var _selBorderB:FlxSprite;   // bottom edge
+	var _selBorderL:FlxSprite;   // left edge
+	var _selBorderR:FlxSprite;   // right edge
+	var _selNameLabel:FlxText;   // layer / character name drawn above the box
+	static inline var SEL_BW:Int = 2; // border thickness in px
+
+	// ── Animation list scroll ─────────────────────────────────────────────────
+	// How many rows to skip from the top of the animation list.
+	// Controlled by mouse-wheel while the cursor is over the left panel
+	// (but NOT over the layer panel at the bottom).
+	var _animListScroll:Int = 0;
+
 	// ── Layer inline rename (double-click) ───────────────────────────────────
 	var _lpRenameInput:CoolInputText;  // overlay input que aparece sobre la fila
 	var _lpRenameIdx:Int   = -1;       // índice de la capa que se está renombrando
 	var _lpLastClickIdx:Int   = -1;    // para detectar doble clic
 	var _lpLastClickMs:Float  = -9999; // stamp del último click en una fila
+
+	// ── Animation inline rename (double-click en fila de anim) ───────────────
+	var _animRenameInput:CoolInputText; // overlay input sobre la fila de animación
+	var _animRenameIdx:Int    = -1;     // índice en currentAnimData que se renombra
+	var _animLastClickIdx:Int = -1;     // para detectar doble clic en la lista
+	var _animLastClickMs:Float = -9999; // timestamp del último clic en una fila
 
 	// UI del panel flotante de propiedades de capa (antes "tab Layers")
 	var layerNameInput:CoolInputText;
@@ -380,7 +404,7 @@ class CharacterEditor extends MusicBeatState
 
 		textControls = new FlxText(8, 42, 328, '', 10);
 		textControls.text = "W/S · Switch Anim   ARROWS · Offset (SHIFT=x10)\n" + "I/K · Cam Up/Down   J/L · Cam Left/Right\n"
-			+ "SCROLL · Zoom   SPACE · Play   R · Reset   T · Ghost\n" + "RIGHT DRAG · Move Offset (SHIFT=x3)   Ctrl+Z · Undo   ESC · Exit";
+			+ "SCROLL · Zoom   SPACE · Play   R · Reset   T · Ghost\n" + "CLICK ROW · Select+Edit Anim   RIGHT DRAG · Move Offset   Ctrl+Z · Undo";
 		textControls.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF0A0A0F, 1);
 		textControls.color = funkin.debug.themes.EditorTheme.current.textSecondary;
 		textControls.cameras = [camHUD];
@@ -500,6 +524,21 @@ class CharacterEditor extends MusicBeatState
 		// ── Visual layer panel (stacked rows, Adobe-Animate-style) ──────────
 		buildLayerPanel();
 		buildLayerPropsPanel();
+
+		// ── Selection border + name label (camGame world-space) ──────────────
+		// Four thin sprites that form a rectangle around the selected object,
+		// plus a text label. Updated every frame by _updateSelectionVisuals().
+		var _selC = funkin.debug.themes.EditorTheme.current.accent;
+		_selBorderT = new FlxSprite(); _selBorderT.makeGraphic(4, SEL_BW, _selC); _selBorderT.cameras = [camGame]; add(_selBorderT);
+		_selBorderB = new FlxSprite(); _selBorderB.makeGraphic(4, SEL_BW, _selC); _selBorderB.cameras = [camGame]; add(_selBorderB);
+		_selBorderL = new FlxSprite(); _selBorderL.makeGraphic(SEL_BW, 4, _selC); _selBorderL.cameras = [camGame]; add(_selBorderL);
+		_selBorderR = new FlxSprite(); _selBorderR.makeGraphic(SEL_BW, 4, _selC); _selBorderR.cameras = [camGame]; add(_selBorderR);
+		_selNameLabel = new FlxText(0, 0, 320, "", 14);
+		_selNameLabel.setFormat(Paths.font("vcr.ttf"), 14, _selC, LEFT);
+		_selNameLabel.setBorderStyle(FlxTextBorderStyle.OUTLINE, FlxColor.BLACK, 2);
+		_selNameLabel.cameras = [camGame];
+		add(_selNameLabel);
+		_setSelectionVisible(false);
 
 		camFollow = new FlxObject(0, 0, 2, 2);
 		camFollow.screenCenter();
@@ -842,6 +881,15 @@ class CharacterEditor extends MusicBeatState
 		if (layerFlipXCheckbox != null) layerFlipXCheckbox.checked = lay.flipX;
 		if (layerFlipYCheckbox != null) layerFlipYCheckbox.checked = lay.flipY;
 		if (layerAntialiasingCheckbox != null) layerAntialiasingCheckbox.checked = lay.antialiasing;
+
+		// ── Sync el tab Properties con los valores de la capa seleccionada ───────
+		// Así el usuario ve las propiedades del objeto que tiene seleccionado,
+		// no las del personaje global.
+		if (pathInput != null) pathInput.text = lay.path;
+		if (antialiasingCheckbox != null) antialiasingCheckbox.checked = lay.antialiasing;
+		if (charFlipXCheckbox != null) charFlipXCheckbox.checked = lay.flipX;
+		if (scaleStepper != null && lay.scale != null && lay.scale.length > 0)
+			scaleStepper.value = lay.scale[0];
 	}
 
 	/** Escribe los campos del tab Layers en la capa actual. */
@@ -998,13 +1046,21 @@ class CharacterEditor extends MusicBeatState
 		_lpDropLine.visible = false;
 		add(_lpDropLine);
 
-		// ── Inline rename input (doble clic sobre la fila) ────────────────────
+		// ── Inline rename input para capas (doble clic sobre la fila) ───────────
 		// Se posiciona sobre la fila activa al activarse, oculto por defecto.
 		_lpRenameInput = new CoolInputText(38, 0, 155, '', 10);
 		_lpRenameInput.cameras = [camHUD];
 		_lpRenameInput.scrollFactor.set();
 		_lpRenameInput.visible = false;
 		add(_lpRenameInput);
+
+		// ── Inline rename input para animaciones (doble clic en la lista) ────────
+		// Se posiciona sobre la fila de animación activa al activarse.
+		_animRenameInput = new CoolInputText(10, 0, 270, '', 10);
+		_animRenameInput.cameras = [camHUD];
+		_animRenameInput.scrollFactor.set();
+		_animRenameInput.visible = false;
+		add(_animRenameInput);
 
 		refreshLayerPanel();
 	}
@@ -2196,6 +2252,7 @@ class CharacterEditor extends MusicBeatState
 		// Al cambiar de personaje, cancelar cualquier edición pendiente
 		editingAnimName = null;
 		ghostAnimIdx = 0;
+		_animListScroll = 0; // reset scroll so the list starts from the top
 		if (addAnimBtn != null)
 			addAnimBtn.label = "Add Animation";
 
@@ -2233,12 +2290,12 @@ class CharacterEditor extends MusicBeatState
 		ghostChar = new Character(0, 0, character);
 		ghostChar.alpha = 0.5;
 		ghostChar.screenCenter();
-		ghostChar.debugMode = true;
+		ghostChar.debugMode = false; // ghost never shows hitbox
 		layeringbullshit.add(ghostChar);
 
 		char = new Character(0, 0, character);
 		char.screenCenter();
-		char.debugMode = true;
+		char.debugMode = false; // controlled by _hasSelection via _updateSelectionVisuals()
 		layeringbullshit.add(char);
 		// NO sobreescribir flipX aquí — Character.hx ya lo aplica desde el JSON.
 		// loadCharacterData() actualizará el checkbox y sincronizará tras esto.
@@ -2270,28 +2327,72 @@ class CharacterEditor extends MusicBeatState
 		}
 
 		generateOffsetTexts();
+
+		// By default the first layer/character is always selected when loaded.
+		_hasSelection = true;
 	}
 
 	function generateOffsetTexts(pushList:Bool = true):Void
 	{
-		var daLoop = 0;
-		var startY = 174;
-		var rowH = 20;
+		var daLoop   = 0; // absolute animation index
+		var visRow   = 0; // row actually drawn on screen (0-based)
+		var startY   = 174;
+		var rowH     = 20;
 
-		for (anim => offsets in char.animOffsets)
+		// How far down can we draw before hitting the layer panel (or status bar)?
+		var bottomLimit = (_isV2Format && _lpTopY != null) ? _lpTopY() : (FlxG.height - 30);
+		var maxVisRows  = Std.int((bottomLimit - startY) / rowH);
+		if (maxVisRows < 1) maxVisRows = 1;
+
+		// ── Build iteration list ──────────────────────────────────────────────
+		// V2: show only the current layer's animations (layer-specific list).
+		// V1: show all animations from char.animOffsets (legacy behaviour).
+		var _iterList:Array<{name:String, offsets:Array<Float>}> = [];
+		if (_isV2Format && currentAnimData != null && currentAnimData.length > 0)
 		{
-			var rowY = startY + (rowH * daLoop);
+			for (_ad in currentAnimData)
+			{
+				var _offs:Array<Float> = char.animOffsets.exists(_ad.name)
+					? cast char.animOffsets.get(_ad.name)
+					: (_ad.offsets != null ? cast _ad.offsets : [0.0, 0.0]);
+				_iterList.push({name: _ad.name, offsets: _offs});
+			}
+		}
+		else
+		{
+			for (_an => _of in char.animOffsets)
+				_iterList.push({name: _an, offsets: cast _of});
+		}
+
+		// Count total anims first (needed to clamp scroll)
+		var totalAnimCount = _iterList.length;
+		_animListScroll = Std.int(FlxMath.bound(_animListScroll, 0, Math.max(0, totalAnimCount - maxVisRows)));
+
+		for (_entry in _iterList)
+		{
+			var anim    = _entry.name;
+			var offsets = _entry.offsets;
+
+			if (pushList)
+				animList.push(anim);
+
+			// Skip rows that are above the current scroll offset
+			if (daLoop < _animListScroll) { daLoop++; continue; }
+			// Stop once the visible area is full
+			if (visRow >= maxVisRows)     { daLoop++; continue; }
+
+			var rowY = startY + (rowH * visRow);
 			var isCur = (daLoop == curAnim);
 
 			// Fondo de fila alternado
 			var rowBg = new FlxSprite(4, rowY);
-			rowBg.makeGraphic(332, rowH - 1, isCur ? 0x5500E5FF : (daLoop % 2 == 0 ? 0x22FFFFFF : 0x11FFFFFF));
+			rowBg.makeGraphic(332, rowH - 1, isCur ? 0x5500E5FF : (visRow % 2 == 0 ? 0x22FFFFFF : 0x11FFFFFF));
 			rowBg.scrollFactor.set();
 			rowBg.cameras = [camHUD];
 			rowBg.alpha = 0;
 			dumbTexts.add(cast rowBg);
 			_rowBgs.push(rowBg);
-			FlxTween.tween(rowBg, {alpha: 1}, 0.2, {startDelay: daLoop * 0.03, ease: FlxEase.quartOut});
+			FlxTween.tween(rowBg, {alpha: 1}, 0.2, {startDelay: visRow * 0.03, ease: FlxEase.quartOut});
 
 			// Punto de color a la izquierda para la fila activa
 			if (isCur)
@@ -2329,7 +2430,7 @@ class CharacterEditor extends MusicBeatState
 			text.alpha = 0;
 			dumbTexts.add(text);
 			_offsetLabels.push(text); // guardar referencia para updates in-place
-			FlxTween.tween(text, {alpha: 1}, 0.2, {startDelay: daLoop * 0.03 + 0.05, ease: FlxEase.quartOut});
+			FlxTween.tween(text, {alpha: 1}, 0.2, {startDelay: visRow * 0.03 + 0.05, ease: FlxEase.quartOut});
 
 			var isGhostRow = (daLoop == ghostAnimIdx);
 			var ghostBadgeBg = new FlxSprite(308, rowY);
@@ -2339,7 +2440,7 @@ class CharacterEditor extends MusicBeatState
 			ghostBadgeBg.alpha = 0;
 			dumbTexts.add(cast ghostBadgeBg);
 			_ghostBadgeBgs.push(ghostBadgeBg);
-			FlxTween.tween(ghostBadgeBg, {alpha: 1}, 0.2, {startDelay: daLoop * 0.03, ease: FlxEase.quartOut});
+			FlxTween.tween(ghostBadgeBg, {alpha: 1}, 0.2, {startDelay: visRow * 0.03, ease: FlxEase.quartOut});
 
 			var ghostLabel = new FlxText(308, rowY + 3, 28, "[G]", 10);
 			ghostLabel.scrollFactor.set();
@@ -2349,19 +2450,39 @@ class CharacterEditor extends MusicBeatState
 			ghostLabel.alpha = 0;
 			dumbTexts.add(ghostLabel);
 			_ghostBadgeLabels.push(ghostLabel);
-			FlxTween.tween(ghostLabel, {alpha: 1}, 0.2, {startDelay: daLoop * 0.03 + 0.05, ease: FlxEase.quartOut});
-
-			if (pushList)
-				animList.push(anim);
+			FlxTween.tween(ghostLabel, {alpha: 1}, 0.2, {startDelay: visRow * 0.03 + 0.05, ease: FlxEase.quartOut});
 
 			daLoop++;
+			visRow++;
 		}
 
-		// Mover el highlight a la posición correcta
+		// ── Scroll indicator (shown when list is taller than visible area) ──────
+		if (totalAnimCount > maxVisRows)
+		{
+			var scrollHint = new FlxText(4, startY + maxVisRows * rowH - rowH + 4, 332, 
+				"▲ " + _animListScroll + "  SCROLL  " + (totalAnimCount - maxVisRows - _animListScroll) + " ▼", 9);
+			scrollHint.scrollFactor.set();
+			scrollHint.cameras = [camHUD];
+			scrollHint.alignment = CENTER;
+			scrollHint.color = 0x88AADDFF;
+			scrollHint.setBorderStyle(FlxTextBorderStyle.OUTLINE, 0xFF000000, 1);
+			dumbTexts.add(scrollHint);
+			// Not pushed to _offsetLabels — it's decorative only
+		}
+
+		// Mover el highlight a la posición correcta (visible row of curAnim)
 		if (animRowHighlight != null)
 		{
-			animRowHighlight.y = startY + (rowH * curAnim);
-			animRowHighlight.visible = animList.length > 0;
+			var visIdx = curAnim - _animListScroll;
+			if (visIdx >= 0 && visIdx < maxVisRows)
+			{
+				animRowHighlight.y = startY + (rowH * visIdx);
+				animRowHighlight.visible = animList.length > 0;
+			}
+			else
+			{
+				animRowHighlight.visible = false; // current anim is scrolled out of view
+			}
 		}
 	}
 
@@ -2372,42 +2493,78 @@ class CharacterEditor extends MusicBeatState
 		// el texto de los labels ya existentes. Esto elimina la principal fuente
 		// de memory leak (antes: ~75 objetos + tweens nuevos por frame durante drag).
 		var daLoop = 0;
-		for (anim => offsets in char.animOffsets)
+		// ── Build iteration list (same logic as generateOffsetTexts) ─────────
+		var _iterList2:Array<{name:String, offsets:Array<Float>}> = [];
+		if (_isV2Format && currentAnimData != null && currentAnimData.length > 0)
 		{
-			// Actualizar label de offset
-			if (daLoop < _offsetLabels.length)
+			for (_ad2 in currentAnimData)
 			{
-				var animAssetTag = "";
-				for (ad in currentAnimData)
-				{
-					if (ad.name == anim && ad.assetPath != null && ad.assetPath != "")
-					{
-						var parts = ad.assetPath.split("/");
-						animAssetTag = " ◈" + parts[parts.length - 1];
-						break;
-					}
-				}
-				var isCur = (daLoop == curAnim);
-				var hasCustomAtlas = animAssetTag != "";
-				_offsetLabels[daLoop].text = anim + animAssetTag + "  [" + offsets[0] + ", " + offsets[1] + "]";
-				if (isCur)
-					_offsetLabels[daLoop].color = 0xFF00E5FF;
-				else if (hasCustomAtlas)
-					_offsetLabels[daLoop].color = 0xFFFF90D0;
-				else
-					_offsetLabels[daLoop].color = 0xFFCCCCCC;
+				var _of2:Array<Float> = char.animOffsets.exists(_ad2.name)
+					? cast char.animOffsets.get(_ad2.name)
+					: (_ad2.offsets != null ? cast _ad2.offsets : [0.0, 0.0]);
+				_iterList2.push({name: _ad2.name, offsets: _of2});
 			}
+		}
+		else
+		{
+			for (_an2 => _of2b in char.animOffsets)
+				_iterList2.push({name: _an2, offsets: cast _of2b});
+		}
+
+		for (_e2 in _iterList2)
+		{
+			var anim    = _e2.name;
+			var offsets = _e2.offsets;
+
+			// Skip animations that are scrolled out of view at the top
+			if (daLoop < _animListScroll) { daLoop++; continue; }
+
+			// visIdx is the position within _offsetLabels/_ghostBadgeLabels
+			var visIdx = daLoop - _animListScroll;
+			if (visIdx >= _offsetLabels.length) { daLoop++; continue; }
+
+			// Actualizar label de offset
+			var animAssetTag = "";
+			for (ad in currentAnimData)
+			{
+				if (ad.name == anim && ad.assetPath != null && ad.assetPath != "")
+				{
+					var parts = ad.assetPath.split("/");
+					animAssetTag = " ◈" + parts[parts.length - 1];
+					break;
+				}
+			}
+			var isCur = (daLoop == curAnim);
+			var hasCustomAtlas = animAssetTag != "";
+			_offsetLabels[visIdx].text = anim + animAssetTag + "  [" + offsets[0] + ", " + offsets[1] + "]";
+			if (isCur)
+				_offsetLabels[visIdx].color = 0xFF00E5FF;
+			else if (hasCustomAtlas)
+				_offsetLabels[visIdx].color = 0xFFFF90D0;
+			else
+				_offsetLabels[visIdx].color = 0xFFCCCCCC;
 
 			// Actualizar badge [G] del ghost
-			if (daLoop < _ghostBadgeLabels.length)
-				_ghostBadgeLabels[daLoop].color = (daLoop == ghostAnimIdx) ? 0xFFFFFFFF : 0x88FFFFFF;
+			if (visIdx < _ghostBadgeLabels.length)
+				_ghostBadgeLabels[visIdx].color = (daLoop == ghostAnimIdx) ? 0xFFFFFFFF : 0x88FFFFFF;
 
 			daLoop++;
 		}
 
-		// Mover el highlight a la nueva posición
+		// Mover el highlight a la nueva posición (visible row of curAnim)
 		if (animRowHighlight != null && animList.length > 0)
-			animRowHighlight.y = 174.0 + (20.0 * curAnim);
+		{
+			var visIdx = curAnim - _animListScroll;
+			if (visIdx >= 0 && visIdx < _offsetLabels.length)
+			{
+				animRowHighlight.y = 174.0 + (20.0 * visIdx);
+				animRowHighlight.visible = true;
+			}
+			else
+			{
+				animRowHighlight.visible = false;
+			}
+		}
 	}
 
 	// ── loadCharacterData — carga el JSON del personaje en la UI ──────────────
@@ -2941,11 +3098,70 @@ class CharacterEditor extends MusicBeatState
 			iconPreview.updateIcon(iconName, false);
 	}
 
+	// ── Selection helpers ─────────────────────────────────────────────────────
+
+	/** Shows or hides the 4-sided selection border + name label. */
+	function _setSelectionVisible(v:Bool):Void
+	{
+		if (_selBorderT    != null) _selBorderT.visible    = v;
+		if (_selBorderB    != null) _selBorderB.visible    = v;
+		if (_selBorderL    != null) _selBorderL.visible    = v;
+		if (_selBorderR    != null) _selBorderR.visible    = v;
+		if (_selNameLabel  != null) _selNameLabel.visible  = v;
+	}
+
+	/**
+	 * Called every frame. Keeps the selection border and name label positioned
+	 * around the current char bounds, and syncs char.debugMode with _hasSelection.
+	 */
+	function _updateSelectionVisuals():Void
+	{
+		if (char != null)
+			char.debugMode = _hasSelection;
+		if (ghostChar != null)
+			ghostChar.debugMode = false;
+
+		if (!_hasSelection || char == null)
+		{
+			_setSelectionVisible(false);
+			return;
+		}
+
+		var _pad = 10;
+		// Use visual position (char.x - char.offset.x) so the selection box
+		// wraps the rendered sprite, not the hitbox (which is shifted by the offset).
+		var _bx  = char.x - char.offset.x - _pad;
+		var _by  = char.y - char.offset.y - _pad;
+		var _bw  = Std.int(char.width  + _pad * 2);
+		var _bh  = Std.int(char.height + _pad * 2);
+		if (_bw < SEL_BW * 2) _bw = SEL_BW * 2;
+		if (_bh < SEL_BW * 2) _bh = SEL_BW * 2;
+
+		// Resize and reposition the 4 border lines
+		_selBorderT.setGraphicSize(_bw, SEL_BW); _selBorderT.updateHitbox(); _selBorderT.setPosition(_bx, _by);
+		_selBorderB.setGraphicSize(_bw, SEL_BW); _selBorderB.updateHitbox(); _selBorderB.setPosition(_bx, _by + _bh - SEL_BW);
+		_selBorderL.setGraphicSize(SEL_BW, _bh); _selBorderL.updateHitbox(); _selBorderL.setPosition(_bx, _by);
+		_selBorderR.setGraphicSize(SEL_BW, _bh); _selBorderR.updateHitbox(); _selBorderR.setPosition(_bx + _bw - SEL_BW, _by);
+
+		// Name label above the box
+		var _selLN = (_isV2Format && layers != null && layers.length > 0
+			&& curLayerIdx >= 0 && curLayerIdx < layers.length)
+			? layers[curLayerIdx].name : daAnim;
+		_selNameLabel.text = _selLN;
+		_selNameLabel.x    = _bx;
+		_selNameLabel.y    = _by - 20;
+
+		_setSelectionVisible(true);
+	}
+
 	// ── Update ────────────────────────────────────────────────────────────────
 
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
+
+		// Keep the selection box + char.debugMode in sync every frame
+		_updateSelectionVisuals();
 /*
 		// Usar char.hasCurAnim() para ser compatible con FlxAnimate y sprites normales
 		if (char == null || !char.hasCurAnim())
@@ -3022,6 +3238,43 @@ class CharacterEditor extends MusicBeatState
 			camGame.zoom = Math.max(0.1, camGame.zoom + FlxG.mouse.wheel * 0.1);
 		}
 
+		// ── Scroll de la lista de animaciones con la ruedita ─────────────────
+		// Se activa cuando el cursor está en el panel izquierdo pero FUERA del
+		// panel de layers (que ya tiene su propio scroll más abajo).
+		{
+			var amx = FlxG.mouse.gameX;
+			var amy = FlxG.mouse.gameY;
+			var lpTop = _isV2Format ? _lpTopY() : (FlxG.height - 30);
+			var overAnimList = amx >= 0 && amx < LP_W && amy >= 174 && amy < lpTop;
+			if (FlxG.mouse.wheel != 0 && overAnimList && animList.length > 0)
+			{
+				// Compute max visible rows same way generateOffsetTexts does
+				var rowH = 20;
+				var bottomLimit = _isV2Format ? _lpTopY() : (FlxG.height - 30);
+				var maxVisRows = Std.int((bottomLimit - 174) / rowH);
+				if (maxVisRows < 1) maxVisRows = 1;
+				_animListScroll = Std.int(FlxMath.bound(
+					_animListScroll - FlxG.mouse.wheel,
+					0,
+					Math.max(0, animList.length - maxVisRows)
+				));
+				// Rebuild the animation list with the new scroll offset
+				var i = dumbTexts.members.length - 1;
+				while (i >= 0)
+				{
+					var m = dumbTexts.members[i];
+					if (m != null) { FlxTween.cancelTweensOf(m); m.destroy(); }
+					i--;
+				}
+				dumbTexts.clear();
+				_offsetLabels.resize(0);
+				_ghostBadgeBgs.resize(0);
+				_ghostBadgeLabels.resize(0);
+				_rowBgs.resize(0);
+				generateOffsetTexts(false); // false = don't rebuild animList, just redraw
+			}
+		}
+
 		// ── Undo — Ctrl+Z (siempre activo, incluso si hay texto enfocado) ──────
 		// Se permite fuera de isTyping() para que funcione aunque un campo esté
 		// activo; no modifica el texto del campo.
@@ -3033,6 +3286,67 @@ class CharacterEditor extends MusicBeatState
 		// ── Todo lo demás se bloquea si el usuario está escribiendo en un campo ─
 		if (isTyping())
 			return;
+
+		// ── Viewport click: select / deselect character or empty space ────────
+		// Left click OUTSIDE the HUD and outside the anim-list / layer-panel zone:
+		//   • On the character bounds  → select (show hitbox, props, anim list)
+		//   • On empty space           → deselect (clear everything)
+		if (FlxG.mouse.justPressed && !isMouseOverHUD())
+		{
+			var _vpMX = FlxG.mouse.gameX;
+			var _vpMY = FlxG.mouse.gameY;
+			// Don't intercept clicks that belong to the anim list or ghost badge area
+			var _vpBotLimit = _isV2Format ? _lpTopY() : (FlxG.height - 30);
+			var _inAnimZone = _vpMX >= 4 && _vpMX < 336 && _vpMY >= 174 && _vpMY < _vpBotLimit;
+			if (!_inAnimZone && char != null)
+			{
+				// Convert screen (camUI) coords → world coords in camGame space
+				var _vpWX = camGame.scroll.x + (_vpMX - camGame.x) / camGame.zoom;
+				var _vpWY = camGame.scroll.y + (_vpMY - camGame.y) / camGame.zoom;
+				var _vpPad = 12; // a little extra margin so edge clicks register
+				// Use VISUAL position (char.x - char.offset.x), NOT hitbox position (char.x).
+				// Animation offsets shift the rendered sprite without moving the hitbox,
+				// so clicking on the visible character would miss if we used char.x directly.
+				var _charVisX = char.x - char.offset.x;
+				var _charVisY = char.y - char.offset.y;
+				var _onChar = _vpWX >= _charVisX - _vpPad && _vpWX <= _charVisX + char.width  + _vpPad
+				           && _vpWY >= _charVisY - _vpPad && _vpWY <= _charVisY + char.height + _vpPad;
+
+				if (_onChar)
+				{
+					if (!_hasSelection)
+					{
+						// Restore selection
+						_hasSelection = true;
+						animList = [];
+						var _vri = dumbTexts.members.length - 1;
+						while (_vri >= 0) { var _vrm = dumbTexts.members[_vri]; if (_vrm != null) { FlxTween.cancelTweensOf(_vrm); _vrm.destroy(); } _vri--; }
+						dumbTexts.clear();
+						_offsetLabels.resize(0); _ghostBadgeBgs.resize(0); _ghostBadgeLabels.resize(0); _rowBgs.resize(0);
+						generateOffsetTexts();
+						_setLayerPropsPanelVisible(_isV2Format);
+					}
+					var _vpSelN = (_isV2Format && layers.length > 0) ? layers[curLayerIdx].name : daAnim;
+					setHelp("✓ Selected: " + _vpSelN, funkin.debug.themes.EditorTheme.current.accent);
+				}
+				else
+				{
+					if (_hasSelection)
+					{
+						// Deselect — clear props and anim list
+						_hasSelection = false;
+						_setLayerPropsPanelVisible(false);
+						animList = [];
+						var _vdi = dumbTexts.members.length - 1;
+						while (_vdi >= 0) { var _vdm = dumbTexts.members[_vdi]; if (_vdm != null) { FlxTween.cancelTweensOf(_vdm); _vdm.destroy(); } _vdi--; }
+						dumbTexts.clear();
+						_offsetLabels.resize(0); _ghostBadgeBgs.resize(0); _ghostBadgeLabels.resize(0); _rowBgs.resize(0);
+						if (animRowHighlight != null) animRowHighlight.visible = false;
+						setHelp("Click on the character to select it", FlxColor.WHITE);
+					}
+				}
+			}
+		}
 
 		// ── Layer panel: mouse input (drag-and-drop, click, scroll) ─────────
 		if (_isV2Format && layers != null && layers.length > 0)
@@ -3084,6 +3398,66 @@ class CharacterEditor extends MusicBeatState
 				}
 			}
 
+			// ── ANIMATION INLINE RENAME: commit con Enter, cancelar con Escape ────
+			// o al hacer clic fuera del input.
+			if (_animRenameInput != null && _animRenameInput.visible)
+			{
+				var commitAnimRename = false;
+				var cancelAnimRename = false;
+
+				if (FlxG.keys.justPressed.ENTER)
+					commitAnimRename = true;
+				else if (FlxG.keys.justPressed.ESCAPE)
+					cancelAnimRename = true;
+				else if (FlxG.mouse.justPressed && !_animRenameInput.hasFocus)
+					cancelAnimRename = true;
+
+				if (commitAnimRename && _animRenameIdx >= 0 && _animRenameIdx < currentAnimData.length)
+				{
+					var oldAnimName = currentAnimData[_animRenameIdx].name;
+					var newAnimName = _animRenameInput.text.trim();
+					if (newAnimName == "") newAnimName = oldAnimName;
+
+					if (newAnimName != oldAnimName)
+					{
+						_pushUndo();
+						currentAnimData[_animRenameIdx].name = newAnimName;
+						// Migrar los offsets en el mapa del personaje
+						if (char != null && char.animOffsets.exists(oldAnimName))
+						{
+							var _renamedOff = char.animOffsets.get(oldAnimName);
+							char.animOffsets.remove(oldAnimName);
+							char.animOffsets.set(newAnimName, _renamedOff);
+						}
+						_hasUnsaved = true;
+						reloadCharacterWithNewAnims();
+						setHelp("✓ Anim renombrada: " + oldAnimName + " → " + newAnimName, FlxColor.LIME);
+					}
+				}
+				else if (cancelAnimRename)
+				{
+					setHelp("Rename cancelado", funkin.debug.themes.EditorTheme.current.textDim);
+				}
+
+				if (commitAnimRename || cancelAnimRename)
+				{
+					_animRenameInput.visible  = false;
+					_animRenameInput.hasFocus = false;
+					_animRenameIdx = -1;
+					// Redibujar la lista de animaciones
+					var _arI = dumbTexts.members.length - 1;
+					while (_arI >= 0)
+					{
+						var _arM = dumbTexts.members[_arI];
+						if (_arM != null) { FlxTween.cancelTweensOf(_arM); _arM.destroy(); }
+						_arI--;
+					}
+					dumbTexts.clear();
+					_offsetLabels.resize(0); _ghostBadgeBgs.resize(0); _ghostBadgeLabels.resize(0); _rowBgs.resize(0);
+					generateOffsetTexts(false);
+				}
+			}
+
 			// ── PRESS: check hits or start drag-pending ───────────────────────
 			if (FlxG.mouse.justPressed)
 			{
@@ -3118,9 +3492,34 @@ class CharacterEditor extends MusicBeatState
 									currentAnimData = layers[hit.idx].animations;
 									_syncLayerTabToCurrentLayer();
 									refreshLayerPanel();
-									displayCharacter(daAnim);
-									loadCharacterData();
+									_hasSelection = true; // clicking a layer always counts as a selection
+									// FIX: do NOT call displayCharacter/loadCharacterData here.
+									// Those destroy+recreate char during justPressed, leaving char null
+									// on the next frame while _lpDragPending is still active → crash.
+									// The props panel is already synced by _syncLayerTabToCurrentLayer().
 									setHelp("Layer: " + layers[hit.idx].name, funkin.debug.themes.EditorTheme.current.accent);
+
+									// ── Rebuild animation list for the selected layer ─────────────
+									// The left panel now shows only the animations that belong to
+									// this sprite/layer, so the user sees the right anim set.
+									curAnim = 0;
+									_animListScroll = 0;
+									_animLastClickIdx = -1; // reset doble-clic al cambiar de capa
+									_animLastClickMs  = -9999;
+									animList = [];
+									var _lpSwI = dumbTexts.members.length - 1;
+									while (_lpSwI >= 0)
+									{
+										var _lpSwM = dumbTexts.members[_lpSwI];
+										if (_lpSwM != null) { FlxTween.cancelTweensOf(_lpSwM); _lpSwM.destroy(); }
+										_lpSwI--;
+									}
+									dumbTexts.clear();
+									_offsetLabels.resize(0);
+									_ghostBadgeBgs.resize(0);
+									_ghostBadgeLabels.resize(0);
+									_rowBgs.resize(0);
+									generateOffsetTexts();
 
 									if (isDoubleClick)
 									{
@@ -3161,7 +3560,7 @@ class CharacterEditor extends MusicBeatState
 			}
 
 			// ── DRAGGING: update ghost + drop indicator ───────────────────────
-			if (_lpDragging && FlxG.mouse.pressed && _lpDragGhost != null)
+			if (_lpDragging && FlxG.mouse.pressed && _lpDragGhost != null && _lpDragGhostTxt != null)
 			{
 				// Ghost follows cursor (clamped to panel content area)
 				var ghostY = FlxMath.bound(my - LP_ROW_H / 2, contentTop, contentTop + visCount * LP_ROW_H - LP_ROW_H);
@@ -3196,6 +3595,9 @@ class CharacterEditor extends MusicBeatState
 
 					if (vpDrop != vpFromAbs && vpDrop != vpFromAbs + 1)
 					{
+						// Guard: index must still be valid (layers could theoretically change)
+						if (_lpDragFromIdx < layers.length)
+						{
 						var item = layers.splice(_lpDragFromIdx, 1)[0];
 						var adjGap = (vpDrop > vpFromAbs) ? vpDrop - 1 : vpDrop;
 						// Insert at array index: (total-1) - adjGap
@@ -3205,6 +3607,7 @@ class CharacterEditor extends MusicBeatState
 						currentAnimData = item.animations;
 						_hasUnsaved = true;
 						setHelp("↕ Moved: " + item.name, funkin.debug.themes.EditorTheme.current.accent);
+						}
 					}
 				}
 				_lpDragging    = false;
@@ -3217,7 +3620,7 @@ class CharacterEditor extends MusicBeatState
 				refreshLayerPanel();
 			}
 
-			// ── SCROLL with mouse wheel over panel ────────────────────────────
+		// ── SCROLL with mouse wheel over panel ────────────────────────────
 			if (FlxG.mouse.wheel != 0 && inPanel)
 			{
 				layerPanelScroll = Std.int(FlxMath.bound(layerPanelScroll - FlxG.mouse.wheel, 0, Math.max(0, totalLayers - LP_MAX_VIS)));
@@ -3255,6 +3658,72 @@ class CharacterEditor extends MusicBeatState
 					_refreshLayerDropdown();
 					_hasUnsaved = true;
 					setHelp("⎘ Duplicated: " + dup.name, funkin.debug.themes.EditorTheme.current.success);
+				}
+			}
+		}
+
+		// ── Click en fila de animación → seleccionar + cargar en tab Animation ─
+		// Un clic izquierdo en el área de la fila (x: 4–307) cambia la animación
+		// activa Y rellena los campos del tab Animation automáticamente, sin
+		// necesidad de pulsar "← Load Selected". Doble clic no hace nada extra.
+		if (FlxG.mouse.justPressed && char != null && animList.length > 0)
+		{
+			var _amxC = FlxG.mouse.gameX;
+			var _amyC = FlxG.mouse.gameY;
+			var _listStartYC = 174;
+			var _rowHC = 20;
+			var _bottomLimitC = _isV2Format ? _lpTopY() : (FlxG.height - 30);
+
+			// Only the name/offset column — avoid the [G] badge zone (x≥308)
+			if (_amxC >= 4 && _amxC < 308 && _amyC >= _listStartYC && _amyC < _bottomLimitC)
+			{
+				var _visIdxC  = Std.int((_amyC - _listStartYC) / _rowHC);
+				var _absIdxC  = _visIdxC + _animListScroll;
+				if (_absIdxC >= 0 && _absIdxC < animList.length)
+				{
+					var _nowAnimClick = haxe.Timer.stamp();
+					var _isAnimDblClick = (_animLastClickIdx == _absIdxC) && (_nowAnimClick - _animLastClickMs < 0.4);
+
+					curAnim = _absIdxC;
+					char.playAnim(animList[curAnim]);
+					if (ghostChar != null)
+						ghostChar.playAnim(animList[ghostAnimIdx]);
+					updateOffsetTexts();
+
+					// Auto-load selected anim into the Animation tab fields
+					loadAnimIntoUI();
+
+					// Bounce on anim label
+					FlxTween.cancelTweensOf(textAnim);
+					textAnim.scale.set(1.12, 1.12);
+					FlxTween.tween(textAnim.scale, {x: 1, y: 1}, 0.22, {ease: FlxEase.backOut});
+
+					if (_isAnimDblClick)
+					{
+						// ── Doble clic: abrir rename inline sobre la fila ────────────
+						var _animDataRenameIdx = -1;
+						for (_rni in 0...currentAnimData.length)
+						{
+							if (currentAnimData[_rni].name == animList[_absIdxC])
+							{ _animDataRenameIdx = _rni; break; }
+						}
+						if (_animDataRenameIdx >= 0 && _animRenameInput != null)
+						{
+							_animRenameIdx = _animDataRenameIdx;
+							_animRenameInput.text = currentAnimData[_animDataRenameIdx].name;
+							_animRenameInput.y    = _listStartYC + (_visIdxC * _rowHC) + 3;
+							_animRenameInput.visible  = true;
+							_animRenameInput.hasFocus = true;
+							// Resetear para no volver a disparar doble clic
+							_animLastClickIdx = -1;
+							_animLastClickMs  = -9999;
+						}
+					}
+					else
+					{
+						_animLastClickIdx = _absIdxC;
+						_animLastClickMs  = _nowAnimClick;
+					}
 				}
 			}
 		}
@@ -3298,7 +3767,9 @@ class CharacterEditor extends MusicBeatState
 		var moveV = FlxG.keys.pressed.I ? -1 : FlxG.keys.pressed.K ? 1 : 0;
 		camFollow.velocity.set(moveH * camSpeed, moveV * camSpeed);
 
-		// Animation switching
+		// Animation switching — only when something is selected
+		if (_hasSelection)
+		{
 		if (FlxG.keys.justPressed.W)
 		{
 			curAnim--;
@@ -3332,6 +3803,7 @@ class CharacterEditor extends MusicBeatState
 					loadAnimIntoUI();
 			}
 		}
+		} // end _hasSelection guard (anim switching)
 
 		// ── Offset adjustment por teclado ─────────────────────────────────────
 		var upP = FlxG.keys.anyJustPressed([UP]);
@@ -3340,7 +3812,7 @@ class CharacterEditor extends MusicBeatState
 		var leftP = FlxG.keys.anyJustPressed([LEFT]);
 		var mult = FlxG.keys.pressed.SHIFT ? 10 : 1;
 
-		if ((upP || rightP || downP || leftP) && animList.length > 0 && curAnim >= 0 && curAnim < animList.length)
+		if (_hasSelection && (upP || rightP || downP || leftP) && animList.length > 0 && curAnim >= 0 && curAnim < animList.length)
 		{
 			var selAnim = animList[curAnim];
 			var offsets = char.animOffsets.get(selAnim);
@@ -3591,6 +4063,8 @@ class CharacterEditor extends MusicBeatState
 			return true;
 		if (_lpRenameInput != null && _lpRenameInput.hasFocus)
 			return true;
+		if (_animRenameInput != null && _animRenameInput.hasFocus)
+			return true;
 		return false;
 	}
 
@@ -3699,6 +4173,7 @@ class CharacterEditor extends MusicBeatState
 		_rowBgs.resize(0);
 
 		_unsavedDlg = null;
+		_animRenameInput = null;
 		super.destroy();
 	}
 

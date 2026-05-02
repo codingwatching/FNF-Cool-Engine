@@ -4,7 +4,7 @@ import flixel.FlxG;
 import animationdata.FunkinSprite;
 import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxAtlasFrames;
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 import funkin.scripting.ScriptHandler;
 import mods.ModManager;
 #if sys

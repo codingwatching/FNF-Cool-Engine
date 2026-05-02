@@ -1041,7 +1041,7 @@ class NoteManager {
 				final halfStrum = funkin.gameplay.notes.Note.swagWidth * 0.5;
 				final thresh = effDown ? strumCY - halfStrum : strumCY + halfStrum;
 				if (effDown) {
-					if (note.y + note.frameHeight * note.scale.y >= thresh) {
+					if (note.y + note.height >= thresh) {
 						final clipH = (thresh - note.y) / note.scale.y;
 						if (clipH <= 0) {
 							note.clipRect = null;

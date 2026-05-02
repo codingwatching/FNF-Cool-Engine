@@ -39,7 +39,7 @@ import funkin.gameplay.objects.character.CharacterSlot;
 import funkin.gameplay.objects.hud.ScoreManager;
 import funkin.gameplay.objects.stages.Stage;
 import funkin.scripting.events.EventManager;
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 import funkin.scripting.ScriptHandler;
 import funkin.scripting.events.EventInfoSystem;
 import funkin.transitions.StateTransition;

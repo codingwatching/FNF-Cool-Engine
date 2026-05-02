@@ -5,7 +5,7 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 import flixel.graphics.frames.FlxAtlasFrames;
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 import funkin.scripting.ScriptHandler;
 #if (LUA_ALLOWED && linc_luajit)
 import funkin.scripting.RuleScriptInstance;

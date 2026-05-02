@@ -4,6 +4,9 @@ import flixel.FlxG;
 import funkin.states.MusicBeatState;
 import funkin.scripting.StateScriptHandler;
 import funkin.transitions.StateTransition;
+#if HSCRIPT_ALLOWED
+import hscriptplus.HScriptInstance;
+#end
 
 /**
  * ScriptableState — estado completo definido en HScript.

@@ -7,6 +7,7 @@ import sys.io.File;
 
 import funkin.scripting.events.EventDefinition;
 import funkin.scripting.events.EventInfoSystem.EventParamDef;
+import hscriptplus.HScriptInstance;
 #if (LUA_ALLOWED && linc_luajit)
 import funkin.scripting.RuleScriptInstance;
 #end

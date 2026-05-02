@@ -5,7 +5,7 @@ import flixel.FlxCamera;
 import flixel.group.FlxGroup;
 import funkin.data.MetaData;
 import funkin.scripting.ScriptHandler;
-import funkin.scripting.HScriptInstance;
+import hscriptplus.HScriptInstance;
 import funkin.gameplay.GameState;
 import sys.FileSystem;
 

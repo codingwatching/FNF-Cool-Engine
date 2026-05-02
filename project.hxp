@@ -413,6 +413,7 @@ class Project extends HXProject
     addLib("flixel-addons");
     if (isCPP()) addLib("linc_luajit");
     addLib("coolui");
+    addLib("hscript-cool");
     addLib("hscript");
     addLib("flixel-animate");
     addLib("tink_core");

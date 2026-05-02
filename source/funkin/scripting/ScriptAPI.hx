@@ -640,7 +640,7 @@ class ScriptAPI
 				searchDirs.push(dir);
 
 			// BASE_LIBS se añade automáticamente dentro de ScriptLibrary.require()
-			return funkin.scripting.ScriptLibrary.require(
+			return hscriptplus.ScriptLibrary.require(
 				name, searchDirs,
 				#if HSCRIPT_ALLOWED cast interp #else null #end,
 				forceReload ?? false
@@ -654,7 +654,7 @@ class ScriptAPI
 			if (modRoot != null) dirs.push('$modRoot/libs');
 			for (dir in funkin.addons.AddonManager.getLibSearchDirs())
 				dirs.push(dir);
-			dirs.push(funkin.scripting.ScriptLibrary.BASE_LIBS);
+			dirs.push('assets/data/libs');
 
 			for (dir in dirs)
 				for (ext in ['.hx', '.hscript', ''])

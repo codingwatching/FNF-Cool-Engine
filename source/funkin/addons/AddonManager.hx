@@ -5,8 +5,8 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 import haxe.Json;
-import funkin.scripting.HScriptInstance;
-import funkin.scripting.ScriptLibrary;
+import hscriptplus.HScriptInstance;
+import hscriptplus.ScriptLibrary;
 import mods.ModManager;
 
 using StringTools;
@@ -147,7 +147,7 @@ class AddonManager
 
 			// 3. Limpiar caché de librerías del mod anterior.
 			//    Las libs del mod nuevo se cargarán frescos al primer require().
-			funkin.scripting.ScriptLibrary.clearCacheForDir(mods.ModManager.MODS_FOLDER);
+			hscriptplus.ScriptLibrary.clearCacheForDir(mods.ModManager.MODS_FOLDER);
 		};
 	}
 
@@ -430,13 +430,13 @@ class AddonEntry
 			if (_libPaths.exists(name))
 			{
 				final absPath = _libPaths.get(name);
-				return funkin.scripting.ScriptLibrary.loadAbsolute(
+				return hscriptplus.ScriptLibrary.loadAbsolute(
 					absPath, inst.interp, forceReload ?? false);
 			}
 
 			// 2. Búsqueda en todos los search dirs
 			final dirs = _buildSearchDirs();
-			return funkin.scripting.ScriptLibrary.require(
+			return hscriptplus.ScriptLibrary.require(
 				name, dirs, inst.interp, forceReload ?? false);
 		});
 
@@ -464,7 +464,7 @@ class AddonEntry
 		for (ae in AddonManager.loadedAddons)
 			if (ae.id != id) { dirs.push(ae.libsPath); dirs.push(ae.depsPath); }
 		// Base engine
-		dirs.push(funkin.scripting.ScriptLibrary.BASE_LIBS);
+		dirs.push('assets/data/libs');
 		return dirs;
 	}
 	#end
@@ -482,7 +482,7 @@ class AddonEntry
 		_libs.clear();
 		_libPaths.clear();
 		// Limpiar caché de ScriptLibrary para la carpeta libs/ de este addon
-		funkin.scripting.ScriptLibrary.clearCacheForDir(libsPath);
-		funkin.scripting.ScriptLibrary.clearCacheForDir(depsPath);
+		hscriptplus.ScriptLibrary.clearCacheForDir(libsPath);
+		hscriptplus.ScriptLibrary.clearCacheForDir(depsPath);
 	}
 }
