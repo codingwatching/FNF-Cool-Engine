@@ -8,6 +8,7 @@ import funkin.data.Section.SwagSection;
 import Paths;
 import funkin.scripting.events.EventRegistry;
 import funkin.scripting.events.EventHandlerLoader;
+import funkin.scripting.events.EventInfoSystem;
 
 using StringTools;
 
@@ -76,6 +77,11 @@ class EventManager
 			if (!hasCam) generateCameraFollow(songData);
 		}
 
+		// ── Cargar eventos del PSE (GameplayEditorState / .level) ────────────────
+		// Los eventos creados en el editor de gameplay se guardan en pse.events del
+		// .level, NO en songData.events. Esta llamada los fusiona con los ya cargados.
+		_loadPSEEvents(PlayState.SONG.song);
+
 		events.sort((a, b) -> Std.int(a.time - b.time));
 
 		// Refrescar `game` en los scripts ahora que PlayState.instance existe.
@@ -134,6 +140,143 @@ class EventManager
 			events.push(e);
 		}
 		trace('[EventManager] Formato nuevo: ${events.length} eventos.');
+	}
+
+	/**
+	 * Carga los eventos guardados en `pse.events` del archivo `.level` y los
+	 * fusiona con el array `events` ya existente.
+	 *
+	 * Los eventos del GameplayEditorState (PSE) se almacenan en la sección `pse`
+	 * del `.level`, separada de `songData.events` (SwagSong).  Sin esta llamada
+	 * los Camera Follow, Custom, etc. que el usuario coloca en el editor de
+	 * gameplay nunca llegan al EventManager → la cámara no reacciona.
+	 *
+	 * Reglas de conversión PSEEvent → EventData:
+	 *   - Tipo "Custom" con params.eventName → se re-despacha como ese evento,
+	 *     construyendo el value string a partir de params según EventInfoSystem.
+	 *   - Cualquier otro tipo → se trata igual que loadNewFormat (pipe-split).
+	 *   - Filtra por dificultad activa (soporta '*' = todas).
+	 */
+	static function _loadPSEEvents(songId:String):Void
+	{
+		#if sys
+		final pseRaw:Dynamic = funkin.data.LevelFile.loadPSE(songId);
+		if (pseRaw == null || pseRaw.events == null) return;
+
+		final pseEvents:Array<Dynamic> = pseRaw.events;
+		if (pseEvents.length == 0) return;
+
+		// Sufijo de dificultad activo (e.g. '' para normal, '-hard' para hard)
+		final diffSuffix:String = funkin.data.CoolUtil.difficultySuffix();
+		// La clave de dificultad que usa PSE (sin el guión inicial)
+		final diffKey:String = (diffSuffix.length > 1) ? diffSuffix.substr(1) : '';
+
+		final bpm:Float = PlayState.SONG != null ? PlayState.SONG.bpm : 100.0;
+		var count:Int = 0;
+
+		for (evt in pseEvents)
+		{
+			if (evt == null) continue;
+
+			// ── Filtro de dificultad ──────────────────────────────────────────
+			final diffs:Array<Dynamic> = evt.difficulties;
+			if (diffs != null && diffs.length > 0)
+			{
+				var passesFilter = false;
+				for (d in diffs)
+				{
+					final ds:String = Std.string(d);
+					if (ds == '*' || ds == diffKey || (diffKey == '' && ds == 'normal'))
+					{
+						passesFilter = true;
+						break;
+					}
+				}
+				if (!passesFilter) continue;
+			}
+
+			final rawType:String  = evt.type  != null ? Std.string(evt.type)  : '';
+			final rawValue:String = evt.value != null ? Std.string(evt.value) : '';
+
+			// ── Evento Custom: re-despachar como el evento destino ─────────────
+			// El nombre del evento real se guarda en evt.params.eventName;
+			// los valores de los parámetros en evt.params como campos dinámicos.
+			if (rawType.toLowerCase() == 'custom')
+			{
+				final params:Dynamic = evt.params;
+				final targetName:String = (params != null && Reflect.hasField(params, 'eventName'))
+					? Std.string(Reflect.field(params, 'eventName'))
+					: rawValue; // fallback: el propio value como nombre
+
+				if (targetName == '' || targetName == null) continue;
+
+				// Construir value string desde los params en el orden definido por
+				// EventInfoSystem, para que los handlers built-in lo parseen bien.
+				var valueStr:String = '';
+				if (params != null)
+				{
+					EventInfoSystem.reload();
+					final paramDefs = EventInfoSystem.eventParams.get(targetName);
+					if (paramDefs != null && paramDefs.length > 0)
+					{
+						final parts:Array<String> = [];
+						for (pd in paramDefs)
+						{
+							final fieldName = pd.name.toLowerCase().replace(' ', '_');
+							var val:String = pd.defValue ?? '';
+							if (Reflect.hasField(params, pd.name))
+								val = Std.string(Reflect.field(params, pd.name));
+							else if (Reflect.hasField(params, fieldName))
+								val = Std.string(Reflect.field(params, fieldName));
+							parts.push(val);
+						}
+						valueStr = parts.join('|');
+					}
+					else
+					{
+						// Sin definición de params: usar rawValue o campo 'value'
+						valueStr = Reflect.hasField(params, 'value')
+							? Std.string(Reflect.field(params, 'value'))
+							: rawValue;
+					}
+				}
+
+				final e    = new EventData();
+				e.name     = targetName;
+				e.time     = stepToMs(evt.stepTime ?? 0.0, bpm);
+				e.value1   = valueStr;
+				e.value2   = '';
+				events.push(e);
+				count++;
+				continue;
+			}
+
+			// ── Evento normal (Camera Follow, BPM Change, etc.) ───────────────
+			var v1 = rawValue;
+			var v2 = '';
+			if (v1.contains('|'))
+			{
+				final firstPipe = v1.indexOf('|');
+				final rest = v1.substring(firstPipe + 1);
+				if (!rest.contains('|'))
+				{
+					v1 = v1.substring(0, firstPipe).trim();
+					v2 = rest.trim();
+				}
+				// Si hay más de un pipe, dejar v1 intacto (formato multi-pipe)
+			}
+
+			final e    = new EventData();
+			e.name     = rawType;
+			e.time     = stepToMs(evt.stepTime ?? 0.0, bpm);
+			e.value1   = v1;
+			e.value2   = v2;
+			events.push(e);
+			count++;
+		}
+
+		trace('[EventManager] PSE: $count eventos cargados desde .level (pse.events).');
+		#end
 	}
 
 	static function loadLegacyFormat(songData:SwagSong):Void

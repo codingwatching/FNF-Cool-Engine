@@ -36,7 +36,7 @@ import sys.FileSystem;
  *  3 — Dialogue Editor
  *  4 — Cutscene Editor      ← NUEVO
  *  5 — ModChart Editor
- *  6 — PlayState Editor
+ *  6 — Gameplay Editor
  */
 class DebugMenuSubState extends FlxSubState
 {
@@ -47,7 +47,7 @@ class DebugMenuSubState extends FlxSubState
 		"✦  DIALOGUE EDITOR",
 		"✂  CUTSCENE EDITOR",
 		"◈  MODCHART EDITOR",
-		"▶  PLAYSTATE EDITOR"
+		"▶  GAMEPLAY EDITOR"
 	];
 
 	static var DESCRIPTIONS:Array<String> = [
@@ -256,7 +256,7 @@ class DebugMenuSubState extends FlxSubState
 			case 3: _openEditor(DIALOGUE_EDITOR);
 			case 4: _openEditor(CUTSCENE_EDITOR);
 			case 5: _openEditor(MODCHART_EDITOR);
-			case 6: _openEditor(PLAYSTATE_EDITOR);
+			case 6: _openEditor(GAMEPLAY_EDITOR);
 		}
 	}
 
@@ -270,7 +270,7 @@ class DebugMenuSubState extends FlxSubState
 			case DIALOGUE_EDITOR:   StateTransition.switchState(new DialogueEditor());
 			case CUTSCENE_EDITOR:   StateTransition.switchState(new CutsceneEditorState());
 			case MODCHART_EDITOR:   StateTransition.switchState(new ModChartEditorState());
-			case PLAYSTATE_EDITOR:  StateTransition.switchState(new GameplayEditorState(songData));
+			case GAMEPLAY_EDITOR:  StateTransition.switchState(new GameplayEditorState(songData));
 		}
 	}
 
@@ -321,5 +321,5 @@ enum DebugEditorType
 	DIALOGUE_EDITOR;
 	CUTSCENE_EDITOR;
 	MODCHART_EDITOR;
-	PLAYSTATE_EDITOR;
+	GAMEPLAY_EDITOR;
 }

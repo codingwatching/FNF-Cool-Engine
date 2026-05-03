@@ -44,7 +44,8 @@ import lime.ui.FileDialog;
 using StringTools;
 
 // ── Formato V2 de personaje (render.layers) ───────────────────────────────────
-typedef LayerData = {
+// Un objeto individual dentro de una capa (sprite, personaje, solid, etc.)
+typedef LayerObjectData = {
 	var name:String;
 	var path:String;
 	var position:Array<Float>;
@@ -55,6 +56,15 @@ typedef LayerData = {
 	var flipY:Bool;
 	var antialiasing:Bool;
 	var animations:Array<AnimData>;
+}
+
+// Una capa es un CONTENEDOR de objetos, al estilo Photoshop.
+// Los objetos solo son seleccionables en la capa activa.
+typedef LayerData = {
+	var name:String;
+	var visible:Bool;      // ocultar/mostrar toda la capa
+	var ?locked:Bool;      // si true, los objetos no son seleccionables
+	var objects:Array<LayerObjectData>;
 }
 
 typedef CharDeathV2 = {
@@ -218,7 +228,8 @@ class CharacterEditor extends MusicBeatState
 	// curLayerIdx: índice de la capa que se está editando actualmente.
 	// _isV2Format: true si el JSON usa el nuevo formato CharacterDataV2.
 	var layers:Array<LayerData> = [];
-	var curLayerIdx:Int = 0;
+	var curLayerIdx:Int  = 0;   // capa activa
+	var curObjectIdx:Int = 0;   // objeto seleccionado DENTRO de la capa activa
 	var _isV2Format:Bool = false;
 
 	// ── Visual layer panel (Adobe-Animate-style rows at bottom of left panel) ──
@@ -885,11 +896,11 @@ class CharacterEditor extends MusicBeatState
 		btnApply.cameras = [camHUD]; btnApply.scrollFactor.set(); add(btnApply);
 		_layerPropsElems.push(btnApply);
 
-		var btnUp = new coolui.CoolButton(px + 90, iy, "▲ Up", function() { _moveLayerUp(); });
+		var btnUp = new coolui.CoolButton(px + 90, iy, "▲ Up", function() { _moveObjectUp(); });
 		btnUp.cameras = [camHUD]; btnUp.scrollFactor.set(); add(btnUp);
 		_layerPropsElems.push(btnUp);
 
-		var btnDown = new coolui.CoolButton(px + 175, iy, "▼ Down", function() { _moveLayerDown(); });
+		var btnDown = new coolui.CoolButton(px + 175, iy, "▼ Down", function() { _moveObjectDown(); });
 		btnDown.cameras = [camHUD]; btnDown.scrollFactor.set(); add(btnDown);
 		_layerPropsElems.push(btnDown);
 
@@ -905,58 +916,54 @@ class CharacterEditor extends MusicBeatState
 
 	// ── Layer helpers ─────────────────────────────────────────────────────────
 
-	/** Rellena los campos del tab Layers con los datos de la capa actual. */
+	/** Rellena los campos del tab Layers con los datos del objeto actual. */
 	function _syncLayerTabToCurrentLayer():Void
 	{
-		if (layers == null || layers.length == 0 || curLayerIdx < 0 || curLayerIdx >= layers.length)
-			return;
-		var lay = layers[curLayerIdx];
-		if (layerNameInput != null)   layerNameInput.text   = lay.name;
-		if (layerPathInput != null)   layerPathInput.text   = lay.path;
-		if (layerAlphaStepper != null) layerAlphaStepper.value = lay.alpha;
-		if (layerVisibleCheckbox != null) layerVisibleCheckbox.checked = lay.visible;
-		if (layerScaleXStepper != null) layerScaleXStepper.value = (lay.scale != null && lay.scale.length > 0) ? lay.scale[0] : 1.0;
-		if (layerScaleYStepper != null) layerScaleYStepper.value = (lay.scale != null && lay.scale.length > 1) ? lay.scale[1] : 1.0;
-		if (layerPosXStepper != null) layerPosXStepper.value = (lay.position != null && lay.position.length > 0) ? lay.position[0] : 0;
-		if (layerPosYStepper != null) layerPosYStepper.value = (lay.position != null && lay.position.length > 1) ? lay.position[1] : 0;
-		if (layerFlipXCheckbox != null) layerFlipXCheckbox.checked = lay.flipX;
-		if (layerFlipYCheckbox != null) layerFlipYCheckbox.checked = lay.flipY;
-		if (layerAntialiasingCheckbox != null) layerAntialiasingCheckbox.checked = lay.antialiasing;
+		var obj = _curObject();
+		if (obj == null) return;
+		if (layerNameInput != null)   layerNameInput.text   = obj.name;
+		if (layerPathInput != null)   layerPathInput.text   = obj.path;
+		if (layerAlphaStepper != null) layerAlphaStepper.value = obj.alpha;
+		if (layerVisibleCheckbox != null) layerVisibleCheckbox.checked = obj.visible;
+		if (layerScaleXStepper != null) layerScaleXStepper.value = (obj.scale != null && obj.scale.length > 0) ? obj.scale[0] : 1.0;
+		if (layerScaleYStepper != null) layerScaleYStepper.value = (obj.scale != null && obj.scale.length > 1) ? obj.scale[1] : 1.0;
+		if (layerPosXStepper != null) layerPosXStepper.value = (obj.position != null && obj.position.length > 0) ? obj.position[0] : 0;
+		if (layerPosYStepper != null) layerPosYStepper.value = (obj.position != null && obj.position.length > 1) ? obj.position[1] : 0;
+		if (layerFlipXCheckbox != null) layerFlipXCheckbox.checked = obj.flipX;
+		if (layerFlipYCheckbox != null) layerFlipYCheckbox.checked = obj.flipY;
+		if (layerAntialiasingCheckbox != null) layerAntialiasingCheckbox.checked = obj.antialiasing;
 
-		// ── Sync el tab Properties con los valores de la capa seleccionada ───────
-		// Así el usuario ve las propiedades del objeto que tiene seleccionado,
-		// no las del personaje global.
-		if (pathInput != null) pathInput.text = lay.path;
-		if (antialiasingCheckbox != null) antialiasingCheckbox.checked = lay.antialiasing;
-		if (charFlipXCheckbox != null) charFlipXCheckbox.checked = lay.flipX;
-		if (scaleStepper != null && lay.scale != null && lay.scale.length > 0)
-			scaleStepper.value = lay.scale[0];
+		// Sincronizar tab Properties con los valores del objeto seleccionado
+		if (pathInput != null) pathInput.text = obj.path;
+		if (antialiasingCheckbox != null) antialiasingCheckbox.checked = obj.antialiasing;
+		if (charFlipXCheckbox != null) charFlipXCheckbox.checked = obj.flipX;
+		if (scaleStepper != null && obj.scale != null && obj.scale.length > 0)
+			scaleStepper.value = obj.scale[0];
 	}
 
-	/** Escribe los campos del tab Layers en la capa actual. */
+	/** Escribe los campos del panel de props en el objeto actual. */
 	function _applyLayerTabToCurrentLayer():Void
 	{
-		if (layers == null || layers.length == 0 || curLayerIdx < 0 || curLayerIdx >= layers.length)
+		var obj = _curObject();
+		if (obj == null)
 		{
-			setHelp("⚠ No layer selected", FlxColor.YELLOW);
+			setHelp("⚠ No object selected", FlxColor.YELLOW);
 			return;
 		}
-		var lay = layers[curLayerIdx];
-		if (layerNameInput != null)   lay.name   = layerNameInput.text.trim();
-		if (layerPathInput != null)   lay.path   = layerPathInput.text.trim();
-		if (layerAlphaStepper != null)  lay.alpha  = layerAlphaStepper.value;
-		if (layerVisibleCheckbox != null) lay.visible = layerVisibleCheckbox.checked;
+		if (layerNameInput != null)   obj.name   = layerNameInput.text.trim();
+		if (layerPathInput != null)   obj.path   = layerPathInput.text.trim();
+		if (layerAlphaStepper != null)  obj.alpha  = layerAlphaStepper.value;
+		if (layerVisibleCheckbox != null) obj.visible = layerVisibleCheckbox.checked;
 		if (layerScaleXStepper != null && layerScaleYStepper != null)
-			lay.scale = [layerScaleXStepper.value, layerScaleYStepper.value];
+			obj.scale = [layerScaleXStepper.value, layerScaleYStepper.value];
 		if (layerPosXStepper != null && layerPosYStepper != null)
-			lay.position = [layerPosXStepper.value, layerPosYStepper.value];
-		if (layerFlipXCheckbox != null) lay.flipX = layerFlipXCheckbox.checked;
-		if (layerFlipYCheckbox != null) lay.flipY = layerFlipYCheckbox.checked;
-		if (layerAntialiasingCheckbox != null) lay.antialiasing = layerAntialiasingCheckbox.checked;
-		// Actualizar dropdown si cambió el nombre
+			obj.position = [layerPosXStepper.value, layerPosYStepper.value];
+		if (layerFlipXCheckbox != null) obj.flipX = layerFlipXCheckbox.checked;
+		if (layerFlipYCheckbox != null) obj.flipY = layerFlipYCheckbox.checked;
+		if (layerAntialiasingCheckbox != null) obj.antialiasing = layerAntialiasingCheckbox.checked;
 		_refreshLayerDropdown();
 		_hasUnsaved = true;
-		setHelp("✓ Layer updated: " + lay.name, FlxColor.LIME);
+		setHelp("✓ Object updated: " + obj.name, FlxColor.LIME);
 	}
 
 	function _addNewLayer():Void
@@ -968,6 +975,35 @@ class CharacterEditor extends MusicBeatState
 		}
 		var newLayer:LayerData = {
 			name: "layer" + layers.length,
+			visible: true,
+			objects: []
+		};
+		layers.push(newLayer);
+		curLayerIdx  = layers.length - 1;
+		curObjectIdx = -1; // sin objeto seleccionado aún
+		currentAnimData = [];
+		_refreshLayerDropdown();
+		_syncLayerTabToCurrentLayer();
+		_hasUnsaved = true;
+		setHelp("✓ New layer: " + newLayer.name + "  (right-click to add objects)", FlxColor.LIME);
+	}
+
+	/** Añade un nuevo objeto al FINAL de la capa activa. */
+	function _addNewObject():Void
+	{
+		if (!_isV2Format)
+		{
+			setHelp("⚠ Switch to V2 format first", FlxColor.YELLOW);
+			return;
+		}
+		var lay = _curLayer();
+		if (lay == null)
+		{
+			setHelp("⚠ No active layer — add a layer first", FlxColor.YELLOW);
+			return;
+		}
+		var newObj:LayerObjectData = {
+			name: "object" + lay.objects.length,
 			path: "BOYFRIEND",
 			position: [0.0, 0.0],
 			scale: [1.0, 1.0],
@@ -978,13 +1014,13 @@ class CharacterEditor extends MusicBeatState
 			antialiasing: true,
 			animations: []
 		};
-		layers.push(newLayer);
-		curLayerIdx = layers.length - 1;
-		currentAnimData = newLayer.animations;
+		lay.objects.push(newObj);
+		curObjectIdx = lay.objects.length - 1;
+		currentAnimData = newObj.animations;
 		_refreshLayerDropdown();
 		_syncLayerTabToCurrentLayer();
 		_hasUnsaved = true;
-		setHelp("✓ New layer added: " + newLayer.name, FlxColor.LIME);
+		setHelp("✓ New object: " + newObj.name + " in layer [" + lay.name + "]", FlxColor.LIME);
 	}
 
 	function _deleteCurrentLayer():Void
@@ -996,12 +1032,35 @@ class CharacterEditor extends MusicBeatState
 		}
 		var deleted = layers[curLayerIdx].name;
 		layers.splice(curLayerIdx, 1);
-		curLayerIdx = Std.int(Math.max(0, curLayerIdx - 1));
-		currentAnimData = layers[curLayerIdx].animations;
+		curLayerIdx  = Std.int(Math.max(0, curLayerIdx - 1));
+		curObjectIdx = 0;
+		var lay = _curLayer();
+		currentAnimData = (lay != null && lay.objects.length > 0) ? lay.objects[0].animations : [];
 		_refreshLayerDropdown();
 		_syncLayerTabToCurrentLayer();
 		_hasUnsaved = true;
 		setHelp("✓ Layer deleted: " + deleted, FlxColor.LIME);
+	}
+
+	/** Borra el objeto seleccionado de la capa activa. */
+	function _deleteCurrentObject():Void
+	{
+		var lay = _curLayer();
+		if (lay == null || lay.objects.length == 0)
+		{
+			setHelp("⚠ No object selected", FlxColor.YELLOW);
+			return;
+		}
+		if (curObjectIdx < 0 || curObjectIdx >= lay.objects.length) return;
+		var deleted = lay.objects[curObjectIdx].name;
+		lay.objects.splice(curObjectIdx, 1);
+		curObjectIdx = Std.int(Math.max(0, curObjectIdx - 1));
+		var obj = _curObject();
+		currentAnimData = (obj != null) ? obj.animations : [];
+		_refreshLayerDropdown();
+		_syncLayerTabToCurrentLayer();
+		_hasUnsaved = true;
+		setHelp("✓ Object deleted: " + deleted, FlxColor.LIME);
 	}
 
 	function _moveLayerUp():Void
@@ -1022,6 +1081,32 @@ class CharacterEditor extends MusicBeatState
 		layers[curLayerIdx] = layers[curLayerIdx + 1];
 		layers[curLayerIdx + 1] = tmp;
 		curLayerIdx++;
+		_refreshLayerDropdown();
+		_hasUnsaved = true;
+	}
+
+	/** Mueve el objeto seleccionado hacia arriba dentro de su capa. */
+	function _moveObjectUp():Void
+	{
+		var lay = _curLayer();
+		if (lay == null || curObjectIdx <= 0) return;
+		var tmp = lay.objects[curObjectIdx];
+		lay.objects[curObjectIdx] = lay.objects[curObjectIdx - 1];
+		lay.objects[curObjectIdx - 1] = tmp;
+		curObjectIdx--;
+		_refreshLayerDropdown();
+		_hasUnsaved = true;
+	}
+
+	/** Mueve el objeto seleccionado hacia abajo dentro de su capa. */
+	function _moveObjectDown():Void
+	{
+		var lay = _curLayer();
+		if (lay == null || lay.objects == null || curObjectIdx >= lay.objects.length - 1) return;
+		var tmp = lay.objects[curObjectIdx];
+		lay.objects[curObjectIdx] = lay.objects[curObjectIdx + 1];
+		lay.objects[curObjectIdx + 1] = tmp;
+		curObjectIdx++;
 		_refreshLayerDropdown();
 		_hasUnsaved = true;
 	}
@@ -1137,13 +1222,15 @@ class CharacterEditor extends MusicBeatState
 		hdrTxt.cameras = [camHUD]; hdrTxt.scrollFactor.set(); add(hdrTxt);
 		layerPanelTexts.add(hdrTxt);
 
-		// Layer count badge
-		var cntTxt = new FlxText(0, rowY + 6, LP_W - 32, layers.length + " layers", 9);
+		// Total objects badge
+		var totalObjs = 0;
+		for (l in layers) if (l.objects != null) totalObjs += l.objects.length;
+		var cntTxt = new FlxText(0, rowY + 6, LP_W - 32, layers.length + " layers · " + totalObjs + " obj", 9);
 		cntTxt.setFormat(Paths.font("vcr.ttf"), 9, T.textDim, RIGHT);
 		cntTxt.cameras = [camHUD]; cntTxt.scrollFactor.set(); add(cntTxt);
 		layerPanelTexts.add(cntTxt);
 
-		// [+] Add-layer button in header
+		// [+ Layer] Add-layer button in header
 		var addBg = new FlxSprite(LP_W - 26, rowY + 3).makeGraphic(22, 20, T.bgHover);
 		addBg.cameras = [camHUD]; addBg.scrollFactor.set(); add(addBg);
 		layerPanelGroup.add(addBg);
@@ -1151,102 +1238,192 @@ class CharacterEditor extends MusicBeatState
 		addTxt.setFormat(Paths.font("vcr.ttf"), 12, T.success, CENTER);
 		addTxt.cameras = [camHUD]; addTxt.scrollFactor.set(); add(addTxt);
 		layerPanelTexts.add(addTxt);
-		layerPanelHits.push({x: LP_W - 26.0, y: rowY + 3, w: 22.0, h: 20.0, zone: "add", idx: -1});
+		layerPanelHits.push({x: LP_W - 26.0, y: rowY + 3, w: 22.0, h: 20.0, zone: "addLayer", idx: -1});
 
 		rowY += LP_HEADER_H;
 
-		// ── Layer rows (listed top→bottom = layers reversed: last added on top) ─
-		// Adobe Animate style: index 0 = BOTTOM layer, last = TOP layer,
-		// but we show them top-first so the "topmost" layer is at the top of the panel.
-		var totalLayers = layers.length;
-		var drawnCount  = 0;
-		var i = totalLayers - 1;
+		// ── Build flat list of rows: layer headers + indented object rows ─────
+		// We iterate top→bottom (last layer = top in visual stack, index 0 = bottom)
+		var drawnCount = 0;
+		var i = layers.length - 1;
 		while (i >= 0)
 		{
-			if (drawnCount < layerPanelScroll) { drawnCount++; i--; continue; }
-			if (drawnCount >= layerPanelScroll + LP_MAX_VIS) { i--; continue; }
-			drawnCount++;
-
 			var layIdx = i;
 			var lay    = layers[layIdx];
-			var isCur  = (layIdx == curLayerIdx);
-			var isVis  = (lay.visible != false);
+			var isActiveLay = (layIdx == curLayerIdx);
+			var layVis = (lay.visible != false);
 
-			// ── Hit zones registered BEFORE "row" so specific buttons take priority ──
-			// Eye / visibility toggle — image icon (visible.png / no_visible.png)
-			var eyeSprite = new FlxSprite(2, rowY + 3);
-			eyeSprite.loadGraphic(isVis
-				? Paths.image('editors/visible')
-				: Paths.image('editors/no_visible'));
-			eyeSprite.setGraphicSize(18, 18);
-			eyeSprite.updateHitbox();
-			eyeSprite.cameras = [camHUD]; eyeSprite.scrollFactor.set(); add(eyeSprite);
-			layerPanelGroup.add(eyeSprite);
-			// Register eye BEFORE row so the click doesn't fall through to "row"
-			layerPanelHits.push({x: 0.0, y: rowY, w: 22.0, h: LP_ROW_H * 1.0, zone: "eye", idx: layIdx});
-
-			// × Delete button — shown on ALL rows (red when selected, dimmed otherwise)
-			// Register BEFORE row for correct hit priority
-			var delTxt = new FlxText(LP_W - 36, rowY + 4, 16, "\u00D7", 11);
-			delTxt.setFormat(Paths.font("vcr.ttf"), 11, isCur ? T.error : T.textDim, CENTER);
-			delTxt.cameras = [camHUD]; delTxt.scrollFactor.set(); add(delTxt);
-			layerPanelTexts.add(delTxt);
-			layerPanelHits.push({x: LP_W - 38.0, y: rowY, w: 20.0, h: LP_ROW_H * 1.0, zone: "del", idx: layIdx});
-
-			// Row background — registered AFTER eye/del so those take priority
-			var rowColor = isCur
-				? (T.rowSelected)
-				: (drawnCount % 2 == 0 ? T.rowEven : T.rowOdd);
-			var rowBg = new FlxSprite(0, rowY).makeGraphic(LP_W, LP_ROW_H, rowColor);
-			rowBg.cameras = [camHUD]; rowBg.scrollFactor.set(); add(rowBg);
-			layerPanelGroup.add(rowBg);
-			layerPanelHits.push({x: 0.0, y: rowY, w: LP_W * 1.0, h: LP_ROW_H * 1.0, zone: "row", idx: layIdx});
-
-			// Active layer indicator strip (left edge, drawn on top of rowBg)
-			if (isCur)
+			// ── LAYER HEADER ROW ─────────────────────────────────────────────
+			if (drawnCount >= layerPanelScroll && drawnCount < layerPanelScroll + LP_MAX_VIS)
 			{
-				var strip = new FlxSprite(0, rowY).makeGraphic(3, LP_ROW_H, T.accent);
-				strip.cameras = [camHUD]; strip.scrollFactor.set(); add(strip);
-				layerPanelGroup.add(strip);
+				// Eye / visibility toggle
+				var eyeSprite = new FlxSprite(2, rowY + 3);
+				eyeSprite.loadGraphic(layVis ? Paths.image('editors/visible') : Paths.image('editors/no_visible'));
+				eyeSprite.setGraphicSize(18, 18); eyeSprite.updateHitbox();
+				eyeSprite.cameras = [camHUD]; eyeSprite.scrollFactor.set(); add(eyeSprite);
+				layerPanelGroup.add(eyeSprite);
+				layerPanelHits.push({x: 0.0, y: rowY, w: 22.0, h: LP_ROW_H * 1.0, zone: "layerEye", idx: layIdx});
+
+				// × Delete layer button
+				var delTxt = new FlxText(LP_W - 36, rowY + 4, 16, "\u00D7", 11);
+				delTxt.setFormat(Paths.font("vcr.ttf"), 11, isActiveLay ? T.error : T.textDim, CENTER);
+				delTxt.cameras = [camHUD]; delTxt.scrollFactor.set(); add(delTxt);
+				layerPanelTexts.add(delTxt);
+				layerPanelHits.push({x: LP_W - 38.0, y: rowY, w: 20.0, h: LP_ROW_H * 1.0, zone: "delLayer", idx: layIdx});
+
+				// + Add object button (next to delete)
+				var addObjTxt = new FlxText(LP_W - 56, rowY + 4, 16, "+", 12);
+				addObjTxt.setFormat(Paths.font("vcr.ttf"), 12, isActiveLay ? T.success : T.textDim, CENTER);
+				addObjTxt.cameras = [camHUD]; addObjTxt.scrollFactor.set(); add(addObjTxt);
+				layerPanelTexts.add(addObjTxt);
+				layerPanelHits.push({x: LP_W - 58.0, y: rowY, w: 20.0, h: LP_ROW_H * 1.0, zone: "addObj", idx: layIdx});
+
+				// Layer row background
+				var layColor = isActiveLay ? (T.rowSelected) : (drawnCount % 2 == 0 ? T.rowEven : T.rowOdd);
+				// Darken slightly for layer headers vs object rows
+				var rowBg = new FlxSprite(0, rowY).makeGraphic(LP_W, LP_ROW_H, layColor);
+				rowBg.cameras = [camHUD]; rowBg.scrollFactor.set(); add(rowBg);
+				layerPanelGroup.add(rowBg);
+				layerPanelHits.push({x: 0.0, y: rowY, w: LP_W * 1.0, h: LP_ROW_H * 1.0, zone: "layerRow", idx: layIdx});
+
+				// Active layer indicator strip
+				if (isActiveLay)
+				{
+					var strip = new FlxSprite(0, rowY).makeGraphic(3, LP_ROW_H, T.accent);
+					strip.cameras = [camHUD]; strip.scrollFactor.set(); add(strip);
+					layerPanelGroup.add(strip);
+				}
+
+				// Layer icon
+				var layIcon = new FlxText(22, rowY + 5, 16, "\u25a1", 9);
+				layIcon.setFormat(Paths.font("vcr.ttf"), 9, isActiveLay ? T.accent : T.textDim, CENTER);
+				layIcon.cameras = [camHUD]; layIcon.scrollFactor.set(); add(layIcon);
+				layerPanelTexts.add(layIcon);
+
+				// Layer name
+				var nameStr = lay.name ?? ("layer" + layIdx);
+				if (nameStr.length > 18) nameStr = nameStr.substr(0, 16) + "..";
+				var nameTxt = new FlxText(38, rowY + 5, 155, nameStr, 10);
+				nameTxt.setFormat(Paths.font("vcr.ttf"), 10, isActiveLay ? T.accent : T.textPrimary, LEFT);
+				nameTxt.bold = true;
+				nameTxt.cameras = [camHUD]; nameTxt.scrollFactor.set(); add(nameTxt);
+				layerPanelTexts.add(nameTxt);
+
+				// Object count badge
+				var objCount = lay.objects != null ? lay.objects.length : 0;
+				var countBadge = new FlxText(193, rowY + 5, 60, objCount + " obj", 8);
+				countBadge.setFormat(Paths.font("vcr.ttf"), 8, T.textDim, RIGHT);
+				countBadge.cameras = [camHUD]; countBadge.scrollFactor.set(); add(countBadge);
+				layerPanelTexts.add(countBadge);
+
+				// Drag grip
+				var gripTxt = new FlxText(LP_W - 16, rowY + 4, 14, "\u2261", 11);
+				gripTxt.setFormat(Paths.font("vcr.ttf"), 11, _lpDragging && _lpDragFromIdx == layIdx ? 0xFF44AAFF : T.textDim, CENTER);
+				gripTxt.cameras = [camHUD]; gripTxt.scrollFactor.set(); add(gripTxt);
+				layerPanelTexts.add(gripTxt);
+
+				rowY += LP_ROW_H;
+			}
+			drawnCount++;
+
+			// ── OBJECT ROWS (indented, only visible when layer active or all) ─
+			if (lay.objects != null)
+			{
+				for (oi in 0...lay.objects.length)
+				{
+					if (drawnCount >= layerPanelScroll && drawnCount < layerPanelScroll + LP_MAX_VIS)
+					{
+						var obj = lay.objects[oi];
+						var isSelObj = isActiveLay && (oi == curObjectIdx);
+						var isInactive = !isActiveLay; // objects in other layers are dimmed
+
+						// Object row background (indented)
+						var objColor = isSelObj
+							? (T.accent & 0x00FFFFFF | 0x55000000)
+							: (isInactive ? 0x11FFFFFF : (drawnCount % 2 == 0 ? 0x1AFFFFFF : 0x0AFFFFFF));
+						var objBg = new FlxSprite(18, rowY).makeGraphic(LP_W - 18, LP_ROW_H, objColor);
+						objBg.cameras = [camHUD]; objBg.scrollFactor.set(); add(objBg);
+						layerPanelGroup.add(objBg);
+						// Only active layer objects are clickable
+						layerPanelHits.push({x: 18.0, y: rowY, w: LP_W - 18.0, h: LP_ROW_H * 1.0,
+							zone: isActiveLay ? "objRow" : "objLocked", idx: layIdx * 1000 + oi});
+
+						// Object selected indicator
+						if (isSelObj)
+						{
+							var selStrip = new FlxSprite(18, rowY).makeGraphic(3, LP_ROW_H, T.accent);
+							selStrip.cameras = [camHUD]; selStrip.scrollFactor.set(); add(selStrip);
+							layerPanelGroup.add(selStrip);
+						}
+
+						// Indentation line
+						var indentLine = new FlxSprite(18, rowY).makeGraphic(1, LP_ROW_H, isActiveLay ? (T.accent & 0x00FFFFFF | 0x44000000) : 0x22FFFFFF);
+						indentLine.cameras = [camHUD]; indentLine.scrollFactor.set(); add(indentLine);
+						layerPanelGroup.add(indentLine);
+
+						// ◦ Object icon
+						var objIcon = new FlxText(22, rowY + 5, 14, "\u25E6", 8);
+						objIcon.setFormat(Paths.font("vcr.ttf"), 8, isSelObj ? T.accent : (isInactive ? T.textDim : 0xFFCCCCCC), CENTER);
+						objIcon.cameras = [camHUD]; objIcon.scrollFactor.set(); add(objIcon);
+						layerPanelTexts.add(objIcon);
+
+						// Object name
+						var oname = obj.name ?? "obj" + oi;
+						if (oname.length > 14) oname = oname.substr(0, 12) + "..";
+						var oTxt = new FlxText(36, rowY + 5, 130, oname, 9);
+						oTxt.setFormat(Paths.font("vcr.ttf"), 9,
+							isSelObj ? T.accent : (isInactive ? T.textDim : T.textPrimary), LEFT);
+						oTxt.cameras = [camHUD]; oTxt.scrollFactor.set(); add(oTxt);
+						layerPanelTexts.add(oTxt);
+
+						// Path badge (short)
+						var pathParts = (obj.path ?? "?").split("/");
+						var pathBadge = pathParts[pathParts.length - 1];
+						if (pathBadge.length > 7) pathBadge = pathBadge.substr(0, 5) + "..";
+						var pTxt = new FlxText(168, rowY + 5, 60, pathBadge, 8);
+						pTxt.setFormat(Paths.font("vcr.ttf"), 8, isInactive ? 0x33FFFFFF : 0xFF5577AA, RIGHT);
+						pTxt.cameras = [camHUD]; pTxt.scrollFactor.set(); add(pTxt);
+						layerPanelTexts.add(pTxt);
+
+						// Anim count
+						var animCount = obj.animations != null ? obj.animations.length : 0;
+						var aTxt = new FlxText(230, rowY + 5, 60, animCount + " anim", 8);
+						aTxt.setFormat(Paths.font("vcr.ttf"), 8, isInactive ? 0x33FFFFFF : T.textDim, RIGHT);
+						aTxt.cameras = [camHUD]; aTxt.scrollFactor.set(); add(aTxt);
+						layerPanelTexts.add(aTxt);
+
+						// × delete object
+						var delObjTxt = new FlxText(LP_W - 20, rowY + 5, 14, "\u00D7", 9);
+						delObjTxt.setFormat(Paths.font("vcr.ttf"), 9, isSelObj ? T.error : T.textDim, CENTER);
+						delObjTxt.cameras = [camHUD]; delObjTxt.scrollFactor.set(); add(delObjTxt);
+						layerPanelTexts.add(delObjTxt);
+						if (isActiveLay)
+							layerPanelHits.push({x: LP_W - 22.0, y: rowY, w: 20.0, h: LP_ROW_H * 1.0, zone: "delObj", idx: layIdx * 1000 + oi});
+
+						// Lock icon on inactive layer objects
+						if (isInactive)
+						{
+							var lockTxt = new FlxText(LP_W - 20, rowY + 5, 14, "\u{1F512}", 8);
+							lockTxt.setFormat(Paths.font("vcr.ttf"), 8, 0x33FFFFFF, CENTER);
+							lockTxt.cameras = [camHUD]; lockTxt.scrollFactor.set(); add(lockTxt);
+							layerPanelTexts.add(lockTxt);
+						}
+
+						rowY += LP_ROW_H;
+					}
+					drawnCount++;
+				}
 			}
 
-			// Layer index badge (small number on left)
-			var idxTxt = new FlxText(22, rowY + 5, 16, Std.string(layIdx), 8);
-			idxTxt.setFormat(Paths.font("vcr.ttf"), 8, isCur ? T.accent : T.textDim, CENTER);
-			idxTxt.cameras = [camHUD]; idxTxt.scrollFactor.set(); add(idxTxt);
-			layerPanelTexts.add(idxTxt);
-
-			// Layer name
-			var nameStr = lay.name ?? ("layer" + layIdx);
-			if (nameStr.length > 16) nameStr = nameStr.substr(0, 14) + "..";
-			var nameTxt = new FlxText(38, rowY + 5, 150, nameStr, 10);
-			nameTxt.setFormat(Paths.font("vcr.ttf"), 10, isCur ? T.accent : T.textPrimary, LEFT);
-			nameTxt.cameras = [camHUD]; nameTxt.scrollFactor.set(); add(nameTxt);
-			layerPanelTexts.add(nameTxt);
-
-			// Path badge (short, right-aligned) — shorter to leave room for del + grip
-			var pathParts = (lay.path ?? "?").split("/");
-			var pathBadge = pathParts[pathParts.length - 1];
-			if (pathBadge.length > 8) pathBadge = pathBadge.substr(0, 6) + "..";
-			var pathTxt = new FlxText(190, rowY + 5, LP_W - 248, pathBadge, 8);
-			pathTxt.setFormat(Paths.font("vcr.ttf"), 8, 0xFF8899BB, RIGHT);
-			pathTxt.cameras = [camHUD]; pathTxt.scrollFactor.set(); add(pathTxt);
-			layerPanelTexts.add(pathTxt);
-
-			// ⠿ Drag handle (right edge, after del button)
-			var gripTxt = new FlxText(LP_W - 16, rowY + 4, 14, "\u2261", 11);
-			gripTxt.setFormat(Paths.font("vcr.ttf"), 11, _lpDragging && _lpDragFromIdx == layIdx ? 0xFF44AAFF : T.textDim, CENTER);
-			gripTxt.cameras = [camHUD]; gripTxt.scrollFactor.set(); add(gripTxt);
-			layerPanelTexts.add(gripTxt);
-
-			rowY += LP_ROW_H;
 			i--;
 		}
 
-		// ── Scroll arrows if needed ───────────────────────────────────────────
-		if (totalLayers > LP_MAX_VIS)
+		// ── Scroll indicator ──────────────────────────────────────────────────
+		var totalRows = drawnCount;
+		if (totalRows > LP_MAX_VIS)
 		{
-			var scrollTxt = new FlxText(0, rowY + 2, LP_W, "SCROLL: " + (layerPanelScroll + 1) + "-" + Std.int(Math.min(layerPanelScroll + LP_MAX_VIS, totalLayers)) + " / " + totalLayers, 8);
+			var scrollTxt = new FlxText(0, rowY + 2, LP_W,
+				"SCROLL: " + (layerPanelScroll + 1) + "-" + Std.int(Math.min(layerPanelScroll + LP_MAX_VIS, totalRows)) + " / " + totalRows, 8);
 			scrollTxt.setFormat(Paths.font("vcr.ttf"), 8, T.textDim, CENTER);
 			scrollTxt.cameras = [camHUD]; scrollTxt.scrollFactor.set(); add(scrollTxt);
 			layerPanelTexts.add(scrollTxt);
@@ -2388,10 +2565,11 @@ class CharacterEditor extends MusicBeatState
 		if (maxVisRows < 1) maxVisRows = 1;
 
 		// ── Build iteration list ──────────────────────────────────────────────
-		// V2: show only the current layer's animations (layer-specific list).
+		// V2: show only the selected object's animations (fully independent per-object list).
 		// V1: show all animations from char.animOffsets (legacy behaviour).
 		var _iterList:Array<{name:String, offsets:Array<Float>}> = [];
-		if (_isV2Format && currentAnimData != null && currentAnimData.length > 0)
+		var _animSrc = _isV2Format ? currentAnimData : null;
+		if (_isV2Format && _animSrc != null && _animSrc.length > 0)
 		{
 			for (_ad in currentAnimData)
 			{
@@ -2734,10 +2912,8 @@ class CharacterEditor extends MusicBeatState
 		if (usingFlxAnimate)
 			flxAnimateFolderPath = Paths.characterFolder(characterData.path);
 
-		// ── Auto-wrap V1 como una sola capa "body" ────────────────────────────
-		// Los personajes legacy (sprite) siempre quedan en la primera capa por
-		// defecto, sin que el usuario tenga que convertir manualmente.
-		var bodyLayer:LayerData = {
+		// ── Auto-wrap V1 como una sola capa "body" con un objeto ─────────────
+		var bodyObj:LayerObjectData = {
 			name:         "body",
 			path:         pathInput != null ? pathInput.text : (characterData.path != null ? characterData.path : "BOYFRIEND"),
 			position:     [
@@ -2755,9 +2931,16 @@ class CharacterEditor extends MusicBeatState
 			antialiasing: antialiasingCheckbox != null ? antialiasingCheckbox.checked : true,
 			animations:   currentAnimData.copy()
 		};
+		var bodyLayer:LayerData = {
+			name:    "character",
+			visible: true,
+			objects: [bodyObj]
+		};
 		layers = [bodyLayer];
-		curLayerIdx = 0;
-		_isV2Format = true;
+		curLayerIdx  = 0;
+		curObjectIdx = 0;
+		_isV2Format  = true;
+		currentAnimData = bodyObj.animations;
 		_setLayerDropdownVisible(true);
 		_refreshLayerDropdown();
 		_syncLayerTabToCurrentLayer();
@@ -2806,24 +2989,59 @@ class CharacterEditor extends MusicBeatState
 		layers = [];
 		for (rawLayer in renderLayers)
 		{
+			var layObjs:Array<LayerObjectData> = [];
+
+			// New format: layer has "objects" array
+			if (rawLayer.objects != null)
+			{
+				for (rawObj in (cast rawLayer.objects : Array<Dynamic>))
+				{
+					var lo:LayerObjectData = {
+						name:         rawObj.name        ?? 'object',
+						path:         rawObj.path        ?? '',
+						position:     rawObj.position    != null ? rawObj.position    : [0.0, 0.0],
+						scale:        rawObj.scale       != null ? rawObj.scale       : [1.0, 1.0],
+						alpha:        rawObj.alpha       != null ? rawObj.alpha       : 1.0,
+						visible:      rawObj.visible     != false,
+						flipX:        rawObj.flipX       == true,
+						flipY:        rawObj.flipY       == true,
+						antialiasing: rawObj.antialiasing != false,
+						animations:   rawObj.animations  != null ? cast rawObj.animations : []
+					};
+					layObjs.push(lo);
+				}
+			}
+			else
+			{
+				// Backwards compat: old V2 stored object props directly in layer
+				var lo:LayerObjectData = {
+					name:         rawLayer.name        ?? 'body',
+					path:         rawLayer.path        ?? '',
+					position:     rawLayer.position    != null ? rawLayer.position    : [0.0, 0.0],
+					scale:        rawLayer.scale       != null ? rawLayer.scale       : [1.0, 1.0],
+					alpha:        rawLayer.alpha       != null ? rawLayer.alpha       : 1.0,
+					visible:      rawLayer.visible     != false,
+					flipX:        rawLayer.flipX       == true,
+					flipY:        rawLayer.flipY       == true,
+					antialiasing: rawLayer.antialiasing != false,
+					animations:   rawLayer.animations  != null ? cast rawLayer.animations : []
+				};
+				layObjs.push(lo);
+			}
+
 			var ld:LayerData = {
-				name:         rawLayer.name   ?? 'layer',
-				path:         rawLayer.path   ?? '',
-				position:     rawLayer.position    != null ? rawLayer.position    : [0.0, 0.0],
-				scale:        rawLayer.scale        != null ? rawLayer.scale        : [1.0, 1.0],
-				alpha:        rawLayer.alpha        != null ? rawLayer.alpha        : 1.0,
-				visible:      rawLayer.visible      != false,
-				flipX:        rawLayer.flipX        == true,
-				flipY:        rawLayer.flipY        == true,
-				antialiasing: rawLayer.antialiasing != false,
-				animations:   rawLayer.animations  != null ? cast rawLayer.animations : []
+				name:    rawLayer.name    ?? 'layer',
+				visible: rawLayer.visible != false,
+				objects: layObjs
 			};
 			layers.push(ld);
 		}
 
-		// Seleccionar primera capa por defecto
-		curLayerIdx = 0;
-		currentAnimData = layers.length > 0 ? layers[0].animations : [];
+		// Seleccionar primera capa + primer objeto por defecto
+		curLayerIdx  = 0;
+		curObjectIdx = 0;
+		var firstObj = _curObject();
+		currentAnimData = (firstObj != null) ? firstObj.animations : [];
 
 		// Mostrar dropdown y rellenarlo
 		_setLayerDropdownVisible(true);
@@ -2838,9 +3056,9 @@ class CharacterEditor extends MusicBeatState
 			updateIconPreview(healthIconInput.text);
 		}
 
-		// Rellenar pathInput con la ruta de la primera capa (para Properties)
-		if (pathInput != null && layers.length > 0)
-			pathInput.text = layers[0].path;
+		// Rellenar pathInput con la ruta del primer objeto de la primera capa (para Properties)
+		if (pathInput != null && layers.length > 0 && layers[0].objects != null && layers[0].objects.length > 0)
+			pathInput.text = layers[0].objects[0].path;
 
 		setHelp("✓ V2 format loaded — " + layers.length + " layer(s)", FlxColor.CYAN);
 		_rebuildAnimListDisplay(); // FIX: reconstruir lista con orden correcto
@@ -3027,16 +3245,18 @@ class CharacterEditor extends MusicBeatState
 	function _ctxCreateObject():Void
 	{
 		var layName = "solid_" + (layers.length + 1);
-		var newLay:LayerData = {
+		var newObj:LayerObjectData = {
 			name: layName, path: "__makeGraphic__",
 			position: [0.0, 0.0], scale: [1.0, 1.0], alpha: 1.0,
 			visible: true, flipX: false, flipY: false,
 			antialiasing: false, animations: []
 		};
+		var newLay:LayerData = { name: layName, visible: true, objects: [newObj] };
 		if (!_isV2Format) { _isV2Format = true; layers = []; }
 		layers.push(newLay);
-		curLayerIdx = layers.length - 1;
-		currentAnimData = newLay.animations;
+		curLayerIdx  = layers.length - 1;
+		curObjectIdx = 0;
+		currentAnimData = newObj.animations;
 		_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
 		_hasUnsaved = true;
 		setHelp("\u25a3 Created solid layer: " + layName, funkin.debug.themes.EditorTheme.current.accent);
@@ -3048,16 +3268,18 @@ class CharacterEditor extends MusicBeatState
 		var dialog = new lime.ui.FileDialog();
 		dialog.onSelect.add(function(path:String) {
 			var name = haxe.io.Path.withoutExtension(haxe.io.Path.withoutDirectory(path));
-			var newLay:LayerData = {
+			var newObj:LayerObjectData = {
 				name: name, path: path,
 				position: [0.0,0.0], scale: [1.0,1.0], alpha: 1.0,
 				visible: true, flipX: false, flipY: false,
 				antialiasing: true, animations: []
 			};
+			var newLay:LayerData = { name: name, visible: true, objects: [newObj] };
 			if (!_isV2Format) { _isV2Format = true; layers = []; }
 			layers.push(newLay);
-			curLayerIdx = layers.length - 1;
-			currentAnimData = newLay.animations;
+			curLayerIdx  = layers.length - 1;
+			curObjectIdx = 0;
+			currentAnimData = newObj.animations;
 			_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
 			_hasUnsaved = true;
 			setHelp("\u2b1a Image: " + name, funkin.debug.themes.EditorTheme.current.accent);
@@ -3074,16 +3296,18 @@ class CharacterEditor extends MusicBeatState
 		var dialog = new lime.ui.FileDialog();
 		dialog.onSelect.add(function(path:String) {
 			var name = haxe.io.Path.withoutExtension(haxe.io.Path.withoutDirectory(path));
-			var newLay:LayerData = {
+			var newObj:LayerObjectData = {
 				name: name, path: haxe.io.Path.withoutExtension(path),
 				position: [0.0,0.0], scale: [1.0,1.0], alpha: 1.0,
 				visible: true, flipX: false, flipY: false,
 				antialiasing: true, animations: []
 			};
+			var newLay:LayerData = { name: name, visible: true, objects: [newObj] };
 			if (!_isV2Format) { _isV2Format = true; layers = []; }
 			layers.push(newLay);
-			curLayerIdx = layers.length - 1;
-			currentAnimData = newLay.animations;
+			curLayerIdx  = layers.length - 1;
+			curObjectIdx = 0;
+			currentAnimData = newObj.animations;
 			_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
 			_hasUnsaved = true;
 			setHelp("\u25a6 Spritesheet: " + name, funkin.debug.themes.EditorTheme.current.accent);
@@ -3101,16 +3325,18 @@ class CharacterEditor extends MusicBeatState
 		dialog.onSelect.add(function(path:String) {
 			var name = haxe.io.Path.withoutExtension(haxe.io.Path.withoutDirectory(path));
 			var anims = _parseXmlPrefixes(path);
-			var newLay:LayerData = {
+			var newObj:LayerObjectData = {
 				name: name, path: haxe.io.Path.withoutExtension(path),
 				position: [0.0,0.0], scale: [1.0,1.0], alpha: 1.0,
 				visible: true, flipX: false, flipY: false,
 				antialiasing: true, animations: anims
 			};
+			var newLay:LayerData = { name: name, visible: true, objects: [newObj] };
 			if (!_isV2Format) { _isV2Format = true; layers = []; }
 			layers.push(newLay);
-			curLayerIdx = layers.length - 1;
-			currentAnimData = newLay.animations;
+			curLayerIdx  = layers.length - 1;
+			curObjectIdx = 0;
+			currentAnimData = newObj.animations;
 			_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
 			_hasUnsaved = true;
 			setHelp("\u25c8 Atlas: " + name + " (" + anims.length + " anims)", funkin.debug.themes.EditorTheme.current.accent);
@@ -3200,8 +3426,8 @@ class CharacterEditor extends MusicBeatState
 					_txDragIdx   = i;
 					_txDragMX0   = FlxG.mouse.gameX;
 					_txDragMY0   = FlxG.mouse.gameY;
-					_txDragSX0   = (_isV2Format && curLayerIdx < layers.length) ? layers[curLayerIdx].scale[0] : char.scale.x;
-					_txDragSY0   = (_isV2Format && curLayerIdx < layers.length) ? layers[curLayerIdx].scale[1] : char.scale.y;
+					_txDragSX0   = (_isV2Format && _curObject() != null) ? _curObject().scale[0] : char.scale.x;
+					_txDragSY0   = (_isV2Format && _curObject() != null) ? _curObject().scale[1] : char.scale.y;
 					_txDragCW0   = (char.width  / char.scale.x);
 					_txDragCH0   = (char.height / char.scale.y);
 					_pushUndo();
@@ -3249,8 +3475,8 @@ class CharacterEditor extends MusicBeatState
 				char.scale.set(newSX, newSY);
 				char.updateHitbox();
 				if (ghostChar != null) { ghostChar.scale.set(newSX, newSY); ghostChar.updateHitbox(); }
-				if (_isV2Format && curLayerIdx < layers.length)
-					layers[curLayerIdx].scale = [newSX, newSY];
+				if (_isV2Format && _curObject() != null)
+					_curObject().scale = [newSX, newSY];
 				if (scaleStepper != null) scaleStepper.value = newSX;
 				_hasUnsaved = true;
 				setHelp("\u2194 Scale: " + FlxMath.roundDecimal(newSX, 3) + " x " + FlxMath.roundDecimal(newSY, 3)
@@ -3300,13 +3526,55 @@ class CharacterEditor extends MusicBeatState
 		_setLayerPropsPanelVisible(vis);
 	}
 
+	// ── Helpers de selección ──────────────────────────────────────────────────
+
+	/** Devuelve la capa activa o null si no hay ninguna. */
+	inline function _curLayer():Null<LayerData>
+		return (layers != null && curLayerIdx >= 0 && curLayerIdx < layers.length)
+			? layers[curLayerIdx] : null;
+
+	/** Devuelve el objeto seleccionado (capa activa + curObjectIdx) o null. */
+	function _curObject():Null<LayerObjectData>
+	{
+		var lay = _curLayer();
+		if (lay == null || lay.objects == null) return null;
+		return (curObjectIdx >= 0 && curObjectIdx < lay.objects.length)
+			? lay.objects[curObjectIdx] : null;
+	}
+
+	/** Selecciona un objeto por (layerIdx, objectIdx) y sincroniza todo. */
+	function _selectObject(layIdx:Int, objIdx:Int):Void
+	{
+		curLayerIdx  = layIdx;
+		curObjectIdx = objIdx;
+		var obj = _curObject();
+		currentAnimData = (obj != null) ? obj.animations : [];
+		_syncLayerTabToCurrentLayer();
+		refreshLayerPanel();
+		_hasSelection = (obj != null);
+		curAnim = 0;
+		_animListScroll = 0;
+		_animLastClickIdx = -1;
+		_animLastClickMs  = -9999;
+		animList = [];
+		var i = dumbTexts.members.length - 1;
+		while (i >= 0) { var m = dumbTexts.members[i]; if (m != null) { FlxTween.cancelTweensOf(m); m.destroy(); } i--; }
+		dumbTexts.clear();
+		_offsetLabels.resize(0); _ghostBadgeBgs.resize(0); _ghostBadgeLabels.resize(0); _rowBgs.resize(0);
+		generateOffsetTexts();
+		if (obj != null) setHelp("◉ " + obj.name + " (layer: " + (_curLayer()?.name ?? "?") + ")", funkin.debug.themes.EditorTheme.current.accent);
+	}
+
 	// ── reloadCharacterWithNewAnims ───────────────────────────────────────────
 
 	function reloadCharacterWithNewAnims():Void
 	{
-		// Guardar la capa actual antes de recargar (V2)
-		if (_isV2Format && layers.length > 0 && curLayerIdx < layers.length)
-			layers[curLayerIdx].animations = currentAnimData;
+		// Guardar las animaciones del objeto actual antes de recargar (V2)
+		if (_isV2Format)
+		{
+			var curObj = _curObject();
+			if (curObj != null) curObj.animations = currentAnimData;
+		}
 
 		var jsonString = Json.stringify(buildExportData(), null, '\t');
 
@@ -3338,9 +3606,10 @@ class CharacterEditor extends MusicBeatState
 	/** Construye el JSON de exportación en formato V2 (render.layers). */
 	function _buildExportDataV2():Dynamic
 	{
-		// Guardar animaciones de la capa actual antes de exportar
-		if (layers.length > 0 && curLayerIdx < layers.length)
-			layers[curLayerIdx].animations = currentAnimData;
+		// Guardar animaciones del objeto actual antes de exportar
+		var curObj = _curObject();
+		if (curObj != null)
+			curObj.animations = currentAnimData;
 
 		var death:Dynamic = {
 			character: charDeathInput != null ? charDeathInput.text.trim() : '',
@@ -3364,17 +3633,29 @@ class CharacterEditor extends MusicBeatState
 		var exportLayers:Array<Dynamic> = [];
 		for (lay in layers)
 		{
+			var exportObjects:Array<Dynamic> = [];
+			if (lay.objects != null)
+			{
+				for (obj in lay.objects)
+				{
+					exportObjects.push({
+						name:         obj.name,
+						path:         obj.path,
+						position:     obj.position,
+						scale:        obj.scale,
+						alpha:        obj.alpha,
+						visible:      obj.visible,
+						flipX:        obj.flipX,
+						flipY:        obj.flipY,
+						antialiasing: obj.antialiasing,
+						animations:   obj.animations
+					});
+				}
+			}
 			exportLayers.push({
-				name:         lay.name,
-				path:         lay.path,
-				position:     lay.position,
-				scale:        lay.scale,
-				alpha:        lay.alpha,
-				visible:      lay.visible,
-				flipX:        lay.flipX,
-				flipY:        lay.flipY,
-				antialiasing: lay.antialiasing,
-				animations:   lay.animations
+				name:    lay.name,
+				visible: lay.visible,
+				objects: exportObjects
 			});
 		}
 
@@ -3477,7 +3758,7 @@ class CharacterEditor extends MusicBeatState
 			return;
 		}
 
-		var bodyLayer:LayerData = {
+		var bodyObj:LayerObjectData = {
 			name:         "body",
 			path:         pathInput != null ? pathInput.text : "BOYFRIEND",
 			position:     [
@@ -3495,9 +3776,16 @@ class CharacterEditor extends MusicBeatState
 			antialiasing: antialiasingCheckbox != null ? antialiasingCheckbox.checked : true,
 			animations:   currentAnimData.copy()
 		};
+		var bodyLayer:LayerData = {
+			name:    "character",
+			visible: true,
+			objects: [bodyObj]
+		};
 
 		layers = [bodyLayer];
-		curLayerIdx = 0;
+		curLayerIdx  = 0;
+		curObjectIdx = 0;
+		currentAnimData = bodyObj.animations;
 		_isV2Format = true;
 
 		_setLayerDropdownVisible(true);
@@ -3505,7 +3793,7 @@ class CharacterEditor extends MusicBeatState
 		_syncLayerTabToCurrentLayer();
 
 		reloadCharacterWithNewAnims();
-		setHelp("✓ Converted to V2 — 1 layer (body)", FlxColor.LIME);
+		setHelp("✓ Converted to V2 — 1 layer, 1 object (body)", FlxColor.LIME);
 	}
 
 	// ── Export ────────────────────────────────────────────────────────────────
@@ -3643,9 +3931,15 @@ class CharacterEditor extends MusicBeatState
 		_selBorderR.setGraphicSize(SEL_BW, _bh); _selBorderR.updateHitbox(); _selBorderR.setPosition(_bx + _bw - SEL_BW, _by);
 
 		// Name label above the box
-		var _selLN = (_isV2Format && layers != null && layers.length > 0
-			&& curLayerIdx >= 0 && curLayerIdx < layers.length)
-			? layers[curLayerIdx].name : daAnim;
+		var _selLN:String;
+		if (_isV2Format)
+		{
+			var obj = _curObject();
+			var lay = _curLayer();
+			_selLN = (obj != null ? obj.name : daAnim) + (lay != null ? "  [" + lay.name + "]" : "");
+		}
+		else
+			_selLN = daAnim;
 		_selNameLabel.text = _selLN;
 		_selNameLabel.x    = _bx;
 		_selNameLabel.y    = _by - 20;
@@ -3838,10 +4132,12 @@ class CharacterEditor extends MusicBeatState
 					{
 						for (_autoLi in 0...layers.length)
 						{
-							if (layers[_autoLi].animations != null && layers[_autoLi].animations.length > 0)
+							var _autoObjs = layers[_autoLi].objects;
+							if (_autoObjs != null && _autoObjs.length > 0 && _autoObjs[0].animations != null && _autoObjs[0].animations.length > 0)
 							{
 								curLayerIdx    = _autoLi;
-								currentAnimData = layers[_autoLi].animations;
+								curObjectIdx   = 0;
+								currentAnimData = _autoObjs[0].animations;
 								curAnim        = 0;
 								_animListScroll = 0;
 								_animLastClickIdx = -1;
@@ -3922,12 +4218,25 @@ class CharacterEditor extends MusicBeatState
 				else if (FlxG.mouse.justPressed && !_lpRenameInput.hasFocus)
 					cancelRename = true;
 
-				if (commitRename && _lpRenameIdx >= 0 && _lpRenameIdx < layers.length)
+				if (commitRename && _lpRenameIdx == -99)
+				{
+					var _roObj = _curObject();
+					if (_roObj != null)
+					{
+						var newObjName = _lpRenameInput.text.trim();
+						if (newObjName == "") newObjName = _roObj.name;
+						_roObj.name = newObjName;
+						if (layerNameInput != null) layerNameInput.text = newObjName;
+						_refreshLayerDropdown();
+						_hasUnsaved = true;
+						setHelp("✓ Object renamed: " + newObjName, FlxColor.LIME);
+					}
+				}
+				else if (commitRename && _lpRenameIdx >= 0 && _lpRenameIdx < layers.length)
 				{
 					var newName = _lpRenameInput.text.trim();
 					if (newName == "") newName = "layer" + _lpRenameIdx;
 					layers[_lpRenameIdx].name = newName;
-					// Sincronizar también el campo del panel de props
 					if (layerNameInput != null) layerNameInput.text = newName;
 					_refreshLayerDropdown();
 					_hasUnsaved = true;
@@ -4018,9 +4327,16 @@ class CharacterEditor extends MusicBeatState
 						hitSomething = true;
 						switch (hit.zone)
 						{
-							case "add":
+							case "addLayer":
 								_addNewLayer();
-							case "eye":
+							case "addObj":
+								// hit.idx = layIdx — add object to that specific layer
+								if (hit.idx >= 0 && hit.idx < layers.length)
+								{
+									curLayerIdx = hit.idx;
+									_addNewObject();
+								}
+							case "layerEye":
 								if (hit.idx >= 0 && hit.idx < layers.length)
 								{
 									layers[hit.idx].visible = !layers[hit.idx].visible;
@@ -4028,39 +4344,88 @@ class CharacterEditor extends MusicBeatState
 									_hasUnsaved = true;
 									setHelp((layers[hit.idx].visible ? "● Visible: " : "– Hidden: ") + layers[hit.idx].name, funkin.debug.themes.EditorTheme.current.success);
 								}
-							case "del":
-								// Set curLayerIdx to the clicked row before deleting,
-								// so clicking X on any row deletes that specific layer.
+							case "delLayer":
 								if (hit.idx >= 0 && hit.idx < layers.length)
 								{
-									curLayerIdx     = hit.idx;
-									currentAnimData = layers[hit.idx].animations;
+									curLayerIdx  = hit.idx;
+									curObjectIdx = 0;
+									var _dlo = _curObject();
+									currentAnimData = _dlo != null ? _dlo.animations : [];
 								}
 								_deleteCurrentLayer();
-							case "row":
+							case "delObj":
+								// hit.idx = layIdx*1000 + objIdx
+								var _doLay = Std.int(hit.idx / 1000);
+								var _doObj = hit.idx % 1000;
+								if (_doLay >= 0 && _doLay < layers.length)
+								{
+									curLayerIdx  = _doLay;
+									curObjectIdx = _doObj;
+									var _odo = _curObject();
+									currentAnimData = _odo != null ? _odo.animations : [];
+								}
+								_deleteCurrentObject();
+							case "objRow":
+								// hit.idx = layIdx*1000 + objIdx
+								var _selLay = Std.int(hit.idx / 1000);
+								var _selObj = hit.idx % 1000;
+								if (_selLay >= 0 && _selLay < layers.length)
+								{
+									var now2 = haxe.Timer.stamp();
+									var selLay = layers[_selLay];
+									if (selLay.objects != null && _selObj >= 0 && _selObj < selLay.objects.length)
+									{
+										_selectObject(_selLay, _selObj);
+										// Double-click to rename object inline (reuse _lpRenameInput)
+										if ((_lpLastClickIdx == hit.idx) && (now2 - _lpLastClickMs < 0.4))
+										{
+											_lpRenameIdx = -99; // sentinel: renaming an object, not a layer
+											_lpRenameInput.text = selLay.objects[_selObj].name ?? "";
+											_lpRenameInput.y    = hit.y + 3;
+											_lpRenameInput.x    = 36;
+											_lpRenameInput.visible = true;
+											_lpRenameInput.hasFocus = true;
+											_lpLastClickIdx = -1;
+											_lpLastClickMs  = -9999;
+										}
+										else
+										{
+											_lpLastClickIdx = hit.idx;
+											_lpLastClickMs  = now2;
+										}
+									}
+								}
+							case "objLocked":
+								// Object belongs to an inactive layer — inform user
+								var _lockLay = Std.int(hit.idx / 1000);
+								var _lockLayName = (_lockLay >= 0 && _lockLay < layers.length) ? layers[_lockLay].name : "?";
+								setHelp("⚠ Object is in layer [" + _lockLayName + "] — click that layer's header first to activate it", FlxColor.YELLOW);
+							case "layerRow":
 								if (hit.idx >= 0 && hit.idx < layers.length)
 								{
-									var now = haxe.Timer.stamp();
-									var isDoubleClick = (_lpLastClickIdx == hit.idx) && (now - _lpLastClickMs < 0.4);
+									var now3 = haxe.Timer.stamp();
+									var isDoubleClick = (_lpLastClickIdx == hit.idx) && (now3 - _lpLastClickMs < 0.4);
 
-									// Select + begin drag-pending (commit on move > threshold)
+									// Activate layer
 									curLayerIdx = hit.idx;
-									currentAnimData = layers[hit.idx].animations;
+									var lay3 = layers[hit.idx];
+									// Clamp curObjectIdx to valid range for this layer
+									if (lay3.objects == null || lay3.objects.length == 0)
+										curObjectIdx = -1;
+									else
+										curObjectIdx = Std.int(Math.min(curObjectIdx, lay3.objects.length - 1));
+									var obj3 = _curObject();
+									currentAnimData = (obj3 != null) ? obj3.animations : [];
 									_syncLayerTabToCurrentLayer();
 									refreshLayerPanel();
-									_hasSelection = true; // clicking a layer always counts as a selection
-									// FIX: do NOT call displayCharacter/loadCharacterData here.
-									// Those destroy+recreate char during justPressed, leaving char null
-									// on the next frame while _lpDragPending is still active → crash.
-									// The props panel is already synced by _syncLayerTabToCurrentLayer().
-									setHelp("Layer: " + layers[hit.idx].name, funkin.debug.themes.EditorTheme.current.accent);
+									_hasSelection = (obj3 != null);
+									setHelp("◧ Layer: " + lay3.name + (obj3 != null ? " → " + obj3.name : "  (empty)"),
+										funkin.debug.themes.EditorTheme.current.accent);
 
-									// ── Rebuild animation list for the selected layer ─────────────
-									// The left panel now shows only the animations that belong to
-									// this sprite/layer, so the user sees the right anim set.
+									// Rebuild animation list
 									curAnim = 0;
 									_animListScroll = 0;
-									_animLastClickIdx = -1; // reset doble-clic al cambiar de capa
+									_animLastClickIdx = -1;
 									_animLastClickMs  = -9999;
 									animList = [];
 									var _lpSwI = dumbTexts.members.length - 1;
@@ -4071,33 +4436,27 @@ class CharacterEditor extends MusicBeatState
 										_lpSwI--;
 									}
 									dumbTexts.clear();
-									_offsetLabels.resize(0);
-									_ghostBadgeBgs.resize(0);
-									_ghostBadgeLabels.resize(0);
-									_rowBgs.resize(0);
+									_offsetLabels.resize(0); _ghostBadgeBgs.resize(0); _ghostBadgeLabels.resize(0); _rowBgs.resize(0);
 									generateOffsetTexts();
 
 									if (isDoubleClick)
 									{
-										// Abrir rename inline — posicionar el input sobre la fila
 										_lpRenameIdx = hit.idx;
 										_lpRenameInput.text = layers[hit.idx].name ?? "";
 										_lpRenameInput.y    = hit.y + 3;
+										_lpRenameInput.x    = 38;
 										_lpRenameInput.visible = true;
 										_lpRenameInput.hasFocus = true;
-										// No iniciar drag al hacer doble clic
 										_lpLastClickIdx = -1;
 										_lpLastClickMs  = -9999;
 									}
 									else
 									{
 										_lpLastClickIdx = hit.idx;
-										_lpLastClickMs  = now;
-										// Start drag-pending
-										_lpDragPending = true;
-										_lpDragFromIdx = hit.idx;
-										// Compute visual row (0 = topmost on screen)
-										_lpDragFromVis = (totalLayers - 1 - hit.idx) - layerPanelScroll;
+										_lpLastClickMs  = now3;
+										_lpDragPending  = true;
+										_lpDragFromIdx  = hit.idx;
+										_lpDragFromVis  = (layers.length - 1 - hit.idx) - layerPanelScroll;
 										_lpDragStartY  = my;
 									}
 								}
@@ -4160,7 +4519,9 @@ class CharacterEditor extends MusicBeatState
 						var insertIdx = Std.int(FlxMath.bound((layers.length) - adjGap, 0, layers.length));
 						layers.insert(insertIdx, item);
 						curLayerIdx = insertIdx;
-						currentAnimData = item.animations;
+						var _dndObj = (item.objects != null && item.objects.length > 0) ? item.objects[0] : null;
+						curObjectIdx = 0;
+						currentAnimData = _dndObj != null ? _dndObj.animations : [];
 						_hasUnsaved = true;
 						setHelp("↕ Moved: " + item.name, funkin.debug.themes.EditorTheme.current.accent);
 						}
@@ -4197,7 +4558,9 @@ class CharacterEditor extends MusicBeatState
 					pasted.name = pasted.name + "_copy";
 					layers.insert(curLayerIdx + 1, pasted);
 					curLayerIdx = curLayerIdx + 1;
-					currentAnimData = pasted.animations;
+					curObjectIdx = 0;
+					var _pastedObj = (pasted.objects != null && pasted.objects.length > 0) ? pasted.objects[0] : null;
+					currentAnimData = _pastedObj != null ? _pastedObj.animations : [];
 					_syncLayerTabToCurrentLayer();
 					_refreshLayerDropdown();
 					_hasUnsaved = true;
@@ -4209,7 +4572,9 @@ class CharacterEditor extends MusicBeatState
 					dup.name = dup.name + "_dup";
 					layers.insert(curLayerIdx + 1, dup);
 					curLayerIdx = curLayerIdx + 1;
-					currentAnimData = dup.animations;
+					curObjectIdx = 0;
+					var _dupObj = (dup.objects != null && dup.objects.length > 0) ? dup.objects[0] : null;
+					currentAnimData = _dupObj != null ? _dupObj.animations : [];
 					_syncLayerTabToCurrentLayer();
 					_refreshLayerDropdown();
 					_hasUnsaved = true;

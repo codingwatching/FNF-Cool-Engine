@@ -422,6 +422,10 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 
 	var _windowCloseFn:Void->Void = null;
 
+	/** Bandera que se activa al iniciar la salida, para evitar que _goBack()
+	 *  se vuelva a disparar mientras la transición de estado está en curso. */
+	var _isExiting:Bool = false;
+
 	// ── Computed layout helpers ───────────────────────────────────────────────
 
 	/** Y position where the timeline begins (below viewport + transport + splitter). */
@@ -1049,11 +1053,11 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		if (ok) {
 			hasUnsaved = false;
 			_updateUnsavedDot();
-			_showStatus('✓ Guardado en ${currentSong.toLowerCase()}.level');
+			_showStatus('✓ Saved ${currentSong.toLowerCase()}.level');
 		} else
-			_showStatus('✗ Error al guardar — ver consola');
+			_showStatus('✗ Error when saving — view console');
 		#else
-		_showStatus('✗ Guardado solo disponible en desktop');
+		_showStatus('✗ Saved only available on desktop');
 		#end
 	}
 
@@ -2525,13 +2529,16 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		});
 		ty += 26;
 
-		_iLabel('Value:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.30));
-		ipEventValue = _iInput(ix + Std.int(iw * 0.31), ty, Std.int(iw * 0.69), evt.value ?? '', function(v:String) {
-			evt.value = v;
-			hasUnsaved = true;
-			_updateUnsavedDot();
-		});
-		ty += 26;
+		// Campo Value: oculto para Custom (el selector de evento lo gestiona internamente)
+		if (evt.type.toLowerCase() != 'custom') {
+			_iLabel('Value:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.30));
+			ipEventValue = _iInput(ix + Std.int(iw * 0.31), ty, Std.int(iw * 0.69), evt.value ?? '', function(v:String) {
+				evt.value = v;
+				hasUnsaved = true;
+				_updateUnsavedDot();
+			});
+			ty += 26;
+		}
 
 		_iSep(ix, ty, iw);
 		ty += 7;
@@ -2541,6 +2548,15 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		// _buildCamEventSection now returns the updated ty.
 		if (evt.type.toLowerCase().contains('camera') || evt.type.toLowerCase().contains('zoom')) {
 			ty = _buildCamEventSection(evt, ix, ty, iw);
+			_iSep(ix, ty, iw);
+			ty += 7;
+		}
+
+		// ── Custom: selector de evento destino + parámetros dinámicos ─────────
+		// Se muestra ANTES de los campos de timing/dificultad para que el flujo
+		// visual sea: Tipo → Evento destino → Params → Step/Dur → Diffs → Botones
+		if (evt.type.toLowerCase() == 'custom') {
+			ty = _buildCustomEventSection(evt, ix, ty, iw);
 			_iSep(ix, ty, iw);
 			ty += 7;
 		}
@@ -2581,49 +2597,14 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		_iSep(ix, ty, iw);
 		ty += 7;
 
-		// Difficulty checkboxes — BUGFIX: previous wrap condition placed up to 5
-		// checkboxes per row, overflowing the inspector panel by ~48 px on row-1.
-		// Now wraps as soon as the next box would exceed the right edge.
-		_iLabel('Difficulties:', ix, ty, C_SUBTEXT, iw);
-		ty += 14;
-		var dx = ix;
+		// Los eventos PSE se activan en todas las dificultades siempre.
+		// El filtro por dificultad pertenece al chart (ChartingState), no al PSE.
+		evt.difficulties = ['*'];
 		ipEventDiffChecks = [];
-		final chkW = 54;
-		final chkStep = 58;
-		for (diff in allDiffs.concat(['*'])) {
-			// Pre-wrap: if placing this checkbox would overflow, move to next row first
-			if (dx + chkW > ix + iw && dx > ix) {
-				dx = ix;
-				ty += 20;
-			}
-			var chk = new CoolCheckBox(dx, ty, null, null, diff == '*' ? 'all' : diff, chkW);
-			chk.checked = evt.difficulties.contains('*') ? (diff == '*') : evt.difficulties.contains(diff);
-			chk.cameras = [camUI];
-			chk.scrollFactor.set();
-			add(chk);
-			_inspElements.push(chk);
-			ipEventDiffChecks.push(chk);
-			dx += chkStep;
-		}
-		ty += 24;
-
-		_iSep(ix, ty, iw);
-		ty += 7;
 
 		// Action buttons
 		_iBtn(ix, ty, 'UPDATE EVENT', 0xFF1A3A1A, function() {
-			var diffs:Array<String> = [];
-			for (i in 0...ipEventDiffChecks.length) {
-				var d = (i < allDiffs.length) ? allDiffs[i] : '*';
-				if (ipEventDiffChecks[i].checked) {
-					if (d == '*') {
-						diffs = ['*'];
-						break;
-					}
-					diffs.push(d);
-				}
-			}
-			evt.difficulties = diffs.length > 0 ? diffs : ['*'];
+			evt.difficulties = ['*'];
 			_pushUndo();
 			_rebuildSorted();
 			_rebuildEventBlocks();
@@ -2642,65 +2623,461 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		}
 	}
 
+	/**
+	 * Sección del inspector exclusiva para eventos de tipo "Custom".
+	 *
+	 * Muestra:
+	 *  1. Un dropdown con todos los eventos disponibles en EventInfoSystem.
+	 *     El evento seleccionado se guarda en `evt.value`.
+	 *  2. Campos de parámetros dinámicos generados a partir de
+	 *     `EventInfoSystem.eventParams[evt.value]`.
+	 *     Los valores se guardan en `evt.params` con la clave `paramDef.name`.
+	 *
+	 * Devuelve el `ty` actualizado para que el inspector pueda continuar
+	 * posicionando elementos debajo de esta sección.
+	 */
+	function _buildCustomEventSection(evt:PSEEvent, ix:Float, ty:Float, iw:Int):Float {
+		EventInfoSystem.reload();
+		final allEvents = EventInfoSystem.eventList.copy();
+		if (allEvents.length == 0) {
+			_iLabel('(No events found in EventInfoSystem)', ix, ty, C_SUBTEXT, iw);
+			return ty + 16;
+		}
+
+		_iLabel('── Custom: Target Event ──', ix, ty, C_ACCENT, iw, 9);
+		ty += 14;
+
+		// Valor actual: nombre del evento destino guardado en evt.value
+		final currentTarget = (evt.value != null && evt.value != '') ? evt.value : allEvents[0];
+		if (evt.value == null || evt.value == '') {
+			evt.value = currentTarget;
+			hasUnsaved = true;
+			_updateUnsavedDot();
+		}
+
+		_iLabel('Event:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.30));
+		_iDropdown(ix + Std.int(iw * 0.31), ty, Std.int(iw * 0.69), allEvents, currentTarget,
+			function(id:String) {
+				final idx = Std.parseInt(id);
+				if (idx != null && idx >= 0 && idx < allEvents.length) {
+					evt.value  = allEvents[idx];
+					evt.params = {}; // reset params al cambiar de evento
+					hasUnsaved = true;
+					_updateUnsavedDot();
+					_refreshInspector(); // reconstruir para mostrar nuevos params
+					_showStatus('Custom → ${evt.value}');
+				}
+			});
+		ty += 28;
+
+		// ── Parámetros dinámicos ──────────────────────────────────────────────
+		final paramDefs = EventInfoSystem.eventParams.get(currentTarget);
+		if (paramDefs == null || paramDefs.length == 0) {
+			_iLabel('(no params for this event)', ix, ty, C_SUBTEXT, iw);
+			return ty + 16;
+		}
+
+		_iLabel('── Parameters ──', ix, ty, C_ACCENT, iw, 9);
+		ty += 14;
+
+		if (evt.params == null) evt.params = {};
+
+		for (pd in paramDefs) {
+			final fieldKey = pd.name;
+			var storedVal:String = pd.defValue ?? '';
+			if (Reflect.hasField(evt.params, fieldKey))
+				storedVal = Std.string(Reflect.field(evt.params, fieldKey));
+
+			_iLabel('${pd.name}:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			final ctrlX = ix + Std.int(iw * 0.39);
+			final ctrlW = Std.int(iw * 0.61);
+
+			switch (pd.type) {
+				case PDString:
+					_iInput(ctrlX, ty, ctrlW, storedVal, function(v:String) {
+						Reflect.setField(evt.params, fieldKey, v);
+						hasUnsaved = true; _updateUnsavedDot();
+					});
+
+				case PDBool:
+					_iDropdown(ctrlX, ty, ctrlW, ['true', 'false'], storedVal, function(id:String) {
+						Reflect.setField(evt.params, fieldKey, id == '0' ? 'true' : 'false');
+						hasUnsaved = true; _updateUnsavedDot();
+					});
+
+				case PDInt(min, max):
+					final minV:Float = (min != null) ? min : -99999;
+					final maxV:Float = (max != null) ? max :  99999;
+					final curI:Float = Std.parseFloat(storedVal);
+					_iStepper(ctrlX, ty, ctrlW,
+						Math.isNaN(curI) ? 0.0 : curI, minV, maxV, 1.0,
+						function(v:Float) {
+							Reflect.setField(evt.params, fieldKey, Std.string(Std.int(v)));
+							hasUnsaved = true; _updateUnsavedDot();
+						});
+
+				case PDFloat(min, max):
+					final minF:Float = (min != null) ? min : -99999.0;
+					final maxF:Float = (max != null) ? max :  99999.0;
+					final curF:Float = Std.parseFloat(storedVal);
+					_iStepper(ctrlX, ty, ctrlW,
+						Math.isNaN(curF) ? 0.0 : curF, minF, maxF, 0.01,
+						function(v:Float) {
+							Reflect.setField(evt.params, fieldKey,
+								Std.string(Math.round(v * 1000) / 1000.0));
+							hasUnsaved = true; _updateUnsavedDot();
+						});
+
+				case PDDropDown(options):
+					_iDropdown(ctrlX, ty, ctrlW, options, storedVal, function(id:String) {
+						final i = Std.parseInt(id);
+						if (i != null && i >= 0 && i < options.length) {
+							Reflect.setField(evt.params, fieldKey, options[i]);
+							hasUnsaved = true; _updateUnsavedDot();
+						}
+					});
+
+				case PDColor:
+					_iInput(ctrlX, ty, ctrlW, storedVal, function(v:String) {
+						Reflect.setField(evt.params, fieldKey, v);
+						hasUnsaved = true; _updateUnsavedDot();
+					});
+			}
+
+			ty += 26;
+		}
+
+		return ty;
+	}
+
+	/**
+	 * Construye la sección de propiedades de cámara del inspector, adaptada al
+	 * tipo concreto del evento (Camera Follow, Camera Zoom, Camera Lock, etc.).
+	 *
+	 * Cada subtipo tiene sus propios campos y escribe en `evt.value` con el
+	 * formato pipe que espera el handler correspondiente.
+	 *
+	 * Formatos de valor:
+	 *   Camera Follow   → "target|offsetX|offsetY|duration|ease"
+	 *   Camera Zoom     → "zoom|speed"
+	 *   Camera Shake    → "intensity|duration"
+	 *   Camera Flash    → "color|duration"
+	 *   Camera Lock     → "x|y"  (vacío = posición actual)
+	 *   Camera Unlock   → ""     (sin parámetros)
+	 *   Camera Pan      → "x|y|duration|ease|keepLocked"
+	 */
 	function _buildCamEventSection(evt:PSEEvent, ix:Float, ty:Float, iw:Int):Float {
 		_iLabel('── Camera Properties ──', ix, ty, C_ACCENT, iw, 9);
 		ty += 14;
 
-		// Zoom stepper (removed the decorative slider — it saved no space and was
-		// not linked to the stepper value reliably).
-		_iLabel('Zoom:', ix, ty, C_SUBTEXT, Std.int(iw / 2));
-		var zoomVal = 1.0;
-		if (evt.value != null && evt.value != '') {
-			var pz = Std.parseFloat(evt.value.split('|')[0]);
-			if (!Math.isNaN(pz))
-				zoomVal = pz;
+		final t = evt.type.toLowerCase();
+
+		// ── Camera Follow ─────────────────────────────────────────────────────
+		if (t == 'camera follow' || t == 'camera') {
+			// value format: "target|offsetX|offsetY|duration|ease"
+			final parts = (evt.value ?? 'bf').split('|');
+			final curTarget = parts.length > 0 ? parts[0].trim() : 'bf';
+			final curOffX   = parts.length > 1 ? (Std.parseFloat(parts[1]) != Math.NaN ? Std.parseFloat(parts[1]) : 0.0) : 0.0;
+			final curOffY   = parts.length > 2 ? (Std.parseFloat(parts[2]) != Math.NaN ? Std.parseFloat(parts[2]) : 0.0) : 0.0;
+			final curDur    = parts.length > 3 ? (Std.parseFloat(parts[3]) != Math.NaN ? Std.parseFloat(parts[3]) : 0.0) : 0.0;
+			final curEase   = parts.length > 4 ? parts[4].trim() : 'sineOut';
+
+			inline function _writeFollow():Void {
+				final p = (evt.value ?? 'bf').split('|');
+				while (p.length < 5) p.push('');
+				evt.value = p.join('|');
+				hasUnsaved = true; _updateUnsavedDot();
+			}
+
+			_iLabel('Target:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iDropdown(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				['bf', 'dad', 'gf', 'both', 'player', 'opponent'], curTarget,
+				function(id:String) {
+					final opts = ['bf','dad','gf','both','player','opponent'];
+					final i = Std.parseInt(id);
+					var p = (evt.value ?? 'bf').split('|');
+					while (p.length < 5) p.push('');
+					p[0] = (i != null && i >= 0 && i < opts.length) ? opts[i] : 'bf';
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('Offset X:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				curOffX, -2000, 2000, 10, function(v:Float) {
+					var p = (evt.value ?? 'bf').split('|');
+					while (p.length < 5) p.push('');
+					p[1] = Std.string(Std.int(v));
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('Offset Y:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				curOffY, -2000, 2000, 10, function(v:Float) {
+					var p = (evt.value ?? 'bf').split('|');
+					while (p.length < 5) p.push('');
+					p[2] = Std.string(Std.int(v));
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('Ease dur(s):', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				curDur, 0, 30, 0.1, function(v:Float) {
+					var p = (evt.value ?? 'bf').split('|');
+					while (p.length < 5) p.push('');
+					p[3] = Std.string(Math.round(v * 100) / 100.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			ty = _buildEaseRow(evt, ix, ty, iw, 4);
 		}
-		ipCamZoom = _iStepper(ix + Std.int(iw / 2), ty, Std.int(iw / 2), zoomVal, 0.1, 5.0, 0.1, function(v:Float) {
-			var parts = (evt.value ?? '1.0').split('|');
-			parts[0] = Std.string(Math.round(v * 100) / 100.0);
-			evt.value = parts.join('|');
-			hasUnsaved = true;
-			_updateUnsavedDot();
-		});
-		ty += 26;
 
-		// Mode dropdown
-		_iLabel('Mode:', ix, ty, C_SUBTEXT, Std.int(iw / 2));
-		final camModes = ['Stage Zoom', 'UI Zoom', 'Both'];
-		ipCamMode = _iDropdown(ix + Std.int(iw / 2), ty, Std.int(iw / 2), camModes, 'Stage Zoom', null);
-		ty += 26;
+		// ── Camera Zoom ───────────────────────────────────────────────────────
+		else if (t == 'camera zoom' || t == 'zoom camera') {
+			// value format: "zoom|speed"
+			final parts   = (evt.value ?? '1.0').split('|');
+			final curZoom  = Std.parseFloat(parts[0]);
+			final curSpeed = parts.length > 1 ? Std.parseFloat(parts[1]) : 1.0;
 
-		// Duration stepper
-		_iLabel('Duration:', ix, ty, C_SUBTEXT, Std.int(iw / 2));
-		var durVal = evt.duration ?? 10.0;
-		ipCamDuration = _iStepper(ix + Std.int(iw / 2), ty, Std.int(iw / 2), durVal, 1, 999, 1, function(v:Float) {
-			evt.duration = v;
-			hasUnsaved = true;
-			_updateUnsavedDot();
-			_rebuildEventBlocks();
-		});
-		ty += 26;
+			_iLabel('Zoom:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curZoom) ? 1.0 : curZoom, 0.1, 5.0, 0.05, function(v:Float) {
+					var p = (evt.value ?? '1.0').split('|');
+					while (p.length < 2) p.push('');
+					p[0] = Std.string(Math.round(v * 100) / 100.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
 
-		// Ease type + direction on the same row
-		_iLabel('Ease:', ix, ty, C_SUBTEXT, Std.int(iw * 0.30));
-		final easeTypes = [
-			'linear',
-			'quad',
-			'cube',
-			'quart',
-			'quint',
-			'sine',
-			'expo',
-			'circ',
-			'elastic',
-			'bounce',
-			'back'
-		];
+			_iLabel('Speed:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curSpeed) ? 1.0 : curSpeed, 0.0, 20.0, 0.5, function(v:Float) {
+					var p = (evt.value ?? '1.0').split('|');
+					while (p.length < 2) p.push('');
+					p[1] = Std.string(Math.round(v * 100) / 100.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+		}
+
+		// ── Camera Shake ──────────────────────────────────────────────────────
+		else if (t == 'camera shake' || t == 'shake camera') {
+			// value format: "intensity|duration"
+			final parts  = (evt.value ?? '0.005|0.25').split('|');
+			final curInt = Std.parseFloat(parts[0]);
+			final curDur = parts.length > 1 ? Std.parseFloat(parts[1]) : 0.25;
+
+			_iLabel('Intensity:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curInt) ? 0.005 : curInt, 0.0, 1.0, 0.005, function(v:Float) {
+					var p = (evt.value ?? '0.005|0.25').split('|');
+					while (p.length < 2) p.push('');
+					p[0] = Std.string(Math.round(v * 1000) / 1000.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('Duration(s):', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curDur) ? 0.25 : curDur, 0.0, 10.0, 0.1, function(v:Float) {
+					var p = (evt.value ?? '0.005|0.25').split('|');
+					while (p.length < 2) p.push('');
+					p[1] = Std.string(Math.round(v * 100) / 100.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+		}
+
+		// ── Camera Flash ──────────────────────────────────────────────────────
+		else if (t == 'camera flash' || t == 'flash camera' || t == 'flash') {
+			// value format: "color|duration"
+			final parts  = (evt.value ?? 'FFFFFF|0.5').split('|');
+			final curCol  = parts[0].trim();
+			final curDur  = parts.length > 1 ? Std.parseFloat(parts[1]) : 0.5;
+
+			_iLabel('Color(hex):', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iInput(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61), curCol, function(v:String) {
+				var p = (evt.value ?? 'FFFFFF|0.5').split('|');
+				while (p.length < 2) p.push('');
+				p[0] = v;
+				evt.value = p.join('|');
+				hasUnsaved = true; _updateUnsavedDot();
+			});
+			ty += 26;
+
+			_iLabel('Duration(s):', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curDur) ? 0.5 : curDur, 0.0, 10.0, 0.1, function(v:Float) {
+					var p = (evt.value ?? 'FFFFFF|0.5').split('|');
+					while (p.length < 2) p.push('');
+					p[1] = Std.string(Math.round(v * 100) / 100.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+		}
+
+		// ── Camera Lock ───────────────────────────────────────────────────────
+		// Bloquea la cámara en una posición fija (o en la posición actual si
+		// ambos valores están vacíos / a -1).
+		// value format: "x|y"  — vacío = usar posición actual
+		else if (t == 'camera lock' || t == 'lock camera') {
+			final parts = (evt.value ?? '|').split('|');
+			final curX  = parts.length > 0 && parts[0] != '' ? Std.parseFloat(parts[0]) : Math.NaN;
+			final curY  = parts.length > 1 && parts[1] != '' ? Std.parseFloat(parts[1]) : Math.NaN;
+
+			_iLabel('(vacío = posición actual)', ix, ty, C_SUBTEXT, iw, 8);
+			ty += 14;
+
+			_iLabel('Lock X:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iInput(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curX) ? '' : Std.string(Std.int(curX)), function(v:String) {
+					var p = (evt.value ?? '|').split('|');
+					while (p.length < 2) p.push('');
+					p[0] = v.trim();
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('Lock Y:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iInput(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curY) ? '' : Std.string(Std.int(curY)), function(v:String) {
+					var p = (evt.value ?? '|').split('|');
+					while (p.length < 2) p.push('');
+					p[1] = v.trim();
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+		}
+
+		// ── Camera Unlock / Camera Free ───────────────────────────────────────
+		// Desbloquea el follow. Sin parámetros.
+		else if (t == 'camera unlock' || t == 'unlock camera' || t == 'camera free' || t == 'free camera') {
+			_iLabel('Retoma el seguimiento al personaje.', ix, ty, C_SUBTEXT, iw, 9);
+			ty += 16;
+			evt.value = '';
+		}
+
+		// ── Camera Pan ────────────────────────────────────────────────────────
+		// Mueve la cámara suavemente a una posición de mundo fija.
+		// value format: "x|y|duration|ease|keepLocked"
+		else if (t == 'camera pan' || t == 'pan camera' || t == 'camera move' || t == 'move camera') {
+			final parts     = (evt.value ?? '0|0|0.6|sineInOut|false').split('|');
+			final curX      = Std.parseFloat(parts[0]);
+			final curY      = parts.length > 1 ? Std.parseFloat(parts[1]) : 0.0;
+			final curDur    = parts.length > 2 ? Std.parseFloat(parts[2]) : 0.6;
+			final curEase   = parts.length > 3 ? parts[3].trim() : 'sineInOut';
+			final curKeep   = parts.length > 4 ? parts[4].trim() : 'false';
+
+			_iLabel('World X:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curX) ? 0.0 : curX, -9999, 9999, 10, function(v:Float) {
+					var p = (evt.value ?? '0|0|0.6|sineInOut|false').split('|');
+					while (p.length < 5) p.push('');
+					p[0] = Std.string(Std.int(v));
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('World Y:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curY) ? 0.0 : curY, -9999, 9999, 10, function(v:Float) {
+					var p = (evt.value ?? '0|0|0.6|sineInOut|false').split('|');
+					while (p.length < 5) p.push('');
+					p[1] = Std.string(Std.int(v));
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('Duration(s):', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curDur) ? 0.6 : curDur, 0.0, 30.0, 0.1, function(v:Float) {
+					var p = (evt.value ?? '0|0|0.6|sineInOut|false').split('|');
+					while (p.length < 5) p.push('');
+					p[2] = Std.string(Math.round(v * 100) / 100.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			ty = _buildEaseRow(evt, ix, ty, iw, 3);
+
+			_iLabel('Keep locked:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iDropdown(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				['false', 'true'], curKeep, function(id:String) {
+					var p = (evt.value ?? '0|0|0.6|sineInOut|false').split('|');
+					while (p.length < 5) p.push('');
+					p[4] = id == '0' ? 'false' : 'true';
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+		}
+
+		return ty;
+	}
+
+	/**
+	 * Dibuja una fila "Ease: [tipo] [dir]" y escribe el valor en parts[pipeIdx]
+	 * de evt.value con el formato "typeDir" (e.g. "sineOut", "expoInOut").
+	 */
+	function _buildEaseRow(evt:PSEEvent, ix:Float, ty:Float, iw:Int, pipeIdx:Int):Float {
+		final parts = (evt.value ?? '').split('|');
+		final curFull = parts.length > pipeIdx ? parts[pipeIdx].trim() : 'sineOut';
+
+		// Separar tipo y dirección del string de ease (e.g. "expoOut" → ["expo","Out"])
 		final easeDirs = ['In', 'Out', 'InOut'];
-		ipCamEaseType = _iDropdown(ix + Std.int(iw * 0.30), ty, Std.int(iw * 0.40), easeTypes, 'expo', null);
-		ipCamEaseDir = _iDropdown(ix + Std.int(iw * 0.72), ty, Std.int(iw * 0.28), easeDirs, 'Out', null);
-		ty += 26;
+		var curType = curFull;
+		var curDir  = 'Out';
+		for (d in easeDirs) {
+			if (curFull.endsWith(d.toLowerCase()) || curFull.endsWith(d)) {
+				curType = curFull.substr(0, curFull.length - d.length);
+				curDir  = d;
+				break;
+			}
+		}
+		if (curType == '') curType = 'sine';
 
+		final easeTypes = ['linear','quad','cube','quart','quint','sine','expo','circ','elastic','bounce','back'];
+
+		_iLabel('Ease:', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.28));
+		final ddType = _iDropdown(ix + Std.int(iw * 0.29), ty, Std.int(iw * 0.42), easeTypes, curType, null);
+		final ddDir  = _iDropdown(ix + Std.int(iw * 0.73), ty, Std.int(iw * 0.27), easeDirs,  curDir,  null);
+
+		// Callback compartido: reconstruir el ease string cuando cambia alguno
+		final writeEase = function(_:String) {
+			final selType = ddType.selectedLabel ?? 'sine';
+			final selDir  = ddDir.selectedLabel  ?? 'Out';
+			final easeStr = selType == 'linear' ? 'linear' : selType + selDir;
+			var p = (evt.value ?? '').split('|');
+			while (p.length <= pipeIdx) p.push('');
+			p[pipeIdx] = easeStr;
+			evt.value = p.join('|');
+			hasUnsaved = true; _updateUnsavedDot();
+		};
+		// Asignar callbacks después de crear ambos dropdowns
+		final prevTypeDD = cast(_inspElements[_inspElements.length - 2], CoolDropDown);
+		final prevDirDD  = cast(_inspElements[_inspElements.length - 1], CoolDropDown);
+		
+		prevTypeDD.callback = writeEase;
+		prevDirDD.callback  = writeEase;
+
+		ty += 26;
 		return ty;
 	}
 
@@ -3294,14 +3671,16 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 	}
 
 	function _triggerEvent(evt:PSEEvent):Void {
-		var v1 = evt.value ?? '';
+		// Pass the FULL value string as value1 so handlers receive all pipe-separated
+		// parameters (target, offsetX, offsetY, duration, ease, …) via split('|').
+		// value2 carries everything after the first '|' for legacy two-value handlers.
+		var fullVal = evt.value ?? '';
 		var v2 = '';
-		if (v1.contains('|')) {
-			var p = v1.split('|');
-			v1 = p[0].trim();
-			v2 = p.length > 1 ? p[1].trim() : '';
+		if (fullVal.contains('|')) {
+			var p = fullVal.split('|');
+			v2 = p.length > 1 ? p.slice(1).join('|') : '';
 		}
-		EventManager.fireEvent(evt.type, v1, v2);
+		EventManager.fireEvent(evt.type, fullVal, v2);
 		// Flash the block
 		for (b in eventBlocks)
 			if (b.eventId == evt.id) {
@@ -3320,6 +3699,48 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 	}
 
 	/**
+	 * Convierte un nombre de ease ("sineOut", "expoInOut", "linear", …)
+	 * en la función Float->Float correspondiente de FlxEase.
+	 * Devuelve FlxEase.sineOut si el nombre no se reconoce para evitar crashes.
+	 */
+	function _parseEase(name:String):Float->Float {
+		return switch (name.toLowerCase()) {
+			case 'linear':       FlxEase.linear;
+			case 'quadin':       FlxEase.quadIn;
+			case 'quadout':      FlxEase.quadOut;
+			case 'quadinout':    FlxEase.quadInOut;
+			case 'cubein':       FlxEase.cubeIn;
+			case 'cubeout':      FlxEase.cubeOut;
+			case 'cubeinout':    FlxEase.cubeInOut;
+			case 'quartin':      FlxEase.quartIn;
+			case 'quartout':     FlxEase.quartOut;
+			case 'quartinout':   FlxEase.quartInOut;
+			case 'quintin':      FlxEase.quintIn;
+			case 'quintout':     FlxEase.quintOut;
+			case 'quintinout':   FlxEase.quintInOut;
+			case 'sinein':       FlxEase.sineIn;
+			case 'sineout':      FlxEase.sineOut;
+			case 'sineinout':    FlxEase.sineInOut;
+			case 'expoin':       FlxEase.expoIn;
+			case 'expoout':      FlxEase.expoOut;
+			case 'expoinout':    FlxEase.expoInOut;
+			case 'circin':       FlxEase.circIn;
+			case 'circout':      FlxEase.circOut;
+			case 'circinout':    FlxEase.circInOut;
+			case 'elasticin':    FlxEase.elasticIn;
+			case 'elasticout':   FlxEase.elasticOut;
+			case 'elasticinout': FlxEase.elasticInOut;
+			case 'bouncein':     FlxEase.bounceIn;
+			case 'bounceout':    FlxEase.bounceOut;
+			case 'bounceinout':  FlxEase.bounceInOut;
+			case 'backin':       FlxEase.backIn;
+			case 'backout':      FlxEase.backOut;
+			case 'backinout':    FlxEase.backInOut;
+			default:             FlxEase.sineOut;
+		};
+	}
+
+	/**
 	 * Registra handlers de eventos de cámara y otros eventos del chart que
 	 * necesitan actuar sobre el cameraController del editor (no el de PlayState,
 	 * que no existe aquí).
@@ -3328,66 +3749,119 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 	function _registerEditorEventHandlers():Void {
 		var self = this;
 
-		// Camera Follow / Camera
+		// ── Camera Follow / Camera ────────────────────────────────────────────
+		// value format: "target|offsetX|offsetY|duration|ease"
+		// Si duration > 0 hace un tweenToTarget suave en lugar de snap.
 		var camFollowHandler = function(evts:Array<funkin.scripting.events.EventData>) {
 			var e = evts[0];
 			if (e == null || self.cameraController == null)
 				return true;
-			var parts = (e.value1 ?? '').split('|');
-			var target = parts[0].trim();
-			var offX = parts.length > 1 ? Std.parseFloat(parts[1]) : Math.NaN;
-			var offY = parts.length > 2 ? Std.parseFloat(parts[2]) : Math.NaN;
-			self.cameraController.setTarget(target, Math.isNaN(offX) ? 0.0 : offX, Math.isNaN(offY) ? 0.0 : offY);
+			var parts    = (e.value1 ?? '').split('|');
+			var target   = parts.length > 0 ? parts[0].trim() : 'bf';
+			var offX     = parts.length > 1 ? Std.parseFloat(parts[1]) : Math.NaN;
+			var offY     = parts.length > 2 ? Std.parseFloat(parts[2]) : Math.NaN;
+			var dur      = parts.length > 3 ? Std.parseFloat(parts[3]) : Math.NaN;
+			var easeName = parts.length > 4 ? parts[4].trim() : 'sineOut';
+			self.cameraController.setTarget(
+				target,
+				Math.isNaN(offX) ? 0.0 : offX,
+				Math.isNaN(offY) ? 0.0 : offY
+			);
+			if (!Math.isNaN(dur) && dur > 0)
+				self.cameraController.tweenToTarget(dur, self._parseEase(easeName));
 			return true;
 		};
 		EventManager.registerCustomEvent('Camera Follow', camFollowHandler);
-		EventManager.registerCustomEvent('Camera', camFollowHandler);
+		EventManager.registerCustomEvent('Camera',        camFollowHandler);
 
-		// Camera Focus
-		EventManager.registerCustomEvent('Camera Focus', function(evts) {
+		// ── Camera Focus ──────────────────────────────────────────────────────
+		var camFocusHandler = function(evts:Array<funkin.scripting.events.EventData>) {
 			var e = evts[0];
 			if (e == null || self.cameraController == null)
 				return true;
-			self.cameraController.setTarget((e.value1 != null && e.value1 != '') ? e.value1 : 'both');
+			self.cameraController.setTarget(
+				(e.value1 != null && e.value1 != '') ? e.value1 : 'both');
 			return true;
-		});
-		EventManager.registerCustomEvent('Focus Camera', function(evts) {
-			var e = evts[0];
-			if (e == null || self.cameraController == null)
-				return true;
-			self.cameraController.setTarget((e.value1 != null && e.value1 != '') ? e.value1 : 'both');
-			return true;
-		});
+		};
+		EventManager.registerCustomEvent('Camera Focus', camFocusHandler);
+		EventManager.registerCustomEvent('Focus Camera', camFocusHandler);
 
-		// Camera Zoom
+		// ── Camera Zoom ───────────────────────────────────────────────────────
+		// value format: "zoom|speed"
 		var camZoomHandler = function(evts:Array<funkin.scripting.events.EventData>) {
 			var e = evts[0];
 			if (e == null || self.cameraController == null)
 				return true;
-			var zoom = Std.parseFloat((e.value1 ?? '1.0').split('|')[0]);
+			var parts = (e.value1 ?? '1.0').split('|');
+			var zoom  = Std.parseFloat(parts[0]);
 			if (!Math.isNaN(zoom)) {
 				self.cameraController.defaultZoom = zoom;
-				self.cameraController.zoomEnabled = true;
+				self.cameraController.zoomEnabled  = true;
 			}
 			return true;
 		};
 		EventManager.registerCustomEvent('Camera Zoom', camZoomHandler);
 		EventManager.registerCustomEvent('Zoom Camera', camZoomHandler);
 
-		// Camera Shake
-		EventManager.registerCustomEvent('Camera Shake', function(evts) {
-			// Dejar que el built-in lo maneje (usa FlxG.cameras directamente, funciona aquí)
-			return false;
-		});
+		// ── Camera Shake ──────────────────────────────────────────────────────
+		EventManager.registerCustomEvent('Camera Shake', function(evts) return false);
 
-		// BPM Change — también funciona aquí vía built-in (no depende de PlayState)
-		// Flash / Fade — lo mismo
-		// Run Script — el built-in llama ScriptHandler.callOnScripts, funciona
+		// ── Camera Lock ───────────────────────────────────────────────────────
+		// value format: "x|y"  — vacío = posición actual
+		var camLockHandler = function(evts:Array<funkin.scripting.events.EventData>) {
+			var e = evts[0];
+			if (e == null || self.cameraController == null)
+				return true;
+			var parts = (e.value1 ?? '').split('|');
+			var lx = (parts.length > 0 && parts[0].trim() != '') ? Std.parseFloat(parts[0]) : Math.NaN;
+			var ly = (parts.length > 1 && parts[1].trim() != '') ? Std.parseFloat(parts[1]) : Math.NaN;
+			self.cameraController.lock(
+				Math.isNaN(lx) ? null : lx,
+				Math.isNaN(ly) ? null : ly
+			);
+			return true;
+		};
+		EventManager.registerCustomEvent('Camera Lock',  camLockHandler);
+		EventManager.registerCustomEvent('Lock Camera',  camLockHandler);
+
+		// ── Camera Unlock ─────────────────────────────────────────────────────
+		var camUnlockHandler = function(evts:Array<funkin.scripting.events.EventData>) {
+			if (self.cameraController != null)
+				self.cameraController.unlock();
+			return true;
+		};
+		EventManager.registerCustomEvent('Camera Unlock', camUnlockHandler);
+		EventManager.registerCustomEvent('Unlock Camera', camUnlockHandler);
+		EventManager.registerCustomEvent('Camera Free',   camUnlockHandler);
+		EventManager.registerCustomEvent('Free Camera',   camUnlockHandler);
+
+		// ── Camera Pan ────────────────────────────────────────────────────────
+		// value format: "worldX|worldY|duration|ease|keepLocked"
+		// Usa CameraController.panTo() — tween manual dentro de CC.update().
+		var camPanHandler = function(evts:Array<funkin.scripting.events.EventData>) {
+			var e = evts[0];
+			if (e == null || self.cameraController == null)
+				return true;
+			var parts    = (e.value1 ?? '0|0|0.6|sineInOut|false').split('|');
+			var tx       = Std.parseFloat(parts[0]);
+			var ty2      = parts.length > 1 ? Std.parseFloat(parts[1]) : 0.0;
+			var dur      = parts.length > 2 ? Std.parseFloat(parts[2]) : 0.6;
+			var easeName = parts.length > 3 ? parts[3].trim() : 'sineInOut';
+			var keepLock = parts.length > 4 && parts[4].trim() == 'true';
+			if (Math.isNaN(tx))  tx  = self._ccTargetX;
+			if (Math.isNaN(ty2)) ty2 = self._ccTargetY;
+			if (Math.isNaN(dur) || dur <= 0) dur = 0.001;
+			self.cameraController.panTo(tx, ty2, dur, self._parseEase(easeName), keepLock);
+			return true;
+		};
+		EventManager.registerCustomEvent('Camera Pan',  camPanHandler);
+		EventManager.registerCustomEvent('Pan Camera',  camPanHandler);
+		EventManager.registerCustomEvent('Camera Move', camPanHandler);
+		EventManager.registerCustomEvent('Move Camera', camPanHandler);
+
+		// BPM Change, Flash, Fade, Run Script → el built-in los maneja sin PlayState.
 
 		// ── Stub out handlers that require PlayState.instance or a video player ──
-		// These chart-event HScripts (MidSongVideo, HudVisible, PlayAnim, AltAnim)
-		// call PlayState.instance.xxx or access video/flash objects that don't exist
-		// in the editor, producing the "object does not have the property 'alpha'" crash.
 		for (unsafeEvt in ['MidSongVideo', 'HudVisible', 'PlayAnim', 'AltAnim'])
 			EventManager.registerCustomEvent(unsafeEvt, function(_) return true);
 	}
@@ -4115,6 +4589,107 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 			&& sortedScripts[_nextScriptIdx].triggerStep >= 0
 			&& Conductor.stepCrochet * sortedScripts[_nextScriptIdx].triggerStep < ms)
 			_nextScriptIdx++;
+
+		// ── Restaurar estado de cámara al punto de seek ───────────────────────
+		// Replay instantáneo (sin tweens) de todos los eventos PSE de cámara que
+		// habrían ocurrido antes de ms, en orden cronológico.  Esto garantiza que
+		// al hacer seek hacia atrás la cámara quede en el estado correcto y no en
+		// el que dejó la última reproducción hacia adelante.
+		_replayPSECamStateUpTo(ms);
+	}
+
+	/**
+	 * Restaura el estado de la cámara que debería tener en `upToMs` aplicando,
+	 * en orden, todos los eventos PSE de cámara anteriores a ese punto.
+	 *
+	 * Se aplican de forma instantánea (sin duración ni ease) para que el seek
+	 * sea inmediato independientemente de cuántos eventos de transición haya.
+	 *
+	 * Eventos transitorios (Camera Shake, Camera Flash) se ignoran: no tienen
+	 * estado persistente que restaurar.
+	 */
+	function _replayPSECamStateUpTo(upToMs:Float):Void {
+		if (cameraController == null)
+			return;
+
+		// Partir del estado inicial del stage (target, zoom, lerp, lock=false)
+		cameraController.resetToInitial();
+
+		for (evt in sortedEvents) {
+			if (Conductor.stepCrochet * evt.stepTime >= upToMs)
+				break;
+			if (!_evtForDiff(evt, currentDiff))
+				continue;
+
+			var t   = evt.type.toLowerCase();
+			var val = evt.value ?? '';
+			var p   = val.split('|');
+
+			switch t {
+				// ── Camera Follow / Camera ────────────────────────────────────
+				case 'camera follow' | 'camera':
+					var target = p.length > 0 ? p[0].trim() : 'bf';
+					var offX   = p.length > 1 ? Std.parseFloat(p[1]) : 0.0;
+					var offY   = p.length > 2 ? Std.parseFloat(p[2]) : 0.0;
+					// Siempre snap — ignoramos duración/ease para seek instantáneo
+					cameraController.setTarget(
+						target,
+						Math.isNaN(offX) ? 0.0 : offX,
+						Math.isNaN(offY) ? 0.0 : offY
+					);
+
+				// ── Camera Focus ──────────────────────────────────────────────
+				case 'camera focus' | 'focus camera':
+					var target = p.length > 0 && p[0].trim() != '' ? p[0].trim() : 'both';
+					cameraController.setTarget(target);
+
+				// ── Camera Zoom ───────────────────────────────────────────────
+				case 'camera zoom' | 'zoom camera':
+					var zoom = Std.parseFloat(p[0]);
+					if (!Math.isNaN(zoom)) {
+						cameraController.defaultZoom = zoom;
+						cameraController.zoomEnabled  = true;
+						// Snap zoom inmediatamente (sin lerp) para que se vea bien al seek
+						camGame.zoom = zoom * _gameZoom;
+					}
+
+				// ── Camera Lock ───────────────────────────────────────────────
+				case 'camera lock' | 'lock camera':
+					var lx = (p.length > 0 && p[0].trim() != '') ? Std.parseFloat(p[0]) : Math.NaN;
+					var ly = (p.length > 1 && p[1].trim() != '') ? Std.parseFloat(p[1]) : Math.NaN;
+					cameraController.lock(
+						Math.isNaN(lx) ? null : lx,
+						Math.isNaN(ly) ? null : ly
+					);
+
+				// ── Camera Unlock ─────────────────────────────────────────────
+				case 'camera unlock' | 'unlock camera' | 'camera free' | 'free camera':
+					cameraController.unlock();
+
+				// ── Camera Pan ────────────────────────────────────────────────
+				// Al hacer seek aplicamos el ESTADO FINAL del pan, no la animación.
+				// Si keepLocked=true → la cámara quedó bloqueada en el destino.
+				// Si keepLocked=false → el pan terminó y se retomó el follow.
+				case 'camera pan' | 'pan camera' | 'camera move' | 'move camera':
+					var tx       = p.length > 0 ? Std.parseFloat(p[0]) : 0.0;
+					var ty2      = p.length > 1 ? Std.parseFloat(p[1]) : 0.0;
+					var keepLock = p.length > 4 && p[4].trim() == 'true';
+					if (Math.isNaN(tx))  tx  = _ccTargetX;
+					if (Math.isNaN(ty2)) ty2 = _ccTargetY;
+					cameraController.forceCancel(); // cancela cualquier pan anterior
+					if (keepLock)
+						cameraController.lock(tx, ty2);
+					else {
+						// El pan terminó y volvió a seguir → solo actualizar posición
+						// de camFollow, después reconectar el follow
+						cameraController.moveTo(tx, ty2);
+						cameraController.unlock();
+					}
+
+				// Shake, Flash, etc. → efectos transitorios, no hay estado que restaurar
+				default:
+			}
+		}
 	}
 
 	function _syncAudio(play:Bool):Void {
@@ -4443,7 +5018,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 	//  Navigation
 	// ─────────────────────────────────────────────────────────────────────────
 	function _goBack():Void {
-		if (_unsavedDlg != null)
+		if (_isExiting || _unsavedDlg != null)
 			return;
 		if (hasUnsaved) {
 			_unsavedDlg = new UnsavedChangesDialog([camHUD]);
@@ -4463,8 +5038,34 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 	}
 
 	function _exitNow():Void {
+		_isExiting = true;
 		funkin.system.CursorManager.hide();
 		_syncAudio(false);
+
+		// Limpiar el diálogo de cambios sin guardar si sigue visible
+		if (_unsavedDlg != null) {
+			remove(_unsavedDlg);
+			_unsavedDlg = null;
+		}
+
+		// Detener draw/update del estado viejo durante la transición.
+		// Sin esto, con persistentDraw/Update=true el estado sigue renderizando
+		// y camGame (que solo ocupa la región del viewport) queda como un
+		// rectángulo negro encima de la animación de transición.
+		persistentDraw = false;
+		persistentUpdate = false;
+
+		// Restaurar camGame a pantalla completa ANTES de cambiar de estado,
+		// para que la transición cubra toda la pantalla en lugar de dejar
+		// la región del editor en negro mientras se ejecuta la animación.
+		if (camGame != null) {
+			camGame.x = 0;
+			camGame.y = 0;
+			camGame.width = SW;
+			camGame.height = SH;
+			camGame.bgColor.alpha = 0;
+		}
+
 		StateTransition.switchState(new FreeplayEditorState());
 	}
 
