@@ -704,10 +704,21 @@ class StageEditor extends funkin.states.MusicBeatState
 			{
 				var c = new Character(x, y, name, isPlayer);
 				c.alpha = 0.85;
+
+				if (c.characterData != null)
+				{
+					var posOff = c.characterData.positionOffset;
+					if (posOff != null && posOff.length >= 2)
+					{
+						c.x += posOff[0];
+						c.y += posOff[1];
+					}
+				}
+
 				charGroup.add(c);
 				characters.set(id, c);
 
-				var lbl = new FlxText(x, y - 22, 200, label, 10);
+				var lbl = new FlxText(c.x, c.y - 22, 200, label, 10);
 				lbl.setFormat(Paths.font('vcr.ttf'), 10, id == 'bf' ? 0xFF00D9FF : (id == 'gf' ? 0xFFFF88FF : 0xFFFFAA00), LEFT);
 				charLabels.add(lbl);
 			}
@@ -3451,30 +3462,43 @@ class StageEditor extends funkin.states.MusicBeatState
 			else
 			{
 				isDraggingChar = false;
-				// Save new position into stageData
+				
 				var c = characters.get(dragCharId);
 				if (c != null)
 				{
+					var offX:Float = 0;
+					var offY:Float = 0;
+					if (c.characterData != null)
+					{
+						var posOff = c.characterData.positionOffset;
+						if (posOff != null && posOff.length >= 2)
+						{
+							offX = posOff[0];
+							offY = posOff[1];
+						}
+					}
+					var stageX = c.x - offX;
+					var stageY = c.y - offY;
 					switch (dragCharId)
 					{
 						case 'bf':
-							stageData.boyfriendPosition = [c.x, c.y];
+							stageData.boyfriendPosition = [stageX, stageY];
 							if (bfXStepper != null)
-								bfXStepper.value = c.x;
+								bfXStepper.value = stageX;
 							if (bfYStepper != null)
-								bfYStepper.value = c.y;
+								bfYStepper.value = stageY;
 						case 'gf':
-							stageData.gfPosition = [c.x, c.y];
+							stageData.gfPosition = [stageX, stageY];
 							if (gfXStepper != null)
-								gfXStepper.value = c.x;
+								gfXStepper.value = stageX;
 							if (gfYStepper != null)
-								gfYStepper.value = c.y;
+								gfYStepper.value = stageY;
 						case 'dad':
-							stageData.dadPosition = [c.x, c.y];
+							stageData.dadPosition = [stageX, stageY];
 							if (dadXStepper != null)
-								dadXStepper.value = c.x;
+								dadXStepper.value = stageX;
 							if (dadYStepper != null)
-								dadYStepper.value = c.y;
+								dadYStepper.value = stageY;
 					}
 				}
 				saveHistory();
