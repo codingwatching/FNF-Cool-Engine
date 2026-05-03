@@ -243,6 +243,41 @@ class CharacterEditor extends MusicBeatState
 	var _lpDragGhostTxt:FlxText;
 	var _lpDropLine:FlxSprite;
 
+	// ── Context Menu (right-click, estilo Blender) ────────────────────────────
+	var _ctxOpen:Bool        = false;
+	var _ctxMX:Float         = 0;
+	var _ctxMY:Float         = 0;
+	var _ctxHover:Int        = -1;
+	var _ctxBg:FlxSprite;
+	var _ctxBorder:FlxSprite;
+	var _ctxHeaderBg:FlxSprite;
+	var _ctxHeaderTxt:FlxText;
+	var _ctxItemBgs:Array<FlxSprite>   = [];
+	var _ctxItemIcons:Array<FlxText>   = [];
+	var _ctxItemLabels:Array<FlxText>  = [];
+	var _ctxActions:Array<Void->Void>  = [];
+	static inline var CTX_W:Int   = 230;
+	static inline var CTX_IH:Int  = 30;
+	static inline var CTX_HH:Int  = 26;
+	// Right-click drag threshold: if released without moving, open context menu
+	var _rcPressX:Float = 0;
+	var _rcPressY:Float = 0;
+	var _rcMoved:Bool   = false;
+
+	// ── Transform Handles (scale estilo Photoshop) ────────────────────────────
+	// 8 handles: 0=TL 1=TC 2=TR 3=RC 4=BR 5=BC 6=BL 7=LC
+	var _txHandles:Array<FlxSprite>    = [];
+	var _txHitBgs:Array<FlxSprite>     = [];   // zona de hit más grande (invisible)
+	var _txDragging:Bool   = false;
+	var _txDragIdx:Int     = -1;
+	var _txDragMX0:Float   = 0;
+	var _txDragMY0:Float   = 0;
+	var _txDragSX0:Float   = 0;
+	var _txDragSY0:Float   = 0;
+	var _txDragCW0:Float   = 0;    // char.width at drag start
+	var _txDragCH0:Float   = 0;
+	static inline var TX_HS:Int = 10;  // handle size px
+
 	// ── Layer copy / paste ────────────────────────────────────────────────────
 	var _copiedLayer:Dynamic = null;   // JSON clone of last Ctrl+C'd LayerData
 
@@ -524,6 +559,12 @@ class CharacterEditor extends MusicBeatState
 		// ── Visual layer panel (stacked rows, Adobe-Animate-style) ──────────
 		buildLayerPanel();
 		buildLayerPropsPanel();
+
+		// ── Context menu ─────────────────────────────────────────────────────
+		_buildContextMenu();
+
+		// ── Transform handles ─────────────────────────────────────────────────
+		_buildTransformHandles();
 
 		// ── Selection border + name label (camGame world-space) ──────────────
 		// Four thin sprites that form a rectangle around the selected object,
@@ -1131,7 +1172,28 @@ class CharacterEditor extends MusicBeatState
 			var isCur  = (layIdx == curLayerIdx);
 			var isVis  = (lay.visible != false);
 
-			// Row background
+			// ── Hit zones registered BEFORE "row" so specific buttons take priority ──
+			// Eye / visibility toggle — image icon (visible.png / no_visible.png)
+			var eyeSprite = new FlxSprite(2, rowY + 3);
+			eyeSprite.loadGraphic(isVis
+				? Paths.image('editors/visible')
+				: Paths.image('editors/no_visible'));
+			eyeSprite.setGraphicSize(18, 18);
+			eyeSprite.updateHitbox();
+			eyeSprite.cameras = [camHUD]; eyeSprite.scrollFactor.set(); add(eyeSprite);
+			layerPanelGroup.add(eyeSprite);
+			// Register eye BEFORE row so the click doesn't fall through to "row"
+			layerPanelHits.push({x: 0.0, y: rowY, w: 22.0, h: LP_ROW_H * 1.0, zone: "eye", idx: layIdx});
+
+			// × Delete button — shown on ALL rows (red when selected, dimmed otherwise)
+			// Register BEFORE row for correct hit priority
+			var delTxt = new FlxText(LP_W - 36, rowY + 4, 16, "\u00D7", 11);
+			delTxt.setFormat(Paths.font("vcr.ttf"), 11, isCur ? T.error : T.textDim, CENTER);
+			delTxt.cameras = [camHUD]; delTxt.scrollFactor.set(); add(delTxt);
+			layerPanelTexts.add(delTxt);
+			layerPanelHits.push({x: LP_W - 38.0, y: rowY, w: 20.0, h: LP_ROW_H * 1.0, zone: "del", idx: layIdx});
+
+			// Row background — registered AFTER eye/del so those take priority
 			var rowColor = isCur
 				? (T.rowSelected)
 				: (drawnCount % 2 == 0 ? T.rowEven : T.rowOdd);
@@ -1140,22 +1202,13 @@ class CharacterEditor extends MusicBeatState
 			layerPanelGroup.add(rowBg);
 			layerPanelHits.push({x: 0.0, y: rowY, w: LP_W * 1.0, h: LP_ROW_H * 1.0, zone: "row", idx: layIdx});
 
-			// Active layer indicator strip (left edge)
+			// Active layer indicator strip (left edge, drawn on top of rowBg)
 			if (isCur)
 			{
 				var strip = new FlxSprite(0, rowY).makeGraphic(3, LP_ROW_H, T.accent);
 				strip.cameras = [camHUD]; strip.scrollFactor.set(); add(strip);
 				layerPanelGroup.add(strip);
 			}
-
-			// Eye / visibility toggle (●  vs –)
-			var eyeChar  = isVis ? "\u25CF" : "\u2013";
-			var eyeColor = isVis ? T.success : T.textDim;
-			var eyeTxt   = new FlxText(4, rowY + 4, 18, eyeChar, 11);
-			eyeTxt.setFormat(Paths.font("vcr.ttf"), 11, eyeColor, CENTER);
-			eyeTxt.cameras = [camHUD]; eyeTxt.scrollFactor.set(); add(eyeTxt);
-			layerPanelTexts.add(eyeTxt);
-			layerPanelHits.push({x: 0.0, y: rowY, w: 22.0, h: LP_ROW_H * 1.0, zone: "eye", idx: layIdx});
 
 			// Layer index badge (small number on left)
 			var idxTxt = new FlxText(22, rowY + 5, 16, Std.string(layIdx), 8);
@@ -1166,35 +1219,25 @@ class CharacterEditor extends MusicBeatState
 			// Layer name
 			var nameStr = lay.name ?? ("layer" + layIdx);
 			if (nameStr.length > 16) nameStr = nameStr.substr(0, 14) + "..";
-			var nameTxt = new FlxText(38, rowY + 5, 160, nameStr, 10);
+			var nameTxt = new FlxText(38, rowY + 5, 150, nameStr, 10);
 			nameTxt.setFormat(Paths.font("vcr.ttf"), 10, isCur ? T.accent : T.textPrimary, LEFT);
 			nameTxt.cameras = [camHUD]; nameTxt.scrollFactor.set(); add(nameTxt);
 			layerPanelTexts.add(nameTxt);
 
-			// Path badge (short, right-aligned) — shows just the last segment
+			// Path badge (short, right-aligned) — shorter to leave room for del + grip
 			var pathParts = (lay.path ?? "?").split("/");
 			var pathBadge = pathParts[pathParts.length - 1];
-			if (pathBadge.length > 10) pathBadge = pathBadge.substr(0, 8) + "..";
-			var pathTxt = new FlxText(200, rowY + 5, LP_W - 206, pathBadge, 8);
+			if (pathBadge.length > 8) pathBadge = pathBadge.substr(0, 6) + "..";
+			var pathTxt = new FlxText(190, rowY + 5, LP_W - 248, pathBadge, 8);
 			pathTxt.setFormat(Paths.font("vcr.ttf"), 8, 0xFF8899BB, RIGHT);
 			pathTxt.cameras = [camHUD]; pathTxt.scrollFactor.set(); add(pathTxt);
 			layerPanelTexts.add(pathTxt);
 
-			// ⠿ Drag handle (always shown, right side of row)
-			var gripTxt = new FlxText(LP_W - 18, rowY + 4, 14, "\u2261", 11);
+			// ⠿ Drag handle (right edge, after del button)
+			var gripTxt = new FlxText(LP_W - 16, rowY + 4, 14, "\u2261", 11);
 			gripTxt.setFormat(Paths.font("vcr.ttf"), 11, _lpDragging && _lpDragFromIdx == layIdx ? 0xFF44AAFF : T.textDim, CENTER);
 			gripTxt.cameras = [camHUD]; gripTxt.scrollFactor.set(); add(gripTxt);
 			layerPanelTexts.add(gripTxt);
-
-			// × Delete — only on selected row
-			if (isCur)
-			{
-				var delTxt = new FlxText(LP_W - 36, rowY + 4, 16, "\u00D7", 11);
-				delTxt.setFormat(Paths.font("vcr.ttf"), 11, T.error, CENTER);
-				delTxt.cameras = [camHUD]; delTxt.scrollFactor.set(); add(delTxt);
-				layerPanelTexts.add(delTxt);
-				layerPanelHits.push({x: LP_W - 38.0, y: rowY, w: 20.0, h: LP_ROW_H * 1.0, zone: "del", idx: layIdx});
-			}
 
 			rowY += LP_ROW_H;
 			i--;
@@ -2718,6 +2761,7 @@ class CharacterEditor extends MusicBeatState
 		_setLayerDropdownVisible(true);
 		_refreshLayerDropdown();
 		_syncLayerTabToCurrentLayer();
+		_rebuildAnimListDisplay(); // FIX: reconstruir lista con orden correcto
 	}
 
 	/** Carga el nuevo formato V2 (render.layers). */
@@ -2799,6 +2843,455 @@ class CharacterEditor extends MusicBeatState
 			pathInput.text = layers[0].path;
 
 		setHelp("✓ V2 format loaded — " + layers.length + " layer(s)", FlxColor.CYAN);
+		_rebuildAnimListDisplay(); // FIX: reconstruir lista con orden correcto
+	}
+
+
+	// ── Context Menu (right-click estilo Blender) ─────────────────────────────
+
+	function _buildContextMenu():Void
+	{
+		var items:Array<{icon:String, label:String, action:Void->Void}> = [
+			{ icon: "▣", label: "Create Object  (makeGraphic)", action: _ctxCreateObject },
+			{ icon: "⬚", label: "Import Image",                 action: _ctxImportImage  },
+			{ icon: "▦", label: "Import Spritesheet",           action: _ctxImportSpritesheet },
+			{ icon: "◈", label: "Import Atlas  (XML/JSON)",     action: _ctxImportAtlas  }
+		];
+
+		var totalH = CTX_HH + items.length * CTX_IH + 6;
+
+		_ctxBorder = new FlxSprite(0, 0);
+		_ctxBorder.makeGraphic(CTX_W + 4, totalH + 4, 0xBB000000);
+		_ctxBorder.cameras = [camHUD];
+		_ctxBorder.scrollFactor.set();
+		_ctxBorder.visible = false;
+		add(_ctxBorder);
+
+		_ctxBg = new FlxSprite(0, 0);
+		_ctxBg.makeGraphic(CTX_W, totalH, 0xF21A1A26);
+		_ctxBg.cameras = [camHUD];
+		_ctxBg.scrollFactor.set();
+		_ctxBg.visible = false;
+		add(_ctxBg);
+
+		_ctxHeaderBg = new FlxSprite(0, 0);
+		_ctxHeaderBg.makeGraphic(CTX_W, CTX_HH, funkin.debug.themes.EditorTheme.current.accent);
+		_ctxHeaderBg.cameras = [camHUD];
+		_ctxHeaderBg.scrollFactor.set();
+		_ctxHeaderBg.visible = false;
+		add(_ctxHeaderBg);
+
+		_ctxHeaderTxt = new FlxText(0, 0, CTX_W, "  \u2736  Add Object", 12);
+		_ctxHeaderTxt.color = funkin.debug.themes.EditorTheme.current.bgDark;
+		_ctxHeaderTxt.font = "VCR OSD Mono";
+		_ctxHeaderTxt.cameras = [camHUD];
+		_ctxHeaderTxt.scrollFactor.set();
+		_ctxHeaderTxt.visible = false;
+		add(_ctxHeaderTxt);
+
+		for (i in 0...items.length)
+		{
+			var itemBg = new FlxSprite(0, 0);
+			itemBg.makeGraphic(CTX_W, CTX_IH - 1, 0x00000000);
+			itemBg.cameras = [camHUD];
+			itemBg.scrollFactor.set();
+			itemBg.visible = false;
+			add(itemBg);
+			_ctxItemBgs.push(itemBg);
+
+			var iconTxt = new FlxText(0, 0, 28, items[i].icon, 14);
+			iconTxt.alignment = CENTER;
+			iconTxt.color = funkin.debug.themes.EditorTheme.current.accent;
+			iconTxt.cameras = [camHUD];
+			iconTxt.scrollFactor.set();
+			iconTxt.visible = false;
+			add(iconTxt);
+			_ctxItemIcons.push(iconTxt);
+
+			var labelTxt = new FlxText(0, 0, CTX_W - 32, items[i].label, 11);
+			labelTxt.color = FlxColor.WHITE;
+			labelTxt.cameras = [camHUD];
+			labelTxt.scrollFactor.set();
+			labelTxt.visible = false;
+			add(labelTxt);
+			_ctxItemLabels.push(labelTxt);
+
+			_ctxActions.push(items[i].action);
+		}
+	}
+
+	function _openContextMenu(mx:Float, my:Float):Void
+	{
+		_ctxOpen  = true;
+		_ctxHover = -1;
+		var totalH = CTX_HH + _ctxActions.length * CTX_IH + 6;
+
+		var cx = mx;
+		var cy = my;
+		if (cx + CTX_W > FlxG.width  - 4) cx = FlxG.width  - CTX_W - 4;
+		if (cy + totalH > FlxG.height - 4) cy = FlxG.height - totalH - 4;
+		_ctxMX = cx;
+		_ctxMY = cy;
+
+		_ctxBorder.setPosition(cx - 2, cy - 2);
+		_ctxBorder.visible = true;
+		_ctxBg.setPosition(cx, cy);
+		_ctxBg.visible = true;
+		_ctxHeaderBg.setPosition(cx, cy);
+		_ctxHeaderBg.visible = true;
+		_ctxHeaderTxt.setPosition(cx + 4, cy + 5);
+		_ctxHeaderTxt.visible = true;
+
+		for (i in 0..._ctxActions.length)
+		{
+			var iy = cy + CTX_HH + i * CTX_IH + 3;
+			_ctxItemBgs[i].setPosition(cx, iy);
+			_ctxItemBgs[i].makeGraphic(CTX_W, CTX_IH - 1, 0x00000000);
+			_ctxItemBgs[i].visible = true;
+			_ctxItemIcons[i].setPosition(cx + 8, iy + 7);
+			_ctxItemIcons[i].visible = true;
+			_ctxItemLabels[i].setPosition(cx + 32, iy + 8);
+			_ctxItemLabels[i].visible = true;
+		}
+	}
+
+	function _closeContextMenu():Void
+	{
+		_ctxOpen  = false;
+		_ctxHover = -1;
+		if (_ctxBg        != null) _ctxBg.visible        = false;
+		if (_ctxBorder    != null) _ctxBorder.visible    = false;
+		if (_ctxHeaderBg  != null) _ctxHeaderBg.visible  = false;
+		if (_ctxHeaderTxt != null) _ctxHeaderTxt.visible = false;
+		for (i in 0..._ctxItemBgs.length)
+		{
+			if (i < _ctxItemBgs.length)    _ctxItemBgs[i].visible    = false;
+			if (i < _ctxItemIcons.length)  _ctxItemIcons[i].visible  = false;
+			if (i < _ctxItemLabels.length) _ctxItemLabels[i].visible = false;
+		}
+	}
+
+	// Returns true if a context-menu action was executed this frame (used to
+	// prevent the same justPressed event from also triggering viewport selection).
+	function _updateContextMenu():Bool
+	{
+		if (!_ctxOpen) return false;
+		var mx = FlxG.mouse.gameX;
+		var my = FlxG.mouse.gameY;
+
+		var newHover = -1;
+		for (i in 0..._ctxActions.length)
+		{
+			var iy = _ctxMY + CTX_HH + i * CTX_IH + 3;
+			if (mx >= _ctxMX && mx < _ctxMX + CTX_W && my >= iy && my < iy + CTX_IH - 1)
+				newHover = i;
+		}
+
+		if (newHover != _ctxHover)
+		{
+			for (i in 0..._ctxItemBgs.length)
+			{
+				var isH = (i == newHover);
+				_ctxItemBgs[i].makeGraphic(CTX_W, CTX_IH - 1,
+					isH ? ((funkin.debug.themes.EditorTheme.current.accent & 0x00FFFFFF) | 0x55000000) : 0x00000000);
+				_ctxItemLabels[i].color = isH ? funkin.debug.themes.EditorTheme.current.accent : FlxColor.WHITE;
+				_ctxItemIcons[i].color  = isH ? FlxColor.WHITE : funkin.debug.themes.EditorTheme.current.accent;
+			}
+			_ctxHover = newHover;
+		}
+
+		if (FlxG.mouse.justPressed)
+		{
+			if (newHover >= 0)
+			{
+				var act = _ctxActions[newHover];
+				_closeContextMenu();
+				act();
+				return true; // consumed — don't let viewport selection also fire
+			}
+			else
+			{
+				var totalH = CTX_HH + _ctxActions.length * CTX_IH + 6;
+				var inside = mx >= _ctxMX && mx < _ctxMX + CTX_W
+				          && my >= _ctxMY && my < _ctxMY + totalH;
+				if (!inside) _closeContextMenu();
+			}
+		}
+		if (FlxG.keys.justPressed.ESCAPE)
+			_closeContextMenu();
+		return false;
+	}
+
+	// Context menu action handlers ─────────────────────────────────────────────
+
+	function _ctxCreateObject():Void
+	{
+		var layName = "solid_" + (layers.length + 1);
+		var newLay:LayerData = {
+			name: layName, path: "__makeGraphic__",
+			position: [0.0, 0.0], scale: [1.0, 1.0], alpha: 1.0,
+			visible: true, flipX: false, flipY: false,
+			antialiasing: false, animations: []
+		};
+		if (!_isV2Format) { _isV2Format = true; layers = []; }
+		layers.push(newLay);
+		curLayerIdx = layers.length - 1;
+		currentAnimData = newLay.animations;
+		_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
+		_hasUnsaved = true;
+		setHelp("\u25a3 Created solid layer: " + layName, funkin.debug.themes.EditorTheme.current.accent);
+	}
+
+	function _ctxImportImage():Void
+	{
+		#if sys
+		var dialog = new lime.ui.FileDialog();
+		dialog.onSelect.add(function(path:String) {
+			var name = haxe.io.Path.withoutExtension(haxe.io.Path.withoutDirectory(path));
+			var newLay:LayerData = {
+				name: name, path: path,
+				position: [0.0,0.0], scale: [1.0,1.0], alpha: 1.0,
+				visible: true, flipX: false, flipY: false,
+				antialiasing: true, animations: []
+			};
+			if (!_isV2Format) { _isV2Format = true; layers = []; }
+			layers.push(newLay);
+			curLayerIdx = layers.length - 1;
+			currentAnimData = newLay.animations;
+			_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
+			_hasUnsaved = true;
+			setHelp("\u2b1a Image: " + name, funkin.debug.themes.EditorTheme.current.accent);
+		});
+		dialog.browse(lime.ui.FileDialogType.OPEN, "png,jpg", null, "Select image");
+		#else
+		setHelp("\u26a0 Desktop only", FlxColor.YELLOW);
+		#end
+	}
+
+	function _ctxImportSpritesheet():Void
+	{
+		#if sys
+		var dialog = new lime.ui.FileDialog();
+		dialog.onSelect.add(function(path:String) {
+			var name = haxe.io.Path.withoutExtension(haxe.io.Path.withoutDirectory(path));
+			var newLay:LayerData = {
+				name: name, path: haxe.io.Path.withoutExtension(path),
+				position: [0.0,0.0], scale: [1.0,1.0], alpha: 1.0,
+				visible: true, flipX: false, flipY: false,
+				antialiasing: true, animations: []
+			};
+			if (!_isV2Format) { _isV2Format = true; layers = []; }
+			layers.push(newLay);
+			curLayerIdx = layers.length - 1;
+			currentAnimData = newLay.animations;
+			_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
+			_hasUnsaved = true;
+			setHelp("\u25a6 Spritesheet: " + name, funkin.debug.themes.EditorTheme.current.accent);
+		});
+		dialog.browse(lime.ui.FileDialogType.OPEN, "png", null, "Select spritesheet PNG");
+		#else
+		setHelp("\u26a0 Desktop only", FlxColor.YELLOW);
+		#end
+	}
+
+	function _ctxImportAtlas():Void
+	{
+		#if sys
+		var dialog = new lime.ui.FileDialog();
+		dialog.onSelect.add(function(path:String) {
+			var name = haxe.io.Path.withoutExtension(haxe.io.Path.withoutDirectory(path));
+			var anims = _parseXmlPrefixes(path);
+			var newLay:LayerData = {
+				name: name, path: haxe.io.Path.withoutExtension(path),
+				position: [0.0,0.0], scale: [1.0,1.0], alpha: 1.0,
+				visible: true, flipX: false, flipY: false,
+				antialiasing: true, animations: anims
+			};
+			if (!_isV2Format) { _isV2Format = true; layers = []; }
+			layers.push(newLay);
+			curLayerIdx = layers.length - 1;
+			currentAnimData = newLay.animations;
+			_refreshLayerDropdown(); _syncLayerTabToCurrentLayer(); refreshLayerPanel();
+			_hasUnsaved = true;
+			setHelp("\u25c8 Atlas: " + name + " (" + anims.length + " anims)", funkin.debug.themes.EditorTheme.current.accent);
+		});
+		dialog.browse(lime.ui.FileDialogType.OPEN, "xml", null, "Select Sparrow atlas XML");
+		#else
+		setHelp("\u26a0 Desktop only", FlxColor.YELLOW);
+		#end
+	}
+
+	// ── Transform Handles (Photoshop-style scale) ─────────────────────────────
+
+	function _buildTransformHandles():Void
+	{
+		for (i in 0...8)
+		{
+			var hitBg = new FlxSprite(0, 0);
+			hitBg.makeGraphic(TX_HS + 10, TX_HS + 10, 0x00000000);
+			hitBg.cameras = [camGame];
+			hitBg.visible = false;
+			hitBg.scrollFactor.set(1, 1);
+			add(hitBg);
+			_txHitBgs.push(hitBg);
+
+			var h = new FlxSprite(0, 0);
+			h.makeGraphic(TX_HS, TX_HS, FlxColor.WHITE);
+			h.cameras = [camGame];
+			h.visible = false;
+			h.scrollFactor.set(1, 1);
+			add(h);
+			_txHandles.push(h);
+		}
+	}
+
+	function _updateTransformHandles():Void
+	{
+		if (char == null || !_hasSelection)
+		{
+			for (h in _txHandles) h.visible = false;
+			for (h in _txHitBgs) h.visible = false;
+			return;
+		}
+
+		var _pad = 10;
+		var bx = char.x - char.offset.x - _pad;
+		var by = char.y - char.offset.y - _pad;
+		var bw = char.width  + _pad * 2;
+		var bh = char.height + _pad * 2;
+
+		// 0=TL 1=TC 2=TR 3=RC 4=BR 5=BC 6=BL 7=LC
+		var hx:Array<Float> = [ bx, bx+bw/2, bx+bw, bx+bw, bx+bw, bx+bw/2, bx, bx ];
+		var hy:Array<Float> = [ by, by,       by,    by+bh/2, by+bh, by+bh, by+bh, by+bh/2 ];
+
+		for (i in 0...8)
+		{
+			var hxi = hx[i] - TX_HS / 2;
+			var hyi = hy[i] - TX_HS / 2;
+			_txHandles[i].setPosition(hxi, hyi);
+			_txHitBgs[i].setPosition(hxi - 5, hyi - 5);
+			_txHandles[i].visible = true;
+			_txHitBgs[i].visible  = true;
+			var isCorner = (i % 2 == 0);
+			var col:FlxColor = (_txDragging && _txDragIdx == i)
+				? funkin.debug.themes.EditorTheme.current.accent
+				: (isCorner ? FlxColor.WHITE : 0xFFCCCCCC);
+			_txHandles[i].color = col;
+		}
+	}
+
+	function _updateTransformDrag():Bool
+	{
+		if (!_hasSelection || char == null || _ctxOpen) return false;
+
+		// World-space mouse
+		var mx = camGame.scroll.x + (FlxG.mouse.gameX - camGame.x) / camGame.zoom;
+		var my = camGame.scroll.y + (FlxG.mouse.gameY - camGame.y) / camGame.zoom;
+
+		if (!_txDragging && FlxG.mouse.justPressed && !isMouseOverHUD())
+		{
+			for (i in 0...8)
+			{
+				var hb = _txHitBgs[i];
+				if (!hb.visible) continue;
+				if (mx >= hb.x && mx <= hb.x + hb.width && my >= hb.y && my <= hb.y + hb.height)
+				{
+					_txDragging  = true;
+					_txDragIdx   = i;
+					_txDragMX0   = FlxG.mouse.gameX;
+					_txDragMY0   = FlxG.mouse.gameY;
+					_txDragSX0   = (_isV2Format && curLayerIdx < layers.length) ? layers[curLayerIdx].scale[0] : char.scale.x;
+					_txDragSY0   = (_isV2Format && curLayerIdx < layers.length) ? layers[curLayerIdx].scale[1] : char.scale.y;
+					_txDragCW0   = (char.width  / char.scale.x);
+					_txDragCH0   = (char.height / char.scale.y);
+					_pushUndo();
+					return true;
+				}
+			}
+		}
+
+		if (_txDragging)
+		{
+			if (FlxG.mouse.pressed)
+			{
+				var dx = FlxG.mouse.gameX - _txDragMX0;
+				var dy = FlxG.mouse.gameY - _txDragMY0;
+
+				var newSX = _txDragSX0;
+				var newSY = _txDragSY0;
+				var refW  = _txDragCW0 > 0 ? _txDragCW0 : 1.0;
+				var refH  = _txDragCH0 > 0 ? _txDragCH0 : 1.0;
+
+				var affR = (_txDragIdx == 2 || _txDragIdx == 3 || _txDragIdx == 4);
+				var affL = (_txDragIdx == 0 || _txDragIdx == 6 || _txDragIdx == 7);
+				var affB = (_txDragIdx == 4 || _txDragIdx == 5 || _txDragIdx == 6);
+				var affT = (_txDragIdx == 0 || _txDragIdx == 1 || _txDragIdx == 2);
+
+				if (affR || affL)
+				{
+					var sign = affR ? 1.0 : -1.0;
+					newSX = Math.max(0.05, _txDragSX0 + (dx * sign) / (refW * camGame.zoom));
+				}
+				if (affB || affT)
+				{
+					var sign = affB ? 1.0 : -1.0;
+					newSY = Math.max(0.05, _txDragSY0 + (dy * sign) / (refH * camGame.zoom));
+				}
+
+				var isCorner = (_txDragIdx % 2 == 0);
+				if (isCorner && FlxG.keys.pressed.SHIFT)
+				{
+					var ratio = (_txDragSX0 != 0) ? (_txDragSY0 / _txDragSX0) : 1.0;
+					if (Math.abs(dx) >= Math.abs(dy)) newSY = newSX * ratio;
+					else                               newSX = newSY / ratio;
+				}
+
+				char.scale.set(newSX, newSY);
+				char.updateHitbox();
+				if (ghostChar != null) { ghostChar.scale.set(newSX, newSY); ghostChar.updateHitbox(); }
+				if (_isV2Format && curLayerIdx < layers.length)
+					layers[curLayerIdx].scale = [newSX, newSY];
+				if (scaleStepper != null) scaleStepper.value = newSX;
+				_hasUnsaved = true;
+				setHelp("\u2194 Scale: " + FlxMath.roundDecimal(newSX, 3) + " x " + FlxMath.roundDecimal(newSY, 3)
+					+ (isCorner ? "  (SHIFT = proporcional)" : ""), FlxColor.WHITE);
+				return true;
+			}
+			else
+			{
+				_txDragging = false;
+				_txDragIdx  = -1;
+				setHelp("\u2714 Scale applied. Press Ctrl+Z to undo.", funkin.debug.themes.EditorTheme.current.success ?? FlxColor.LIME);
+			}
+		}
+		return _txDragging;
+	}
+
+	// ── _rebuildAnimListDisplay ───────────────────────────────────────────────
+	/**
+	 * BUG FIX: displayCharacter() llama generateOffsetTexts() antes que
+	 * loadCharacterData() termine, por lo que animList queda en orden del Map
+	 * (char.animOffsets) en vez del orden del JSON. Este método reconstruye
+	 * correctamente la lista una vez que _isV2Format y currentAnimData son
+	 * los definitivos.
+	 */
+	function _rebuildAnimListDisplay():Void
+	{
+		if (dumbTexts == null || animList == null) return;
+		var i = dumbTexts.members.length - 1;
+		while (i >= 0)
+		{
+			var m = dumbTexts.members[i];
+			if (m != null) { FlxTween.cancelTweensOf(m); m.destroy(); }
+			i--;
+		}
+		dumbTexts.clear();
+		_offsetLabels.resize(0);
+		_ghostBadgeBgs.resize(0);
+		_ghostBadgeLabels.resize(0);
+		_rowBgs.resize(0);
+		animList = [];
+		generateOffsetTexts();
 	}
 
 	function _setLayerDropdownVisible(vis:Bool):Void
@@ -3100,7 +3593,7 @@ class CharacterEditor extends MusicBeatState
 
 	// ── Selection helpers ─────────────────────────────────────────────────────
 
-	/** Shows or hides the 4-sided selection border + name label. */
+	/** Shows or hides the 4-sided selection border + name label + transform handles. */
 	function _setSelectionVisible(v:Bool):Void
 	{
 		if (_selBorderT    != null) _selBorderT.visible    = v;
@@ -3108,6 +3601,12 @@ class CharacterEditor extends MusicBeatState
 		if (_selBorderL    != null) _selBorderL.visible    = v;
 		if (_selBorderR    != null) _selBorderR.visible    = v;
 		if (_selNameLabel  != null) _selNameLabel.visible  = v;
+		// Also hide handles when deselecting
+		if (!v)
+		{
+			for (h in _txHandles) if (h != null) h.visible = false;
+			for (h in _txHitBgs)  if (h != null) h.visible = false;
+		}
 	}
 
 	/**
@@ -3152,6 +3651,7 @@ class CharacterEditor extends MusicBeatState
 		_selNameLabel.y    = _by - 20;
 
 		_setSelectionVisible(true);
+		_updateTransformHandles();
 	}
 
 	// ── Update ────────────────────────────────────────────────────────────────
@@ -3162,6 +3662,16 @@ class CharacterEditor extends MusicBeatState
 
 		// Keep the selection box + char.debugMode in sync every frame
 		_updateSelectionVisuals();
+
+		// Context menu (must run every frame so hover highlights work).
+		// Returns true if an action was executed this frame — prevents the same
+		// justPressed event from also firing viewport selection / offset drag.
+		var _ctxConsumed = _updateContextMenu();
+		if (_ctxOpen || _ctxConsumed) return;
+
+		// Transform handle drag (intercepts left-click on handles)
+		var _txHandled = _updateTransformDrag();
+		if (_txHandled) return; // handle consumed mouse input this frame
 /*
 		// Usar char.hasCurAnim() para ser compatible con FlxAnimate y sprites normales
 		if (char == null || !char.hasCurAnim())
@@ -3179,12 +3689,20 @@ class CharacterEditor extends MusicBeatState
 				textInfo.text = "Offset: [" + offsets[0] + ", " + offsets[1] + "]   Zoom: " + FlxMath.roundDecimal(camGame.zoom, 2);
 		}
 
-		// Mover el highlight a la fila activa (lerp suave)
 		if (animRowHighlight != null && animList.length > 0)
 		{
-			var targetY = 174.0 + (20.0 * curAnim);
-			animRowHighlight.y += (targetY - animRowHighlight.y) * 0.25;
-			animRowHighlight.visible = true;
+			var _hlVisRow = curAnim - _animListScroll;
+			if (_hlVisRow >= 0 && _hlVisRow < _offsetLabels.length)
+			{
+				var targetY = 174.0 + (20.0 * _hlVisRow);
+				animRowHighlight.y += (targetY - animRowHighlight.y) * 0.25;
+				animRowHighlight.visible = true;
+			}
+			else
+			{
+				// La animación activa está fuera del área visible (scrolleada) → ocultar
+				animRowHighlight.visible = false;
+			}
 		}
 
 		if (ghostChar != null)
@@ -3314,6 +3832,37 @@ class CharacterEditor extends MusicBeatState
 
 				if (_onChar)
 				{
+					if (_isV2Format && layers != null && layers.length > 0
+						&& !_hasSelection
+						&& (currentAnimData == null || currentAnimData.length == 0))
+					{
+						for (_autoLi in 0...layers.length)
+						{
+							if (layers[_autoLi].animations != null && layers[_autoLi].animations.length > 0)
+							{
+								curLayerIdx    = _autoLi;
+								currentAnimData = layers[_autoLi].animations;
+								curAnim        = 0;
+								_animListScroll = 0;
+								_animLastClickIdx = -1;
+								_animLastClickMs  = -9999;
+								animList = [];
+								var _alI = dumbTexts.members.length - 1;
+								while (_alI >= 0)
+								{
+									var _alM = dumbTexts.members[_alI];
+									if (_alM != null) { FlxTween.cancelTweensOf(_alM); _alM.destroy(); }
+									_alI--;
+								}
+								dumbTexts.clear();
+								_offsetLabels.resize(0); _ghostBadgeBgs.resize(0); _ghostBadgeLabels.resize(0); _rowBgs.resize(0);
+								_syncLayerTabToCurrentLayer();
+								refreshLayerPanel();
+								break;
+							}
+						}
+					}
+
 					if (!_hasSelection)
 					{
 						// Restore selection
@@ -3480,6 +4029,13 @@ class CharacterEditor extends MusicBeatState
 									setHelp((layers[hit.idx].visible ? "● Visible: " : "– Hidden: ") + layers[hit.idx].name, funkin.debug.themes.EditorTheme.current.success);
 								}
 							case "del":
+								// Set curLayerIdx to the clicked row before deleting,
+								// so clicking X on any row deletes that specific layer.
+								if (hit.idx >= 0 && hit.idx < layers.length)
+								{
+									curLayerIdx     = hit.idx;
+									currentAnimData = layers[hit.idx].animations;
+								}
 								_deleteCurrentLayer();
 							case "row":
 								if (hit.idx >= 0 && hit.idx < layers.length)
@@ -3862,22 +4418,35 @@ class CharacterEditor extends MusicBeatState
 			}
 		}
 
-		// ── Offset adjustment por mouse (click derecho + arrastrar) ───────────
-		// Click DERECHO: arrastrar para mover el offset de la animación actual.
-		// BUGFIX: antes usaba justPressed (click izquierdo) en lugar de justPressedRight,
-		// causando que cualquier click izquierdo en el área de juego moviese los offsets.
-		// La sensibilidad es 1px de mouse = 1px de offset (SHIFT = x3).
+		// ── Click derecho: context menu (sin arrastrar) o drag de offset ────────
+		// • Right press  → registrar posición inicial
+		// • Right held + arrastrar > 5px → drag de offset (comportamiento original)
+		// • Right release sin haber arrastrado → abrir context menu estilo Blender
 		if (!isMouseOverHUD())
 		{
 			var mouseMult = FlxG.keys.pressed.SHIFT ? 3 : 1;
 
 			if (FlxG.mouse.justPressedRight)
 			{
-				isDraggingOffset = true;
+				_rcPressX   = FlxG.mouse.gameX;
+				_rcPressY   = FlxG.mouse.gameY;
+				_rcMoved    = false;
+				isDraggingOffset = false;
 				dragLastX = FlxG.mouse.gameX;
 				dragLastY = FlxG.mouse.gameY;
-				// Guardar estado antes de comenzar el arrastre (un solo push por drag)
-				_pushUndo();
+			}
+
+			// Activate drag once threshold exceeded
+			if (FlxG.mouse.pressedRight && !isDraggingOffset)
+			{
+				var _rcDX = FlxG.mouse.gameX - _rcPressX;
+				var _rcDY = FlxG.mouse.gameY - _rcPressY;
+				if (Math.sqrt(_rcDX * _rcDX + _rcDY * _rcDY) > 5)
+				{
+					_rcMoved = true;
+					isDraggingOffset = true;
+					_pushUndo();
+				}
 			}
 
 			if (isDraggingOffset && FlxG.mouse.pressedRight)
@@ -3894,7 +4463,6 @@ class CharacterEditor extends MusicBeatState
 
 					if (offsets != null)
 					{
-						// Arrastrar derecha = offset X decrece (igual que flecha derecha)
 						offsets[0] -= dx;
 						offsets[1] -= dy;
 
@@ -3917,13 +4485,23 @@ class CharacterEditor extends MusicBeatState
 			}
 
 			if (FlxG.mouse.justReleasedRight)
+			{
+				if (!_rcMoved)
+				{
+					// No drag → open context menu at click position
+					_openContextMenu(_rcPressX, _rcPressY);
+				}
 				isDraggingOffset = false;
+				_rcMoved = false;
+			}
 		}
 		else
 		{
-			// Si el mouse está sobre la UI, cancelar drag para no interferir
 			if (FlxG.mouse.justReleasedRight)
+			{
 				isDraggingOffset = false;
+				_rcMoved = false;
+			}
 		}
 	} // end update
 
