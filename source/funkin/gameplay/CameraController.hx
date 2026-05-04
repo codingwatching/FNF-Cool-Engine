@@ -59,6 +59,10 @@ class CameraController {
 
 	// Pan manual — sin tween manager, inmune a pausas/limpiezas externas.
 	private var _panActive:Bool = false;
+
+	/** Read-only: true while a panTo() tween is running. */
+	public var isPanning(get, never):Bool;
+	private inline function get_isPanning():Bool return _panActive;
 	private var _panFromX:Float = 0.0;
 	private var _panFromY:Float = 0.0;
 	private var _panToX:Float = 0.0;
@@ -68,6 +72,21 @@ class CameraController {
 	private var _panEase:Float->Float;
 	private var _panOnComplete:Void->Void;
 	private var _panKeepLocked:Bool = false;
+
+	// === ANGLE (ROTATION) ===
+	// Camera rotation in degrees. Driven by rotateTo() tweens; stays at the
+	// last set value between events (no automatic lerp-back).
+	// Applied to camGame.angle every frame via _tickAngle() / update().
+	/** Target angle CC will hold after any active tween completes. */
+	public var defaultAngle:Float = 0.0;
+
+	private var _angleTweenActive:Bool  = false;
+	private var _angleFrom:Float        = 0.0;
+	private var _angleTo:Float          = 0.0;
+	private var _angleDuration:Float    = 0.5;
+	private var _angleElapsed:Float     = 0.0;
+	private var _angleEase:Float->Float = null;
+	private var _angleOnComplete:Void->Void = null;
 
 	// Freeze — congela la transición de cámara durante el pause.
 	// freeze() desconecta el follow de Flixel; unfreeze() lo reconecta.
@@ -396,6 +415,23 @@ class CameraController {
 		}
 	}
 
+	/** Advances the angle tween by `elapsed` seconds and writes to camGame.angle. */
+	private function _tickAngle(elapsed:Float):Void {
+		_angleElapsed += elapsed;
+		var t:Float  = Math.min(_angleElapsed / _angleDuration, 1.0);
+		var et:Float = (_angleEase != null) ? _angleEase(t) : t;
+		if (camGame != null)
+			camGame.angle = _angleFrom + (_angleTo - _angleFrom) * et;
+		if (t >= 1.0) {
+			_angleTweenActive = false;
+			defaultAngle      = _angleTo;
+			var cb            = _angleOnComplete;
+			_angleOnComplete  = null;
+			if (cb != null)
+				cb();
+		}
+	}
+
 	/**
 	 * Tweenea camFollow al target actual (calculado en este momento) con
 	 * la duración y ease dados. Equivalente a panTo pero calcula el destino
@@ -408,6 +444,46 @@ class CameraController {
 			return;
 		panTo(dest.x, dest.y, duration, ease ?? FlxEase.sineOut);
 		dest.put();
+	}
+
+	// ─────────────────────────────────────────────────────────────
+	//  ANGLE (ROTATION)
+	// ─────────────────────────────────────────────────────────────
+
+	/**
+	 * Tweens the camera angle to `angle` degrees over `duration` seconds.
+	 * The tween is manual (immune to FlxTween.globalManager pauses).
+	 * On completion `defaultAngle` is updated to the new value.
+	 *
+	 * @param angle     Target rotation in degrees (positive = clockwise).
+	 * @param duration  Duration in seconds (default 0.5).
+	 * @param ease      Ease function (default FlxEase.sineInOut).
+	 * @param onComplete  Optional callback when tween ends.
+	 */
+	public function rotateTo(angle:Float, ?duration:Float, ?ease:Float->Float, ?onComplete:Void->Void):Void {
+		var dur:Float = (duration != null && duration > 0) ? duration : 0.5;
+		_angleTweenActive = false; // cancel any running tween
+		_angleFrom        = (camGame != null) ? camGame.angle : defaultAngle;
+		_angleTo          = angle;
+		_angleDuration    = dur;
+		_angleElapsed     = 0.0;
+		_angleEase        = ease ?? FlxEase.sineInOut;
+		_angleOnComplete  = onComplete;
+		_angleTweenActive = true;
+	}
+
+	/**
+	 * Instantly sets the camera angle to `angle` degrees, cancelling any
+	 * running rotateTo() tween.
+	 *
+	 * @param angle  Target rotation in degrees (positive = clockwise).
+	 */
+	public function setAngle(angle:Float):Void {
+		_angleTweenActive = false;
+		_angleOnComplete  = null;
+		defaultAngle      = angle;
+		if (camGame != null)
+			camGame.angle = angle;
 	}
 
 	/**
@@ -447,6 +523,8 @@ class CameraController {
 		}
 		_panActive = false;
 		_panOnComplete = null;
+		_angleTweenActive = false;
+		_angleOnComplete  = null;
 
 		locked = false;
 		_explicitLock = false;
@@ -458,12 +536,14 @@ class CameraController {
 		defaultZoom = _initialZoom;
 		followLerp = _initialLerp;
 		zoomEnabled = false;
+		defaultAngle = 0.0;
 		dadOffsetX = 0;
 		dadOffsetY = 0;
 		bfOffsetX = 0;
 		bfOffsetY = 0;
 
-		camGame.zoom = defaultZoom;
+		camGame.zoom  = defaultZoom;
+		camGame.angle = 0.0;
 		camGame.followLerp = followLerp;
 
 		_snapToTarget();
@@ -495,6 +575,8 @@ class CameraController {
 		if (_frozen) return; // Congelado durante pause — no mover nada
 		if (_panActive)
 			_tickPan(elapsed);
+		if (_angleTweenActive)
+			_tickAngle(elapsed);
 		updateFollowPosition(elapsed);
 		lerpZoom(elapsed);
 	}
@@ -781,6 +863,8 @@ class CameraController {
 		}
 		_panActive = false;
 		_panOnComplete = null;
+		_angleTweenActive = false;
+		_angleOnComplete  = null;
 		camPos.put();
 		stageOffsetBf.put();
 		stageOffsetDad.put();

@@ -213,6 +213,10 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 	 */
 	var _lastCCZoom:Float = 1.0;
 
+	/** Camera rotation (degrees) that CC last produced.  Captured each frame
+	 *  after CC.update() so the sandbox can restore it and the proxy can show it. */
+	var _lastCCAngle:Float = 0.0;
+
 	// ── Camera Proxy (visible camera indicator in game world) ─────────────────
 
 	/** Outline rectangle showing what PlayState's camera sees (visible when zoomed out) */
@@ -472,6 +476,10 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 			return;
 		}
 		currentSong = PlayState.SONG.song ?? 'unknown';
+
+		#if desktop
+		data.Discord.DiscordClient.changePresence('In the Gameplay Editor ($currentSong)' , null);
+		#end
 
 		if (FlxG.sound.music != null) {
 			FlxG.sound.music.stop();
@@ -875,9 +883,12 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		camProxy.scale.set(vw / 320.0, vh / 180.0);
 		camProxy.updateHitbox();
 		camProxy.setPosition(_ccTargetX - vw * 0.5, _ccTargetY - vh * 0.5);
+		camProxy.angle = _lastCCAngle;
 
-		if (camProxyLabel != null)
+		if (camProxyLabel != null) {
 			camProxyLabel.setPosition(_ccTargetX - vw * 0.5 + 6, _ccTargetY - vh * 0.5 + 4);
+			camProxyLabel.angle = _lastCCAngle;
+		}
 
 		// ── Visibility ────────────────────────────────────────────────────────
 		// Normal mode : only show when zoomed out enough that the proxy frame
@@ -1442,6 +1453,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					// Generate
 					{label: 'Add Camera Follow Event', sep: false, cb: () -> _createEventAtPlayhead('Camera Follow', 'bf', 0)},
 					{label: 'Add Camera Zoom Event', sep: false, cb: () -> _createEventAtPlayhead('Zoom Camera', '1.0', 0)},
+					{label: 'Add Camera Angle Event', sep: false, cb: () -> _createEventAtPlayhead('Camera Angle', '0|0.5|sineInOut', 0)},
 					{label: 'Add Script Event', sep: false, cb: () -> _createEventAtPlayhead('Script', '', 3)},
 					{label: '---', sep: true, cb: null},
 					{label: 'Add Track', sep: false, cb: _addTrack},
@@ -2760,6 +2772,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 	 * Formatos de valor:
 	 *   Camera Follow   → "target|offsetX|offsetY|duration|ease"
 	 *   Camera Zoom     → "zoom|speed"
+	 *   Camera Angle    → "angle|duration|ease"
 	 *   Camera Shake    → "intensity|duration"
 	 *   Camera Flash    → "color|duration"
 	 *   Camera Lock     → "x|y"  (vacío = posición actual)
@@ -2867,6 +2880,39 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					hasUnsaved = true; _updateUnsavedDot();
 				});
 			ty += 26;
+		}
+
+		// ── Camera Angle ──────────────────────────────────────────────────────
+		// Rota la cámara a un ángulo dado (en grados), opcionalmente con tween.
+		// value format: "angle|duration|ease"
+		else if (t == 'camera angle' || t == 'angle camera' || t == 'rotate camera' || t == 'camera rotate') {
+			final parts    = (evt.value ?? '0|0.5|sineInOut').split('|');
+			final curAngle = Std.parseFloat(parts[0]);
+			final curDur   = parts.length > 1 ? Std.parseFloat(parts[1]) : 0.0;
+
+			_iLabel('Angle (°):', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curAngle) ? 0.0 : curAngle, -360.0, 360.0, 1.0, function(v:Float) {
+					var p = (evt.value ?? '0|0.5|sineInOut').split('|');
+					while (p.length < 3) p.push('');
+					p[0] = Std.string(Math.round(v * 10) / 10.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			_iLabel('Duration(s):', ix, ty + 3, C_SUBTEXT, Std.int(iw * 0.38));
+			_iStepper(ix + Std.int(iw * 0.39), ty, Std.int(iw * 0.61),
+				Math.isNaN(curDur) ? 0.0 : curDur, 0.0, 30.0, 0.1, function(v:Float) {
+					var p = (evt.value ?? '0|0.5|sineInOut').split('|');
+					while (p.length < 3) p.push('');
+					p[1] = Std.string(Math.round(v * 100) / 100.0);
+					evt.value = p.join('|');
+					hasUnsaved = true; _updateUnsavedDot();
+				});
+			ty += 26;
+
+			ty = _buildEaseRow(evt, ix, ty, iw, 2);
 		}
 
 		// ── Camera Shake ──────────────────────────────────────────────────────
@@ -3434,83 +3480,91 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 				_onBeatHit(curBeat);
 			}
 
+			// ── Pre-sandbox ────────────────────────────────────────────────────
+			// panTo() stores camGame.scroll as the pan start position (_panFromX/Y).
+			// If we leave camGame in viewport space (editor zoom applied), that start
+			// position is wrong and Camera Pan events lerp from the incorrect origin.
+			// Restoring CC space here means panTo() captures the right scroll value.
+			if (cameraController != null && camGame != null && _lastCCZoom > 0) {
+				camGame.zoom     = _lastCCZoom;
+				camGame.angle    = _lastCCAngle;
+				camGame.scroll.x = _ccTargetX - camGame.width  * 0.5 / _lastCCZoom;
+				camGame.scroll.y = _ccTargetY - camGame.height * 0.5 / _lastCCZoom;
+			}
 			_fireEditorEvents();
 		}
 
 		if (cameraController != null) {
-			// ── CameraController update ────────────────────────────────────────────
+			// ── CameraController update (universal sandbox) ────────────────────────
 			//
-			// We always run CC so camera events (Camera Follow, Zoom Camera, etc.)
-			// keep firing even while the editor viewport is in free-cam mode.
+			// CC always runs so camera events keep firing regardless of whether the
+			// editor is in normal or free-cam mode.
 			//
-			// The tricky part: CC reads camGame.scroll as its "current position" when
-			// lerping.  In free-cam mode _handleFreeCam() overwrites camGame.scroll
-			// with (_freeCamX, _freeCamY).  If we let CC read that on the next frame it
-			// starts lerping FROM the free-cam position instead of from its own last
-			// target → the proxy visually "follows" the free cam.
+			// SANDBOX (both modes): before CC.update() we feed camGame the state CC
+			// itself last produced (_ccTargetX/Y + _lastCCZoom).  This isolates CC
+			// from both the free-cam scroll and from the editor's _gameZoom factor.
+			// CC can therefore never drift by reading incorrect external state.
 			//
-			// Fix: before calling CC.update() in free-cam mode we restore camGame.scroll
-			// to the position CC itself last produced (_ccTargetX/Y).  CC is thus
-			// sandboxed in its own coordinate system and never reads the free-cam
-			// scroll.  After CC runs we re-apply free-cam scroll so the viewport is
-			// unaffected.
+			// PROXY TRACKING: _ccTargetX/Y always holds the camera center CC is
+			// currently pointing at.  When a Camera Pan is active we read from
+			// camGame.scroll (where _tickPan placed the lerped intermediate position)
+			// so the proxy frame animates smoothly.  Outside of a pan we read from
+			// camFollow (the character target).
 			//
-			// IMPORTANT: CameraController uses camGame.width/height (not SW/SH) when
-			// computing scroll, so we must derive _ccTargetX/Y from camGame dimensions,
-			// not from the compile-time SW/SH constants.  Using SH instead of
-			// camGame.height introduced a (SH - _vpHeight)/2 pixel vertical offset that
-			// made the proxy appear off-centre in normal mode.
+			// VIEWPORT ZOOM: the editor viewport uses _gameZoom * (camGame.width/SW)
+			// only.  "Zoom Camera" events change _lastCCZoom (tracked for the proxy)
+			// but do NOT affect what the editor user sees in the viewport.
+			//
+			// VIEWPORT POSITION (normal mode): follows cameraController.camFollow,
+			// which CC updates every frame to the active character target.  Camera
+			// Pan events and tween follow changes are therefore invisible in the
+			// editor viewport — they are only reflected in the proxy frame.
 			if (camGame != null) {
-				camGame.zoom = _lastCCZoom;
-
-				if (_freeCam) {
-					// Sandbox: feed CC its own last output so it never drifts toward
-					// the free-cam viewport position.
-					camGame.scroll.x = _ccTargetX - camGame.width * 0.5 / _lastCCZoom;
-					camGame.scroll.y = _ccTargetY - camGame.height * 0.5 / _lastCCZoom;
-				}
+				// ── Feed CC its own last state ────────────────────────────────────
+				camGame.zoom     = _lastCCZoom;
+				camGame.scroll.x = _ccTargetX - camGame.width  * 0.5 / _lastCCZoom;
+				camGame.scroll.y = _ccTargetY - camGame.height * 0.5 / _lastCCZoom;
 
 				cameraController.update(elapsed);
 
-				// ── Capture the position CC just produced ──────────────────────────
-				//
-				// IMPORTANT: In free-cam mode we CANNOT read _ccTargetX/Y from
-				// camGame.scroll here.  Reason:
-				//   1. The sandbox above set camGame.scroll = _ccTargetX (old value).
-				//   2. CC.update() calls updateFollowPosition() which moves camFollow
-				//      to the target character, but does NOT touch camGame.scroll.
-				//      Flixel's follow-lerp only runs in camGame.update() which already
-				//      executed inside super.update() at the top of this function.
-				//   3. So camGame.scroll is still the sandbox value → reading it would
-				//      just echo _ccTargetX back → infinite freeze.
-				//
-				// Fix: in free-cam mode read camFollow directly.  It is the authoritative
-				// position CC manages; the viewport lerps toward it.  In normal mode
-				// camGame.scroll already holds the lerped camera center (updated by
-				// super.update → camGame.update → follow-lerp) so we read that instead.
-				_lastCCZoom = camGame.zoom;
-				if (_freeCam && cameraController.camFollow != null) {
-					// camFollow = where CC wants the camera to point this frame.
-					// This is updated every frame by updateFollowPosition() regardless
-					// of free-cam mode, so it correctly tracks character movement.
+				// ── Capture CC output for proxy ───────────────────────────────────
+				// During a pan: scroll holds the lerped intermediate position set by
+				// _tickPan() — read from there so the proxy animates smoothly instead
+				// of jumping to the destination.
+				// Otherwise: camFollow is the authoritative character-target position.
+				_lastCCZoom  = camGame.zoom;
+				_lastCCAngle = camGame.angle;
+				if (cameraController.isPanning) {
+					_ccTargetX = camGame.scroll.x + camGame.width  * 0.5 / _lastCCZoom;
+					_ccTargetY = camGame.scroll.y + camGame.height * 0.5 / _lastCCZoom;
+				} else if (cameraController.camFollow != null) {
 					_ccTargetX = cameraController.camFollow.x;
 					_ccTargetY = cameraController.camFollow.y;
 				} else {
-					_ccTargetX = camGame.scroll.x + camGame.width * 0.5 / _lastCCZoom;
+					_ccTargetX = camGame.scroll.x + camGame.width  * 0.5 / _lastCCZoom;
 					_ccTargetY = camGame.scroll.y + camGame.height * 0.5 / _lastCCZoom;
 				}
 
-				// Re-apply viewport scale + user zoom.
-				var finalZoom:Float = _lastCCZoom * _gameZoom * (camGame.width / SW);
-				camGame.zoom = finalZoom;
+				// ── Re-apply editor viewport ──────────────────────────────────────
+				// Viewport zoom = editor scale only; _lastCCZoom drives the proxy but
+				// never the viewport, so "Zoom Camera" events are invisible here.
+				// Angle IS applied to the viewport so the editor user can preview
+				// camera rotation effects directly.
+				var finalZoom:Float = _gameZoom * (camGame.width / SW);
+				camGame.zoom  = finalZoom;
+				camGame.angle = _lastCCAngle;
 
 				if (!_freeCam) {
-					// Normal mode: editor viewport centers on PlayState's camera target.
-					camGame.scroll.x = _ccTargetX - (camGame.width * 0.5) / finalZoom;
-					camGame.scroll.y = _ccTargetY - (camGame.height * 0.5) / finalZoom;
+					// Normal mode: center on CC's current follow target (the character).
+					// Using camFollow directly means Camera Pan / tween events do not
+					// move the editor viewport — only the proxy frame reflects them.
+					var vpCx:Float = (cameraController.camFollow != null) ? cameraController.camFollow.x : _ccTargetX;
+					var vpCy:Float = (cameraController.camFollow != null) ? cameraController.camFollow.y : _ccTargetY;
+					camGame.scroll.x = vpCx - camGame.width  * 0.5 / finalZoom;
+					camGame.scroll.y = vpCy - camGame.height * 0.5 / finalZoom;
 				} else {
-					// Free-cam mode: restore free-cam scroll.
-					// _handleFreeCam() below will also set this — redundant but safe.
+					// Free-cam mode: restore the user-controlled scroll position.
+					// _handleFreeCam() also sets this below — redundant but safe.
 					camGame.scroll.x = _freeCamX;
 					camGame.scroll.y = _freeCamY;
 				}
@@ -3858,6 +3912,30 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		EventManager.registerCustomEvent('Pan Camera',  camPanHandler);
 		EventManager.registerCustomEvent('Camera Move', camPanHandler);
 		EventManager.registerCustomEvent('Move Camera', camPanHandler);
+
+		// ── Camera Angle ──────────────────────────────────────────────────────
+		// value format: "angle|duration|ease"
+		// duration = 0 (or omitted) → instant set; duration > 0 → smooth tween.
+		var camAngleHandler = function(evts:Array<funkin.scripting.events.EventData>) {
+			var e = evts[0];
+			if (e == null || self.cameraController == null)
+				return true;
+			var parts    = (e.value1 ?? '0').split('|');
+			var angle    = Std.parseFloat(parts[0]);
+			var dur      = parts.length > 1 ? Std.parseFloat(parts[1]) : 0.0;
+			var easeName = parts.length > 2 ? parts[2].trim() : 'sineInOut';
+			if (Math.isNaN(angle)) angle = 0.0;
+			if (Math.isNaN(dur))   dur   = 0.0;
+			if (dur > 0)
+				self.cameraController.rotateTo(angle, dur, self._parseEase(easeName));
+			else
+				self.cameraController.setAngle(angle);
+			return true;
+		};
+		EventManager.registerCustomEvent('Camera Angle',  camAngleHandler);
+		EventManager.registerCustomEvent('Angle Camera',  camAngleHandler);
+		EventManager.registerCustomEvent('Rotate Camera', camAngleHandler);
+		EventManager.registerCustomEvent('Camera Rotate', camAngleHandler);
 
 		// BPM Change, Flash, Fade, Run Script → el built-in los maneja sin PlayState.
 
@@ -4329,6 +4407,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		var items:Array<{label:String, cb:Void->Void}> = [
 			{label: 'Add Camera Follow', cb: () -> _createEvent('Camera Follow', 'bf', Std.int(FlxMath.bound(trackI, 0, tracks.length - 1)), evtStep)},
 			{label: 'Add Camera Zoom', cb: () -> _createEvent('Zoom Camera', '1.0', Std.int(FlxMath.bound(trackI, 0, tracks.length - 1)), evtStep)},
+			{label: 'Add Camera Angle', cb: () -> _createEvent('Camera Angle', '0|0.5|sineInOut', Std.int(FlxMath.bound(trackI, 0, tracks.length - 1)), evtStep)},
 			{
 				label: 'Add BPM Change',
 				cb: () -> _createEvent('BPM Change', '${Std.int(Conductor.bpm)}', Std.int(FlxMath.bound(trackI, 0, tracks.length - 1)), evtStep)
@@ -4687,6 +4766,12 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					}
 
 				// Shake, Flash, etc. → efectos transitorios, no hay estado que restaurar
+				// ── Camera Angle ─────────────────────────────────────────────────
+				case 'camera angle' | 'angle camera' | 'rotate camera' | 'camera rotate':
+					var angle = Std.parseFloat(p[0]);
+					if (!Math.isNaN(angle))
+						cameraController.setAngle(angle); // snap instantáneo al seek
+
 				default:
 			}
 		}
