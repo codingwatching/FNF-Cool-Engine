@@ -237,6 +237,12 @@ class StageEditor extends funkin.states.MusicBeatState
 	var elemShaderDropdown:CoolDropDown;
 	var _shaderList:Array<String> = []; // cache de nombres escaneados
 
+	// Inline shader dropdowns (Element tab context panel + Chars tab)
+	var _elemCtxShaderDropdown:CoolDropDown;   // shader inside the Element tab
+	var _charShaderBfDropdown:CoolDropDown;    // BF shader in Chars tab
+	var _charShaderGfDropdown:CoolDropDown;    // GF shader in Chars tab
+	var _charShaderDadDropdown:CoolDropDown;   // Dad shader in Chars tab
+
 	// Backdrop panel widgets (shown only when type == 'backdrop')
 	var backdropRepeatXCheck:CoolCheckBox;
 	var backdropRepeatYCheck:CoolCheckBox;
@@ -262,6 +268,22 @@ class StageEditor extends funkin.states.MusicBeatState
 	var dragStart:FlxPoint;
 	var dragObjStart:FlxPoint;
 	var isDraggingCam:Bool = false;
+
+	// ── Scale handles (Photoshop-style transform) ─────────────────────────────
+	/** 8 corner/edge handle sprites rendered on camGame (world-space). */
+	var _scaleHandles:Array<FlxSprite> = [];
+	/** Index of the handle currently being dragged (0=TL 1=TC 2=TR 3=ML 4=MR 5=BL 6=BC 7=BR), -1=none. */
+	var _isDraggingHandle:Bool = false;
+	var _dragHandleIdx:Int = -1;
+	var _handleDragStartMouseX:Float = 0;
+	var _handleDragStartMouseY:Float = 0;
+	var _handleDragStartScaleX:Float = 1;
+	var _handleDragStartScaleY:Float = 1;
+	var _handleDragOrigW:Float = 0;
+	var _handleDragOrigH:Float = 0;
+	var _handleDragElemPos:Array<Float> = [0.0, 0.0];
+	static inline final HANDLE_SZ:Int = 9;
+	static inline final HANDLE_HALF:Int = 4;
 	var dragCamStart:FlxPoint;
 	var dragCamScrollStart:FlxPoint;
 
@@ -750,6 +772,23 @@ class StageEditor extends funkin.states.MusicBeatState
 		selMesh.cameras = [camGame];
 		add(selMesh);
 
+		// ── Photoshop-style scale handles (8: TL TC TR ML MR BL BC BR) ─────────
+		for (i in 0...8)
+		{
+			var h = new FlxSprite();
+			h.makeGraphic(HANDLE_SZ, HANDLE_SZ, 0xFF44AAFF);
+			h.visible = false;
+			h.cameras = [camGame];
+			// Border outline
+			var pix = h.pixels;
+			var border = 0xFFFFFFFF;
+			for (xi in 0...HANDLE_SZ) { pix.setPixel32(xi, 0, border); pix.setPixel32(xi, HANDLE_SZ-1, border); }
+			for (yi in 0...HANDLE_SZ) { pix.setPixel32(0, yi, border); pix.setPixel32(HANDLE_SZ-1, yi, border); }
+			h.dirty = true;
+			add(h);
+			_scaleHandles.push(h);
+		}
+
 		// Tooltip de hover — vive en camHUD para que siempre esté encima de todo
 		hoverTooltipBg = new FlxSprite();
 		hoverTooltipBg.makeGraphic(4, 18, 0xCC000000);
@@ -1134,33 +1173,63 @@ class StageEditor extends funkin.states.MusicBeatState
 		switch (slot)
 		{
 			case 'bf':
-				var pos  = stageData.boyfriendPosition  ?? [770.0, 450.0];
-				var off  = stageData.cameraBoyfriend     ?? [0.0, 0.0];
-				var cx = pos[0] + off[0];
-				var cy = pos[1] + off[1];
-				camTargetX = cx + FlxG.width  * 0.5 / zoom;
-				camTargetY = cy + FlxG.height * 0.5 / zoom;
+				var pos = stageData.boyfriendPosition ?? [770.0, 450.0];
+				var off = stageData.cameraBoyfriend   ?? [0.0, 0.0];
+				// Use actual character midpoint when available (matches CameraController logic)
+				var bfChar = characters.get('bf');
+				var cx:Float; var cy:Float;
+				if (bfChar != null) {
+					var mid = bfChar.getMidpoint();
+					cx = mid.x + off[0] + (bfChar.cameraOffset != null && bfChar.cameraOffset.length > 0 ? bfChar.cameraOffset[0] : 0);
+					cy = mid.y + off[1] + (bfChar.cameraOffset != null && bfChar.cameraOffset.length > 1 ? bfChar.cameraOffset[1] : 0);
+					mid.put();
+				} else {
+					cx = pos[0] + off[0];
+					cy = pos[1] + off[1];
+				}
+				// Formula: scroll.x = camTargetX - W/2; center_world = scroll.x + W/(2*zoom)
+				// To center on cx: camTargetX = cx + W/2 - W/(2*zoom) = cx + W*0.5*(1 - 1/zoom)
+				camTargetX = cx + FlxG.width  * 0.5 * (1.0 - 1.0 / zoom);
+				camTargetY = cy + FlxG.height * 0.5 * (1.0 - 1.0 / zoom);
 				camZoom    = zoom;
-				setStatus('BF CAM  →  target x:${Std.int(cx)} y:${Std.int(cy)}  zoom:${zoom}');
+				setStatus('BF CAM  →  world center x:${Std.int(cx)} y:${Std.int(cy)}  zoom:${zoom}');
 
 			case 'dad':
-				var pos  = stageData.dadPosition   ?? [100.0, 100.0];
-				var off  = stageData.cameraDad      ?? [0.0, 0.0];
-				var cx = pos[0] + off[0];
-				var cy = pos[1] + off[1];
-				camTargetX = cx + FlxG.width  * 0.5 / zoom;
-				camTargetY = cy + FlxG.height * 0.5 / zoom;
+				var pos = stageData.dadPosition ?? [100.0, 100.0];
+				var off = stageData.cameraDad   ?? [0.0, 0.0];
+				var dadChar = characters.get('dad');
+				var cx:Float; var cy:Float;
+				if (dadChar != null) {
+					var mid = dadChar.getMidpoint();
+					cx = mid.x + off[0] + (dadChar.cameraOffset != null && dadChar.cameraOffset.length > 0 ? dadChar.cameraOffset[0] : 0);
+					cy = mid.y + off[1] + (dadChar.cameraOffset != null && dadChar.cameraOffset.length > 1 ? dadChar.cameraOffset[1] : 0);
+					mid.put();
+				} else {
+					cx = pos[0] + off[0];
+					cy = pos[1] + off[1];
+				}
+				camTargetX = cx + FlxG.width  * 0.5 * (1.0 - 1.0 / zoom);
+				camTargetY = cy + FlxG.height * 0.5 * (1.0 - 1.0 / zoom);
 				camZoom    = zoom;
-				setStatus('DAD CAM  →  target x:${Std.int(cx)} y:${Std.int(cy)}  zoom:${zoom}');
+				setStatus('DAD CAM  →  world center x:${Std.int(cx)} y:${Std.int(cy)}  zoom:${zoom}');
 
 			case 'gf':
 				var pos = stageData.gfPosition ?? [400.0, 130.0];
-				var cx = pos[0];
-				var cy = pos[1];
-				camTargetX = cx + FlxG.width  * 0.5 / zoom;
-				camTargetY = cy + FlxG.height * 0.5 / zoom;
+				var gfChar = characters.get('gf');
+				var cx:Float; var cy:Float;
+				if (gfChar != null) {
+					var mid = gfChar.getMidpoint();
+					cx = mid.x + (gfChar.cameraOffset != null && gfChar.cameraOffset.length > 0 ? gfChar.cameraOffset[0] : 0);
+					cy = mid.y + (gfChar.cameraOffset != null && gfChar.cameraOffset.length > 1 ? gfChar.cameraOffset[1] : 0);
+					mid.put();
+				} else {
+					cx = pos[0];
+					cy = pos[1];
+				}
+				camTargetX = cx + FlxG.width  * 0.5 * (1.0 - 1.0 / zoom);
+				camTargetY = cy + FlxG.height * 0.5 * (1.0 - 1.0 / zoom);
 				camZoom    = zoom;
-				setStatus('GF CAM  →  target x:${Std.int(cx)} y:${Std.int(cy)}  zoom:${zoom}');
+				setStatus('GF CAM  →  world center x:${Std.int(cx)} y:${Std.int(cy)}  zoom:${zoom}');
 
 			default: // 'general'
 				camTargetX = FlxG.width  * 0.5;
@@ -1490,10 +1559,10 @@ class StageEditor extends funkin.states.MusicBeatState
 
 			// Layer name
 			var nameStr = elem.name ?? ('elem_' + elemIdx);
-			if (nameStr.length > 14)
-				nameStr = nameStr.substr(0, 12) + '..';
+			if (nameStr.length > 17)
+				nameStr = nameStr.substr(0, 15) + '..';
 			var nameColor = isSelected ? T.accent : (isAbove ? 0xFFFFAA00 : T.textPrimary);
-			var nameTxt = new FlxText(22, rowY + 6, 90, nameStr, 10);
+			var nameTxt = new FlxText(22, rowY + 6, 108, nameStr, 10);
 			nameTxt.setFormat(Paths.font('vcr.ttf'), 10, nameColor, LEFT);
 			nameTxt.cameras = [camHUD];
 			nameTxt.scrollFactor.set();
@@ -1562,64 +1631,20 @@ class StageEditor extends funkin.states.MusicBeatState
 				zone: 'above'
 			});
 
-			// ▲ Up
-			var upBg = new FlxSprite(172, rowY + 4).makeGraphic(16, 18, T.bgHover);
-			upBg.cameras = [camHUD];
-			upBg.scrollFactor.set();
-			add(upBg);
-			layerRowsGroup.add(upBg);
-			var upTxt = new FlxText(172, rowY + 4, 16, '\u25B2', 9);
-			upTxt.setFormat(Paths.font('vcr.ttf'), 9, T.textSecondary, CENTER);
-			upTxt.cameras = [camHUD];
-			upTxt.scrollFactor.set();
-			add(upTxt);
-			layerTextsGroup.add(upTxt);
-			layerHitData.push({
-				x: 169,
-				w: 22,
-				y: rowY,
-				h: ROW_H,
-				idx: elemIdx,
-				charId: null,
-				zone: 'up'
-			});
-
-			// ▼ Down
-			var downBg = new FlxSprite(191, rowY + 4).makeGraphic(16, 18, T.bgHover);
-			downBg.cameras = [camHUD];
-			downBg.scrollFactor.set();
-			add(downBg);
-			layerRowsGroup.add(downBg);
-			var downTxt = new FlxText(191, rowY + 4, 16, '\u25BC', 9);
-			downTxt.setFormat(Paths.font('vcr.ttf'), 9, T.textSecondary, CENTER);
-			downTxt.cameras = [camHUD];
-			downTxt.scrollFactor.set();
-			add(downTxt);
-			layerTextsGroup.add(downTxt);
-			layerHitData.push({
-				x: 188,
-				w: 22,
-				y: rowY,
-				h: ROW_H,
-				idx: elemIdx,
-				charId: null,
-				zone: 'down'
-			});
-
-			// ✕ Delete
-			var delBg = new FlxSprite(211, rowY + 4).makeGraphic(22, 18, T.bgHover);
+			// ✕ Delete  (Up/Down buttons removed — use drag-to-reorder)
+			var delBg = new FlxSprite(173, rowY + 4).makeGraphic(22, 18, T.bgHover);
 			delBg.cameras = [camHUD];
 			delBg.scrollFactor.set();
 			add(delBg);
 			layerRowsGroup.add(delBg);
-			var delTxt = new FlxText(211, rowY + 5, 22, '\u2715', 9);
+			var delTxt = new FlxText(173, rowY + 5, 22, '\u2715', 9);
 			delTxt.setFormat(Paths.font('vcr.ttf'), 9, T.error, CENTER);
 			delTxt.cameras = [camHUD];
 			delTxt.scrollFactor.set();
 			add(delTxt);
 			layerTextsGroup.add(delTxt);
 			layerHitData.push({
-				x: 208,
+				x: 170,
 				w: 26,
 				y: rowY,
 				h: ROW_H,
@@ -1631,7 +1656,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			// 🔒 Lock toggle — locked elements can't be selected/moved/deleted
 			var isLocked = (elem.locked == true);
 			var lockBgCol = isLocked ? 0xFFCC4400 : T.bgHover;
-			var lockBg = new FlxSprite(237, rowY + 4).makeGraphic(16, 18, lockBgCol);
+			var lockBg = new FlxSprite(199, rowY + 4).makeGraphic(16, 18, lockBgCol);
 			lockBg.cameras = [camHUD];
 			lockBg.scrollFactor.set();
 			add(lockBg);
@@ -1639,14 +1664,14 @@ class StageEditor extends funkin.states.MusicBeatState
 			var lockLabel = isLocked ? '\u{1F512}' : '\u{1F513}'; // 🔒 / 🔓 — fallback: L / -
 			// Unicode emoji may not render in VCR font; use ASCII substitute
 			var lockLabelAscii = isLocked ? 'LK' : '--';
-			var lockTxt = new FlxText(237, rowY + 5, 16, lockLabelAscii, 8);
+			var lockTxt = new FlxText(199, rowY + 5, 16, lockLabelAscii, 8);
 			lockTxt.setFormat(Paths.font('vcr.ttf'), 8, isLocked ? 0xFFFFDD88 : T.textDim, CENTER);
 			lockTxt.cameras = [camHUD];
 			lockTxt.scrollFactor.set();
 			add(lockTxt);
 			layerTextsGroup.add(lockTxt);
 			layerHitData.push({
-				x: 234,
+				x: 196,
 				w: 20,
 				y: rowY,
 				h: ROW_H,
@@ -1667,7 +1692,7 @@ class StageEditor extends funkin.states.MusicBeatState
 			}
 
 			// Register all texts for this row so the drag system can hide them
-			_layerRowTextsMap.set(elemIdx, [eyeTxt, nameTxt, typeTxt, abTxt, upTxt, downTxt, delTxt, lockTxt]);
+			_layerRowTextsMap.set(elemIdx, [eyeTxt, nameTxt, typeTxt, abTxt, delTxt, lockTxt]);
 
 			rowY += ROW_H;
 			i--;
@@ -1803,6 +1828,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		// No SEL_INFO_H gap: visible only when nothing is selected.
 		var tabsMain = [
 			{name: 'Stage',   label: 'Stage'},
+			{name: 'Chars',   label: 'Chars'},
 			{name: 'Shaders', label: 'Shaders'}
 		];
 		rightPanel = new CoolTabMenu(null, tabsMain, true);
@@ -1814,6 +1840,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		add(rightPanel);
 
 		buildStageTab();
+		buildCharsTab();
 		buildShadersTab();
 
 		// ── _contextPanel: Element / Anims (has selection) ────────────────────
@@ -2015,6 +2042,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Y', 130, y);
 		elemXStepper = new CoolNumericStepper(8,   y + 10, 10, 0, -4000, 4000, 0);
 		elemYStepper = new CoolNumericStepper(130, y + 10, 10, 0, -4000, 4000, 0);
+		elemXStepper.onChange = function(v) _applyPropsLive();
+		elemYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemXStepper);
 		tab.add(elemYStepper);
 		y += 26;
@@ -2024,6 +2053,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Scale Y', 130, y);
 		elemScaleXStepper = new CoolNumericStepper(8,   y + 10, 0.1, 1, 0.01, 20, 2);
 		elemScaleYStepper = new CoolNumericStepper(130, y + 10, 0.1, 1, 0.01, 20, 2);
+		elemScaleXStepper.onChange = function(v) _applyPropsLive();
+		elemScaleYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemScaleXStepper);
 		tab.add(elemScaleYStepper);
 		y += 26;
@@ -2033,6 +2064,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Z-Index', 130, y);
 		elemAngleStepper  = new CoolNumericStepper(8,   y + 10, 1,  0, -360, 360, 1);
 		elemZIndexStepper = new CoolNumericStepper(130, y + 10, 1,  0, -100, 100, 0);
+		elemAngleStepper.onChange  = function(v) _applyPropsLive();
+		elemZIndexStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemAngleStepper);
 		tab.add(elemZIndexStepper);
 		y += 26;
@@ -2042,6 +2075,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Scroll Y', 130, y);
 		elemScrollXStepper = new CoolNumericStepper(8,   y + 10, 0.1, 1, 0, 5, 2);
 		elemScrollYStepper = new CoolNumericStepper(130, y + 10, 0.1, 1, 0, 5, 2);
+		elemScrollXStepper.onChange = function(v) _applyPropsLive();
+		elemScrollYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemScrollXStepper);
 		tab.add(elemScrollYStepper);
 		y += 28;
@@ -2058,15 +2093,17 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Color (hex)', 130, y);
 		elemAlphaStepper = new CoolNumericStepper(8,   y + 10, 0.05, 1, 0, 1, 2);
 		elemColorInput   = new CoolInputText(130, y + 10, 110, '#FFFFFF', 10);
+		elemAlphaStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemAlphaStepper);
 		tab.add(elemColorInput);
 		y += 26;
 
 		// Bool checkboxes — two per row
-		elemFlipXCheck        = new CoolCheckBox(8,   y, null, null, 'Flip X', 70);
-		elemFlipYCheck        = new CoolCheckBox(90,  y, null, null, 'Flip Y', 70);
-		elemAntialiasingCheck = new CoolCheckBox(8,   y + 20, null, null, 'Antialiasing', 110);
-		elemVisibleCheck      = new CoolCheckBox(130, y + 20, null, null, 'Visible', 80);
+		var _liveCheck = function() _applyPropsLive();
+		elemFlipXCheck        = new CoolCheckBox(8,   y, _liveCheck, _liveCheck, 'Flip X', 70);
+		elemFlipYCheck        = new CoolCheckBox(90,  y, _liveCheck, _liveCheck, 'Flip Y', 70);
+		elemAntialiasingCheck = new CoolCheckBox(8,   y + 20, _liveCheck, _liveCheck, 'Antialiasing', 110);
+		elemVisibleCheck      = new CoolCheckBox(130, y + 20, _liveCheck, _liveCheck, 'Visible', 80);
 		tab.add(elemFlipXCheck);
 		tab.add(elemFlipYCheck);
 		tab.add(elemAntialiasingCheck);
@@ -2080,15 +2117,70 @@ class StageEditor extends funkin.states.MusicBeatState
 		sectionHeader('\u25C8 LAYER', y, 0xFFFFAA00);
 		y += 22;
 
-		elemAboveCharsCheck = new CoolCheckBox(8, y, null, null, '\u25B2 Above Characters (foreground)', W);
+		elemAboveCharsCheck = new CoolCheckBox(8, y, _liveCheck, _liveCheck, '\u25B2 Above Characters (foreground)', W);
 		elemAboveCharsCheck.color = 0xFFFFAA00;
 		tab.add(elemAboveCharsCheck);
 		y += 24;
 
-		// Apply button
+		// Apply button (force full reload — live updates happen automatically above)
 		thinSep(y); y += 6;
-		var applyBtn = new CoolButton(8, y, 'Apply Changes  \u21B5', applyElementProps);
+		var applyBtn = new CoolButton(8, y, '\u27F3 Force Reload  [Enter]', applyElementProps);
+		applyBtn.color = EditorTheme.current.accent;
 		tab.add(applyBtn);
+		y += 30;
+
+		// ══════════════════════════════════════════════════════════════════
+		// ◈ SHADER  (inline — mirrors Shaders tab, scoped to this element)
+		// ══════════════════════════════════════════════════════════════════
+		thinSep(y); y += 4;
+		sectionHeader('\u25C8 SHADER', y, 0xFF9933FF);
+		y += 22;
+
+		_shaderList = (_shaderList.length > 0) ? _shaderList : ['(none)'].concat(ShaderManager.getAvailableShaders());
+		var _ctxShaderLabels = CoolDropDown.makeStrIdLabelArray(_shaderList, true);
+
+		_elemCtxShaderDropdown = new CoolDropDown(8, y, _ctxShaderLabels, function(id:String)
+		{
+			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length) return;
+			var idx2 = Std.parseInt(id);
+			if (idx2 == null) return;
+			var shName = _shaderList[idx2];
+			var elem2 = stageData.elements[selectedIdx];
+			if (elem2.customProperties == null) elem2.customProperties = {};
+			Reflect.setField(elem2.customProperties, 'shader', shName == '(none)' ? '' : shName);
+			// Sync the Shaders tab dropdown too
+			if (elemShaderDropdown != null) elemShaderDropdown.selectedLabel = shName;
+			// Live preview on sprite
+			if (elem2.name != null && elementSprites.exists(elem2.name))
+			{
+				var spr2 = elementSprites.get(elem2.name);
+				try {
+					if (shName == '(none)' || shName == '')
+						ShaderManager.removeShader(spr2);
+					else
+						ShaderManager.applyShader(spr2, shName, camGame);
+				} catch (e:Dynamic) { setStatus('Shader error: $e'); return; }
+			}
+			markUnsaved(); saveHistory();
+			setStatus(shName == '(none)' ? 'Shader removed' : 'Shader "$shName" applied live');
+		});
+		_elemCtxShaderDropdown.selectedLabel = _shaderList[0];
+		tab.add(_elemCtxShaderDropdown);
+		y += 36;
+
+		var _ctxRemoveShBtn = new CoolButton(8, y, '\u00D7 Remove Shader', function()
+		{
+			if (selectedIdx < 0 || selectedIdx >= stageData.elements.length) return;
+			var elem2 = stageData.elements[selectedIdx];
+			if (elem2.customProperties != null) Reflect.setField(elem2.customProperties, 'shader', '');
+			if (elem2.name != null && elementSprites.exists(elem2.name))
+				ShaderManager.removeShader(elementSprites.get(elem2.name));
+			if (_elemCtxShaderDropdown != null) _elemCtxShaderDropdown.selectedLabel = '(none)';
+			if (elemShaderDropdown != null) elemShaderDropdown.selectedLabel = '(none)';
+			markUnsaved(); saveHistory();
+			setStatus('Shader removed');
+		});
+		tab.add(_ctxRemoveShBtn);
 		y += 30;
 
 		// ══════════════════════════════════════════════════════════════════
@@ -2130,6 +2222,8 @@ class StageEditor extends funkin.states.MusicBeatState
 		_backdropWidgets.push(bdVLblY);
 		backdropVelXStepper = new CoolNumericStepper(8,   y + 10, 5, 0, -500, 500, 1);
 		backdropVelYStepper = new CoolNumericStepper(130, y + 10, 5, 0, -500, 500, 1);
+		backdropVelXStepper.onChange = function(v) _applyPropsLive();
+		backdropVelYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(backdropVelXStepper);
 		tab.add(backdropVelYStepper);
 		_backdropWidgets.push(backdropVelXStepper);
@@ -2359,6 +2453,81 @@ class StageEditor extends funkin.states.MusicBeatState
 		y += 36;
 		var applyBtn = new CoolButton(8, y, 'Apply + Reload Chars', applyCharProps);
 		tab.add(applyBtn);
+		y += 34;
+
+		// ══════════════════════════════════════════════════════════════════
+		// ◈ CHARACTER SHADERS
+		// ══════════════════════════════════════════════════════════════════
+		var sep2 = new FlxSprite(4, y).makeGraphic(RIGHT_W - 16, 1, T.borderColor);
+		sep2.alpha = 0.25; tab.add(sep2); y += 6;
+
+		var shHdrBg = new FlxSprite(4, y).makeGraphic(RIGHT_W - 16, 18, T.bgPanelAlt);
+		tab.add(shHdrBg);
+		var shHdrTx = new FlxText(8, y + 2, 0, '\u25C8 CHARACTER SHADERS', 10);
+		shHdrTx.setFormat(Paths.font('vcr.ttf'), 10, 0xFF9933FF, LEFT);
+		tab.add(shHdrTx);
+		y += 22;
+
+		_shaderList = (_shaderList.length > 0) ? _shaderList : ['(none)'].concat(ShaderManager.getAvailableShaders());
+		var _chShLabels = CoolDropDown.makeStrIdLabelArray(_shaderList, true);
+
+		// Helper: apply/remove shader from a character sprite
+		function applyCharShader(charId:String, shName:String):Void
+		{
+			var ch = characters.get(charId);
+			if (ch == null) return;
+			try {
+				if (shName == '(none)' || shName == '')
+					ShaderManager.removeShader(ch);
+				else
+					ShaderManager.applyShader(ch, shName, camGame);
+			} catch (e:Dynamic) { setStatus('Shader error: $e'); }
+			// Persist in stageData customProperties for the char element entry
+			for (el in stageData.elements)
+			{
+				if (el.type != null && el.type.toLowerCase() == 'character'
+					&& _normalizeSlot(el.charSlot ?? '') == charId)
+				{
+					if (el.customProperties == null) el.customProperties = {};
+					Reflect.setField(el.customProperties, 'shader', shName == '(none)' ? '' : shName);
+					break;
+				}
+			}
+			markUnsaved(); saveHistory();
+			setStatus(shName == '(none)' ? '$charId shader removed' : '$charId shader: $shName');
+		}
+
+		// BF shader
+		var lbl_bfSh = new FlxText(8, y, 0, 'BF Shader:', 9); lbl_bfSh.color = 0xFF00D9FF; tab.add(lbl_bfSh); y += 14;
+		_charShaderBfDropdown = new CoolDropDown(8, y, _chShLabels, function(id:String)
+		{
+			var idx2 = Std.parseInt(id); if (idx2 == null) return;
+			applyCharShader('bf', _shaderList[idx2]);
+		});
+		_charShaderBfDropdown.selectedLabel = _shaderList[0];
+		tab.add(_charShaderBfDropdown);
+		y += 36;
+
+		// GF shader
+		var lbl_gfSh = new FlxText(8, y, 0, 'GF Shader:', 9); lbl_gfSh.color = 0xFFFF88FF; tab.add(lbl_gfSh); y += 14;
+		_charShaderGfDropdown = new CoolDropDown(8, y, _chShLabels, function(id:String)
+		{
+			var idx2 = Std.parseInt(id); if (idx2 == null) return;
+			applyCharShader('gf', _shaderList[idx2]);
+		});
+		_charShaderGfDropdown.selectedLabel = _shaderList[0];
+		tab.add(_charShaderGfDropdown);
+		y += 36;
+
+		// Dad shader
+		var lbl_dadSh = new FlxText(8, y, 0, 'Dad / Opponent Shader:', 9); lbl_dadSh.color = 0xFFFFAA00; tab.add(lbl_dadSh); y += 14;
+		_charShaderDadDropdown = new CoolDropDown(8, y, _chShLabels, function(id:String)
+		{
+			var idx2 = Std.parseInt(id); if (idx2 == null) return;
+			applyCharShader('dad', _shaderList[idx2]);
+		});
+		_charShaderDadDropdown.selectedLabel = _shaderList[0];
+		tab.add(_charShaderDadDropdown);
 
 		rightPanel.addGroup(tab);
 	}
@@ -2386,8 +2555,12 @@ class StageEditor extends funkin.states.MusicBeatState
 			ShaderManager.scanShaders();
 			_shaderList = ['(none)'].concat(ShaderManager.getAvailableShaders());
 			var labels = CoolDropDown.makeStrIdLabelArray(_shaderList, true);
-			if (stageShaderDropdown != null) stageShaderDropdown.setData(labels);
-			if (elemShaderDropdown   != null) elemShaderDropdown.setData(labels);
+			if (stageShaderDropdown    != null) stageShaderDropdown.setData(labels);
+			if (elemShaderDropdown     != null) elemShaderDropdown.setData(labels);
+			if (_elemCtxShaderDropdown != null) _elemCtxShaderDropdown.setData(labels);
+			if (_charShaderBfDropdown  != null) _charShaderBfDropdown.setData(labels);
+			if (_charShaderGfDropdown  != null) _charShaderGfDropdown.setData(labels);
+			if (_charShaderDadDropdown != null) _charShaderDadDropdown.setData(labels);
 			setStatus('Shaders rescanned: ${_shaderList.length - 1} found');
 		});
 		tab.add(refreshBtn);
@@ -3309,6 +3482,98 @@ class StageEditor extends funkin.states.MusicBeatState
 		var worldY = worldPos.y;
 		worldPos.put();
 
+		// ── Photoshop-style scale handle drag ───────────────────────────────────
+		if (_isDraggingHandle)
+		{
+			if (FlxG.mouse.pressed && selectedIdx >= 0 && selectedIdx < stageData.elements.length)
+			{
+				var elem = stageData.elements[selectedIdx];
+				if (elem.name != null && elementSprites.exists(elem.name))
+				{
+					var spr = elementSprites.get(elem.name);
+					var dx = worldX - _handleDragStartMouseX;
+					var dy = worldY - _handleDragStartMouseY;
+					var newSX = _handleDragStartScaleX;
+					var newSY = _handleDragStartScaleY;
+					// Determine which axes this handle controls
+					// 0=TL 1=TC 2=TR 3=ML 4=MR 5=BL 6=BC 7=BR
+					var affectsX = (_dragHandleIdx == 2 || _dragHandleIdx == 4 || _dragHandleIdx == 7); // right edge
+					var affectsXLeft = (_dragHandleIdx == 0 || _dragHandleIdx == 3 || _dragHandleIdx == 5); // left edge
+					var affectsY = (_dragHandleIdx == 5 || _dragHandleIdx == 6 || _dragHandleIdx == 7); // bottom
+					var affectsYTop = (_dragHandleIdx == 0 || _dragHandleIdx == 1 || _dragHandleIdx == 2); // top
+					var origW = _handleDragOrigW > 0 ? _handleDragOrigW : 1;
+					var origH = _handleDragOrigH > 0 ? _handleDragOrigH : 1;
+					if (affectsX)
+						newSX = _handleDragStartScaleX + dx / (origW / _handleDragStartScaleX);
+					else if (affectsXLeft)
+					{
+						newSX = _handleDragStartScaleX - dx / (origW / _handleDragStartScaleX);
+						if (newSX > 0.01) elem.position[0] = _handleDragElemPos[0] + dx;
+					}
+					if (affectsY)
+						newSY = _handleDragStartScaleY + dy / (origH / _handleDragStartScaleY);
+					else if (affectsYTop)
+					{
+						newSY = _handleDragStartScaleY - dy / (origH / _handleDragStartScaleY);
+						if (newSY > 0.01) elem.position[1] = _handleDragElemPos[1] + dy;
+					}
+					// Uniform scale when Shift held (corner handles only)
+					var isCorner = (_dragHandleIdx == 0 || _dragHandleIdx == 2 || _dragHandleIdx == 5 || _dragHandleIdx == 7);
+					if (isCorner && FlxG.keys.pressed.SHIFT)
+						newSY = newSX;
+					newSX = Math.max(0.01, newSX);
+					newSY = Math.max(0.01, newSY);
+					elem.scale = [newSX, newSY];
+					spr.scale.set(newSX, newSY);
+					spr.setPosition(elem.position[0], elem.position[1]);
+					spr.updateHitbox();
+					if (elemScaleXStepper != null) elemScaleXStepper.value = newSX;
+					if (elemScaleYStepper != null) elemScaleYStepper.value = newSY;
+					if (elemXStepper != null) elemXStepper.value = elem.position[0];
+					if (elemYStepper != null) elemYStepper.value = elem.position[1];
+				}
+			}
+			if (!FlxG.mouse.pressed)
+			{
+				_isDraggingHandle = false;
+				_dragHandleIdx = -1;
+				saveHistory();
+				markUnsaved();
+				setStatus('Scale applied');
+			}
+			return; // don't process normal drag while scaling
+		}
+
+		// ── Check if mouse just pressed on a scale handle ────────────────────────
+		if (FlxG.mouse.justPressed && !isMouseOverUI() && !_isDraggingHandle
+			&& selectedIdx >= 0 && selectedIdx < stageData.elements.length
+			&& _scaleHandles.length == 8)
+		{
+			for (i in 0...8)
+			{
+				var h = _scaleHandles[i];
+				if (h.visible && worldX >= h.x - HANDLE_HALF && worldX <= h.x + HANDLE_SZ + HANDLE_HALF
+					&& worldY >= h.y - HANDLE_HALF && worldY <= h.y + HANDLE_SZ + HANDLE_HALF)
+				{
+					_isDraggingHandle = true;
+					_dragHandleIdx = i;
+					_handleDragStartMouseX = worldX;
+					_handleDragStartMouseY = worldY;
+					var elem = stageData.elements[selectedIdx];
+					var sc = elem.scale ?? [1.0, 1.0];
+					_handleDragStartScaleX = sc[0];
+					_handleDragStartScaleY = sc[1];
+					var spr = (elem.name != null && elementSprites.exists(elem.name)) ? elementSprites.get(elem.name) : null;
+					// Store raw unscaled dimensions for delta math
+					_handleDragOrigW = (spr != null) ? spr.frameWidth  * Math.abs(sc[0]) : 1;
+					_handleDragOrigH = (spr != null) ? spr.frameHeight * Math.abs(sc[1]) : 1;
+					var pos = elem.position ?? [0.0, 0.0];
+					_handleDragElemPos = [pos[0], pos[1]];
+					return; // consume event
+				}
+			}
+		}
+
 		if (FlxG.mouse.justPressed && !isMouseOverUI())
 		{
 			// Try to select element under cursor
@@ -3580,6 +3845,7 @@ class StageEditor extends funkin.states.MusicBeatState
 		{
 			selBox.visible = false;
 			selMesh.visible = false;
+			for (h in _scaleHandles) h.visible = false;
 			return;
 		}
 
@@ -3656,6 +3922,38 @@ class StageEditor extends funkin.states.MusicBeatState
 		selBox.visible = true;
 		selMesh.setPosition(spr.x, spr.y);
 		selMesh.visible = true;
+
+		// ── Position scale handles (only for unlocked elements in edit mode) ─────
+		var showHandles = (editorMode == 'edit' && selectedIdx >= 0
+			&& selectedIdx < stageData.elements.length
+			&& !_elemIsLocked(selectedIdx)
+			&& _scaleHandles.length == 8);
+		if (showHandles)
+		{
+			var hx = spr.x; var hy = spr.y;
+			var hw = spr.width; var hh = spr.height;
+			var cx = hx + hw * 0.5; var cy = hy + hh * 0.5;
+			// Order: TL TC TR ML MR BL BC BR
+			var hpos:Array<Array<Float>> = [
+				[hx,        hy       ],  // 0 TL
+				[cx,        hy       ],  // 1 TC
+				[hx + hw,   hy       ],  // 2 TR
+				[hx,        cy       ],  // 3 ML
+				[hx + hw,   cy       ],  // 4 MR
+				[hx,        hy + hh  ],  // 5 BL
+				[cx,        hy + hh  ],  // 6 BC
+				[hx + hw,   hy + hh  ]   // 7 BR
+			];
+			for (i in 0...8)
+			{
+				_scaleHandles[i].setPosition(hpos[i][0] - HANDLE_HALF, hpos[i][1] - HANDLE_HALF);
+				_scaleHandles[i].visible = true;
+			}
+		}
+		else if (_scaleHandles.length == 8)
+		{
+			for (h in _scaleHandles) h.visible = false;
+		}
 
 		// ── Hover tooltip — detectar elemento/personaje bajo el mouse ─────────
 		_updateHoverTooltip();
@@ -3949,6 +4247,65 @@ class StageEditor extends funkin.states.MusicBeatState
 		setStatus('Properties applied: "${elem.name}"');
 	}
 
+	/** Applies UI values directly to the sprite in real-time, without full stage reload.
+	 *  Called from onChange callbacks on every element property widget. */
+	function _applyPropsLive():Void
+	{
+		if (selectedIdx < 0 || selectedIdx >= stageData.elements.length)
+			return;
+		var elem = stageData.elements[selectedIdx];
+
+		// Sync data model from current UI values
+		if (elem.position == null) elem.position = [0.0, 0.0];
+		elem.position[0] = elemXStepper     != null ? elemXStepper.value     : elem.position[0];
+		elem.position[1] = elemYStepper     != null ? elemYStepper.value     : elem.position[1];
+		elem.scale       = [elemScaleXStepper != null ? elemScaleXStepper.value : 1.0,
+		                    elemScaleYStepper != null ? elemScaleYStepper.value : 1.0];
+		elem.scrollFactor = [elemScrollXStepper != null ? elemScrollXStepper.value : 1.0,
+		                     elemScrollYStepper != null ? elemScrollYStepper.value : 1.0];
+		elem.alpha   = elemAlphaStepper  != null ? elemAlphaStepper.value  : (elem.alpha ?? 1.0);
+		elem.zIndex  = elemZIndexStepper != null ? Std.int(elemZIndexStepper.value) : (elem.zIndex ?? 0);
+		var angle    = elemAngleStepper  != null ? elemAngleStepper.value  : 0.0;
+		elem.angle   = angle != 0 ? angle : null;
+		elem.flipX   = elemFlipXCheck         != null ? elemFlipXCheck.checked         : (elem.flipX  ?? false);
+		elem.flipY   = elemFlipYCheck         != null ? elemFlipYCheck.checked         : (elem.flipY  ?? false);
+		elem.antialiasing = elemAntialiasingCheck != null ? elemAntialiasingCheck.checked : (elem.antialiasing ?? true);
+		elem.visible = elemVisibleCheck    != null ? elemVisibleCheck.checked    : (elem.visible ?? true);
+		elem.aboveChars = elemAboveCharsCheck != null ? elemAboveCharsCheck.checked : (elem.aboveChars ?? false);
+		var colorStr = elemColorInput != null ? elemColorInput.text.trim() : '';
+		elem.color = (colorStr != '' && colorStr != '#FFFFFF') ? colorStr : null;
+
+		// Backdrop live props
+		if (elem.type == 'backdrop')
+		{
+			if (elem.customProperties == null) elem.customProperties = {};
+			Reflect.setField(elem.customProperties, 'repeatX', backdropRepeatXCheck != null ? backdropRepeatXCheck.checked : true);
+			Reflect.setField(elem.customProperties, 'repeatY', backdropRepeatYCheck != null ? backdropRepeatYCheck.checked : true);
+			Reflect.setField(elem.customProperties, 'velocityX', backdropVelXStepper != null ? backdropVelXStepper.value : 0);
+			Reflect.setField(elem.customProperties, 'velocityY', backdropVelYStepper != null ? backdropVelYStepper.value : 0);
+		}
+
+		// Apply directly to existing sprite (no stage reload needed)
+		if (elem.name != null && elementSprites.exists(elem.name))
+		{
+			var spr = elementSprites.get(elem.name);
+			spr.setPosition(elem.position[0], elem.position[1]);
+			spr.scale.set(elem.scale[0], elem.scale[1]);
+			spr.scrollFactor.set(elem.scrollFactor[0], elem.scrollFactor[1]);
+			spr.alpha   = elem.alpha ?? 1.0;
+			spr.angle   = elem.angle ?? 0.0;
+			spr.flipX   = elem.flipX ?? false;
+			spr.flipY   = elem.flipY ?? false;
+			spr.antialiasing = elem.antialiasing ?? true;
+			spr.visible = elem.visible ?? true;
+			if (elem.color != null && elem.color != '')
+				try { spr.color = FlxColor.fromString(elem.color); } catch (_:Dynamic) {}
+			spr.updateHitbox();
+		}
+
+		markUnsaved();
+	}
+
 	function syncElementFieldsToUI():Void
 	{
 		if (selectedIdx < 0 || selectedIdx >= stageData.elements.length)
@@ -4003,14 +4360,14 @@ class StageEditor extends funkin.states.MusicBeatState
 		if (elemColorInput != null)
 			elemColorInput.text = elem.color ?? '#FFFFFF';
 
-		// Shader — sincronizar dropdown con el shader del elemento seleccionado
+		// Shader — sincronizar ambos dropdowns (Shaders tab + inline Element tab)
+		var _currentSh = (elem.customProperties != null) ? Reflect.field(elem.customProperties, 'shader') : null;
+		var _currentShName = (_currentSh != null && _currentSh != '') ? Std.string(_currentSh) : '(none)';
+		var _shValid = _shaderList.contains(_currentShName) ? _currentShName : '(none)';
 		if (elemShaderDropdown != null)
-		{
-			var sh = (elem.customProperties != null) ? Reflect.field(elem.customProperties, 'shader') : null;
-			var shName = (sh != null && sh != '') ? Std.string(sh) : '(none)';
-			// Buscar en la lista; si no existe, mostrar (none)
-			elemShaderDropdown.selectedLabel = (_shaderList.contains(shName)) ? shName : '(none)';
-		}
+			elemShaderDropdown.selectedLabel = _shValid;
+		if (_elemCtxShaderDropdown != null)
+			_elemCtxShaderDropdown.selectedLabel = _shValid;
 
 		// ── Type-specific panel visibility ────────────────────────────────────────
 		_updateTypeWidgets(elem.type ?? 'sprite');
@@ -5272,6 +5629,8 @@ class StageEditor extends funkin.states.MusicBeatState
 
 	override public function destroy():Void
 	{
+		for (h in _scaleHandles) if (h != null) h.destroy();
+		_scaleHandles = [];
 		dragStart.put();
 		dragObjStart.put();
 		dragCamStart.put();
