@@ -1094,7 +1094,11 @@ class PlayState extends funkin.states.MusicBeatState {
 		// del inicio de la canción — sin este flush quedan con doble copia (CPU+GPU)
 		// hasta el siguiente flushGPUCache, que no volvería a correr hasta destroy().
 		#if (!flash && !html5)
-		new flixel.util.FlxTimer().start(0, function(_) {
+		// FIX LEAK: usar gameplayTimers (no el manager global) para que el timer
+		// sea cancelado automáticamente si el estado se destruye antes de disparar.
+		// Con new FlxTimer() (global), el callback podía ejecutarse sobre PathsCache
+		// o GC tras el destroy(), causando accesos a memoria inválida.
+		new flixel.util.FlxTimer(gameplayTimers).start(0, function(_) {
 			funkin.cache.PathsCache.instance.flushGPUCache();
 			#if cpp
 			cpp.vm.Gc.run(true);
@@ -1389,7 +1393,11 @@ class PlayState extends funkin.states.MusicBeatState {
 					inputHandler.clearBuffer();
 				}
 
-				new FlxTimer().start(0.2, function(_) {
+				// FIX LEAK: usar gameplayTimers para que este timer no dispare sobre
+				// vocalsPerChar / FlxG.sound.music después de que el estado haya sido
+				// destruido. Con new FlxTimer() (global), el callback vivía 0.2 s más
+				// que el estado y causaba accesos a Map/FlxSound liberados.
+				new flixel.util.FlxTimer(gameplayTimers).start(0.2, function(_) {
 					if (FlxG.sound.music == null)
 						return;
 
@@ -2340,6 +2348,15 @@ class PlayState extends funkin.states.MusicBeatState {
 		canPause = false;
 		inCutscene = false;
 
+		// FIX: pauseMenu() desactiva gameplayTimers/gameplayTweens, y closeSubState()
+		// solo los reactiva si (paused == true). Como startRewindRestart() ya puso
+		// paused=false, closeSubState() no los reactiva → el FlxTimer de _finishRestart()
+		// nunca dispara y el juego queda congelado. Se reactivan aquí explícitamente.
+		if (gameplayTimers != null)
+			gameplayTimers.active = true;
+		if (gameplayTweens != null)
+			gameplayTweens.active = true;
+
 		for (slot in characterSlots) {
 			if (slot.character != null) {
 				slot.character.animation?.pause();
@@ -2520,6 +2537,12 @@ class PlayState extends funkin.states.MusicBeatState {
 
 		funkin.audio.CoreAudio.stopAll();
 
+		// FIX LEAK: onComplete = endSong es una closure que retiene 'this' (PlayState).
+		// Si CoreAudio mantiene una referencia al FlxSound después del stopAll(),
+		// el callback evita que el GC recoja el PlayState. Limpiar antes de nullear.
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.onComplete = null;
+
 		// FIX: detener silenciosamente cualquier video/cutscene activo al salir del PlayState.
 		// Sin esto, el MP4Handler sigue reproduciendo (y la capa de video permanece visible)
 		// aunque ya no haya un PlayState activo.
@@ -2665,6 +2688,16 @@ class PlayState extends funkin.states.MusicBeatState {
 		gf = null;
 		currentStage = null;
 
+		// FIX LEAK: onCinematicEnd puede ser asignado por scripts/mods externos.
+		// Si no se limpia, la closure retiene el objeto externo en memoria indefinidamente.
+		onCinematicEnd = null;
+
+		#if mobileC
+		// FIX LEAK: mobileControls es destruido por super.destroy() (vía el grupo),
+		// pero el campo seguía apuntando a la instancia destruida.
+		mobileControls = null;
+		#end
+
 		// Resumir el GC ANTES de super.destroy(): con el GC activo, el destructor
 		// de FlxTypedGroup liberará las notas del pool en el mismo frame.
 		if (_gcPausedForSong) {
@@ -2681,6 +2714,14 @@ class PlayState extends funkin.states.MusicBeatState {
 		playerStrums = null;
 		grpNoteSplashes = null;
 		grpHoldCovers = null;
+
+		// FIX LEAK: FlxG.cameras.reset() (llamado por super) destruye los objetos FlxCamera,
+		// pero los campos de PlayState seguían apuntando a esas instancias destruidas,
+		// reteniendo el grafo de objetos en memoria hasta que el GC barriera la raíz.
+		camGame = null;
+		camHUD = null;
+		camCountdown = null;
+		camSubtitles = null;
 
 		StickerTransition.invalidateCache();
 
