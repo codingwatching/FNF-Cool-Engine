@@ -147,6 +147,7 @@ class PlayState extends funkin.states.MusicBeatState {
 	// === CAMERAS ===
 	public var camGame:FlxCamera;
 	public var camHUD:FlxCamera;
+	public var camOther:FlxCamera;
 	public var camCountdown:FlxCamera;
 	public var camSubtitles:FlxCamera;
 
@@ -378,6 +379,7 @@ class PlayState extends funkin.states.MusicBeatState {
 		if (scriptsEnabled) {
 			ScriptHandler.setOnScripts('camGame', camGame);
 			ScriptHandler.setOnScripts('camHUD', camHUD);
+			ScriptHandler.setOnScripts('camOther', camOther);
 			ScriptHandler.setOnScripts('camCountdown', camCountdown);
 			ScriptHandler.setOnScripts('camSubtitles', camSubtitles);
 		}
@@ -423,7 +425,7 @@ class PlayState extends funkin.states.MusicBeatState {
 		optimizationManager.init();
 
 		funkin.optimization.RenderOptimizer.init();
-		funkin.optimization.RenderOptimizer.optimizeCameras(camGame, camHUD);
+		funkin.optimization.RenderOptimizer.optimizeCameras();
 
 		countdown.preload();
 
@@ -530,6 +532,8 @@ class PlayState extends funkin.states.MusicBeatState {
 		camGame = new FlxCamera();
 		camHUD = new FlxCamera();
 		camHUD.bgColor.alpha = 0;
+		camOther = new FlxCamera();
+		camOther.bgColor.alpha = 0;
 		camCountdown = new FlxCamera();
 		camCountdown.bgColor.alpha = 0;
 		camSubtitles = new FlxCamera();
@@ -545,6 +549,7 @@ class PlayState extends funkin.states.MusicBeatState {
 
 		FlxG.cameras.reset(camGame);
 		FlxG.cameras.add(camHUD, false);
+		FlxG.cameras.add(camOther, false);
 		FlxG.cameras.add(camCountdown, false);
 		FlxG.cameras.add(camSubtitles, false);
 	}
@@ -2357,6 +2362,8 @@ class PlayState extends funkin.states.MusicBeatState {
 		if (gameplayTweens != null)
 			gameplayTweens.active = true;
 
+		cameraController?.unfreeze();
+
 		for (slot in characterSlots) {
 			if (slot.character != null) {
 				slot.character.animation?.pause();
@@ -2394,6 +2401,11 @@ class PlayState extends funkin.states.MusicBeatState {
 			EventManager.rewindToStart();
 		if (cameraController != null)
 			cameraController.resetToInitial();
+
+		if (camGame != null)
+			camGame.zoom = cameraController != null ? cameraController.defaultZoom : 1.0;
+		if (camHUD != null)
+			camHUD.zoom = 1.0;
 		if (characterController != null)
 			characterController.forceIdleAll();
 		if (modChartManager != null)
@@ -2721,6 +2733,7 @@ class PlayState extends funkin.states.MusicBeatState {
 		camGame = null;
 		camHUD = null;
 		camCountdown = null;
+		camOther = null;
 		camSubtitles = null;
 
 		StickerTransition.invalidateCache();

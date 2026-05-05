@@ -3031,12 +3031,40 @@ class OffsetCalibrationState extends MusicBeatSubstate
 
 	var _cam:flixel.FlxCamera;
 
+	// ── Audio separado (solo cuando se abre desde gameplay/pause) ─────────────
+	/** FlxSound independiente para la música de calibración.
+	 *  Se usa en lugar de FlxG.sound.music cuando venimos de PlayState,
+	 *  para no destruir el Inst que está cargado allí. */
+	var _offsetSound:FlxSound = null;
+
+	/** Referencia al FlxG.sound.music original (Inst de PlayState) guardado
+	 *  antes de que el substate tome el control de audio. */
+	var _savedInst:FlxSound = null;
+
 	override function create()
 	{
 		super.create();
 		funkin.audio.SoundTray.blockInput = true; // No cambiar volumen con +/-
 
-		MusicManager.playWithFade(CLICK_MUSIC, 0.7, 4.0);
+		if (OptionsMenuState.fromPause)
+		{
+			// ── Modo gameplay: no tocar FlxG.sound.music (es el Inst de PlayState) ──
+			// Guardar la referencia al Inst actual para restaurarla al cerrar.
+			_savedInst = FlxG.sound.music;
+			if (_savedInst != null)
+				_savedInst.pause(); // silenciar mientras está abierto el calibrador
+
+			// Reproducir la música de calibración en un FlxSound APARTE,
+			// sin reemplazar FlxG.sound.music.
+			_offsetSound = FlxG.sound.load(Paths.music(CLICK_MUSIC), 0.0, true);
+			_offsetSound.play();
+			FlxTween.tween(_offsetSound, {volume: 0.7}, 4.0, {ease: FlxEase.linear});
+		}
+		else
+		{
+			// ── Modo menú normal: usar MusicManager como siempre ──
+			MusicManager.playWithFade(CLICK_MUSIC, 0.7, 4.0);
+		}
 
 		_cam = OptionsMenuState.fromPause ? FlxG.cameras.list[FlxG.cameras.list.length - 1] : FlxG.camera;
 
@@ -3242,6 +3270,7 @@ class OffsetCalibrationState extends MusicBeatSubstate
 			SaveData.flush();
 			FlxG.sound.play(Paths.sound('menus/cancelMenu'));
 			funkin.system.CursorManager.hide();
+			_cleanupOffsetSound();
 			if (!OptionsMenuState.fromPause)
 				MusicManager.playWithFade('configurator', 0.7, 4.0);
 			close();
@@ -3321,6 +3350,41 @@ class OffsetCalibrationState extends MusicBeatSubstate
 		SaveData.data.offset = 0;
 		_updateOffsetTxt();
 		FlxG.sound.play(Paths.sound('menus/cancelMenu'), 0.6);
+	}
+
+	// ── Limpieza de audio ─────────────────────────────────────────────────────
+
+	/**
+	 * Detiene y destruye el FlxSound separado de calibración (si existe),
+	 * y restaura FlxG.sound.music al Inst original de PlayState.
+	 * Es seguro llamarlo varias veces.
+	 */
+	function _cleanupOffsetSound():Void
+	{
+		if (_offsetSound != null)
+		{
+			_offsetSound.stop();
+			FlxG.sound.list.remove(_offsetSound, true);
+			_offsetSound.destroy();
+			_offsetSound = null;
+		}
+
+		// Restaurar el Inst de PlayState en FlxG.sound.music para que
+		// PlayState/PauseMenu lo encuentre intacto al volver.
+		if (_savedInst != null && OptionsMenuState.fromPause)
+		{
+			if (FlxG.sound.music != _savedInst)
+				FlxG.sound.music = _savedInst;
+			// No llamamos resume() aquí — el PauseMenu/PlayState lo decide.
+			_savedInst = null;
+		}
+	}
+
+	override function destroy():Void
+	{
+		// Garantizar limpieza aunque el substate se cierre de forma inesperada.
+		_cleanupOffsetSound();
+		super.destroy();
 	}
 
 	function _updateOffsetTxt():Void

@@ -518,6 +518,69 @@ class EventManager
 				final dur = v2 != '' ? Std.parseFloat(v2) : 0.5;
 				flixel.FlxG.camera.fade(col, Math.isNaN(dur) ? 0.5 : dur);
 
+			// Camera Pan: mueve suavemente la cámara a una posición de mundo.
+			// v1 = "worldX|worldY|duration|ease|keepLocked"  (multi-pipe, v2 siempre '')
+			case 'camera pan', 'pan camera', 'camera move', 'move camera':
+				if (game != null && game.cameraController != null)
+				{
+					final parts   = v1.split('|');
+					final tx      = Std.parseFloat(parts[0]);
+					final ty2     = parts.length > 1 ? Std.parseFloat(parts[1]) : Math.NaN;
+					final dur     = parts.length > 2 ? Std.parseFloat(parts[2]) : 0.6;
+					final ease    = parts.length > 3 ? parts[3].trim() : 'sineInOut';
+					final keepLock = parts.length > 4 && parts[4].trim() == 'true';
+					if (!Math.isNaN(tx) && !Math.isNaN(ty2))
+					{
+						var easeFunc:Null<Float->Float> = Reflect.field(flixel.tweens.FlxEase, ease);
+						game.cameraController.panTo(tx, ty2,
+							(Math.isNaN(dur) || dur <= 0) ? 0.001 : dur,
+							easeFunc ?? flixel.tweens.FlxEase.sineInOut,
+							keepLock);
+					}
+				}
+
+			// Camera Angle: rota la cámara a los grados indicados, opcionalmente con tween.
+			// v1 = "angle|duration|ease"  (multi-pipe, v2 siempre '')
+			case 'camera angle', 'angle camera', 'rotate camera', 'camera rotate':
+				if (game != null && game.cameraController != null)
+				{
+					final parts = v1.split('|');
+					final angle = Std.parseFloat(parts[0]);
+					final dur   = parts.length > 1 ? Std.parseFloat(parts[1]) : 0.0;
+					final ease  = parts.length > 2 ? parts[2].trim() : 'sineInOut';
+					if (!Math.isNaN(angle))
+					{
+						if (!Math.isNaN(dur) && dur > 0)
+						{
+							var easeFunc:Null<Float->Float> = Reflect.field(flixel.tweens.FlxEase, ease);
+							game.cameraController.rotateTo(angle, dur,
+								easeFunc ?? flixel.tweens.FlxEase.sineInOut);
+						}
+						else
+						{
+							game.cameraController.setAngle(angle);
+						}
+					}
+				}
+
+			// Camera Lock: bloquea la cámara en la posición actual o en x|y si se proveen.
+			// v1 = "x|y"  (vacío o '-1' = usar posición actual de la cámara)
+			case 'camera lock', 'lock camera':
+				if (game != null && game.cameraController != null)
+				{
+					final parts = v1.split('|');
+					final lx = parts.length > 0 && parts[0].trim() != '' ? Std.parseFloat(parts[0]) : Math.NaN;
+					final ly = parts.length > 1 && parts[1].trim() != '' ? Std.parseFloat(parts[1]) : Math.NaN;
+					final cx:Null<Float> = Math.isNaN(lx) ? null : lx;
+					final cy:Null<Float> = Math.isNaN(ly) ? null : ly;
+					game.cameraController.lock(cx, cy);
+				}
+
+			// Camera Unlock: reactiva el follow de la cámara al personaje actual.
+			case 'camera unlock', 'unlock camera', 'camera free', 'free camera':
+				if (game != null && game.cameraController != null)
+					game.cameraController.unlock();
+
 			// -- BPM ------------------------------------------------------
 			case 'bpm change', 'change bpm':
 				final bpm = Std.parseFloat(v1);

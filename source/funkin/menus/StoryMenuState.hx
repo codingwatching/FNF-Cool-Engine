@@ -134,7 +134,12 @@ class StoryMenuState extends funkin.states.MusicBeatState
 		rankText.size = scoreText.size;
 		rankText.screenCenter(X);
 
-		yellowBG = new FlxSprite(0, 56).makeGraphic(FlxG.width, 404, 0xFFFFFFFF);
+		// FIX: Inicializar yellowBG directamente con el color real de la semana 0.
+		// Evita el tint multiplicativo (yellowBG.color) que no es fiable en targets
+		// C++/HL cuando el sprite acaba de ser creado con makeGraphic.
+		var _initialBGColor:FlxColor = (weekColors != null && weekColors.length > 0) ? weekColors[0] : 0xFFFFD900;
+		yellowBG = new FlxSprite(0, 56);
+		yellowBG.makeGraphic(FlxG.width, 404, _initialBGColor);
 		inverted = new FlxSprite(0, 56).makeGraphic(FlxG.width, 400, 0xFFF9CF51);
 
 		blackBarThingie = new FlxSprite().makeGraphic(FlxG.width, 56, FlxColor.BLACK);
@@ -163,10 +168,6 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			bg.makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		add(bg);
 		bg.color = 0xFF0A0A0A;
-
-		// Aplicar color de la semana inicial al yellowBG
-		if (weekColors.length > 0)
-			yellowBG.color = weekColors[0];
 
 		persistentUpdate = persistentDraw = true;
 
@@ -446,15 +447,40 @@ class StoryMenuState extends funkin.states.MusicBeatState
 			weekUnlocked.push(!(week.locked == true));
 			weekCharacters.push((week.weekCharacters != null && week.weekCharacters.length >= 3) ? week.weekCharacters : ['', 'bf', 'gf']);
 
-			final colorStr = week.color ?? '0xFFFFD900';
-			final colorInt:Null<Int> = Std.parseInt(colorStr);
-			var color:FlxColor = (colorInt != null && colorInt != 0) ? (colorInt : FlxColor) : (0xFFFFD900 : FlxColor);
-			color.alpha = 255;
-			weekColors.push(color);
+			weekColors.push(_parseWeekColor(week.color));
 		}
 
 		bgcol = weekColors.length > 0 ? weekColors[0] : 0xFF0A0A0A;
 		trace('[StoryMenuState] ${weekData.length} weeks built.');
+	}
+
+	/**
+	 * Parsea un string de color hex ("0xFFAF66CE" o "#AF66CE") a FlxColor de forma fiable.
+	 * Evita el problema de Std.parseInt con enteros con signo en targets C++/HL.
+	 */
+	static function _parseWeekColor(raw:Null<String>):FlxColor
+	{
+		if (raw == null) return cast 0xFFFFD900;
+		var s = raw.trim();
+		// Quitar prefijo
+		if (s.startsWith("0x") || s.startsWith("0X")) s = s.substr(2);
+		else if (s.startsWith("#")) s = s.substr(1);
+		if (s.length == 0) return cast 0xFFFFD900;
+		// Parsear manualmente como hex sin signo para evitar overflow en Int de 32 bits
+		var result:Int = 0;
+		for (i in 0...s.length)
+		{
+			var c = s.charCodeAt(i);
+			var digit:Int =
+				(c >= '0'.code && c <= '9'.code) ? c - '0'.code :
+				(c >= 'a'.code && c <= 'f'.code) ? c - 'a'.code + 10 :
+				(c >= 'A'.code && c <= 'F'.code) ? c - 'A'.code + 10 : -1;
+			if (digit < 0) return cast 0xFFFFD900; // caracter inválido → fallback
+			result = (result << 4) | digit;
+		}
+		// Si el color no tenía canal alpha (6 dígitos), forzar alpha = 0xFF
+		if (s.length <= 6) result = (result & 0x00FFFFFF) | 0xFF000000;
+		return cast result;
 	}
 
 	// === FUNCIÓN DE FALLBACK PARA CARGAR SEMANAS POR DEFECTO ===
@@ -533,23 +559,31 @@ class StoryMenuState extends funkin.states.MusicBeatState
 					trace("ERROR: Failed to update week title: " + e);
 				}
 
-				// BUGFIX: Antes se asignaba yellowBG.color directamente cada frame,
-				// lo que no producía transición suave y podía verse como blanco/negro
-				// si el color llegaba null o con un valor inesperado.
-				// Ahora solo se lanza un FlxTween.color cuando cambia la semana.
+				// FIX: Usar pixels.fillRect para la transición de color del fondo.
+				// FlxTween.color y yellowBG.color son tint multiplicativos — no fiables
+				// en targets C++/HL. fillRect reescribe los píxeles reales del bitmap,
+				// garantizando el color correcto en todos los targets.
 				if (yellowBG != null && curWeek >= 0 && curWeek < weekColors.length && curWeek != _lastColoredWeek)
 				{
 					_lastColoredWeek = curWeek;
-					var targetColor:Null<FlxColor> = weekColors[curWeek];
-					if (targetColor == 0 || targetColor == null)
-						targetColor = 0xFFFFD900; // fallback si el color parseado es inválido
+					var targetColor:FlxColor = weekColors[curWeek];
+					if (targetColor == 0) targetColor = 0xFFFFD900;
 					if (_bgColorTween != null)
 					{
 						_bgColorTween.cancel();
 						_bgColorTween = null;
 					}
-					_bgColorTween = FlxTween.color(yellowBG, 0.35, yellowBG.color, targetColor,
-						{ease: FlxEase.quartOut, onComplete: function(_) _bgColorTween = null});
+					var startColor:FlxColor = cast yellowBG.pixels.getPixel32(0, 0);
+					_bgColorTween = FlxTween.num(0, 1, 0.35, {ease: FlxEase.quartOut, onComplete: function(_) _bgColorTween = null},
+						function(t:Float)
+						{
+							var blended:FlxColor = FlxColor.interpolate(startColor, targetColor, t);
+							yellowBG.pixels.fillRect(
+								new openfl.geom.Rectangle(0, 0, yellowBG.width, yellowBG.height),
+								blended
+							);
+							yellowBG.dirty = true;
+						});
 				}
 			}
 			else if (curWeek >= weekNames.length)

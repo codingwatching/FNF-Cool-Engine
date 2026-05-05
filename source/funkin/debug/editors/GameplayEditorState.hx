@@ -2583,6 +2583,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		_iLabel('Dur(steps):', ix + Std.int(iw * 0.63), ty + 3, C_SUBTEXT, Std.int(iw * 0.37));
 		ipEventDur = _iStepper(ix + Std.int(iw * 0.63), ty + 14, Std.int(iw * 0.37), evt.duration ?? 4.0, 1, 9999, 1, function(v:Float) {
 			evt.duration = v;
+			_syncValueDurFromSteps(evt); // keep evt.value seconds in sync
 			_pushUndo();
 			_rebuildEventBlocks();
 		});
@@ -2846,6 +2847,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					p[3] = Std.string(Math.round(v * 100) / 100.0);
 					evt.value = p.join('|');
 					hasUnsaved = true; _updateUnsavedDot();
+					_syncStepsFromValueDur(evt); // update block width to match seconds
 				});
 			ty += 26;
 
@@ -2909,6 +2911,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					p[1] = Std.string(Math.round(v * 100) / 100.0);
 					evt.value = p.join('|');
 					hasUnsaved = true; _updateUnsavedDot();
+					_syncStepsFromValueDur(evt); // update block width to match seconds
 				});
 			ty += 26;
 
@@ -2941,6 +2944,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					p[1] = Std.string(Math.round(v * 100) / 100.0);
 					evt.value = p.join('|');
 					hasUnsaved = true; _updateUnsavedDot();
+					_syncStepsFromValueDur(evt); // update block width to match seconds
 				});
 			ty += 26;
 		}
@@ -2970,6 +2974,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					p[1] = Std.string(Math.round(v * 100) / 100.0);
 					evt.value = p.join('|');
 					hasUnsaved = true; _updateUnsavedDot();
+					_syncStepsFromValueDur(evt); // update block width to match seconds
 				});
 			ty += 26;
 		}
@@ -3058,6 +3063,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 					p[2] = Std.string(Math.round(v * 100) / 100.0);
 					evt.value = p.join('|');
 					hasUnsaved = true; _updateUnsavedDot();
+					_syncStepsFromValueDur(evt); // update block width to match seconds
 				});
 			ty += 26;
 
@@ -4281,6 +4287,7 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 				for (e in (pseData.events ?? [])) {
 					if (e.id == _resizeEvent.eventId) {
 						e.duration = newDur;
+						_syncValueDurFromSteps(e); // keep evt.value seconds in sync
 						break;
 					}
 				}
@@ -5072,6 +5079,66 @@ class GameplayEditorState extends funkin.states.MusicBeatState {
 		if (cs.length < 2)
 			cs = '0' + cs;
 		return '$m:$ss.$cs';
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	//  DURATION SYNC — keeps evt.duration (steps/visual) ↔ evt.value seconds
+	// ─────────────────────────────────────────────────────────────────────────
+
+	/**
+	 * Returns the pipe index inside evt.value that holds the tween duration
+	 * in seconds for the given camera event type.
+	 * Returns -1 for types that have no such field (Lock, Unlock, Zoom).
+	 *
+	 *   Camera Follow → index 3  ("target|offX|offY|dur|ease")
+	 *   Camera Angle  → index 1  ("angle|dur|ease")
+	 *   Camera Shake  → index 1  ("intensity|dur")
+	 *   Camera Flash  → index 1  ("color|dur")
+	 *   Camera Pan    → index 2  ("x|y|dur|ease|keepLocked")
+	 */
+	private function _evtDurPipeIdx(type:String):Int {
+		return switch (type.toLowerCase().trim()) {
+			case 'camera follow' | 'camera': 3;
+			case 'camera angle'  | 'angle camera' | 'rotate camera' | 'camera rotate': 1;
+			case 'camera shake'  | 'shake camera': 1;
+			case 'camera flash'  | 'flash camera' | 'flash': 1;
+			case 'camera pan'    | 'pan camera' | 'camera move' | 'move camera': 2;
+			default: -1;
+		};
+	}
+
+	/**
+	 * Converts evt.duration (steps) to seconds and writes it into the correct
+	 * pipe field of evt.value. Call this whenever evt.duration changes via
+	 * resize or the "Dur(steps)" stepper in the inspector.
+	 */
+	private function _syncValueDurFromSteps(evt:PSEEvent):Void {
+		var idx = _evtDurPipeIdx(evt.type);
+		if (idx < 0) return;
+		var secs = Math.round((evt.duration * Conductor.stepCrochet / 1000.0) * 1000) / 1000.0;
+		var p = (evt.value ?? '').split('|');
+		while (p.length <= idx) p.push('');
+		p[idx] = Std.string(secs);
+		evt.value = p.join('|');
+	}
+
+	/**
+	 * Reads the duration-in-seconds from evt.value and converts it to steps,
+	 * writing the result back to evt.duration and refreshing the "Dur(steps)"
+	 * stepper widget. Call this whenever a Duration(s) inspector field changes.
+	 */
+	private function _syncStepsFromValueDur(evt:PSEEvent):Void {
+		var idx = _evtDurPipeIdx(evt.type);
+		if (idx < 0) return;
+		var p = (evt.value ?? '').split('|');
+		if (p.length <= idx) return;
+		var secs = Std.parseFloat(p[idx]);
+		if (Math.isNaN(secs) || secs < 0) return;
+		var steps = Math.max(1, Math.round(secs * 1000.0 / Conductor.stepCrochet));
+		evt.duration = steps;
+		if (ipEventDur != null)
+			ipEventDur.value = steps;
+		_rebuildEventBlocks();
 	}
 
 	function _showStatus(msg:String, dur:Float = 3.5):Void {

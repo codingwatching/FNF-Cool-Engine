@@ -176,10 +176,15 @@ class RenderOptimizer
 	 * - gameCam: cámara del escenario
 	 * - hudCam : cámara del HUD (puede ser null)
 	 */
-	public static function optimizeCameras(gameCam:FlxCamera, ?hudCam:FlxCamera):Void
+	public static function optimizeCameras():Void
 	{
-		if (gameCam != null) CameraUtil.pruneEmptyFilters(gameCam);
-		if (hudCam  != null) CameraUtil.pruneEmptyFilters(hudCam);
+		for (cam in FlxG.cameras.list)
+		{
+			if (cam != null)
+			{
+				CameraUtil.pruneEmptyFilters(cam);
+			}
+		}
 	}
 
 	/**

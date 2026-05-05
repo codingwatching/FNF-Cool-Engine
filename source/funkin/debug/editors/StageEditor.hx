@@ -261,6 +261,10 @@ class StageEditor extends funkin.states.MusicBeatState
 	/** Asset path widgets (label + input + browse btn); hidden for types that have no external asset (graphic, group). */
 	var _assetWidgets:Array<flixel.FlxBasic> = [];
 
+	// ── Stepper polling (CoolNumericStepper has no onChange; we diff each frame) ─
+	var _prevElemStepperValues:Array<Float> = [];
+	var _prevSelectedIdx:Int = -2; // sentinel that never matches a real idx on init
+
 	// ── Drag ─────────────────────────────────────────────────────────────────
 	var isDraggingEl:Bool = false;
 	var isDraggingChar:Bool = false;
@@ -2042,8 +2046,6 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Y', 130, y);
 		elemXStepper = new CoolNumericStepper(8,   y + 10, 10, 0, -4000, 4000, 0);
 		elemYStepper = new CoolNumericStepper(130, y + 10, 10, 0, -4000, 4000, 0);
-		elemXStepper.onChange = function(v) _applyPropsLive();
-		elemYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemXStepper);
 		tab.add(elemYStepper);
 		y += 26;
@@ -2053,8 +2055,6 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Scale Y', 130, y);
 		elemScaleXStepper = new CoolNumericStepper(8,   y + 10, 0.1, 1, 0.01, 20, 2);
 		elemScaleYStepper = new CoolNumericStepper(130, y + 10, 0.1, 1, 0.01, 20, 2);
-		elemScaleXStepper.onChange = function(v) _applyPropsLive();
-		elemScaleYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemScaleXStepper);
 		tab.add(elemScaleYStepper);
 		y += 26;
@@ -2064,8 +2064,6 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Z-Index', 130, y);
 		elemAngleStepper  = new CoolNumericStepper(8,   y + 10, 1,  0, -360, 360, 1);
 		elemZIndexStepper = new CoolNumericStepper(130, y + 10, 1,  0, -100, 100, 0);
-		elemAngleStepper.onChange  = function(v) _applyPropsLive();
-		elemZIndexStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemAngleStepper);
 		tab.add(elemZIndexStepper);
 		y += 26;
@@ -2075,8 +2073,6 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Scroll Y', 130, y);
 		elemScrollXStepper = new CoolNumericStepper(8,   y + 10, 0.1, 1, 0, 5, 2);
 		elemScrollYStepper = new CoolNumericStepper(130, y + 10, 0.1, 1, 0, 5, 2);
-		elemScrollXStepper.onChange = function(v) _applyPropsLive();
-		elemScrollYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemScrollXStepper);
 		tab.add(elemScrollYStepper);
 		y += 28;
@@ -2093,7 +2089,6 @@ class StageEditor extends funkin.states.MusicBeatState
 		lbl('Color (hex)', 130, y);
 		elemAlphaStepper = new CoolNumericStepper(8,   y + 10, 0.05, 1, 0, 1, 2);
 		elemColorInput   = new CoolInputText(130, y + 10, 110, '#FFFFFF', 10);
-		elemAlphaStepper.onChange = function(v) _applyPropsLive();
 		tab.add(elemAlphaStepper);
 		tab.add(elemColorInput);
 		y += 26;
@@ -2222,8 +2217,6 @@ class StageEditor extends funkin.states.MusicBeatState
 		_backdropWidgets.push(bdVLblY);
 		backdropVelXStepper = new CoolNumericStepper(8,   y + 10, 5, 0, -500, 500, 1);
 		backdropVelYStepper = new CoolNumericStepper(130, y + 10, 5, 0, -500, 500, 1);
-		backdropVelXStepper.onChange = function(v) _applyPropsLive();
-		backdropVelYStepper.onChange = function(v) _applyPropsLive();
 		tab.add(backdropVelXStepper);
 		tab.add(backdropVelYStepper);
 		_backdropWidgets.push(backdropVelXStepper);
@@ -2704,6 +2697,7 @@ class StageEditor extends funkin.states.MusicBeatState
 
 		handleKeyboard();
 		handleCameraMovement(elapsed);
+		_pollElementSteppers();
 		handleLayerPanelClick();
 		handleLayerDrag();
 		handleCanvasDrag();
@@ -2748,6 +2742,46 @@ class StageEditor extends funkin.states.MusicBeatState
 			animListBg.visible = _animTabVisible;
 		if (animListText != null)
 			animListText.visible = _animTabVisible;
+	}
+
+	/**
+	 * CoolNumericStepper exposes no onChange callback, so we diff stepper values
+	 * each frame and call _applyPropsLive() whenever any element-property stepper changes.
+	 */
+	function _pollElementSteppers():Void
+	{
+		// Only relevant when an element is selected and the context panel is open
+		if (selectedIdx < 0 || selectedIdx >= stageData.elements.length) return;
+
+		var steppers:Array<CoolNumericStepper> = [
+			elemXStepper, elemYStepper,
+			elemScaleXStepper, elemScaleYStepper,
+			elemAngleStepper, elemZIndexStepper,
+			elemScrollXStepper, elemScrollYStepper,
+			elemAlphaStepper,
+			backdropVelXStepper, backdropVelYStepper
+		];
+
+		// Seed (or re-seed on selection change) so we never fire a spurious apply
+		// on the first frame of a new selection.
+		if (_prevElemStepperValues.length == 0 || selectedIdx != _prevSelectedIdx)
+		{
+			_prevSelectedIdx = selectedIdx;
+			_prevElemStepperValues = [for (s in steppers) (s != null ? s.value : 0.0)];
+			return;
+		}
+
+		var changed = false;
+		for (i in 0...steppers.length)
+		{
+			var v = steppers[i] != null ? steppers[i].value : 0.0;
+			if (v != _prevElemStepperValues[i])
+			{
+				_prevElemStepperValues[i] = v;
+				changed = true;
+			}
+		}
+		if (changed) _applyPropsLive();
 	}
 
 	function handleKeyboard():Void
@@ -5735,8 +5769,17 @@ class NewStageSubState extends flixel.FlxSubState
 
 	override function close():Void
 	{
-		if (_camSub != null) { FlxG.cameras.remove(_camSub, true); _camSub = null; }
 		super.close();
+	}
+
+	override function destroy():Void
+	{
+		if (_camSub != null)
+		{
+			FlxG.cameras.remove(_camSub, true);
+			_camSub = null;
+		}
+		super.destroy();
 	}
 
 	override function update(elapsed:Float):Void
@@ -6101,8 +6144,17 @@ class StageListSubState extends flixel.FlxSubState
 
 	override function close():Void
 	{
-		if (_camSub != null) { FlxG.cameras.remove(_camSub, true); _camSub = null; }
 		super.close();
+	}
+
+	override function destroy():Void
+	{
+		if (_camSub != null)
+		{
+			FlxG.cameras.remove(_camSub, true);
+			_camSub = null;
+		}
+		super.destroy();
 	}
 }
 
@@ -6514,12 +6566,17 @@ class AddElementSubState extends flixel.FlxSubState
 	}
 	override function close():Void
 	{
+		super.close();
+	}
+
+	override function destroy():Void
+	{
 		if (_camSub != null)
 		{
 			FlxG.cameras.remove(_camSub, true);
 			_camSub = null;
 		}
-		super.close();
+		super.destroy();
 	}
 
 	override function update(elapsed:Float):Void
