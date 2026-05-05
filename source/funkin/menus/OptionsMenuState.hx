@@ -5,6 +5,7 @@ import data.Discord.DiscordClient;
 #end
 import funkin.scripting.StateScriptHandler;
 import funkin.gameplay.controls.CustomControlsState;
+import flixel.sound.FlxSound;
 import funkin.gameplay.notes.NoteSkinOptions;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
