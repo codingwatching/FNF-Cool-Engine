@@ -124,6 +124,8 @@ class AddSongSubState extends FlxSubState
 	// ── Step containers (groups that get shown/hidden) ─────────────────────
 	var stepGroups:Array<FlxTypedGroup<Dynamic>> = [];
 	var currentStep:Int = STEP_FILES;
+	/** Guard para evitar que _goStep se dispare varias veces durante una transición. */
+	var _transitioning:Bool = false;
 
 	/**
 	 * Posiciones X originales de cada objeto en cada step group.
@@ -1757,6 +1759,7 @@ class AddSongSubState extends FlxSubState
 
 	function _goStep(step:Int):Void
 	{
+		if (_transitioning) return;
 		if (step < 1 || step > TOTAL_STEPS) return;
 
 		// Validación al avanzar del paso 1
@@ -1797,6 +1800,7 @@ class AddSongSubState extends FlxSubState
 		var oldIndex  = currentStep - 1;
 		var newIndex  = step - 1;
 
+		_transitioning = true;
 		_slideOut(oldGroup, oldIndex, dir, function()
 		{
 			_setGroupVisible(oldGroup, false);
@@ -1805,6 +1809,7 @@ class AddSongSubState extends FlxSubState
 			_restoreOrigX(oldIndex);
 			_showStep(step);
 			_slideIn(newGroup, newIndex, dir);
+			_transitioning = false;
 		});
 	}
 
