@@ -43,31 +43,11 @@ import funkin.util.plugins.TouchPointerPlugin;
 
 using StringTools;
 
-/**
- * Main — punto de entrada de Cool Engine.
- *
- * ─── Orden de inicialización ─────────────────────────────────────────────────
- *  1. DPI-awareness + dark mode (antes de cualquier ventana)
- *  2. GC tuning (antes de cargar nada)
- *  3. Stage config
- *  4. AudioConfig.load() (antes de createGame → antes de que OpenAL se init)
- *  5. CrashHandler, DebugConsole
- *  6. createGame() → FlxG disponible
- *  7. AudioConfig.applyToFlixel()
- *  8. WindowManager.init() → suscripción a resize, scale mode
- *  9. Sistemas que dependen de FlxG (save, keybinds, nota skins…)
- * 10. UI overlays
- * 11. SystemInfo.init() (necesita context3D → después del primer frame)
- *
- * @author Cool Engine Team
- * @version 0.6.0
- */
 class Main extends Sprite
 {
-	// ── Configuración del juego ────────────────────────────────────────────────
 	private static inline var GAME_WIDTH:Int = 1280;
 	private static inline var GAME_HEIGHT:Int = 720;
-	private static inline var BASE_FPS:Int = 2000; // FlxGame construye con este valor para no bloquear FPS reales
+	private static inline var BASE_FPS:Int = 2000;
 
 	private var gameWidth:Int = GAME_WIDTH;
 	private var gameHeight:Int = GAME_HEIGHT;
@@ -81,13 +61,9 @@ class Main extends Sprite
 	// ── UI ────────────────────────────────────────────────────────────────────
 	public final data:DataInfoUI = new DataInfoUI(10, 3);
 
-	// ── Versiones ─────────────────────────────────────────────────────────────
-	public static inline var ENGINE_VERSION:String = "0.6.0B";
+	// Version
+	public static inline var ENGINE_VERSION:String = "0.6.1B";
 
-	/** Factor de escala para compensar resoluciones mayores a 720p.
-	 *  En 720p  → 1.0   (sin cambio)
-	 *  En 1080p → 1.5   (1920/1280)
-	 *  Úsalo para escalar defaultZoom y posiciones absolutas en HUD. */
 	public static inline var BASE_WIDTH:Int = 1280;
 	public static function resolutionScale():Float
 		return (FlxG.width > 0) ? FlxG.width / BASE_WIDTH : 1.0;
@@ -98,15 +74,10 @@ class Main extends Sprite
 	static function __init__():Void
 	{
 		#if (windows && cpp)
-		// DPI-awareness: debe llamarse antes de cualquier ventana para que
-		// Windows no escale el framebuffer en monitores HiDPI.
 		InitAPI.setDPIAware();
 		#end
 
 		#if (linux && cpp)
-		// GTK_THEME debe establecerse antes de que SDL/Lime inicialice GTK.
-		// Una vez creada la ventana el putenv ya no tiene efecto sobre la
-		// sesion actual, por eso se hace aqui y no en setupStage.
 		InitAPI.setDarkMode(true);
 		#end
 	}
@@ -146,27 +117,13 @@ class Main extends Sprite
 		stage.quality = openfl.display.StageQuality.LOW;
 
 		#if cpp
-		// 32 MB de headroom: el GC espera a tener menos de 32 MB libres antes
-		// de barrer. Con 8 MB el heap fragmentaba en muchas páginas pequeñas
-		// causando que MEM_INFO_RESERVED subiera a ~200 MB innecesariamente.
-		// Con 32 MB el heap crece en bloques más grandes y compact() devuelve
-		// mucha más RAM al OS después de la carga inicial.
 		cpp.vm.Gc.setMinimumFreeSpace(32 * 1024 * 1024);
 		cpp.vm.Gc.enable(true);
 		#end
 
 		#if (windows && cpp)
-		// FIX (PC): GetActiveWindow() devuelve NULL si la ventana del juego todavia
-		// no tiene el foco del teclado en el momento de setupStage().  Esto ocurre
-		// de forma intermitente (ventanas multiples, alt-tab durante el inicio, etc.)
-		// y hace que DwmSetWindowAttribute() no aplique el color ni el dark mode.
-		// Diferir al primer ENTER_FRAME garantiza que la ventana ya existe y tiene
-		// foco antes de llamar a la API de DWM.  Si en el primer frame todavia no
-		// hay HWND valido, _applyWindowStylingDeferred reintenta hasta 5 veces.
 		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _applyWindowStylingDeferred);
 		#elseif (mac && cpp)
-		// macOS: NSApp esta disponible desde el arranque, pero diferimos igualmente
-		// al primer frame para que la ventana ya este visible al aplicar la apariencia.
 		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _applyWindowStylingDeferred);
 		#end
 	}
@@ -175,33 +132,18 @@ class Main extends Sprite
 	{
 		calculateZoom();
 
-		// FIX (mobile): el valor por defecto de `framerate` es BASE_FPS=2000.
-		// FlxGame se construye con ese valor → stage.frameRate=2000 → el GPU de
-		// Android/iOS intenta renderizar 2000 veces/segundo → 1 FPS real y el
-		// despachador de eventos de Lime no procesa los callbacks async de
-		// OpenFlAssets.loadBitmapData / loadSound → la barra se queda en 0% para
-		// siempre.  initializeFramerate() llama setMaxFps(60) DESPUÉS de
-		// createGame(), pero eso llega tarde.  Limitamos a 60 fps ANTES de
-		// construir FlxGame para evitar el burst inicial.
 		#if mobileC
 		framerate = 60;
 		#end
 
-		// ── Audio (ANTES de createGame) ────────────────────────────────────────
 		AudioConfig.load();
 
-		// ── CrashHandler ──────────────────────────────────────────────────────
 		CrashHandler.init();
 
-		// ── Juego ─────────────────────────────────────────────────────────────
 		createGame();
 		FunkinCache.init();
 		AudioConfig.applyToFlixel();
-		// FIX: StickerTransition.init() creates a new FlxCamera internally.
-		// On Android the OpenGL context (context3D) is not ready until after the
-		// first rendered frame — creating GPU-backed objects here crashes the
-		// Mali/Adreno driver. We defer to the first ENTER_FRAME on mobile,
-		// exactly as we already do for FunkinCameraFrontEnd and SystemInfo.
+
 		#if !mobileC
 		StickerTransition.init();
 		#else
@@ -211,24 +153,11 @@ class Main extends Sprite
 		// ── WindowManager ──────────────────────────────────────────────────────
 		WindowManager.init(/* mode    */ LETTERBOX, /* minW    */ 960, /* minH    */ 540, /* baseW   */ GAME_WIDTH, /* baseH   */ GAME_HEIGHT);
 
-		// ── FIX (Android widescreen): display cutout / notch support ──────────
-		// Móviles modernos tienen un recorte en pantalla (punch-hole/notch) que en
-		// landscape queda en el lateral izquierdo. Sin este fix, Android restringe
-		// el área de render a la "safe area" (excluye el notch), causando que el
-		// juego aparezca desplazado a la derecha con una franja negra a la izquierda.
-		// _applyAndroidCutoutMode() usa JNI para activar
-		// LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES (API 28+), que permite que el
-		// juego renderice detrás del recorte y ocupe toda la pantalla física.
-		// Se difiere al primer ENTER_FRAME porque la ventana Android necesita estar
-		// completamente inicializada (el contexto EGL ya está listo) para que el
-		// cambio de WindowManager.LayoutParams tenga efecto.
+		// Fix for widescreen - Android
 		#if android
 		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _applyCutoutDeferred);
 		#end
 
-		// ── FIX: Tamaño inicial de ventana más grande (solo desktop) ──────────
-		// En Android window.resize() interfiere con la superficie SDL y puede
-		// provocar que el contexto EGL quede en estado inválido.
 		#if (desktop && !html5)
 		if (lime.app.Application.current?.window != null)
 		{
@@ -237,12 +166,9 @@ class Main extends Sprite
 		}
 		#end
 
-		// ── Sistemas que dependen de FlxG ─────────────────────────────────────
 		initializeSaveSystem();
 		initializeGameSystems();
-		// Capturas de pantalla — DEBE ir después de initializeGameSystems() para
-		// que el save y los keybinds ya estén cargados antes de que el plugin
-		// empiece a leer controles (evita capturas en el frame 0 por null key).
+
 		funkin.util.plugins.ScreenshotPlugin.initialize();
 		initializeFramerate();
 		Main.applyVSync();
@@ -250,12 +176,11 @@ class Main extends Sprite
 
 		// ── UI overlays ───────────────────────────────────────────────────────
 		addChild(data);
-		// CoreAudio PRIMERO: carga el save (masterVolume/muted) para que
-		// SoundTray.loadVolume() lea valores correctos al construirse.
+
 		funkin.audio.CoreAudio.initialize();
 		FlxG.plugins.add(new SoundTray());
 		disableDefaultSoundTray();
-		// V-Slice style: plugin de volumen rebindable.
+
 		funkin.audio.VolumePlugin.initialize();
 
 		// save volume
@@ -267,38 +192,23 @@ class Main extends Sprite
 		stage.addEventListener(openfl.events.Event.CLOSE, _saveVolumeOnExit);
 		#end
 
-		// ── BUGFIX (Flixel git): forzar curva de volumen lineal ───────────────
-		// CoreAudio gestiona su propio volumen directamente sobre FlxSound.volume,
-		// pero dejamos la curva lineal por si algún SFX usa FlxG.sound.play().
 		FlxG.sound.applySoundCurve  = function(v:Float) return v;
 		FlxG.sound.reverseSoundCurve = function(v:Float) return v;
 
-		// ── FIX (mobile): pantalla negra al volver a la app ──────────────────
-		// En Android/iOS, cuando el OS manda la app a segundo plano y el usuario
-		// vuelve, la superficie EGL puede quedar invalidada.  OpenFL debería
-		// restaurarla automáticamente en el evento ACTIVATE, pero si el juego
-		// estaba congelado (p.ej. por la race condition del framerate de 2000fps)
-		// el handler interno de Lime nunca se ejecutó correctamente.
-		// Forzar stage.invalidate() + re-aplicar framerate en ACTIVATE asegura
-		// que el render pipeline se reanuda con parámetros correctos.
 		#if mobileC
 		stage.addEventListener(openfl.events.Event.ACTIVATE, _onMobileActivate);
 		#end
 
 		// ── Mods ──────────────────────────────────────────────────────────────
 		#if android
-		// En Android 6+ hay que pedir permisos de almacenamiento en runtime.
-		// Sin esto el FileSystem no puede leer /sdcard/Android/data/.../files/mods/
 		_requestAndroidStoragePermission(function() {
 			mods.ModManager.init();
 			mods.ModManager.applyStartupMod();
-			// ── Addons (después de mods para que puedan leer la carpeta activa) ──
 			AddonManager.init();
 		});
 		#else
 		mods.ModManager.init();
 		mods.ModManager.applyStartupMod();
-		// ── Addons (después de mods para que puedan leer la carpeta activa) ────
 		AddonManager.init();
 		#end
 		WindowManager.applyModBranding(mods.ModManager.activeInfo());
@@ -307,24 +217,14 @@ class Main extends Sprite
 		#end
 		mods.ModManager.onModChanged = function(newMod:Null<String>)
 		{
-			// Limpiar cache de assets del mod anterior
 			Paths.forceClearCache();
 			funkin.gameplay.objects.character.CharacterList.reload();
 			MemoryUtil.collectMajor();
 			trace('[Main] Cache cleaned. Mod active → ${newMod ?? "base"}');
 
-			// BUG FIX: recargar scripts globales del nuevo mod.
-			// Sin esto, los scripts del mod anterior siguen activos y los del nuevo
-			// no se cargan → funciones de mod ausentes, variables incorrectas, crashes.
 			funkin.scripting.ScriptHandler.clearAll();
 			funkin.scripting.ScriptHandler.loadGlobalScripts();
 
-			// BUG FIX: reiniciar el sistema de skins al cambiar de mod.
-			// Sin esto ocurren 3 problemas:
-			//   1. availableSkins sigue teniendo las skins del mod anterior.
-			//   2. Las skins del nuevo mod no se descubren.
-			//   3. Los scripts Lua de skin del mod anterior (skinScripts/splashScripts)
-			//      siguen activos y pueden ejecutar código del mod equivocado.
 			funkin.gameplay.notes.NoteSkinSystem.destroyScripts();
 			funkin.gameplay.notes.NoteSkinSystem.forceReinit();
 
@@ -339,25 +239,10 @@ class Main extends Sprite
 		DiscordClient.initialize();
 		#end
 
-		// ── FunkinCamera frontend ─────────────────────────────────────────────
-		// DEBE hacerse aquí, DESPUÉS de createGame() pero ANTES del primer
-		// ENTER_FRAME. Reemplazar FlxG.cameras dentro del ENTER_FRAME provoca
-		// un null pointer en el pipeline nativo de Lime/SDL en Android porque
-		// el renderer ya está iterando la lista de cámaras en ese momento.
-		// FixedBitmapData ya tiene guarda contra context3D == null (usa
-		// software bitmap como fallback), así que esto es seguro en Android.
-		// FunkinCamera usa RenderTexture de flixel-animate que crea texturas GPU.
-		// En Android ese contexto no está listo aquí y crashea el driver OpenGL.
-		// Los blend modes avanzados tampoco son necesarios en mobile.
 		#if (cpp && !mobileC)
 		untyped FlxG.cameras = new funkin.graphics.FunkinCameraFrontEnd();
 		#end
 
-		// SystemInfo._detectGPU() llama ctx.gl.getParameter() — GL call directa.
-		// En Android el render corre en un thread nativo separado; hacerlo desde
-		// ENTER_FRAME (event thread de Lime) viola el contexto OpenGL → crash.
-		// En desktop es seguro deferir al primer frame.
-		// En mobile solo inicializamos la parte no-GL (OS, CPU, RAM).
 		#if (cpp && !mobileC)
 		stage.addEventListener(openfl.events.Event.ENTER_FRAME, _initSystemInfoDeferred);
 		#else
@@ -371,9 +256,6 @@ class Main extends Sprite
 	{
 		stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _initSystemInfoDeferred);
 
-		// context3D.gl está disponible a partir del primer frame renderizado.
-		// FunkinCameraFrontEnd ya se inicializó en setupGame() con la guarda
-		// de FixedBitmapData — este método solo necesita SystemInfo.
 		SystemInfo.init();
 	}
 
@@ -387,7 +269,7 @@ class Main extends Sprite
 		if (!InitAPI.hasValidWindow())
 		{
 			if (++_winStyleRetries < _WIN_STYLE_MAX_RETRIES)
-				return; // reintentar el siguiente frame
+				return;
 			stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _applyWindowStylingDeferred);
 			return;
 		}
@@ -412,7 +294,6 @@ class Main extends Sprite
 	#end
 
 	#if android
-	/** Deferred wrapper: espera el primer frame para que la ventana EGL esté lista. */
 	private function _applyCutoutDeferred(_:openfl.events.Event):Void
 	{
 		stage.removeEventListener(openfl.events.Event.ENTER_FRAME, _applyCutoutDeferred);
@@ -423,30 +304,24 @@ class Main extends Sprite
 	{
 		try
 		{
-			// ── 1. Obtener la Activity ────────────────────────────────────────
 			var getInstance = lime.system.JNI.createStaticMethod(
 				"org/haxe/lime/GameActivity", "getInstance",
 				"()Lorg/haxe/lime/GameActivity;");
 			var activity:Dynamic = getInstance();
 			if (activity == null) return;
 
-			// ── 2. Obtener la Window ──────────────────────────────────────────
 			var getWindow = lime.system.JNI.createMemberMethod(
 				"android/app/Activity", "getWindow",
 				"()Landroid/view/Window;");
 			var win:Dynamic = getWindow(activity);
 			if (win == null) return;
 
-			// ── 3. Obtener LayoutParams ───────────────────────────────────────
 			var getAttribs = lime.system.JNI.createMemberMethod(
 				"android/view/Window", "getAttributes",
 				"()Landroid/view/WindowManager/$LayoutParams;");
 			var attribs:Dynamic = getAttribs(win);
 			if (attribs == null) return;
 
-			// ── 4. Reflexión: campo layoutInDisplayCutoutMode ─────────────────
-			// Usamos reflexión porque el campo es público en la API de Android pero
-			// Lime/JNI no tiene acceso directo a campos — solo a métodos.
 			var getClass_ = lime.system.JNI.createMemberMethod(
 				"java/lang/Object", "getClass",
 				"()Ljava/lang/Class;");
@@ -458,13 +333,10 @@ class Main extends Sprite
 			var field:Dynamic = getField_(cls, "layoutInDisplayCutoutMode");
 			if (field == null) return;
 
-			// Asegurar acceso (no debería ser necesario para campos públicos, pero por si acaso)
 			var setAccessible = lime.system.JNI.createMemberMethod(
 				"java/lang/reflect/AccessibleObject", "setAccessible", "(Z)V");
 			setAccessible(field, true);
 
-			// ── 5. Asignar valor: 1 = SHORT_EDGES ────────────────────────────
-			// WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES = 1
 			var setInt_ = lime.system.JNI.createMemberMethod(
 				"java/lang/reflect/Field", "setInt",
 				"(Ljava/lang/Object;I)V");
@@ -476,12 +348,11 @@ class Main extends Sprite
 				"(Landroid/view/WindowManager/$LayoutParams;)V");
 			setAttribs(win, attribs);
 
-			trace('[Main] Android display cutout mode → SHORT_EDGES. El juego ahora renderiza detrás del notch.');
+			trace('[Main] Android display cutout mode → SHORT_EDGES.');
 		}
 		catch (e:Dynamic)
 		{
-			// API < 28 (Android < 9) no tiene este campo — no es un error.
-			trace('[Main] _applyAndroidCutoutMode: no aplicado (API<28 o error): $e');
+			trace('[Main] _applyAndroidCutoutMode: no applied (API<28 or error): $e');
 		}
 	}
 	#end
@@ -494,15 +365,7 @@ class Main extends Sprite
 	#end
 
 	#if mobileC
-	/**
-	 * Corrige la pantalla negra y el audio silenciado al volver a la app en Android/iOS.
-	 *
-	 * Cuando el OS destruye la superficie EGL (app en segundo plano) y la
-	 * recrea al volver, OpenFL debe re-enlazar el framebuffer y re-subir
-	 * todas las texturas. stage.invalidate() fuerza un redraw completo.
-	 * Re-aplicar el framerate garantiza que stage.frameRate no quedó
-	 * revirtido a 2000 por algún reset interno de Lime/SDL.
-	 */
+	// Fix to black screen
 	private function _onMobileActivate(_:openfl.events.Event):Void
 	{
 		openfl.Lib.current.stage.invalidate();
@@ -517,20 +380,13 @@ class Main extends Sprite
 	}
 	#end
 
-	// ── Helpers de inicialización ─────────────────────────────────────────────
-
 	private function calculateZoom():Void
 	{
-		// ── Resolución guardada: 720p (default) o 1080p ───────────────────────
 		var tempSave = new flixel.util.FlxSave();
 		tempSave.bind('coolengine', 'CoolTeam');
 		var use1080p = (tempSave.data != null && tempSave.data.renderResolution == '1080p');
 		tempSave.destroy();
 
-		// SIEMPRE mantenemos el espacio de juego en 1280x720.
-		// Toda la geometria (stages, personajes, HUD) esta disenada para esas
-		// coordenadas. En 1080p escalamos el renderer fisico a 1.5x para que
-		// ocupe 1920x1080 en pantalla sin romper ninguna posicion.
 		gameWidth  = GAME_WIDTH;   // 1280
 		gameHeight = GAME_HEIGHT;  // 720
 
@@ -543,8 +399,6 @@ class Main extends Sprite
 			zoom = 1.0;
 		}
 
-		// Nota: en Android/iOS se mantiene el auto-detect porque la "ventana" es siempre
-		// pantalla completa y las dimensiones del stage son las físicas del dispositivo.
 		#if android
 		var rawW:Int = Lib.current.stage.stageWidth;
 		var rawH:Int = Lib.current.stage.stageHeight;
@@ -556,12 +410,10 @@ class Main extends Sprite
 			{
 				rawW = display.currentMode.width;
 				rawH = display.currentMode.height;
-				trace('[Main] calculateZoom: stage=0, usando display hwinfo → ${rawW}×${rawH}');
+				trace('[Main] calculateZoom: stage=0, using display hwinfo → ${rawW}×${rawH}');
 			}
 		}
 
-		// Forzar landscape: el stage puede reportar portrait antes de que la
-		// orientación del sistema se confirme.
 		var stageW:Int = Std.int(Math.max(rawW, rawH));
 		var stageH:Int = Std.int(Math.min(rawW, rawH));
 
@@ -579,8 +431,6 @@ class Main extends Sprite
 			gameHeight = Math.ceil(stageH / zoom);
 		}
 		#elseif ios
-		// iOS — misma lógica que Android: el stage siempre reporta dimensiones físicas
-		// reales del dispositivo en landscape (UIInterfaceOrientationLandscape).
 		var rawW:Int = Lib.current.stage.stageWidth;
 		var rawH:Int = Lib.current.stage.stageHeight;
 
@@ -618,13 +468,7 @@ class Main extends Sprite
 	{
 		addChild(new FlxGame(gameWidth, gameHeight, initialState, #if (flixel < "5.0.0") zoom, #end framerate, framerate, skipSplash, startFullscreen));
 
-		// Garantizar que el juego siempre arranca en modo ventana,
-		// ignorando cualquier valor de fullscreen guardado en save data.
 		FlxG.fullscreen = false;
-
-		// FIX: drawFramerate y updateFramerate se asignan solo en initializeFramerate()
-		// para evitar el error "Invalid field" al llamarlos antes de que FlxG esté listo.
-		// NO se duplican aquí.
 
 		FlxSprite.defaultAntialiasing = false;
 	}
@@ -638,7 +482,6 @@ class Main extends Sprite
 		funkin.menus.OptionsMenuState.OptionsData.initSave();
 		funkin.gameplay.objects.hud.Highscore.load();
 
-		// ── Aplicar modo de escala guardado ────────────────────────────────────
 		if (SaveData.data.scaleMode != null)
 			WindowManager.applyScaleModeByName(SaveData.data.scaleMode);
 	}
@@ -650,7 +493,6 @@ class Main extends Sprite
 		PlayerSettings.init();
 		PlayerSettings.player1.controls.loadKeyBinds();
 
-		// ── F11 fullscreen toggle (desktop only) ──────────────────────────────
 		#if (desktop && !html5)
 		stage.addEventListener(openfl.events.KeyboardEvent.KEY_DOWN, function(e:openfl.events.KeyboardEvent) {
 			if (e.keyCode == openfl.ui.Keyboard.F11)
@@ -658,11 +500,9 @@ class Main extends Sprite
 		});
 		#end
 
-		// ── CursorManager: sistema de cursor personalizable ──────────────────
 		funkin.system.CursorManager.init();
 		funkin.system.CursorManager.loadSkinPreference();
 
-		// ── Touch pointer visual (mobile) ──────────────────────────────────────
 		#if mobileC
 		TouchPointerPlugin.initialize();
 		// Restaurar preferencia guardada
@@ -679,13 +519,8 @@ class Main extends Sprite
 
 	private function initializeFramerate():Void
 	{
-		// Inicializar el limitador nativo UNA VEZ (timeBeginPeriod + waitable timer).
-		// Esto también mejora la precisión del loop de Lime como efecto colateral.
 		FrameLimiterAPI.init();
 
-		// FIX: was `!androidC` — that define never existed; `mobileC` is the correct one.
-		// On Android at 120fps the SDL render thread overruns and produces a null-ptr
-		// crash in the native pipeline. Mobile targets run at 60fps max.
 		#if (!html5 && !mobileC)
 		framerate = 120;
 		#else
@@ -708,10 +543,6 @@ class Main extends Sprite
 			setMaxFps(60);
 		}
 		#else
-		// FIX (mobile): aunque framerate ya se fijó a 60 antes de createGame(),
-		// FlxG.updateFramerate / FlxG.drawFramerate y stage.frameRate pueden
-		// haber quedado en 2000 si Flixel los restauró internamente.
-		// Llamar setMaxFps() aquí los sincroniza todos definitivamente.
 		setMaxFps(60);
 		#end
 	}
@@ -742,22 +573,10 @@ class Main extends Sprite
 
 	public function setMaxFps(fps:Int):Void
 	{
-		// fps = 0  → "Unlimited": render as fast as possible (1000 cap for safety),
-		//            but logic updates capped at 240 so Flixel doesn't run 16+ steps/frame.
-		// fps > 0  → exact cap for both render and logic.
-		//
-		// WHY separate updateFramerate cap:
-		//   FlxGame.step() runs floor(elapsed / stepMS) update calls per rendered frame.
-		//   updateFramerate=1000 → stepMS=1ms. At 60Hz display, elapsed≈16ms → 16 update
-		//   calls per frame → 16x CPU cost → game feels slow/unresponsive at high FPS.
-		//   Capping logic at 240 keeps 1-2 updates per frame at typical display rates.
-
 		#if (!html5 && !mobileC)
 		final renderFps:Int = fps <= 0 ? 1000 : fps;
 		final updateFps:Int = fps <= 0 ? 240  : fps;
-		// FIX: Flixel's updateFramerate setter warns when value < stage.frameRate.
-		// Lower stage.frameRate to updateFps first so the check passes, then
-		// raise it to renderFps via drawFramerate (which sets stage.frameRate internally).
+
 		openfl.Lib.current.stage.frameRate = updateFps;
 		FlxG.updateFramerate = updateFps;
 		FlxG.drawFramerate   = renderFps;
@@ -770,41 +589,21 @@ class Main extends Sprite
 		#end
 	}
 
-	/**
-	 * Aplica el estado de VSync guardado en save via extension nativa.
-	 *
-	 * FIX: la expresion original `SaveData.data.vsync == true` evalua a false
-	 * cuando vsync es null (usuario nuevo sin save previo), desactivando el
-	 * VSync de forma silenciosa en el primer arranque.
-	 * Con `!= false`, null se trata como true → VSync activado por defecto,
-	 * que es el comportamiento correcto en todas las plataformas.
-	 */
 	public static function applyVSync():Void
 	{
 		#if cpp
 		VSyncAPI.setVSync(SaveData.data.vsync != false);
 		#elseif hl
-		// HashLink: VSync via lime.ui.Window.vsync (SDL swap interval)
 		var win = lime.app.Application.current?.window;
 		if (win != null)
-			// lime.ui.Window may not expose `vsync` as a typed field in this Lime
-			// version — use Reflect to avoid a compile-time "no field" error while
-			// still setting the SDL swap-interval at runtime.
 			Reflect.setField(win, 'vsync', SaveData.data.vsync != false);
 		#end
 	}
 
 	#if android
-	/** Solicita READ/WRITE_EXTERNAL_STORAGE en Android 6+ y llama onGranted() cuando esté listo. */
 	static function _requestAndroidStoragePermission(onGranted:Void->Void):Void
 	{
 		#if (android && cpp)
-		// Android 10+ (API 29+): /Android/data/<package>/files/ es accesible sin permisos
-		// de almacenamiento externo. READ/WRITE_EXTERNAL_STORAGE están deprecados en
-		// Android 13+ (API 33) y el sistema los deniega silenciosamente.
-		// El JNI a HaxeObject::requestPermissions no existe en Lime y puede lanzar
-		// una excepción nativa que crashea la app antes del primer frame.
-		// Simplemente esperamos un tick para que el FileSystem esté listo y continuamos.
 		new flixel.util.FlxTimer().start(0.1, function(_) onGranted());
 		#else
 		onGranted();

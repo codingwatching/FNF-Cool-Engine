@@ -18,40 +18,6 @@ import sys.io.File;
 
 using StringTools;
 
-/**
- * Paths — sistema centralizado de resolución de rutas con caché avanzado.
- *
- * ─── Arquitectura del caché ───────────────────────────────────────────────────
- *
- *  ANTES (Paths viejo):
- *    bitmapCache:Map<String, BitmapData>   — cacheaba el bitmap en RAM
- *    atlasCache: Map<String, FlxAtlasFrames> — cacheaba los frames
- *    ¡La textura estaba SIEMPRE en RAM aunque ya estuviese subida a GPU!
- *
- *  AHORA (Paths + PathsCache):
- *    PathsCache.currentTrackedGraphics    — FlxGraphic con GPU caching opcional
- *    PathsCache.currentTrackedSounds      — Sound cacheados
- *    atlasCache: Map<String, FlxAtlasFrames> — sólo los frames (ligeros)
- *
- *  El FlxGraphic que construye PathsCache integra con FlxG.bitmap nativo de
- *  Flixel (FlxSprite.loadGraphic() lo encuentra automáticamente). Cuando
- *  gpuCaching=true el BitmapData en RAM se libera después del upload → ahorra
- *  ~4 MB por textura 1024×1024.
- *
- * ─── Ciclo de vida del caché ──────────────────────────────────────────────────
- *
- *   // Al inicio de un estado que carga assets pesados (p.ej. PlayState):
- *   Paths.beginSession();
- *
- *   // Durante la carga — se llama automáticamente por getGraphic / getSound
- *
- *   // Al destruir el estado:
- *   Paths.clearStoredMemory();   // sonidos fuera de uso + marcar gráficos
- *   Paths.clearUnusedMemory();   // destruir gráficos marcados + GC
- *
- * @author Cool Engine Team
- * @version 0.6.0
- */
 class Paths
 {
 	public static inline var SOUND_EXT = #if web "mp3" #else "ogg" #end;
@@ -64,39 +30,17 @@ class Paths
 	static inline function get_cache():PathsCache
 		return PathsCache.instance;
 
-	// ── Caché de atlas (sólo frames, los bitmaps están en PathsCache) ─────────
-	//
-	// FlxAtlasFrames es ligero: sólo contiene un array de FlxRect + referencia
-	// al FlxGraphic. No tiene datos de píxeles propios.
-	// El bitmap real vive en PathsCache (GPU o RAM según gpuCaching).
-	// LRU eliminado: FNF nunca necesita evictar atlases durante gameplay.
-	// Los frames se liberan con clearPreviousSession(), no por eviction.
 	static var atlasCache:Map<String, FlxAtlasFrames> = [];
 	static var atlasCount:Int = 0;
 
-	/**
-	 * Límite de atlases en caché.
-	 * 50 cubre todo lo necesario para gameplay: 3 personajes + stage + notas + UI.
-	 * El valor anterior (200) acumulaba atlas de assets ya sin usar entre canciones
-	 * manteniendo sus BitmapData en RAM — contribución directa a los ~1 GB observados.
-	 * Con LRU (eviction al superar el límite) es seguro bajar este valor.
-	 */
 	public static var maxAtlasCache:Int = 50;
 
-	/** Si false todos los accesos van a disco (útil para depuración). */
 	public static var cacheEnabled:Bool = true;
 
 	// ── Stage actual ──────────────────────────────────────────────────────────
-
-	/** Actualizado por PlayState al cambiar de stage. */
 	public static var currentStage:String = 'stage_week1';
 
-	// ── Opciones de GPU ───────────────────────────────────────────────────────
-
-	/**
-	 * Alias de PathsCache.gpuCaching para compatibilidad con opciones guardadas.
-	 * Cambiar aquí también cambia el comportamiento de PathsCache.
-	 */
+	// ── GPU Options ───────────────────────────────────────────────────────
 	public static var gpuCaching(get, set):Bool;
 
 	static inline function get_gpuCaching():Bool
@@ -108,59 +52,33 @@ class Paths
 		return v;
 	}
 
-	// ── Gestión de sesión (delegados a PathsCache) ────────────────────────────
-
-	/**
-	 * Inicia una nueva sesión de caché.
-	 * Resetea localTrackedAssets sin borrar nada.
-	 * Llamar al inicio de create() en cada estado pesado.
-	 */
+	// Paths cache delegation
 	public static inline function beginSession():Void
 		cache.beginSession();
 
-	/**
-	 * Destruye los assets de la sesión anterior que no fueron rescatados.
-	 * Llamar al FINAL de create() de un estado pesado, después de cargar
-	 * todos los assets — esto da tiempo a que los assets compartidos sean
-	 * rescatados de _previousGraphics a _currentGraphics durante la carga.
-	 */
+	// Destroyer for assets that are no longer valid (e.g. after a mod reload).
 	public static inline function clearPreviousSession():Void
 	{
 		cache.clearPreviousSession();
 		_pruneInvalidAtlases();
 	}
 
-	/**
-	 * Añade una clave a las exclusiones permanentes (nunca se evicta).
-	 * Ejemplo: Paths.addExclusion(Paths.music('freakyMenu'));
-	 */
 	public static inline function addExclusion(key:String):Void
 		cache.addExclusion(key);
 
-	/**
-	 * Libera assets de sonido + gráficos no marcados (fuera de localTrackedAssets).
-	 * Llamar al salir de un estado pesado ANTES de clearUnusedMemory().
-	 */
+	// Clean up all cached assets that are no longer valid + force GC.
 	public static inline function clearStoredMemory():Void
 	{
 		cache.clearStoredMemory();
-		// Limpiar también atlases cuya graphic ya no está en PathsCache
 		_pruneInvalidAtlases();
 	}
 
-	/**
-	 * Destruye los gráficos marcados por clearStoredMemory() + fuerza GC.
-	 * Llamar DESPUÉS de clearStoredMemory().
-	 */
+	// Destroy the graphics in clearStoredMemory() that are no longer valid, but keep the rest of the cache entries (e.g. for sounds).
 	public static inline function clearUnusedMemory():Void
 		cache.clearUnusedMemory();
 
 	// ── Core: resolve ─────────────────────────────────────────────────────────
 
-	/**
-	 * Resuelve un archivo al path físico correcto.
-	 * Orden: mods/{activeMod}/{file} → assets/{file}
-	 */
 	public static function resolve(file:String, ?type:AssetType):String
 	{
 		final modPath = ModManager.resolveInMod(file);
@@ -170,15 +88,9 @@ class Paths
 	}
 
 	/**
-	 * Resolve a path for WRITING (saving files).
-	 * Unlike resolve(), this does NOT check if the file exists —
-	 * it always returns the mod path if a mod is active.
-	 * Use this whenever you need to save/create a file.
-	 *
-	 * Examples:
 	 *   resolveWrite('characters/bf.json') → 'mods/myMod/characters/bf.json'  (mod active)
 	 *   resolveWrite('characters/bf.json') → 'assets/characters/bf.json'      (no mod)
-	 */
+	*/
 	public static function resolveWrite(file:String):String
 	{
 		#if sys
@@ -219,7 +131,6 @@ class Paths
 		return candidates.filter(s -> s != null && s != '')[0] ?? '';
 	}
 
-	/** ¿Existe el archivo (en mod o en assets)? */
 	public static function exists(file:String, ?type:AssetType):Bool
 	{
 		final path = resolve(file, type);
@@ -230,7 +141,6 @@ class Paths
 		#end
 	}
 
-	/** Lee texto desde file (en mod o en assets). */
 	public static function getText(file:String):String
 	{
 		final path = resolve(file, TEXT);
@@ -241,7 +151,7 @@ class Paths
 		return OpenFlAssets.getText(path);
 	}
 
-	// ── Paths tipados ─────────────────────────────────────────────────────────
+	// ── Paths typeds ─────────────────────────────────────────────────────────
 
 	public static inline function file(file:String, type:AssetType = TEXT):String
 		return resolve(file, type);
@@ -297,28 +207,15 @@ class Paths
 		return resolve('sounds/$key.$SOUND_EXT', SOUND);
 	}
 
-	/**
-	 * Resuelve el path de un sonido de stage buscando en:
-	 *   1. Mod activo   → mods/{active}/stages/{key}.ogg
-	 *   2. Mods habilitados → mods/{mod}/stages/{key}.ogg  (por orden de instalación)
-	 *   3. Assets base  → assets/stages/{key}.ogg
-	 *
-	 * BUGFIX: usaba resolveWrite() que devuelve SIEMPRE la ruta del mod activo sin
-	 * comprobar si el archivo existe, por lo que el fallback a assets/ nunca ocurría.
-	 * Esto causaba que soundRandomStage() devolviera una ruta inexistente cuando el
-	 * sonido estaba en assets/ y no en el mod activo → silencio sin error.
-	 */
 	public static function soundStage(key:String):String
 	{
 		#if sys
-		// 1. Mod activo primero
 		if (ModManager.isActive())
 		{
 			final p = '${ModManager.modRoot()}/stages/$key.$SOUND_EXT';
 			if (FileSystem.exists(p))
 				return p;
 		}
-		// 2. Todos los mods habilitados
 		for (mod in ModManager.installedMods)
 		{
 			if (!ModManager.isEnabled(mod.id))
@@ -327,7 +224,6 @@ class Paths
 			if (FileSystem.exists(p))
 				return p;
 		}
-		// 3. Assets base
 		final assetsPath = 'assets/stages/$key.$SOUND_EXT';
 		if (FileSystem.exists(assetsPath))
 			return assetsPath;
@@ -338,22 +234,11 @@ class Paths
 	public static inline function soundRandom(key:String, min:Int, max:Int):Null<Sound>
 		return getSound(key + FlxG.random.int(min, max));
 
-	/**
-	 * Devuelve el path de un sonido aleatorio del stage actual.
-	 *
-	 * BUGFIX: ahora soundStage() resuelve correctamente con fallback a assets/,
-	 * por lo que este método funciona aunque el sonido esté en assets/ y no en el
-	 * mod activo — sin necesidad de recompilar.
-	 *
-	 * Uso: Paths.getSound(Paths.soundRandomStage("key", 1, 5))
-	 */
 	public static inline function soundRandomStage(key:String, min:Int, max:Int):String
 		return soundStage('${funkin.gameplay.PlayState.curStage}/sounds/' + key + FlxG.random.int(min, max));
 
 	public static function music(key:String):String
 	{
-		// Igual que sound(): solo resuelve el path fisico sin registrar en Lime.
-		// getSound() / loadMusic() cargan con Sound.fromFile() que bypasea OpenFL.
 		#if sys
 		final modPath = ModManager.resolveInMod('music/$key.$SOUND_EXT');
 		if (modPath != null && FileSystem.exists(modPath))
@@ -385,18 +270,15 @@ class Paths
 			'assets/stages/$stageName/scripts'
 		]);
 
-	// ── Carga de gráficos ─────────────────────────────────────────────────────
+	/** ── Graphics Load ─────────────────────────────────────────────────────
+		* Loads BitmapData from disk or embedded assets.
+		* Internally passes through PathsCache → if gpuCaching=true, the image in RAM
+		* is released after upload and FlxGraphic.bitmap is returned (which may
+		* be in "GPU only" mode; the pixels are not accessible from the CPU).
 
-	/**
-	 * Carga un BitmapData desde disco o assets embebidos.
-	 * Internamente pasa por PathsCache → si gpuCaching=true, la imagen en RAM
-	 * se libera después del upload y se devuelve FlxGraphic.bitmap (que puede
-	 * estar en modo "GPU only"; los píxeles no son accesibles desde CPU).
-	 *
-	 * Para efectos que necesiten leer píxeles desde CPU (tintado dinámico, etc.)
-	 * usar getGraphic() con allowGPU=false.
-	 *
-	 * @deprecated Preferir getGraphic() para integración completa con Flixel.
+		* For effects that need to read pixels from the CPU (dynamic tinting, etc.)
+		* use getGraphic() with allowGPU=false.
+		* @deprecated Prefer getGraphic() for full integration with Flixel.
 	 */
 	public static function getBitmap(key:String, allowGPU:Bool = true):Null<Bitmap>
 	{
@@ -415,16 +297,12 @@ class Paths
 	 */
 	public static function getGraphic(key:String, allowGPU:Bool = true):Null<FlxGraphic>
 	{
-		// Resolver path físico
 		final path = image(key);
-		// Clave de PathsCache = path físico (único y estable entre llamadas)
 		final cacheKey = path;
 
-		// Cache hit en PathsCache
 		if (cacheEnabled && cache.hasValidGraphic(cacheKey))
 			return cache.peekGraphic(cacheKey);
 
-		// Cache miss → cargar desde disco
 		final bmp = _loadBitmapFromDisk(path);
 		if (bmp == null)
 		{
@@ -435,13 +313,6 @@ class Paths
 		return cacheEnabled ? cache.getGraphic(cacheKey, bmp, allowGPU) : FlxGraphic.fromBitmapData(bmp, false, cacheKey, false);
 	}
 
-	// ── Imagen del stage (path especial) ──────────────────────────────────────
-
-	/**
-	 * Carga la imagen de un asset de stage.
-	 * @param fromStage  Si se especifica, busca en la carpeta de OTRO stage en
-	 *                   lugar de currentStage.  Permite compartir assets entre stages.
-	 */
 	public static function imageStage(key:String, ?fromStage:String):Null<Bitmap>
 	{
 		final path = _resolveStageImagePath(key, fromStage);
@@ -456,14 +327,13 @@ class Paths
 		if (bmp == null)
 			return null;
 
-		// BUGFIX: purgar entrada muerta de FlxG.bitmap antes de crear el gráfico nuevo.
 		@:privateAccess
 		{
 			final deadEntry = FlxG.bitmap.get(path);
 			if (deadEntry != null && deadEntry.bitmap == null)
 			{
 				FlxG.bitmap.removeKey(path);
-				trace('[Paths] imageStage: purgada entrada muerta de FlxG.bitmap para "$path"');
+				trace('[Paths] imageStage: purged dead entry of FlxG.bitmap for "$path"');
 			}
 		}
 
@@ -472,22 +342,12 @@ class Paths
 		return bmp;
 	}
 
-	// ── Carga de sonidos ─────────────────────────────────────────────────────
-
-	/**
-	 * Carga un sonido desde disco y lo cachea en PathsCache.
-	 * Reutiliza la instancia Sound si ya estaba cacheada (sin I/O).
-	 *
-	 * @param path    Path físico del sonido (resultado de Paths.sound(), .music(), etc.)
-	 * @param safety  Si true y no se encuentra, devuelve un beep de fallback.
-	 */
 	public static function getSound(path:String, safety:Bool = false):Null<Sound>
 	{
 		// Cache hit
 		if (cacheEnabled && cache.hasSound(path))
 			return cache.getSound(path, null, safety);
 
-		// Cache miss → cargar
 		var snd:Sound = null;
 		try
 		{
@@ -497,10 +357,6 @@ class Paths
 				snd = Sound.fromFile(path);
 			}
 			#end
-			// Bug 1 fix: on Android/iOS, FileSystem.exists() returns true for APK-embedded
-			// assets, but Sound.fromFile() can't open them as real OS paths and returns null.
-			// The old `else` meant the OpenFlAssets fallback was never reached in that case.
-			// Using `if (snd == null)` ensures the fallback always runs when fromFile failed.
 			if (snd == null)
 			{
 				if (OpenFlAssets.exists(path, SOUND))
@@ -517,47 +373,20 @@ class Paths
 		return cacheEnabled ? cache.getSound(path, snd, safety) : snd;
 	}
 
-	/**
-	 * Carga música de forma segura desde el filesystem o assets embebidos.
-	 * Úsalo en lugar de FlxG.sound.playMusic(Paths.music(...)) cuando el path
-	 * puede venir de una carpeta de mods (no está en el manifest de OpenFL).
-	 */
 	public static function loadMusic(key:String):Null<Sound>
 	{
 		final path = music(key);
 		return getSound(path);
 	}
 
-	// ── Carga de audio de canción (streaming) ─────────────────────────────────
+	// ── Audio Load for songs (streaming) ─────────────────────────────────
 
-	/** Carga el Inst de una canción usando streaming. */
 	public static function loadInst(song:String, ?diffSuffix:String):flixel.sound.FlxSound
 		return _loadStreamingSound(inst(song, diffSuffix));
 
-	/** Carga las Voices de una canción usando streaming. */
 	public static function loadVoices(song:String, ?diffSuffix:String):flixel.sound.FlxSound
 		return _loadStreamingSound(voices(song, diffSuffix));
 
-	/**
-	 * Carga un FlxSound en modo streaming.
-	 * Las canciones NUNCA se meten en PathsCache (son demasiado grandes y
-	 * se usan una sola vez). Se cargan directamente como stream desde disco.
-	 *
-	 * POR QUÉ STREAMING:
-	 *   loadEmbedded() decodifica el OGG completo a PCM en RAM al cargar.
-	 *   3 min × 44.1 kHz × 16-bit × 2 canales = ~32 MB por pista.
-	 *   Inst + Voices = 64–120 MB. Con streaming → sólo un buffer de segundos.
-	 */
-	/**
-	 * Carga un FlxSound en modo streaming.
-	 *
-	 * IMPORTANTE: loadStream() registra un SampleDataEvent listener en el
-	 * openfl.media.Sound subyacente, lo que DEBE ocurrir en el main thread.
-	 * Si se llama desde un thread secundario OpenFL lanza:
-	 *   "SampleDataEvent listener has to provide between 2048 and 8192 samples"
-	 * Por eso esta función siempre es síncrona en el main thread.
-	 * El threading de la precarga lo gestiona el llamador (FreeplayState).
-	 */
 	static function _loadStreamingSound(path:String):flixel.sound.FlxSound
 	{
 		final snd = new flixel.sound.FlxSound();
@@ -587,10 +416,8 @@ class Paths
 	{
 		final folder = _resolveSongFolder(song);
 		#if sys
-		// Primero intentar con sufijo de dificultad (ej: "Inst-nightmare.ogg")
 		if (diffSuffix != null && diffSuffix != '')
 		{
-			// El sufijo viene como "-nightmare", quitamos el guión inicial
 			final diffName = diffSuffix.startsWith('-') ? diffSuffix.substr(1) : diffSuffix;
 			for (subdir in ['song/', ''])
 			{
@@ -613,7 +440,6 @@ class Paths
 	{
 		final folder = _resolveSongFolder(song);
 		#if sys
-		// Primero intentar con sufijo de dificultad (ej: "Voices-nightmare.ogg")
 		if (diffSuffix != null && diffSuffix != '')
 		{
 			final diffName = diffSuffix.startsWith('-') ? diffSuffix.substr(1) : diffSuffix;
@@ -634,11 +460,6 @@ class Paths
 		return '$folder/song/Voices.$SOUND_EXT';
 	}
 
-	/**
-	 * Resuelve la ruta de vocals para un personaje específico.
-	 * Prioridad: Voices-charName-diff → Voices-charName → Voices-diff → Voices
-	 * Devuelve null si no existe ningún archivo de vocals para ese personaje.
-	 */
 	public static function voicesForChar(song:String, charName:String, ?diffSuffix:String):Null<String>
 	{
 		if (charName == null || charName == '')
@@ -665,10 +486,9 @@ class Paths
 				return p;
 		}
 		#end
-		return null; // no existe archivo específico para este personaje
+		return null;
 	}
 
-	/** Carga vocals específicas de un personaje como FlxSound en streaming. */
 	public static function loadVoicesForChar(song:String, charName:String, ?diffSuffix:String):Null<flixel.sound.FlxSound>
 	{
 		final path = voicesForChar(song, charName, diffSuffix);
@@ -677,7 +497,6 @@ class Paths
 		return _loadStreamingSound(path);
 	}
 
-	/** true si existen vocals específicas para este personaje (con o sin diff). */
 	public static function hasVoicesForChar(song:String, charName:String, ?diffSuffix:String):Bool
 		return voicesForChar(song, charName, diffSuffix) != null;
 
@@ -701,14 +520,8 @@ class Paths
 	public static inline function getCharacterSprite(x:Float, y:Float, key:String):FunkinSprite
 		return FunkinSprite.createCharacter(x, y, key);
 
-	// ── Atlas Sparrow con caché ───────────────────────────────────────────────
+	// ── Cache Atlas Sparrow ───────────────────────────────────────────────
 
-	/**
-	 * Carga un atlas Sparrow (PNG + XML).
-	 *
-	 * El FlxGraphic del PNG pasa por PathsCache (GPU caching).
-	 * El FlxAtlasFrames se cachea separadamente (es sólo metadata de frames).
-	 */
 	public static function getSparrowAtlas(key:String):FlxAtlasFrames
 	{
 		final path:String = image(key);
@@ -718,34 +531,8 @@ class Paths
 	public static function characterSprite(key:String):FlxAtlasFrames
 		return _cachedAtlas('char_$key', () -> _loadCharacterSpriteAtlas(key));
 
-	/**
-	 * Carga el atlas de un personaje soportando múltiples hojas de sprites.
-	 *
-	 * Si existe `characters/images/charName.sheets` (JSON array de strings),
-	 * cada entrada puede ser:
-	 *
-	 *   • Una KEY Sparrow (PNG+XML):
-	 *       ["tankman_basic", "tankman_bloody"]
-	 *
-	 *   • Una CARPETA de Adobe Animate (con Animation.json):
-	 *       ["tankman/basic", "tankman/bloody", "tankman/extra-animations"]
-	 *
-	 *   • O subcarpetas directas del personaje:
-	 *       ["basic", "bloody", "extra-animations"]
-	 *       → se resuelven como characters/images/charName/basic, etc.
-	 *
-	 * Las entradas Animate se fusionan vía FunkinSprite.loadMultiAnimateAtlas()
-	 * (que escribe un directorio temporal con el atlas unificado).
-	 * Las entradas Sparrow se fusionan con FlxAtlasFramesExt.mergeAtlases().
-	 *
-	 * Si el .sheets mezcla tipos, las entradas Animate tienen prioridad y las
-	 * Sparrow se ignoran (imprime un warning).
-	 *
-	 * Sin .sheets: hoja única estándar (Sparrow o Animate).
-	 */
 	static function _loadCharacterSpriteAtlas(key:String):FlxAtlasFrames
 	{
-		// 1. Buscar archivo .sheets para multi-sheet
 		final sheetsPath = _resolveCharacterSheets(key);
 		#if sys
 		if (sheetsPath != null && sys.FileSystem.exists(sheetsPath))
@@ -755,7 +542,6 @@ class Paths
 				final sheetKeys:Array<String> = haxe.Json.parse(sys.io.File.getContent(sheetsPath));
 				if (sheetKeys != null && sheetKeys.length > 0)
 				{
-					// ── Detectar si las entradas son carpetas Animate ────────
 					final animateFolders:Array<String> = [];
 					final sparrowKeys:Array<String> = [];
 
@@ -770,26 +556,15 @@ class Paths
 							sparrowKeys.push(sheetKey);
 					}
 
-					// ── Rama Animate ─────────────────────────────────────────
 					if (animateFolders.length > 0)
 					{
 						if (sparrowKeys.length > 0)
-							trace('[Paths] characterSprite "$key": .sheets mezcla Animate y Sparrow — se usan sólo las carpetas Animate.');
+							trace('[Paths] characterSprite "$key": .sheets mixes Animate and Sparrow — only the Animate folders are used.');
 
-						// La fusión real ocurre en FunkinSprite.loadMultiAnimateAtlas.
-						// Paths no puede devolver un FlxAtlasFrames para Animate —
-						// devolvemos null para que el caller (loadCharacterSparrow)
-						// use la vía Animate directamente.
-						//
-						// NOTA: este caso ya es interceptado en FunkinSprite.loadCharacterSparrow()
-						// mediante resolveMultiAnimateFolders(). Si llegamos aquí es porque alguien
-						// llama Paths.characterSprite() directamente (raro). En ese caso no podemos
-						// hacer nada útil, así que logueamos y devolvemos null.
-						trace('[Paths] characterSprite "$key": multi-Animate detectado — usar FunkinSprite.loadCharacterSparrow() en su lugar.');
+						trace('[Paths] characterSprite "$key": multi-Animate Detected — use FunkinSprite.loadCharacterSparrow() instead.');
 						return null;
 					}
 
-					// ── Rama Sparrow ──────────────────────────────────────────
 					if (sparrowKeys.length > 0)
 					{
 						final atlases:Array<FlxAtlasFrames> = [];
@@ -806,7 +581,7 @@ class Paths
 							final merged = extensions.FlxAtlasFramesExt.mergeAtlases(atlases);
 							if (merged != null)
 							{
-								trace('[Paths] characterSprite "$key": multi-sheet Sparrow (${atlases.length} hojas fusionadas)');
+								trace('[Paths] characterSprite "$key": multi-sheet Sparrow (${atlases.length} fused spritesheets)');
 								return merged;
 							}
 						}
@@ -815,26 +590,19 @@ class Paths
 			}
 			catch (e:Dynamic)
 			{
-				trace('[Paths] characterSprite "$key": error leyendo .sheets — $e');
+				trace('[Paths] characterSprite "$key": error reading .sheets — $e');
 			}
 		}
 		#end
-		// 2. Fallback: hoja única estándar
 		return _sparrow(_resolveCharacterPng(key), _resolveCharacterXml(key));
 	}
 
-	/**
-	 * Dado un key de .sheets, intenta resolverlo como carpeta Adobe Animate.
-	 * Busca en: subcarpeta del char, characters/images/, images/characters/, assets/.
-	 * Devuelve el path si tiene Animation.json, null si no es Animate.
-	 */
 	static function _resolveCharacterAnimateFolder(charKey:String, sheetKey:String):Null<String>
 	{
 		#if sys
 		final isSubKey = !sheetKey.contains('/');
 		final candidates:Array<String> = [];
 
-		// Como subcarpeta directa del personaje
 		if (isSubKey)
 		{
 			if (ModManager.activeMod != null)
@@ -846,7 +614,6 @@ class Paths
 			candidates.push('assets/characters/images/$charKey/$sheetKey');
 		}
 
-		// Como ruta relativa a characters/images/
 		if (ModManager.activeMod != null)
 		{
 			final base = '${ModManager.MODS_FOLDER}/${ModManager.activeMod}';
@@ -875,11 +642,6 @@ class Paths
 		#end
 	}
 
-	/**
-	 * Carga un atlas Sparrow de un stage.
-	 * @param fromStage  Si se especifica, busca los assets en ese stage en lugar
-	 *                   de currentStage — permite reutilizar assets entre stages.
-	 */
 	public static function stageSprite(key:String, ?fromStage:String):FlxAtlasFrames
 	{
 		final lib = fromStage ?? currentStage;
@@ -917,7 +679,7 @@ class Paths
 		return _cachedAtlas('cutscene_$key', () -> _sparrowFromPath(pngPath, xmlPath));
 	}
 
-	// ── Atlas Packer con caché ────────────────────────────────────────────────
+	// ── Cache Atlas Packer ────────────────────────────────────────────────
 
 	public static function getPackerAtlas(key:String):FlxAtlasFrames
 		return _cachedAtlas('packer_$key', () -> _packer(image(key), resolve('images/$key.txt')));
@@ -925,7 +687,7 @@ class Paths
 	public static function characterSpriteTxt(key:String):FlxAtlasFrames
 		return _cachedAtlas('char_txt_$key', () -> _packer(_resolveCharacterPng(key), _resolveCharacterTxt(key)));
 
-	/** Packer (TXT) atlas from a stage. Accepts optional @fromStage override. */
+	// Packer (TXT) atlas from a stage. Accepts optional @fromStage override.
 	public static function stageSpriteTxt(key:String, ?fromStage:String):FlxAtlasFrames
 	{
 		final lib = fromStage ?? currentStage;
@@ -948,12 +710,7 @@ class Paths
 	public static function skinSpriteTxt(key:String):FlxAtlasFrames
 		return _cachedAtlas('skin_txt_$key', () -> _packer(resolve('notes/skins/$key.png', IMAGE), resolve('notes/skins/$key.txt', TEXT)));
 
-	// ── Gestión del caché de atlas ────────────────────────────────────────────
-
-	/**
-	 * Limpia el caché de atlas + delega a PathsCache.
-	 * Los FlxGraphics del PNG se liberan via PathsCache.
-	 */
+	// ── Management Cache Atlas ────────────────────────────────────────────
 	public static function clearCache():Void
 	{
 		for (atlas in atlasCache)
@@ -967,14 +724,10 @@ class Paths
 		}
 		atlasCache.clear();
 		atlasCount = 0;
-		trace('[Paths] Atlas cache limpiado.');
+		trace('[Paths] Atlas cache cleaned.');
 	}
 
-	/**
-	 * Limpia entradas del atlasCache cuyo FlxGraphic ya fue dispuesto.
-	 * Llamar después de GC/compact para que atlas invalidados sean detectados.
-	 * Así el siguiente acceso fuerza una recarga limpia desde disco.
-	 */
+	// GC/Memory Call
 	public static inline function pruneAtlasCache():Void
 	{
 		_pruneInvalidAtlases();
@@ -992,30 +745,18 @@ class Paths
 		}
 		#if cpp cpp.vm.Gc.run(true); #end
 		#if hl hl.Gc.major(); #end
-		trace('[Paths] FlxG.bitmap + OpenFL cache limpiados.');
+		trace('[Paths] FlxG.bitmap + OpenFL cache cleaned.');
 	}
 
-	/**
-	 * Clears EVERYTHING: atlas + PathsCache.forceFullClear() + Flixel + Lime cache.
-	 * Always call this when changing mods or restarting.
-	 */
 	public static function clearAllCaches():Void
 	{
 		clearCache();
 		cache.forceFullClear();
-
 		try
 		{
 			final oflCache:openfl.utils.AssetCache = cast openfl.utils.Assets.cache;
 			@:privateAccess
 			{
-				// FIX Bug H — recoger las claves en Arrays ANTES de modificar el mapa.
-				// Iterar map.keys() mientras se llama removeBitmapData/removeSound (que hacen
-				// map.remove internamente) es comportamiento indefinido en Haxe/CPP y HashLink:
-				// el iterator puede saltar entradas, repetirlas o corromper el mapa.
-				// Snapshotear primero garantiza que se procesen exactamente las claves que
-				// existían al inicio del clear, sin importar la implementación del Map en
-				// cada target (StringMap en CPP, IntMap en HL, ObjectMap en Java...).
 				if (oflCache.bitmapData != null)
 				{
 					final bmpKeys = [for (k in oflCache.bitmapData.keys()) k];
@@ -1035,13 +776,9 @@ class Paths
 		cache.clearModPathCache();
 	}
 
-	/**
-	 * @deprecated Alias de clearAllCaches() para compatibilidad.
-	 */
 	public static inline function forceClearCache():Void
 		clearAllCaches();
 
-	/** Limpia SÓLO assets de gameplay sin tocar UI/menús. */
 	public static function clearGameplayCache():Void
 	{
 		// Limpiar atlases con prefijos de gameplay
@@ -1068,11 +805,10 @@ class Paths
 			}
 		}
 
-		// Delegar los gráficos a PathsCache
 		cache.clearGameplayAssets();
 
 		if (toRemove.length > 0)
-			trace('[Paths] clearGameplayCache: ${toRemove.length} atlas(es) + gráficos de gameplay liberados.');
+			trace('[Paths] clearGameplayCache: ${toRemove.length} atlas(es) + gameplay graphics released.');
 	}
 
 	public static function setCacheEnabled(enabled:Bool):Void
@@ -1084,20 +820,12 @@ class Paths
 
 	// ── Stats ─────────────────────────────────────────────────────────────────
 
-	/** String compacto para el debug overlay. */
 	public static function cacheDebugString():String
 		return 'Atlas: $atlasCount/$maxAtlasCache  ' + cache.debugString();
 
-	/** Stats completos. */
 	public static function getCacheStats():String
 		return '[Paths] Atlas=$atlasCount/$maxAtlasCache\n' + cache.fullStats();
 
-	// ── Internos: carga de bitmaps ────────────────────────────────────────────
-
-	/**
-	 * Carga un BitmapData desde disco (via Lime) o desde assets embebidos.
-	 * NO cachea nada — es el nivel más bajo de carga.
-	 */
 	static function _loadBitmapFromDisk(path:String):Null<Bitmap>
 	{
 		try
@@ -1127,13 +855,6 @@ class Paths
 		return null;
 	}
 
-	// ── Internos: atlas ───────────────────────────────────────────────────────
-
-	/**
-	 * Patrón de caché unificado para FlxAtlasFrames.
-	 * Valida el atlas antes de devolverlo: si el bitmap fue dispuesto,
-	 * elimina la entrada y recarga.
-	 */
 	static function _cachedAtlas(key:String, loader:() -> FlxAtlasFrames):FlxAtlasFrames
 	{
 		if (cacheEnabled && atlasCache.exists(key))
@@ -1142,13 +863,10 @@ class Paths
 			final parentOwned = cached?.parent == null || cache.hasValidGraphic(cached.parent.key);
 			if (_atlasValid(cached) && parentOwned)
 			{
-				// Rescue: si el FlxGraphic del atlas está en _previousGraphics,
-				// moverlo a _currentGraphics para que sobreviva esta sesión.
 				if (cached.parent != null)
 					cache.rescueFromPrevious(cached.parent.key, cached.parent);
 				return cached;
 			}
-			// Inválido o pertenece a sesión anterior → limpiar y recargar
 			atlasCache.remove(key);
 			atlasCount--;
 		}
@@ -1159,18 +877,10 @@ class Paths
 		return atlas;
 	}
 
-	/**
-	 * Carga Sparrow: obtiene el FlxGraphic de PathsCache (con GPU upload) y
-	 * construye el FlxAtlasFrames desde el FlxGraphic + contenido del XML.
-	 *
-	 * Pasar FlxGraphic en vez de BitmapData a fromSparrow() garantiza que
-	 * Flixel use el MISMO objeto de textura que PathsCache, sin duplicarlo.
-	 */
 	static function _sparrow(pngPath:String, xmlPath:String):FlxAtlasFrames
 	{
 		try
 		{
-			// Obtener o crear el FlxGraphic via PathsCache
 			final graphic = _getGraphicForPath(pngPath);
 			if (graphic == null)
 			{
@@ -1178,7 +888,6 @@ class Paths
 				return null;
 			}
 
-			// Leer el XML
 			final xmlContent = _readXml(xmlPath);
 			if (xmlContent == null)
 			{
@@ -1186,7 +895,6 @@ class Paths
 				return null;
 			}
 
-			// fromSparrow acepta FlxGraphic directamente — sin duplicar textura
 			return FlxAtlasFrames.fromSparrow(graphic, xmlContent);
 		}
 		catch (e:Dynamic)
@@ -1196,7 +904,6 @@ class Paths
 		}
 	}
 
-	/** Variante de _sparrow que recibe el path físico directamente (no image()). */
 	static function _sparrowFromPath(pngPath:String, xmlPath:String):FlxAtlasFrames
 	{
 		try
@@ -1216,7 +923,6 @@ class Paths
 		}
 	}
 
-	/** Carga Packer: igual que _sparrow pero para txt. */
 	static function _packer(pngPath:String, txtPath:String):FlxAtlasFrames
 	{
 		try
@@ -1225,7 +931,7 @@ class Paths
 			if (graphic == null)
 				return null;
 
-			final txtContent = _readXml(txtPath); // reutilizar el mismo helper
+			final txtContent = _readXml(txtPath);
 			if (txtContent == null)
 				return null;
 
@@ -1238,17 +944,11 @@ class Paths
 		}
 	}
 
-	/**
-	 * Obtiene o crea un FlxGraphic para un path físico.
-	 * Usa PathsCache con el path físico como clave.
-	 */
 	static function _getGraphicForPath(pngPath:String):Null<FlxGraphic>
 	{
-		// Hit rápido en PathsCache
 		if (cacheEnabled && cache.hasValidGraphic(pngPath))
 			return cache.peekGraphic(pngPath);
 
-		// Cargar bitmap y registrar en PathsCache
 		final bmp = _loadBitmapFromDisk(pngPath);
 		if (bmp == null)
 			return null;
@@ -1256,7 +956,7 @@ class Paths
 		return cacheEnabled ? cache.getGraphic(pngPath, bmp) : FlxGraphic.fromBitmapData(bmp, false, pngPath, false);
 	}
 
-	/** Lee contenido XML/TXT desde disco o assets embebidos. */
+	// Read XML/TXT content from disk or embedded assets.
 	static function _readXml(xmlPath:String):Null<String>
 	{
 		try
@@ -1277,17 +977,9 @@ class Paths
 
 	static function _storeAtlas(key:String, atlas:FlxAtlasFrames):Void
 	{
-		// FIX Issue #8 — aplicar el límite maxAtlasCache antes de insertar.
-		// Antes, el límite de 50 entradas estaba solo en comentarios; no había
-		// código que lo enforceara dentro de la sesión. En mods con muchos assets,
-		// atlasCache podía crecer ilimitadamente durante gameplay.
-		// Si ya estamos al límite, evictar la entrada más vieja (FIFO aproximado
-		// usando el primer key del mapa) cuyo FlxGraphic ya no sea válido, o la
-		// más antigua si todas son válidas.
 		if (atlasCount >= maxAtlasCache)
 		{
 			var evictKey:Null<String> = null;
-			// Preferir una entrada con gráfico inválido (ya dispuesto)
 			for (k => a in atlasCache)
 			{
 				if (!_atlasValid(a)) { evictKey = k; break; }
@@ -1295,11 +987,6 @@ class Paths
 			}
 			if (evictKey != null)
 			{
-				// FIX Bug 9: restore destroyOnNoUse=true before dropping the reference.
-				// _storeAtlas() sets it to false on insert so PathsCache owns the
-				// lifecycle. If we evict without restoring the flag, Flixel never
-				// auto-reclaims the FlxGraphic and it is pinned in the bitmap cache
-				// permanently — a silent, unbounded VRAM/RAM leak.
 				final evicted = atlasCache.get(evictKey);
 				if (evicted?.parent != null)
 					evicted.parent.destroyOnNoUse = true;
@@ -1307,9 +994,8 @@ class Paths
 				atlasCount--;
 			}
 		}
-		// Sin eviction durante gameplay — clearPreviousSession() libera en bloque.
 		if (atlas?.parent != null)
-			atlas.parent.destroyOnNoUse = false; // PathsCache gestiona el ciclo de vida
+			atlas.parent.destroyOnNoUse = false;
 		atlasCache.set(key, atlas);
 		atlasCount++;
 	}
@@ -1337,12 +1023,6 @@ class Paths
 		for (key in atlasCache.keys())
 		{
 			final atlas = atlasCache.get(key);
-			// FIX Bug 10: _atlasValid() only checks atlas.parent.bitmap != null.
-			// A "zombie" atlas can have a non-null bitmap while its parent graphic
-			// has already been evicted from PathsCache (e.g. cleared by
-			// clearSecondLayer). Adding hasValidGraphic catches those zombies so
-			// they are pruned in the same pass instead of lingering until the next
-			// postStateSwitch cycle.
 			final parentKey  = atlas?.parent?.key ?? '';
 			final isZombie   = parentKey != '' && !cache.hasValidGraphic(parentKey);
 			if (!_atlasValid(atlas) || isZombie)
@@ -1355,12 +1035,8 @@ class Paths
 		}
 	}
 
-	// ── Resolve helpers privados ──────────────────────────────────────────────
+	// ── Resolve helpers privated ──────────────────────────────────────────────
 
-	/**
-	 * Resuelve el path físico de la imagen de un stage asset.
-	 * @param fromStage  Si se especifica, usa ESA carpeta de stage en lugar de currentStage.
-	 */
 	static function _resolveStageImagePath(key:String, ?fromStage:String):Null<String>
 	{
 		final lib = fromStage ?? currentStage;
@@ -1426,11 +1102,6 @@ class Paths
 	static function _resolveSongFolder(song:String):String
 	{
 		#if sys
-		// BUGFIX: igual que findChart(), buscar en TODOS los mods habilitados y no
-		// solo en el mod activo. Sin este fix, si los archivos de audio (Inst.ogg,
-		// Voices.ogg) estaban en un mod habilitado pero no activo (ej: base_game),
-		// Lime tiraba error "file not found" al hacer loadStream().
-		// Mod activo primero (mayor prioridad)
 		if (ModManager.isActive())
 		{
 			final modRoot = ModManager.modRoot();
@@ -1439,7 +1110,6 @@ class Paths
 					if (sys.FileSystem.isDirectory('$base/$v'))
 						return '$base/$v';
 		}
-		// Todos los mods instalados y habilitados
 		for (mod in ModManager.installedMods)
 		{
 			if (!ModManager.isEnabled(mod.id))

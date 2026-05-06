@@ -8,48 +8,10 @@ import sys.FileSystem;
 
 using StringTools;
 
-/**
- * WinMacroFix.hx — source/WinMacroFix.hx
- *
- * Evita colisiones entre macros del Windows SDK y constantes de HaxeFlixel
- * (FlxKey, FlxColor) que provocan errores C2059/C2238 en MSVC.
- *
- * ════════════════════════════════════════════════════════════════════════════
- *  POR QUÉ LAS VERSIONES ANTERIORES FALLABAN
- * ════════════════════════════════════════════════════════════════════════════
- *  Las versiones 1-5 parcheaban directamente los archivos .h generados por
- *  Haxe (FlxKey_Impl_.h, FlxColor_Impl_.h). El problema: HXCPP tiene su
- *  propio sistema de caché y puede restaurar los headers sin parchear en
- *  export\debug\windows\obj\include\ DESPUÉS de que onAfterGenerate haya
- *  ejecutado, deshaciendo el parche.
- *
- * ════════════════════════════════════════════════════════════════════════════
- *  SOLUCIÓN v7 — @:headerCode (compile-time, cache-proof, space-safe)
- * ════════════════════════════════════════════════════════════════════════════
- *  El enfoque v6 (/FI en Build.xml) fallaba cuando la ruta del proyecto
- *  contiene espacios (ej. "H:\MOD FNF\...") porque HXCPP parte el argumento
- *  en dos al invocar cl.exe y MSVC nunca recibe el flag correctamente.
- *
- *  v7 usa Context.addGlobalMetadata con @:headerCode para inyectar:
- *    #include "H:/ruta/con espacios/source/macros/WinUndefs.h"
- *  directamente en los headers generados de FlxKey y FlxColor DURANTE la
- *  fase de generación de código de Haxe.  Las comillas dobles en #include
- *  son ISO C/C++ estándar y admiten espacios en la ruta → no hay problema.
- *
- *  Flujo v7:
- *   1. apply() llama addGlobalMetadata → @:headerCode registrado en FlxKey/FlxColor
- *   2. Haxe genera FlxKey_Impl_.h con #include "WinUndefs.h" al principio
- *   3. HXCPP compila: MSVC ve los #undef ANTES de los enum values → sin C2059
- *
- *  El fallback v6 (onAfterGenerate + Build.xml + header patching) se mantiene
- *  como cinturón + tirantes para entornos donde @:headerCode no aplique.
- */
 class WinMacroFix {
-	// Versión del parche — cambiar para forzar re-parche en builds incrementales.
 	static final MARKER = '// WinMacroFix-v6';
 	static final MARKER_XML = '<!-- WinMacroFix-v6 -->';
 
-	// ── FlxColor undefs ────────────────────────────────────────────────────────
 	static final UNDEFS_COLOR = MARKER
 		+ '
 #ifdef TRANSPARENT
@@ -108,7 +70,6 @@ class WinMacroFix {
 #endif
 ';
 
-	// ── FlxKey undefs ──────────────────────────────────────────────────────────
 	static final UNDEFS_KEY = MARKER
 		+ '
 #ifdef NONE
@@ -480,76 +441,32 @@ class WinMacroFix {
 		var undefsPath = cwd + '/source/macros/WinUndefs.h';
 
 		if (!FileSystem.exists(undefsPath)) {
-			trace('[WinMacroFix v7] WARNING: source/macros/WinUndefs.h not found — @:headerCode fix skipped');
+			trace('[WinMacroFix] WARNING: source/macros/WinUndefs.h not found — @:headerCode fix skipped');
 		} else {
-			// #include con comillas dobles soporta espacios en la ruta (ISO C/C++)
 			var meta = '@:headerCode(\'#include "$undefsPath"\')';
 
-			// FlxKey: abstract enum cuyos valores colisionan con macros de windows.h
-			// (DELETE, HOME, END, ESCAPE, etc.)
-			// FlxKey: abstract enum cuyos valores colisionan con macros de windows.h
-			// (DELETE, HOME, END, ESCAPE, etc.)
 			Compiler.addGlobalMetadata("flixel.input.keyboard.FlxKey", meta, false, true, false);
 			Compiler.addGlobalMetadata("flixel.input.keyboard._FlxKey", meta, true, true, false);
 
-			// FlxColor: abstract cuyos valores colisionan con wingdi.h / winbase.h
-			// (TRANSPARENT, BLACK, WHITE, RED, GREEN, BLUE, etc.)
 			Compiler.addGlobalMetadata("flixel.util.FlxColor", meta, false, true, false);
 			Compiler.addGlobalMetadata("flixel.util._FlxColor", meta, true, true, false);
 
-			trace('[WinMacroFix v7] @:headerCode injection registered for FlxKey + FlxColor');
-			trace('[WinMacroFix v7] WinUndefs.h path: $undefsPath');
+			trace('[WinMacroFix] @:headerCode injection registered for FlxKey + FlxColor');
+			trace('[WinMacroFix] WinUndefs.h path: $undefsPath');
 		}
 
-		// ══════════════════════════════════════════════════════════════════════
-		//  LINUX / macOS — X11 macro conflicts (v7)
-		// ══════════════════════════════════════════════════════════════════════
-		//  X11's Xlib.h defines  #define Status int  (and Bool, True, False…).
-		//  HXCPP-generated FlxKeyManager.h has  bool checkStatus(::Dynamic KeyCode, int Status)
-		//  which the preprocessor expands to  int int  → "two or more data types" error.
-		//
-		//  WHY THE PREVIOUS ATTEMPT FAILED:
-		//   1. It targeted "flixel.input.FlxKeyManager" but in flixel 6.x the
-		//      checkStatus method is declared in FlxTypedKeyManager (the generic
-		//      base).  FlxKeyManager.h may be just a typedef and never receives
-		//      the @:headerCode injection.
-		//   2. Even when the class is right, @:headerCode injects into *_obj.h
-		//      which is pulled in AFTER the HXCPP precompiled header has already
-		//      brought in X11 — the #undef fires too late.
-		//
-		//  FIX (belt + suspenders):
-		//   • Primary (v7 @:headerCode): target the entire flixel.input package
-		//     recursively so FlxTypedKeyManager, FlxKeyManager, FlxBaseKeyManager
-		//     and any other class in that subtree all get the undefs.
-		//   • Secondary (v6 Build.xml fallback): inject -include LinuxUndefs.h
-		//     into Build.xml (GCC/Clang equivalent of MSVC /FI) so the undefs
-		//     fire before EVERY translation unit, including those that include
-		//     FlxKeyManager.h via the precompiled header path.
 		if (Context.defined('linux') || Context.defined('mac')) {
-			// Real newlines inside the string are required so the C preprocessor
-			// sees each directive on its own line.  Use a Haxe string with \n.
 			var x11Undefs = '#ifdef Status\n#undef Status\n#endif\n' + '#ifdef Bool\n#undef Bool\n#endif\n' + '#ifdef True\n#undef True\n#endif\n'
 				+ '#ifdef False\n#undef False\n#endif\n' + '#ifdef None\n#undef None\n#endif\n' + '#ifdef Success\n#undef Success\n#endif\n'
 				+ '#ifdef Always\n#undef Always\n#endif\n' + '#ifdef Expose\n#undef Expose\n#endif';
 
-			// addGlobalMetadata takes the metadata as a Haxe source string.
-			// The inner double-quoted string is parsed by the Haxe compiler,
-			// so \n inside it becomes a real newline in the generated header.
 			var linuxMeta = '@:headerCode("$x11Undefs")';
 
-			// Target the whole flixel.input package (recursive = true) so
-			// FlxKeyManager, FlxTypedKeyManager, FlxBaseKeyManager etc. all
-			// receive the injection regardless of where the method is declared.
 			Compiler.addGlobalMetadata("flixel.input", linuxMeta, true, true, false);
 
-			trace('[WinMacroFix v7] @:headerCode X11 fix registered for flixel.input.* (recursive)');
+			trace('[WinMacroFix] @:headerCode X11 fix registered for flixel.input.* (recursive)');
 		}
 
-		// ══════════════════════════════════════════════════════════════════════
-		//  SECONDARY / FALLBACK (v6) — onAfterGenerate patches
-		// ══════════════════════════════════════════════════════════════════════
-		//  Se mantiene como cinturón + tirantes por si @:headerCode no aplica
-		//  en alguna configuración de HXCPP.
 		Context.onAfterGenerate(function() {
 			var cwd = Sys.getCwd().split("\\").join("/");
 			if (cwd.endsWith("/"))
@@ -559,7 +476,7 @@ class WinMacroFix {
 			if (Context.defined('32bit'))
 				buildType = '32bit';
 
-			trace('[WinMacroFix v6 fallback] buildType=$buildType  cwd=$cwd');
+			trace('[WinMacroFix] buildType=$buildType  cwd=$cwd');
 
 			// ── PRIMARY: patch Build.xml with /FI (Windows/MSVC) ─────────────
 			// Source/WinUndefs.h must exist alongside this file.
@@ -578,11 +495,6 @@ class WinMacroFix {
 					trace('[WinMacroFix] WARNING: export dir not found: $searchRoot');
 			}
 
-			// ── PRIMARY (Linux/macOS): patch Build.xml with -include ──────────
-			// GCC and Clang use  -include <path>  which is the exact equivalent
-			// of MSVC's /FI.  This fires before EVERY translation unit, including
-			// those that pull in X11 via the precompiled header, so the #undef
-			// Status (and friends) always lands before FlxKeyManager.h is parsed.
 			if (Context.defined('linux') || Context.defined('mac')) {
 				var linuxUndefsPath = cwd + '/source/macros/LinuxUndefs.h';
 				if (!FileSystem.exists(linuxUndefsPath)) {
@@ -600,10 +512,6 @@ class WinMacroFix {
 				}
 			}
 
-			// ── SECONDARY (belt + suspenders): patch headers directly ─────────
-			// Even if HXCPP restores headers from cache, the /FI from Build.xml
-			// will apply the undefs first. But patching headers is kept as a
-			// safety net for environments where /FI behaves unexpectedly.
 			var colorRel = 'flixel/util/_FlxColor/FlxColor_Impl_.h';
 			var keyRel = 'flixel/input/keyboard/_FlxKey/FlxKey_Impl_.h';
 
@@ -617,36 +525,30 @@ class WinMacroFix {
 				_tryAdd(headerTargets, base + '/include/' + keyRel, UNDEFS_KEY, 'FlxKey_Impl_');
 			}
 
-			// 2. Recursive search under export/<buildType>/ — NO early exit (v5+)
-			{
+			var needles = [
+				{rel: colorRel, undefs: UNDEFS_COLOR, cls: 'FlxColor_Impl_'},
+				{rel: keyRel, undefs: UNDEFS_KEY, cls: 'FlxKey_Impl_'},
+			];
+			var searchRoot = cwd + '/export/' + buildType;
+			if (FileSystem.exists(searchRoot))
+				for (t in _findHeaders(searchRoot, needles))
+					if (!_alreadyHas(headerTargets, t.path))
+						headerTargets.push(t);
+
+			var cache = Sys.getEnv("HXCPP_CACHE") ?? '';
+			if (cache != '' && FileSystem.exists(cache)) {
 				var needles = [
 					{rel: colorRel, undefs: UNDEFS_COLOR, cls: 'FlxColor_Impl_'},
 					{rel: keyRel, undefs: UNDEFS_KEY, cls: 'FlxKey_Impl_'},
 				];
-				var searchRoot = cwd + '/export/' + buildType;
-				if (FileSystem.exists(searchRoot))
-					for (t in _findHeaders(searchRoot, needles))
-						if (!_alreadyHas(headerTargets, t.path))
-							headerTargets.push(t);
-			}
-
-			// 3. HXCPP global cache
-			{
-				var cache = Sys.getEnv("HXCPP_CACHE") ?? '';
-				if (cache != '' && FileSystem.exists(cache)) {
-					var needles = [
-						{rel: colorRel, undefs: UNDEFS_COLOR, cls: 'FlxColor_Impl_'},
-						{rel: keyRel, undefs: UNDEFS_KEY, cls: 'FlxKey_Impl_'},
-					];
-					for (t in _findHeaders(cache, needles))
-						if (!_alreadyHas(headerTargets, t.path))
-							headerTargets.push(t);
-				}
+				for (t in _findHeaders(cache, needles))
+					if (!_alreadyHas(headerTargets, t.path))
+						headerTargets.push(t);
 			}
 
 			trace('[WinMacroFix] Header targets: ${headerTargets.length}');
 			for (t in headerTargets)
-				trace('[WinMacroFix]   -> ${t.path}');
+				trace('[WinMacroFix] -> ${t.path}');
 
 			for (t in headerTargets)
 				_patchHeader(t.path, t.undefs, t.cls);
@@ -657,18 +559,6 @@ class WinMacroFix {
 	//  BUILD.XML PATCHING
 	// ══════════════════════════════════════════════════════════════════════════
 
-	/**
-	 * Parchea Build.xml añadiendo un compilerflag /FI que force-incluye
-	 * WinUndefs.h antes de cualquier otro header en cada unidad de compilación.
-	 *
-	 * HXCPP lee Build.xml directamente (no lo cachea), así que este parche
-	 * sobrevive al sistema de caché de HXCPP y garantiza que los #undef
-	 * siempre se apliquen antes de que FlxKey_Impl_.h o FlxColor_Impl_.h
-	 * sean procesados por MSVC.
-	 *
-	 * El parche se inserta DESPUÉS de la apertura de <target id="default">,
-	 * que es donde HXCPP espera los flags de compilación.
-	 */
 	static function _patchBuildXml(xmlPath:String, winUndefsPath:String):Void {
 		var content:String;
 		try {
@@ -678,14 +568,11 @@ class WinMacroFix {
 			return;
 		}
 
-		// Ya parcheado con esta versión — salir (útil en builds incrementales
-		// donde Haxe no regenera Build.xml si nada cambió).
 		if (content.indexOf(MARKER_XML) != -1) {
 			trace('[WinMacroFix] Build.xml already patched: $xmlPath');
 			return;
 		}
 
-		// Buscar el tag de apertura del target principal
 		var needle = '<target id="default"';
 		var idx = content.indexOf(needle);
 		if (idx < 0) {
@@ -693,18 +580,14 @@ class WinMacroFix {
 			return;
 		}
 
-		// Avanzar hasta el '>' de cierre del tag de apertura
 		var tagEnd = content.indexOf('>', idx);
 		if (tagEnd < 0) {
 			trace('[WinMacroFix] Malformed <target> tag in $xmlPath');
 			return;
 		}
-		tagEnd++; // incluir el '>'
+		tagEnd++;
 
-		// MSVC /FI flag: /FI"path" (sin espacio entre /FI y la ruta).
-		// &quot; es la entidad XML para las comillas dobles necesarias para
-		// manejar rutas con espacios (ej. "H:/MOD FNF/FNF-Cool-Engine/...").
-		var escapedPath = winUndefsPath; // ya está en formato forward-slash
+		var escapedPath = winUndefsPath;
 		var flag = '\n\t\t$MARKER_XML' + '\n\t\t<compilerflag value="/FI&quot;$escapedPath&quot;"/>';
 
 		content = content.substr(0, tagEnd) + flag + content.substr(tagEnd);
@@ -721,20 +604,6 @@ class WinMacroFix {
 	//  BUILD.XML PATCHING — Linux/macOS (GCC/Clang -include flag)
 	// ══════════════════════════════════════════════════════════════════════════
 
-	/**
-	 * Linux/macOS equivalent of _patchBuildXml.
-	 * Injects a  -include /path/to/LinuxUndefs.h  compilerflag into Build.xml.
-	 * GCC and Clang's -include behaves identically to MSVC's /FI: the specified
-	 * file is force-included at the start of every translation unit, BEFORE the
-	 * source file's own includes.  This guarantees #undef Status (and the other
-	 * X11 macros) fires before FlxKeyManager.h or any other flixel header is
-	 * processed, regardless of precompiled headers.
-	 *
-	 * Note: unlike MSVC's /FI, GCC/Clang -include does NOT need quoting for
-	 * spaces in the path when expressed as an XML attribute value — XML handles
-	 * that automatically.  If the path contains spaces, the Build.xml attribute
-	 * value itself carries them safely.
-	 */
 	static function _patchBuildXmlGcc(xmlPath:String, linuxUndefsPath:String):Void {
 		var content:String;
 		try {
@@ -744,7 +613,6 @@ class WinMacroFix {
 			return;
 		}
 
-		// Already patched with this version — skip (safe for incremental builds).
 		if (content.indexOf(MARKER_XML) != -1) {
 			trace('[WinMacroFix] Build.xml already patched (gcc): $xmlPath');
 			return;
@@ -764,7 +632,6 @@ class WinMacroFix {
 		}
 		tagEnd++;
 
-		// GCC/Clang:  -include <path>  (no quoting needed in XML attribute).
 		var flag = '\n\t\t$MARKER_XML' + '\n\t\t<compilerflag value="-include $linuxUndefsPath"/>';
 
 		content = content.substr(0, tagEnd) + flag + content.substr(tagEnd);
@@ -903,9 +770,6 @@ class WinMacroFix {
 		}
 	}
 
-	/** Encuentra TODAS las copias de los headers especificados en `needles`.
-	 *  v6: sin early-exit — busca en TODO el árbol para cubrir tanto
-	 *  cpp/include/ como obj/include/ y cualquier otra ubicación. */
 	static function _findHeaders(startDir:String, needles:Array<{rel:String, undefs:String, cls:String}>):Array<{path:String, undefs:String, cls:String}> {
 		var out:Array<{path:String, undefs:String, cls:String}> = [];
 		_walk(startDir, needles, out);
@@ -913,7 +777,6 @@ class WinMacroFix {
 	}
 
 	static function _walk(dir:String, needles:Array<{rel:String, undefs:String, cls:String}>, out:Array<{path:String, undefs:String, cls:String}>):Void {
-		// v6: SIN early-exit — encontrar TODAS las copias del header.
 		var entries:Array<String>;
 		try {
 			entries = FileSystem.readDirectory(dir);

@@ -1,15 +1,3 @@
-/**
- * main.js — Proceso principal del launcher (Electron)
- *
- * Flujo:
- *  1. Lee el mod activo (mods/.active_mod.json) y parchea el icono del .exe
- *     con rcedit antes de lanzar, para que Windows Explorer muestre el icono
- *     del mod activo sin recompilar.
- *  2. Lee la versión local (engine.json) y comprueba actualizaciones.
- *  3. Si hay actualización → muestra ventana launcher con la info.
- *     Si todo está al día → lanza el juego directamente.
- */
-
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path  = require('path');
 const fs    = require('fs');
@@ -24,15 +12,10 @@ const CONFIG = {
   engineVersionFile: '../engine.json',
   modsFolder:        '../mods',
 
-  // rcedit: herramienta para parchar el icono del .exe en disco.
-  // Descárgala de: https://github.com/electron/rcedit/releases
-  // y ponla en tools/rcedit.exe (solo necesaria en Windows).
   rcedit: './tools/rcedit.exe',
 
-  // Archivo donde ModManager guarda qué mod está activo
   activeModFile: '../mods/.active_mod.json',
 
-  // Cache local: evita re-parchar si el icono no cambió entre lanzamientos
   iconCacheFile: './.icon_cache.json',
 
   engineGamebananaId: null,
@@ -53,7 +36,6 @@ const CONFIG = {
 let mainWindow = null;
 
 app.whenReady().then(async () => {
-  // Parchar icono del exe ANTES de lanzar (solo Windows)
   if (process.platform === 'win32') {
     try { await patchExeIcon(); }
     catch (e) { console.warn('[Launcher] patchExeIcon falló (no crítico):', e.message); }
@@ -73,8 +55,6 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
-
-// ── Ventana principal ──────────────────────────────────────────────────────
 
 function createWindow(updateInfo) {
   mainWindow = new BrowserWindow({
@@ -105,8 +85,6 @@ ipcMain.on('launch-game',  () => { launchGame(); });
 ipcMain.on('open-url',     (_, url) => { shell.openExternal(url); });
 ipcMain.on('close-window', () => { app.quit(); });
 
-// ── Lanzar el juego ────────────────────────────────────────────────────────
-
 function launchGame() {
   const { spawn } = require('child_process');
   const exe = path.resolve(__dirname, CONFIG.gameExecutable);
@@ -124,19 +102,6 @@ function launchGame() {
   child.unref();
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-//  ICON PATCHING — modifica el icono del .exe en disco con rcedit
-// ══════════════════════════════════════════════════════════════════════════
-
-/**
- * Parchea el icono del ejecutable con el icono del mod activo (o el default
- * del engine si no hay mod / el mod no tiene icono).
- *
- * Solo actúa si el icono cambió desde la última vez (compara rutas + mtime
- * en .icon_cache.json para no relentizar el arranque innecesariamente).
- *
- * Requiere tools/rcedit.exe en Windows.
- */
 async function patchExeIcon() {
   const rceditPath = path.resolve(__dirname, CONFIG.rcedit);
   const exePath    = path.resolve(__dirname, CONFIG.gameExecutable);
@@ -148,7 +113,6 @@ async function patchExeIcon() {
   }
   if (!fs.existsSync(exePath)) return;
 
-  // ── Determinar qué icono usar ────────────────────────────────────────────
   const iconPngPath = resolveModIconPath();
   if (!iconPngPath) {
     console.log('[Launcher] Sin icono de mod → usando icono embebido del exe.');

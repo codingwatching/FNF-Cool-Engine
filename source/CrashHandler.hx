@@ -1,52 +1,6 @@
 package;
 
 /**
- * CrashHandler — Cool Engine (v4)
- *
- * ── What's new in v4 ─────────────────────────────────────────────────────────
- *
- *  v3 introduced CrashWatcher.exe as an independent sibling process so crash
- *  dialogs appear even when the game's heap is too corrupt to run any code.
- *
- *  v4 focuses on making crash reports ACTIONABLE rather than just readable:
- *
- *  1. TRACE BUFFER  — The last 60 trace() calls are captured in a circular
- *     buffer and appended to every crash report, showing execution history
- *     leading up to the crash without any extra work from callers.
- *
- *  2. BREADCRUMBS   — CrashHandler.breadcrumb("LoadChart", {song:"Bopeebo"})
- *     records checkpoints. The last 20 are included in the crash report,
- *     identifying the high-level operation that was in progress.
- *
- *  3. FRAME TAGS    — Every stack frame is labelled [USER], [LIB ], [MOD ] or
- *     [C++ ].  The first [USER] frame gets a "← likely crash location" marker.
- *     CrashWatcher.exe syntax-highlights these tags with different colours.
- *
- *  4. LIVE SNAPSHOT — At crash time, the handler reads the current song, chart
- *     difficulty, and FlxG state via reflection (no PlayState import) and
- *     appends them to the report.
- *
- *  5. WARN DEDUP    — warn() skips identical errors within a 5-second window
- *     so a looping script error doesn't spawn 60 warning dialogs per second.
- *
- *  6. LOG ROTATION  — The crash folder is pruned to the 20 most recent files
- *     before each new log is written.
- *
- *  7. RICHER INFO   — Static section now includes GPU renderer, OpenGL version,
- *     Flixel / OpenFL versions, and the absolute crash-dir path.
- *
- * ── Architecture ─────────────────────────────────────────────────────────────
- *
- *  init()
- *    ├─ _spawnWatcher()         → CrashWatcher.exe --pid X --logdir <abs>
- *    ├─ haxe.Log.trace hook     → fills _traceLog[] circular buffer
- *    ├─ UncaughtErrorEvent      → _onUncaughtError()  (Hook A)
- *    └─ hxcpp critical hook     → _onCriticalError()  (Hook B, cpp only)
- *
- *  warn(error, ?context)        → log + WarningDialog (game continues)
- *  report(error, ?ctx, fatal)   → log + optional fatal exit
- *  breadcrumb(label, ?data)     → circular buffer of checkpoints
- *
  * ── Usage ────────────────────────────────────────────────────────────────────
  *
  *  // In Main, before createGame():
@@ -91,9 +45,6 @@ extern "C" __declspec(dllimport) unsigned long __stdcall GetCurrentProcessId(voi
 @:cppInclude("unistd.h")
 #end
 class CrashHandler {
-	// =========================================================================
-	//  CONFIGURATION
-	// =========================================================================
 	private static var CRASH_DIR:String = _resolveCrashDir();
 
 	private static inline final LOG_PREFIX:String = "CoolEngine_";
@@ -152,7 +103,13 @@ class CrashHandler {
 	 * Call flushScriptWarnings() once loading is done to show them all
 	 * in a single CrashWatcher warning dialog.
 	 */
-	private static var _scriptWarnings:Array<{script:String, func:String, line:Int, msg:String, lineContent:String}> = [];
+	private static var _scriptWarnings:Array<{
+		script:String,
+		func:String,
+		line:Int,
+		msg:String,
+		lineContent:String
+	}> = [];
 
 	// =========================================================================
 	//  PUBLIC API
@@ -200,7 +157,7 @@ class CrashHandler {
 			};
 		} catch (_) {}
 
-		// ── External watcher (v3+, highest priority) ─────────────────────────
+		// ── External watcher ─────────────────────────
 		_spawnWatcher();
 
 		// ── Hook A: Haxe / OpenFL uncaught errors ────────────────────────────
@@ -339,15 +296,18 @@ class CrashHandler {
 	 */
 	public static function queueScriptWarning(script:String, func:String, line:Int, msg:String, ?lineContent:String):Void {
 		try {
-			if (script == null || script == "") script = "(unknown script)";
-			if (func   == null || func   == "") func   = "?";
-			if (msg    == null || msg    == "") msg    = "(unknown error)";
+			if (script == null || script == "")
+				script = "(unknown script)";
+			if (func == null || func == "")
+				func = "?";
+			if (msg == null || msg == "")
+				msg = "(unknown error)";
 			_scriptWarnings.push({
-				script      : script,
-				func        : func,
-				line        : line,
-				msg         : msg,
-				lineContent : (lineContent != null) ? lineContent : ""
+				script: script,
+				func: func,
+				line: line,
+				msg: msg,
+				lineContent: (lineContent != null) ? lineContent : ""
 			});
 		} catch (_) {}
 	}
@@ -365,7 +325,7 @@ class CrashHandler {
 			var errors = _scriptWarnings.copy();
 			_scriptWarnings = [];
 
-			var count  = errors.length;
+			var count = errors.length;
 			var plural = count > 1 ? "s" : "";
 
 			var sb = new StringBuf();
@@ -401,7 +361,6 @@ class CrashHandler {
 			sb.add(REPORT_URL + "\n");
 
 			warn(sb.toString(), "ScriptLoader");
-
 		} catch (_) {}
 	}
 
@@ -1026,29 +985,17 @@ class CrashHandler {
 	// =========================================================================
 	//  NATIVE DIALOGS
 	// =========================================================================
-
 	// ── Mobile scrollable overlay (Android / iOS / mobileC) ──────────────────
 
 	#if (android || mobileC || ios)
 	/**
 	 * Shows a full-screen OpenFL overlay with the crash report text.
 	 *
-	 * WHY: lime.app.Application.current.window.alert() on Android renders a
-	 * standard AlertDialog that has no scroll support.  Long crash reports are
-	 * silently truncated and the bottom frames (the most useful ones) are never
-	 * visible.  This overlay replaces that with an openfl.text.TextField that:
-	 *   • shows the full, untruncated report
-	 *   • supports finger-drag scrolling
-	 *   • calls Sys.exit(1) from the Close button so the app exits cleanly
-	 *     (instead of from _showAndExit(), which would kill the app before the
-	 *     user can read anything)
-	 *
 	 * @param message  Full crash-report string (NOT truncated).
 	 * @param title    Title bar text.
 	 * @param logPath  Optional: path to the saved .txt log (appended at bottom).
 	 */
-	private static function _showMobileScrollOverlay(message:String, title:String, ?logPath:String):Void
-	{
+	private static function _showMobileScrollOverlay(message:String, title:String, ?logPath:String):Void {
 		var stage = openfl.Lib.current.stage;
 		final W:Float = stage.stageWidth;
 		final H:Float = stage.stageHeight;
@@ -1108,16 +1055,19 @@ class CrashHandler {
 		closeBtn.buttonMode = true;
 		closeBtn.mouseChildren = false;
 		closeBtn.useHandCursor = true;
-		closeBtn.addEventListener(openfl.events.MouseEvent.CLICK, function(_)
-		{
-			try { stage.removeChild(overlay); } catch (_) {}
-			try { Sys.exit(1);               } catch (_) {}
+		closeBtn.addEventListener(openfl.events.MouseEvent.CLICK, function(_) {
+			try {
+				stage.removeChild(overlay);
+			} catch (_) {}
+			try {
+				Sys.exit(1);
+			} catch (_) {}
 		});
 		overlay.addChild(closeBtn);
 
 		// ── Scrollable report text ────────────────────────────────────────────
 		final MARGIN:Float = 10;
-		final TOP:Float    = 70;
+		final TOP:Float = 70;
 
 		var fullText = (message != null) ? message : "(no message)";
 		if (logPath != null && logPath != "")
@@ -1125,45 +1075,42 @@ class CrashHandler {
 
 		var tf = new openfl.text.TextField();
 		tf.defaultTextFormat = new openfl.text.TextFormat("_typewriter", 14, 0xDDDDDD);
-		tf.multiline  = true;
-		tf.wordWrap   = true;
-		tf.text       = fullText;
-		tf.x          = MARGIN;
-		tf.y          = TOP;
-		tf.width      = W - MARGIN * 2;
-		tf.height     = H - TOP - MARGIN;
+		tf.multiline = true;
+		tf.wordWrap = true;
+		tf.text = fullText;
+		tf.x = MARGIN;
+		tf.y = TOP;
+		tf.width = W - MARGIN * 2;
+		tf.height = H - TOP - MARGIN;
 		tf.selectable = true;
-		tf.scrollV    = 1;
+		tf.scrollV = 1;
 		overlay.addChild(tf);
 
 		// ── Touch-drag scrolling ──────────────────────────────────────────────
-		// On Android/iOS, OpenFL maps touch events to MOUSE_DOWN/MOUSE_MOVE,
-		// so standard MouseEvent listeners work for finger scrolling.
-		var dragStartY:Float    = 0;
+		var dragStartY:Float = 0;
 		var dragStartScroll:Int = 1;
-		var dragging:Bool       = false;
+		var dragging:Bool = false;
 
-		overlay.addEventListener(openfl.events.MouseEvent.MOUSE_DOWN, function(e:openfl.events.MouseEvent)
-		{
-			dragging       = true;
-			dragStartY     = e.stageY;
+		overlay.addEventListener(openfl.events.MouseEvent.MOUSE_DOWN, function(e:openfl.events.MouseEvent) {
+			dragging = true;
+			dragStartY = e.stageY;
 			dragStartScroll = tf.scrollV;
 		});
 		// Register MOUSE_UP on stage so a fast swipe that leaves the overlay
 		// still stops dragging.
-		stage.addEventListener(openfl.events.MouseEvent.MOUSE_UP, function(_)
-		{
+		stage.addEventListener(openfl.events.MouseEvent.MOUSE_UP, function(_) {
 			dragging = false;
 		});
-		overlay.addEventListener(openfl.events.MouseEvent.MOUSE_MOVE, function(e:openfl.events.MouseEvent)
-		{
-			if (!dragging) return;
-			final delta:Float  = dragStartY - e.stageY;
-			// Estimate pixel height per text line.
-			final lineH:Float  = (tf.maxScrollV > 1) ? tf.textHeight / tf.maxScrollV : 20.0;
+		overlay.addEventListener(openfl.events.MouseEvent.MOUSE_MOVE, function(e:openfl.events.MouseEvent) {
+			if (!dragging)
+				return;
+			final delta:Float = dragStartY - e.stageY;
+			final lineH:Float = (tf.maxScrollV > 1) ? tf.textHeight / tf.maxScrollV : 20.0;
 			var newV:Int = dragStartScroll + Std.int(delta / Math.max(lineH, 1.0));
-			if (newV < 1)           newV = 1;
-			if (newV > tf.maxScrollV) newV = tf.maxScrollV;
+			if (newV < 1)
+				newV = 1;
+			if (newV > tf.maxScrollV)
+				newV = tf.maxScrollV;
 			tf.scrollV = newV;
 		});
 
@@ -1353,11 +1300,6 @@ class CrashHandler {
 		}
 
 		// ── Mobile path ───────────────────────────────────────────────────────
-		// On Android/iOS, lime.app.Application.current.window.alert() renders a
-		// native AlertDialog without scroll support — long reports get truncated.
-		// Show the custom OpenFL overlay instead.  The Close button calls
-		// Sys.exit(1), so we must NOT call it here or the app dies before the
-		// user can read the report.
 		#if (android || mobileC || ios)
 		try {
 			_showMobileScrollOverlay(dialogMsg, "Cool Engine — Fatal Error", logPath);
@@ -1365,8 +1307,12 @@ class CrashHandler {
 		} catch (_:Dynamic) {
 			// Overlay failed (e.g. stage not ready) — fall back to native alert
 			// and exit immediately so at least something is shown.
-			try { lime.app.Application.current.window.alert(_truncate(message, 2000), "Cool Engine — Fatal Error"); } catch (_) {}
-			try { Sys.exit(1); } catch (_) {}
+			try {
+				lime.app.Application.current.window.alert(_truncate(message, 2000), "Cool Engine — Fatal Error");
+			} catch (_) {}
+			try {
+				Sys.exit(1);
+			} catch (_) {}
 			return;
 		}
 		#end
